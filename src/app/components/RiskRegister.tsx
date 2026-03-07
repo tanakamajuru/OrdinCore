@@ -1,16 +1,18 @@
-import { useState } from "react";
-import { Navigation } from "./Navigation";
-import { useNavigate } from "react-router";
+import { useState, useEffect } from "react";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { useNavigate, useLocation } from "react-router";
 import { ChevronDown, AlertTriangle, Plus } from "lucide-react";
 
 interface Risk {
   id: string;
   house: string;
   description: string;
+  impact: string;
   category: string;
   severity: "High" | "Medium" | "Low";
   dateIdentified: string;
   mitigation: string;
+  rootCause: string;
   reviewDate: string;
   status: "Open" | "Under Review" | "Escalated" | "Closed";
   escalated: boolean;
@@ -29,96 +31,118 @@ interface Risk {
 
 export function RiskRegister() {
   const navigate = useNavigate();
+  const location = useLocation();
+  
   const [houseFilter, setHouseFilter] = useState("All");
   const [severityFilter, setSeverityFilter] = useState("All");
   const [statusFilter, setStatusFilter] = useState("All");
   const [showAddRisk, setShowAddRisk] = useState(false);
   const [showOutOfCycle, setShowOutOfCycle] = useState(false);
 
+  // Check for query parameter to trigger Add Risk modal
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    if (searchParams.get('addRisk') === 'true') {
+      setShowAddRisk(true);
+      // Clear the query parameter
+      navigate(location.pathname, { replace: true });
+    }
+  }, [location.search, navigate, location.pathname]);
+
   const [risks, setRisks] = useState<Risk[]>([
     { 
       id: "RISK-001", 
       house: "Oakwood", 
       description: "Medication administration errors", 
+      impact: "Potential adverse health outcomes for residents. Regulatory compliance risk.",
       category: "Clinical", 
       severity: "High", 
       dateIdentified: "2026-02-15", 
       mitigation: "Double-check protocol implemented", 
+      rootCause: "Staff training gaps identified",
       reviewDate: "2026-02-25", 
       status: "Open", 
       escalated: true,
       source: "Pulse",
       pulseDate: "2026-02-15",
       createdBy: "Jane Smith",
-      lastUpdated: "2026-02-15",
+      lastUpdated: "2026-02-10",
       updateHistory: []
     },
     { 
       id: "RISK-002", 
-      house: "Riverside", 
-      description: "Staffing below minimum ratios", 
-      category: "Operational", 
+      house: "Oakwood", 
+      description: "Fire safety system failure", 
+      impact: "Life safety risk to residents and staff. Potential regulatory violations.",
+      category: "Safety", 
       severity: "High", 
-      dateIdentified: "2026-02-18", 
-      mitigation: "Emergency staffing plan activated", 
-      reviewDate: "2026-02-24", 
+      dateIdentified: "2026-02-16", 
+      mitigation: "Emergency contractor scheduled", 
+      rootCause: "Equipment age and maintenance backlog",
+      reviewDate: "2026-02-26", 
       status: "Open", 
       escalated: true,
       source: "Pulse",
-      pulseDate: "2026-02-18",
-      createdBy: "Michael Chen",
-      lastUpdated: "2026-02-18",
+      pulseDate: "2026-02-17",
+      createdBy: "John Davis",
+      lastUpdated: "2026-02-16",
       updateHistory: []
     },
     { 
       id: "RISK-003", 
-      house: "Maple Grove", 
-      description: "Fire safety equipment malfunction", 
-      category: "Environmental", 
+      house: "Riverside", 
+      description: "Critical staffing shortage", 
+      impact: "Reduced quality of care, staff burnout, potential safety incidents.",
+      category: "Operational", 
       severity: "High", 
-      dateIdentified: "2026-02-20", 
-      mitigation: "Immediate repair scheduled", 
-      reviewDate: "2026-02-26", 
+      dateIdentified: "2026-02-17", 
+      mitigation: "Agency staff arranged", 
+      rootCause: "Seasonal illness and recruitment challenges",
+      reviewDate: "2026-02-27", 
       status: "Under Review", 
       escalated: true,
       source: "Pulse",
-      pulseDate: "2026-02-20",
-      createdBy: "Sarah Johnson",
-      lastUpdated: "2026-02-20",
+      pulseDate: "2026-02-17",
+      createdBy: "Sarah Wilson",
+      lastUpdated: "2026-02-17",
       updateHistory: []
     },
     { 
       id: "RISK-004", 
-      house: "Sunset Villa", 
-      description: "Resident injury - fall prevention", 
-      category: "Safety", 
+      house: "Maple Grove", 
+      description: "Water damage in kitchen", 
+      impact: "Health and safety hazard, disruption to meal services, structural damage.",
+      category: "Environmental", 
       severity: "High", 
-      dateIdentified: "2026-02-21", 
-      mitigation: "Enhanced monitoring and risk assessment", 
-      reviewDate: "2026-02-27", 
+      dateIdentified: "2026-02-18", 
+      mitigation: "Repairs in progress", 
+      rootCause: "Pipe corrosion and maintenance oversight",
+      reviewDate: "2026-02-28", 
       status: "Open", 
       escalated: false,
       source: "Pulse",
-      pulseDate: "2026-02-21",
-      createdBy: "David Brown",
-      lastUpdated: "2026-02-21",
+      pulseDate: "2026-02-18",
+      createdBy: "Mike Johnson",
+      lastUpdated: "2026-02-18",
       updateHistory: []
     },
     { 
       id: "RISK-005", 
-      house: "Oakwood", 
-      description: "Documentation delays", 
-      category: "Administrative", 
+      house: "Sunset Villa", 
+      description: "Resident aggression incidents", 
+      impact: "Staff safety concerns, resident well-being, potential regulatory intervention.",
+      category: "Clinical", 
       severity: "Medium", 
-      dateIdentified: "2026-02-10", 
-      mitigation: "Staff retraining scheduled", 
+      dateIdentified: "2026-02-19", 
+      mitigation: "Behavioral support plan updated", 
+      rootCause: "Unmet care needs and environmental triggers",
       reviewDate: "2026-03-01", 
       status: "Open", 
       escalated: false,
       source: "Pulse",
-      pulseDate: "2026-02-10",
-      createdBy: "Jane Smith",
-      lastUpdated: "2026-02-10",
+      pulseDate: "2026-02-19",
+      createdBy: "Lisa Brown",
+      lastUpdated: "2026-02-19",
       updateHistory: []
     }
   ]);
@@ -127,10 +151,12 @@ export function RiskRegister() {
   const [newRisk, setNewRisk] = useState<Partial<Risk>>({
     house: "",
     description: "",
+    impact: "",
     category: "",
     severity: "Medium",
     dateIdentified: new Date().toISOString().split('T')[0],
     mitigation: "",
+    rootCause: "",
     reviewDate: "",
     status: "Open",
     escalated: false,
@@ -169,10 +195,12 @@ export function RiskRegister() {
         id: `RISK-${String(risks.length + 1).padStart(3, '0')}`,
         house: newRisk.house || "",
         description: newRisk.description || "",
+        impact: newRisk.impact || "",
         category: newRisk.category || "",
         severity: newRisk.severity || "Medium",
         dateIdentified: newRisk.dateIdentified || new Date().toISOString().split('T')[0],
         mitigation: newRisk.mitigation || "",
+        rootCause: newRisk.rootCause || "",
         reviewDate: newRisk.reviewDate || "",
         status: newRisk.status || "Open",
         escalated: newRisk.escalated || false,
@@ -185,10 +213,12 @@ export function RiskRegister() {
       setNewRisk({
         house: "",
         description: "",
+        impact: "",
         category: "",
         severity: "Medium",
         dateIdentified: new Date().toISOString().split('T')[0],
         mitigation: "",
+        rootCause: "",
         reviewDate: "",
         status: "Open",
         escalated: false,
@@ -207,10 +237,12 @@ export function RiskRegister() {
         id: `RISK-${String(risks.length + 1).padStart(3, '0')}`,
         house: outOfCycleRisk.house,
         description: outOfCycleRisk.description,
+        impact: "To be assessed at next Pulse review",
         category: outOfCycleRisk.category,
         severity: outOfCycleRisk.severity as "High" | "Medium" | "Low",
         dateIdentified: new Date().toISOString().split('T')[0],
         mitigation: "To be determined at next Pulse review",
+        rootCause: "To be investigated at next Pulse review",
         reviewDate: outOfCycleRisk.requiresImmediateReview ? new Date().toISOString().split('T')[0] : "",
         status: "Open",
         escalated: outOfCycleRisk.severity === "High",
@@ -282,7 +314,7 @@ export function RiskRegister() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
@@ -456,7 +488,7 @@ export function RiskRegister() {
 
       {/* Add Risk Modal */}
       {showAddRisk && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white border-2 border-black p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
             <h2 className="text-xl font-semibold mb-4 text-black">Add New Risk</h2>
             
@@ -483,6 +515,16 @@ export function RiskRegister() {
                   type="text"
                   value={newRisk.description}
                   onChange={(e) => setNewRisk({...newRisk, description: e.target.value})}
+                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-2 text-black font-medium">Reported By</label>
+                <input
+                  type="text"
+                  value={newRisk.createdBy || ""}
+                  onChange={(e) => setNewRisk({...newRisk, createdBy: e.target.value})}
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 />
               </div>
@@ -525,24 +567,45 @@ export function RiskRegister() {
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 />
               </div>
-              
-              <div>
-                <label className="block mb-2 text-black font-medium">Review Date</label>
-                <input
-                  type="date"
-                  value={newRisk.reviewDate}
-                  onChange={(e) => setNewRisk({...newRisk, reviewDate: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
-                />
-              </div>
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Mitigation</label>
+              <label className="block mb-2 text-black font-medium">Description</label>
+              <textarea
+                value={newRisk.description}
+                onChange={(e) => setNewRisk({...newRisk, description: e.target.value})}
+                className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                placeholder="Detailed description of the risk..."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-2 text-black font-medium">Impact</label>
+              <textarea
+                value={newRisk.impact || ""}
+                onChange={(e) => setNewRisk({...newRisk, impact: e.target.value})}
+                className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                placeholder="Potential impact on residents, operations, compliance..."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-2 text-black font-medium">Mitigation Plan</label>
               <textarea
                 value={newRisk.mitigation}
                 onChange={(e) => setNewRisk({...newRisk, mitigation: e.target.value})}
                 className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                placeholder="Immediate and long-term mitigation actions..."
+              />
+            </div>
+            
+            <div className="mb-4">
+              <label className="block mb-2 text-black font-medium">Root Cause Analysis</label>
+              <textarea
+                value={newRisk.rootCause || ""}
+                onChange={(e) => setNewRisk({...newRisk, rootCause: e.target.value})}
+                className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                placeholder="Underlying causes contributing to this risk..."
               />
             </div>
             
@@ -566,7 +629,7 @@ export function RiskRegister() {
 
       {/* Out-of-Cycle Risk Modal */}
       {showOutOfCycle && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
           <div className="bg-white border-2 border-black p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-black" />

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
 import { AlertTriangle, Plus } from "lucide-react";
 
@@ -34,7 +34,11 @@ export function GovernancePulse() {
     day: 'numeric' 
   });
   
-  const [selectedHouse, setSelectedHouse] = useState("Maple House");
+  const userRole = localStorage.getItem('userRole') || 'registered-manager';
+  
+  // For registered managers, house will come from API later - now fixed
+  // For other roles (like Responsible Individual), they can select houses
+  const [selectedHouse, setSelectedHouse] = useState(userRole === 'registered-manager' ? "Maple House" : "Maple House");
   const [riskCreationPrompt, setRiskCreationPrompt] = useState<RiskCreationPrompt>({
     show: false,
     house: "",
@@ -164,7 +168,7 @@ export function GovernancePulse() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-8 border-b-2 border-black pb-6">
@@ -179,18 +183,20 @@ export function GovernancePulse() {
             </div>
           </div>
           
-          {/* House Selector */}
-          <div className="mt-4">
-            <select 
-              value={selectedHouse}
-              onChange={(e) => setSelectedHouse(e.target.value)}
-              className="px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black"
-            >
-              {houses.map(house => (
-                <option key={house} value={house}>{house}</option>
-              ))}
-            </select>
-          </div>
+          {/* House Selector - Only for non-registered-manager roles */}
+          {userRole !== 'registered-manager' && (
+            <div className="mt-4">
+              <select 
+                value={selectedHouse}
+                onChange={(e) => setSelectedHouse(e.target.value)}
+                className="px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black"
+              >
+                {houses.map(house => (
+                  <option key={house} value={house}>{house}</option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Pulse Timing Info */}

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
 import { FileDown, Filter, Calendar, AlertTriangle } from "lucide-react";
 
@@ -128,7 +128,7 @@ export function Reports() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold text-black">Reports & Analytics</h1>

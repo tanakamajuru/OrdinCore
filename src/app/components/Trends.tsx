@@ -1,4 +1,4 @@
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { TrendingUp, TrendingDown } from "lucide-react";
 
@@ -39,7 +39,7 @@ export function Trends() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold text-black">Trends</h1>

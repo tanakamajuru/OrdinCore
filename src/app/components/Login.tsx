@@ -6,6 +6,7 @@ export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [role, setRole] = useState("");
   const [error, setError] = useState("");
   const handle = useFullScreenHandle();
 
@@ -13,7 +14,10 @@ export function Login() {
     e.preventDefault();
     handle.enter();
     // Simple validation for demo
-    if (email && password) {
+    if (email && password && role) {
+      // Store user role in localStorage for demo purposes
+      localStorage.setItem('userRole', role);
+      localStorage.setItem('userEmail', email);
       navigate("/dashboard");
     } else {
       setError("Invalid email or password");
@@ -34,6 +38,24 @@ export function Login() {
             {error && (
               <div className="text-red-600 text-sm italic text-center">{error}</div>
             )}
+
+            <div>
+              <label htmlFor="role" className="block mb-2 text-black font-medium">
+                Role
+              </label>
+              <select
+                id="role"
+                value={role}
+                onChange={(e) => setRole(e.target.value)}
+                className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                required
+              >
+                <option value="" disabled>Select Role</option>
+                <option value="registered-manager">Registered Manager / Team Leader</option>
+                <option value="responsible-individual">Responsible Individual</option>
+                <option value="director">Director</option>
+              </select>
+            </div>
 
             <div>
               <label htmlFor="email" className="block mb-2 text-black font-medium">
@@ -73,6 +95,7 @@ export function Login() {
             <div className="text-center">
               <button
                 type="button"
+                onClick={() => navigate("/forgotten-password")}
                 className="text-black hover:text-gray-600 transition-colors underline"
               >
                 Forgotten Password

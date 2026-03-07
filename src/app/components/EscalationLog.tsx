@@ -1,4 +1,4 @@
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 
 export function EscalationLog() {
   const escalations = [
@@ -86,7 +86,7 @@ export function EscalationLog() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold text-black">Escalation Log</h1>

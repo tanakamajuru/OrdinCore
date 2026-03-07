@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
 
 interface SafeguardingConcern {
@@ -177,7 +177,7 @@ export function WeeklyReview() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-6">

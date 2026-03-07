@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown, Shield, Network } from "lucide-react";
 import { Button } from "./ui/button";
 
 export function Navigation() {
@@ -12,6 +12,8 @@ export function Navigation() {
     { path: "/weekly-review", label: "Weekly Review", icon: FileText },
     { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
     { path: "/escalation-log", label: "Escalation Log", icon: Users },
+    { path: "/incidents", label: "Incidents", icon: Shield },
+    { path: "/patterns", label: "Patterns", icon: Network },
     { path: "/trends", label: "Trends", icon: TrendingUp },
     { path: "/reports", label: "Reports", icon: FileDown },
   ];

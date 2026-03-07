@@ -1,10 +1,18 @@
-import { Navigation } from "./Navigation";
+import { useState } from "react";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Plus } from "lucide-react";
 
 export function RiskDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  
+  const [showAddAction, setShowAddAction] = useState(false);
+  const [newAction, setNewAction] = useState({
+    action: "",
+    status: "Pending" as "Pending" | "In Progress" | "Complete" | "Ongoing",
+    date: ""
+  });
 
   // Mock detailed risk data
   const riskDetails = {
@@ -39,7 +47,7 @@ export function RiskDetail() {
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <button
           onClick={() => navigate("/risk-register")}
@@ -104,7 +112,16 @@ export function RiskDetail() {
 
           {/* Actions */}
           <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">Actions Taken</h2>
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="text-xl font-semibold text-black">Actions Taken</h2>
+              <button
+                onClick={() => setShowAddAction(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                Add Action
+              </button>
+            </div>
             <div className="space-y-3">
               {riskDetails.actions.map((action, idx) => (
                 <div
@@ -177,6 +194,74 @@ export function RiskDetail() {
           )}
         </div>
       </div>
+      
+      {/* Add Action Modal */}
+      {showAddAction && (
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white border-2 border-black p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4 text-black">Add New Action</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-2 text-black font-medium">Action Description</label>
+                <textarea
+                  value={newAction.action}
+                  onChange={(e) => setNewAction({...newAction, action: e.target.value})}
+                  className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                  placeholder="Describe the action to be taken..."
+                />
+              </div>
+              
+              <div>
+                <label className="block mb-2 text-black font-medium">Status</label>
+                <select
+                  value={newAction.status}
+                  onChange={(e) => setNewAction({...newAction, status: e.target.value as any})}
+                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                >
+                  <option value="Pending">Pending</option>
+                  <option value="In Progress">In Progress</option>
+                  <option value="Complete">Complete</option>
+                  <option value="Ongoing">Ongoing</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block mb-2 text-black font-medium">Date of Action</label>
+                <input
+                  type="date"
+                  value={newAction.date}
+                  onChange={(e) => setNewAction({...newAction, date: e.target.value})}
+                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowAddAction(false);
+                  setNewAction({ action: "", status: "Pending", date: "" });
+                }}
+                className="px-4 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  console.log("Adding action:", newAction);
+                  alert("Action added successfully");
+                  setShowAddAction(false);
+                  setNewAction({ action: "", status: "Pending", date: "" });
+                }}
+                className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+              >
+                Add Action
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

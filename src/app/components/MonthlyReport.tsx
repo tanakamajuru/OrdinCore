@@ -1,4 +1,4 @@
-import { Navigation } from "./Navigation";
+import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { FileDown } from "lucide-react";
 
 export function MonthlyReport() {
@@ -70,7 +70,7 @@ Areas requiring continued attention: Staffing stability, medication management p
 
   return (
     <div className="min-h-screen bg-white">
-      <Navigation />
+      <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
