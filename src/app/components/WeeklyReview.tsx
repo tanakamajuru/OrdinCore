@@ -178,7 +178,7 @@ export function WeeklyReview() {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-6">
           <h1 className="text-3xl font-semibold text-black">WEEKLY GOVERNANCE REVIEW</h1>

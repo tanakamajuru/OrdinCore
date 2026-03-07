@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
 
 export function Login() {
@@ -6,9 +7,11 @@ export function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
+  const handle = useFullScreenHandle();
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    handle.enter();
     // Simple validation for demo
     if (email && password) {
       navigate("/dashboard");
@@ -18,7 +21,8 @@ export function Login() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+    <FullScreen handle={handle}>
+      <div className="min-h-screen flex items-center justify-center p-4 bg-white">
       <div className="w-full max-w-md">
         <div className="bg-white border-2 border-black p-8">
           <div className="text-center mb-8">
@@ -78,5 +82,6 @@ export function Login() {
         </div>
       </div>
     </div>
+  </FullScreen>
   );
 }

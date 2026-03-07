@@ -27,7 +27,7 @@ export function Dashboard() {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <div className="mb-6">
           <h1 className="text-3xl font-semibold text-black">Governance Overview</h1>
           <p className="text-gray-600 mt-1">Is anything emerging that I don't know about?</p>

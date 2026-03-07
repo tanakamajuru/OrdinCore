@@ -146,6 +146,9 @@ importers:
       react-dom:
         specifier: 18.3.1
         version: 18.3.1(react@18.3.1)
+      react-fullscreen:
+        specifier: ^0.1.0
+        version: 0.1.0(react@18.3.1)
       react-hook-form:
         specifier: 7.55.0
         version: 7.55.0(react@18.3.1)
@@ -2026,6 +2029,11 @@ packages:
 
   react-fast-compare@3.2.2:
     resolution: {integrity: sha512-nsO+KSNgo1SbJqJEYRE9ERzo7YtYbou/OqjSQKxV7jcKox7+usiUVZOAC+XnDOABXggQTno0Y1CpVnuWEc1boQ==}
+
+  react-fullscreen@0.1.0:
+    resolution: {integrity: sha512-h6PQLrJpzHHfRbAao2bZJ+M9kT2YI02YyWYNl9buihD6+lqNzJ9BMSWagEqRRNXhu7J1s96CeA4jj/aKBioZHw==}
+    peerDependencies:
+      react: ^0.13.0 || ^0.14.0-a
 
   react-hook-form@7.55.0:
     resolution: {integrity: sha512-XRnjsH3GVMQz1moZTW53MxfoWN7aDpUg/GpVNc4A3eXRVNdGXfbzJ4vM4aLQ8g6XCUh1nIbx70aaNCl7kxnjog==}
@@ -3981,6 +3989,10 @@ snapshots:
       scheduler: 0.23.2
 
   react-fast-compare@3.2.2: {}
+
+  react-fullscreen@0.1.0(react@18.3.1):
+    dependencies:
+      react: 18.3.1
 
   react-hook-form@7.55.0(react@18.3.1):
     dependencies:

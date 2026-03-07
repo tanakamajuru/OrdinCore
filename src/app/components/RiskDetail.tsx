@@ -40,7 +40,7 @@ export function RiskDetail() {
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <button
           onClick={() => navigate("/risk-register")}
           className="flex items-center gap-2 text-black hover:text-gray-600 transition-colors mb-6 underline"

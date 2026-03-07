@@ -71,7 +71,7 @@ Areas requiring continued attention: Staffing stability, medication management p
   return (
     <div className="min-h-screen bg-white">
       <Navigation />
-      <div className="p-6 max-w-7xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
             <h1 className="text-3xl font-semibold text-black">Monthly Governance Report</h1>
