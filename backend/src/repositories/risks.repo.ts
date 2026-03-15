@@ -1,0 +1,135 @@
+import { query } from '../config/database';
+import { v4 as uuidv4 } from 'uuid';
+
+export interface CreateRiskDto {
+  company_id: string;
+  house_id: string;
+  category_id?: string;
+  title: string;
+  description?: string;
+  severity?: string;
+  likelihood?: number;
+  impact?: number;
+  assigned_to?: string;
+  created_by: string;
+  review_due_date?: Date;
+}
+
+export const risksRepo = {
+  async findById(id: string, company_id?: string) {
+    const params: unknown[] = [id];
+    let sql = `SELECT r.*, 
+        rc.name AS category_name,
+        u1.first_name || ' ' || u1.last_name AS created_by_name,
+        u2.first_name || ' ' || u2.last_name AS assigned_to_name,
+        h.name AS house_name
+      FROM risks r
+      LEFT JOIN risk_categories rc ON rc.id = r.category_id
+      LEFT JOIN users u1 ON u1.id = r.created_by
+      LEFT JOIN users u2 ON u2.id = r.assigned_to
+      LEFT JOIN houses h ON h.id = r.house_id
+      WHERE r.id = $1`;
+    if (company_id) { sql += ' AND r.company_id = $2'; params.push(company_id); }
+    const result = await query(sql, params);
+    return result.rows[0] || null;
+  },
+
+  async findByCompany(company_id: string, filters: Record<string, unknown> = {}, limit = 50, offset = 0) {
+    const conditions: string[] = ['r.company_id = $1'];
+    const params: unknown[] = [company_id];
+    let idx = 2;
+
+    if (filters.status) { conditions.push(`r.status = $${idx++}`); params.push(filters.status); }
+    if (filters.severity) { conditions.push(`r.severity = $${idx++}`); params.push(filters.severity); }
+    if (filters.house_id) { conditions.push(`r.house_id = $${idx++}`); params.push(filters.house_id); }
+    if (filters.assigned_to) { conditions.push(`r.assigned_to = $${idx++}`); params.push(filters.assigned_to); }
+
+    const where = conditions.join(' AND ');
+    const result = await query(
+      `SELECT r.*, rc.name AS category_name, h.name AS house_name,
+        u.first_name || ' ' || u.last_name AS assigned_to_name
+       FROM risks r
+       LEFT JOIN risk_categories rc ON rc.id = r.category_id
+       LEFT JOIN houses h ON h.id = r.house_id
+       LEFT JOIN users u ON u.id = r.assigned_to
+       WHERE ${where}
+       ORDER BY r.created_at DESC
+       LIMIT ${limit} OFFSET ${offset}`,
+      params
+    );
+    return result.rows;
+  },
+
+  async countByCompany(company_id: string, filters: Record<string, unknown> = {}) {
+    const conditions = ['company_id = $1'];
+    const params: unknown[] = [company_id];
+    let idx = 2;
+    if (filters.status) { conditions.push(`status = $${idx++}`); params.push(filters.status); }
+    if (filters.severity) { conditions.push(`severity = $${idx++}`); params.push(filters.severity); }
+    const result = await query(`SELECT COUNT(*) FROM risks WHERE ${conditions.join(' AND ')}`, params);
+    return parseInt(result.rows[0].count);
+  },
+
+  async create(dto: CreateRiskDto) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO risks (id, company_id, house_id, category_id, title, description, severity, likelihood, impact, assigned_to, created_by, review_due_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description || null,
+       dto.severity || 'medium', dto.likelihood || null, dto.impact || null,
+       dto.assigned_to || null, dto.created_by, dto.review_due_date || null]
+    );
+    return result.rows[0];
+  },
+
+  async update(id: string, company_id: string, data: Partial<CreateRiskDto> & { status?: string; resolved_at?: Date }) {
+    const allowed = ['title', 'description', 'severity', 'status', 'likelihood', 'impact', 'assigned_to', 'category_id', 'review_due_date', 'resolved_at'];
+    const filteredData: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in data) filteredData[key] = (data as Record<string, unknown>)[key];
+    }
+    const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 3}`).join(', ');
+    const values = Object.values(filteredData);
+    const result = await query(
+      `UPDATE risks SET ${fields}, updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, ...values]
+    );
+    return result.rows[0];
+  },
+
+  async delete(id: string, company_id: string) {
+    await query("UPDATE risks SET status = 'closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
+  },
+
+  async addEvent(risk_id: string, company_id: string, event_type: string, description: string, created_by: string) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO risk_events (id, risk_id, company_id, event_type, description, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, risk_id, company_id, event_type, description, created_by]
+    );
+    return result.rows[0];
+  },
+
+  async addAction(risk_id: string, company_id: string, data: { title: string; description?: string; assigned_to?: string; due_date?: Date; created_by: string }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO risk_actions (id, risk_id, company_id, title, description, assigned_to, due_date, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, risk_id, company_id, data.title, data.description || null, data.assigned_to || null, data.due_date || null, data.created_by]
+    );
+    return result.rows[0];
+  },
+
+  async getTimeline(risk_id: string, company_id: string) {
+    const result = await query(
+      `SELECT re.*, u.first_name || ' ' || u.last_name AS created_by_name
+       FROM risk_events re
+       JOIN users u ON u.id = re.created_by
+       WHERE re.risk_id = $1 AND re.company_id = $2
+       ORDER BY re.created_at DESC`,
+      [risk_id, company_id]
+    );
+    return result.rows;
+  },
+};

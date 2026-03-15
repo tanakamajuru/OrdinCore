@@ -1,0 +1,49 @@
+import { Request, Response } from 'express';
+import { escalationsService } from '../services/escalations.service';
+
+export class EscalationsController {
+  async findAll(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+      const filters = { status: req.query.status };
+      const result = await escalationsService.findAll(company_id, filters, page, limit);
+      return res.json({ success: true, data: result.escalations, meta: { total: result.total, page, limit, pages: result.pages } });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch escalations', errors: [] });
+    }
+  }
+
+  async findById(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const escalation = await escalationsService.findById(req.params.id, company_id);
+      return res.json({ success: true, data: escalation, meta: {} });
+    } catch (err: unknown) {
+      return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Escalation not found', errors: [] });
+    }
+  }
+
+  async resolve(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.resolve(req.params.id, company_id, req.user!.user_id, req.body.resolution_notes || '');
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to resolve escalation', errors: [] });
+    }
+  }
+
+  async acknowledge(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.acknowledge(req.params.id, company_id, req.user!.user_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to acknowledge escalation', errors: [] });
+    }
+  }
+}
+
+export const escalationsController = new EscalationsController();

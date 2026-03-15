@@ -1,0 +1,1050 @@
+import React, { useState, useEffect } from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Button } from './ui/button';
+import { Input } from './ui/input';
+import { Label } from './ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from './ui/select';
+import { Badge } from './ui/badge';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from './ui/dialog';
+import { Switch } from './ui/switch';
+import { Checkbox } from './ui/checkbox';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
+import { Users, UserPlus, Edit, Trash2, Key, Search } from 'lucide-react';
+import { toast } from 'sonner';
+
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  organization?: string;
+  assigned_house?: string;
+  assigned_house_name?: string;
+  pulse_days?: string[];
+  is_active: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
+interface House {
+  id: string;
+  name: string;
+  house_code: string;
+  address?: string;
+  city?: string;
+  county?: string;
+  postcode?: string;
+  manager_id?: string;
+  manager_name?: string;
+}
+
+interface UserStats {
+  total: number;
+  active: number;
+  inactive: number;
+  byRole: { [key: string]: number };
+  assignedToHouse: number;
+  monthlyRegistrations: Array<{ month: string; count: number }>;
+}
+
+interface House {
+  id: string;
+  name: string;
+  house_code: string;
+}
+
+const AdminUserManagement: React.FC = () => {
+  const [users, setUsers] = useState<User[]>([]);
+  const [houses, setHouses] = useState<House[]>([]);
+  const [stats, setStats] = useState<UserStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+
+  // Form state
+  const [formData, setFormData] = useState({
+    email: '',
+    name: '',
+    password: '',
+    role: '',
+    organization: '',
+    assignedHouse: '',
+    pulseDays: [] as string[],
+    isActive: true
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    newPassword: '',
+    confirmPassword: ''
+  });
+
+  // House reassignment state
+  const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
+  const [userToDelete, setUserToDelete] = useState<User | null>(null);
+  const [selectedNewManager, setSelectedNewManager] = useState('');
+
+  // Fetch users
+  const fetchUsers = async () => {
+    try {
+      const params = new URLSearchParams({
+        page: currentPage.toString(),
+        limit: '20',
+        ...(searchTerm && { search: searchTerm }),
+        ...(roleFilter && roleFilter !== 'all' && { role: roleFilter }),
+        ...(statusFilter && statusFilter !== 'all' && { isActive: statusFilter === 'active' ? 'true' : 'false' })
+      });
+
+      const response = await fetch(`/api/admin/users?${params}`, {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setUsers(data.data);
+        setTotalPages(data.pagination.totalPages);
+      } else {
+        toast.error("Failed to fetch users");
+      }
+    } catch (error) {
+      toast.error("Network error occurred");
+    }
+  };
+
+  // Fetch user statistics
+  const fetchStats = async () => {
+    try {
+      const response = await fetch('/api/admin/users/stats/summary', {
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        const data = await response.json();
+        setStats(data.data);
+      }
+    } catch (error) {
+      console.error('Failed to fetch stats:', error);
+    }
+  };
+
+  useEffect(() => {
+    const loadData = async () => {
+      setLoading(true);
+      await Promise.all([fetchUsers(), fetchStats()]);
+      setLoading(false);
+    };
+    loadData();
+  }, [currentPage, searchTerm, roleFilter, statusFilter]);
+
+  // Fetch houses for dropdown
+  useEffect(() => {
+    const fetchHousesForDropdown = async () => {
+      try {
+        const response = await fetch('/api/admin/houses?limit=100', {
+          headers: {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setHouses(data.data || []);
+        } else {
+          console.error('Failed to fetch houses');
+          setHouses([]);
+        }
+      } catch (error) {
+        console.error('Error fetching houses:', error);
+        setHouses([]);
+      }
+    };
+
+    fetchHousesForDropdown();
+  }, []);
+
+  // Create user
+  const handleCreateUser = async () => {
+    try {
+      console.log('Creating user with data:', formData);
+      
+      // Validation: registered-managers must be assigned to a house
+      if (formData.role === 'registered-manager' && (!formData.assignedHouse || formData.assignedHouse.trim() === '')) {
+        toast.error("Registered managers must be assigned to a house");
+        return;
+      }
+      
+      // Prepare request data - only include assignedHouse if it has a value
+      const requestData: {
+        email: string;
+        name: string;
+        password: string;
+        role: string;
+        organization: string;
+        pulseDays: string[];
+        isActive: boolean;
+        assignedHouse?: string;
+      } = {
+        email: formData.email,
+        name: formData.name,
+        password: formData.password,
+        role: formData.role,
+        organization: formData.organization,
+        pulseDays: formData.pulseDays,
+        isActive: formData.isActive
+      };
+      
+      // Only add assignedHouse if it's not empty
+      if (formData.assignedHouse && formData.assignedHouse.trim() !== '') {
+        requestData.assignedHouse = formData.assignedHouse;
+      }
+      
+      console.log('Sending request data:', requestData);
+      
+      const response = await fetch('/api/admin/users', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(requestData)
+      });
+
+      if (response.ok) {
+        toast.success("User created successfully");
+        setIsCreateDialogOpen(false);
+        resetForm();
+        fetchUsers();
+        fetchStats();
+      } else {
+        let errorData;
+        try {
+          errorData = await response.json();
+          console.error('Create user error:', errorData);
+          
+          // Log validation details if available
+          if (errorData.details && Array.isArray(errorData.details)) {
+            console.error('Validation details:', errorData.details);
+            errorData.details.forEach((detail: any, index: number) => {
+              console.error(`Validation error ${index + 1}:`, detail);
+            });
+          }
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorData = { error: 'Failed to create user' };
+        }
+        
+        const errorMessage = errorData.error || errorData.message || "Failed to create user";
+        console.error('Detailed error:', errorData);
+        toast.error(errorMessage);
+      }
+    } catch (error) {
+      console.error('Create user failed:', error);
+      toast.error("Network error occurred");
+    }
+  };
+
+  // Update user
+  const handleUpdateUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify(formData)
+      });
+
+      if (response.ok) {
+        toast.success("User updated successfully");
+        setIsEditDialogOpen(false);
+        resetForm();
+        fetchUsers();
+        fetchStats();
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update user");
+      }
+    } catch (error) {
+      toast.error("Network error occurred");
+    }
+  };
+
+  // Reset password
+  const handleResetPassword = async () => {
+    if (!selectedUser || passwordData.newPassword !== passwordData.confirmPassword) {
+      toast.error("Passwords do not match");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}/password`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({ newPassword: passwordData.newPassword })
+      });
+
+      if (response.ok) {
+        toast.success("Password reset successfully");
+        setIsPasswordDialogOpen(false);
+        setPasswordData({ newPassword: '', confirmPassword: '' });
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to reset password");
+      }
+    } catch (error) {
+      toast.error("Network error occurred");
+    }
+  };
+
+  // Delete user
+  const handleDeleteUser = async () => {
+    if (!selectedUser) return;
+
+    try {
+      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success("User deleted successfully");
+        setIsDeleteDialogOpen(false);
+        setSelectedUser(null);
+        // Fetch fresh data to ensure table updates
+        await Promise.all([fetchUsers(), fetchStats()]);
+      } else {
+        let errorData;
+        try {
+          errorData = await response.json();
+        console.error('Delete user error:', errorData);
+        } catch (parseError) {
+          console.error('Failed to parse error response:', parseError);
+          errorData = { error: 'Failed to delete user' };
+        }
+        
+        // Check if error is about house management
+        if (errorData && errorData.error && errorData.error.includes('managing a house')) {
+          // Open reassignment dialog instead of showing error
+          setUserToDelete(selectedUser);
+          setIsDeleteDialogOpen(false);
+          setIsReassignDialogOpen(true);
+        } else {
+          // Show detailed error information
+          const errorMessage = errorData.error || errorData.message || "Failed to delete user";
+          console.error('Detailed error:', errorData);
+          toast.error(errorMessage);
+        }
+      }
+    } catch (error) {
+      console.error('Delete user failed:', error);
+      toast.error("Network error occurred");
+    }
+  };
+
+  // Direct delete user (for after house reassignment)
+  const directDeleteUser = async (userId: string) => {
+    try {
+      const response = await fetch(`/api/admin/users/${userId}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        }
+      });
+
+      if (response.ok) {
+        toast.success("User deleted successfully");
+        setUserToDelete(null);
+        setSelectedNewManager('');
+        // Fetch fresh data to ensure table updates
+        await Promise.all([fetchUsers(), fetchStats()]);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to delete user");
+      }
+    } catch (error) {
+      console.error('Delete user failed:', error);
+      toast.error("Network error occurred");
+    }
+  };
+
+  const resetForm = () => {
+    setFormData({
+      email: '',
+      name: '',
+      password: '',
+      role: '',
+      organization: '',
+      assignedHouse: '',
+      pulseDays: [],
+      isActive: true
+    });
+  };
+
+  const openEditDialog = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      email: user.email,
+      name: user.name,
+      password: '',
+      role: user.role,
+      organization: user.organization,
+      assignedHouse: user.assigned_house || '',
+      pulseDays: user.pulse_days || [],
+      isActive: user.is_active
+    });
+    setIsEditDialogOpen(true);
+  };
+
+  const openPasswordDialog = (user: User) => {
+    setSelectedUser(user);
+    setPasswordData({ newPassword: '', confirmPassword: '' });
+    setIsPasswordDialogOpen(true);
+  };
+
+  const openDeleteDialog = (user: User) => {
+    setSelectedUser(user);
+    setIsDeleteDialogOpen(true);
+  };
+
+  const getRoleBadgeColor = (role: string) => {
+    switch (role) {
+      case 'admin': return 'bg-red-100 text-red-800';
+      case 'director': return 'bg-purple-100 text-purple-800';
+      case 'registered-manager': return 'bg-blue-100 text-blue-800';
+      case 'responsible-individual': return 'bg-green-100 text-green-800';
+      default: return 'bg-gray-100 text-gray-800';
+    }
+  };
+
+  // Handle house reassignment
+  const handleReassignHouse = async () => {
+    if (!userToDelete || !selectedNewManager || selectedNewManager === 'none') {
+      toast.error("Please select a new manager");
+      return;
+    }
+
+    try {
+      const response = await fetch(`/api/admin/houses/${userToDelete.assigned_house}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('token')}`
+        },
+        body: JSON.stringify({
+          manager_id: selectedNewManager === 'none' ? null : selectedNewManager
+        })
+      });
+
+      if (response.ok) {
+        toast.success("House reassigned successfully");
+        setIsReassignDialogOpen(false);
+        setUserToDelete(null);
+        setSelectedNewManager('');
+        
+        // Now delete the user directly
+        await directDeleteUser(userToDelete.id);
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to reassign house");
+      }
+    } catch (error) {
+      console.error('Reassign house failed:', error);
+      toast.error("Failed to reassign house");
+    }
+  };
+
+  if (loading) {
+    return <div className="p-6">Loading...</div>;
+  }
+
+  return (
+    <div className="p-6 space-y-6">
+      <div className="flex justify-between items-center">
+        <div className="flex items-center space-x-4">
+          <Button 
+            variant="outline" 
+            onClick={() => window.history.back()}
+            className="flex items-center"
+          >
+            <Key className="mr-2 h-4 w-4" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold">User Management</h1>
+        </div>
+        <Button onClick={() => setIsCreateDialogOpen(true)}>
+          <UserPlus className="mr-2 h-4 w-4" />
+          Add User
+        </Button>
+      </div>
+
+      {/* Statistics Cards */}
+      {stats && (
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="bg-white border-2 border-black p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-black">Total Users</h2>
+              <Users className="h-4 w-4 text-black" />
+            </div>
+            <div className="text-2xl font-bold text-black">{stats.total}</div>
+          </div>
+          <div className="bg-white border-2 border-black p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-black">Active Users</h2>
+              <Users className="h-4 w-4 text-black" />
+            </div>
+            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+          </div>
+          <div className="bg-white border-2 border-black p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-black">Inactive Users</h2>
+              <Users className="h-4 w-4 text-black" />
+            </div>
+              <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+          </div>
+          <div className="bg-white border-2 border-black p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-medium text-black">Assigned to Houses</h2>
+              <Users className="h-4 w-4 text-black" />
+            </div>
+            <div className="text-2xl font-bold text-black">{stats.assignedToHouse}</div>
+          </div>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div className="bg-white border-2 border-black p-6">
+        <div className="mb-4">
+          <h2 className="text-xl font-semibold text-black mb-2">Filters</h2>
+        </div>
+        <div className="flex flex-wrap gap-4">
+            <div className="flex-1 min-w-[200px]">
+              <Label htmlFor="search">Search</Label>
+              <div className="relative">
+                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+                <Input
+                  id="search"
+                  placeholder="Search by name or email..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-8"
+                />
+              </div>
+            </div>
+            <div className="min-w-[150px]">
+              <Label htmlFor="role">Role</Label>
+              <Select value={roleFilter} onValueChange={setRoleFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All roles" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All roles</SelectItem>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="director">Director</SelectItem>
+                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
+                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="min-w-[150px]">
+              <Label htmlFor="status">Status</Label>
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger>
+                  <SelectValue placeholder="All status" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All status</SelectItem>
+                  <SelectItem value="active">Active</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </div>
+
+      {/* Users Table */}
+      <Card>
+        <div className="bg-white border-2 border-black p-6">
+          <div className="mb-4">
+            <h2 className="text-xl font-semibold text-black mb-2">Users</h2>
+            <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+          </div>
+          <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Assigned House</TableHead>
+                <TableHead>Pulse Days</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((user) => (
+                <TableRow key={user.id}>
+                  <TableCell className="font-medium">{user.name}</TableCell>
+                  <TableCell>{user.email}</TableCell>
+                  <TableCell>
+                    <Badge className={getRoleBadgeColor(user.role)}>
+                      {user.role.replace('-', ' ')}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{user.assigned_house_name || '-'}</TableCell>
+                  <TableCell>
+                    {user.role === 'registered-manager' && user.pulse_days ? (
+                      <div className="flex flex-wrap gap-1">
+                        {user.pulse_days.map((day) => (
+                          <Badge key={day} variant="outline" className="text-xs">
+                            {day.slice(0, 3)}
+                          </Badge>
+                        ))}
+                      </div>
+                    ) : (
+                      '-'
+                    )}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                      {user.is_active ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>
+                    {new Date(user.created_at).toLocaleDateString()}
+                  </TableCell>
+                  <TableCell>
+                    <div className="flex space-x-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openEditDialog(user)}
+                      >
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openPasswordDialog(user)}
+                      >
+                        <Key className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => openDeleteDialog(user)}
+                        className="text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {/* Pagination */}
+          <div className="flex justify-between items-center mt-4">
+            <div className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </div>
+            <div className="flex space-x-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage - 1)}
+                disabled={currentPage === 1}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(currentPage + 1)}
+                disabled={currentPage === totalPages}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </div>
+    </Card>
+
+      {/* Create User Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Create New User</DialogTitle>
+            <DialogDescription>
+              Add a new user to the system
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input
+                id="email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="name">Name</Label>
+              <Input
+                id="name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="password">Password</Label>
+              <Input
+                id="password"
+                type="password"
+                value={formData.password}
+                onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="role">Role</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="director">Director</SelectItem>
+                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
+                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="organization">Organization</Label>
+              <Input
+                id="organization"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+              />
+            </div>
+            {(formData.role === 'registered-manager') && (
+              <div>
+                <Label htmlFor="assignedHouse">Assigned House</Label>
+                <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select house" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No house assigned</SelectItem>
+                    {houses.map((house) => (
+                      <SelectItem key={house.id} value={house.id}>
+                        {house.name} ({house.house_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(formData.role === 'registered-manager') && (
+              <div>
+                <Label className="text-base font-medium">Pulse Days</Label>
+                <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                    <div key={day} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`create-${day}`}
+                        checked={formData.pulseDays.includes(day)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFormData({ 
+                              ...formData, 
+                              pulseDays: [...formData.pulseDays, day] 
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              pulseDays: formData.pulseDays.filter(d => d !== day) 
+                            });
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`create-${day}`} className="text-sm">{day}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+              />
+              <Label htmlFor="isActive">Active</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateUser}>Create User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit User Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit User</DialogTitle>
+            <DialogDescription>
+              Update user information
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-email">Email</Label>
+              <Input
+                id="edit-email"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-name">Name</Label>
+              <Input
+                id="edit-name"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-role">Role</Label>
+              <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select role" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="admin">Admin</SelectItem>
+                  <SelectItem value="director">Director</SelectItem>
+                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
+                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="edit-organization">Organization</Label>
+              <Input
+                id="edit-organization"
+                value={formData.organization}
+                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+              />
+            </div>
+            {(formData.role === 'registered-manager') && (
+              <div>
+                <Label htmlFor="edit-assignedHouse">Assigned House</Label>
+                <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select house" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">No house assigned</SelectItem>
+                    {houses.map((house) => (
+                      <SelectItem key={house.id} value={house.id}>
+                        {house.name} ({house.house_code})
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {(formData.role === 'registered-manager') && (
+              <div>
+                <Label className="text-base font-medium">Pulse Days</Label>
+                <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                    <div key={day} className="flex items-center space-x-2">
+                      <Checkbox
+                        id={`edit-${day}`}
+                        checked={formData.pulseDays.includes(day)}
+                        onCheckedChange={(checked) => {
+                          if (checked) {
+                            setFormData({ 
+                              ...formData, 
+                              pulseDays: [...formData.pulseDays, day] 
+                            });
+                          } else {
+                            setFormData({ 
+                              ...formData, 
+                              pulseDays: formData.pulseDays.filter(d => d !== day) 
+                            });
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`edit-${day}`} className="text-sm">{day}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="edit-isActive"
+                checked={formData.isActive}
+                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
+              />
+              <Label htmlFor="edit-isActive">Active</Label>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleUpdateUser}>Update User</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Reset Password Dialog */}
+      <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Reset Password</DialogTitle>
+            <DialogDescription>
+              Reset password for {selectedUser?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="new-password">New Password</Label>
+              <Input
+                id="new-password"
+                type="password"
+                value={passwordData.newPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="confirm-password">Confirm Password</Label>
+              <Input
+                id="confirm-password"
+                type="password"
+                value={passwordData.confirmPassword}
+                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
+                required
+              />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleResetPassword}>Reset Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete User Dialog */}
+      <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the user account
+              for {selectedUser?.name} ({selectedUser?.email}).
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-800">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* House Reassignment Dialog */}
+      <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Reassign House Manager</DialogTitle>
+            <DialogDescription>
+              {userToDelete?.name} is currently managing a house. Please select a new manager before deleting this user.
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="newManager">New Manager</Label>
+              <Select value={selectedNewManager} onValueChange={setSelectedNewManager}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select a new manager" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">No Manager</SelectItem>
+                  {users
+                    .filter(user => {
+                      // Don't show the user being deleted
+                      if (user.id === userToDelete?.id) return false;
+                      
+                      // Only show users who can be managers (registered-manager or higher)
+                      return user.role === 'registered-manager' || user.role === 'admin' || user.role === 'director';
+                    })
+                    .map(user => (
+                      <SelectItem key={user.id} value={user.id}>
+                        {user.name} ({user.email}) - {user.role}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsReassignDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleReassignHouse}>
+              Reassign & Delete User
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+};
+
+export default AdminUserManagement;
