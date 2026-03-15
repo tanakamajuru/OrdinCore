@@ -34,6 +34,7 @@ export const EVENTS = {
   RISK_RESOLVED: 'risk_resolved',
   INCIDENT_CREATED: 'incident_created',
   INCIDENT_UPDATED: 'incident_updated',
+  INCIDENT_RESOLVED: 'incident_resolved',
   GOVERNANCE_DUE: 'governance_due',
   GOVERNANCE_OVERDUE: 'governance_overdue',
   GOVERNANCE_COMPLETED: 'governance_completed',

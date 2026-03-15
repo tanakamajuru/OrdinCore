@@ -58,6 +58,113 @@ export class HousesController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  async getStaff(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const staff = await housesService.getStaff(req.params.id, company_id);
+      return res.json({ success: true, data: staff, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch house staff';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async assignStaff(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { user_id, role_in_house } = req.body;
+      const result = await housesService.assignStaff(req.params.id, company_id, user_id, role_in_house);
+      return res.status(201).json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to assign staff';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async removeStaff(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      await housesService.removeStaff(req.params.id, company_id, req.params.userId);
+      return res.json({ success: true, data: { message: 'Staff removed' }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to remove staff';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getSettings(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const settings = await housesService.getSettings(req.params.id, company_id);
+      return res.json({ success: true, data: settings, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch house settings';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async updateSettings(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const settings = await housesService.updateSettings(req.params.id, company_id, req.body);
+      return res.json({ success: true, data: settings, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update house settings';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getRisks(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const risks = await housesService.getRisks(req.params.id, company_id);
+      return res.json({ success: true, data: risks, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch house risks';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getIncidents(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const incidents = await housesService.getIncidents(req.params.id, company_id);
+      return res.json({ success: true, data: incidents, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch house incidents';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getGovernancePulses(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const pulses = await housesService.getGovernancePulses(req.params.id, company_id);
+      return res.json({ success: true, data: pulses, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch house governance pulses';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getMetricsOverview(req: Request, res: Response) {
+    try {
+      return res.json({ success: true, data: { active_houses: 0, total_capacity: 0 }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch metrics overview';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getMapLocations(req: Request, res: Response) {
+    try {
+      return res.json({ success: true, data: [], meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch map locations';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const housesController = new HousesController();

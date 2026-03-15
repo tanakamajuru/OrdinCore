@@ -100,39 +100,47 @@ const AdminUserManagement: React.FC = () => {
         limit: '20',
         ...(searchTerm && { search: searchTerm }),
         ...(roleFilter && roleFilter !== 'all' && { role: roleFilter }),
-        ...(statusFilter && statusFilter !== 'all' && { isActive: statusFilter === 'active' ? 'true' : 'false' })
+        ...(statusFilter && statusFilter !== 'all' && { is_active: statusFilter === 'active' ? 'true' : 'false' })
       });
 
-      const response = await fetch(`/api/admin/users?${params}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users?${params}`, {
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         }
       });
 
       if (response.ok) {
         const data = await response.json();
-        setUsers(data.data);
-        setTotalPages(data.pagination.totalPages);
+        const users = data.data?.users ?? data.data ?? [];
+        setUsers(Array.isArray(users) ? users : []);
+        setTotalPages(data.data?.totalPages ?? data.pagination?.totalPages ?? 1);
       } else {
-        toast.error("Failed to fetch users");
+        toast.error('Failed to fetch users');
       }
     } catch (error) {
-      toast.error("Network error occurred");
+      toast.error('Network error occurred');
     }
   };
 
-  // Fetch user statistics
+  // Fetch user statistics — uses the users list to derive simple counts
   const fetchStats = async () => {
     try {
-      const response = await fetch('/api/admin/users/stats/summary', {
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users?page=1&limit=100`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
-
       if (response.ok) {
         const data = await response.json();
-        setStats(data.data);
+        const list: any[] = data.data?.users ?? data.data ?? [];
+        const total = list.length;
+        const active = list.filter((u: any) => u.is_active !== false).length;
+        setStats({
+          total,
+          active,
+          inactive: total - active,
+          byRole: {},
+          assignedToHouse: list.filter((u: any) => u.assigned_house || u.house_id).length,
+          monthlyRegistrations: [],
+        });
       }
     } catch (error) {
       console.error('Failed to fetch stats:', error);
@@ -152,17 +160,14 @@ const AdminUserManagement: React.FC = () => {
   useEffect(() => {
     const fetchHousesForDropdown = async () => {
       try {
-        const response = await fetch('/api/admin/houses?limit=100', {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          }
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/houses?limit=100`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
         });
-
         if (response.ok) {
           const data = await response.json();
-          setHouses(data.data || []);
+          const list = data.data?.houses ?? data.data ?? [];
+          setHouses(Array.isArray(list) ? list : []);
         } else {
-          console.error('Failed to fetch houses');
           setHouses([]);
         }
       } catch (error) {
@@ -170,147 +175,109 @@ const AdminUserManagement: React.FC = () => {
         setHouses([]);
       }
     };
-
     fetchHousesForDropdown();
   }, []);
 
   // Create user
   const handleCreateUser = async () => {
     try {
-      console.log('Creating user with data:', formData);
-      
-      // Validation: registered-managers must be assigned to a house
-      if (formData.role === 'registered-manager' && (!formData.assignedHouse || formData.assignedHouse.trim() === '')) {
-        toast.error("Registered managers must be assigned to a house");
-        return;
-      }
-      
-      // Prepare request data - only include assignedHouse if it has a value
-      const requestData: {
-        email: string;
-        name: string;
-        password: string;
-        role: string;
-        organization: string;
-        pulseDays: string[];
-        isActive: boolean;
-        assignedHouse?: string;
-      } = {
+      // Derive backend role string (backend expects UPPER_CASE)
+      const backendRole = formData.role.toUpperCase().replace(/-/g, '_');
+
+      // Split name into first/last
+      const nameParts = formData.name.trim().split(' ');
+      const first_name = nameParts[0] || '';
+      const last_name = nameParts.slice(1).join(' ') || '';
+
+      const requestData: any = {
         email: formData.email,
-        name: formData.name,
+        first_name,
+        last_name,
         password: formData.password,
-        role: formData.role,
-        organization: formData.organization,
-        pulseDays: formData.pulseDays,
-        isActive: formData.isActive
+        role: backendRole,
+        is_active: formData.isActive,
       };
-      
-      // Only add assignedHouse if it's not empty
-      if (formData.assignedHouse && formData.assignedHouse.trim() !== '') {
-        requestData.assignedHouse = formData.assignedHouse;
+      if (formData.assignedHouse && formData.assignedHouse.trim()) {
+        requestData.house_id = formData.assignedHouse;
       }
-      
-      console.log('Sending request data:', requestData);
-      
-      const response = await fetch('/api/admin/users', {
+
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify(requestData)
+        body: JSON.stringify(requestData),
       });
 
       if (response.ok) {
-        toast.success("User created successfully");
+        toast.success('User created successfully');
         setIsCreateDialogOpen(false);
         resetForm();
         fetchUsers();
         fetchStats();
       } else {
-        let errorData;
-        try {
-          errorData = await response.json();
-          console.error('Create user error:', errorData);
-          
-          // Log validation details if available
-          if (errorData.details && Array.isArray(errorData.details)) {
-            console.error('Validation details:', errorData.details);
-            errorData.details.forEach((detail: any, index: number) => {
-              console.error(`Validation error ${index + 1}:`, detail);
-            });
-          }
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          errorData = { error: 'Failed to create user' };
-        }
-        
-        const errorMessage = errorData.error || errorData.message || "Failed to create user";
-        console.error('Detailed error:', errorData);
-        toast.error(errorMessage);
+        const errorData = await response.json().catch(() => ({ message: 'Failed to create user' }));
+        toast.error(errorData.message || errorData.error || 'Failed to create user');
       }
     } catch (error) {
       console.error('Create user failed:', error);
-      toast.error("Network error occurred");
+      toast.error('Network error occurred');
     }
   };
 
   // Update user
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
-
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
-        method: 'PUT',
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ is_active: formData.isActive }),
       });
-
       if (response.ok) {
-        toast.success("User updated successfully");
+        toast.success('User updated successfully');
         setIsEditDialogOpen(false);
         resetForm();
         fetchUsers();
         fetchStats();
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to update user");
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.message || 'Failed to update user');
       }
     } catch (error) {
-      toast.error("Network error occurred");
+      toast.error('Network error occurred');
     }
   };
 
   // Reset password
   const handleResetPassword = async () => {
     if (!selectedUser || passwordData.newPassword !== passwordData.confirmPassword) {
-      toast.error("Passwords do not match");
+      toast.error('Passwords do not match');
       return;
     }
-
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}/password`, {
-        method: 'PUT',
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}/password`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify({ newPassword: passwordData.newPassword })
+        body: JSON.stringify({ password: passwordData.newPassword }),
       });
-
       if (response.ok) {
-        toast.success("Password reset successfully");
+        toast.success('Password reset successfully');
         setIsPasswordDialogOpen(false);
         setPasswordData({ newPassword: '', confirmPassword: '' });
       } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to reset password");
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.message || 'Failed to reset password');
       }
     } catch (error) {
-      toast.error("Network error occurred");
+      toast.error('Network error occurred');
     }
   };
 
@@ -319,11 +286,11 @@ const AdminUserManagement: React.FC = () => {
     if (!selectedUser) return;
 
     try {
-      const response = await fetch(`/api/admin/users/${selectedUser.id}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
       });
 
       if (response.ok) {
@@ -364,11 +331,11 @@ const AdminUserManagement: React.FC = () => {
   // Direct delete user (for after house reassignment)
   const directDeleteUser = async (userId: string) => {
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${userId}`, {
         method: 'DELETE',
         headers: {
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
-        }
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
       });
 
       if (response.ok) {
@@ -439,20 +406,20 @@ const AdminUserManagement: React.FC = () => {
   // Handle house reassignment
   const handleReassignHouse = async () => {
     if (!userToDelete || !selectedNewManager || selectedNewManager === 'none') {
-      toast.error("Please select a new manager");
+      toast.error('Please select a new manager');
       return;
     }
 
     try {
-      const response = await fetch(`/api/admin/houses/${userToDelete.assigned_house}`, {
-        method: 'PUT',
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/houses/${userToDelete.assigned_house}`, {
+        method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify({
-          manager_id: selectedNewManager === 'none' ? null : selectedNewManager
-        })
+          manager_id: selectedNewManager === 'none' ? null : selectedNewManager,
+        }),
       });
 
       if (response.ok) {
@@ -739,10 +706,9 @@ const AdminUserManagement: React.FC = () => {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="director">Director</SelectItem>
-                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
-                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
+                  <SelectItem value="DIRECTOR">Director</SelectItem>
+                  <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
+                  <SelectItem value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -754,7 +720,7 @@ const AdminUserManagement: React.FC = () => {
                 onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
               />
             </div>
-            {(formData.role === 'registered-manager') && (
+            {(formData.role === 'REGISTERED_MANAGER') && (
               <div>
                 <Label htmlFor="assignedHouse">Assigned House</Label>
                 <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
@@ -772,7 +738,7 @@ const AdminUserManagement: React.FC = () => {
                 </Select>
               </div>
             )}
-            {(formData.role === 'registered-manager') && (
+            {(formData.role === 'REGISTERED_MANAGER') && (
               <div>
                 <Label className="text-base font-medium">Pulse Days</Label>
                 <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>

@@ -70,6 +70,103 @@ export class UsersController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  async getPermissions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.getPermissions(req.params.id, company_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get permissions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getHouses(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.getHouses(req.params.id, company_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get assigned houses';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getRoles(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.getRoles(req.params.id, company_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get roles';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async assignRole(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.assignRole(req.params.id, company_id, req.body.role);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to assign role';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async suspend(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.suspend(req.params.id, company_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to suspend user';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async activate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await usersService.activate(req.params.id, company_id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to activate user';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async search(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const queryStr = req.query.q as string;
+      if (!queryStr) return res.json({ success: true, data: [], meta: { total: 0 } });
+      const result = await usersService.search(company_id, queryStr, parseInt(req.query.page as string) || 1, parseInt(req.query.limit as string) || 50);
+      return res.json({ success: true, data: result.users, meta: { total: result.total, page: result.page, limit: result.limit, pages: result.pages } });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to search users';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getSessions(req: Request, res: Response) {
+    try {
+      return res.json({ success: true, data: [], meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get sessions';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async revokeSessions(req: Request, res: Response) {
+    try {
+      return res.json({ success: true, data: { message: 'Sessions revoked' }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to revoke sessions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const usersController = new UsersController();

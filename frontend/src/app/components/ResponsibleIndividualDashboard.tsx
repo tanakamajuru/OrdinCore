@@ -87,8 +87,8 @@ export function ResponsibleIndividualDashboard() {
       if (activity.type === 'risk') acc[house].highRisks++;
       if (activity.type === 'escalation') acc[house].escalations++;
       return acc;
-    }, {})
-    .slice(0, 5) || [];
+    }, {});
+  const siteSummariesArr = Object.values(siteSummaries).slice(0, 5);
 
   return (
     <div className="min-h-screen bg-white">
@@ -149,7 +149,7 @@ export function ResponsibleIndividualDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Site Summaries</h2>
               <div className="space-y-3">
-                {siteSummaries.map((site, idx) => (
+                {siteSummariesArr.map((site: any, idx: number) => (
                   <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>

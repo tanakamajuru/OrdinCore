@@ -1,6 +1,6 @@
-import { ApiResponse, PaginatedResponse, User, Company, House, Risk, RiskEvent, Incident, Escalation, GovernancePulse, DashboardStats, LoginRequest, LoginResponse } from '@/types';
+import { ApiResponse, PaginatedResponse, User, Company, House, Risk, Incident, Escalation, GovernancePulse, LoginRequest, LoginResponse } from '@/types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
 // Generic API helper
 class ApiClient {
@@ -9,15 +9,17 @@ class ApiClient {
 
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-    this.token = localStorage.getItem('token');
+    this.token = localStorage.getItem('authToken');
   }
 
   private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const url = `${this.baseURL}${endpoint}`;
-    const headers = {
+    // Always read the freshest token from localStorage
+    const token = localStorage.getItem('authToken');
+    const headers: Record<string, string> = {
       'Content-Type': 'application/json',
-      ...(this.token && { Authorization: `Bearer ${this.token}` }),
-      ...options.headers,
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+      ...(options.headers as Record<string, string>),
     };
 
     try {
@@ -29,7 +31,12 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
+          localStorage.removeItem('authToken');
+          localStorage.removeItem('user');
+          window.location.href = '/login';
+        }
+        throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
       }
 
       return data;
@@ -41,15 +48,16 @@ class ApiClient {
 
   setToken(token: string) {
     this.token = token;
-    localStorage.setItem('token', token);
+    localStorage.setItem('authToken', token);
   }
 
   clearToken() {
     this.token = null;
-    localStorage.removeItem('token');
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
   }
 
-  // Auth endpoints
+  // ─── Auth endpoints ────────────────────────────────────────────────────────
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     const response = await this.request<LoginResponse>('/auth/login', {
       method: 'POST',
@@ -58,23 +66,33 @@ class ApiClient {
 
     if (response.success && response.data?.token) {
       this.setToken(response.data.token);
+      if (response.data.user) {
+        localStorage.setItem('user', JSON.stringify(response.data.user));
+        localStorage.setItem('userRole', response.data.user.role);
+      }
     }
 
     return response;
   }
 
   async logout(): Promise<ApiResponse<null>> {
-    const response = await this.request<null>('/auth/logout', {
-      method: 'POST',
-    });
+    try {
+      const response = await this.request<null>('/auth/logout', { method: 'POST' });
+      return response;
+    } finally {
+      this.clearToken();
+    }
+  }
 
-    this.clearToken();
-    return response;
+  async me(): Promise<ApiResponse<User>> {
+    return this.request<User>('/auth/me');
   }
 
   async refreshToken(): Promise<ApiResponse<LoginResponse>> {
+    const refreshToken = localStorage.getItem('refreshToken');
     const response = await this.request<LoginResponse>('/auth/refresh', {
       method: 'POST',
+      body: JSON.stringify({ refreshToken }),
     });
 
     if (response.success && response.data?.token) {
@@ -84,7 +102,14 @@ class ApiClient {
     return response;
   }
 
-  // Company endpoints
+  async changePassword(currentPassword: string, newPassword: string): Promise<ApiResponse<null>> {
+    return this.request<null>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+  }
+
+  // ─── Company endpoints ─────────────────────────────────────────────────────
   async getCompanies(): Promise<ApiResponse<Company[]>> {
     return this.request<Company[]>('/companies');
   }
@@ -102,18 +127,16 @@ class ApiClient {
 
   async updateCompany(id: string, company: Partial<Company>): Promise<ApiResponse<Company>> {
     return this.request<Company>(`/companies/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(company),
     });
   }
 
   async deleteCompany(id: string): Promise<ApiResponse<null>> {
-    return this.request<null>(`/companies/${id}`, {
-      method: 'DELETE',
-    });
+    return this.request<null>(`/companies/${id}`, { method: 'DELETE' });
   }
 
-  // User endpoints
+  // ─── User endpoints ────────────────────────────────────────────────────────
   async getUsers(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<User>>> {
     return this.request<PaginatedResponse<User>>(`/users?page=${page}&limit=${limit}`);
   }
@@ -131,18 +154,28 @@ class ApiClient {
 
   async updateUser(id: string, user: Partial<User>): Promise<ApiResponse<User>> {
     return this.request<User>(`/users/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(user),
     });
   }
 
   async deleteUser(id: string): Promise<ApiResponse<null>> {
-    return this.request<null>(`/users/${id}`, {
-      method: 'DELETE',
-    });
+    return this.request<null>(`/users/${id}`, { method: 'DELETE' });
   }
 
-  // House endpoints
+  async searchUsers(query: string): Promise<ApiResponse<User[]>> {
+    return this.request<User[]>(`/users/search?q=${encodeURIComponent(query)}`);
+  }
+
+  async suspendUser(id: string): Promise<ApiResponse<User>> {
+    return this.request<User>(`/users/${id}/suspend`, { method: 'PATCH' });
+  }
+
+  async activateUser(id: string): Promise<ApiResponse<User>> {
+    return this.request<User>(`/users/${id}/activate`, { method: 'PATCH' });
+  }
+
+  // ─── House endpoints ────────────────────────────────────────────────────────
   async getHouses(): Promise<ApiResponse<House[]>> {
     return this.request<House[]>('/houses');
   }
@@ -160,20 +193,30 @@ class ApiClient {
 
   async updateHouse(id: string, house: Partial<House>): Promise<ApiResponse<House>> {
     return this.request<House>(`/houses/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(house),
     });
   }
 
   async deleteHouse(id: string): Promise<ApiResponse<null>> {
-    return this.request<null>(`/houses/${id}`, {
-      method: 'DELETE',
-    });
+    return this.request<null>(`/houses/${id}`, { method: 'DELETE' });
   }
 
-  // Risk endpoints
-  async getRisks(): Promise<ApiResponse<Risk[]>> {
-    return this.request<Risk[]>('/risks');
+  async getHouseRisks(id: string): Promise<ApiResponse<Risk[]>> {
+    return this.request<Risk[]>(`/houses/${id}/risks`);
+  }
+
+  async getHouseIncidents(id: string): Promise<ApiResponse<Incident[]>> {
+    return this.request<Incident[]>(`/houses/${id}/incidents`);
+  }
+
+  async getHouseGovernancePulses(id: string): Promise<ApiResponse<GovernancePulse[]>> {
+    return this.request<GovernancePulse[]>(`/houses/${id}/governance-pulses`);
+  }
+
+  // ─── Risk endpoints ────────────────────────────────────────────────────────
+  async getRisks(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<Risk>>> {
+    return this.request<PaginatedResponse<Risk>>(`/risks?page=${page}&limit=${limit}`);
   }
 
   async getRisk(id: string): Promise<ApiResponse<Risk>> {
@@ -189,32 +232,36 @@ class ApiClient {
 
   async updateRisk(id: string, risk: Partial<Risk>): Promise<ApiResponse<Risk>> {
     return this.request<Risk>(`/risks/${id}`, {
-      method: 'PUT',
+      method: 'PATCH',
       body: JSON.stringify(risk),
     });
   }
 
   async deleteRisk(id: string): Promise<ApiResponse<null>> {
-    return this.request<null>(`/risks/${id}`, {
-      method: 'DELETE',
-    });
+    return this.request<null>(`/risks/${id}`, { method: 'DELETE' });
   }
 
-  // Risk Event endpoints
-  async getRiskEvents(riskId: string): Promise<ApiResponse<RiskEvent[]>> {
-    return this.request<RiskEvent[]>(`/risk-events/${riskId}`);
+  async getRiskTimeline(riskId: string): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(`/risks/${riskId}/timeline`);
   }
 
-  async createRiskEvent(event: Omit<RiskEvent, 'id' | 'createdAt'>): Promise<ApiResponse<RiskEvent>> {
-    return this.request<RiskEvent>('/risk-events', {
+  async addRiskEvent(riskId: string, event: { type: string; description: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/risks/${riskId}/event`, {
       method: 'POST',
       body: JSON.stringify(event),
     });
   }
 
-  // Incident endpoints
-  async getIncidents(): Promise<ApiResponse<Incident[]>> {
-    return this.request<Incident[]>('/incidents');
+  async escalateRisk(riskId: string, data: { reason: string; escalated_to: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/risks/${riskId}/escalate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ─── Incident endpoints ──────────────────────────────────────────────────
+  async getIncidents(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<Incident>>> {
+    return this.request<PaginatedResponse<Incident>>(`/incidents?page=${page}&limit=${limit}`);
   }
 
   async getIncident(id: string): Promise<ApiResponse<Incident>> {
@@ -228,69 +275,120 @@ class ApiClient {
     });
   }
 
-  // Escalation endpoints
-  async getEscalations(): Promise<ApiResponse<Escalation[]>> {
-    return this.request<Escalation[]>('/escalations');
+  async updateIncident(id: string, incident: Partial<Incident>): Promise<ApiResponse<Incident>> {
+    return this.request<Incident>(`/incidents/${id}`, {
+      method: 'PATCH',
+      body: JSON.stringify(incident),
+    });
+  }
+
+  async deleteIncident(id: string): Promise<ApiResponse<null>> {
+    return this.request<null>(`/incidents/${id}`, { method: 'DELETE' });
+  }
+
+  async resolveIncident(id: string, resolutionNotes: string): Promise<ApiResponse<Incident>> {
+    return this.request<Incident>(`/incidents/${id}/resolve`, {
+      method: 'PATCH',
+      body: JSON.stringify({ resolution_notes: resolutionNotes }),
+    });
+  }
+
+  async getIncidentTimeline(id: string): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>(`/incidents/${id}/timeline`);
+  }
+
+  // ─── Escalation endpoints ─────────────────────────────────────────────────
+  async getEscalations(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<Escalation>>> {
+    return this.request<PaginatedResponse<Escalation>>(`/escalations?page=${page}&limit=${limit}`);
   }
 
   async getEscalation(id: string): Promise<ApiResponse<Escalation>> {
     return this.request<Escalation>(`/escalations/${id}`);
   }
 
-  async createEscalation(escalation: Omit<Escalation, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<Escalation>> {
-    return this.request<Escalation>('/escalations', {
+  async resolveEscalation(id: string, resolutionNotes: string): Promise<ApiResponse<Escalation>> {
+    return this.request<Escalation>(`/escalations/${id}/resolve`, {
       method: 'POST',
-      body: JSON.stringify(escalation),
+      body: JSON.stringify({ resolution_notes: resolutionNotes }),
     });
   }
 
-  async updateEscalation(id: string, escalation: Partial<Escalation>): Promise<ApiResponse<Escalation>> {
-    return this.request<Escalation>(`/escalations/${id}`, {
-      method: 'PUT',
-      body: JSON.stringify(escalation),
+  async addEscalationAction(id: string, action: { action: string; notes: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/escalations/${id}/actions`, {
+      method: 'POST',
+      body: JSON.stringify(action),
     });
   }
 
-  // Governance Pulse endpoints
-  async getGovernancePulses(): Promise<ApiResponse<GovernancePulse[]>> {
-    return this.request<GovernancePulse[]>('/governance-pulses');
+  // ─── Governance Pulse endpoints ──────────────────────────────────────────
+  async getGovernancePulses(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<GovernancePulse>>> {
+    return this.request<PaginatedResponse<GovernancePulse>>(`/governance/pulses?page=${page}&limit=${limit}`);
   }
 
-  async getGovernancePulsesForHouse(houseId: string): Promise<ApiResponse<GovernancePulse[]>> {
-    return this.request<GovernancePulse[]>(`/governance-pulses/${houseId}`);
+  async getGovernancePulse(id: string): Promise<ApiResponse<GovernancePulse>> {
+    return this.request<GovernancePulse>(`/governance/pulses/${id}`);
   }
 
   async createGovernancePulse(pulse: Omit<GovernancePulse, 'id' | 'createdAt' | 'updatedAt'>): Promise<ApiResponse<GovernancePulse>> {
-    return this.request<GovernancePulse>('/governance-pulses', {
+    return this.request<GovernancePulse>('/governance/pulse', {
       method: 'POST',
       body: JSON.stringify(pulse),
     });
   }
 
-  // Dashboard endpoints
-  async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
-    return this.request<DashboardStats>('/dashboard/stats');
+  async getGovernancePulsesForHouse(houseId: string): Promise<ApiResponse<GovernancePulse[]>> {
+    return this.request<GovernancePulse[]>(`/houses/${houseId}/governance-pulses`);
   }
 
-  // Report endpoints
-  async getRiskRegisterReport(): Promise<ApiResponse<any>> {
-    return this.request<any>('/reports/risk-register');
+  // ─── Analytics endpoints ─────────────────────────────────────────────────
+  async getRiskTrends(params?: Record<string, string>): Promise<ApiResponse<any>> {
+    const query = params ? '?' + new URLSearchParams(params).toString() : '';
+    return this.request<any>(`/analytics/risk-trends${query}`);
   }
 
-  async getIncidentsReport(): Promise<ApiResponse<any>> {
-    return this.request<any>('/reports/incidents');
+  async getSitePerformance(): Promise<ApiResponse<any>> {
+    return this.request<any>('/analytics/site-performance');
   }
 
-  async getEscalationsReport(): Promise<ApiResponse<any>> {
-    return this.request<any>('/reports/escalations');
+  async getGovernanceCompliance(): Promise<ApiResponse<any>> {
+    return this.request<any>('/analytics/governance-compliance');
   }
 
-  async getGovernanceReport(): Promise<ApiResponse<any>> {
-    return this.request<any>('/reports/governance');
+  async getEscalationRate(): Promise<ApiResponse<any>> {
+    return this.request<any>('/analytics/escalation-rate');
   }
 
-  async getTrendsReport(): Promise<ApiResponse<any>> {
-    return this.request<any>('/reports/trends');
+  // ─── Notifications endpoints ──────────────────────────────────────────────
+  async getNotifications(): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>('/notifications');
+  }
+
+  async markNotificationRead(id: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/notifications/${id}/read`, { method: 'PATCH' });
+  }
+
+  async markAllNotificationsRead(): Promise<ApiResponse<any>> {
+    return this.request<any>('/notifications/read-all', { method: 'PATCH' });
+  }
+
+  // ─── Reports endpoints ────────────────────────────────────────────────────
+  async requestReport(type: string, filters?: Record<string, any>): Promise<ApiResponse<any>> {
+    return this.request<any>('/reports/request', {
+      method: 'POST',
+      body: JSON.stringify({ type, filters }),
+    });
+  }
+
+  async getReports(): Promise<ApiResponse<any[]>> {
+    return this.request<any[]>('/reports');
+  }
+
+  async getReport(id: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/reports/${id}`);
+  }
+
+  async downloadReport(id: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/reports/${id}/download`);
   }
 }
 

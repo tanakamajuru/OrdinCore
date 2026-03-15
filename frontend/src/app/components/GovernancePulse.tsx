@@ -1,567 +1,390 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { AlertTriangle, Plus } from "lucide-react";
-import { dashboardApi } from "@/services/dashboardApi";
-import { useAuth } from "@/hooks/useAuth";
+import { AlertTriangle, Plus, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
+import apiClient from "@/services/apiClient";
 
-interface RiskCreationPrompt {
-  show: boolean;
-  house: string;
-  description: string;
-  severity: "High" | "Medium" | "Low";
-  source: "emerging" | "escalation" | "safeguarding";
-}
-
-interface PulseData {
-  emergingRisk: "none" | "yes";
-  emergingRiskDescription: string;
-  riskMovement: "none" | "yes";
-  riskMovementDescription: string;
-  safeguardingSignals: "none" | "yes";
-  safeguardingDescription: string;
-  operationalPressure: "staffing" | "behavioural" | "medication" | "environmental" | "none";
-  escalationRequired: "no" | "yes";
-  escalationReason: string;
-  additionalObservations: string;
-}
-
-interface House {
-  id: string;
-  name: string;
-  address: string;
-}
+interface House { id: string; name: string; address: string; }
+interface PulseTemplate { id: string; name: string; }
+interface Question { id: string; question: string; question_type: string; options: string[]; required: boolean; order_index: number; }
+interface Pulse { id: string; status: string; due_date: string; completed_at: string | null; compliance_score: number | null; }
 
 export function GovernancePulse() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  
-  const currentDate = new Date().toLocaleDateString('en-US', { 
-    weekday: 'long', 
-    year: 'numeric', 
-    month: 'long', 
-    day: 'numeric' 
-  });
-  
-  const [houses, setHouses] = useState<House[]>([]);
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+
+  const [house, setHouse] = useState<House | null>(null);
+  const [template, setTemplate] = useState<PulseTemplate | null>(null);
+  const [questions, setQuestions] = useState<Question[]>([]);
+  const [todayPulse, setTodayPulse] = useState<Pulse | null>(null);
+  const [lastPulse, setLastPulse] = useState<Pulse | null>(null);
+  const [nextPulseDate, setNextPulseDate] = useState<string>('');
+  const [pulseDays, setPulseDays] = useState<string[]>(['Monday', 'Wednesday', 'Friday']);
+  const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
-  const [pulseStatus, setPulseStatus] = useState<any>(null);
-  
-  // For registered managers, house will come from user data
-  // For other roles (like Responsible Individual), they can select houses
-  const [selectedHouse, setSelectedHouse] = useState(user?.assignedHouse || "");
-  const [riskCreationPrompt, setRiskCreationPrompt] = useState<RiskCreationPrompt>({
-    show: false,
-    house: "",
-    description: "",
-    severity: "Medium",
-    source: "emerging"
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showRiskPrompt, setShowRiskPrompt] = useState(false);
+  const [riskDescription, setRiskDescription] = useState('');
+  const [submitted, setSubmitted] = useState(false);
+
+  const currentDate = new Date().toLocaleDateString('en-GB', {
+    weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
   });
 
-  const [pulseData, setPulseData] = useState<PulseData>({
-    emergingRisk: "none",
-    emergingRiskDescription: "",
-    riskMovement: "none",
-    riskMovementDescription: "",
-    safeguardingSignals: "none",
-    safeguardingDescription: "",
-    operationalPressure: "none",
-    escalationRequired: "no",
-    escalationReason: "",
-    additionalObservations: ""
-  });
+  useEffect(() => { loadData(); }, []);
 
-  useEffect(() => {
-    loadPulseData();
-    loadHouses();
-  }, []);
-
-  const loadPulseData = async () => {
+  const loadData = async () => {
     try {
-      const status = await dashboardApi.getPulseStatus();
-      setPulseStatus(status);
-    } catch (error) {
-      console.error('Failed to load pulse status:', error);
-      toast.error('Failed to load pulse status');
+      // 1. Get house
+      let myHouse: House | null = null;
+      if (userRole === 'REGISTERED_MANAGER') {
+        const hRes = await apiClient.get(`/users/${userId}/houses`);
+        const hData = (hRes.data as any).data || (hRes.data as any) || [];
+        myHouse = Array.isArray(hData) ? hData[0] : hData;
+      } else {
+        // RI/Director: fetch all houses
+        const hRes = await apiClient.get('/houses');
+        const hData = (hRes.data as any).data || (hRes.data as any) || {};
+        const list = hData.houses || hData.items || (Array.isArray(hData) ? hData : []);
+        myHouse = list[0];
+      }
+      if (!myHouse) { setIsLoading(false); return; }
+      setHouse(myHouse);
+
+      // 2. House settings for pulse days
+      try {
+        const settingsRes = await apiClient.get(`/houses/${myHouse.id}/settings`);
+        const settings = (settingsRes.data as any).data || (settingsRes.data as any) || {};
+        if (settings.settings?.pulse_days) setPulseDays(settings.settings.pulse_days);
+      } catch { /* use defaults */ }
+
+      // 3. Get governance template
+      const tRes = await apiClient.get('/governance/templates');
+      const tData = (tRes.data as any).data || (tRes.data as any) || {};
+      const templates = tData.templates || tData.items || (Array.isArray(tData) ? tData : []);
+      const tmpl = templates[0];
+      if (tmpl) {
+        setTemplate(tmpl);
+        // 4. Load questions
+        const qRes = await apiClient.get(`/governance/templates/${tmpl.id}/questions`);
+        const qData = (qRes.data as any).data || (qRes.data as any) || {};
+        const qs = qData.questions || qData.items || (Array.isArray(qData) ? qData : []);
+        const sorted = [...qs].sort((a: Question, b: Question) => a.order_index - b.order_index);
+        setQuestions(sorted);
+        // Init answers
+        const initAnswers: Record<string, string> = {};
+        sorted.forEach((q: Question) => { initAnswers[q.id] = ''; });
+        setAnswers(initAnswers);
+      }
+
+      // 5. Load pulses for this house
+      const pRes = await apiClient.get(`/governance/pulses?house_id=${myHouse.id}&limit=20`);
+      const pData = (pRes.data as any).data || (pRes.data as any) || {};
+      const pulses: Pulse[] = pData.pulses || pData.items || (Array.isArray(pData) ? pData : []);
+
+      const todayStr = new Date().toDateString();
+      const today = pulses.find(p => new Date(p.due_date).toDateString() === todayStr);
+      const completed = pulses.filter(p => p.status === 'completed').sort((a, b) =>
+        new Date(b.completed_at || b.due_date).getTime() - new Date(a.completed_at || a.due_date).getTime()
+      );
+      const upcoming = pulses.filter(p => p.status === 'pending' && new Date(p.due_date) > new Date());
+
+      setTodayPulse(today || null);
+      setLastPulse(completed[0] || null);
+      if (upcoming.length > 1) {
+        setNextPulseDate(new Date(upcoming[1].due_date).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' }));
+      }
+
+      if (today?.status === 'completed') setSubmitted(true);
+    } catch (err: any) {
+      console.error('GovernancePulse load error:', err);
+      toast.error('Failed to load pulse data');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const loadHouses = async () => {
-    try {
-      // Mock houses data - this should come from API
-      const mockHouses: House[] = [
-        { id: "1", name: "Maple House", address: "123 Maple St" },
-        { id: "2", name: "Oakwood", address: "456 Oak Ave" },
-        { id: "3", name: "Riverside", address: "789 River Rd" },
-        { id: "4", name: "Sunset Villa", address: "321 Sunset Blvd" },
-        { id: "5", name: "Birchwood", address: "654 Birch Ln" }
-      ];
-      setHouses(mockHouses);
-    } catch (error) {
-      console.error('Failed to load houses:', error);
-    }
+  const handleAnswerChange = (questionId: string, value: string) => {
+    setAnswers(prev => ({ ...prev, [questionId]: value }));
   };
 
-  const houseOptions = houses.map(house => house.name);
-  
-  // Calculate next pulse day
-  const today = currentDate.split(',')[0]; // Get current day name
-  const dayOrder = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
-  const pulseDays = ["Monday", "Wednesday", "Friday"];
-  
-  const todayIndex = dayOrder.indexOf(today);
-  let nextPulseDay = "";
-  
-  for (let i = 1; i <= 7; i++) {
-    const nextDayIndex = (todayIndex + i) % 7;
-    const nextDayName = dayOrder[nextDayIndex];
-    if (pulseDays.includes(nextDayName)) {
-      nextPulseDay = nextDayName;
-      break;
+  const checkForRiskFlag = () => {
+    // Check if any yes_no answer flagged a risk
+    for (const q of questions) {
+      if (q.question_type === 'yes_no' && answers[q.id] === 'yes' && q.question.toLowerCase().includes('risk')) {
+        return true;
+      }
     }
-  }
-  
-  // Mock data for pulse timing
-  const lastPulseDate = "Wednesday";
-  const nextPulseDate = nextPulseDay;
-
-  const checkForRiskCreation = () => {
-    if (pulseData.emergingRisk === "yes" && pulseData.emergingRiskDescription) {
-      setRiskCreationPrompt({
-        show: true,
-        house: selectedHouse,
-        description: pulseData.emergingRiskDescription,
-        severity: "Medium",
-        source: "emerging"
-      });
-      return true;
-    }
-    
-    if (pulseData.riskMovement === "yes" && pulseData.riskMovementDescription) {
-      setRiskCreationPrompt({
-        show: true,
-        house: selectedHouse,
-        description: pulseData.riskMovementDescription,
-        severity: "High",
-        source: "emerging"
-      });
-      return true;
-    }
-    
-    if (pulseData.safeguardingSignals === "yes" && pulseData.safeguardingDescription) {
-      setRiskCreationPrompt({
-        show: true,
-        house: selectedHouse,
-        description: pulseData.safeguardingDescription,
-        severity: "High",
-        source: "safeguarding"
-      });
-      return true;
-    }
-    
-    if (pulseData.escalationRequired === "yes" && pulseData.escalationReason) {
-      setRiskCreationPrompt({
-        show: true,
-        house: selectedHouse,
-        description: pulseData.escalationReason,
-        severity: "High",
-        source: "escalation"
-      });
-      return true;
-    }
-    
     return false;
   };
 
-  const confirmRiskCreation = () => {
-    const newRisk = {
-      id: `RISK-${Date.now()}`,
-      house: riskCreationPrompt.house,
-      description: riskCreationPrompt.description,
-      category: "Governance Pulse Identified",
-      severity: riskCreationPrompt.severity,
-      dateIdentified: new Date().toISOString().split('T')[0],
-      source: riskCreationPrompt.source,
-      pulseDate: currentDate,
-      createdBy: "Current User"
-    };
-    
-    console.log("Creating Risk Register entry:", newRisk);
-    alert(`Risk Register entry created: ${newRisk.id}`);
-    
-    setRiskCreationPrompt({
-      show: false,
-      house: "",
-      description: "",
-      severity: "Medium",
-      source: "emerging"
-    });
+  const handleSubmit = async () => {
+    // Validate required questions answered
+    const unanswered = questions.filter(q => q.required && !answers[q.id]);
+    if (unanswered.length > 0) {
+      toast.error(`Please answer all required questions (${unanswered.length} remaining)`);
+      return;
+    }
+
+    const hasRiskFlag = checkForRiskFlag();
+    if (hasRiskFlag && !showRiskPrompt) {
+      setShowRiskPrompt(true);
+      return;
+    }
+
+    await submitPulse();
   };
 
-  const handleSubmit = () => {
-    const shouldPromptForRisk = checkForRiskCreation();
-    
-    if (!shouldPromptForRisk) {
-      console.log("Governance Pulse submitted:", { house: selectedHouse, ...pulseData });
-      alert("Governance Pulse submitted successfully");
-      navigate("/dashboard");
+  const submitPulse = async () => {
+    setIsSubmitting(true);
+    try {
+      let pulseId = todayPulse?.id;
+
+      // Create pulse if none exists for today
+      if (!pulseId && house && template) {
+        const createRes = await apiClient.post('/governance/pulse', {
+          house_id: house.id,
+          template_id: template.id,
+          due_date: new Date().toISOString(),
+          status: 'pending'
+        });
+        const created = (createRes.data as any).data || (createRes.data as any);
+        pulseId = created.id;
+      }
+
+      if (!pulseId) throw new Error('No pulse to submit');
+
+      // Submit answers
+      const answersPayload = questions.map(q => ({
+        question_id: q.id,
+        answer: answers[q.id] || '',
+        answer_value: { value: answers[q.id] },
+        flagged: q.question_type === 'yes_no' && answers[q.id] === 'yes',
+      }));
+
+      await apiClient.post(`/governance/pulses/${pulseId}/submit`, { answers: answersPayload });
+
+      // Create risk if flagged and description given
+      if (showRiskPrompt && riskDescription && house) {
+        try {
+          await apiClient.post('/risks', {
+            house_id: house.id,
+            title: 'Risk from Governance Pulse',
+            description: riskDescription,
+            severity: 'high',
+            status: 'open',
+            likelihood: 3,
+            impact: 4,
+          });
+          toast.success('Risk created in Risk Register');
+        } catch { toast.error('Risk created in pulse but failed to add to register'); }
+      }
+
+      toast.success('Governance Pulse submitted successfully!');
+      setSubmitted(true);
+      setShowRiskPrompt(false);
+      setTimeout(() => navigate('/dashboard'), 2000);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to submit pulse');
+    } finally {
+      setIsSubmitting(false);
     }
   };
+
+  if (isLoading) return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    </div>
+  );
+
+  if (submitted) return (
+    <div className="min-h-screen bg-white">
+      <RoleBasedNavigation />
+      <div className="p-6 pt-20 flex items-center justify-center">
+        <div className="text-center">
+          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-black mb-2">Pulse Submitted!</h2>
+          <p className="text-gray-600 mb-4">Your governance pulse for today has been recorded.</p>
+          <button onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-black text-white hover:bg-gray-800">
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-white">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20">
+      <div className="p-6 w-full pt-20 max-w-3xl">
         {/* Header */}
         <div className="mb-8 border-b-2 border-black pb-6">
+          <h1 className="text-3xl font-semibold text-black mb-2">Governance Pulse</h1>
           <div className="flex justify-between items-center mt-4">
             <div>
               <span className="text-gray-600">House: </span>
-              <span className="font-medium text-black">{selectedHouse}</span>
+              <span className="font-medium text-black">{house?.name || '—'}</span>
             </div>
             <div>
-              <span className="text-gray-600">Day: </span>
-              <span className="font-medium text-black">{currentDate.split(',')[0]}</span>
+              <span className="text-gray-600">Date: </span>
+              <span className="font-medium text-black">{currentDate}</span>
             </div>
           </div>
-          
-          {/* House Selector - Only for non-registered-manager roles */}
-          {user?.role !== 'registered-manager' && (
-            <div className="mt-4">
-              <select 
-                value={selectedHouse}
-                onChange={(e) => setSelectedHouse(e.target.value)}
-                className="px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black"
-              >
-                {houses.map(house => (
-                  <option key={house.id} value={house.name}>{house.name}</option>
-                ))}
-              </select>
-            </div>
-          )}
         </div>
 
-        {/* Pulse Timing Info */}
+        {/* Pulse Schedule Info */}
         <div className="mb-8 bg-gray-50 border-2 border-gray-300 p-4">
-          <div className="flex justify-between text-sm">
-            <div>
-              <span className="text-gray-600">Last Pulse Completed: </span>
-              <span className="font-medium text-black">{lastPulseDate}</span>
+          <div className="flex justify-between text-sm flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Clock className="w-4 h-4 text-gray-500" />
+              <span className="text-gray-600">Pulse days: </span>
+              <span className="font-medium text-black">{pulseDays.join(', ')}</span>
             </div>
             <div>
-              <span className="text-gray-600">Next Pulse Due: </span>
-              <span className="font-medium text-black">{nextPulseDate}</span>
+              <span className="text-gray-600">Last completed: </span>
+              <span className="font-medium text-black">
+                {lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : 'None yet'}
+              </span>
+            </div>
+            <div>
+              <span className="text-gray-600">Next due: </span>
+              <span className="font-medium text-black">{nextPulseDate || '—'}</span>
             </div>
           </div>
         </div>
 
-        <div className="space-y-6">
-          {/* 1. Emerging Risk Signals */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">1. Emerging Risk Signals</h3>
-            <p className="text-gray-600 mb-4">Have any new risks emerged since the last pulse?</p>
-            
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="emergingRisk"
-                  value="none"
-                  checked={pulseData.emergingRisk === "none"}
-                  onChange={(e) => setPulseData({...pulseData, emergingRisk: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">No new signals</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="emergingRisk"
-                  value="yes"
-                  checked={pulseData.emergingRisk === "yes"}
-                  onChange={(e) => setPulseData({...pulseData, emergingRisk: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Yes – new risk identified</span>
-              </label>
-              
-              {pulseData.emergingRisk === "yes" && (
-                <textarea
-                  value={pulseData.emergingRiskDescription}
-                  onChange={(e) => setPulseData({...pulseData, emergingRiskDescription: e.target.value})}
-                  placeholder="Short description"
-                  className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
-                />
-              )}
+        {/* Questions */}
+        {questions.length === 0 ? (
+          <div className="text-center py-12 text-gray-500 border-2 border-gray-300 p-6">
+            <p>No pulse template configured yet.</p>
+            <p className="text-sm mt-2">Contact your Admin to set up governance questions.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {questions.map((q, idx) => (
+              <div key={q.id} className="border-2 border-gray-300 p-4">
+                <h3 className="font-semibold text-black mb-3">
+                  {idx + 1}. {q.question}
+                  {q.required && <span className="text-red-500 ml-1">*</span>}
+                </h3>
+
+                {q.question_type === 'yes_no' && (
+                  <div className="space-y-2">
+                    {['no', 'yes'].map(val => (
+                      <label key={val} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={q.id}
+                          value={val}
+                          checked={answers[q.id] === val}
+                          onChange={() => handleAnswerChange(q.id, val)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-black">{val === 'yes' ? 'Yes' : 'No'}</span>
+                      </label>
+                    ))}
+                    {answers[q.id] === 'yes' && (
+                      <textarea
+                        placeholder="Please provide details..."
+                        value={answers[`${q.id}_detail`] || ''}
+                        onChange={e => handleAnswerChange(`${q.id}_detail`, e.target.value)}
+                        className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none resize-none mt-2"
+                      />
+                    )}
+                  </div>
+                )}
+
+                {q.question_type === 'multiple_choice' && (
+                  <div className="space-y-2">
+                    {(q.options || []).map(opt => (
+                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="radio"
+                          name={q.id}
+                          value={opt}
+                          checked={answers[q.id] === opt}
+                          onChange={() => handleAnswerChange(q.id, opt)}
+                          className="w-4 h-4"
+                        />
+                        <span className="text-black">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
+                {q.question_type === 'text' && (
+                  <textarea
+                    value={answers[q.id] || ''}
+                    onChange={e => handleAnswerChange(q.id, e.target.value)}
+                    placeholder="Your observations..."
+                    className="w-full h-24 px-3 py-2 border-2 border-black focus:outline-none resize-none"
+                  />
+                )}
+
+                {q.question_type === 'scale' && (
+                  <div className="flex gap-2 mt-2">
+                    {[1, 2, 3, 4, 5].map(n => (
+                      <button
+                        key={n}
+                        onClick={() => handleAnswerChange(q.id, String(n))}
+                        className={`w-10 h-10 border-2 font-semibold transition-colors ${
+                          answers[q.id] === String(n) ? 'bg-black text-white border-black' : 'border-gray-300 hover:border-black'
+                        }`}
+                      >
+                        {n}
+                      </button>
+                    ))}
+                    <span className="text-sm text-gray-500 self-center ml-2">1=Low, 5=High</span>
+                  </div>
+                )}
+              </div>
+            ))}
+
+            <div className="flex justify-end mt-8">
+              <button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-8 py-3 bg-black text-white hover:bg-gray-800 transition-colors font-medium disabled:opacity-50"
+              >
+                {isSubmitting ? 'Submitting...' : 'Submit Governance Pulse'}
+              </button>
             </div>
           </div>
+        )}
 
-          {/* 2. Risk Movement */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">2. Risk Movement</h3>
-            <p className="text-gray-600 mb-4">Are any existing risks increasing or deteriorating?</p>
-            
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="riskMovement"
-                  value="none"
-                  checked={pulseData.riskMovement === "none"}
-                  onChange={(e) => setPulseData({...pulseData, riskMovement: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">No change</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="riskMovement"
-                  value="yes"
-                  checked={pulseData.riskMovement === "yes"}
-                  onChange={(e) => setPulseData({...pulseData, riskMovement: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Yes – risk increasing</span>
-              </label>
-              
-              {pulseData.riskMovement === "yes" && (
-                <textarea
-                  value={pulseData.riskMovementDescription}
-                  onChange={(e) => setPulseData({...pulseData, riskMovementDescription: e.target.value})}
-                  placeholder="Select risk"
-                  className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* 3. Safeguarding Signals */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">3. Safeguarding Signals</h3>
-            <p className="text-gray-600 mb-4">Any safeguarding concerns or indicators this week?</p>
-            
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="safeguardingSignals"
-                  value="none"
-                  checked={pulseData.safeguardingSignals === "none"}
-                  onChange={(e) => setPulseData({...pulseData, safeguardingSignals: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">None</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="safeguardingSignals"
-                  value="yes"
-                  checked={pulseData.safeguardingSignals === "yes"}
-                  onChange={(e) => setPulseData({...pulseData, safeguardingSignals: e.target.value as "none" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Concern identified</span>
-              </label>
-              
-              {pulseData.safeguardingSignals === "yes" && (
-                <textarea
-                  value={pulseData.safeguardingDescription}
-                  onChange={(e) => setPulseData({...pulseData, safeguardingDescription: e.target.value})}
-                  placeholder="Short description"
-                  className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* 4. Operational Pressure */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">4. Operational Pressure</h3>
-            <p className="text-gray-600 mb-4">Any operational pressures affecting service stability?</p>
-            
-            <div className="space-y-2">
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="operationalPressure"
-                  value="staffing"
-                  checked={pulseData.operationalPressure === "staffing"}
-                  onChange={(e) => setPulseData({...pulseData, operationalPressure: e.target.value as any})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Staffing pressure</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="operationalPressure"
-                  value="behavioural"
-                  checked={pulseData.operationalPressure === "behavioural"}
-                  onChange={(e) => setPulseData({...pulseData, operationalPressure: e.target.value as any})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Behavioural support challenges</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="operationalPressure"
-                  value="medication"
-                  checked={pulseData.operationalPressure === "medication"}
-                  onChange={(e) => setPulseData({...pulseData, operationalPressure: e.target.value as any})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Medication concerns</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="operationalPressure"
-                  value="environmental"
-                  checked={pulseData.operationalPressure === "environmental"}
-                  onChange={(e) => setPulseData({...pulseData, operationalPressure: e.target.value as any})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Environmental issue</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="operationalPressure"
-                  value="none"
-                  checked={pulseData.operationalPressure === "none"}
-                  onChange={(e) => setPulseData({...pulseData, operationalPressure: e.target.value as any})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">None</span>
-              </label>
-            </div>
-          </div>
-
-          {/* 5. Escalation Required */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">5. Escalation Required?</h3>
-            <p className="text-gray-600 mb-4">Does anything require leadership attention?</p>
-            
-            <div className="space-y-3">
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="escalationRequired"
-                  value="no"
-                  checked={pulseData.escalationRequired === "no"}
-                  onChange={(e) => setPulseData({...pulseData, escalationRequired: e.target.value as "no" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">No escalation required</span>
-              </label>
-              
-              <label className="flex items-center gap-3">
-                <input
-                  type="radio"
-                  name="escalationRequired"
-                  value="yes"
-                  checked={pulseData.escalationRequired === "yes"}
-                  onChange={(e) => setPulseData({...pulseData, escalationRequired: e.target.value as "no" | "yes"})}
-                  className="w-4 h-4 text-black"
-                />
-                <span className="text-black">Escalation required</span>
-              </label>
-              
-              {pulseData.escalationRequired === "yes" && (
-                <textarea
-                  value={pulseData.escalationReason}
-                  onChange={(e) => setPulseData({...pulseData, escalationReason: e.target.value})}
-                  placeholder="Reason"
-                  className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
-                />
-              )}
-            </div>
-          </div>
-
-          {/* Additional Observations */}
-          <div className="border-2 border-gray-300 p-4">
-            <h3 className="font-semibold text-black mb-3">Additional Observations (Optional)</h3>
-            <textarea
-              value={pulseData.additionalObservations}
-              onChange={(e) => setPulseData({...pulseData, additionalObservations: e.target.value})}
-              placeholder="Short text field"
-              className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
-            />
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex justify-end mt-8">
-            <button
-              onClick={handleSubmit}
-              className="px-8 py-3 bg-black text-white hover:bg-gray-800 transition-colors font-medium"
-            >
-              Submit Governance Pulse
-            </button>
-          </div>
-        </div>
-
-        {/* Risk Creation Prompt Modal */}
-        {riskCreationPrompt.show && (
+        {/* Risk Creation Prompt */}
+        {showRiskPrompt && (
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-            <div className="bg-white border-2 border-black p-6 w-full max-w-md">
+            <div className="bg-white border-2 border-black p-6 w-full max-w-md mx-4">
               <div className="flex items-center gap-3 mb-4">
                 <AlertTriangle className="w-6 h-6 text-black" />
                 <h3 className="text-xl font-semibold text-black">Create Risk Register Entry?</h3>
               </div>
-              
-              <div className="mb-6">
-                <p className="text-gray-600 mb-4">
-                  Risk identified in Governance Pulse. Create Risk Register entry to track?
-                </p>
-                
-                <div className="bg-gray-50 border-2 border-gray-300 p-4">
-                  <div className="space-y-2">
-                    <div>
-                      <span className="text-sm text-gray-600">House:</span>
-                      <span className="ml-2 text-black font-medium">{riskCreationPrompt.house}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">Description:</span>
-                      <span className="ml-2 text-black">{riskCreationPrompt.description}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">Severity:</span>
-                      <span className="ml-2 text-black font-medium">{riskCreationPrompt.severity}</span>
-                    </div>
-                    <div>
-                      <span className="text-sm text-gray-600">Source:</span>
-                      <span className="ml-2 text-black capitalize">{riskCreationPrompt.source}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-              
+              <p className="text-gray-600 mb-4">
+                A risk was identified in this pulse. Add it to the Risk Register for tracking?
+              </p>
+              <textarea
+                value={riskDescription}
+                onChange={e => setRiskDescription(e.target.value)}
+                placeholder="Describe the risk in detail..."
+                className="w-full h-24 px-3 py-2 border-2 border-black focus:outline-none resize-none mb-4"
+              />
               <div className="flex justify-end gap-3">
                 <button
-                  onClick={() => setRiskCreationPrompt({...riskCreationPrompt, show: false})}
+                  onClick={() => { setShowRiskPrompt(false); submitPulse(); }}
                   className="px-4 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
                 >
-                  Cancel
+                  Skip
                 </button>
                 <button
-                  onClick={confirmRiskCreation}
-                  className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-2"
+                  onClick={() => submitPulse()}
+                  disabled={isSubmitting}
+                  className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
-                  Create Risk Entry
+                  {isSubmitting ? 'Submitting...' : 'Submit + Create Risk'}
                 </button>
               </div>
             </div>

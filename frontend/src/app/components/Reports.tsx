@@ -1,7 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { FileDown, Filter, Calendar, AlertTriangle } from "lucide-react";
+import { FileDown, Filter, Calendar } from "lucide-react";
+import apiClient from "@/services/apiClient";
 
 interface ReportFilters {
   dateRange: {
@@ -45,15 +46,50 @@ export function Reports() {
     { value: "weekly-summary", label: "Weekly Governance Summary" }
   ];
 
-  // Mock data for preview
-  const previewData = {
-    totalRisks: 47,
-    highSeverity: 12,
-    escalated: 8,
-    resolved: 23,
-    safeguardingConcerns: 6,
-    incidentCount: 34,
-    staffingStability: 89
+  // Real preview data from backend
+  const [previewData, setPreviewData] = useState({
+    totalRisks: 0, highSeverity: 0, escalated: 0, resolved: 0,
+    safeguardingConcerns: 0, incidentCount: 0, staffingStability: 0, pulsesCompleted: 0
+  });
+  const [isLoadingPreview, setIsLoadingPreview] = useState(true);
+
+  useEffect(() => { loadPreviewData(); }, []);
+
+  const loadPreviewData = async () => {
+    try {
+      const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+      const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+      let houseId: string | null = null;
+      if (userRole === 'REGISTERED_MANAGER') {
+        const hRes = await apiClient.get(`/users/${userId}/houses`);
+        const hData = (hRes.data as any).data || (hRes.data as any) || [];
+        const myHouse = Array.isArray(hData) ? hData[0] : hData;
+        if (myHouse) houseId = myHouse.id;
+      }
+      const hParam = houseId ? `?house_id=${houseId}` : '';
+      const [risksRes, incRes, pulseRes] = await Promise.allSettled([
+        apiClient.get(`/risks${hParam}&limit=200`),
+        apiClient.get(`/incidents${hParam}&limit=200`),
+        apiClient.get(`/governance/pulses${hParam}&limit=50`),
+      ]);
+      const r = risksRes.status === 'fulfilled' ? ((risksRes.value.data as any).data || (risksRes.value.data as any) || {}) : {};
+      const risks = r.risks || r.items || (Array.isArray(r) ? r : []);
+      const i = incRes.status === 'fulfilled' ? ((incRes.value.data as any).data || (incRes.value.data as any) || {}) : {};
+      const incs = i.incidents || i.items || (Array.isArray(i) ? i : []);
+      const p = pulseRes.status === 'fulfilled' ? ((pulseRes.value.data as any).data || (pulseRes.value.data as any) || {}) : {};
+      const pulses = p.pulses || p.items || (Array.isArray(p) ? p : []);
+      setPreviewData({
+        totalRisks: risks.length,
+        highSeverity: risks.filter((x: any) => x.severity === 'high' || x.severity === 'critical').length,
+        escalated: risks.filter((x: any) => x.status === 'escalated').length,
+        resolved: risks.filter((x: any) => x.status === 'resolved' || x.status === 'closed').length,
+        safeguardingConcerns: incs.filter((x: any) => x.severity === 'serious' || x.severity === 'critical').length,
+        incidentCount: incs.length,
+        staffingStability: pulses.length > 0 ? Math.round(pulses.filter((x: any) => x.status === 'completed').length / pulses.length * 100) : 0,
+        pulsesCompleted: pulses.filter((x: any) => x.status === 'completed').length,
+      });
+    } catch { /* silently fail - keep zeros */ }
+    finally { setIsLoadingPreview(false); }
   };
 
   const handleFilterChange = (category: keyof ReportFilters, value: any) => {

@@ -25,57 +25,64 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     const initializeAuth = async () => {
-      const token = localStorage.getItem('token');
-      
+      const token = localStorage.getItem('authToken');
+
       if (token) {
         try {
-          // Validate token by getting current user info
-          // This would require an endpoint like /api/auth/me
-          // For now, we'll assume the token is valid if it exists
-          setIsLoading(false);
+          // Validate token by calling /auth/me endpoint
+          const response = await apiClient.me();
+          if (response.success && response.data) {
+            setUser(response.data as unknown as User);
+          } else {
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+          }
         } catch (error) {
-          console.error('Token validation failed:', error);
-          localStorage.removeItem('token');
-          setIsLoading(false);
+          // If /auth/me fails, try falling back to stored user data
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+            } catch {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+            }
+          } else {
+            console.error('Token validation failed:', error);
+            localStorage.removeItem('authToken');
+          }
         }
-      } else {
-        setIsLoading(false);
       }
+      setIsLoading(false);
     };
 
     initializeAuth();
   }, []);
 
   const login = async (credentials: LoginRequest): Promise<void> => {
-    try {
-      const response = await apiClient.login(credentials);
-      
-      if (response.success && response.data) {
-        const { user: userData } = response.data;
-        setUser(userData);
-      } else {
-        throw new Error(response.error || 'Login failed');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    const response = await apiClient.login(credentials);
+
+    if (response.success && response.data) {
+      const { user: userData } = response.data;
+      setUser(userData);
+    } else {
+      throw new Error((response as any).message || 'Login failed');
     }
   };
 
   const logout = (): void => {
-    try {
-      apiClient.logout();
-    } catch (error) {
-      console.error('Logout error:', error);
-    } finally {
-      setUser(null);
-    }
+    apiClient.logout().catch(console.error);
+    setUser(null);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('refreshToken');
   };
 
   const refreshToken = async (): Promise<void> => {
     try {
       const response = await apiClient.refreshToken();
-      
+
       if (response.success && response.data) {
         const { user: userData } = response.data;
         setUser(userData);

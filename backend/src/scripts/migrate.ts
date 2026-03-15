@@ -1,7 +1,7 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { pool } from '../src/config/database';
-import logger from '../src/utils/logger';
+import { pool } from '../config/database';
+import logger from '../utils/logger';
 
 async function runMigrations() {
   const client = await pool.connect();
@@ -16,7 +16,7 @@ async function runMigrations() {
       )
     `);
 
-    const migrationsDir = path.join(__dirname, '..', 'migrations');
+    const migrationsDir = path.join(__dirname, '..', '..', 'migrations');
     const files = fs.readdirSync(migrationsDir)
       .filter(f => f.endsWith('.sql'))
       .sort();
@@ -41,9 +41,9 @@ async function runMigrations() {
         await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
         await client.query('COMMIT');
         logger.info(`✅ Migration executed: ${file}`);
-      } catch (err) {
+      } catch (err: any) {
         await client.query('ROLLBACK');
-        logger.error(`❌ Migration failed: ${file}`, err);
+        logger.error(`❌ Migration failed: ${file} | Error: ${err.message}`, err);
         throw err;
       }
     }

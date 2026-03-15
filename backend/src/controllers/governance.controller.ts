@@ -70,6 +70,72 @@ export class GovernanceController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  async getTemplateQuestions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const questions = await governanceService.getTemplateQuestions(req.params.id, company_id);
+      return res.json({ success: true, data: questions, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get template questions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async addTemplateQuestion(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const question = await governanceService.addTemplateQuestion(req.params.id, company_id, req.body);
+      return res.status(201).json({ success: true, data: question, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add template question';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async updateTemplateQuestion(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const question = await governanceService.updateTemplateQuestion(req.params.questionId, req.params.id, company_id, req.body);
+      return res.json({ success: true, data: question, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update template question';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async removeTemplateQuestion(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      await governanceService.removeTemplateQuestion(req.params.questionId, req.params.id, company_id);
+      return res.json({ success: true, data: { message: 'Question removed' }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to remove template question';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getPulseAnswers(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const answers = await governanceService.getPulseAnswers(req.params.id, company_id);
+      return res.json({ success: true, data: answers, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get pulse answers';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async updatePulseStatus(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await governanceService.updatePulseStatus(req.params.id, company_id, req.body.status);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update pulse status';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const governanceController = new GovernanceController();

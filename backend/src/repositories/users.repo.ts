@@ -98,4 +98,43 @@ export const usersRepo = {
     );
     return result.rows;
   },
+
+  async getPermissions(user_id: string) {
+    const result = await query(
+      `SELECT DISTINCT p.name, p.description, p.module
+       FROM users u
+       JOIN role_permissions rp ON rp.role_id = (SELECT id FROM roles WHERE name = u.role LIMIT 1)
+       JOIN permissions p ON p.id = rp.permission_id
+       WHERE u.id = $1`,
+       [user_id]
+    );
+    return result.rows;
+  },
+
+  async getRoleDetails(user_id: string) {
+     const result = await query(
+       `SELECT r.id, r.name, r.description 
+        FROM users u 
+        JOIN roles r ON r.name = u.role 
+        WHERE u.id = $1 LIMIT 1`,
+        [user_id]
+     );
+     return result.rows;
+  },
+
+  async assignRole(user_id: string, role_name: string) {
+     const result = await query(
+       `UPDATE users SET role = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+       [role_name, user_id]
+     );
+     return result.rows[0];
+  },
+  
+  async updateStatus(user_id: string, status: string) {
+     const result = await query(
+       `UPDATE users SET status = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+       [status, user_id]
+     );
+     return result.rows[0];
+  }
 };

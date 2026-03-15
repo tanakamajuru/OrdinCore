@@ -1,0 +1,81 @@
+﻿
+=== analytics.routes.ts ===
+router.get('/dashboard', requireAuth, requireTenant, analyticsController.dashboard.bind(analyticsController));
+router.get('/risk-trends', requireAuth, requireTenant, analyticsController.riskTrends.bind(analyticsController));
+router.get('/site-performance', requireAuth, requireTenant, analyticsController.sitePerformance.bind(analyticsController));
+router.get('/governance-compliance', requireAuth, requireTenant, analyticsController.governanceCompliance.bind(analyticsController));
+router.get('/escalation-rate', requireAuth, requireTenant, analyticsController.escalationRate.bind(analyticsController));
+
+=== auth.routes.ts ===
+router.post('/login', authController.login.bind(authController));
+router.post('/logout', requireAuth, authController.logout.bind(authController));
+router.post('/refresh', authController.refresh.bind(authController));
+router.get('/me', requireAuth, authController.me.bind(authController));
+router.post('/change-password', requireAuth, authController.changePassword.bind(authController));
+
+=== companies.routes.ts ===
+router.post('/', requireAuth, requireRole('SUPER_ADMIN'), companyController.create.bind(companyController));
+router.get('/', requireAuth, requireRole('SUPER_ADMIN'), companyController.findAll.bind(companyController));
+router.get('/:id', requireAuth, requireRole('SUPER_ADMIN'), companyController.findById.bind(companyController));
+router.patch('/:id', requireAuth, requireRole('SUPER_ADMIN'), companyController.update.bind(companyController));
+router.delete('/:id', requireAuth, requireRole('SUPER_ADMIN'), companyController.delete.bind(companyController));
+
+=== escalations.routes.ts ===
+router.get('/', requireAuth, requireTenant, escalationsController.findAll.bind(escalationsController));
+router.get('/:id', requireAuth, requireTenant, escalationsController.findById.bind(escalationsController));
+router.post('/:id/resolve', requireAuth, requireTenant, escalationsController.resolve.bind(escalationsController));
+router.post('/:id/acknowledge', requireAuth, requireTenant, escalationsController.acknowledge.bind(escalationsController));
+
+=== governance.routes.ts ===
+router.post('/templates', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governanceController.createTemplate.bind(governanceController));
+router.get('/templates', requireAuth, requireTenant, governanceController.getTemplates.bind(governanceController));
+router.post('/pulse', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governanceController.createPulse.bind(governanceController));
+router.get('/pulses', requireAuth, requireTenant, governanceController.getPulses.bind(governanceController));
+router.get('/pulses/:id', requireAuth, requireTenant, governanceController.getPulseById.bind(governanceController));
+router.post('/pulses/:id/submit', requireAuth, requireTenant, governanceController.submitAnswers.bind(governanceController));
+
+=== houses.routes.ts ===
+router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), housesController.create.bind(housesController));
+router.get('/', requireAuth, requireTenant, housesController.findAll.bind(housesController));
+router.get('/:id', requireAuth, requireTenant, housesController.findById.bind(housesController));
+router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), housesController.update.bind(housesController));
+router.delete('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), housesController.delete.bind(housesController));
+
+=== incidents.routes.ts ===
+router.post('/', requireAuth, requireTenant, incidentsController.create.bind(incidentsController));
+router.get('/', requireAuth, requireTenant, incidentsController.findAll.bind(incidentsController));
+router.get('/:id', requireAuth, requireTenant, incidentsController.findById.bind(incidentsController));
+router.patch('/:id', requireAuth, requireTenant, incidentsController.update.bind(incidentsController));
+router.delete('/:id', requireAuth, requireTenant, incidentsController.delete.bind(incidentsController));
+
+=== notifications.routes.ts ===
+router.get('/', requireAuth, notificationsController.findAll.bind(notificationsController));
+router.patch('/read-all', requireAuth, notificationsController.markAllRead.bind(notificationsController));
+router.patch('/:id/read', requireAuth, notificationsController.markRead.bind(notificationsController));
+router.get('/preferences', requireAuth, notificationsController.getPreferences.bind(notificationsController));
+router.put('/preferences', requireAuth, notificationsController.updatePreferences.bind(notificationsController));
+
+=== reports.routes.ts ===
+router.post('/request', requireAuth, requireTenant, reportsController.request.bind(reportsController));
+router.get('/', requireAuth, requireTenant, reportsController.findAll.bind(reportsController));
+router.get('/:id', requireAuth, requireTenant, reportsController.findById.bind(reportsController));
+router.get('/:id/download', requireAuth, requireTenant, reportsController.download.bind(reportsController));
+
+=== risks.routes.ts ===
+router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), risksController.create.bind(risksController));
+router.get('/', requireAuth, requireTenant, risksController.findAll.bind(risksController));
+router.get('/:id', requireAuth, requireTenant, risksController.findById.bind(risksController));
+router.patch('/:id', requireAuth, requireTenant, risksController.update.bind(risksController));
+router.delete('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.delete.bind(risksController));
+router.post('/:id/event', requireAuth, requireTenant, risksController.addEvent.bind(risksController));
+router.post('/:id/action', requireAuth, requireTenant, risksController.addAction.bind(risksController));
+router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.escalate.bind(risksController));
+router.get('/:id/timeline', requireAuth, requireTenant, risksController.getTimeline.bind(risksController));
+
+=== users.routes.ts ===
+router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.create.bind(usersController));
+router.get('/', requireAuth, requireTenant, usersController.findAll.bind(usersController));
+router.get('/:id', requireAuth, requireTenant, usersController.findById.bind(usersController));
+router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.update.bind(usersController));
+router.delete('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.delete.bind(usersController));
+router.post('/:id/assign-house', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), usersController.assignHouse.bind(usersController));

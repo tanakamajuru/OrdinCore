@@ -32,6 +32,60 @@ export class HousesService {
     if (!house) throw new Error('House not found');
     await housesRepo.delete(id, company_id);
   }
+
+  async getStaff(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    return housesRepo.getUsers(id, company_id);
+  }
+
+  async assignStaff(id: string, company_id: string, user_id: string, role_in_house?: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    return housesRepo.assignStaff(id, company_id, user_id, role_in_house);
+  }
+
+  async removeStaff(id: string, company_id: string, user_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    await housesRepo.removeStaff(id, company_id, user_id);
+  }
+
+  async getSettings(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    return housesRepo.getSettings(id, company_id);
+  }
+
+  async updateSettings(id: string, company_id: string, settings: any) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    return housesRepo.updateSettings(id, company_id, settings);
+  }
+
+  async getRisks(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(`SELECT * FROM risks WHERE house_id = $1 AND company_id = $2`, [id, company_id]);
+    return result.rows;
+  }
+
+  async getIncidents(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(`SELECT * FROM incidents WHERE house_id = $1 AND company_id = $2`, [id, company_id]);
+    return result.rows;
+  }
+
+  async getGovernancePulses(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(`SELECT * FROM governance_pulses WHERE house_id = $1 AND company_id = $2`, [id, company_id]);
+    return result.rows;
+  }
 }
 
 export const housesService = new HousesService();

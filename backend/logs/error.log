@@ -1,0 +1,20 @@
+2026-03-15 08:13:44 [error]: Error: ENOENT: no such file or directory, scandir 'C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\migrations'
+    at Object.readdirSync (node:fs:1569:26)
+    at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-03-15 08:14:08 [error]: Error: ENOENT: no such file or directory, scandir 'C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\migrations'
+    at Object.readdirSync (node:fs:1569:26)
+    at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-03-15 08:16:08 [error]: Error: ENOENT: no such file or directory, scandir 'C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\migrations'
+    at Object.readdirSync (node:fs:1569:26)
+    at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-03-15 08:19:31 [error]: Error: ENOENT: no such file or directory, scandir 'C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\migrations'
+    at Object.readdirSync (node:fs:1569:26)
+    at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-03-15 08:23:24 [error]: Error: ENOENT: no such file or directory, scandir 'C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\migrations'
+    at Object.readdirSync (node:fs:1569:26)
+    at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)

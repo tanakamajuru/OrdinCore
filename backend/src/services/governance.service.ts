@@ -141,6 +141,76 @@ export class GovernanceService {
     );
     return result.rows;
   }
+
+  async getTemplateQuestions(template_id: string, company_id: string) {
+    const result = await query(
+      `SELECT * FROM governance_questions 
+       WHERE template_id = $1 AND (company_id = $2 OR company_id IS NULL)
+       ORDER BY order_index ASC`,
+      [template_id, company_id]
+    );
+    return result.rows;
+  }
+
+  async addTemplateQuestion(template_id: string, company_id: string, data: { question: string; question_type: string; required?: boolean; options?: unknown[]; order_index?: number }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO governance_questions (id, template_id, company_id, question, question_type, required, options, order_index)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, template_id, company_id, data.question, data.question_type || 'yes_no', data.required !== false, JSON.stringify(data.options || []), data.order_index || 0]
+    );
+    return result.rows[0];
+  }
+
+  async updateTemplateQuestion(question_id: string, template_id: string, company_id: string, data: Record<string, unknown>) {
+    const allowed = ['question', 'question_type', 'required', 'options', 'order_index'];
+    const filteredData: Record<string, unknown> = {};
+    for (const key of allowed) {
+      if (key in data) filteredData[key] = data[key];
+    }
+    
+    // Convert options to JSON string if it exists
+    if (filteredData.options) {
+      filteredData.options = JSON.stringify(filteredData.options);
+    }
+
+    const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 4}`).join(', ');
+    const values = Object.values(filteredData);
+    
+    const result = await query(
+      `UPDATE governance_questions SET ${fields} 
+       WHERE id = $1 AND template_id = $2 AND (company_id = $3 OR company_id IS NULL) RETURNING *`,
+      [question_id, template_id, company_id, ...values]
+    );
+    return result.rows[0];
+  }
+
+  async removeTemplateQuestion(question_id: string, template_id: string, company_id: string) {
+    await query(
+      `DELETE FROM governance_questions WHERE id = $1 AND template_id = $2 AND (company_id = $3 OR company_id IS NULL)`,
+      [question_id, template_id, company_id]
+    );
+  }
+
+  async getPulseAnswers(pulse_id: string, company_id: string) {
+    const result = await query(
+      `SELECT ga.*, u.first_name || ' ' || u.last_name AS answered_by_name
+       FROM governance_answers ga
+       LEFT JOIN users u ON u.id = ga.answered_by
+       WHERE ga.pulse_id = $1 AND ga.company_id = $2`,
+      [pulse_id, company_id]
+    );
+    return result.rows;
+  }
+
+  async updatePulseStatus(pulse_id: string, company_id: string, status: string) {
+    const result = await query(
+      `UPDATE governance_pulses SET status = $1, updated_at = NOW() 
+       WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [status, pulse_id, company_id]
+    );
+    return result.rows[0];
+  }
 }
 
 export const governanceService = new GovernanceService();

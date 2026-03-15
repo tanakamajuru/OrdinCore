@@ -80,6 +80,64 @@ export class RisksService {
     if (!risk) throw new Error('Risk not found');
     return risksRepo.getTimeline(risk_id, company_id);
   }
+
+  async getCategories(company_id: string) {
+    return risksRepo.getCategories(company_id);
+  }
+
+  async createCategory(company_id: string, user_id: string, data: { name: string; description?: string; color?: string }) {
+    return risksRepo.createCategory(company_id, { ...data, created_by: user_id });
+  }
+
+  async getAttachments(risk_id: string, company_id: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    return risksRepo.getAttachments(risk_id, company_id);
+  }
+
+  async addAttachment(risk_id: string, company_id: string, user_id: string, data: { file_name: string; file_url: string; file_type?: string; file_size?: number }) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    const attachment = await risksRepo.addAttachment(risk_id, company_id, { ...data, uploaded_by: user_id });
+    await risksRepo.addEvent(risk_id, company_id, 'attachment_added', `Attachment added: ${data.file_name}`, user_id);
+    return attachment;
+  }
+
+  async removeAttachment(risk_id: string, company_id: string, user_id: string, attachment_id: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    await risksRepo.removeAttachment(attachment_id, risk_id, company_id);
+    await risksRepo.addEvent(risk_id, company_id, 'attachment_removed', `Attachment removed`, user_id);
+  }
+
+  async assignRisk(risk_id: string, company_id: string, user_id: string, assigned_to: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    const updated = await risksRepo.assignRisk(risk_id, company_id, assigned_to);
+    await risksRepo.addEvent(risk_id, company_id, 'assigned', `Risk assigned`, user_id);
+    return updated;
+  }
+
+  async getAssignedToMe(company_id: string, user_id: string, page = 1, limit = 50) {
+    const offset = (page - 1) * limit;
+    const filters = { assigned_to: user_id, status: 'open' };
+    const [risks, total] = await Promise.all([
+      risksRepo.findByCompany(company_id, filters, limit, offset),
+      risksRepo.countByCompany(company_id, filters),
+    ]);
+    return { risks, total, page, limit, pages: Math.ceil(total / limit) };
+  }
+
+  async updateStatus(risk_id: string, company_id: string, user_id: string, status: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    const updated = await risksRepo.updateStatus(risk_id, company_id, status);
+    await risksRepo.addEvent(risk_id, company_id, 'status_updated', `Status changed to ${status}`, user_id);
+    if (status === 'closed' || status === 'resolved') {
+      await risksRepo.update(risk_id, company_id, { resolved_at: new Date() });
+    }
+    return updated;
+  }
 }
 
 export const risksService = new RisksService();

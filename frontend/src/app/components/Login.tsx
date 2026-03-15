@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
+import { apiClient } from "@/services/api";
 
 export function Login() {
   const navigate = useNavigate();
@@ -13,7 +14,7 @@ export function Login() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     handle.enter();
-    
+
     if (!email || !password) {
       setError("Please enter both email and password");
       return;
@@ -23,36 +24,34 @@ export function Login() {
     setError("");
 
     try {
-      const response = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+      const response = await apiClient.login({ email, password });
+      const data = response as any;
 
-      const data = await response.json();
+      if (data.success && data.data) {
+        const { user, token } = data.data;
 
-      if (data.success) {
-        // Store authentication data
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('userRole', data.user.role);
-        localStorage.setItem('userName', data.user.name);
-        localStorage.setItem('userEmail', data.user.email);
-        localStorage.setItem('userId', data.user.id);
-        localStorage.setItem('userRole', data.user.role);
-        
+        // Store authentication data consistently
+        localStorage.setItem('authToken', token);
+        localStorage.setItem('user', JSON.stringify(user));
+        localStorage.setItem('userRole', user.role);
+        localStorage.setItem('userName', `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email);
+        localStorage.setItem('userEmail', user.email);
+        localStorage.setItem('userId', user.id);
+
         // Route based on user role
-        if (data.user.role === 'admin') {
+        const role = (user.role || '').toUpperCase();
+        if (role === 'SUPER_ADMIN') {
+          navigate('/super-admin');
+        } else if (role === 'ADMIN') {
           navigate('/admin-dashboard');
         } else {
           navigate('/dashboard');
         }
       } else {
-        setError(data.error || "Invalid email or password");
+        setError(data.message || data.error || "Invalid email or password");
       }
-    } catch (err) {
-      setError("Login failed. Please try again.");
+    } catch (err: any) {
+      setError(err.message || "Login failed. Please try again.");
       console.error('Login error:', err);
     } finally {
       setIsLoading(false);
@@ -69,7 +68,7 @@ export function Login() {
             <p className="text-gray-600">Secure Governance Platform</p>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6">
+          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
             {error && (
               <div className="text-red-600 text-sm italic text-center">{error}</div>
             )}
@@ -86,6 +85,7 @@ export function Login() {
                 className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 required
                 disabled={isLoading}
+                autoComplete="off"
               />
             </div>
 
@@ -101,6 +101,7 @@ export function Login() {
                 className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 required
                 disabled={isLoading}
+                autoComplete="new-password"
               />
             </div>
 

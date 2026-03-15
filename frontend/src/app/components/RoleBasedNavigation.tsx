@@ -1,17 +1,26 @@
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown, BarChart3, Eye, Ambulance, Settings } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 
 export function RoleBasedNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const userRole = localStorage.getItem('userRole') || 'registered-manager';
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
 
   const getNavigationItems = () => {
     switch (userRole) {
-      case 'admin':
+      case 'ADMIN':
         return [
-          { path: "/admin", label: "Admin Dashboard", icon: Settings },
+          { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
+          { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
+          { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
+          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/reports", label: "Reports", icon: FileDown },
+          { path: "/profile", label: "Profile", icon: User },
+        ];
+      
+      case 'REGISTERED_MANAGER':
+        return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
@@ -20,17 +29,7 @@ export function RoleBasedNavigation() {
           { path: "/profile", label: "Profile", icon: User },
         ];
       
-      case 'registered-manager':
-        return [
-          { path: "/dashboard", label: "Dashboard", icon: Home },
-          { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
-          { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
-          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/profile", label: "Profile", icon: User },
-        ];
-      
-      case 'responsible-individual':
+      case 'RESPONSIBLE_INDIVIDUAL':
         return [
           { path: "/dashboard", label: "Cross-Site Dashboard", icon: Home },
           { path: "/escalation-log", label: "Escalation Management", icon: AlertTriangle },
@@ -43,7 +42,7 @@ export function RoleBasedNavigation() {
           { path: "/profile", label: "Profile", icon: User },
         ];
       
-      case 'director':
+      case 'DIRECTOR':
         return [
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -62,13 +61,20 @@ export function RoleBasedNavigation() {
 
   const getRoleLabel = () => {
     switch (userRole) {
-      case 'admin': return 'Admin';
-      case 'registered-manager': return 'Registered Manager';
-      case 'responsible-individual': return 'Responsible Individual';
-      case 'director': return 'Director';
+      case 'ADMIN': return 'Company Admin';
+      case 'REGISTERED_MANAGER': return 'Registered Manager';
+      case 'RESPONSIBLE_INDIVIDUAL': return 'Responsible Individual';
+      case 'DIRECTOR': return 'Director';
+      case 'SUPER_ADMIN': return 'Super Admin';
       default: return 'User';
     }
   };
+
+  const handleLogout = () => {
+    localStorage.clear();
+    navigate('/login');
+  };
+
 
   return (
     <nav className="bg-white border-b-2 border-black fixed top-0 left-0 right-0 z-50">
@@ -102,7 +108,7 @@ export function RoleBasedNavigation() {
             <div className="text-sm text-gray-600 mr-4">
               {getRoleLabel()}
             </div>
-            <Button onClick={() => navigate("/login")}>Logout</Button>
+            <Button onClick={handleLogout}>Logout</Button>
           </div>
         </div>
       </div>

@@ -20,6 +20,9 @@ import escalationsRoutes from './routes/escalations.routes';
 import reportsRoutes from './routes/reports.routes';
 import analyticsRoutes from './routes/analytics.routes';
 import notificationsRoutes from './routes/notifications.routes';
+import rolesRoutes from './routes/roles.routes';
+import systemRoutes from './routes/system.routes';
+import exportsRoutes from './routes/exports.routes';
 
 dotenv.config();
 
@@ -75,6 +78,9 @@ app.use(`${API}/escalations`, escalationsRoutes);
 app.use(`${API}/reports`, reportsRoutes);
 app.use(`${API}/analytics`, analyticsRoutes);
 app.use(`${API}/notifications`, notificationsRoutes);
+app.use(`${API}/roles`, rolesRoutes);
+app.use(`${API}/system`, systemRoutes);
+app.use(`${API}/exports`, exportsRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

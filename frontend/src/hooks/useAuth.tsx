@@ -1,12 +1,16 @@
 import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { apiClient } from '@/services/api';
 
 interface User {
   id: string;
   email: string;
-  name: string;
-  role: 'registered-manager' | 'responsible-individual' | 'director';
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'REGISTERED_MANAGER' | 'RESPONSIBLE_INDIVIDUAL' | 'DIRECTOR' | 'super-admin' | 'admin' | 'registered-manager' | 'responsible-individual' | 'director';
+  company_id?: string;
   assignedHouse?: string;
-  isActive: boolean;
+  isActive?: boolean;
 }
 
 interface AuthContextType {
@@ -38,65 +42,65 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing token on mount
-    const storedToken = localStorage.getItem('authToken');
-    const storedUser = localStorage.getItem('user');
+    const initAuth = async () => {
+      const storedToken = localStorage.getItem('authToken');
 
-    if (storedToken && storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setUser(parsedUser);
-        setToken(storedToken);
-      } catch (error) {
-        console.error('Failed to parse stored user:', error);
-        localStorage.removeItem('authToken');
-        localStorage.removeItem('user');
+      if (storedToken) {
+        try {
+          // Validate token by calling /auth/me
+          const response = await apiClient.me();
+          if (response.success && response.data) {
+            setUser(response.data as unknown as User);
+            setToken(storedToken);
+          } else {
+            // Token invalid
+            localStorage.removeItem('authToken');
+            localStorage.removeItem('user');
+          }
+        } catch {
+          // Token expired or server error — fall back to stored user data
+          const storedUser = localStorage.getItem('user');
+          if (storedUser) {
+            try {
+              setUser(JSON.parse(storedUser));
+              setToken(storedToken);
+            } catch {
+              localStorage.removeItem('authToken');
+              localStorage.removeItem('user');
+            }
+          } else {
+            localStorage.removeItem('authToken');
+          }
+        }
       }
-    }
 
-    setIsLoading(false);
+      setIsLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (email: string, password: string) => {
-    try {
-      // Make API call to login endpoint
-      const response = await fetch(`${process.env.REACT_APP_API_URL || 'http://localhost:3001/api'}/auth/login`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ email, password }),
-      });
+    const response = await apiClient.login({ email, password });
 
-      if (!response.ok) {
-        throw new Error('Login failed');
-      }
-
-      const data = await response.json();
-      
-      if (data.success && data.data) {
-        const { user: userData, token: userToken } = data.data;
-        
-        setUser(userData);
-        setToken(userToken);
-        
-        // Store in localStorage
-        localStorage.setItem('authToken', userToken);
-        localStorage.setItem('user', JSON.stringify(userData));
-      } else {
-        throw new Error(data.error || 'Login failed');
-      }
-    } catch (error) {
-      console.error('Login error:', error);
-      throw error;
+    if (response.success && (response as any).data) {
+      const { user: userData, token: userToken } = (response as any).data;
+      setUser(userData);
+      setToken(userToken);
+      localStorage.setItem('authToken', userToken);
+      localStorage.setItem('user', JSON.stringify(userData));
+    } else {
+      throw new Error((response as any).message || 'Login failed');
     }
   };
 
   const logout = () => {
+    apiClient.logout().catch(console.error);
     setUser(null);
     setToken(null);
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
   };
 
   const value: AuthContextType = {

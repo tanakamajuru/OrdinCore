@@ -1,98 +1,117 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Ambulance, Plus } from "lucide-react";
-import { dashboardApi, DashboardData } from "@/services/dashboardApi";
-import { useAuth } from "@/hooks/useAuth";
+import { Ambulance, Plus, AlertTriangle, Activity } from "lucide-react";
 import { toast } from "sonner";
+import apiClient from "@/services/apiClient";
+
+interface House { id: string; name: string; address: string; }
+interface Risk { id: string; title: string; severity: string; status: string; created_at: string; }
+interface Incident { id: string; title: string; severity: string; status: string; occurred_at: string; }
+interface PulseSummary { status: string; due_date: string; compliance_score: number | null; }
 
 export function RegisteredManagerDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [house, setHouse] = useState<House | null>(null);
+  const [todayPulse, setTodayPulse] = useState<PulseSummary | null>(null);
+  const [highRisks, setHighRisks] = useState<Risk[]>([]);
+  const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [weeklyStats, setWeeklyStats] = useState({ highRiskDays: 0, safeguardingDays: 0, escalations: 0, activeIncidents: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
-  useEffect(() => {
-    loadDashboardData();
-  }, []);
+  useEffect(() => { loadDashboard(); }, []);
 
-  const loadDashboardData = async () => {
+  const loadDashboard = async () => {
     try {
-      const data = await dashboardApi.getDashboardData('registered-manager');
-      setDashboardData(data);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      // 1. Get user's assigned house
+      const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+      const housesRes = await apiClient.get(`/users/${userId}/houses`);
+      const housesData = (housesRes.data as any).data || (housesRes.data as any) || [];
+      const myHouse: House = Array.isArray(housesData) ? housesData[0] : null;
+      if (myHouse) {
+        setHouse(myHouse);
+        const hid = myHouse.id;
+
+        // 2. Load in parallel: today's pulse, high risks, incidents
+        const [pulsesRes, risksRes, incidentsRes] = await Promise.allSettled([
+          apiClient.get(`/governance/pulses?house_id=${hid}&limit=5`),
+          apiClient.get(`/risks?house_id=${hid}&severity=high&status=open&limit=3`),
+          apiClient.get(`/incidents?house_id=${hid}&status=open&limit=3`),
+        ]);
+
+        // Today's pulse
+        if (pulsesRes.status === 'fulfilled') {
+          const pulseData = (pulsesRes.value.data as any).data || (pulsesRes.value.data as any) || {};
+          const pulses = pulseData.pulses || pulseData.items || (Array.isArray(pulseData) ? pulseData : []);
+          const today = new Date().toDateString();
+          const todayP = pulses.find((p: any) => new Date(p.due_date).toDateString() === today);
+          setTodayPulse(todayP || pulses[0] || null);
+
+          // Weekly stats from pulse history
+          const completed = pulses.filter((p: any) => p.status === 'completed');
+          setWeeklyStats(prev => ({ ...prev, safeguardingDays: completed.length }));
+        }
+
+        // High risks
+        if (risksRes.status === 'fulfilled') {
+          const rData = (risksRes.value.data as any).data || (risksRes.value.data as any) || {};
+          const risks = rData.risks || rData.items || (Array.isArray(rData) ? rData : []);
+          setHighRisks(risks.slice(0, 3));
+          setWeeklyStats(prev => ({ ...prev, highRiskDays: risks.length }));
+        }
+
+        // Incidents
+        if (incidentsRes.status === 'fulfilled') {
+          const iData = (incidentsRes.value.data as any).data || (incidentsRes.value.data as any) || {};
+          const incs = iData.incidents || iData.items || (Array.isArray(iData) ? iData : []);
+          setIncidents(incs.slice(0, 3));
+          setWeeklyStats(prev => ({ ...prev, activeIncidents: incs.length }));
+        }
+      }
+    } catch (err) {
+      console.error('Dashboard load error:', err);
+      toast.error('Some dashboard data failed to load');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const getPulseStatusLabel = () => {
+    if (!todayPulse) return { label: 'No pulse scheduled today', color: 'text-gray-500' };
+    switch (todayPulse.status) {
+      case 'completed': return { label: 'Completed ✓', color: 'text-green-600' };
+      case 'in_progress': return { label: 'In Progress...', color: 'text-blue-600' };
+      case 'overdue': return { label: 'Overdue — complete now', color: 'text-red-600' };
+      default: return { label: 'Not yet started', color: 'text-gray-600' };
+    }
+  };
+
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto" />
           <p className="mt-2 text-gray-600">Loading dashboard...</p>
         </div>
       </div>
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          Failed to load dashboard data
-        </div>
-      </div>
-    );
-  }
-
-  const managerHouse = user?.assignedHouse || "Your House";
-
-  const weeklySnapshot = [
-    { label: "High Risk Days", value: dashboardData.overview.highPriorityRisks?.toString() || "0" },
-    { label: "Safeguarding Days", value: dashboardData.overview.seriousIncidents?.toString() || "0" },
-    { label: "Escalations", value: dashboardData.escalationMetrics.pending?.toString() || "0" },
-    { label: "Active Incidents", value: dashboardData.overview.activeRisks?.toString() || "0" },
-  ];
-
-  const activeHighRisks = dashboardData.recentActivities
-    .filter((activity: any) => activity.type === 'risk')
-    .slice(0, 3)
-    .map((risk: any) => ({
-      house: risk.house || managerHouse,
-      description: risk.description,
-      date: risk.timestamp || new Date().toISOString().split('T')[0]
-    })) || [];
-
-  const houseIncidents = dashboardData.recentActivities
-    .filter((activity: any) => activity.type === 'incident')
-    .slice(0, 3)
-    .map((incident: any) => ({
-      id: incident.id,
-      type: incident.severity,
-      date: incident.timestamp || new Date().toISOString().split('T')[0],
-      status: 'active'
-    })) || [];
-
-  const recentUpdates = dashboardData.recentActivities
-    .slice(0, 4)
-    .map((activity: any) => ({
-      date: activity.timestamp || new Date().toISOString().split('T')[0],
-      type: activity.type,
-      house: activity.house || managerHouse,
-      detail: activity.description
-    })) || [];
+  const pulseStatus = getPulseStatusLabel();
 
   return (
     <div className="min-h-screen bg-white">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">{managerHouse} Dashboard</h1>
-          <p className="text-gray-600 mt-1">Real-time overview of your house governance</p>
+          <h1 className="text-3xl font-semibold text-black">
+            {house ? `${house.name} Dashboard` : 'Your House Dashboard'}
+          </h1>
+          <p className="text-gray-600 mt-1">
+            {house ? house.address : 'Real-time overview of your house governance'}
+          </p>
         </div>
 
         <div className="grid grid-cols-2 gap-6">
@@ -100,15 +119,28 @@ export function RegisteredManagerDashboard() {
           <div className="space-y-6">
             {/* Today's Governance Pulse */}
             <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Today's Governance Pulse</h2>
+              <div className="flex items-center gap-2 mb-4">
+                <Activity className="w-5 h-5" />
+                <h2 className="text-xl font-semibold text-black">Today's Governance Pulse</h2>
+              </div>
               <div className="mb-4">
-                <p className="text-gray-600">Status: Not yet started</p>
+                <p className={`font-medium ${pulseStatus.color}`}>{pulseStatus.label}</p>
+                {todayPulse?.due_date && (
+                  <p className="text-sm text-gray-500 mt-1">Due: {formatDate(todayPulse.due_date)}</p>
+                )}
+                {todayPulse?.compliance_score !== null && todayPulse?.compliance_score !== undefined && (
+                  <p className="text-sm text-gray-600 mt-1">Last score: {todayPulse.compliance_score}%</p>
+                )}
               </div>
               <button
                 onClick={() => navigate("/governance-pulse")}
-                className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors"
+                className={`w-full py-3 px-4 transition-colors ${
+                  todayPulse?.status === 'completed'
+                    ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+                    : 'bg-black text-white hover:bg-gray-800'
+                }`}
               >
-                Start Pulse
+                {todayPulse?.status === 'completed' ? 'View Pulse' : 'Start Pulse'}
               </button>
             </div>
 
@@ -116,7 +148,11 @@ export function RegisteredManagerDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Weekly Governance Snapshot</h2>
               <div className="space-y-3">
-                {weeklySnapshot.map((item, idx) => (
+                {[
+                  { label: 'High Risk Cases', value: weeklyStats.highRiskDays },
+                  { label: 'Pulses Completed', value: weeklyStats.safeguardingDays },
+                  { label: 'Active Incidents', value: weeklyStats.activeIncidents },
+                ].map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center">
                     <span className="text-black">{item.label}</span>
                     <span className="font-semibold text-black">{item.value}</span>
@@ -127,19 +163,24 @@ export function RegisteredManagerDashboard() {
 
             {/* Active High Risk Cases */}
             <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Active High Risk Cases</h2>
+              <div className="flex items-center gap-2 mb-4">
+                <AlertTriangle className="w-5 h-5 text-red-500" />
+                <h2 className="text-xl font-semibold text-black">Active High Risk Cases</h2>
+              </div>
               <div className="space-y-3">
-                {activeHighRisks.map((risk, idx) => (
-                  <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
+                {highRisks.length > 0 ? highRisks.map((risk) => (
+                  <div key={risk.id} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-black">{risk.description}</p>
-                        <p className="text-sm text-gray-600">{risk.house}</p>
+                        <p className="font-medium text-black">{risk.title}</p>
+                        <p className="text-sm text-gray-600 capitalize">{risk.severity} severity</p>
                       </div>
-                      <span className="text-sm text-gray-600">{risk.date}</span>
+                      <span className="text-sm text-gray-500">{formatDate(risk.created_at)}</span>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-gray-500 text-center py-4">No high risk cases — well done!</p>
+                )}
               </div>
               <button
                 onClick={() => navigate("/risk-register")}
@@ -156,28 +197,23 @@ export function RegisteredManagerDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">House Incidents</h2>
               <div className="space-y-3">
-                {houseIncidents.map((incident, idx) => (
-                  <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
+                {incidents.length > 0 ? incidents.map((inc) => (
+                  <div key={inc.id} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-black">{incident.id}</p>
-                        <p className="text-sm text-gray-600">{incident.type}</p>
-                        <p className="text-sm text-gray-500">{incident.date}</p>
+                        <p className="font-medium text-black">{inc.title}</p>
+                        <p className="text-sm text-gray-600 capitalize">{inc.severity}</p>
+                        <p className="text-sm text-gray-500">{formatDate(inc.occurred_at)}</p>
                       </div>
                       <span className={`px-2 py-1 text-xs rounded ${
-                        incident.status === 'under-review' 
-                          ? 'bg-black text-white' 
-                          : 'bg-gray-200 text-gray-800'
+                        inc.status === 'under_review' ? 'bg-black text-white' : 'bg-gray-200 text-gray-800'
                       }`}>
-                        {incident.status}
+                        {inc.status.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
-                ))}
-                {houseIncidents.length === 0 && (
-                  <div className="text-center py-4 text-gray-500">
-                    No active incidents for your house
-                  </div>
+                )) : (
+                  <div className="text-center py-4 text-gray-500">No active incidents for your house</div>
                 )}
               </div>
               <div className="flex gap-2 mt-4">
@@ -198,32 +234,19 @@ export function RegisteredManagerDashboard() {
               </div>
             </div>
 
-            {/* Recent Governance Updates */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Recent Governance Updates</h2>
-              <div className="space-y-3">
-                {recentUpdates.map((update, idx) => (
-                  <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-black">{update.type}</p>
-                        <p className="text-sm text-gray-600">{update.detail}</p>
-                        <p className="text-sm text-gray-600">{update.house}</p>
-                      </div>
-                      <span className="text-sm text-gray-600">{update.date}</span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
             {/* Quick Actions */}
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Quick Actions</h2>
               <div className="space-y-3">
                 <button
-                  onClick={() => navigate("/risk-register?addRisk=true")}
+                  onClick={() => navigate("/governance-pulse")}
                   className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors"
+                >
+                  Complete Governance Pulse
+                </button>
+                <button
+                  onClick={() => navigate("/risk-register")}
+                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
                 >
                   Add New Risk
                 </button>

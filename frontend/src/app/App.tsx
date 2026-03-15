@@ -24,12 +24,22 @@ import AdminHouseManagement from "./components/AdminHouseManagement";
 import AdminPulseManagement from "./components/AdminPulseManagement";
 import AdminRiskManagement from "./components/AdminRiskManagement";
 import AdminSettings from "./components/AdminSettings";
+import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import EngineDashboardComponent from "@/components/EngineDashboard";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const userRole = localStorage.getItem('userRole');
-  return userRole ? <>{children}</> : <Navigate to="/login" replace />;
+  const token = localStorage.getItem('authToken');
+  return token ? <>{children}</> : <Navigate to="/login" replace />;
+};
+
+// Super Admin Only Route
+const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const token = localStorage.getItem('authToken');
+  const role = (localStorage.getItem('userRole') || '').toUpperCase();
+  if (!token) return <Navigate to="/login" replace />;
+  if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  return <>{children}</>;
 };
 
 export default function App() {
@@ -44,6 +54,11 @@ export default function App() {
             <ProtectedRoute>
               <RoleBasedDashboard />
             </ProtectedRoute>
+          } />
+          <Route path="/super-admin" element={
+            <SuperAdminRoute>
+              <SuperAdminDashboard />
+            </SuperAdminRoute>
           } />
           <Route path="/admin" element={
             <ProtectedRoute>

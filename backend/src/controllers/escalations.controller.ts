@@ -44,6 +44,50 @@ export class EscalationsController {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to acknowledge escalation', errors: [] });
     }
   }
+
+  async addAction(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const action = await escalationsService.addAction(req.params.id, company_id, req.user!.user_id, req.body);
+      return res.status(201).json({ success: true, data: action, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add escalation action';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getActions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const actions = await escalationsService.getActions(req.params.id, company_id);
+      return res.json({ success: true, data: actions, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get escalation actions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async assignEscalation(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.assignEscalation(req.params.id, company_id, req.user!.user_id, req.body.assigned_to);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to assign escalation';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async updatePriority(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.updatePriority(req.params.id, company_id, req.user!.user_id, req.body.priority);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update escalation priority';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const escalationsController = new EscalationsController();

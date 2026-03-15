@@ -80,6 +80,69 @@ export class EscalationsService {
     );
     return { message: 'Escalation acknowledged' };
   }
+
+  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string }) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const result = await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [uuidv4(), id, company_id, data.action_type, data.description, user_id]
+    );
+    return result.rows[0];
+  }
+
+  async getActions(id: string, company_id: string) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const actions = await query(
+      `SELECT ea.*, u.first_name || ' ' || u.last_name AS taken_by_name
+       FROM escalation_actions ea
+       JOIN users u ON u.id = ea.taken_by
+       WHERE ea.escalation_id = $1 AND ea.company_id = $2
+       ORDER BY ea.created_at DESC`,
+      [id, company_id]
+    );
+    return actions.rows;
+  }
+
+  async assignEscalation(id: string, company_id: string, user_id: string, assigned_to: string) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const result = await query(
+      `UPDATE escalations SET escalated_to = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [assigned_to, id, company_id]
+    );
+
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'assigned','Escalation reassigned',$4)`,
+      [uuidv4(), id, company_id, user_id]
+    );
+
+    return result.rows[0];
+  }
+
+  async updatePriority(id: string, company_id: string, user_id: string, priority: string) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const result = await query(
+      `UPDATE escalations SET priority = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [priority, id, company_id]
+    );
+
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'priority_updated',$4,$5)`,
+      [uuidv4(), id, company_id, `Priority updated to ${priority}`, user_id]
+    );
+
+    return result.rows[0];
+  }
 }
 
 export const escalationsService = new EscalationsService();

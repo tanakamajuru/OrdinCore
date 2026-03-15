@@ -92,7 +92,93 @@ export const incidentsRepo = {
     return result.rows[0];
   },
 
+  async getTimeline(incident_id: string, company_id: string) {
+    const result = await query(
+      `SELECT ie.*, u.first_name || ' ' || u.last_name AS created_by_name
+       FROM incident_events ie
+       JOIN users u ON u.id = ie.created_by
+       WHERE ie.incident_id = $1 AND ie.company_id = $2
+       ORDER BY ie.created_at DESC`,
+      [incident_id, company_id]
+    );
+    return result.rows;
+  },
+
+  async addEvent(incident_id: string, company_id: string, event_type: string, description: string, created_by: string) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO incident_events (id, incident_id, company_id, event_type, description, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, incident_id, company_id, event_type, description, created_by]
+    );
+    return result.rows[0];
+  },
+
+  async getCategories(company_id: string) {
+    const result = await query(
+      `SELECT * FROM incident_categories WHERE company_id = $1 OR is_system = true ORDER BY name`,
+      [company_id]
+    );
+    return result.rows;
+  },
+
+  async createCategory(company_id: string, data: { name: string; description?: string; severity_level?: string; created_by: string }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO incident_categories (id, company_id, name, description, severity_level, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, company_id, data.name, data.description || null, data.severity_level || 'moderate', data.created_by]
+    );
+    return result.rows[0];
+  },
+
+  async getAttachments(incident_id: string, company_id: string) {
+    const result = await query(
+      `SELECT a.*, u.first_name || ' ' || u.last_name AS uploaded_by_name
+       FROM incident_attachments a
+       JOIN users u ON u.id = a.uploaded_by
+       WHERE a.incident_id = $1 AND a.company_id = $2
+       ORDER BY a.created_at DESC`,
+      [incident_id, company_id]
+    );
+    return result.rows;
+  },
+
+  async addAttachment(incident_id: string, company_id: string, data: { file_name: string; file_url: string; file_type?: string; file_size?: number; uploaded_by: string }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO incident_attachments (id, incident_id, company_id, file_name, file_url, file_type, file_size, uploaded_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, incident_id, company_id, data.file_name, data.file_url, data.file_type || null, data.file_size || 0, data.uploaded_by]
+    );
+    return result.rows[0];
+  },
+
+  async removeAttachment(attachment_id: string, incident_id: string, company_id: string) {
+    await query(
+      `DELETE FROM incident_attachments WHERE id = $1 AND incident_id = $2 AND company_id = $3`,
+      [attachment_id, incident_id, company_id]
+    );
+  },
+
+  async assignIncident(incident_id: string, company_id: string, assigned_to: string) {
+    const result = await query(
+      `UPDATE incidents SET assigned_to = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [assigned_to, incident_id, company_id]
+    );
+    return result.rows[0];
+  },
+
+  async resolveIncident(incident_id: string, company_id: string, resolution_notes: string) {
+    const result = await query(
+      `UPDATE incidents SET status = 'resolved', resolved_at = NOW(), updated_at = NOW() 
+       WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [incident_id, company_id]
+    );
+    return result.rows[0];
+  },
+
   async delete(id: string, company_id: string) {
     await query("UPDATE incidents SET status = 'closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
-  },
+  }
 };

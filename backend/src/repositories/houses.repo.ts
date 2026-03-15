@@ -84,4 +84,45 @@ export const housesRepo = {
     );
     return result.rows;
   },
+
+  async assignStaff(house_id: string, company_id: string, user_id: string, role_in_house?: string) {
+    const result = await query(
+      `INSERT INTO user_houses (user_id, house_id, company_id, role_in_house)
+       VALUES ($1, $2, $3, $4)
+       ON CONFLICT (user_id, house_id) DO UPDATE SET role_in_house = $4
+       RETURNING *`,
+      [user_id, house_id, company_id, role_in_house || null]
+    );
+    return result.rows[0];
+  },
+
+  async removeStaff(house_id: string, company_id: string, user_id: string) {
+    await query(
+      `DELETE FROM user_houses WHERE house_id = $1 AND company_id = $2 AND user_id = $3`,
+      [house_id, company_id, user_id]
+    );
+  },
+
+  async getSettings(house_id: string, company_id: string) {
+    const result = await query(
+      `SELECT * FROM house_settings WHERE house_id = $1 AND company_id = $2 LIMIT 1`,
+      [house_id, company_id]
+    );
+    // If no settings exist yet, return a default template
+    if (result.rows.length === 0) {
+      return { house_id, company_id, notification_preferences: {}, default_escalation_paths: {} };
+    }
+    return result.rows[0];
+  },
+
+  async updateSettings(house_id: string, company_id: string, settings: any) {
+    const result = await query(
+      `INSERT INTO house_settings (house_id, company_id, settings)
+       VALUES ($1, $2, $3)
+       ON CONFLICT (house_id) DO UPDATE SET settings = $3, updated_at = NOW()
+       RETURNING *`,
+      [house_id, company_id, JSON.stringify(settings || {})]
+    );
+    return result.rows[0];
+  }
 };

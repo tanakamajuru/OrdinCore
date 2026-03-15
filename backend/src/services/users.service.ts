@@ -58,6 +58,61 @@ export class UsersService {
     if (!user || user.company_id !== company_id) throw new Error('User not found');
     return usersRepo.getHouses(userId);
   }
+
+  async getPermissions(userId: string, company_id: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    return usersRepo.getPermissions(userId);
+  }
+
+  async getRoles(userId: string, company_id: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    return usersRepo.getRoleDetails(userId);
+  }
+
+  async assignRole(userId: string, company_id: string, roleName: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    return usersRepo.assignRole(userId, roleName);
+  }
+
+  async suspend(userId: string, company_id: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    return usersRepo.updateStatus(userId, 'suspended');
+  }
+
+  async activate(userId: string, company_id: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    return usersRepo.updateStatus(userId, 'active');
+  }
+
+  async search(company_id: string, queryStr: string, page = 1, limit = 50) {
+    const offset = (page - 1) * limit;
+    // Basic search filtering implemented in service level for simplicity on top of existing findByCompany
+    const [users, total] = await Promise.all([
+      usersRepo.findByCompany(company_id, 1000, 0), // fetch all and sort in memory (or add search to repo)
+      usersRepo.countByCompany(company_id)
+    ]);
+    
+    queryStr = queryStr.toLowerCase();
+    const filtered = users.filter(u => 
+      u.first_name.toLowerCase().includes(queryStr) || 
+      u.last_name.toLowerCase().includes(queryStr) || 
+      u.email.toLowerCase().includes(queryStr)
+    );
+    
+    const paginated = filtered.slice(offset, offset + limit);
+    return { 
+      users: paginated.map(({ password_hash, ...u }) => { void password_hash; return u; }), 
+      total: filtered.length, 
+      page, 
+      limit, 
+      pages: Math.ceil(filtered.length / limit) 
+    };
+  }
 }
 
 export const usersService = new UsersService();

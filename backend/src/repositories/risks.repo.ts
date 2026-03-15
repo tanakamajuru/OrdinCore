@@ -132,4 +132,67 @@ export const risksRepo = {
     );
     return result.rows;
   },
+
+  async getCategories(company_id: string) {
+    const result = await query(
+      `SELECT * FROM risk_categories WHERE company_id = $1 OR is_system = true ORDER BY name`,
+      [company_id]
+    );
+    return result.rows;
+  },
+
+  async createCategory(company_id: string, data: { name: string; description?: string; color?: string; created_by: string }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO risk_categories (id, company_id, name, description, color, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
+      [id, company_id, data.name, data.description || null, data.color || '#cccccc', data.created_by]
+    );
+    return result.rows[0];
+  },
+
+  async getAttachments(risk_id: string, company_id: string) {
+    const result = await query(
+      `SELECT a.*, u.first_name || ' ' || u.last_name AS uploaded_by_name
+       FROM risk_attachments a
+       JOIN users u ON u.id = a.uploaded_by
+       WHERE a.risk_id = $1 AND a.company_id = $2
+       ORDER BY a.created_at DESC`,
+      [risk_id, company_id]
+    );
+    return result.rows;
+  },
+
+  async addAttachment(risk_id: string, company_id: string, data: { file_name: string; file_url: string; file_type?: string; file_size?: number; uploaded_by: string }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO risk_attachments (id, risk_id, company_id, file_name, file_url, file_type, file_size, uploaded_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, risk_id, company_id, data.file_name, data.file_url, data.file_type || null, data.file_size || 0, data.uploaded_by]
+    );
+    return result.rows[0];
+  },
+
+  async removeAttachment(attachment_id: string, risk_id: string, company_id: string) {
+    await query(
+      `DELETE FROM risk_attachments WHERE id = $1 AND risk_id = $2 AND company_id = $3`,
+      [attachment_id, risk_id, company_id]
+    );
+  },
+
+  async assignRisk(risk_id: string, company_id: string, assigned_to: string) {
+    const result = await query(
+      `UPDATE risks SET assigned_to = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [assigned_to, risk_id, company_id]
+    );
+    return result.rows[0];
+  },
+
+  async updateStatus(risk_id: string, company_id: string, status: string) {
+    const result = await query(
+      `UPDATE risks SET status = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
+      [status, risk_id, company_id]
+    );
+    return result.rows[0];
+  }
 };

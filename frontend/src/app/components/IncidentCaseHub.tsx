@@ -1,10 +1,12 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { Plus, Search, Calendar, MapPin, AlertTriangle, Eye, FileText, Filter, X, Ambulance } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Card, CardContent } from "./ui/card";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { toast } from "sonner";
+import apiClient from "@/services/apiClient";
 
 interface IncidentCase {
   id: string;
@@ -20,156 +22,113 @@ interface IncidentCase {
   externalRefs: string[];
 }
 
-const mockIncidents: IncidentCase[] = [
-  {
-    id: "INC-001",
-    houseId: "oakwood",
-    houseName: "Oakwood",
-    incidentDate: "2024-01-18",
-    incidentType: "Safeguarding",
-    status: "under-review",
-    createdAt: "2024-01-18",
-    createdBy: "Sarah Johnson",
-    linkedRisks: 3,
-    linkedEscalations: 2,
-    externalRefs: ["LA-SAF-2024-001"]
-  },
-  {
-    id: "INC-002", 
-    houseId: "riverside",
-    houseName: "Riverside",
-    incidentDate: "2024-01-22",
-    incidentType: "Medication Error",
-    status: "under-review",
-    createdAt: "2024-01-22",
-    createdBy: "Mike Chen",
-    linkedRisks: 2,
-    linkedEscalations: 1,
-    externalRefs: ["CQC-MED-2024-002"]
-  },
-  {
-    id: "INC-003",
-    houseId: "maple-grove",
-    houseName: "Maple Grove",
-    incidentDate: "2024-01-25",
-    incidentType: "Behavioral Incident",
-    status: "closed",
-    createdAt: "2024-01-25",
-    createdBy: "Emma Davis",
-    linkedRisks: 1,
-    linkedEscalations: 1,
-    externalRefs: ["LA-BEH-2024-003"]
-  },
-  {
-    id: "INC-004",
-    houseId: "sunset-villa",
-    houseName: "Sunset Villa",
-    incidentDate: "2024-02-01",
-    incidentType: "Environmental Hazard",
-    status: "under-review",
-    createdAt: "2024-02-01",
-    createdBy: "Tom Wilson",
-    linkedRisks: 2,
-    linkedEscalations: 0,
-    externalRefs: ["CQC-ENV-2024-004"]
-  },
-  {
-    id: "INC-005",
-    houseId: "birchwood",
-    houseName: "Birchwood",
-    incidentDate: "2024-02-05",
-    incidentType: "Resident Injury",
-    status: "under-review",
-    createdAt: "2024-02-05",
-    createdBy: "Lisa Anderson",
-    linkedRisks: 1,
-    linkedEscalations: 1,
-    externalRefs: ["LA-INJ-2024-005"]
-  }
-];
 
 export function IncidentCaseHub() {
   const navigate = useNavigate();
-  const [incidents, setIncidents] = useState<IncidentCase[]>(mockIncidents);
+  const [incidents, setIncidents] = useState<IncidentCase[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [houseFilter, setHouseFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  const [userHouseId, setUserHouseId] = useState<string | null>(null);
+  const [userHouseName, setUserHouseName] = useState<string>('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Get current user role and assigned house
-  const userRole = localStorage.getItem('userRole') || 'registered-manager'; // Default to RM for testing
-  const userHouse = localStorage.getItem('userHouse') || 'oakwood'; // RM assigned house
+  // Create incident form state
+  const [incidentForm, setIncidentForm] = useState({
+    title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: ''
+  });
 
-  // Define houses like risk register
-  const houses = ["All", "Oakwood", "Riverside", "Maple Grove", "Sunset Villa", "Birchwood"];
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+
+  useEffect(() => { loadIncidents(); }, []);
+
+  const loadIncidents = async () => {
+    try {
+      let houseId: string | null = null;
+      if (userRole === 'REGISTERED_MANAGER') {
+        const hRes = await apiClient.get(`/users/${userId}/houses`);
+        const hData = (hRes.data as any).data || (hRes.data as any) || [];
+        const myHouse = Array.isArray(hData) ? hData[0] : hData;
+        if (myHouse) { houseId = myHouse.id; setUserHouseId(myHouse.id); setUserHouseName(myHouse.name); }
+      }
+      const params = houseId ? `?house_id=${houseId}&limit=100` : '?limit=100';
+      const res = await apiClient.get(`/incidents${params}`);
+      const data = (res.data as any).data || (res.data as any) || {};
+      const rawIncs = data.incidents || data.items || (Array.isArray(data) ? data : []);
+      const mapped: IncidentCase[] = rawIncs.map((inc: any) => ({
+        id: inc.id,
+        houseId: inc.house_id,
+        houseName: inc.house_name || userHouseName || 'Unknown',
+        incidentDate: inc.occurred_at ? new Date(inc.occurred_at).toLocaleDateString('en-GB') : '',
+        incidentType: inc.title || inc.category_name || 'Incident',
+        status: inc.status === 'under_review' ? 'under-review' : (inc.status || 'open') as any,
+        createdAt: inc.created_at ? new Date(inc.created_at).toLocaleDateString('en-GB') : '',
+        createdBy: inc.created_by_name || '',
+        linkedRisks: 0, linkedEscalations: 0, externalRefs: []
+      }));
+      setIncidents(mapped);
+    } catch (err) {
+      console.error('Failed to load incidents', err);
+      toast.error('Failed to load incidents');
+    } finally { setIsLoading(false); }
+  };
+
+  const handleCreateIncident = async () => {
+    if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
+      toast.error('Please fill in title, description and date'); return;
+    }
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/incidents', {
+        house_id: userHouseId,
+        title: incidentForm.title,
+        description: incidentForm.description,
+        severity: incidentForm.severity,
+        status: 'open',
+        occurred_at: new Date(incidentForm.occurred_at).toISOString(),
+        location: incidentForm.location,
+        immediate_action: incidentForm.immediate_action,
+        persons_involved: incidentForm.persons_involved ? [incidentForm.persons_involved] : [],
+        follow_up_required: true,
+      });
+      toast.success('Incident reported successfully');
+      setShowCreateModal(false);
+      setIncidentForm({ title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: '' });
+      loadIncidents();
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
+    finally { setIsSubmitting(false); }
+  };
 
   // Role-based filtering
   const getFilteredIncidents = () => {
-    let roleFilteredIncidents = incidents;
-    
-    // Registered Managers can only see incidents for their assigned house
-    if (userRole === 'registered-manager') {
-      const userHouseName = houses.find(house => house.toLowerCase().replace(' ', '-') === userHouse) || userHouse;
-      roleFilteredIncidents = incidents.filter(incident => incident.houseName === userHouseName);
-    }
-    // Responsible Individuals and Directors can see all incidents
-    
-    // Apply additional filters for RI and Director
-    if (userRole !== 'registered-manager') {
-      if (houseFilter !== "All") {
-        roleFilteredIncidents = roleFilteredIncidents.filter(incident => incident.houseName === houseFilter);
-      }
-      if (statusFilter !== "All") {
-        roleFilteredIncidents = roleFilteredIncidents.filter(incident => incident.status === statusFilter);
-      }
-    }
-    
-    // Apply search filter
-    return roleFilteredIncidents.filter(incident =>
-      incident.houseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      incident.incidentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      incident.id.toLowerCase().includes(searchTerm.toLowerCase())
+    let filtered = incidents;
+    if (houseFilter !== 'All') filtered = filtered.filter(i => i.houseName === houseFilter);
+    if (statusFilter !== 'All') filtered = filtered.filter(i => i.status === statusFilter);
+    if (searchTerm) filtered = filtered.filter(i =>
+      i.houseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.incidentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.id.toLowerCase().includes(searchTerm.toLowerCase())
     );
+    return filtered;
+  };
+
+  const getAvailableHouses = () => {
+    if (userHouseName) return [{ id: userHouseId || '', name: userHouseName }];
+    return [];
   };
 
   const filteredIncidents = getFilteredIncidents();
+  const canCreateIncident = ['REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL', 'DIRECTOR', 'ADMIN'].includes(userRole);
+  const houses = ['All', ...(userHouseName ? [userHouseName] : Array.from(new Set(incidents.map(i => i.houseName))))];
 
-  // Role-based permissions for creating incidents
-  const canCreateIncident = userRole === 'registered-manager' || userRole === 'responsible-individual' || userRole === 'director';
-  
-  // Debug: Log current role to console
-  console.log('Current userRole:', userRole);
-  console.log('Can create incident:', canCreateIncident);
-  console.log('Filtered incidents count:', filteredIncidents.length);
-  
-  // Get available houses for incident creation based on role
-  const getAvailableHouses = () => {
-    if (userRole === 'registered-manager') {
-      // RM can only create incidents for their assigned house
-      const userHouseName = houses.find(house => house.toLowerCase().replace(' ', '-') === userHouse) || userHouse;
-      return [
-        { id: userHouse, name: userHouseName }
-      ];
-    } else {
-      // RI and Director can create incidents for any house
-      return [
-        { id: 'oakwood', name: 'Oakwood' },
-        { id: 'riverside', name: 'Riverside' },
-        { id: 'maple-grove', name: 'Maple Grove' },
-        { id: 'sunset-villa', name: 'Sunset Villa' },
-        { id: 'birchwood', name: 'Birchwood' }
-      ];
-    }
-  };
-
-  // Get unique houses for filter dropdown
-  const getUniqueHouses = () => {
-    const houseNames = Array.from(new Set(incidents.map(incident => incident.houseName)));
-    return houseNames.map(houseName => ({
-      id: houseName.toLowerCase().replace(' ', '-'),
-      name: houseName
-    }));
-  };
+  if (isLoading) return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    </div>
+  );
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -615,11 +574,9 @@ export function IncidentCaseHub() {
                   Cancel
                 </Button>
                 <Button
-                  onClick={() => {
-                    // Handle creation logic
-                    setShowCreateModal(false);
-                  }}
-                  className="bg-black text-white hover:bg-gray-800 flex-1"
+                  onClick={handleCreateIncident}
+                  disabled={isSubmitting}
+                  className="bg-black text-white hover:bg-gray-800 flex-1 disabled:opacity-50"
                 >
                   Submit Serious Incident
                 </Button>
