@@ -215,12 +215,12 @@ export function Reports() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">Reports & Analytics</h1>
-          <p className="text-gray-600 mt-1">Generate custom governance reports with advanced filtering</p>
+          <h1 className="text-3xl font-semibold text-primary">Reports & Analytics</h1>
+          <p className="text-muted-foreground mt-1">Generate custom governance reports with advanced filtering</p>
         </div>
 
         {/* Report Type Selection */}
@@ -231,10 +231,10 @@ export function Reports() {
               <button
                 key={type.value}
                 onClick={() => handleFilterChange('reportType', type.value)}
-                className={`p-4 border-2 text-left transition-colors ${
+                className={`p-4 border-2 text-left transition-colors shadow-sm ${
                   filters.reportType === type.value
-                    ? "bg-black text-white border-black"
-                    : "bg-white text-black border-gray-300 hover:border-gray-500"
+                    ? "bg-primary text-primary-foreground border-primary"
+                    : "bg-card text-foreground border-border hover:border-primary/50"
                 }`}
               >
                 <div className="font-medium">{type.label}</div>
@@ -244,18 +244,18 @@ export function Reports() {
         </div>
 
         {/* Filters Section */}
-        <div className="bg-white border-2 border-black p-6 mb-6">
+        <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-black">Filters</h2>
+            <h2 className="text-xl font-semibold text-primary">Filters</h2>
             <div className="flex gap-2">
               <button
                 onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border-2 border-black hover:bg-gray-100 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary hover:bg-primary/5 transition-colors font-medium shadow-sm"
               >
                 <Filter className="w-4 h-4" />
                 {showFilters ? "Hide Filters" : "Show Filters"}
                 {getActiveFiltersCount() > 0 && (
-                  <span className="bg-black text-white text-xs px-2 py-1 rounded-full">
+                  <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
                     {getActiveFiltersCount()}
                   </span>
                 )}
@@ -263,7 +263,7 @@ export function Reports() {
               {getActiveFiltersCount() > 0 && (
                 <button
                   onClick={clearFilters}
-                  className="px-4 py-2 border-2 border-gray-300 hover:border-gray-500 transition-colors"
+                  className="px-4 py-2 border-2 border-border text-foreground hover:bg-muted transition-colors font-medium"
                 >
                   Clear All
                 </button>
@@ -275,13 +275,13 @@ export function Reports() {
             <div className="space-y-6">
               {/* Date Range */}
               <div>
-                <label className="block mb-2 text-black font-medium flex items-center gap-2">
-                  <Calendar className="w-4 h-4" />
+                <label className="block mb-2 text-foreground font-semibold flex items-center gap-2">
+                  <Calendar className="w-4 h-4 text-primary" />
                   Date Range
                 </label>
                 <div className="flex gap-4">
                   <div className="flex-1">
-                    <label className="block mb-1 text-sm text-gray-600">From</label>
+                    <label className="block mb-1 text-sm text-muted-foreground">From</label>
                     <input
                       type="date"
                       value={filters.dateRange.start}
@@ -289,11 +289,11 @@ export function Reports() {
                         ...filters.dateRange,
                         start: e.target.value
                       })}
-                      className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-4 py-2 bg-background border-2 border-border rounded focus:ring-2 focus:ring-primary focus:outline-none text-foreground"
                     />
                   </div>
                   <div className="flex-1">
-                    <label className="block mb-1 text-sm text-gray-600">To</label>
+                    <label className="block mb-1 text-sm text-muted-foreground">To</label>
                     <input
                       type="date"
                       value={filters.dateRange.end}
@@ -301,7 +301,7 @@ export function Reports() {
                         ...filters.dateRange,
                         end: e.target.value
                       })}
-                      className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                      className="w-full px-4 py-2 bg-background border-2 border-border rounded focus:ring-2 focus:ring-primary focus:outline-none text-foreground"
                     />
                   </div>
                 </div>
@@ -309,16 +309,16 @@ export function Reports() {
 
               {/* Severity Filter */}
               <div>
-                <label className="block mb-2 text-black font-medium">Severity</label>
+                <label className="block mb-2 text-foreground font-semibold">Severity</label>
                 <div className="flex flex-wrap gap-2">
                   {severities.map((severity) => (
                     <button
                       key={severity}
                       onClick={() => handleArrayFilter('severity', severity)}
-                      className={`px-4 py-2 border-2 transition-colors ${
+                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
                         filters.severity.includes(severity)
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-black border-gray-300 hover:border-gray-500"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/50"
                       }`}
                     >
                       {severity}
@@ -335,10 +335,10 @@ export function Reports() {
                     <button
                       key={house.id}
                       onClick={() => handleArrayFilter('houses', house.id)}
-                      className={`px-4 py-2 border-2 transition-colors ${
+                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
                         filters.houses.includes(house.id)
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-black border-gray-300 hover:border-gray-500"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/50"
                       }`}
                     >
                       {house.name}
@@ -355,10 +355,10 @@ export function Reports() {
                     <button
                       key={category}
                       onClick={() => handleArrayFilter('categories', category)}
-                      className={`px-4 py-2 border-2 transition-colors ${
+                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
                         filters.categories.includes(category)
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-black border-gray-300 hover:border-gray-500"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/50"
                       }`}
                     >
                       {category}
@@ -375,10 +375,10 @@ export function Reports() {
                     <button
                       key={status}
                       onClick={() => handleArrayFilter('status', status)}
-                      className={`px-4 py-2 border-2 transition-colors ${
+                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
                         filters.status.includes(status)
-                          ? "bg-black text-white border-black"
-                          : "bg-white text-black border-gray-300 hover:border-gray-500"
+                          ? "bg-primary text-primary-foreground border-primary"
+                          : "bg-background text-foreground border-border hover:border-primary/50"
                       }`}
                     >
                       {status}
@@ -391,41 +391,41 @@ export function Reports() {
         </div>
 
         {/* Preview Section */}
-        <div className="bg-white border-2 border-black p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Report Preview</h2>
-          <div className="bg-gray-50 border-2 border-gray-300 p-4">
+        <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
+          <h2 className="text-xl font-semibold mb-4 text-primary">Report Preview</h2>
+          <div className="bg-muted/50 border-2 border-border p-4 rounded-lg">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Total Risks</p>
-                <p className="text-2xl font-semibold text-black">{previewData.totalRisks}</p>
+                <p className="text-sm text-muted-foreground mb-1">Total Risks</p>
+                <p className="text-2xl font-bold text-foreground">{previewData.totalRisks}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">High Severity</p>
-                <p className="text-2xl font-semibold text-black">{previewData.highSeverity}</p>
+                <p className="text-sm text-muted-foreground mb-1">High Severity</p>
+                <p className="text-2xl font-bold text-destructive">{previewData.highSeverity}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Escalated</p>
-                <p className="text-2xl font-semibold text-black">{previewData.escalated}</p>
+                <p className="text-sm text-muted-foreground mb-1">Escalated</p>
+                <p className="text-2xl font-bold text-warning">{previewData.escalated}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Resolved</p>
-                <p className="text-2xl font-semibold text-black">{previewData.resolved}</p>
+                <p className="text-sm text-muted-foreground mb-1">Resolved</p>
+                <p className="text-2xl font-bold text-success">{previewData.resolved}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Safeguarding</p>
-                <p className="text-2xl font-semibold text-black">{previewData.safeguardingConcerns}</p>
+                <p className="text-sm text-muted-foreground mb-1">Safeguarding</p>
+                <p className="text-2xl font-bold text-destructive">{previewData.safeguardingConcerns}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Incidents</p>
-                <p className="text-2xl font-semibold text-black">{previewData.incidentCount}</p>
+                <p className="text-sm text-muted-foreground mb-1">Incidents</p>
+                <p className="text-2xl font-bold text-foreground">{previewData.incidentCount}</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Staffing Stability</p>
-                <p className="text-2xl font-semibold text-black">{previewData.staffingStability}%</p>
+                <p className="text-sm text-muted-foreground mb-1">Staffing Stability</p>
+                <p className="text-2xl font-bold text-success">{previewData.staffingStability}%</p>
               </div>
               <div className="text-center">
-                <p className="text-sm text-gray-600 mb-1">Date Range</p>
-                <p className="text-sm font-medium text-black">
+                <p className="text-sm text-muted-foreground mb-1">Date Range</p>
+                <p className="text-sm font-bold text-primary">
                   {filters.dateRange.start} to {filters.dateRange.end}
                 </p>
               </div>
@@ -438,10 +438,10 @@ export function Reports() {
           <button
             onClick={generateReport}
             disabled={isGenerating}
-            className={`flex items-center gap-2 px-8 py-3 font-medium transition-colors ${
+            className={`flex items-center gap-2 px-12 py-4 font-bold rounded-lg transition-all shadow-lg ${
               isGenerating
-                ? "bg-gray-400 text-gray-200 cursor-not-allowed"
-                : "bg-black text-white hover:bg-gray-800"
+                ? "bg-muted text-muted-foreground cursor-not-allowed"
+                : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
             }`}
           >
             <FileDown className="w-5 h-5" />
@@ -450,50 +450,50 @@ export function Reports() {
         </div>
 
         {/* Recent Reports */}
-        <div className="mt-8 bg-white border-2 border-black p-6">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-black">Recent Generated Reports</h2>
+        <div className="mt-8 bg-card border-2 border-border p-6 shadow-sm">
+          <div className="flex justify-between items-center mb-6">
+            <h2 className="text-xl font-bold text-primary">Recent Generated Reports</h2>
             <button 
               onClick={loadGeneratedReports}
-              className="text-sm border-2 border-black px-3 py-1 hover:bg-black hover:text-white transition-colors"
+              className="text-sm border-2 border-primary text-primary px-4 py-2 rounded hover:bg-primary/5 transition-colors font-medium shadow-sm"
             >
               Refresh List
             </button>
           </div>
-          <div className="space-y-3">
+          <div className="space-y-4">
             {generatedReports.length === 0 ? (
-              <div className="text-center py-8 text-gray-500 border border-gray-300">
+              <div className="text-center py-10 text-muted-foreground border-2 border-dashed border-border rounded-lg">
                 No reports generated yet
               </div>
             ) : (
               generatedReports.map((report) => (
-                <div key={report.id} className="flex justify-between items-center p-4 border border-gray-300">
+                <div key={report.id} className="flex justify-between items-center p-5 bg-background border border-border rounded-lg shadow-sm hover:border-primary/30 transition-colors">
                   <div>
-                    <p className="font-medium text-black">
+                    <p className="font-bold text-foreground mb-1">
                       {reportTypes.find(t => t.value === report.report_type)?.label || report.report_type || 'Governance Report'}
                     </p>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-muted-foreground">
                       {(report.date_from && report.date_to) ? `${new Date(report.date_from).toLocaleDateString('en-GB')} - ${new Date(report.date_to).toLocaleDateString('en-GB')} • ` : ''}
                       Generated: {new Date(report.created_at).toLocaleString('en-GB')}
                     </p>
-                    <p className="text-xs mt-1">
-                      Status: <span className={
-                        report.status === 'completed' ? 'text-green-600 font-bold' :
-                        report.status === 'failed' ? 'text-red-600 font-bold' :
-                        'text-yellow-600 font-bold'
-                      }>{report.status?.toUpperCase() || 'UNKNOWN'}</span>
-                    </p>
+                    <div className="flex items-center gap-2 mt-2">
+                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold shadow-sm ${
+                        report.status === 'completed' ? 'bg-success text-success-foreground' :
+                        report.status === 'failed' ? 'bg-destructive text-destructive-foreground' :
+                        'bg-warning text-warning-foreground'
+                      }`}>{report.status?.toUpperCase() || 'UNKNOWN'}</span>
+                    </div>
                   </div>
                   <button 
                     onClick={() => handleDownload(report.id)}
                     disabled={report.status !== 'completed'}
-                    className={`px-4 py-2 border-2 transition-colors ${
+                    className={`px-6 py-2 border-2 rounded transition-all font-bold shadow-sm ${
                       report.status === 'completed' 
-                        ? 'border-black hover:bg-gray-100' 
-                        : 'border-gray-300 text-gray-400 cursor-not-allowed'
+                        ? 'border-primary text-primary hover:bg-primary/5 active:bg-primary/10' 
+                        : 'border-border text-muted-foreground cursor-not-allowed opacity-50'
                     }`}
                   >
-                    Download
+                    Download PDF
                   </button>
                 </div>
               ))

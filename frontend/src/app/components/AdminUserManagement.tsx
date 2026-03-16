@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { Input } from './ui/input';
 import { Label } from './ui/label';
@@ -374,7 +374,7 @@ const AdminUserManagement: React.FC = () => {
       name: user.name,
       password: '',
       role: user.role,
-      organization: user.organization,
+      organization: user.organization || '',
       assignedHouse: user.assigned_house || '',
       pulseDays: user.pulse_days || [],
       isActive: user.is_active
@@ -451,14 +451,14 @@ const AdminUserManagement: React.FC = () => {
           <Button 
             variant="outline" 
             onClick={() => window.history.back()}
-            className="flex items-center"
+            className="flex items-center border-border text-foreground hover:bg-muted"
           >
             <Key className="mr-2 h-4 w-4" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold">User Management</h1>
+          <h1 className="text-3xl font-bold text-primary">User Management</h1>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
           <UserPlus className="mr-2 h-4 w-4" />
           Add User
         </Button>
@@ -467,124 +467,122 @@ const AdminUserManagement: React.FC = () => {
       {/* Statistics Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Total Users</h2>
-              <Users className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-muted-foreground">Total Users</h2>
+              <Users className="h-4 w-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.total}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Active Users</h2>
-              <Users className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-muted-foreground">Active Users</h2>
+              <Users className="h-4 w-4 text-success" />
             </div>
-            <div className="text-2xl font-bold text-green-600">{stats.active}</div>
+            <div className="text-2xl font-bold text-success">{stats.active}</div>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Inactive Users</h2>
-              <Users className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-muted-foreground">Inactive Users</h2>
+              <Users className="h-4 w-4 text-destructive" />
             </div>
-              <div className="text-2xl font-bold text-red-600">{stats.inactive}</div>
+              <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Assigned to Houses</h2>
-              <Users className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-muted-foreground">Assigned to Houses</h2>
+              <Users className="h-4 w-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.assignedToHouse}</div>
+            <div className="text-2xl font-bold text-foreground">{stats.assignedToHouse}</div>
           </div>
         </div>
       )}
 
       {/* Filters */}
-      <div className="bg-white border-2 border-black p-6">
+      <div className="bg-card border-2 border-border p-6 shadow-sm">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold text-black mb-2">Filters</h2>
+          <h2 className="text-xl font-semibold text-primary mb-2">Filters</h2>
         </div>
         <div className="flex flex-wrap gap-4">
             <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search">Search</Label>
+              <Label htmlFor="search" className="text-foreground">Search</Label>
               <div className="relative">
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <Input
+                <input
                   id="search"
                   placeholder="Search by name or email..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-8"
+                  className="w-full pl-8 pr-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
                 />
               </div>
             </div>
             <div className="min-w-[150px]">
-              <Label htmlFor="role">Role</Label>
-              <Select value={roleFilter} onValueChange={setRoleFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All roles" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All roles</SelectItem>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="director">Director</SelectItem>
-                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
-                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="role" className="text-foreground">Role</Label>
+              <select 
+                value={roleFilter} 
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                  <option value="all">All roles</option>
+                  <option value="admin">Admin</option>
+                  <option value="director">Director</option>
+                  <option value="registered-manager">Registered Manager</option>
+                  <option value="responsible-individual">Responsible Individual</option>
+              </select>
             </div>
             <div className="min-w-[150px]">
-              <Label htmlFor="status">Status</Label>
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger>
-                  <SelectValue placeholder="All status" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All status</SelectItem>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label htmlFor="status" className="text-foreground">Status</Label>
+              <select 
+                value={statusFilter} 
+                onChange={(e) => setStatusFilter(e.target.value)}
+                className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+              >
+                  <option value="all">All status</option>
+                  <option value="active">Active</option>
+                  <option value="inactive">Inactive</option>
+              </select>
             </div>
           </div>
         </div>
 
       {/* Users Table */}
-      <Card>
-        <div className="bg-white border-2 border-black p-6">
+      <Card className="border-2 border-border bg-card shadow-sm">
+        <div className="p-6">
           <div className="mb-4">
-            <h2 className="text-xl font-semibold text-black mb-2">Users</h2>
-            <p className="text-gray-600">Manage user accounts, roles, and permissions</p>
+            <h2 className="text-xl font-semibold text-primary mb-1">Users</h2>
+            <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
           </div>
-          <CardContent>
+          <CardContent className="p-0">
           <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Name</TableHead>
-                <TableHead>Email</TableHead>
-                <TableHead>Role</TableHead>
-                <TableHead>Assigned House</TableHead>
-                <TableHead>Pulse Days</TableHead>
-                <TableHead>Status</TableHead>
-                <TableHead>Created</TableHead>
-                <TableHead>Actions</TableHead>
+            <TableHeader className="bg-muted/50">
+              <TableRow className="border-border">
+                <TableHead className="text-primary font-bold">Name</TableHead>
+                <TableHead className="text-primary font-bold">Email</TableHead>
+                <TableHead className="text-primary font-bold">Role</TableHead>
+                <TableHead className="text-primary font-bold">Assigned House</TableHead>
+                <TableHead className="text-primary font-bold">Pulse Days</TableHead>
+                <TableHead className="text-primary font-bold">Status</TableHead>
+                <TableHead className="text-primary font-bold">Created</TableHead>
+                <TableHead className="text-primary font-bold">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
+                <TableRow key={user.id} className="border-border hover:bg-muted/30">
+                  <TableCell className="font-medium text-foreground">{user.name}</TableCell>
+                  <TableCell className="text-foreground">{user.email}</TableCell>
                   <TableCell>
-                    <Badge className={getRoleBadgeColor(user.role)}>
+                    <Badge className={`${getRoleBadgeColor(user.role)} shadow-sm border-none`}>
                       {user.role.replace('-', ' ')}
                     </Badge>
                   </TableCell>
-                  <TableCell>{user.assigned_house_name || '-'}</TableCell>
+                  <TableCell className="text-foreground">{user.assigned_house_name || '-'}</TableCell>
                   <TableCell>
                     {user.role === 'registered-manager' && user.pulse_days ? (
                       <div className="flex flex-wrap gap-1">
                         {user.pulse_days.map((day) => (
-                          <Badge key={day} variant="outline" className="text-xs">
+                          <Badge key={day} variant="outline" className="text-[10px] border-border text-muted-foreground">
                             {day.slice(0, 3)}
                           </Badge>
                         ))}
@@ -594,12 +592,12 @@ const AdminUserManagement: React.FC = () => {
                     )}
                   </TableCell>
                   <TableCell>
-                    <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                    <Badge variant={user.is_active ? 'default' : 'secondary'} className={user.is_active ? "bg-success text-success-foreground" : ""}>
                       {user.is_active ? 'Active' : 'Inactive'}
                     </Badge>
                   </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString()}
+                  <TableCell className="text-foreground">
+                    {new Date(user.created_at || '').toLocaleDateString()}
                   </TableCell>
                   <TableCell>
                     <div className="flex space-x-2">

@@ -50,10 +50,10 @@ export function DirectorDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading strategic dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading strategic dashboard...</p>
         </div>
       </div>
     );
@@ -100,59 +100,59 @@ export function DirectorDashboard() {
   }));
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">Strategic Dashboard</h1>
-          <p className="text-gray-600 mt-1">High-level strategic visibility across the organisation</p>
+          <h1 className="text-3xl font-semibold text-primary">Strategic Dashboard</h1>
+          <p className="text-muted-foreground mt-1">High-level strategic visibility across the organisation</p>
         </div>
 
         {/* Serious Incident Alert */}
         {seriousIncidentAlerts.length > 0 && (
-          <div className="mb-6 bg-red-50 border-2 border-red-600 p-6">
+          <div className="mb-6 bg-destructive/10 border-2 border-destructive p-6 shadow-sm">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
-              <h2 className="text-xl font-bold text-red-900">Serious Incident Alert</h2>
+              <AlertTriangle className="w-6 h-6 text-destructive" />
+              <h2 className="text-xl font-bold text-destructive">Serious Incident Alert</h2>
             </div>
             {seriousIncidentAlerts.map((alert: any) => (
-              <div key={alert.id} className="bg-white border border-red-300 rounded p-4 mb-4 last:mb-0">
+              <div key={alert.id} className="bg-card border border-destructive/20 rounded p-4 mb-4 last:mb-0 shadow-sm">
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3">
                   <div>
-                    <div className="text-sm text-gray-500">Incident ID</div>
-                    <div className="font-bold text-black">{alert.id.substring(0, 8)}</div>
+                    <div className="text-sm text-muted-foreground">Incident ID</div>
+                    <div className="font-bold text-foreground">{alert.id.substring(0, 8)}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Service</div>
-                    <div className="font-bold text-black">{alert.house}</div>
+                    <div className="text-sm text-muted-foreground">Service</div>
+                    <div className="font-bold text-foreground">{alert.house}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Date</div>
-                    <div className="font-bold text-black">{alert.incidentDate}</div>
+                    <div className="text-sm text-muted-foreground">Date</div>
+                    <div className="font-bold text-foreground">{alert.incidentDate}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Risk Signals</div>
-                    <div className="font-bold text-black">{alert.riskSignalsLogged}</div>
+                    <div className="text-sm text-muted-foreground">Risk Signals</div>
+                    <div className="font-bold text-foreground">{alert.riskSignalsLogged}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Escalations</div>
-                    <div className="font-bold text-black">{alert.escalationsTriggered}</div>
+                    <div className="text-sm text-muted-foreground">Escalations</div>
+                    <div className="font-bold text-foreground">{alert.escalationsTriggered}</div>
                   </div>
                   <div>
-                    <div className="text-sm text-gray-500">Last Oversight</div>
-                    <div className="font-bold text-black">{alert.lastOversightReviewDays} days before</div>
+                    <div className="text-sm text-muted-foreground">Last Oversight</div>
+                    <div className="font-bold text-foreground">{alert.lastOversightReviewDays} days before</div>
                   </div>
                 </div>
                 <div className="flex gap-3">
                   <button
                     onClick={() => navigate(`/incidents/${alert.id}/timeline`)}
-                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors text-sm font-medium shadow-sm"
                   >
                     View Governance Timeline
                   </button>
                   <button
                     onClick={() => navigate(`/incidents/${alert.id}/report`)}
-                    className="px-4 py-2 bg-white text-red-600 border border-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
+                    className="px-4 py-2 bg-card text-destructive border border-destructive hover:bg-destructive/5 transition-colors text-sm font-medium shadow-sm"
                   >
                     View Reconstruction Report
                   </button>
@@ -166,58 +166,58 @@ export function DirectorDashboard() {
           {/* Left Column */}
           <div className="space-y-6">
             {/* Organizational Snapshot */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Organizational Overview</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Organizational Overview</h2>
               <div className="space-y-3">
                 {organizationalSnapshot.map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
-                    <span className="text-black">{item.label}</span>
-                    <span className="font-semibold text-black">{item.value}</span>
+                    <span className="text-foreground">{item.label}</span>
+                    <span className="font-semibold text-foreground">{item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Risk Categories */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Risk Categories</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Risk Categories</h2>
               <div className="space-y-3">
                 {riskCategories.length > 0 ? riskCategories.map((category: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium text-black">{category.category}</p>
-                      <p className="text-sm text-gray-600">{category.count} active risks</p>
+                      <p className="font-medium text-foreground">{category.category}</p>
+                      <p className="text-sm text-muted-foreground">{category.count} active risks</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`w-2 h-2 rounded-full ${
-                        category.trend === "up" ? "bg-black" :
-                        category.trend === "down" ? "bg-gray-400" :
-                        "bg-gray-600"
+                        category.trend === "up" ? "bg-destructive" :
+                        category.trend === "down" ? "bg-success" :
+                        "bg-warning"
                       }`}></span>
-                      <span className="text-sm text-gray-600">{category.trend}</span>
+                      <span className="text-sm text-muted-foreground capitalize font-medium">{category.trend}</span>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-gray-500 text-center py-4">No risk data available</p>
+                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No risk data available</p>
                 )}
               </div>
             </div>
 
             {/* Strategic Insights */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Strategic Insights</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Strategic Insights</h2>
               <div className="space-y-3">
                 {strategicInsights.length > 0 ? (
                   strategicInsights.map((insight: any, idx: number) => (
-                    <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
+                    <div key={idx} className="border-b border-border pb-3 last:border-b-0">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-black">{insight.type}</p>
-                          <p className="text-sm text-gray-600">{insight.detail}</p>
+                          <p className="font-medium text-foreground">{insight.type}</p>
+                          <p className="text-sm text-muted-foreground">{insight.detail}</p>
                         </div>
-                        <span className={`text-sm px-2 py-1 ${
-                          insight.priority === "High" ? "bg-black text-white" :
-                          "bg-gray-200 text-black"
+                        <span className={`text-sm px-2 py-1 shadow-sm ${
+                          insight.priority === "High" ? "bg-destructive text-destructive-foreground" :
+                          "bg-muted text-muted-foreground"
                         }`}>
                           {insight.priority}
                         </span>
@@ -225,7 +225,7 @@ export function DirectorDashboard() {
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No strategic insights available</p>
+                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No strategic insights available</p>
                 )}
               </div>
             </div>
@@ -234,58 +234,62 @@ export function DirectorDashboard() {
           {/* Right Column */}
           <div className="space-y-6">
             {/* Site Performance */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Site Performance</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Site Performance</h2>
               <div className="space-y-3">
                 {sitePerformance.length > 0 ? sitePerformance.map((site: any, idx: number) => (
-                  <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
+                  <div key={idx} className="border-b border-border pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium text-black">{site.house_name || 'Service Site'}</p>
-                        <p className="text-sm text-gray-600 font-mono">
-                          Risks: {site.risks_count} | Incidents: {site.incidents_count}
+                        <p className="font-medium text-foreground">{site.house_name || 'Service Site'}</p>
+                        <p className="text-sm text-muted-foreground font-mono">
+                          Risks: <span className="text-foreground font-semibold">{site.risks_count}</span> | Incidents: <span className="text-foreground font-semibold">{site.incidents_count}</span>
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-semibold text-black">
+                        <span className={`text-lg font-bold ${
+                          site.compliance_score > 90 ? "text-success" :
+                          site.compliance_score > 70 ? "text-warning" :
+                          "text-destructive"
+                        }`}>
                           {Math.round(site.compliance_score || 0)}%
                         </span>
-                        <p className="text-sm text-gray-600">Compliance</p>
+                        <p className="text-sm text-muted-foreground">Compliance</p>
                       </div>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-gray-500 text-center py-4">No site performance data available</p>
+                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No site performance data available</p>
                 )}
               </div>
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Strategic Actions</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Strategic Actions</h2>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate("/incidents")}
-                  className="w-full py-3 px-4 bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   <Ambulance className="w-5 h-5" />
                   Manage Serious Incidents
                 </button>
                 <button
                   onClick={() => navigate("/reports")}
-                  className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   Generate Monthly Report
                 </button>
                 <button
                   onClick={() => navigate("/trends")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   View Risk Trends
                 </button>
                 <button
                   onClick={() => navigate("/engines")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
+                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors flex items-center justify-center gap-2 shadow-sm"
                 >
                   Manage Computational Engines
                 </button>

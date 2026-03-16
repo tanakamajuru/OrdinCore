@@ -203,20 +203,20 @@ export function GovernancePulse() {
   };
 
   if (isLoading) return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
     </div>
   );
 
   if (submitted) return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 pt-20 flex items-center justify-center">
         <div className="text-center">
-          <CheckCircle className="w-16 h-16 text-green-500 mx-auto mb-4" />
-          <h2 className="text-2xl font-semibold text-black mb-2">Pulse Submitted!</h2>
-          <p className="text-gray-600 mb-4">Your governance pulse for today has been recorded.</p>
-          <button onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-black text-white hover:bg-gray-800">
+          <CheckCircle className="w-16 h-16 text-success mx-auto mb-4" />
+          <h2 className="text-2xl font-semibold text-primary mb-2">Pulse Submitted!</h2>
+          <p className="text-muted-foreground mb-4">Your governance pulse for today has been recorded.</p>
+          <button onClick={() => navigate('/dashboard')} className="px-6 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors">
             Back to Dashboard
           </button>
         </div>
@@ -225,41 +225,41 @@ export function GovernancePulse() {
   );
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-3xl">
         {/* Header */}
-        <div className="mb-8 border-b-2 border-black pb-6">
-          <h1 className="text-3xl font-semibold text-black mb-2">Governance Pulse</h1>
+        <div className="mb-8 border-b-2 border-border pb-6">
+          <h1 className="text-3xl font-semibold text-primary mb-2">Governance Pulse</h1>
           <div className="flex justify-between items-center mt-4">
             <div>
-              <span className="text-gray-600">House: </span>
-              <span className="font-medium text-black">{house?.name || '—'}</span>
+              <span className="text-muted-foreground">House: </span>
+              <span className="font-medium text-foreground">{house?.name || '—'}</span>
             </div>
             <div>
-              <span className="text-gray-600">Date: </span>
-              <span className="font-medium text-black">{currentDate}</span>
+              <span className="text-muted-foreground">Date: </span>
+              <span className="font-medium text-foreground">{currentDate}</span>
             </div>
           </div>
         </div>
 
         {/* Pulse Schedule Info */}
-        <div className="mb-8 bg-gray-50 border-2 border-gray-300 p-4">
+        <div className="mb-8 bg-muted border-2 border-border p-4 shadow-sm">
           <div className="flex justify-between text-sm flex-wrap gap-2">
             <div className="flex items-center gap-2">
-              <Clock className="w-4 h-4 text-gray-500" />
-              <span className="text-gray-600">Pulse days: </span>
-              <span className="font-medium text-black">{pulseDays.join(', ')}</span>
+              <Clock className="w-4 h-4 text-muted-foreground" />
+              <span className="text-muted-foreground">Pulse days: </span>
+              <span className="font-medium text-foreground">{pulseDays.join(', ')}</span>
             </div>
             <div>
-              <span className="text-gray-600">Last completed: </span>
-              <span className="font-medium text-black">
+              <span className="text-muted-foreground">Last completed: </span>
+              <span className="font-medium text-foreground">
                 {lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB', { weekday: 'short', day: '2-digit', month: 'short' }) : 'None yet'}
               </span>
             </div>
             <div>
-              <span className="text-gray-600">Next due: </span>
-              <span className="font-medium text-black">{nextPulseDate || '—'}</span>
+              <span className="text-muted-foreground">Next due: </span>
+              <span className="font-medium text-foreground">{nextPulseDate || '—'}</span>
             </div>
           </div>
         </div>
@@ -273,10 +273,10 @@ export function GovernancePulse() {
         ) : (
           <div className="space-y-6">
             {questions.map((q, idx) => (
-              <div key={q.id} className="border-2 border-gray-300 p-4">
-                <h3 className="font-semibold text-black mb-3">
+              <div key={q.id} className="bg-card border-2 border-border p-4 shadow-sm">
+                <h3 className="font-semibold text-foreground mb-3">
                   {idx + 1}. {q.question}
-                  {q.required && <span className="text-red-500 ml-1">*</span>}
+                  {q.required && <span className="text-destructive ml-1">*</span>}
                 </h3>
 
                 {q.question_type === 'yes_no' && (
@@ -289,9 +289,9 @@ export function GovernancePulse() {
                           value={val}
                           checked={answers[q.id] === val}
                           onChange={() => handleAnswerChange(q.id, val)}
-                          className="w-4 h-4"
+                          className="w-4 h-4 text-primary focus:ring-primary"
                         />
-                        <span className="text-black">{val === 'yes' ? 'Yes' : 'No'}</span>
+                        <span className="text-foreground">{val === 'yes' ? 'Yes' : 'No'}</span>
                       </label>
                     ))}
                     {answers[q.id] === 'yes' && (
@@ -299,7 +299,7 @@ export function GovernancePulse() {
                         placeholder="Please provide details..."
                         value={answers[`${q.id}_detail`] || ''}
                         onChange={e => handleAnswerChange(`${q.id}_detail`, e.target.value)}
-                        className="w-full h-20 px-3 py-2 border-2 border-black focus:outline-none resize-none mt-2"
+                        className="w-full h-20 px-3 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none mt-2"
                       />
                     )}
                   </div>
@@ -315,9 +315,9 @@ export function GovernancePulse() {
                           value={opt}
                           checked={answers[q.id] === opt}
                           onChange={() => handleAnswerChange(q.id, opt)}
-                          className="w-4 h-4"
+                          className="w-4 h-4 text-primary focus:ring-primary"
                         />
-                        <span className="text-black">{opt}</span>
+                        <span className="text-foreground">{opt}</span>
                       </label>
                     ))}
                   </div>
@@ -328,7 +328,7 @@ export function GovernancePulse() {
                     value={answers[q.id] || ''}
                     onChange={e => handleAnswerChange(q.id, e.target.value)}
                     placeholder="Your observations..."
-                    className="w-full h-24 px-3 py-2 border-2 border-black focus:outline-none resize-none"
+                    className="w-full h-24 px-3 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
                   />
                 )}
 
@@ -339,13 +339,13 @@ export function GovernancePulse() {
                         key={n}
                         onClick={() => handleAnswerChange(q.id, String(n))}
                         className={`w-10 h-10 border-2 font-semibold transition-colors ${
-                          answers[q.id] === String(n) ? 'bg-black text-white border-black' : 'border-gray-300 hover:border-black'
+                          answers[q.id] === String(n) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary text-foreground'
                         }`}
                       >
                         {n}
                       </button>
                     ))}
-                    <span className="text-sm text-gray-500 self-center ml-2">1=Low, 5=High</span>
+                    <span className="text-sm text-muted-foreground self-center ml-2">1=Low, 5=High</span>
                   </div>
                 )}
               </div>
@@ -355,7 +355,7 @@ export function GovernancePulse() {
               <button
                 onClick={handleSubmit}
                 disabled={isSubmitting}
-                className="px-8 py-3 bg-black text-white hover:bg-gray-800 transition-colors font-medium disabled:opacity-50"
+                className="px-8 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 shadow-sm"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Governance Pulse'}
               </button>
@@ -365,32 +365,32 @@ export function GovernancePulse() {
 
         {/* Risk Creation Prompt */}
         {showRiskPrompt && (
-          <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
-            <div className="bg-white border-2 border-black p-6 w-full max-w-md mx-4">
+          <div className="fixed inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-50">
+            <div className="bg-card border-2 border-border p-6 w-full max-w-md mx-4 shadow-xl">
               <div className="flex items-center gap-3 mb-4">
-                <AlertTriangle className="w-6 h-6 text-black" />
-                <h3 className="text-xl font-semibold text-black">Create Risk Register Entry?</h3>
+                <AlertTriangle className="w-6 h-6 text-warning" />
+                <h3 className="text-xl font-semibold text-primary">Create Risk Register Entry?</h3>
               </div>
-              <p className="text-gray-600 mb-4">
+              <p className="text-muted-foreground mb-4">
                 A risk was identified in this pulse. Add it to the Risk Register for tracking?
               </p>
               <textarea
                 value={riskDescription}
                 onChange={e => setRiskDescription(e.target.value)}
                 placeholder="Describe the risk in detail..."
-                className="w-full h-24 px-3 py-2 border-2 border-black focus:outline-none resize-none mb-4"
+                className="w-full h-24 px-3 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none mb-4"
               />
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => { setShowRiskPrompt(false); submitPulse(); }}
-                  className="px-4 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
                 >
                   Skip
                 </button>
                 <button
                   onClick={() => submitPulse()}
                   disabled={isSubmitting}
-                  className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors flex items-center gap-2 disabled:opacity-50"
+                  className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center gap-2 disabled:opacity-50"
                 >
                   <Plus className="w-4 h-4" />
                   {isSubmitting ? 'Submitting...' : 'Submit + Create Risk'}

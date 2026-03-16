@@ -89,10 +89,10 @@ export function RegisteredManagerDashboard() {
   const getPulseStatusLabel = () => {
     if (!todayPulse) return { label: 'No pulse scheduled today', color: 'text-gray-500' };
     switch (todayPulse.status) {
-      case 'completed': return { label: 'Completed ✓', color: 'text-green-600' };
-      case 'in_progress': return { label: 'In Progress...', color: 'text-blue-600' };
-      case 'overdue': return { label: 'Overdue — complete now', color: 'text-red-600' };
-      default: return { label: 'Not yet started', color: 'text-gray-600' };
+      case 'completed': return { label: 'Completed ✓', color: 'text-success' };
+      case 'in_progress': return { label: 'In Progress...', color: 'text-primary' };
+      case 'overdue': return { label: 'Overdue — complete now', color: 'text-destructive' };
+      default: return { label: 'Not yet started', color: 'text-muted-foreground' };
     }
   };
 
@@ -100,10 +100,10 @@ export function RegisteredManagerDashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto" />
-          <p className="mt-2 text-gray-600">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto" />
+          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -112,14 +112,14 @@ export function RegisteredManagerDashboard() {
   const pulseStatus = getPulseStatusLabel();
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">
+          <h1 className="text-3xl font-semibold text-primary">
             {house ? `${house.name} Dashboard` : 'Your House Dashboard'}
           </h1>
-          <p className="text-gray-600 mt-1">
+          <p className="text-muted-foreground mt-1">
             {house ? house.address : 'Real-time overview of your house governance'}
           </p>
         </div>
@@ -128,26 +128,26 @@ export function RegisteredManagerDashboard() {
           {/* Left Column */}
           <div className="space-y-6">
             {/* Today's Governance Pulse */}
-            <div className="bg-white border-2 border-black p-6">
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <Activity className="w-5 h-5" />
-                <h2 className="text-xl font-semibold text-black">Today's Governance Pulse</h2>
+                <Activity className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-primary">Today's Governance Pulse</h2>
               </div>
               <div className="mb-4">
                 <p className={`font-medium ${pulseStatus.color}`}>{pulseStatus.label}</p>
                 {todayPulse?.due_date && (
-                  <p className="text-sm text-gray-500 mt-1">Due: {formatDate(todayPulse.due_date)}</p>
+                  <p className="text-sm text-muted-foreground mt-1">Due: {formatDate(todayPulse.due_date)}</p>
                 )}
                 {todayPulse?.compliance_score !== null && todayPulse?.compliance_score !== undefined && (
-                  <p className="text-sm text-gray-600 mt-1">Last score: {todayPulse.compliance_score}%</p>
+                  <p className="text-sm text-muted-foreground mt-1">Last score: <span className="font-semibold">{todayPulse.compliance_score}%</span></p>
                 )}
               </div>
               <button
                 onClick={() => navigate("/governance-pulse")}
-                className={`w-full py-3 px-4 transition-colors ${
+                className={`w-full py-3 px-4 transition-colors shadow-sm ${
                   todayPulse?.status === 'completed'
-                    ? 'bg-gray-200 text-gray-600 hover:bg-gray-300'
-                    : 'bg-black text-white hover:bg-gray-800'
+                    ? 'bg-muted text-muted-foreground hover:bg-muted/90'
+                    : 'bg-primary text-primary-foreground hover:bg-primary/90'
                 }`}
               >
                 {todayPulse?.status === 'completed' ? 'View Pulse' : 'Start Pulse'}
@@ -155,8 +155,8 @@ export function RegisteredManagerDashboard() {
             </div>
 
             {/* Weekly Governance Snapshot */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Weekly Governance Snapshot</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Weekly Governance Snapshot</h2>
               <div className="space-y-3">
                 {[
                   { label: 'High Risk Cases', value: weeklyStats.highRiskDays },
@@ -165,37 +165,37 @@ export function RegisteredManagerDashboard() {
                   { label: 'Active Incidents', value: weeklyStats.activeIncidents },
                 ].map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center">
-                    <span className="text-black">{item.label}</span>
-                    <span className="font-semibold text-black">{item.value}</span>
+                    <span className="text-foreground">{item.label}</span>
+                    <span className="font-semibold text-foreground">{item.value}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {/* Active High Risk Cases */}
-            <div className="bg-white border-2 border-black p-6">
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
               <div className="flex items-center gap-2 mb-4">
-                <AlertTriangle className="w-5 h-5 text-red-500" />
-                <h2 className="text-xl font-semibold text-black">Active High Risk Cases</h2>
+                <AlertTriangle className="w-5 h-5 text-destructive" />
+                <h2 className="text-xl font-semibold text-primary">Active High Risk Cases</h2>
               </div>
               <div className="space-y-3">
                 {highRisks.length > 0 ? highRisks.map((risk) => (
-                  <div key={risk.id} className="border-b border-gray-300 pb-3 last:border-b-0">
+                  <div key={risk.id} className="border-b border-border pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-black">{risk.title}</p>
-                        <p className="text-sm text-gray-600 capitalize">{risk.severity} severity</p>
+                        <p className="font-medium text-foreground">{risk.title}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{risk.severity} severity</p>
                       </div>
-                      <span className="text-sm text-gray-500">{formatDate(risk.created_at)}</span>
+                      <span className="text-sm text-muted-foreground">{formatDate(risk.created_at)}</span>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-gray-500 text-center py-4">No high risk cases — well done!</p>
+                  <p className="text-success text-center py-4 border border-dashed border-border">No high risk cases — well done!</p>
                 )}
               </div>
               <button
                 onClick={() => navigate("/risk-register")}
-                className="w-full mt-4 py-2 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                className="w-full mt-4 py-2 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 View All Risks
               </button>
@@ -205,39 +205,39 @@ export function RegisteredManagerDashboard() {
           {/* Right Column */}
           <div className="space-y-6">
             {/* House Incidents */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">House Incidents</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">House Incidents</h2>
               <div className="space-y-3">
                 {incidents.length > 0 ? incidents.map((inc) => (
-                  <div key={inc.id} className="border-b border-gray-300 pb-3 last:border-b-0">
+                  <div key={inc.id} className="border-b border-border pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
-                        <p className="font-medium text-black">{inc.title}</p>
-                        <p className="text-sm text-gray-600 capitalize">{inc.severity}</p>
-                        <p className="text-sm text-gray-500">{formatDate(inc.occurred_at)}</p>
+                        <p className="font-medium text-foreground">{inc.title}</p>
+                        <p className="text-sm text-muted-foreground capitalize">{inc.severity}</p>
+                        <p className="text-sm text-muted-foreground">{formatDate(inc.occurred_at)}</p>
                       </div>
-                      <span className={`px-2 py-1 text-xs rounded ${
-                        inc.status === 'under_review' ? 'bg-black text-white' : 'bg-gray-200 text-gray-800'
+                      <span className={`px-2 py-1 text-xs rounded shadow-sm ${
+                        inc.status === 'under_review' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
                         {inc.status.replace('_', ' ')}
                       </span>
                     </div>
                   </div>
                 )) : (
-                  <div className="text-center py-4 text-gray-500">No active incidents for your house</div>
+                  <div className="text-center py-4 text-muted-foreground border border-dashed border-border">No active incidents for your house</div>
                 )}
               </div>
               <div className="flex gap-2 mt-4">
                 <button
                   onClick={() => navigate("/incidents")}
-                  className="flex-1 py-2 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="flex-1 py-2 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
                 >
                   <Ambulance className="w-4 h-4 mr-2 inline" />
                   Manage Incidents
                 </button>
                 <button
                   onClick={() => navigate("/incidents")}
-                  className="flex-1 py-2 px-4 bg-black text-white hover:bg-gray-800 transition-colors"
+                  className="flex-1 py-2 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
                 >
                   <Plus className="w-4 h-4 mr-2 inline" />
                   Add Incident
@@ -246,30 +246,30 @@ export function RegisteredManagerDashboard() {
             </div>
 
             {/* Quick Actions */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Quick Actions</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Quick Actions</h2>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate("/governance-pulse")}
-                  className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors"
+                  className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors shadow-sm"
                 >
                   Complete Governance Pulse
                 </button>
                 <button
                   onClick={() => navigate("/risk-register")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors shadow-sm"
                 >
                   Add New Risk
                 </button>
                 <button
                   onClick={() => navigate("/reports")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors shadow-sm"
                 >
                   Generate Report
                 </button>
                 <button
                   onClick={() => navigate("/incidents")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors shadow-sm"
                 >
                   Record Serious Incident
                 </button>

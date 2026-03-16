@@ -101,11 +101,11 @@ export function RoleBasedNavigation() {
 
 
   return (
-    <nav className="bg-white border-b-2 border-black fixed top-0 left-0 right-0 z-50">
+    <nav className="bg-card border-b-2 border-border fixed top-0 left-0 right-0 z-50">
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <div className="text-xl font-bold text-black">CareSignal</div>
+            <div className="text-xl font-bold text-primary">CareSignal</div>
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -118,14 +118,14 @@ export function RoleBasedNavigation() {
                     onClick={() => navigate(item.path)}
                     className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative ${
                       isActive
-                        ? "bg-black text-white"
-                        : "text-gray-600 hover:text-black hover:bg-gray-100"
+                        ? "bg-primary text-primary-foreground"
+                        : "text-muted-foreground hover:text-primary hover:bg-muted"
                     }`}
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
                     {hasNotification && (
-                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
                         {pendingEscalations > 9 ? '9+' : pendingEscalations}
                       </span>
                     )}
@@ -136,7 +136,7 @@ export function RoleBasedNavigation() {
           </div>
 
           <div className="flex items-center space-x-2">
-            <div className="text-sm text-gray-600 mr-4">
+            <div className="text-sm text-muted-foreground mr-4">
               {getRoleLabel()}
             </div>
             <Button onClick={handleLogout}>Logout</Button>

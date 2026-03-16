@@ -102,19 +102,19 @@ export function EscalationLog() {
 
   const getPriorityColor = (priority: string) => {
     switch (priority) {
-      case 'critical': return 'bg-red-600 text-white';
-      case 'urgent': return 'bg-red-500 text-white';
-      case 'high': return 'bg-black text-white';
-      default: return 'bg-gray-200 text-gray-800';
+      case 'critical': return 'bg-destructive text-destructive-foreground';
+      case 'urgent': return 'bg-destructive/80 text-destructive-foreground';
+      case 'high': return 'bg-primary text-primary-foreground';
+      default: return 'bg-muted text-muted-foreground';
     }
   };
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'resolved': return <CheckCircle2 className="w-5 h-5 text-green-600" />;
-      case 'pending': return <Clock className="w-5 h-5 text-red-500" />;
-      case 'acknowledged': return <AlertCircle className="w-5 h-5 text-blue-500" />;
-      default: return <Clock className="w-5 h-5 text-gray-500" />;
+      case 'resolved': return <CheckCircle2 className="w-5 h-5 text-success" />;
+      case 'pending': return <Clock className="w-5 h-5 text-destructive" />;
+      case 'acknowledged': return <AlertCircle className="w-5 h-5 text-primary" />;
+      default: return <Clock className="w-5 h-5 text-muted-foreground" />;
     }
   };
 
@@ -131,39 +131,39 @@ export function EscalationLog() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2 flex items-center gap-3">
+          <h1 className="text-3xl font-bold text-primary mb-2 flex items-center gap-3">
             <ShieldAlert className="w-8 h-8" />
             Escalation Management
           </h1>
-          <p className="text-gray-600">Cross-site oversight of high-risk escalations requiring RI attention</p>
+          <p className="text-muted-foreground">Cross-site oversight of high-risk escalations requiring RI attention</p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           {/* List Section */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-white border-2 border-black p-4 mb-4 flex justify-between items-center text-sm">
-              <span className="font-semibold">{escalations.filter(e => e.status !== 'resolved').length} Pending Actions</span>
+            <div className="bg-card border-2 border-border p-4 mb-4 flex justify-between items-center text-sm shadow-sm">
+              <span className="font-semibold text-foreground">{escalations.filter(e => e.status !== 'resolved').length} Pending Actions</span>
               <div className="flex gap-4">
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-red-600"></div> Critical</span>
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-black"></div> High</span>
+                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-destructive"></div> Critical</span>
+                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div> High</span>
               </div>
             </div>
 
             {escalations.length > 0 ? escalations.map((esc) => (
               <Card 
                 key={esc.id} 
-                className={`border-2 border-black transition-all cursor-pointer hover:shadow-lg ${selectedEscalation?.id === esc.id ? 'ring-2 ring-black bg-gray-50' : ''}`}
+                className={`border-2 border-border transition-all cursor-pointer hover:shadow-lg ${selectedEscalation?.id === esc.id ? 'ring-2 ring-primary bg-muted/30' : 'bg-card'}`}
                 onClick={() => handleSelectEscalation(esc)}
               >
                 <CardContent className="p-5">
@@ -180,21 +180,21 @@ export function EscalationLog() {
                     {getStatusIcon(esc.status)}
                   </div>
                   
-                  <h3 className="text-lg font-bold text-black mb-2">{esc.risk_title}</h3>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{esc.reason}</p>
+                  <h3 className="text-lg font-bold text-primary mb-2">{esc.risk_title}</h3>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{esc.reason}</p>
                   
-                  <div className="flex justify-between items-center pt-4 border-t border-gray-100">
-                    <div className="text-xs text-gray-500">
-                      Escalated by <span className="font-semibold text-black">{esc.escalated_by_name}</span> • {new Date(esc.created_at).toLocaleDateString('en-GB')}
+                  <div className="flex justify-between items-center pt-4 border-t border-border">
+                    <div className="text-xs text-muted-foreground">
+                      Escalated by <span className="font-semibold text-primary">{esc.escalated_by_name}</span> • {new Date(esc.created_at).toLocaleDateString('en-GB')}
                     </div>
-                    <ChevronRight className="w-4 h-4 text-black" />
+                    <ChevronRight className="w-4 h-4 text-primary" />
                   </div>
                 </CardContent>
               </Card>
             )) : (
-              <div className="text-center py-20 bg-gray-50 border-2 border-dashed border-gray-300">
-                <CheckCircle2 className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-500">All clear! No pending escalations.</h3>
+              <div className="text-center py-20 bg-muted/30 border-2 border-dashed border-border">
+                <CheckCircle2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-muted-foreground">All clear! No pending escalations.</h3>
               </div>
             )}
           </div>
@@ -203,66 +203,66 @@ export function EscalationLog() {
           <div className="lg:col-span-1">
             {selectedEscalation ? (
               <div className="sticky top-24 space-y-6">
-                <Card className="border-2 border-black">
-                  <CardHeader className="bg-black text-white">
+                <Card className="border-2 border-border shadow-xl">
+                  <CardHeader className="bg-primary text-primary-foreground">
                     <CardTitle className="text-lg">Escalation Details</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6 space-y-6">
                     <div>
-                      <label className="text-xs font-bold uppercase text-gray-500 block mb-1">Risk Context</label>
-                      <h4 className="font-bold text-black">{selectedEscalation.risk_title}</h4>
-                      <p className="text-sm text-gray-600 mt-1">{selectedEscalation.risk_description}</p>
+                      <label className="text-xs font-bold uppercase text-muted-foreground block mb-1">Risk Context</label>
+                      <h4 className="font-bold text-primary">{selectedEscalation.risk_title}</h4>
+                      <p className="text-sm text-muted-foreground mt-1">{selectedEscalation.risk_description}</p>
                     </div>
 
                     <div>
-                      <label className="text-xs font-bold uppercase text-gray-500 block mb-1">Escalation Reason</label>
-                      <div className="bg-gray-50 border-l-4 border-black p-3 text-sm italic">
+                      <label className="text-xs font-bold uppercase text-muted-foreground block mb-1">Escalation Reason</label>
+                      <div className="bg-muted border-l-4 border-primary p-3 text-sm italic text-foreground">
                         "{selectedEscalation.reason}"
                       </div>
                     </div>
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="text-xs font-bold uppercase text-gray-500 block mb-1">Site</label>
-                        <p className="text-sm font-medium">{selectedEscalation.house_name}</p>
+                        <label className="text-xs font-bold uppercase text-muted-foreground block mb-1">Site</label>
+                        <p className="text-sm font-medium text-foreground">{selectedEscalation.house_name}</p>
                       </div>
                       <div>
-                        <label className="text-xs font-bold uppercase text-gray-500 block mb-1">Status</label>
-                        <p className="text-sm font-medium capitalize">{selectedEscalation.status}</p>
+                        <label className="text-xs font-bold uppercase text-muted-foreground block mb-1">Status</label>
+                        <p className="text-sm font-medium capitalize text-foreground">{selectedEscalation.status}</p>
                       </div>
                     </div>
 
                     {selectedEscalation.status === 'pending' && (
                       <Button 
                         onClick={() => handleAcknowledge(selectedEscalation.id)}
-                        className="w-full bg-black text-white hover:bg-gray-800"
+                        className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
                       >
                         Acknowledge Receipt
                       </Button>
                     )}
 
                     {selectedEscalation.status !== 'resolved' && (
-                      <div className="space-y-3 pt-4 border-t border-gray-100">
-                        <label className="text-xs font-bold uppercase text-gray-500 block">Resolution Action</label>
+                      <div className="space-y-3 pt-4 border-t border-border">
+                        <label className="text-xs font-bold uppercase text-muted-foreground block">Resolution Action</label>
                         <textarea
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
                           placeholder="Document your oversight actions and resolution notes..."
-                          className="w-full h-32 border-2 border-black p-3 text-sm focus:outline-none focus:ring-2 focus:ring-black resize-none"
+                          className="w-full h-32 bg-input-background border-2 border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
                         />
                         <div className="flex gap-3">
                           <Button 
                             onClick={handleUpdateProgress}
                             disabled={isSubmitting || !resolutionNotes}
                             variant="outline"
-                            className="flex-1 border-black hover:bg-gray-100 disabled:opacity-50"
+                            className="flex-1 border-border text-foreground hover:bg-muted disabled:opacity-50"
                           >
                             Log Progress
                           </Button>
                           <Button 
                             onClick={handleResolve}
                             disabled={isSubmitting || !resolutionNotes}
-                            className="flex-1 bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                            className="flex-1 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
                           >
                             Mark as Resolved
                           </Button>
@@ -271,26 +271,26 @@ export function EscalationLog() {
                     )}
 
                     {selectedEscalation.status === 'resolved' && (
-                      <div className="bg-green-50 border border-green-200 p-4 rounded text-sm text-green-800">
+                      <div className="bg-success/20 border border-success p-4 rounded text-sm text-success">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4" />
                           <span className="font-bold">Resolved</span>
                         </div>
-                        <p className="italic">"{selectedEscalation.resolution_notes}"</p>
+                        <p className="italic text-foreground">"{selectedEscalation.resolution_notes}"</p>
                         <p className="mt-2 text-xs opacity-75">Resolved on {new Date(selectedEscalation.resolved_at!).toLocaleDateString('en-GB')}</p>
                       </div>
                     )}
 
                     {/* Action History */}
                     {(selectedEscalation as any).actions && (selectedEscalation as any).actions.length > 0 && (
-                      <div className="pt-6 border-t border-gray-100">
-                        <label className="text-xs font-bold uppercase text-gray-500 block mb-3">Action History</label>
+                      <div className="pt-6 border-t border-border">
+                        <label className="text-xs font-bold uppercase text-muted-foreground block mb-3">Action History</label>
                         <div className="space-y-4">
                           {(selectedEscalation as any).actions.map((action: any) => (
-                            <div key={action.id} className="text-xs border-l-2 border-gray-200 pl-3 py-1">
-                              <p className="font-bold text-black">{action.action_type.toUpperCase()}</p>
-                              <p className="text-gray-600 mt-0.5">{action.description}</p>
-                              <p className="text-[10px] text-gray-400 mt-1">{new Date(action.created_at).toLocaleString('en-GB')}</p>
+                            <div key={action.id} className="text-xs border-l-2 border-primary pl-3 py-1">
+                              <p className="font-bold text-primary">{action.action_type.toUpperCase()}</p>
+                              <p className="text-muted-foreground mt-0.5">{action.description}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">{new Date(action.created_at).toLocaleString('en-GB')}</p>
                             </div>
                           ))}
                         </div>
@@ -299,11 +299,11 @@ export function EscalationLog() {
                   </CardContent>
                 </Card>
 
-                <div className="bg-gray-50 border-2 border-black p-4 flex items-start gap-3">
-                  <MessageSquare className="w-5 h-5 text-gray-400 mt-1" />
+                <div className="bg-muted border-2 border-border p-4 flex items-start gap-3 shadow-sm">
+                  <MessageSquare className="w-5 h-5 text-muted-foreground mt-1" />
                   <div>
-                    <p className="text-xs font-bold text-gray-500 uppercase">Communication Log</p>
-                    <p className="text-sm text-gray-600 mt-1">Actions taken here will be logged in the risk history and visible to Registered Managers.</p>
+                    <p className="text-xs font-bold text-muted-foreground uppercase">Communication Log</p>
+                    <p className="text-sm text-foreground mt-1">Actions taken here will be logged in the risk history and visible to Registered Managers.</p>
                   </div>
                 </div>
               </div>

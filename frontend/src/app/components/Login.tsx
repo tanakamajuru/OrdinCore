@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
 import { apiClient } from "@/services/api";
+import logo from "./images/logo.png";
 
 export function Login() {
   const navigate = useNavigate();
@@ -60,21 +61,23 @@ export function Login() {
 
   return (
     <FullScreen handle={handle}>
-      <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md">
-        <div className="bg-white border-2 border-black p-8">
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-semibold text-black mb-2">CareSignal</h1>
-            <p className="text-gray-600">Secure Governance Platform</p>
+        <div className="bg-card border-2 border-border p-8 shadow-md">
+          <div className="text-center mb-2 flex flex-col items-center">
+
+            <img src={logo} alt="Logo" className="w-48 h-48 mb-1 mx-auto" />
+
+            
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
             {error && (
-              <div className="text-red-600 text-sm italic text-center">{error}</div>
+              <div className="text-destructive text-sm italic text-center">{error}</div>
             )}
 
             <div>
-              <label htmlFor="email" className="block mb-2 text-black font-medium">
+              <label htmlFor="email" className="block mb-2 text-foreground font-medium">
                 Email
               </label>
               <input
@@ -82,7 +85,7 @@ export function Login() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                 required
                 disabled={isLoading}
                 autoComplete="off"
@@ -90,7 +93,7 @@ export function Login() {
             </div>
 
             <div>
-              <label htmlFor="password" className="block mb-2 text-black font-medium">
+              <label htmlFor="password" className="block mb-2 text-foreground font-medium">
                 Password
               </label>
               <input
@@ -98,7 +101,7 @@ export function Login() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                 required
                 disabled={isLoading}
                 autoComplete="new-password"
@@ -107,7 +110,7 @@ export function Login() {
 
             <button
               type="submit"
-              className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               disabled={isLoading}
             >
               {isLoading ? "Logging in..." : "Login"}
@@ -117,7 +120,7 @@ export function Login() {
               <button
                 type="button"
                 onClick={() => navigate("/forgotten-password")}
-                className="text-black hover:text-gray-600 transition-colors underline"
+                className="text-primary hover:text-primary/70 transition-colors underline"
               >
                 Forgotten Password
               </button>

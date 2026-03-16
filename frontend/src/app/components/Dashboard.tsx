@@ -50,7 +50,7 @@ export function Dashboard() {
     if (!pulseStatus) return { status: 'loading', message: 'Loading...' };
     
     const today = new Date().toISOString().split('T')[0];
-    const todayPulse = pulseStatus.siteStatuses.find(site => {
+    const todayPulse = pulseStatus.siteStatuses.find((site: any) => {
       const pulseDate = new Date(site.currentPeriod.requiredDate).toISOString().split('T')[0];
       return pulseDate === today;
     });
@@ -77,14 +77,14 @@ export function Dashboard() {
     const status = getTodayPulseStatus();
     switch (status.status) {
       case 'completed':
-        return 'bg-green-600 hover:bg-green-700';
+        return 'bg-success hover:bg-success/90';
       case 'pending':
-        return 'bg-black hover:bg-gray-800';
+        return 'bg-primary hover:bg-primary/90';
       case 'missed':
       case 'overdue':
-        return 'bg-red-600 hover:bg-red-700';
+        return 'bg-destructive hover:bg-destructive/90';
       default:
-        return 'bg-gray-600 hover:bg-gray-700';
+        return 'bg-muted text-muted-foreground hover:bg-muted/90';
     }
   };
 
@@ -105,10 +105,10 @@ export function Dashboard() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -140,12 +140,12 @@ export function Dashboard() {
     })) || [];
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <Navigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">Governance Overview</h1>
-          <p className="text-gray-600 mt-1">
+          <h1 className="text-3xl font-semibold text-primary">Governance Overview</h1>
+          <p className="text-muted-foreground mt-1">
             Welcome back, {user?.name}. Here's your governance overview for {new Date().toLocaleDateString()}.
           </p>
         </div>
@@ -154,32 +154,32 @@ export function Dashboard() {
           {/* Left Column */}
           <div className="space-y-6">
             {/* Today's Governance Pulse */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Today's Governance Pulse</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Today's Governance Pulse</h2>
               <div className="mb-4">
-                <p className="text-gray-600">Status: {getTodayPulseStatus().message}</p>
+                <p className="text-muted-foreground">Status: <span className="text-foreground font-medium">{getTodayPulseStatus().message}</span></p>
                 {pulseStatus && (
-                  <div className="mt-2 text-sm text-gray-500">
-                    Overall Compliance: {formatPercentage(pulseStatus.overallCompliance)}
+                  <div className="mt-2 text-sm text-muted-foreground">
+                    Overall Compliance: <span className="font-semibold">{formatPercentage(pulseStatus.overallCompliance)}</span>
                   </div>
                 )}
               </div>
               <button
                 onClick={() => navigate("/governance-pulse")}
-                className={`w-full py-3 px-4 text-white transition-colors ${getTodayPulseButtonColor()}`}
+                className={`w-full py-3 px-4 text-white transition-colors shadow-sm ${getTodayPulseButtonColor()}`}
               >
                 {getTodayPulseButtonText()}
               </button>
             </div>
 
             {/* Weekly Snapshot Summary */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Weekly Snapshot Summary</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Weekly Snapshot Summary</h2>
               <div className="grid grid-cols-2 gap-4">
                 {weeklySnapshot.map((stat) => (
-                  <div key={stat.label} className="border border-gray-300 p-4">
-                    <span className="block text-sm text-gray-600 mb-1">{stat.label}</span>
-                    <span className="text-xl font-semibold text-black">{stat.value}</span>
+                  <div key={stat.label} className="bg-muted/30 border border-border p-4">
+                    <span className="block text-sm text-muted-foreground mb-1">{stat.label}</span>
+                    <span className="text-xl font-semibold text-primary">{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -189,53 +189,53 @@ export function Dashboard() {
           {/* Right Column */}
           <div className="space-y-6">
             {/* Active High Risks */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Active High Risks</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Active High Risks</h2>
               <div className="space-y-2">
                 {activeHighRisks.length > 0 ? (
                   activeHighRisks.map((risk, idx) => (
                     <div
                       key={idx}
                       onClick={() => navigate("/risk-register")}
-                      className="p-3 border border-gray-300 cursor-pointer hover:bg-gray-100 transition-colors"
+                      className="p-3 border border-border cursor-pointer hover:bg-muted transition-colors"
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-black font-medium">{risk.house}</p>
-                          <p className="text-sm text-gray-600 truncate">{risk.description}</p>
-                          <p className="text-xs text-gray-500 mt-1">{risk.date}</p>
+                          <p className="text-primary font-medium">{risk.house}</p>
+                          <p className="text-sm text-muted-foreground truncate">{risk.description}</p>
+                          <p className="text-xs text-muted-foreground mt-1">{risk.date}</p>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No active high risks</p>
+                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border">No active high risks</p>
                 )}
               </div>
             </div>
 
             {/* Escalations This Week */}
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Escalations This Week</h2>
+            <div className="bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-semibold mb-4 text-primary">Escalations This Week</h2>
               <div className="space-y-2">
                 {escalationsThisWeek.length > 0 ? (
                   escalationsThisWeek.map((esc, idx) => (
                     <div
                       key={idx}
                       onClick={() => navigate("/escalation-log")}
-                      className="p-3 border border-gray-300 cursor-pointer hover:bg-gray-100 transition-colors"
+                      className="p-3 border border-border cursor-pointer hover:bg-muted transition-colors"
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="text-sm text-gray-600">{esc.date}</p>
-                          <p className="text-black font-medium">{esc.house}</p>
-                          <p className="text-sm text-gray-600 truncate">{esc.risk}</p>
+                          <p className="text-xs text-muted-foreground">{esc.date}</p>
+                          <p className="text-primary font-medium">{esc.house}</p>
+                          <p className="text-sm text-muted-foreground truncate">{esc.risk}</p>
                         </div>
                       </div>
                     </div>
                   ))
                 ) : (
-                  <p className="text-gray-500 text-center py-4">No escalations this week</p>
+                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border">No escalations this week</p>
                 )}
               </div>
             </div>
