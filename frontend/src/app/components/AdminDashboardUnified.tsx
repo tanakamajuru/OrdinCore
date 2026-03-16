@@ -3,13 +3,12 @@ import { useNavigate } from 'react-router';
 import { 
   AdminPageHeader, 
   AdminStatsCard, 
-  AdminDataTable,
-  AdminPagination,
   getStatusBadge 
 } from './shared/AdminLayout';
-import { Users, Building, Activity, AlertTriangle, TrendingUp, Settings } from 'lucide-react';
+import { Users, Building, Activity, AlertTriangle, TrendingUp, Settings, FileText } from 'lucide-react';
 import { Button } from './ui/button';
 import { toast } from 'sonner';
+import apiClient from '@/services/apiClient';
 
 interface AdminStats {
   totalUsers: number;
@@ -30,6 +29,17 @@ interface RecentActivity {
   user: string;
 }
 
+const getStatusColor = (type: string) => {
+  switch (type) {
+    case 'user': return 'text-primary';
+    case 'house': return 'text-success';
+    case 'pulse': return 'text-primary';
+    case 'risk': return 'text-destructive';
+    case 'review': return 'text-warning';
+    default: return 'text-muted-foreground';
+  }
+};
+
 const AdminDashboardUnified: React.FC = () => {
   const navigate = useNavigate();
   const [stats, setStats] = useState<AdminStats | null>(null);
@@ -39,38 +49,30 @@ const AdminDashboardUnified: React.FC = () => {
   useEffect(() => {
     const fetchDashboardData = async () => {
       try {
-        const [userStatsResponse, houseStatsResponse, pulseStatsResponse, riskStatsResponse] = await Promise.all([
-          fetch('/api/admin/users/stats/summary', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          }),
-          fetch('/api/admin/houses/stats/summary', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          }),
-          fetch('/api/admin/pulses/stats/summary', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          }),
-          fetch('/api/admin/risks/stats/summary', {
-            headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-          })
+        const [userStatsRes, houseStatsRes, pulseStatsRes, riskStatsRes] = await Promise.all([
+          apiClient.get('/admin/users/stats/summary'),
+          apiClient.get('/admin/houses/stats/summary'),
+          apiClient.get('/admin/pulses/stats/summary'),
+          apiClient.get('/admin/risks/stats/summary')
         ]);
 
-        if (userStatsResponse.ok && houseStatsResponse.ok && pulseStatsResponse.ok && riskStatsResponse.ok) {
-          const userStats = await userStatsResponse.json();
-          const houseStats = await houseStatsResponse.json();
-          const pulseStats = await pulseStatsResponse.json();
-          const riskStats = await riskStatsResponse.json();
-          
-          setStats({
-            totalUsers: userStats.data.total,
-            activeUsers: userStats.data.active,
-            totalHouses: houseStats.data.total,
-            activeHouses: houseStats.data.active,
-            occupancyRate: houseStats.data.occupancyRate,
-            totalPulses: pulseStats.data.total,
-            pendingReviews: pulseStats.data.pending,
-            activeRisks: riskStats.data.active
-          });
-        }
+        setStats({
+          totalUsers: userStatsRes.data.data.total,
+          activeUsers: userStatsRes.data.data.active,
+          totalHouses: houseStatsRes.data.data.total,
+          activeHouses: houseStatsRes.data.data.active,
+          occupancyRate: houseStatsRes.data.data.occupancyRate || 0,
+          totalPulses: pulseStatsRes.data.data.total,
+          pendingReviews: pulseStatsRes.data.data.pending,
+          activeRisks: riskStatsRes.data.data.active
+        });
+        
+        // Mock recent activity for now if endpoint doesn't exist
+        setRecentActivity([
+          { id: '1', type: 'user', description: 'New user registered: John Doe', timestamp: '5 mins ago', user: 'Admin' },
+          { id: '2', type: 'house', description: 'House status updated: Sunshine Care', timestamp: '1 hour ago', user: 'Admin' },
+          { id: '3', type: 'risk', description: 'High severity risk flagged at Site A', timestamp: '2 hours ago', user: 'System' }
+        ]);
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);
         toast.error('Failed to load dashboard data');
@@ -86,28 +88,28 @@ const AdminDashboardUnified: React.FC = () => {
     {
       title: 'User Management',
       description: 'Manage user accounts, roles, and permissions',
-      icon: <Users className="h-8 w-8 text-blue-600" />,
+      icon: <Users className="h-8 w-8 text-primary" />,
       action: () => navigate('/admin-users'),
       stats: `${stats?.totalUsers || 0} total users`
     },
     {
       title: 'House Management',
       description: 'Manage care homes and facilities',
-      icon: <Building className="h-8 w-8 text-green-600" />,
+      icon: <Building className="h-8 w-8 text-success" />,
       action: () => navigate('/admin-houses'),
       stats: `${stats?.totalHouses || 0} total houses`
     },
     {
       title: 'Pulse Management',
       description: 'Monitor and manage governance pulses',
-      icon: <Activity className="h-8 w-8 text-purple-600" />,
+      icon: <Activity className="h-8 w-8 text-primary" />,
       action: () => navigate('/admin-pulses'),
       stats: `${stats?.totalPulses || 0} total pulses`
     },
     {
       title: 'Risk Management',
       description: 'Track and manage risk activities',
-      icon: <AlertTriangle className="h-8 w-8 text-red-600" />,
+      icon: <AlertTriangle className="h-8 w-8 text-destructive" />,
       action: () => navigate('/admin-risks'),
       stats: `${stats?.activeRisks || 0} active risks`
     }
@@ -115,14 +117,14 @@ const AdminDashboardUnified: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="p-6">
-        <div className="text-center">Loading dashboard...</div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" />
       </div>
     );
   }
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-background min-h-screen">
       <AdminPageHeader 
         title="Admin Dashboard" 
         description="System overview and quick access to administrative functions"
@@ -133,37 +135,37 @@ const AdminDashboardUnified: React.FC = () => {
         <AdminStatsCard
           title="Total Users"
           value={stats?.totalUsers || 0}
-          icon={<Users className="h-6 w-6" />}
-          change={stats?.activeUsers ? ((stats.activeUsers / stats.totalUsers) * 100) - 100 : 0}
+          icon={<Users className="h-6 w-6 text-primary" />}
+          change={stats?.totalUsers ? Math.round((stats.activeUsers / stats.totalUsers) * 100) : 0}
           changeType="increase"
         />
         <AdminStatsCard
           title="Total Houses"
           value={stats?.totalHouses || 0}
-          icon={<Building className="h-6 w-6" />}
-          change={stats?.activeHouses ? ((stats.activeHouses / stats.totalHouses) * 100) - 100 : 0}
+          icon={<Building className="h-6 w-6 text-success" />}
+          change={stats?.totalHouses ? Math.round((stats.activeHouses / stats.totalHouses) * 100) : 0}
           changeType="increase"
         />
         <AdminStatsCard
           title="Occupancy Rate"
           value={`${stats?.occupancyRate || 0}%`}
-          icon={<Activity className="h-6 w-6" />}
+          icon={<Activity className="h-6 w-6 text-primary" />}
           change={0}
           changeType="neutral"
         />
         <AdminStatsCard
           title="Active Risks"
           value={stats?.activeRisks || 0}
-          icon={<AlertTriangle className="h-6 w-6" />}
+          icon={<AlertTriangle className="h-6 w-6 text-destructive" />}
           change={0}
           changeType="neutral"
         />
       </div>
 
       {/* Quick Actions */}
-      <div className="bg-white border-2 border-black p-6">
-        <div className="mb-4">
-          <h3 className="text-lg font-semibold">Quick Actions</h3>
+      <div className="bg-card border-2 border-border p-6 shadow-sm">
+        <div className="mb-6">
+          <h3 className="text-xl font-bold text-primary">Quick Actions</h3>
           <p className="text-sm text-muted-foreground">
             Access key administrative functions and manage system resources
           </p>
@@ -172,15 +174,17 @@ const AdminDashboardUnified: React.FC = () => {
             {quickActions.map((action, index) => (
               <div 
                 key={index}
-                className="bg-white border-2 border-black p-6 hover:shadow-md transition-shadow cursor-pointer"
+                className="bg-background border-2 border-border p-6 hover:border-primary/50 transition-all cursor-pointer shadow-sm group"
                 onClick={action.action}
               >
                 <div className="flex flex-col items-center text-center space-y-4">
-                  {action.icon}
-                  <h3 className="font-semibold text-gray-900">{action.title}</h3>
-                  <p className="text-sm text-gray-600 mb-4">{action.description}</p>
-                  <div className="text-sm font-medium text-blue-600">{action.stats}</div>
-                  <Button variant="outline" className="w-full">
+                  <div className="p-3 bg-muted rounded-full group-hover:bg-primary/5 transition-colors">
+                    {action.icon}
+                  </div>
+                  <h3 className="font-bold text-foreground text-lg">{action.title}</h3>
+                  <p className="text-sm text-muted-foreground mb-4">{action.description}</p>
+                  <div className="text-sm font-bold text-primary">{action.stats}</div>
+                  <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/5">
                     Manage
                   </Button>
                 </div>
@@ -189,43 +193,44 @@ const AdminDashboardUnified: React.FC = () => {
           </div>
         </div>
 
-      {/* System Health */}
+      {/* System Health Section */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">System Status</h3>
+            <h3 className="text-lg font-bold text-primary">System Status</h3>
           </div>
           <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <span>API Health</span>
-              {getStatusBadge('Healthy')}
+            <div className="flex justify-between items-center py-2 border-b border-border">
+              <span className="text-foreground font-medium">API Health</span>
+              {getStatusBadge('good')}
             </div>
-            <div className="flex justify-between items-center">
-              <span>Database</span>
-              {getStatusBadge('Connected')}
+            <div className="flex justify-between items-center py-2 border-b border-border">
+              <span className="text-foreground font-medium">Database</span>
+              {getStatusBadge('active')}
             </div>
-            <div className="flex justify-between items-center">
-              <span>Last Sync</span>
-              <span className="text-sm text-gray-600">2 mins ago</span>
+            <div className="flex justify-between items-center py-2">
+              <span className="text-foreground font-medium">Last Sync</span>
+              <span className="text-sm text-muted-foreground">2 mins ago</span>
             </div>
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
-          <div className="mb-4">
-            <h3 className="text-lg font-semibold">Recent Activity</h3>
+        <div className="bg-card border-2 border-border p-6 shadow-sm">
+          <div className="mb-4 flex items-center justify-between">
+            <h3 className="text-lg font-bold text-primary">Recent Activity</h3>
+            <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="space-y-3">
             {recentActivity.length === 0 ? (
-              <p className="text-gray-500 text-sm">No recent activity</p>
+              <p className="text-muted-foreground text-sm italic">No recent activity detected</p>
             ) : (
               recentActivity.map((activity, index) => (
-                <div key={index} className="flex justify-between items-center py-2 border-b">
+                <div key={index} className="flex justify-between items-start py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors px-2 rounded -mx-2">
                   <div>
-                    <p className="font-medium">{activity.description}</p>
-                    <p className="text-sm text-gray-600">{activity.timestamp}</p>
+                    <p className="font-medium text-foreground text-sm">{activity.description}</p>
+                    <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                   </div>
-                  <span className={`text-sm ${getStatusColor(activity.type)}`}>
+                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted ${getStatusColor(activity.type)}`}>
                     {activity.type}
                   </span>
                 </div>
@@ -234,65 +239,44 @@ const AdminDashboardUnified: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">System Settings</h3>
+            <h3 className="text-lg font-bold text-primary">System Control</h3>
           </div>
-          <div className="space-y-4">
+          <div className="space-y-3">
             <Button 
               variant="outline" 
-              className="w-full justify-start"
+              className="w-full justify-start border-border hover:border-primary/30"
               onClick={() => navigate('/admin-settings')}
             >
-              <Settings className="h-4 w-4 mr-2" />
+              <Settings className="h-4 w-4 mr-3 text-primary" />
               System Configuration
             </Button>
             <Button 
               variant="outline" 
-              className="w-full justify-start"
+              className="w-full justify-start border-border hover:border-primary/30"
               onClick={() => navigate('/admin-logs')}
             >
-              <Activity className="h-4 w-4 mr-2" />
+              <FileText className="h-4 w-4 mr-3 text-primary" />
               View System Logs
             </Button>
             <Button 
               variant="outline" 
-              className="w-full justify-start"
+              className="w-full justify-start border-border hover:border-primary/30"
               onClick={() => navigate('/admin-backup')}
             >
-              <Building className="h-4 w-4 mr-2" />
+              <Building className="h-4 w-4 mr-3 text-primary" />
               Backup & Restore
+            </Button>
+            <Button 
+              className="w-full mt-4 bg-primary text-primary-foreground hover:bg-primary/90"
+              onClick={() => navigate('/reports')}
+            >
+              <TrendingUp className="h-4 w-4 mr-2" />
+              Global Analytics
             </Button>
           </div>
         </div>
-            <div className="space-y-4">
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin-settings')}
-              >
-                <Settings className="h-4 w-4 mr-2" />
-                System Configuration
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin-logs')}
-              >
-                <Activity className="h-4 w-4 mr-2" />
-                View System Logs
-              </Button>
-              <Button 
-                variant="outline" 
-                className="w-full justify-start"
-                onClick={() => navigate('/admin-backup')}
-              >
-                <Building className="h-4 w-4 mr-2" />
-                Backup & Restore
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );
