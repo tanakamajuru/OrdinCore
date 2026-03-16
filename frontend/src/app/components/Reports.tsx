@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { useNavigate } from "react-router";
 import { FileDown, Filter, Calendar } from "lucide-react";
 import apiClient from "@/services/apiClient";
 
@@ -17,7 +16,6 @@ interface ReportFilters {
 }
 
 export function Reports() {
-  const navigate = useNavigate();
   const [showFilters, setShowFilters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
@@ -30,20 +28,21 @@ export function Reports() {
     houses: [],
     categories: [],
     status: [],
-    reportType: "comprehensive"
+    reportType: "governance_compliance"
   });
 
-  const houses = ["Oakwood", "Riverside", "Maple Grove", "Sunset Villa", "Birchwood"];
+  const [allHouses, setAllHouses] = useState<any[]>([]);
+
   const severities = ["High", "Medium", "Low"];
   const categories = ["Clinical", "Operational", "Environmental", "Safety", "Administrative"];
-  const statuses = ["Open", "Under Review", "Escalated", "Closed"];
+  const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
   const reportTypes = [
-    { value: "comprehensive", label: "Comprehensive Governance Report" },
-    { value: "risk-register", label: "Risk Register Summary" },
-    { value: "escalation-log", label: "Escalation Activity Report" },
-    { value: "safeguarding", label: "Safeguarding Activity Report" },
-    { value: "incidents", label: "Incident Trend Analysis" },
-    { value: "weekly-summary", label: "Weekly Governance Summary" }
+    { value: "governance_compliance", label: "Comprehensive Governance Report" },
+    { value: "risk_summary", label: "Risk Register Summary" },
+    { value: "escalation_report", label: "Escalation Activity Report" },
+    { value: "custom", label: "Safeguarding Activity Report" },
+    { value: "incident_report", label: "Incident Trend Analysis" },
+    { value: "house_overview", label: "Weekly Governance Summary" }
   ];
 
   // Real preview data from backend
@@ -51,9 +50,23 @@ export function Reports() {
     totalRisks: 0, highSeverity: 0, escalated: 0, resolved: 0,
     safeguardingConcerns: 0, incidentCount: 0, staffingStability: 0, pulsesCompleted: 0
   });
-  const [isLoadingPreview, setIsLoadingPreview] = useState(true);
+  const [generatedReports, setGeneratedReports] = useState<any[]>([]);
 
-  useEffect(() => { loadPreviewData(); }, []);
+  useEffect(() => { 
+    loadAllHouses();
+    loadPreviewData(); 
+    loadGeneratedReports();
+  }, []);
+
+  const loadAllHouses = async () => {
+    try {
+      const res = await apiClient.get('/houses?limit=100');
+      const data = (res.data as any).data || (res.data as any) || [];
+      if (Array.isArray(data)) setAllHouses(data);
+    } catch (err) {
+      console.error('Failed to load houses:', err);
+    }
+  };
 
   const loadPreviewData = async () => {
     try {
@@ -68,9 +81,9 @@ export function Reports() {
       }
       const hParam = houseId ? `?house_id=${houseId}` : '';
       const [risksRes, incRes, pulseRes] = await Promise.allSettled([
-        apiClient.get(`/risks${hParam}&limit=200`),
-        apiClient.get(`/incidents${hParam}&limit=200`),
-        apiClient.get(`/governance/pulses${hParam}&limit=50`),
+        apiClient.get(`/risks${hParam}${hParam ? '&' : '?'}limit=200`),
+        apiClient.get(`/incidents${hParam}${hParam ? '&' : '?'}limit=200`),
+        apiClient.get(`/governance/pulses${hParam}${hParam ? '&' : '?'}limit=50`),
       ]);
       const r = risksRes.status === 'fulfilled' ? ((risksRes.value.data as any).data || (risksRes.value.data as any) || {}) : {};
       const risks = r.risks || r.items || (Array.isArray(r) ? r : []);
@@ -89,7 +102,17 @@ export function Reports() {
         pulsesCompleted: pulses.filter((x: any) => x.status === 'completed').length,
       });
     } catch { /* silently fail - keep zeros */ }
-    finally { setIsLoadingPreview(false); }
+  };
+
+  const loadGeneratedReports = async () => {
+    try {
+      const res = await apiClient.get('/reports?limit=10');
+      const data = (res.data as any).data || (res.data as any) || [];
+      const list = data.reports || data.items || (Array.isArray(data) ? data : []);
+      setGeneratedReports(list);
+    } catch (err) {
+      console.error('Failed to load generated reports:', err);
+    }
   };
 
   const handleFilterChange = (category: keyof ReportFilters, value: any) => {
@@ -114,30 +137,59 @@ export function Reports() {
   const generateReport = async () => {
     setIsGenerating(true);
     
-    // Simulate report generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
-    
-    // In a real implementation, this would call an API
-    const reportData = {
-      filters: filters,
-      data: previewData,
-      generatedAt: new Date().toISOString(),
-      reportId: `RPT-${Date.now()}`
-    };
-    
-    // Download as JSON for now (would be PDF in production)
-    const blob = new Blob([JSON.stringify(reportData, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `governance-report-${filters.dateRange.start}-to-${filters.dateRange.end}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    
-    setIsGenerating(false);
-    alert(`Report generated successfully! Report ID: ${reportData.reportId}`);
+    try {
+      // Create request payload matching backend ReportsService schema
+      const requestPayload = {
+        type: filters.reportType || 'governance_compliance',
+        name: `Governance Report - ${new Date().toLocaleDateString('en-GB')}`,
+        parameters: {
+          date_from: filters.dateRange.start,
+          date_to: filters.dateRange.end,
+          severity: filters.severity,
+          houses: filters.houses,
+          categories: filters.categories,
+          status: filters.status
+        }
+      };
+      
+      const res = await apiClient.post('/reports/request', requestPayload);
+      const data = (res.data as any).data || (res.data as any);
+      
+      alert(`Report generation requested! Report ID: ${data.id || 'N/A'}`);
+      
+      // Refresh list to show new pending request
+      loadGeneratedReports();
+    } catch (err: any) {
+      console.error('Failed to request report:', err);
+      // Fallback
+      alert(`Failed to request report: ${err.response?.data?.message || err.message}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const handleDownload = async (reportId: string) => {
+    try {
+      const res = await apiClient.get(`/reports/${reportId}/download`);
+      const data = (res.data as any).data || (res.data as any);
+      
+      if (data.file_url) {
+        // Since it's a relative URL from backend worker (/reports/id.json), 
+        // we might need to prefix it with the API base URL if it's not absolute.
+        // But window.open usually handles absolute or relative to current origin.
+        // Let's assume the user wants it opened.
+        const downloadUrl = data.file_url.startsWith('http') 
+          ? data.file_url 
+          : `${apiClient.defaults.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
+          
+        window.open(downloadUrl, '_blank');
+      } else {
+        alert('Download URL not available yet.');
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to download report.');
+    }
   };
 
   const clearFilters = () => {
@@ -150,7 +202,7 @@ export function Reports() {
       houses: [],
       categories: [],
       status: [],
-      reportType: "comprehensive"
+      reportType: "governance_compliance"
     });
   };
 
@@ -159,7 +211,7 @@ export function Reports() {
            filters.houses.length + 
            filters.categories.length + 
            filters.status.length + 
-           (filters.reportType !== "comprehensive" ? 1 : 0);
+           (filters.reportType !== "governance_compliance" ? 1 : 0);
   };
 
   return (
@@ -279,17 +331,17 @@ export function Reports() {
               <div>
                 <label className="block mb-2 text-black font-medium">Houses</label>
                 <div className="flex flex-wrap gap-2">
-                  {houses.map((house) => (
+                  {allHouses.map((house) => (
                     <button
-                      key={house}
-                      onClick={() => handleArrayFilter('houses', house)}
+                      key={house.id}
+                      onClick={() => handleArrayFilter('houses', house.id)}
                       className={`px-4 py-2 border-2 transition-colors ${
-                        filters.houses.includes(house)
+                        filters.houses.includes(house.id)
                           ? "bg-black text-white border-black"
                           : "bg-white text-black border-gray-300 hover:border-gray-500"
                       }`}
                     >
-                      {house}
+                      {house.name}
                     </button>
                   ))}
                 </div>
@@ -399,35 +451,53 @@ export function Reports() {
 
         {/* Recent Reports */}
         <div className="mt-8 bg-white border-2 border-black p-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Recent Generated Reports</h2>
+          <div className="flex justify-between items-center mb-4">
+            <h2 className="text-xl font-semibold text-black">Recent Generated Reports</h2>
+            <button 
+              onClick={loadGeneratedReports}
+              className="text-sm border-2 border-black px-3 py-1 hover:bg-black hover:text-white transition-colors"
+            >
+              Refresh List
+            </button>
+          </div>
           <div className="space-y-3">
-            <div className="flex justify-between items-center p-4 border border-gray-300">
-              <div>
-                <p className="font-medium text-black">Comprehensive Governance Report</p>
-                <p className="text-sm text-gray-600">Feb 1, 2026 - Feb 28, 2026 • Generated: Mar 1, 2026 09:15 AM</p>
+            {generatedReports.length === 0 ? (
+              <div className="text-center py-8 text-gray-500 border border-gray-300">
+                No reports generated yet
               </div>
-              <button className="px-4 py-2 border-2 border-black hover:bg-gray-100 transition-colors">
-                Download
-              </button>
-            </div>
-            <div className="flex justify-between items-center p-4 border border-gray-300">
-              <div>
-                <p className="font-medium text-black">Risk Register Summary</p>
-                <p className="text-sm text-gray-600">Feb 15, 2026 - Feb 28, 2026 • Generated: Feb 28, 2026 04:30 PM</p>
-              </div>
-              <button className="px-4 py-2 border-2 border-black hover:bg-gray-100 transition-colors">
-                Download
-              </button>
-            </div>
-            <div className="flex justify-between items-center p-4 border border-gray-300">
-              <div>
-                <p className="font-medium text-black">Escalation Activity Report</p>
-                <p className="text-sm text-gray-600">Feb 1, 2026 - Feb 14, 2026 • Generated: Feb 15, 2026 11:20 AM</p>
-              </div>
-              <button className="px-4 py-2 border-2 border-black hover:bg-gray-100 transition-colors">
-                Download
-              </button>
-            </div>
+            ) : (
+              generatedReports.map((report) => (
+                <div key={report.id} className="flex justify-between items-center p-4 border border-gray-300">
+                  <div>
+                    <p className="font-medium text-black">
+                      {reportTypes.find(t => t.value === report.report_type)?.label || report.report_type || 'Governance Report'}
+                    </p>
+                    <p className="text-sm text-gray-600">
+                      {(report.date_from && report.date_to) ? `${new Date(report.date_from).toLocaleDateString('en-GB')} - ${new Date(report.date_to).toLocaleDateString('en-GB')} • ` : ''}
+                      Generated: {new Date(report.created_at).toLocaleString('en-GB')}
+                    </p>
+                    <p className="text-xs mt-1">
+                      Status: <span className={
+                        report.status === 'completed' ? 'text-green-600 font-bold' :
+                        report.status === 'failed' ? 'text-red-600 font-bold' :
+                        'text-yellow-600 font-bold'
+                      }>{report.status?.toUpperCase() || 'UNKNOWN'}</span>
+                    </p>
+                  </div>
+                  <button 
+                    onClick={() => handleDownload(report.id)}
+                    disabled={report.status !== 'completed'}
+                    className={`px-4 py-2 border-2 transition-colors ${
+                      report.status === 'completed' 
+                        ? 'border-black hover:bg-gray-100' 
+                        : 'border-gray-300 text-gray-400 cursor-not-allowed'
+                    }`}
+                  >
+                    Download
+                  </button>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>

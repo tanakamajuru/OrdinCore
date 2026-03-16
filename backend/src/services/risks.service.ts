@@ -11,6 +11,10 @@ export class RisksService {
     const risk = await risksRepo.create({ company_id, created_by, ...data });
     await risksRepo.addEvent(risk.id, company_id, 'created', 'Risk created', created_by);
     await eventBus.emitEvent(EVENTS.RISK_CREATED, { risk_id: risk.id, company_id, created_by, severity: risk.severity });
+    
+    // [ENGINE] Automated Escalation Trigger
+    await this.checkAutoEscalation(risk);
+    
     return risk;
   }
 
@@ -34,6 +38,12 @@ export class RisksService {
     if (!risk) throw new Error('Risk not found');
     const updated = await risksRepo.update(id, company_id, data);
     await risksRepo.addEvent(id, company_id, 'updated', `Risk updated`, user_id);
+    
+    // [ENGINE] Automated Escalation Trigger
+    if (data.severity) {
+      await this.checkAutoEscalation(updated);
+    }
+    
     return updated;
   }
 
@@ -54,6 +64,12 @@ export class RisksService {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
     return risksRepo.addAction(risk_id, company_id, { ...data, created_by: user_id });
+  }
+
+  async getActions(risk_id: string, company_id: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    return risksRepo.getActions(risk_id, company_id);
   }
 
   async escalate(risk_id: string, company_id: string, escalated_by: string, data: { escalated_to: string; reason: string }) {
@@ -137,6 +153,22 @@ export class RisksService {
       await risksRepo.update(risk_id, company_id, { resolved_at: new Date() });
     }
     return updated;
+  }
+
+  private async checkAutoEscalation(risk: any) {
+    if (risk.severity === 'high' || risk.severity === 'critical') {
+      // Check if already escalated
+      const existing = await query(
+        "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'pending'",
+        [risk.id]
+      );
+      if (existing.rows.length === 0) {
+        await this.escalate(risk.id, risk.company_id, risk.created_by, {
+          escalated_to: 'SYSTEM',
+          reason: `Automated escalation: ${risk.severity.toUpperCase()} risk detected.`
+        });
+      }
+    }
   }
 }
 

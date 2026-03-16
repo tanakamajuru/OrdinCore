@@ -10,6 +10,8 @@ interface PulseTemplate { id: string; name: string; }
 interface Question { id: string; question: string; question_type: string; options: string[]; required: boolean; order_index: number; }
 interface Pulse { id: string; status: string; due_date: string; completed_at: string | null; compliance_score: number | null; }
 
+const riskKeywords = ['risk', 'safeguarding', 'incident', 'deterioration', 'error', 'pressure', 'concern', 'escalation'];
+
 export function GovernancePulse() {
   const navigate = useNavigate();
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
@@ -111,10 +113,13 @@ export function GovernancePulse() {
   };
 
   const checkForRiskFlag = () => {
-    // Check if any yes_no answer flagged a risk
+    // Check if any yes_no answer flagged a risk or major concern
     for (const q of questions) {
-      if (q.question_type === 'yes_no' && answers[q.id] === 'yes' && q.question.toLowerCase().includes('risk')) {
-        return true;
+      if (q.question_type === 'yes_no' && answers[q.id] === 'yes') {
+        const qText = q.question.toLowerCase();
+        if (riskKeywords.some(kw => qText.includes(kw))) {
+          return true;
+        }
       }
     }
     return false;
@@ -130,6 +135,10 @@ export function GovernancePulse() {
 
     const hasRiskFlag = checkForRiskFlag();
     if (hasRiskFlag && !showRiskPrompt) {
+      // Find which questions were flagged to pre-fill description if needed
+      const flaggedQs = questions.filter(q => q.question_type === 'yes_no' && answers[q.id] === 'yes' && riskKeywords.some(kw => q.question.toLowerCase().includes(kw)));
+      const initialDesc = flaggedQs.map(q => `${q.question}: ${answers[`${q.id}_detail`] || 'No detail provided'}`).join('\n');
+      setRiskDescription(initialDesc);
       setShowRiskPrompt(true);
       return;
     }
@@ -356,7 +365,7 @@ export function GovernancePulse() {
 
         {/* Risk Creation Prompt */}
         {showRiskPrompt && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="fixed inset-0 bg-white/30 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-white border-2 border-black p-6 w-full max-w-md mx-4">
               <div className="flex items-center gap-3 mb-4">
                 <AlertTriangle className="w-6 h-6 text-black" />

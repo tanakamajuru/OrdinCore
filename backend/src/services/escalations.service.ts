@@ -143,6 +143,20 @@ export class EscalationsService {
 
     return result.rows[0];
   }
+
+  async getEscalationStats(company_id: string) {
+    const result = await query(
+      `SELECT 
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+        COUNT(*) FILTER (WHERE status = 'acknowledged' OR status = 'in_progress') AS active,
+        COUNT(*) FILTER (WHERE priority = 'critical' OR priority = 'urgent') AS urgent_count
+       FROM escalations
+       WHERE company_id = $1`,
+      [company_id]
+    );
+    return result.rows[0];
+  }
 }
 
 export const escalationsService = new EscalationsService();

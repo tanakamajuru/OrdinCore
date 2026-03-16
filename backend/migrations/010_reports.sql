@@ -4,7 +4,7 @@ CREATE TABLE reports (
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   type VARCHAR(100) NOT NULL CHECK (type IN (
     'risk_summary', 'incident_report', 'governance_compliance',
-    'escalation_report', 'analytics_export', 'house_overview', 'custom'
+    'escalation_report', 'analytics_export', 'house_overview', 'custom', 'reconstruction_report'
   )),
   name VARCHAR(255) NOT NULL,
   status VARCHAR(50) NOT NULL DEFAULT 'pending'

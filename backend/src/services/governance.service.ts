@@ -211,6 +211,64 @@ export class GovernanceService {
     );
     return result.rows[0];
   }
+
+  // [ENGINE] Governance Pulse Compliance Engine
+  async checkPulseCompliance(company_id: string) {
+    const result = await query(
+      `UPDATE governance_pulses 
+       SET status = 'overdue', updated_at = NOW()
+       WHERE company_id = $1 
+         AND status = 'pending' 
+         AND due_date < NOW()
+       RETURNING id, house_id, due_date`,
+      [company_id]
+    );
+
+    for (const pulse of result.rows) {
+      await eventBus.emitEvent(EVENTS.GOVERNANCE_OVERDUE, {
+        pulse_id: pulse.id,
+        company_id,
+        house_id: pulse.house_id,
+        due_date: pulse.due_date
+      });
+    }
+
+    return result.rows;
+  }
+
+  // [ENGINE] Governance Pulse Engine (Generation)
+  async generateMissingPulses(company_id: string) {
+    const housesRes = await query(
+      `SELECT h.id, hs.governance_frequency
+       FROM houses h
+       JOIN house_settings hs ON hs.house_id = h.id
+       WHERE h.company_id = $1 AND h.status = 'active'`,
+      [company_id]
+    );
+
+    for (const house of housesRes.rows) {
+      const pending = await query(
+        `SELECT id FROM governance_pulses 
+         WHERE house_id = $1 AND status = 'pending'`,
+        [house.id]
+      );
+
+      if (pending.rows.length === 0) {
+        const tpl = await query(
+          'SELECT id FROM governance_templates WHERE (company_id = $1 OR company_id IS NULL) AND is_active = TRUE ORDER BY created_at DESC LIMIT 1',
+          [company_id]
+        );
+
+        if (tpl.rows[0]) {
+          await this.createPulse(company_id, {
+            house_id: house.id,
+            template_id: tpl.rows[0].id,
+            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
+          });
+        }
+      }
+    }
+  }
 }
 
 export const governanceService = new GovernanceService();

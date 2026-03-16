@@ -105,8 +105,8 @@ export const housesRepo = {
 
   async getSettings(house_id: string, company_id: string) {
     const result = await query(
-      `SELECT * FROM house_settings WHERE house_id = $1 AND company_id = $2 LIMIT 1`,
-      [house_id, company_id]
+      `SELECT * FROM house_settings WHERE house_id = $1 LIMIT 1`,
+      [house_id]
     );
     // If no settings exist yet, return a default template
     if (result.rows.length === 0) {
@@ -117,11 +117,11 @@ export const housesRepo = {
 
   async updateSettings(house_id: string, company_id: string, settings: any) {
     const result = await query(
-      `INSERT INTO house_settings (house_id, company_id, settings)
-       VALUES ($1, $2, $3)
-       ON CONFLICT (house_id) DO UPDATE SET settings = $3, updated_at = NOW()
+      `INSERT INTO house_settings (house_id, settings)
+       VALUES ($1, $2)
+       ON CONFLICT (house_id) DO UPDATE SET settings = $2, updated_at = NOW()
        RETURNING *`,
-      [house_id, company_id, JSON.stringify(settings || {})]
+      [house_id, JSON.stringify(settings || {})]
     );
     return result.rows[0];
   }

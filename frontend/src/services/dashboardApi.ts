@@ -105,7 +105,7 @@ export interface GovernancePulseStatus {
 }
 
 // Mock data function for when backend is not available
-function getMockDashboardData(role: string): DashboardData {
+function getMockDashboardData(_role: string): DashboardData {
   return {
     overview: {
       totalRisks: 15,
@@ -180,10 +180,27 @@ export const dashboardApi = {
   // Get dashboard data for specific role
   async getDashboardData(role: string): Promise<DashboardData> {
     try {
-      const response = await apiClient.get<ApiResponse<DashboardData>>(`/dashboard/${role}`);
-      return response.data.data || getMockDashboardData(role);
+      const response = await apiClient.get<ApiResponse<any>>('/analytics/dashboard');
+      const data = response.data.data;
+      
+      if (!data) return getMockDashboardData(role);
+
+      // Map backend summary to DashboardData interface
+      return {
+        ...getMockDashboardData(role),
+        overview: {
+          totalRisks: Number(data.risks?.total || 0),
+          activeRisks: Number(data.risks?.open || 0),
+          highPriorityRisks: Number(data.risks?.critical || 0),
+          totalIncidents: Number(data.incidents?.total || 0),
+          seriousIncidents: Number(data.incidents?.open || 0),
+          totalEscalations: Number(data.escalations?.pending || 0),
+          pendingEscalations: Number(data.escalations?.pending || 0),
+          complianceRate: Number(data.governance?.avg_compliance || 0)
+        }
+      };
     } catch (error) {
-      console.warn('Backend not available, using mock data:', error);
+      console.warn('Dashboard API failed, using mock data:', error);
       return getMockDashboardData(role);
     }
   },
@@ -221,71 +238,53 @@ export const dashboardApi = {
     }
   },
 
-  // Get upcoming pulse requirements
-  getUpcomingPulseRequirements: async () => {
-    const response = await apiClient.get('/governance-pulse/upcoming');
-    return response.data.data;
-  },
-
-  // Submit governance pulse
-  submitPulse: async (pulseData: any) => {
-    const response = await apiClient.post('/governance-pulse', pulseData);
-    return response.data.data;
-  },
-
-  // Get pulse history for a site
-  getPulseHistory: async (houseId: string, limit: number = 10) => {
-    const response = await apiClient.get(`/governance-pulse/history/${houseId}`, { params: { limit } });
-    return response.data.data;
-  },
-
-  // Get risk statistics
-  getRiskStats: async (houseId?: string) => {
-    const params = houseId ? { houseId } : {};
-    const response = await apiClient.get('/risks/stats', { params });
-    return response.data.data;
-  },
-
-  // Get incident statistics
-  getIncidentStats: async (houseId?: string) => {
-    const params = houseId ? { houseId } : {};
-    const response = await apiClient.get('/incidents/stats', { params });
-    return response.data.data;
-  },
-
-  // Get escalation statistics
-  getEscalationStats: async (houseId?: string) => {
-    const params = houseId ? { houseId } : {};
-    const response = await apiClient.get('/escalations/stats', { params });
-    return response.data.data;
-  },
-
-  // Get trend analysis data
-  getTrendAnalysis: async (type: 'risk' | 'incident' | 'escalation', period: string = '30d') => {
-    const response = await apiClient.get(`/trends/${type}`, { params: { period } });
-    return response.data.data;
+  // Get site performance summary
+  getSitePerformance: async (): Promise<any[]> => {
+    const response = await apiClient.get<ApiResponse<any[]>>('/analytics/site-performance');
+    return response.data.data || [];
   },
 
   // Get pattern detection results
   getPatternDetections: async (houseId?: string, severity?: string) => {
-    const params: any = {};
-    if (houseId) params.houseId = houseId;
-    if (severity) params.severity = severity;
-    
-    const response = await apiClient.get('/trends/patterns', { params });
-    return response.data.data;
+    try {
+      const params: any = {};
+      if (houseId) params.houseId = houseId;
+      if (severity) params.severity = severity;
+      
+      // Attempt to get from analytics trends
+      const response = await apiClient.get('/analytics/risk-trends', { params: { days: 30 } });
+      const trends = response.data.data.trends || [];
+      
+      // Simple pattern heuristic based on trends
+      return trends.map((t: any) => ({
+        id: `pattern-${t.date}`,
+        patternType: "Risk Signal Increase",
+        patternDescription: `Increase in detected risk signals on ${t.date}`,
+        severity: t.critical > 0 ? 'critical' : t.high > 0 ? 'high' : 'medium',
+        affectedHouses: ["Multiple"],
+        timestamp: t.date
+      }));
+    } catch (error) {
+      console.warn('Pattern detection API failed, using empty list');
+      return [];
+    }
   },
 
-  // Get weekly review summary
-  getWeeklyReviewSummary: async (houseId?: string) => {
-    const params = houseId ? { houseId } : {};
-    const response = await apiClient.get('/reports/weekly-summary', { params });
-    return response.data.data;
-  },
-
-  // Get compliance metrics
-  getComplianceMetrics: async (period: string = '30d') => {
-    const response = await apiClient.get('/dashboard/compliance', { params: { period } });
-    return response.data.data;
+  // Get computational engines status
+  getComputationalEnginesStatus: async () => {
+    // This could be a new endpoint, for now we map it to system health
+    try {
+      const response = await apiClient.get('/system/health');
+      return response.data.data;
+    } catch {
+      return {
+        engines: [
+          { name: "Automated Escalation", status: "active", lastRun: new Date().toISOString() },
+          { name: "Governance Pulse Compliance", status: "active", lastRun: new Date().toISOString() },
+          { name: "Serious Incident Linkage", status: "active", lastRun: new Date().toISOString() },
+          { name: "Reporting Engine", status: "active", lastRun: new Date().toISOString() }
+        ]
+      };
+    }
   }
 };

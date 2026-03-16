@@ -18,3 +18,27 @@
     at Object.readdirSync (node:fs:1569:26)
     at runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:20:22)
     at processTicksAndRejections (node:internal/process/task_queues:103:5)
+2026-03-15 17:49:28 [error]: error: column "updated_at" of relation "reports" does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:16:7)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+2026-03-15 17:49:28 [error]: error: column "updated_at" of relation "reports" does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:16:7)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+2026-03-15 17:49:44 [error]: error: column "updated_at" of relation "reports" does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:16:7)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+2026-03-15 17:49:44 [error]: error: column "updated_at" of relation "reports" does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:16:7)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)

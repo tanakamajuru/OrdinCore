@@ -21,6 +21,20 @@ const router = Router();
 router.get('/', requireAuth, requireTenant, escalationsController.findAll.bind(escalationsController));
 /**
  * @openapi
+ * /api/v1/escalations/stats:
+ *   get:
+ *     tags:
+ *       - Escalations
+ *     summary: GET /api/v1/escalations/stats
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/stats', requireAuth, requireTenant, escalationsController.getStats.bind(escalationsController));
+/**
+ * @openapi
  * /api/v1/escalations/{id}:
  *   get:
  *     tags:

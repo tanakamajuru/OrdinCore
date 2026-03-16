@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
-import { Dashboard } from "./components/Dashboard";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";
 import { GovernancePulse } from "./components/GovernancePulse";
 import { WeeklyReview } from "./components/WeeklyReview";
@@ -14,6 +13,7 @@ import { Profile } from "./components/Profile";
 import { MonthlyReport } from "./components/MonthlyReport";
 import { Reports } from "./components/Reports";
 import { IncidentCaseHub } from "./components/IncidentCaseHub";
+import { IncidentDetail } from "./components/IncidentDetail";
 import { GovernanceTimeline } from "./components/GovernanceTimeline";
 import { ReconstructionReport } from "./components/ReconstructionReport";
 import { CrossHousePatternDetection } from "./components/CrossHousePatternDetection";
@@ -25,7 +25,7 @@ import AdminPulseManagement from "./components/AdminPulseManagement";
 import AdminRiskManagement from "./components/AdminRiskManagement";
 import AdminSettings from "./components/AdminSettings";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
-import EngineDashboardComponent from "@/components/EngineDashboard";
+import { ComputationalEngines } from "./components/ComputationalEngines";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -147,7 +147,7 @@ export default function App() {
           } />
           <Route path="/incidents/:id" element={
             <ProtectedRoute>
-              <IncidentCaseHub />
+              <IncidentDetail />
             </ProtectedRoute>
           } />
           <Route path="/incidents/:id/timeline" element={
@@ -167,7 +167,7 @@ export default function App() {
           } />
           <Route path="/engines" element={
             <ProtectedRoute>
-              <EngineDashboardComponent />
+              <ComputationalEngines />
             </ProtectedRoute>
           } />
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -121,6 +121,18 @@ export const risksRepo = {
     return result.rows[0];
   },
 
+  async getActions(risk_id: string, company_id: string) {
+    const result = await query(
+      `SELECT ra.*, u.first_name || ' ' || u.last_name AS created_by_name
+       FROM risk_actions ra
+       JOIN users u ON u.id = ra.created_by
+       WHERE ra.risk_id = $1 AND ra.company_id = $2
+       ORDER BY ra.created_at DESC`,
+      [risk_id, company_id]
+    );
+    return result.rows;
+  },
+
   async getTimeline(risk_id: string, company_id: string) {
     const result = await query(
       `SELECT re.*, u.first_name || ' ' || u.last_name AS created_by_name
@@ -135,7 +147,7 @@ export const risksRepo = {
 
   async getCategories(company_id: string) {
     const result = await query(
-      `SELECT * FROM risk_categories WHERE company_id = $1 OR is_system = true ORDER BY name`,
+      `SELECT * FROM risk_categories WHERE company_id = $1 ORDER BY name`,
       [company_id]
     );
     return result.rows;

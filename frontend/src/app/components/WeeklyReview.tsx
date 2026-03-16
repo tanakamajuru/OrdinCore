@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
+import { toast } from "sonner";
+import apiClient from "@/services/apiClient";
 
 interface SafeguardingConcern {
   id: string;
@@ -38,6 +40,10 @@ export function WeeklyReview() {
   const [completedBy, setCompletedBy] = useState("");
   const [reviewedBy, setReviewedBy] = useState("");
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Locked">("Draft");
+  const [house, setHouse] = useState<any>(null);
+  const [allHouses, setAllHouses] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
 
   // Section 1 - Executive Overview
   const [executiveSummary, setExecutiveSummary] = useState("");
@@ -134,6 +140,116 @@ export function WeeklyReview() {
   const [digitalSignature, setDigitalSignature] = useState("");
   const [declarationDate, setDeclarationDate] = useState(new Date().toISOString().split('T')[0]);
 
+  useEffect(() => {
+    loadInitialData();
+  }, []);
+
+  const loadInitialData = async () => {
+    try {
+      const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+      
+      // Load all houses
+      const housesRes = await apiClient.get('/houses?limit=100');
+      const hDataAll = (housesRes.data as any).data || (housesRes.data as any) || [];
+      const housesList = Array.isArray(hDataAll) ? hDataAll : [];
+      setAllHouses(housesList);
+
+      let initialHouse = null;
+      if (userRole === 'REGISTERED_MANAGER') {
+        const hRes = await apiClient.get(`/users/${user.id}/houses`);
+        const hData = (hRes.data as any).data || (hRes.data as any) || [];
+        initialHouse = Array.isArray(hData) ? hData[0] : hData;
+      } else if (housesList.length > 0) {
+        initialHouse = housesList[0];
+      }
+
+      if (initialHouse) {
+        setHouse(initialHouse);
+        setServiceName(initialHouse.name);
+        setRegisteredManager(`${user.first_name} ${user.last_name}`);
+        loadReviewData(initialHouse.id, weekEnding || new Date().toISOString().split('T')[0]);
+      } else {
+        setIsLoading(false);
+      }
+    } catch (err) {
+      console.error("Failed to load initial data", err);
+      setIsLoading(false);
+    }
+  };
+
+  const loadReviewData = async (houseId: string, weekEndingDate: string) => {
+    try {
+      setIsLoading(true);
+      const rRes = await apiClient.get(`/weekly-reviews/house/${houseId}`);
+      const reviews = (rRes.data as any).data || [];
+      const current = reviews.find((r: any) => r.week_ending.startsWith(weekEndingDate));
+      
+      if (current) {
+        const c = current.content;
+        setExecutiveSummary(c.executiveSummary || "");
+        setRiskLevelChanged(c.riskLevelChanged || false);
+        setRiskLevelChangeExplanation(c.riskLevelChangeExplanation || "");
+        setRiskRegister(c.riskRegister || []);
+        setSafeguardingConcerns(c.safeguardingConcerns || []);
+        setIncidentCounts(c.incidentCounts || { falls: 0, assault: 0, illness: 0, injury: 0, abcBehaviour: 0, medicationErrors: 0, missedVisits: 0, missingPerson: 0, seizure: 0 });
+        setIncidentPattern(c.incidentPattern || "");
+        setCommissionedHoursDelivered(c.commissionedHoursDelivered || "");
+        setVarianceExplanation(c.varianceExplanation || "");
+        setImpactOnHighRisk(c.impactOnHighRisk || "");
+        setStaffingStabilityConcerns(c.staffingStabilityConcerns || "");
+        setRisksEscalatedThisWeek(c.risksEscalatedThisWeek || false);
+        setEscalationDetails(c.escalationDetails || "");
+        setNextOversightReviewDate(c.nextOversightReviewDate || "");
+        setStrengthenedThisWeek(c.strengthenedThisWeek || "");
+        setLearningActions(c.learningActions || "");
+        setEffectivenessReview(c.effectivenessReview || "");
+        setImpactReviewDate(c.impactReviewDate || "");
+        setGreatestConcern(c.greatestConcern || "");
+        setCouldDeteriorate(c.couldDeteriorate || "");
+        setDigitalSignature(c.digitalSignature || "");
+        setStatus(current.status === 'locked' ? 'Locked' : (current.status === 'submitted' ? 'Submitted' : 'Draft'));
+      } else {
+        // Reset state for new review
+        resetForm();
+      }
+    } catch (err) {
+      console.error("Failed to load review data", err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resetForm = () => {
+    setExecutiveSummary("");
+    setRiskLevelChanged(false);
+    setRiskLevelChangeExplanation("");
+    setRiskRegister([]);
+    setSafeguardingConcerns([{
+      id: "SG-001", summary: "", immediateActions: "", personsViews: "",
+      capacityConsidered: false, capacityReasoning: "", referralMade: false,
+      referralDate: "", externalAgencies: "", currentStatus: "",
+      widerTheme: false, widerThemeExplanation: ""
+    }]);
+    setIncidentCounts({ falls: 0, assault: 0, illness: 0, injury: 0, abcBehaviour: 0, medicationErrors: 0, missedVisits: 0, missingPerson: 0, seizure: 0 });
+    setIncidentPattern("");
+    setCommissionedHoursDelivered("");
+    setVarianceExplanation("");
+    setImpactOnHighRisk("");
+    setStaffingStabilityConcerns("");
+    setRisksEscalatedThisWeek(false);
+    setEscalationDetails("");
+    setNextOversightReviewDate("");
+    setStrengthenedThisWeek("");
+    setLearningActions("");
+    setEffectivenessReview("");
+    setImpactReviewDate("");
+    setGreatestConcern("");
+    setCouldDeteriorate("");
+    setDigitalSignature("");
+    setStatus("Draft");
+  };
+
   const addSafeguardingConcern = () => {
     const newConcern: SafeguardingConcern = {
       id: `SG-${String(safeguardingConcerns.length + 1).padStart(3, '0')}`,
@@ -164,16 +280,62 @@ export function WeeklyReview() {
     ));
   };
 
+  const saveReview = async (newStatus: "Draft" | "Locked") => {
+    if (!house) return;
+    setIsSaving(true);
+    try {
+      const payload = {
+        house_id: house.id,
+        week_ending: weekEnding,
+        status: newStatus.toLowerCase(),
+        content: {
+          executiveSummary,
+          riskLevelChanged,
+          riskLevelChangeExplanation,
+          riskRegister,
+          safeguardingConcerns,
+          incidentCounts,
+          incidentPattern,
+          commissionedHoursDelivered,
+          varianceExplanation,
+          impactOnHighRisk,
+          staffingStabilityConcerns,
+          risksEscalatedThisWeek,
+          escalationDetails,
+          nextOversightReviewDate,
+          strengthenedThisWeek,
+          learningActions,
+          effectivenessReview,
+          impactReviewDate,
+          greatestConcern,
+          couldDeteriorate,
+          digitalSignature,
+        }
+      };
+      await apiClient.post('/weekly-reviews', payload);
+      setStatus(newStatus);
+      toast.success(`Weekly Review ${newStatus === 'Draft' ? 'draft saved' : 'submitted and locked'} successfully`);
+      if (newStatus === 'Locked') navigate("/dashboard");
+    } catch (err) {
+      toast.error("Failed to save weekly review");
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleSaveDraft = () => {
-    setStatus("Draft");
-    alert("Weekly Review draft saved successfully");
+    saveReview("Draft");
   };
 
   const handleSubmitAndLock = () => {
-    setStatus("Locked");
-    alert("Weekly Review submitted and locked successfully");
-    navigate("/dashboard");
+    saveReview("Locked");
   };
+
+  if (isLoading) return (
+    <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+    </div>
+  );
 
   return (
     <div className="min-h-screen bg-white">
@@ -198,11 +360,35 @@ export function WeeklyReview() {
         <div className="bg-white border-2 border-black p-6 mb-6">
           <div className="grid grid-cols-2 gap-6">
             <div>
+              <label className="block mb-2 text-black font-medium">House / Service</label>
+              <select
+                value={house?.id || ""}
+                onChange={(e) => {
+                  const selected = allHouses.find(h => h.id === e.target.value);
+                  if (selected) {
+                    setHouse(selected);
+                    setServiceName(selected.name);
+                    loadReviewData(selected.id, weekEnding);
+                  }
+                }}
+                disabled={localStorage.getItem('userRole')?.toUpperCase() === 'REGISTERED_MANAGER'}
+                className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+              >
+                <option value="">Select house...</option>
+                {allHouses.map(h => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                ))}
+              </select>
+            </div>
+            <div>
               <label className="block mb-2 text-black font-medium">Week Ending</label>
               <input
                 type="date"
                 value={weekEnding}
-                onChange={(e) => setWeekEnding(e.target.value)}
+                onChange={(e) => {
+                  setWeekEnding(e.target.value);
+                  if (house) loadReviewData(house.id, e.target.value);
+                }}
                 className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
               />
             </div>
@@ -886,15 +1072,17 @@ export function WeeklyReview() {
         <div className="flex justify-end gap-4 mt-8">
           <button
             onClick={handleSaveDraft}
-            className="py-3 px-8 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors font-medium"
+            disabled={isSaving || status === 'Locked'}
+            className="py-3 px-8 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors font-medium disabled:opacity-50"
           >
-            Save Draft
+            {isSaving ? 'Saving...' : 'SAVE AS DRAFT'}
           </button>
           <button
             onClick={handleSubmitAndLock}
-            className="py-3 px-8 bg-black text-white hover:bg-gray-800 transition-colors font-medium"
+            disabled={isSaving || status === 'Locked'}
+            className="py-3 px-8 bg-black text-white hover:bg-gray-800 transition-colors font-medium disabled:opacity-50"
           >
-            Submit & Lock
+            SUBMIT & LOCK REVIEW
           </button>
         </div>
       </div>

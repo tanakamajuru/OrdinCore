@@ -82,6 +82,17 @@ export class RisksController {
     }
   }
 
+  async getActions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const actions = await risksService.getActions(req.params.id, company_id);
+      return res.json({ success: true, data: { actions }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to retrieve actions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async escalate(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

@@ -32,11 +32,12 @@ export function RegisteredManagerDashboard() {
         setHouse(myHouse);
         const hid = myHouse.id;
 
-        // 2. Load in parallel: today's pulse, high risks, incidents
-        const [pulsesRes, risksRes, incidentsRes] = await Promise.allSettled([
+        // 2. Load in parallel: today's pulse, high risks, incidents, escalations
+        const [pulsesRes, risksRes, incidentsRes, escalationsRes] = await Promise.allSettled([
           apiClient.get(`/governance/pulses?house_id=${hid}&limit=5`),
           apiClient.get(`/risks?house_id=${hid}&severity=high&status=open&limit=3`),
           apiClient.get(`/incidents?house_id=${hid}&status=open&limit=3`),
+          apiClient.get(`/escalations?house_id=${hid}&status=open&limit=1`),
         ]);
 
         // Today's pulse
@@ -57,7 +58,8 @@ export function RegisteredManagerDashboard() {
           const rData = (risksRes.value.data as any).data || (risksRes.value.data as any) || {};
           const risks = rData.risks || rData.items || (Array.isArray(rData) ? rData : []);
           setHighRisks(risks.slice(0, 3));
-          setWeeklyStats(prev => ({ ...prev, highRiskDays: risks.length }));
+          const totalHighRisks = (rData as any).total || risks.length;
+          setWeeklyStats(prev => ({ ...prev, highRiskDays: totalHighRisks }));
         }
 
         // Incidents
@@ -65,7 +67,15 @@ export function RegisteredManagerDashboard() {
           const iData = (incidentsRes.value.data as any).data || (incidentsRes.value.data as any) || {};
           const incs = iData.incidents || iData.items || (Array.isArray(iData) ? iData : []);
           setIncidents(incs.slice(0, 3));
-          setWeeklyStats(prev => ({ ...prev, activeIncidents: incs.length }));
+          const totalIncidents = (iData as any).total || incs.length;
+          setWeeklyStats(prev => ({ ...prev, activeIncidents: totalIncidents }));
+        }
+
+        // Escalations
+        if (escalationsRes.status === 'fulfilled') {
+          const eData = (escalationsRes.value.data as any).data || (escalationsRes.value.data as any) || {};
+          const totalEscalations = (eData as any).total || (Array.isArray(eData) ? eData.length : 0);
+          setWeeklyStats(prev => ({ ...prev, escalations: totalEscalations }));
         }
       }
     } catch (err) {
@@ -151,6 +161,7 @@ export function RegisteredManagerDashboard() {
                 {[
                   { label: 'High Risk Cases', value: weeklyStats.highRiskDays },
                   { label: 'Pulses Completed', value: weeklyStats.safeguardingDays },
+                  { label: 'Pending Escalations', value: weeklyStats.escalations },
                   { label: 'Active Incidents', value: weeklyStats.activeIncidents },
                 ].map((item, idx) => (
                   <div key={idx} className="flex justify-between items-center">

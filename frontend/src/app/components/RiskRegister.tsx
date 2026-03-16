@@ -34,7 +34,6 @@ interface Risk {
 export function RiskRegister() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user } = useAuth();
   
   // All useState hooks must be declared first, before any conditional logic
   const [houseFilter, setHouseFilter] = useState("All");
@@ -46,6 +45,7 @@ export function RiskRegister() {
   const [isLoading, setIsLoading] = useState(true);
   const [userHouseId, setUserHouseId] = useState<string | null>(null);
   const [userHouseName, setUserHouseName] = useState<string>('');
+  const [allHousesData, setAllHouses] = useState<any[]>([]);
   const [categories, setCategoriesState] = useState<string[]>(["Clinical", "Operational", "Environmental", "Safety", "Administrative"]);
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
   const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
@@ -97,13 +97,23 @@ export function RiskRegister() {
 
   const loadRisks = async () => {
     try {
+      // 1. Load all houses for the company (to populate filters and selection)
+      const housesRes = await apiClient.get('/houses?limit=100');
+      const housesData = (housesRes.data as any).data || (housesRes.data as any) || [];
+      const allHouses = Array.isArray(housesData) ? housesData : [];
+      setAllHouses(allHouses);
+
       // Get user's house for RM role scoping
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
         const myHouse = Array.isArray(hData) ? hData[0] : hData;
-        if (myHouse) { houseId = myHouse.id; setUserHouseId(myHouse.id); setUserHouseName(myHouse.name); }
+        if (myHouse) { 
+          houseId = myHouse.id; 
+          setUserHouseId(myHouse.id); 
+          setUserHouseName(myHouse.name); 
+        }
       }
 
       // Load categories from backend
@@ -114,7 +124,7 @@ export function RiskRegister() {
         if (cats.length > 0) setCategoriesState(cats.map((c: any) => c.name));
       } catch { /* keep defaults */ }
 
-      // Load risks, scoped to house for RM
+      // Load risks, scoped to house for RM, or all for RI/Admin
       const params = houseId ? `?house_id=${houseId}&limit=100` : '?limit=100';
       const rRes = await apiClient.get(`/risks${params}`);
       const rData = (rRes.data as any).data || (rRes.data as any) || {};
@@ -122,7 +132,7 @@ export function RiskRegister() {
 
       const mapped: Risk[] = rawRisks.map((r: any) => ({
         id: r.id,
-        house: r.house_name || userHouseName || 'Unknown',
+        house: r.house_name || (r.house_id ? allHouses.find((h: any) => h.id === r.house_id)?.name : null) || userHouseName || 'Unknown',
         description: r.title || r.description,
         impact: r.description || '',
         category: r.category_name || r.category || 'General',
@@ -158,7 +168,7 @@ export function RiskRegister() {
     );
   }
 
-  const houses = ["All", ...(userHouseName ? [userHouseName] : [])];
+  const houses = ["All", ...allHousesData.map(h => h.name)];
   const severities = ["All", "High", "Medium", "Low"];
   const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
 
@@ -171,10 +181,13 @@ export function RiskRegister() {
 
   const handleAddRisk = async () => {
     if (!newRisk.description) { toast.error('Please enter a risk description'); return; }
+    // If RI, use selected house; if RM, use assigned house
+    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : newRisk.house;
+    if (!targetHouseId) { toast.error('House information required'); return; }
     try {
       const reviewDue = newRisk.reviewDate ? new Date(newRisk.reviewDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       await apiClient.post('/risks', {
-        house_id: userHouseId,
+        house_id: targetHouseId,
         title: newRisk.description,
         description: newRisk.impact || newRisk.description,
         severity: (newRisk.severity || 'medium').toLowerCase(),
@@ -182,7 +195,12 @@ export function RiskRegister() {
         likelihood: 3,
         impact: 3,
         review_due_date: reviewDue,
-        metadata: { mitigation: newRisk.mitigation, rootCause: newRisk.rootCause, category: newRisk.category }
+        metadata: { 
+          mitigation: newRisk.mitigation, 
+          rootCause: newRisk.rootCause, 
+          category: newRisk.category,
+          source: 'Manual'
+        }
       });
       toast.success('Risk added successfully');
       setShowAddRisk(false);
@@ -193,15 +211,22 @@ export function RiskRegister() {
 
   const handleOutOfCycleRisk = async () => {
     if (!outOfCycleRisk.description || !outOfCycleRisk.reason) { toast.error('Please fill in description and reason'); return; }
+    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : outOfCycleRisk.house;
+    if (!targetHouseId) { toast.error('House information required'); return; }
     try {
       await apiClient.post('/risks', {
-        house_id: userHouseId,
+        house_id: targetHouseId,
         title: outOfCycleRisk.description,
         description: `[Out-of-Cycle] ${outOfCycleRisk.description}. Reason: ${outOfCycleRisk.reason}`,
         severity: outOfCycleRisk.severity.toLowerCase(),
         status: 'open',
         likelihood: 4, impact: 4,
-        metadata: { source: 'Out-of-Cycle', requiresImmediateReview: outOfCycleRisk.requiresImmediateReview }
+        metadata: { 
+          source: 'Out-of-Cycle', 
+          requiresImmediateReview: outOfCycleRisk.requiresImmediateReview,
+          category: outOfCycleRisk.category,
+          reason: outOfCycleRisk.reason
+        }
       });
       toast.success('Out-of-cycle risk created — will appear in next Pulse review');
       setShowOutOfCycle(false);
@@ -210,30 +235,31 @@ export function RiskRegister() {
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create out-of-cycle risk'); }
   };
 
-  const updateRisk = (id: string, field: keyof Risk, value: any) => {
-    setRisks(prev => prev.map(risk => {
-      if (risk.id === id) {
-        const oldValue = risk[field];
-        const updatedRisk = { 
-          ...risk, 
-          [field]: value,
-          lastUpdated: new Date().toISOString().split('T')[0],
-          updateHistory: [
-            ...risk.updateHistory,
-            {
-              date: new Date().toISOString().split('T')[0],
-              field: field as string,
-              oldValue: oldValue,
-              newValue: value,
-              updatedBy: "Current User"
-            }
-          ]
-        };
-        return updatedRisk;
-      }
-      return risk;
-    }));
-  };
+  // TODO: Implement risk update functionality when needed
+  // const updateRisk = (id: string, field: keyof Risk, value: any) => {
+  //   setRisks(prev => prev.map(risk => {
+  //     if (risk.id === id) {
+  //       const oldValue = risk[field];
+  //       const updatedRisk = { 
+  //         ...risk, 
+  //         [field]: value,
+  //         lastUpdated: new Date().toISOString().split('T')[0],
+  //         updateHistory: [
+  //           ...risk.updateHistory,
+  //           {
+  //             date: new Date().toISOString().split('T')[0],
+  //             field: field as string,
+  //             oldValue: oldValue,
+  //             newValue: value,
+  //             updatedBy: "Current User"
+  //           }
+  //         ]
+  //       };
+  //       return updatedRisk;
+  //     }
+  //     return risk;
+  //   }));
+  // };
 
   const getSourceBadge = (source: string) => {
     switch (source) {
@@ -344,18 +370,17 @@ export function RiskRegister() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="bg-black text-white">
-                  <th className="border border-gray-300 px-4 py-3 text-left">Risk ID</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">House</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Description</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Category</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Severity</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Date Identified</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Source</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Mitigation</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Escalated</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Status</th>
-                  <th className="border border-gray-300 px-4 py-3 text-left">Review Date</th>
+                <tr className="bg-black text-white text-sm whitespace-nowrap">
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">House</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Description</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Category</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Severity</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Date Identified</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Source</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Mitigation</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Escalated</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Status</th>
+                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Review Date</th>
                 </tr>
               </thead>
               <tbody>
@@ -363,53 +388,52 @@ export function RiskRegister() {
                   <tr
                     key={risk.id}
                     onClick={() => navigate(`/risk-register/${risk.id}`)}
-                    className={`cursor-pointer hover:bg-gray-100 transition-colors ${
-                      idx % 2 === 0 ? "bg-white" : "bg-gray-50"
+                    className={`cursor-pointer transition-colors text-sm ${
+                      idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
                     }`}
                   >
-                    <td className="border border-gray-300 px-4 py-3 font-semibold">{risk.id}</td>
-                    <td className="border border-gray-300 px-4 py-3">{risk.house}</td>
-                    <td className="border border-gray-300 px-4 py-3 max-w-xs truncate">{risk.description}</td>
-                    <td className="border border-gray-300 px-4 py-3">{risk.category}</td>
-                    <td className="border border-gray-300 px-4 py-3">
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.house}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.description}>{risk.description}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.category}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-block px-2 py-1 text-xs ${
+                        className={`inline-block px-2 py-1 text-xs font-medium ${
                           risk.severity === "High"
                             ? "bg-black text-white"
                             : risk.severity === "Medium"
-                            ? "border-2 border-black"
-                            : "bg-gray-200"
+                            ? "border border-black text-black"
+                            : "bg-gray-200 text-gray-800"
                         }`}
                       >
                         {risk.severity}
                       </span>
                     </td>
-                    <td className="border border-gray-300 px-4 py-3">{risk.dateIdentified}</td>
-                    <td className="border border-gray-300 px-4 py-3">{getSourceBadge(risk.source)}</td>
-                    <td className="border border-gray-300 px-4 py-3 max-w-xs truncate">{risk.mitigation}</td>
-                    <td className="border border-gray-300 px-4 py-3 text-center">
-                      <span className={`inline-block px-2 py-1 text-xs ${
-                        risk.escalated ? "bg-black text-white" : "border border-gray-300"
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.dateIdentified}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 text-center whitespace-nowrap">
+                      <span className={`inline-block px-2 py-1 text-xs font-medium ${
+                        risk.escalated ? "bg-black text-white" : "text-gray-500"
                       }`}>
-                        {risk.escalated ? "Yes" : "No"}
+                        {risk.escalated ? "Yes" : "-"}
                       </span>
                     </td>
-                    <td className="border border-gray-300 px-4 py-3">
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">
                       <span
-                        className={`inline-block px-2 py-1 text-xs ${
+                        className={`inline-block px-2 py-1 text-xs font-medium ${
                           risk.status === "Open"
-                            ? "border-2 border-black"
+                            ? "border border-black text-black"
                             : risk.status === "Under Review"
-                            ? "bg-gray-200"
+                            ? "bg-gray-200 text-gray-800"
                             : risk.status === "Escalated"
                             ? "bg-black text-white"
-                            : "bg-gray-100"
+                            : "bg-gray-100 text-gray-500"
                         }`}
                       >
                         {risk.status}
                       </span>
                     </td>
-                    <td className="border border-gray-300 px-4 py-3">{risk.reviewDate}</td>
+                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap text-gray-600 font-medium">{risk.reviewDate}</td>
                   </tr>
                 ))}
               </tbody>
@@ -437,12 +461,15 @@ export function RiskRegister() {
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 >
                   <option value="">Select house</option>
-                  {houses.filter(h => h !== "All").map((house) => (
-                    <option key={house} value={house}>
-                      {house}
+                  {allHousesData.map((house) => (
+                    <option key={house.id} value={house.id}>
+                      {house.name}
                     </option>
                   ))}
                 </select>
+                {userRole === 'registered-manager' && (
+                  <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
+                )}
               </div>
               
               <div>
@@ -588,12 +615,15 @@ export function RiskRegister() {
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 >
                   <option value="">Select house</option>
-                  {houses.filter(h => h !== "All").map((house) => (
-                    <option key={house} value={house}>
-                      {house}
+                  {allHousesData.map((house) => (
+                    <option key={house.id} value={house.id}>
+                      {house.name}
                     </option>
                   ))}
                 </select>
+                {userRole === 'registered-manager' && (
+                  <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
+                )}
               </div>
               
               <div>

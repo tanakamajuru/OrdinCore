@@ -4,6 +4,7 @@ import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
 import dotenv from 'dotenv';
+import path from 'path';
 
 import { swaggerSpec } from './config/swagger';
 import logger from './utils/logger';
@@ -23,6 +24,7 @@ import notificationsRoutes from './routes/notifications.routes';
 import rolesRoutes from './routes/roles.routes';
 import systemRoutes from './routes/system.routes';
 import exportsRoutes from './routes/exports.routes';
+import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
 
 dotenv.config();
 
@@ -42,6 +44,9 @@ app.use(express.urlencoded({ extended: true }));
 app.use(morgan('combined', {
   stream: { write: (message) => logger.info(message.trim()) },
 }));
+
+// ─── Static Files ────────────────────────────────────────────────────────────
+app.use(express.static(path.join(__dirname, '../public')));
 
 // ─── Health Check ────────────────────────────────────────────────────────────
 app.get('/health', (_, res) => {
@@ -81,6 +86,7 @@ app.use(`${API}/notifications`, notificationsRoutes);
 app.use(`${API}/roles`, rolesRoutes);
 app.use(`${API}/system`, systemRoutes);
 app.use(`${API}/exports`, exportsRoutes);
+app.use(`${API}/weekly-reviews`, weeklyReviewsRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

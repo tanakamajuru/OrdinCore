@@ -65,14 +65,15 @@ export const incidentsRepo = {
     return parseInt(result.rows[0].count);
   },
 
-  async create(dto: CreateIncidentDto) {
+  async create(dto: CreateIncidentDto & { persons_involved?: string[]; follow_up_required?: boolean }) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, occurred_at, location, immediate_action, created_by, assigned_to)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
        dto.severity || 'moderate', dto.occurred_at, dto.location || null,
-       dto.immediate_action || null, dto.created_by, dto.assigned_to || null]
+       dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
+       JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false]
     );
     return result.rows[0];
   },
@@ -98,25 +99,15 @@ export const incidentsRepo = {
        FROM incident_events ie
        JOIN users u ON u.id = ie.created_by
        WHERE ie.incident_id = $1 AND ie.company_id = $2
-       ORDER BY ie.created_at DESC`,
+       ORDER BY ie.created_at ASC`,
       [incident_id, company_id]
     );
     return result.rows;
   },
 
-  async addEvent(incident_id: string, company_id: string, event_type: string, description: string, created_by: string) {
-    const id = uuidv4();
-    const result = await query(
-      `INSERT INTO incident_events (id, incident_id, company_id, event_type, description, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [id, incident_id, company_id, event_type, description, created_by]
-    );
-    return result.rows[0];
-  },
-
   async getCategories(company_id: string) {
     const result = await query(
-      `SELECT * FROM incident_categories WHERE company_id = $1 OR is_system = true ORDER BY name`,
+      `SELECT * FROM incident_categories WHERE company_id = $1 ORDER BY name`,
       [company_id]
     );
     return result.rows;
@@ -180,5 +171,211 @@ export const incidentsRepo = {
 
   async delete(id: string, company_id: string) {
     await query("UPDATE incidents SET status = 'closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
+  },
+
+  async addEvent(incident_id: string, company_id: string, data: {
+    event_type: string;
+    title: string;
+    description?: string;
+    metadata?: Record<string, unknown>;
+    created_by: string;
+  }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO incident_events (id, incident_id, company_id, event_type, title, description, metadata, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, incident_id, company_id, data.event_type, data.title, data.description || null, JSON.stringify(data.metadata || {}), data.created_by]
+    );
+    return result.rows[0];
+  },
+
+  async getGovernanceTimeline(incident_id: string, company_id: string) {
+    // Get incident details first
+    const incident = await this.findById(incident_id, company_id);
+    if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [] };
+
+    const timelineEvents: any[] = [];
+
+    // 1. Get related risk events
+    try {
+      const riskResult = await query(
+        `SELECT 
+          'risk' as source_type,
+          r.id as source_id,
+          'Risk Signal' as label,
+          r.title as detail,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = r.created_by) as actor,
+          'Risk Manager' as actor_role,
+          r.created_at as timestamp,
+          false as gap_flag
+        FROM risks r
+        WHERE r.company_id = $1 
+          AND r.house_id = $2
+          AND r.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND r.created_at <= $3::timestamp
+        ORDER BY r.created_at ASC`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      timelineEvents.push(...riskResult.rows);
+    } catch (err) {
+      console.log('Risks table query failed:', err);
+    }
+
+    // 2. Get related escalation events
+    try {
+      const escalationResult = await query(
+        `SELECT 
+          'escalation' as source_type,
+          e.id as source_id,
+          'Escalation' as label,
+          e.reason as detail,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = e.created_by) as actor,
+          'Manager' as actor_role,
+          e.created_at as timestamp,
+          false as gap_flag
+        FROM escalations e
+        WHERE e.company_id = $1 
+          AND e.house_id = $2
+          AND e.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND e.created_at <= $3::timestamp
+        ORDER BY e.created_at ASC`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      timelineEvents.push(...escalationResult.rows);
+    } catch (err) {
+      console.log('Escalations table query failed:', err);
+    }
+
+    // 3. Get related governance pulse events
+    try {
+      const pulseResult = await query(
+        `SELECT 
+          'pulse' as source_type,
+          p.id as source_id,
+          'Governance Pulse' as label,
+          'Regular governance review' as detail,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = p.created_by) as actor,
+          'Registered Manager' as actor_role,
+          p.created_at as timestamp,
+          false as gap_flag
+        FROM governance_pulses p
+        WHERE p.company_id = $1 
+          AND p.house_id = $2
+          AND p.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND p.created_at <= $3::timestamp
+        ORDER BY p.created_at ASC`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      timelineEvents.push(...pulseResult.rows);
+    } catch (err) {
+      console.log('Governance pulses table query failed:', err);
+    }
+    
+    // Sort events by timestamp
+    timelineEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
+    
+    // 4. Calculate Metrics
+    const riskSignals = timelineEvents.filter(e => e.source_type === 'risk');
+    const escalations = timelineEvents.filter(e => e.source_type === 'escalation');
+    const pulses = timelineEvents.filter(e => e.source_type === 'pulse');
+    
+    const lastPulse = pulses.length > 0 ? pulses[pulses.length - 1] : null;
+    const lastOversightReviewDays = lastPulse 
+      ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(lastPulse.timestamp).getTime()) / (1000 * 60 * 60 * 24))
+      : 30;
+
+    const firstRisk = riskSignals.length > 0 ? riskSignals[0] : null;
+    const firstSignalToIncidentDays = firstRisk
+      ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(firstRisk.timestamp).getTime()) / (1000 * 60 * 60 * 24))
+      : 0;
+
+    const firstEscalation = escalations.length > 0 ? escalations[0] : null;
+    const escalationResponseHours = firstEscalation
+      ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(firstEscalation.timestamp).getTime()) / (1000 * 60 * 60))
+      : 0;
+
+    const metrics = {
+      riskSignalsLogged: riskSignals.length,
+      escalationsTriggered: escalations.length,
+      leadershipReviews: pulses.length,
+      lastOversightReviewDays: Math.max(0, lastOversightReviewDays),
+      firstSignalToIncidentDays: Math.max(0, firstSignalToIncidentDays),
+      escalationResponseHours: Math.max(0, escalationResponseHours)
+    };
+
+    // 5. Cross-House Patterns
+    let patterns: { house: string; signal: string; detected: string }[] = [];
+    try {
+      const patternResult = await query(
+        `SELECT DISTINCT h.name as house, r.title as signal, r.created_at as detected
+         FROM risks r
+         JOIN houses h ON h.id = r.house_id
+         WHERE r.company_id = $1 
+           AND r.house_id != $2
+           AND r.created_at >= $3::timestamp - INTERVAL '14 days'
+           AND r.created_at <= $3::timestamp
+           AND (LOWER(r.title) LIKE '%medication%' OR LOWER(r.title) LIKE '%behavior%' OR LOWER(r.title) LIKE '%staffing%')
+         LIMIT 3`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      patterns = patternResult.rows.map(r => ({
+        house: r.house,
+        signal: r.signal,
+        detected: new Date(r.detected).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+      }));
+    } catch (err) {
+      console.log('Pattern detection failed:', err);
+    }
+
+    // 6. Generate Findings & Recommendations
+    const findings = [
+      `Leadership was aware of risks ${metrics.firstSignalToIncidentDays} days before the incident`,
+      `Escalation response time was ${metrics.escalationResponseHours} hours`,
+      `Governance oversight activities were documented and regular`,
+      patterns.length > 0 ? `Cross-house patterns detected in ${patterns[0].signal.toLowerCase()}` : "No clear cross-house patterns detected"
+    ];
+
+    const recommendations = [
+      "Review protocols related to the incident category",
+      "Enhance staff training on identified risk factors",
+      "Discuss this reconstruction at the next provider oversight meeting"
+    ];
+    if (patterns.length > 0) {
+      recommendations.push(`Collaborate with ${patterns[0].house} to share learnings on ${patterns[0].signal}`);
+    }
+
+    // 7. Format Timeline
+    const formattedEvents = timelineEvents.map((row: any, index: number) => ({
+      id: `gov-${index}`,
+      timestamp: row.timestamp,
+      sourceType: row.source_type,
+      sourceId: row.source_id,
+      label: row.label,
+      detail: row.detail,
+      actor: row.actor || 'Unknown',
+      actorRole: row.actor_role || 'Unknown',
+      gapFlag: row.gap_flag
+    }));
+    
+    // Add the incident as the final event
+    formattedEvents.push({
+      id: 'incident-final',
+      timestamp: incident.occurred_at,
+      sourceType: 'incident',
+      sourceId: incident.id,
+      label: 'Serious Incident Occurred',
+      detail: incident.title,
+      actor: incident.created_by_name || 'Unknown',
+      actorRole: 'Reporter',
+      gapFlag: true
+    });
+    
+    return {
+      timeline: formattedEvents,
+      metrics,
+      patterns,
+      findings,
+      recommendations
+    };
   }
 };

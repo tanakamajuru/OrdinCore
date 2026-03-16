@@ -267,6 +267,26 @@ router.patch('/:id/status', requireAuth, requireTenant, risksController.updateSt
 router.post('/:id/event', requireAuth, requireTenant, risksController.addEvent.bind(risksController));
 /**
  * @openapi
+ * /api/v1/risks/{id}/actions:
+ *   get:
+ *     tags:
+ *       - Risks
+ *     summary: GET /api/v1/risks/{id}/actions
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/:id/actions', requireAuth, requireTenant, risksController.getActions.bind(risksController));
+/**
+ * @openapi
  * /api/v1/risks/{id}/action:
  *   post:
  *     tags:

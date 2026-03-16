@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Ambulance, AlertTriangle, Plus } from "lucide-react";
-import { dashboardApi, DashboardData } from "@/services/dashboardApi";
+import { Ambulance, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import apiClient from "@/services/apiClient";
 
 export function ResponsibleIndividualDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const { } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
+  const [stats, setStats] = useState({
+    totalSites: 0,
+    activeHighRisks: 0,
+    pendingEscalations: 0,
+    activeIncidents: 0
+  });
+  const [recentEscalations, setRecentEscalations] = useState<any[]>([]);
+  const [recentIncidents, setRecentIncidents] = useState<any[]>([]);
+  const [siteSummaries, setSiteSummaries] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
@@ -18,8 +26,68 @@ export function ResponsibleIndividualDashboard() {
 
   const loadDashboardData = async () => {
     try {
-      const data = await dashboardApi.getDashboardData('responsible-individual');
-      setDashboardData(data);
+      setIsLoading(true);
+      // Fetch all core resources in parallel
+      const [housesRes, risksRes, incidentsRes, escalationsRes, pulsesRes] = await Promise.allSettled([
+        apiClient.get('/houses?limit=100'),
+        apiClient.get('/risks?status=open&severity=high&limit=100'),
+        apiClient.get('/incidents?status=open&limit=100'),
+        apiClient.get('/escalations?status=pending&limit=100'),
+        apiClient.get('/governance/pulses?limit=50')
+      ]);
+
+      const houses = housesRes.status === 'fulfilled' ? ((housesRes.value.data as any).data || []) : [];
+      const risks = risksRes.status === 'fulfilled' ? ((risksRes.value.data as any).data?.risks || (risksRes.value.data as any).data || []) : [];
+      const incidents = incidentsRes.status === 'fulfilled' ? ((incidentsRes.value.data as any).data?.incidents || (incidentsRes.value.data as any).data || []) : [];
+      const escalations = escalationsRes.status === 'fulfilled' ? ((escalationsRes.value.data as any).data?.escalations || (escalationsRes.value.data as any).data || []) : [];
+      const pulses = pulsesRes.status === 'fulfilled' ? ((pulsesRes.value.data as any).data?.pulses || (pulsesRes.value.data as any).data || []) : [];
+
+      // Calculate aggregated stats
+      setStats({
+        totalSites: houses.length,
+        activeHighRisks: Array.isArray(risks) ? risks.length : 0,
+        pendingEscalations: Array.isArray(escalations) ? escalations.length : 0,
+        activeIncidents: Array.isArray(incidents) ? incidents.length : 0
+      });
+
+      // Map recent escalations
+      if (Array.isArray(escalations)) {
+        setRecentEscalations(escalations.slice(0, 5).map((e: any) => ({
+          risk: e.risk_title || e.description || 'Unnamed Risk',
+          house: houses.find((h: any) => h.id === e.house_id)?.name || 'Unknown Site',
+          escalatedDate: new Date(e.created_at).toLocaleDateString('en-GB'),
+          status: e.priority || 'Medium'
+        })));
+      }
+
+      // Map recent incidents
+      if (Array.isArray(incidents)) {
+        setRecentIncidents(incidents.slice(0, 5).map((i: any) => ({
+          id: i.id,
+          house: houses.find((h: any) => h.id === i.house_id)?.name || 'Unknown Site',
+          type: i.severity,
+          date: new Date(i.occurred_at).toLocaleDateString('en-GB'),
+          status: i.status
+        })));
+      }
+
+      // Build site summaries
+      if (Array.isArray(houses)) {
+        const summaries = houses.map((house: any) => {
+          const houseRisks = Array.isArray(risks) ? risks.filter((r: any) => r.house_id === house.id).length : 0;
+          const houseEscalations = Array.isArray(escalations) ? escalations.filter((e: any) => e.house_id === house.id).length : 0;
+          const lastPulse = Array.isArray(pulses) ? pulses.find((p: any) => p.house_id === house.id) : null;
+          
+          return {
+            house: house.name,
+            highRisks: houseRisks,
+            escalations: houseEscalations,
+            lastPulse: lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB') : 'No pulses yet'
+          };
+        });
+        setSiteSummaries(summaries.slice(0, 5));
+      }
+
     } catch (error) {
       console.error('Failed to load dashboard data:', error);
       toast.error('Failed to load dashboard data');
@@ -39,56 +107,16 @@ export function ResponsibleIndividualDashboard() {
     );
   }
 
-  if (!dashboardData) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center text-gray-500">
-          Failed to load dashboard data
-        </div>
-      </div>
-    );
-  }
-
   const crossSiteSnapshot = [
-    { label: "Total Sites", value: dashboardData.pulseStatus.totalSites?.toString() || "5" },
-    { label: "Active High Risks", value: dashboardData.overview.highPriorityRisks?.toString() || "0" },
-    { label: "Pending Escalations", value: dashboardData.escalationMetrics.pending?.toString() || "0" },
-    { label: "Active Incidents", value: dashboardData.overview.activeRisks?.toString() || "0" },
+    { label: "Total Sites", value: stats.totalSites.toString() },
+    { label: "Active High Risks", value: stats.activeHighRisks.toString() },
+    { label: "Pending Escalations", value: stats.pendingEscalations.toString() },
+    { label: "Active Incidents", value: stats.activeIncidents.toString() },
   ];
 
-  const escalatedRisks = dashboardData.recentActivities
-    .filter((activity: any) => activity.type === 'escalation')
-    .slice(0, 3)
-    .map((risk: any) => ({
-      house: risk.house || "Unknown",
-      risk: risk.description,
-      escalatedDate: risk.timestamp || new Date().toISOString().split('T')[0],
-      status: risk.severity || "Pending"
-    })) || [];
-
-  const activeIncidents = dashboardData.recentActivities
-    .filter((activity: any) => activity.type === 'incident')
-    .slice(0, 5)
-    .map((incident: any) => ({
-      id: incident.id,
-      house: incident.house || "Unknown",
-      type: incident.severity,
-      date: incident.timestamp || new Date().toISOString().split('T')[0],
-      status: 'active'
-    })) || [];
-
-  const siteSummaries = dashboardData.recentActivities
-    .filter((activity: any) => activity.house)
-    .reduce((acc: any, activity: any) => {
-      const house = activity.house;
-      if (!acc[house]) {
-        acc[house] = { house, highRisks: 0, escalations: 0, lastPulse: activity.timestamp };
-      }
-      if (activity.type === 'risk') acc[house].highRisks++;
-      if (activity.type === 'escalation') acc[house].escalations++;
-      return acc;
-    }, {});
-  const siteSummariesArr = Object.values(siteSummaries).slice(0, 5);
+  const escalatedRisks = recentEscalations;
+  const activeIncidents = recentIncidents;
+  const siteSummariesArr = siteSummaries;
 
   return (
     <div className="min-h-screen bg-white">
@@ -119,7 +147,7 @@ export function ResponsibleIndividualDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Pending Escalations</h2>
               <div className="space-y-3">
-                {escalatedRisks.map((risk, idx) => (
+                {escalatedRisks.length > 0 ? escalatedRisks.map((risk, idx) => (
                   <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-start">
                       <div>
@@ -128,11 +156,13 @@ export function ResponsibleIndividualDashboard() {
                       </div>
                       <div className="text-right">
                         <span className="text-sm text-gray-600">{risk.escalatedDate}</span>
-                        <p className="text-sm font-medium text-black">{risk.status}</p>
+                        <p className="text-sm font-medium text-black capitalize">{risk.status}</p>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center py-4 text-gray-500 border border-dashed border-gray-300">No pending escalations</p>
+                )}
               </div>
               <button
                 onClick={() => navigate("/escalation-log")}
@@ -149,7 +179,7 @@ export function ResponsibleIndividualDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Site Summaries</h2>
               <div className="space-y-3">
-                {siteSummariesArr.map((site: any, idx: number) => (
+                {siteSummariesArr.length > 0 ? siteSummariesArr.map((site: any, idx: number) => (
                   <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>
@@ -162,7 +192,9 @@ export function ResponsibleIndividualDashboard() {
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center py-4 text-gray-500 border border-dashed border-gray-300">No sites found</p>
+                )}
               </div>
             </div>
 
@@ -170,26 +202,28 @@ export function ResponsibleIndividualDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Active Serious Incidents</h2>
               <div className="space-y-3">
-                {activeIncidents.map((incident, idx) => (
+                {activeIncidents.length > 0 ? activeIncidents.map((incident, idx) => (
                   <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium text-black">{incident.id}</p>
+                        <p className="font-medium text-black">{incident.id.split('-')[0]}...</p>
                         <p className="text-sm text-gray-600">{incident.house} - {incident.type}</p>
                         <p className="text-xs text-gray-500">{incident.date}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`px-2 py-1 text-xs rounded ${
-                          incident.status === 'under-review' 
+                        <span className={`px-2 py-1 text-xs rounded capitalize ${
+                          incident.status === 'under_review' 
                             ? 'bg-black text-white' 
                             : 'bg-gray-200 text-gray-800'
                         }`}>
-                          {incident.status}
+                          {incident.status.replace('_', ' ')}
                         </span>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-center py-4 text-gray-500 border border-dashed border-gray-300">No active incidents</p>
+                )}
               </div>
               <div className="flex gap-2 mt-4">
                 <button

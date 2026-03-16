@@ -1,25 +1,21 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { AlertTriangle, TrendingUp, Users, FileText, Calendar, Clock, Activity, Ambulance } from "lucide-react";
-import { Button } from "./ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { AlertTriangle, Ambulance } from "lucide-react";
 import { dashboardApi } from "@/services/dashboardApi";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export function DirectorDashboard() {
   const navigate = useNavigate();
-  const { user } = useAuth();
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [patternDetections, setPatternDetections] = useState<any[]>([]);
-  const [weeklyReview, setWeeklyReview] = useState<any>(null);
+  const [sitePerformance, setSitePerformance] = useState<any[]>([]);
 
   useEffect(() => {
     loadDashboardData();
     loadPatternDetections();
-    loadWeeklyReview();
+    loadPerformance();
   }, []);
 
   const loadDashboardData = async () => {
@@ -39,16 +35,16 @@ export function DirectorDashboard() {
       const patterns = await dashboardApi.getPatternDetections();
       setPatternDetections(patterns);
     } catch (error) {
-      console.error('Failed to load pattern detections:', error);
+           console.error('Failed to load pattern detections:', error);
     }
   };
 
-  const loadWeeklyReview = async () => {
+  const loadPerformance = async () => {
     try {
-      const review = await dashboardApi.getWeeklyReviewSummary();
-      setWeeklyReview(review);
+      const perf = await dashboardApi.getSitePerformance();
+      setSitePerformance(perf);
     } catch (error) {
-      console.error('Failed to load weekly review:', error);
+      console.error('Failed to load site performance:', error);
     }
   };
 
@@ -64,16 +60,24 @@ export function DirectorDashboard() {
   }
 
   const organizationalSnapshot = dashboardData ? [
-    { label: "Total Sites", value: dashboardData.overview.totalSites || "5" },
-    { label: "Active High Risks", value: dashboardData.overview.highPriorityRisks || "12" },
-    { label: "Monthly Incidents", value: dashboardData.overview.seriousIncidents || "8" },
-    { label: "Compliance Rate", value: `${(dashboardData.overview.complianceRate || 94).toFixed(1)}%` },
-  ] : [
-    { label: "Total Sites", value: "5" },
-    { label: "Active High Risks", value: "12" },
-    { label: "Monthly Incidents", value: "8" },
-    { label: "Compliance Rate", value: "94%" },
-  ];
+    { label: "Total Sites", value: dashboardData.overview.totalSites || sitePerformance.length || "5" },
+    { label: "Active High Risks", value: dashboardData.overview.highPriorityRisks || "0" },
+    { label: "Monthly Incidents", value: dashboardData.overview.seriousIncidents || "0" },
+    { label: "Compliance Rate", value: `${(dashboardData.overview.complianceRate || 0).toFixed(1)}%` },
+  ] : [];
+
+  const seriousIncidentAlerts = dashboardData?.recentActivities
+    ?.filter((activity: any) => activity.type === 'incident' && activity.severity === 'serious')
+    .map((incident: any) => ({
+      id: incident.id,
+      house: incident.house,
+      incidentDate: new Date(incident.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
+      riskSignalsLogged: 3,
+      escalationsTriggered: 2,
+      leadershipReviews: 2,
+      lastOversightReviewDays: 6,
+      status: "under-review"
+    })) || [];
 
   const riskCategories = dashboardData?.riskTrends ? 
     Object.entries(dashboardData.riskTrends.reduce((acc: any, trend: any) => {
@@ -86,41 +90,14 @@ export function DirectorDashboard() {
     }, {})).map(([category, data]: [string, any]) => ({
       category,
       count: data.count,
-      trend: data.trend
-    })) : [
-    { category: "Clinical", count: 5, trend: "up" },
-    { category: "Operational", count: 4, trend: "stable" },
-    { category: "Environmental", count: 2, trend: "down" },
-    { category: "Safeguarding", count: 1, trend: "stable" },
-  ];
+      trend: data.trend as string
+    })) : [];
 
-  const sitePerformance = dashboardData?.sitePerformance || [
-    { site: "Oakwood", performance: 92, risks: 3, incidents: 2 },
-    { site: "Riverside", performance: 88, risks: 4, incidents: 3 },
-    { site: "Maple Grove", performance: 95, risks: 2, incidents: 1 },
-    { site: "Sunset Villa", performance: 97, risks: 1, incidents: 1 },
-    { site: "Birchwood", performance: 90, risks: 2, incidents: 1 },
-  ];
-
-  const strategicInsights = patternDetections.slice(0, 3).map((pattern: any) => ({
+  const strategicInsights = patternDetections.map((pattern: any) => ({
     type: pattern.patternType || "Pattern Detection",
     detail: pattern.patternDescription || "Pattern detected",
     priority: pattern.severity === 'critical' ? 'High' : pattern.severity === 'high' ? 'High' : 'Medium'
   }));
-
-  const seriousIncidentAlerts = dashboardData?.recentActivities
-    .filter((activity: any) => activity.type === 'incident' && activity.severity === 'serious')
-    .slice(0, 3)
-    .map((incident: any) => ({
-      id: incident.id || "INC-001",
-      house: incident.house || "House B",
-      incidentDate: new Date(incident.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      riskSignalsLogged: 3,
-      escalationsTriggered: 2,
-      leadershipReviews: 2,
-      lastOversightReviewDays: 6,
-      status: "under-review"
-    })) || [];
 
   return (
     <div className="min-h-screen bg-white">
@@ -138,12 +115,12 @@ export function DirectorDashboard() {
               <AlertTriangle className="w-6 h-6 text-red-600" />
               <h2 className="text-xl font-bold text-red-900">Serious Incident Alert</h2>
             </div>
-            {seriousIncidentAlerts.map((alert) => (
-              <div key={alert.id} className="bg-white border border-red-300 rounded p-4">
+            {seriousIncidentAlerts.map((alert: any) => (
+              <div key={alert.id} className="bg-white border border-red-300 rounded p-4 mb-4 last:mb-0">
                 <div className="grid grid-cols-2 md:grid-cols-6 gap-4 mb-3">
                   <div>
                     <div className="text-sm text-gray-500">Incident ID</div>
-                    <div className="font-bold text-black">{alert.id}</div>
+                    <div className="font-bold text-black">{alert.id.substring(0, 8)}</div>
                   </div>
                   <div>
                     <div className="text-sm text-gray-500">Service</div>
@@ -169,14 +146,13 @@ export function DirectorDashboard() {
                 <div className="flex gap-3">
                   <button
                     onClick={() => navigate(`/incidents/${alert.id}/timeline`)}
-                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors"
+                    className="px-4 py-2 bg-red-600 text-white hover:bg-red-700 transition-colors text-sm font-medium"
                   >
-                    <Ambulance className="w-4 h-4 mr-2" />
                     View Governance Timeline
                   </button>
                   <button
                     onClick={() => navigate(`/incidents/${alert.id}/report`)}
-                    className="px-4 py-2 bg-white text-red-600 border border-red-600 hover:bg-red-50 transition-colors"
+                    className="px-4 py-2 bg-white text-red-600 border border-red-600 hover:bg-red-50 transition-colors text-sm font-medium"
                   >
                     View Reconstruction Report
                   </button>
@@ -186,14 +162,14 @@ export function DirectorDashboard() {
           </div>
         )}
 
-        <div className="grid grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Left Column */}
           <div className="space-y-6">
             {/* Organizational Snapshot */}
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Organizational Overview</h2>
               <div className="space-y-3">
-                {organizationalSnapshot.map((item, idx) => (
+                {organizationalSnapshot.map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
                     <span className="text-black">{item.label}</span>
                     <span className="font-semibold text-black">{item.value}</span>
@@ -206,7 +182,7 @@ export function DirectorDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Risk Categories</h2>
               <div className="space-y-3">
-                {riskCategories.map((category, idx) => (
+                {riskCategories.length > 0 ? riskCategories.map((category: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
                     <div>
                       <p className="font-medium text-black">{category.category}</p>
@@ -221,7 +197,9 @@ export function DirectorDashboard() {
                       <span className="text-sm text-gray-600">{category.trend}</span>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-gray-500 text-center py-4">No risk data available</p>
+                )}
               </div>
             </div>
 
@@ -230,7 +208,7 @@ export function DirectorDashboard() {
               <h2 className="text-xl font-semibold mb-4 text-black">Strategic Insights</h2>
               <div className="space-y-3">
                 {strategicInsights.length > 0 ? (
-                  strategicInsights.map((insight, idx) => (
+                  strategicInsights.map((insight: any, idx: number) => (
                     <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                       <div className="flex justify-between items-start">
                         <div>
@@ -259,20 +237,26 @@ export function DirectorDashboard() {
             <div className="bg-white border-2 border-black p-6">
               <h2 className="text-xl font-semibold mb-4 text-black">Site Performance</h2>
               <div className="space-y-3">
-                {sitePerformance.map((site, idx) => (
+                {sitePerformance.length > 0 ? sitePerformance.map((site: any, idx: number) => (
                   <div key={idx} className="border-b border-gray-300 pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium text-black">{site.site}</p>
-                        <p className="text-sm text-gray-600">Risks: {site.risks} | Incidents: {site.incidents}</p>
+                        <p className="font-medium text-black">{site.house_name || 'Service Site'}</p>
+                        <p className="text-sm text-gray-600 font-mono">
+                          Risks: {site.risks_count} | Incidents: {site.incidents_count}
+                        </p>
                       </div>
                       <div className="text-right">
-                        <span className="text-lg font-semibold text-black">{site.performance}%</span>
-                        <p className="text-sm text-gray-600">Performance</p>
+                        <span className="text-lg font-semibold text-black">
+                          {Math.round(site.compliance_score || 0)}%
+                        </span>
+                        <p className="text-sm text-gray-600">Compliance</p>
                       </div>
                     </div>
                   </div>
-                ))}
+                )) : (
+                  <p className="text-gray-500 text-center py-4">No site performance data available</p>
+                )}
               </div>
             </div>
 
@@ -282,26 +266,26 @@ export function DirectorDashboard() {
               <div className="space-y-3">
                 <button
                   onClick={() => navigate("/incidents")}
-                  className="w-full py-3 px-4 bg-red-600 text-white hover:bg-red-700 transition-colors"
+                  className="w-full py-3 px-4 bg-red-600 text-white hover:bg-red-700 transition-colors flex items-center justify-center gap-2"
                 >
-                  <Ambulance className="w-4 h-4 mr-2" />
+                  <Ambulance className="w-5 h-5" />
                   Manage Serious Incidents
                 </button>
                 <button
                   onClick={() => navigate("/reports")}
-                  className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors"
+                  className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors flex items-center justify-center gap-2"
                 >
                   Generate Monthly Report
                 </button>
                 <button
                   onClick={() => navigate("/trends")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                 >
                   View Risk Trends
                 </button>
                 <button
                   onClick={() => navigate("/engines")}
-                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                  className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors flex items-center justify-center gap-2"
                 >
                   Manage Computational Engines
                 </button>

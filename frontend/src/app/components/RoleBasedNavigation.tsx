@@ -1,6 +1,8 @@
+import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings } from "lucide-react";
 import { Button } from "./ui/button";
+import apiClient from "@/services/apiClient";
 
 export function RoleBasedNavigation() {
   const location = useLocation();
@@ -70,6 +72,28 @@ export function RoleBasedNavigation() {
     }
   };
 
+  const [pendingEscalations, setPendingEscalations] = useState(0);
+
+  useEffect(() => {
+    if (userRole === 'RESPONSIBLE_INDIVIDUAL') {
+      const fetchStats = async () => {
+        try {
+          const res = await apiClient.get('/escalations/stats');
+          const data = (res.data as any).data;
+          if (data && data.pending !== undefined) {
+            setPendingEscalations(Number(data.pending));
+          }
+        } catch (err) {
+          console.error('Failed to fetch escalation stats', err);
+        }
+      };
+
+      fetchStats();
+      const interval = setInterval(fetchStats, 60000); // Poll every minute
+      return () => clearInterval(interval);
+    }
+  }, [userRole]);
+
   const handleLogout = () => {
     localStorage.clear();
     navigate('/login');
@@ -86,11 +110,13 @@ export function RoleBasedNavigation() {
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
+                const hasNotification = item.path === '/escalation-log' && pendingEscalations > 0;
+                
                 return (
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors ${
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative ${
                       isActive
                         ? "bg-black text-white"
                         : "text-gray-600 hover:text-black hover:bg-gray-100"
@@ -98,6 +124,11 @@ export function RoleBasedNavigation() {
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}
+                    {hasNotification && (
+                      <span className="absolute -top-1 -right-1 bg-red-600 text-white text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                        {pendingEscalations > 9 ? '9+' : pendingEscalations}
+                      </span>
+                    )}
                   </button>
                 );
               })}

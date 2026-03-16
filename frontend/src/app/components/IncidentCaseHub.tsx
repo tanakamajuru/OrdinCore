@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { Plus, Search, Calendar, MapPin, AlertTriangle, Eye, FileText, Filter, X, Ambulance } from "lucide-react";
+import { Plus, Search, Calendar, MapPin, AlertTriangle, Filter, X, Ambulance } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent } from "./ui/card";
@@ -12,6 +12,8 @@ interface IncidentCase {
   id: string;
   houseId: string;
   houseName: string;
+  title: string;
+  description: string;
   incidentDate: string;
   incidentType: string;
   status: "under-review" | "closed" | "archived";
@@ -37,8 +39,10 @@ export function IncidentCaseHub() {
 
   // Create incident form state
   const [incidentForm, setIncidentForm] = useState({
-    title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: ''
+    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: ''
   });
+
+  const [allHouses, setAllHouses] = useState<any[]>([]);
 
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
   const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
@@ -47,6 +51,12 @@ export function IncidentCaseHub() {
 
   const loadIncidents = async () => {
     try {
+      // Load all houses
+      const housesRes = await apiClient.get('/houses?limit=100');
+      const hDataAll = (housesRes.data as any).data || (housesRes.data as any) || [];
+      const housesList = Array.isArray(hDataAll) ? hDataAll : [];
+      setAllHouses(housesList);
+
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
@@ -61,9 +71,11 @@ export function IncidentCaseHub() {
       const mapped: IncidentCase[] = rawIncs.map((inc: any) => ({
         id: inc.id,
         houseId: inc.house_id,
-        houseName: inc.house_name || userHouseName || 'Unknown',
+        houseName: inc.house_name || housesList.find((h: any) => h.id === inc.house_id)?.name || userHouseName || 'Unknown',
+        title: inc.title || 'Untitled Incident',
+        description: inc.description || '',
         incidentDate: inc.occurred_at ? new Date(inc.occurred_at).toLocaleDateString('en-GB') : '',
-        incidentType: inc.title || inc.category_name || 'Incident',
+        incidentType: inc.category_name || 'Incident',
         status: inc.status === 'under_review' ? 'under-review' : (inc.status || 'open') as any,
         createdAt: inc.created_at ? new Date(inc.created_at).toLocaleDateString('en-GB') : '',
         createdBy: inc.created_by_name || '',
@@ -80,14 +92,16 @@ export function IncidentCaseHub() {
     if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
       toast.error('Please fill in title, description and date'); return;
     }
+    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : incidentForm.house_id;
+    if (!targetHouseId) { toast.error('Please select a house'); return; }
+    
     setIsSubmitting(true);
     try {
       await apiClient.post('/incidents', {
-        house_id: userHouseId,
+        house_id: targetHouseId,
         title: incidentForm.title,
         description: incidentForm.description,
         severity: incidentForm.severity,
-        status: 'open',
         occurred_at: new Date(incidentForm.occurred_at).toISOString(),
         location: incidentForm.location,
         immediate_action: incidentForm.immediate_action,
@@ -96,7 +110,7 @@ export function IncidentCaseHub() {
       });
       toast.success('Incident reported successfully');
       setShowCreateModal(false);
-      setIncidentForm({ title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: '' });
+      setIncidentForm({ house_id: '', title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: '' });
       loadIncidents();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
     finally { setIsSubmitting(false); }
@@ -109,8 +123,9 @@ export function IncidentCaseHub() {
     if (statusFilter !== 'All') filtered = filtered.filter(i => i.status === statusFilter);
     if (searchTerm) filtered = filtered.filter(i =>
       i.houseName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.incidentType.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      i.id.toLowerCase().includes(searchTerm.toLowerCase())
+      i.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      i.incidentType.toLowerCase().includes(searchTerm.toLowerCase())
     );
     return filtered;
   };
@@ -122,7 +137,7 @@ export function IncidentCaseHub() {
 
   const filteredIncidents = getFilteredIncidents();
   const canCreateIncident = ['REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL', 'DIRECTOR', 'ADMIN'].includes(userRole);
-  const houses = ['All', ...(userHouseName ? [userHouseName] : Array.from(new Set(incidents.map(i => i.houseName))))];
+  const houses = ['All', ...allHouses.map(h => h.name)];
 
   if (isLoading) return (
     <div className="min-h-screen bg-white flex items-center justify-center">
@@ -149,8 +164,8 @@ export function IncidentCaseHub() {
           <div>
             <h1 className="text-3xl font-bold text-black mb-2">Serious Incidents</h1>
             <p className="text-gray-600">
-              {userRole === 'registered-manager' 
-                ? `Serious incident management for ${houses.find(house => house.toLowerCase().replace(' ', '-') === userHouse) || userHouse}`
+              {userRole === 'REGISTERED_MANAGER' 
+                ? `Serious incident management for ${userHouseName || 'your house'}`
                 : 'Serious incident management across all services'
               }
             </p>
@@ -177,7 +192,7 @@ export function IncidentCaseHub() {
                 <div className="flex-1 relative">
                   <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                   <Input
-                    placeholder="Search incidents by house, type, or ID..."
+                    placeholder="Search incidents by title, description, house, or type..."
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
                     className="pl-10 border-black"
@@ -220,7 +235,7 @@ export function IncidentCaseHub() {
               <div className="relative">
                 <Search className="absolute left-3 top-3 w-4 h-4 text-gray-400" />
                 <Input
-                  placeholder="Search incidents by type or ID..."
+                  placeholder="Search incidents by title, description, or type..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   className="pl-10 border-black"
@@ -238,11 +253,15 @@ export function IncidentCaseHub() {
                 <div className="flex justify-between items-start">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-3">
-                      <h3 className="text-lg font-bold text-black">{incident.id}</h3>
+                      <h3 className="text-lg font-bold text-black">{incident.title}</h3>
                       <span className={`px-2 py-1 rounded text-xs font-medium ${getStatusColor(incident.status)}`}>
                         {incident.status.replace('-', ' ').toUpperCase()}
                       </span>
                     </div>
+                    
+                    {incident.description && (
+                      <p className="text-gray-600 text-sm mb-3 line-clamp-2">{incident.description}</p>
+                    )}
                     
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
                       <div className="flex items-center gap-2">
@@ -258,7 +277,7 @@ export function IncidentCaseHub() {
                         <span className="text-sm">{incident.incidentType}</span>
                       </div>
                       <div className="flex items-center gap-2">
-                        <FileText className="w-4 h-4 text-gray-500" />
+                        <AlertTriangle className="w-4 h-4 text-gray-500" />
                         <span className="text-sm">{incident.linkedRisks} risks, {incident.linkedEscalations} escalations</span>
                       </div>
                     </div>
@@ -275,15 +294,6 @@ export function IncidentCaseHub() {
                   </div>
 
                   <div className="flex gap-2 ml-4">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => navigate(`/incidents/${incident.id}`)}
-                      className="border-black hover:bg-black hover:text-white"
-                    >
-                      <Eye className="w-4 h-4 mr-1" />
-                      View
-                    </Button>
                     <Button
                       variant="outline"
                       size="sm"
@@ -372,25 +382,35 @@ export function IncidentCaseHub() {
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Incident Date & Time *</label>
-                      <Input type="datetime-local" className="border-black" />
+                      <Input 
+                        type="datetime-local" 
+                        value={incidentForm.occurred_at}
+                        onChange={(e) => setIncidentForm({...incidentForm, occurred_at: e.target.value})}
+                        className="border-black" 
+                      />
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Incident Type *</label>
                       <select className="w-full border-2 border-black rounded p-2">
                         <option value="">Select type...</option>
+                        {/* type mapping can be added if needed, currently using category_name from API */}
                         <option value="safeguarding">Safeguarding</option>
                         <option value="medication">Medication Error</option>
                         <option value="behavioral">Behavioral Incident</option>
                         <option value="environmental">Environmental Hazard</option>
                         <option value="staff">Staff Misconduct</option>
-                        <option value="injury">Resident Injury</option>
+                        <option value="injury">Resident Incident</option>
                         <option value="absconding">Absconding</option>
                         <option value="other">Other</option>
                       </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Severity Level *</label>
-                      <select className="w-full border-2 border-black rounded p-2">
+                      <select 
+                        value={incidentForm.severity}
+                        onChange={(e) => setIncidentForm({...incidentForm, severity: e.target.value})}
+                        className="w-full border-2 border-black rounded p-2"
+                      >
                         <option value="">Select severity...</option>
                         <option value="critical">Critical</option>
                         <option value="serious">Serious</option>
@@ -441,6 +461,8 @@ export function IncidentCaseHub() {
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Incident Description *</label>
                       <textarea 
+                        value={incidentForm.description}
+                        onChange={(e) => setIncidentForm({...incidentForm, description: e.target.value})}
                         className="w-full border-2 border-black rounded p-2 h-24 resize-none"
                         placeholder="Provide detailed description of what happened..."
                       />
@@ -448,6 +470,8 @@ export function IncidentCaseHub() {
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Immediate Actions Taken</label>
                       <textarea 
+                        value={incidentForm.immediate_action}
+                        onChange={(e) => setIncidentForm({...incidentForm, immediate_action: e.target.value})}
                         className="w-full border-2 border-black rounded p-2 h-20 resize-none"
                         placeholder="Describe immediate response and actions taken..."
                       />
@@ -455,6 +479,8 @@ export function IncidentCaseHub() {
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">People Involved</label>
                       <Input 
+                        value={incidentForm.persons_involved}
+                        onChange={(e) => setIncidentForm({...incidentForm, persons_involved: e.target.value})}
                         placeholder="Names of residents, staff, or others involved (if applicable)"
                         className="border-black"
                       />
@@ -462,7 +488,9 @@ export function IncidentCaseHub() {
                     <div>
                       <label className="block text-sm font-medium text-black mb-1">Witnesses</label>
                       <Input 
-                        placeholder="Names of any witnesses to the incident"
+                        value={incidentForm.location}
+                        onChange={(e) => setIncidentForm({...incidentForm, location: e.target.value})}
+                        placeholder="Location of the incident"
                         className="border-black"
                       />
                     </div>

@@ -251,6 +251,27 @@ router.patch('/:id/resolve', requireAuth, requireTenant, requireRole('SUPER_ADMI
  */
 router.get('/:id/timeline', requireAuth, requireTenant, incidentsController.getTimeline.bind(incidentsController));
 
+/**
+ * @openapi
+ * /api/v1/incidents/{id}/governance-timeline:
+ *   get:
+ *     tags:
+ *       - Incidents
+ *     summary: GET /api/v1/incidents/{id}/governance-timeline
+ *     security:
+ *       - BearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/:id/governance-timeline', requireAuth, requireTenant, incidentsController.getGovernanceTimeline.bind(incidentsController));
+
 // Extra utility endpoints
 /**
  * @openapi
