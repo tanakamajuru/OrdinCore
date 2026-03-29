@@ -47,7 +47,7 @@ export function Navigation() {
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <div className="text-xl font-bold text-primary">CareSignal</div>
+            <div className="text-xl font-bold text-primary">OrdinCore</div>
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => {
                 const Icon = item.icon;

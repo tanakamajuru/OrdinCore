@@ -3,12 +3,17 @@ import { v4 as uuidv4 } from 'uuid';
 
 export class WeeklyReviewsService {
   async save(company_id: string, user_id: string, data: { house_id: string; week_ending: string; content: any; status?: string }) {
-    const id = uuidv4();
+    const existing = await query('SELECT id, status FROM weekly_reviews WHERE company_id = $1 AND house_id = $2 AND week_ending = $3', [company_id, data.house_id, data.week_ending]);
+    if (existing.rows[0]?.status === 'LOCKED' || existing.rows[0]?.status === 'locked') {
+      throw new Error('This weekly review is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
+    const id = existing.rows[0]?.id || uuidv4();
     const result = await query(
       `INSERT INTO weekly_reviews (id, company_id, house_id, week_ending, content, status, created_by)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        ON CONFLICT (house_id, week_ending) DO UPDATE
-       SET content = $5, status = EXCLUDED.status, updated_at = NOW()
+       SET content = $5, status = COALESCE(EXCLUDED.status, weekly_reviews.status), updated_at = NOW()
        RETURNING *`,
       [id, company_id, data.house_id, data.week_ending, JSON.stringify(data.content), data.status || 'draft', user_id]
     );

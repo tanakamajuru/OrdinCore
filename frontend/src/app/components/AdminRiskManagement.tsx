@@ -177,30 +177,6 @@ const AdminRiskManagement: React.FC = () => {
     }
   };
 
-  // Delete risk
-  const handleDeleteRisk = async () => {
-    if (!selectedRisk) return;
-
-    try {
-      const response = await fetch(`/api/admin/risks/${selectedRisk.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      if (response.ok) {
-        toast.success('Risk activity deleted successfully');
-        setIsDeleteDialogOpen(false);
-        setSelectedRisk(null);
-        fetchRisks();
-        fetchStats();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to delete risk activity');
-      }
-    } catch (error) {
-      toast.error('Network error occurred');
-    }
-  };
 
   useEffect(() => {
     fetchRisks();
@@ -335,16 +311,7 @@ const AdminRiskManagement: React.FC = () => {
             <TableCell>{new Date(risk.performed_at).toLocaleDateString()}</TableCell>
             <TableCell>
               <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedRisk(risk);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {/* Delete button removed due to No Hard Deletes governance override */}
               </div>
             </TableCell>
           </TableRow>
@@ -449,39 +416,7 @@ const AdminRiskManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Risk Activity</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this risk activity? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          {selectedRisk && (
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg">
-                <h4 className="font-semibold mb-2">Risk Activity Details</h4>
-                <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div><strong>ID:</strong> {selectedRisk.activity_id}</div>
-                  <div><strong>Risk ID:</strong> {selectedRisk.risk_id}</div>
-                  <div><strong>Type:</strong> {selectedRisk.activity_type}</div>
-                  <div><strong>Description:</strong> {selectedRisk.description}</div>
-                  <div><strong>Date:</strong> {new Date(selectedRisk.performed_at).toLocaleDateString()}</div>
-                </div>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <Button onClick={() => setIsDeleteDialogOpen(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button onClick={handleDeleteRisk} variant="destructive">
-              Delete Risk Activity
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };

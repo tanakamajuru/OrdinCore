@@ -3,7 +3,7 @@ import winston from 'winston';
 const { combine, timestamp, printf, colorize, errors } = winston.format;
 
 const logFormat = printf(({ level, message, timestamp, stack }) => {
-  return `${timestamp} [${level}]: ${stack || message}`;
+  return `[OrdinCore] ${timestamp} [${level}]: ${stack || message}`;
 });
 
 export const logger = winston.createLogger({

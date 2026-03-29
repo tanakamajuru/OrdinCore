@@ -1,8 +1,6 @@
-# Frontend Dependencies Installation Guide
+# OrdinCore Frontend
 
-## 🚀 Quick Start
-
-The frontend now has full backend integration but requires installing the new dependencies.
+This is the frontend component of the OrdinCore Governance SaaS Platform.
 
 ### **Step 1: Install Frontend Dependencies**
 

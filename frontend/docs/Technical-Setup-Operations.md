@@ -1,5 +1,5 @@
 # Technical Setup & Operations Document
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -71,7 +71,7 @@ cp .env.example .env.local
 ```bash
 # .env.local configuration
 VITE_API_BASE_URL=http://localhost:3001
-VITE_APP_NAME=CareSignal Governance
+VITE_APP_NAME=Ordin Core Governance
 VITE_APP_VERSION=1.0.0
 VITE_ENABLE_MOCK_API=true
 VITE_LOG_LEVEL=debug
@@ -109,7 +109,7 @@ pnpm dev
 #### Frontend Environment Variables
 ```bash
 # Application Configuration
-VITE_APP_NAME=CareSignal Governance
+VITE_APP_NAME=Ordin Core Governance
 VITE_APP_VERSION=1.0.0
 VITE_APP_DESCRIPTION=Governance SaaS Platform
 
@@ -832,7 +832,7 @@ class EmailService {
 
   async sendPasswordReset(email, resetToken) {
     const resetUrl = `${process.env.FRONTEND_URL}/reset-password?token=${resetToken}`;
-    const subject = 'Password Reset - CareSignal';
+    const subject = 'Password Reset - Ordin Core';
     const html = `
       <h2>Password Reset</h2>
       <p>Click the link below to reset your password:</p>
@@ -1094,7 +1094,7 @@ require('newrelic');
 const newrelic = require('newrelic');
 
 // Custom metrics
-newrelic.setTransactionName('CareSignal API');
+newrelic.setTransactionName('Ordin Core API');
 
 // Error tracking
 newrelic.noticeError = function(error, customAttributes) {
@@ -1360,4 +1360,4 @@ Resources:
         - !Ref SNSTopicArn
 ```
 
-This Technical Setup & Operations Document provides comprehensive guidance for establishing and maintaining the CareSignal Governance SaaS Platform infrastructure and development environment.
+This Technical Setup & Operations Document provides comprehensive guidance for establishing and maintaining the Ordin Core Governance SaaS Platform infrastructure and development environment.

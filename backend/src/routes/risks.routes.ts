@@ -3,6 +3,7 @@ import { risksController } from '../controllers/risks.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
+import { requireScope } from '../middleware/scope.middleware';
 
 const router = Router();
 
@@ -63,7 +64,7 @@ router.get('/assigned-to-me', requireAuth, requireTenant, risksController.getAss
  *       200:
  *         description: Success
  */
-router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), risksController.create.bind(risksController));
+router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.create.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks:
@@ -77,7 +78,7 @@ router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN',
  *       200:
  *         description: Success
  */
-router.get('/', requireAuth, requireTenant, risksController.findAll.bind(risksController));
+router.get('/', requireAuth, requireTenant, requireScope, risksController.findAll.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}:
@@ -97,7 +98,7 @@ router.get('/', requireAuth, requireTenant, risksController.findAll.bind(risksCo
  *       200:
  *         description: Success
  */
-router.get('/:id', requireAuth, requireTenant, risksController.findById.bind(risksController));
+router.get('/:id', requireAuth, requireTenant, requireScope, risksController.findById.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}:
@@ -117,27 +118,8 @@ router.get('/:id', requireAuth, requireTenant, risksController.findById.bind(ris
  *       200:
  *         description: Success
  */
-router.patch('/:id', requireAuth, requireTenant, risksController.update.bind(risksController));
-/**
- * @openapi
- * /api/v1/risks/{id}:
- *   delete:
- *     tags:
- *       - Risks
- *     summary: DELETE /api/v1/risks/{id}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.delete.bind(risksController));
+router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.update.bind(risksController));
+
 
 /**
  * @openapi
@@ -179,31 +161,7 @@ router.get('/:id/attachments', requireAuth, requireTenant, risksController.getAt
  *         description: Success
  */
 router.post('/:id/attachments', requireAuth, requireTenant, risksController.addAttachment.bind(risksController));
-/**
- * @openapi
- * /api/v1/risks/{id}/attachments/{attachmentId}:
- *   delete:
- *     tags:
- *       - Risks
- *     summary: DELETE /api/v1/risks/{id}/attachments/{attachmentId}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: attachmentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id/attachments/:attachmentId', requireAuth, requireTenant, risksController.removeAttachment.bind(risksController));
+
 /**
  * @openapi
  * /api/v1/risks/{id}/assign:
@@ -243,7 +201,7 @@ router.post('/:id/assign', requireAuth, requireTenant, requireRole('SUPER_ADMIN'
  *       200:
  *         description: Success
  */
-router.patch('/:id/status', requireAuth, requireTenant, risksController.updateStatus.bind(risksController));
+router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.updateStatus.bind(risksController));
 
 /**
  * @openapi
@@ -324,7 +282,7 @@ router.post('/:id/action', requireAuth, requireTenant, risksController.addAction
  *       200:
  *         description: Success
  */
-router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.escalate.bind(risksController));
+router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.escalate.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/timeline:

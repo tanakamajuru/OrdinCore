@@ -1,12 +1,12 @@
-# System Architecture Overview - CareSignal Governance SaaS Platform
+# System Architecture Overview - Ordin Core Governance SaaS Platform
 
 ## Architecture Summary
 
-The CareSignal Governance SaaS Platform is built as a modern Single Page Application (SPA) using React 18 with TypeScript. The architecture follows a component-based design pattern with clear separation of concerns between UI components, business logic, and data management.
+The Ordin Core Governance SaaS Platform is built as a modern Single Page Application (SPA) using React 18 with TypeScript. The architecture follows a component-based design pattern with clear separation of concerns between UI components, business logic, and data management.
 
 ## Core Governance Philosophy
 
-CareSignal operates on a **Structured Oversight Model** that documents leadership behavior over time, not just compliance data. The platform captures the dual trajectory of **Risk Signals** and **Oversight Activity** to provide leadership with actionable insights into governance effectiveness.
+Ordin Core operates on a **Structured Oversight Model** that documents leadership behavior over time, not just compliance data. The platform captures the dual trajectory of **Risk Signals** and **Oversight Activity** to provide leadership with actionable insights into governance effectiveness.
 
 ### Dual Trajectory Model
 1. **Risk Trajectory**: Shows how risk is moving across the organization (Increasing/Stable/Improving)
@@ -290,4 +290,4 @@ npm run build        # Optimized build for production
 - **Integration APIs**: Third-party system integration
 - **Mobile Application**: React Native mobile app
 
-This architecture provides a solid foundation for the CareSignal Governance SaaS Platform, ensuring scalability, maintainability, and alignment with modern web development best practices.
+This architecture provides a solid foundation for the Ordin Core Governance SaaS Platform, ensuring scalability, maintainability, and alignment with modern web development best practices.

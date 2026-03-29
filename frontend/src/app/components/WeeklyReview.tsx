@@ -431,7 +431,7 @@ export function WeeklyReview() {
           </div>
         </div>
 
-        <div className="space-y-6">
+        <div className={`space-y-6 ${status === 'Locked' ? 'opacity-80 pointer-events-none' : ''}`}>
           {/* Section 1 - Executive Governance Overview */}
           <div className="bg-white border-2 border-black p-6">
             <h2 className="text-xl font-semibold mb-4 text-black">Section 1 — Executive Governance Overview (Auto-Summary Panel)</h2>

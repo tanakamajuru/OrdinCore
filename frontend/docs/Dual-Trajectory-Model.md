@@ -1,5 +1,5 @@
 # Dual Trajectory Model Specification
-# CareSignal Governance SaaS Platform
+# OrdinCore Governance SaaS Platform
 
 ## Document Information
 
@@ -27,7 +27,7 @@
 
 ### Core Principle
 
-CareSignal's differentiator is showing **two trajectories side by side**:
+OrdinCore's differentiator is showing **two trajectories side by side**:
 
 1. **Risk Trajectory**: How risk is moving across the organization
 2. **Oversight Trajectory**: How leadership is responding
@@ -490,4 +490,4 @@ CREATE TABLE governance_alerts (
 - **Regulatory Reporting**: Automated regulatory submission preparation
 - **Stakeholder Reporting**: Custom reports for different stakeholder groups
 
-This Dual Trajectory Model provides CareSignal with a unique competitive advantage by focusing on governance effectiveness rather than just compliance data, giving leadership actionable insights into risk management and oversight response.
+This Dual Trajectory Model provides OrdinCore with a unique competitive advantage by focusing on governance effectiveness rather than just compliance data, giving leadership actionable insights into risk management and oversight response.

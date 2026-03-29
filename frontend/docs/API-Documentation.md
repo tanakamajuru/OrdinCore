@@ -1,4 +1,4 @@
-# CareSignal Governance SaaS API Documentation
+# Ordin Core Governance SaaS API Documentation
 
 ## Overview
 This API provides a comprehensive governance management system for care homes with role-based access control, real-time risk monitoring, incident tracking, and strategic oversight capabilities.

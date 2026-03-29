@@ -141,7 +141,7 @@ export default function SuperAdminDashboard() {
         <div className="flex items-center gap-3">
           <Shield className="w-7 h-7 text-white" />
           <div>
-            <span className="text-xl font-bold tracking-tight">CareSignal</span>
+            <span className="text-xl font-bold tracking-tight">OrdinCore</span>
             <span className="ml-3 text-xs bg-white text-black px-2 py-0.5 rounded font-semibold">PLATFORM ADMIN</span>
           </div>
         </div>
@@ -170,7 +170,7 @@ export default function SuperAdminDashboard() {
         <div className="mb-8 flex items-center justify-between">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Platform Dashboard</h1>
-            <p className="text-gray-500 mt-1">Manage all organisations on the CareSignal platform</p>
+            <p className="text-gray-500 mt-1">Manage all organisations on the OrdinCore platform</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -324,7 +324,7 @@ export default function SuperAdminDashboard() {
             <div className="flex items-center justify-between p-6 border-b border-gray-100">
               <div>
                 <h3 className="text-lg font-bold text-gray-900">Create Organisation</h3>
-                <p className="text-sm text-gray-500">Add a new company to the CareSignal platform</p>
+                <p className="text-sm text-gray-500">Add a new company to the OrdinCore platform</p>
               </div>
               <button onClick={() => setShowCreateOrg(false)} className="text-gray-400 hover:text-gray-600 text-2xl leading-none">&times;</button>
             </div>

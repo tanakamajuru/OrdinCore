@@ -1,0 +1,491 @@
+{
+  "incidents": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "service_unit_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "category_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "title",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "description",
+      "data_type": "text",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "severity",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "occurred_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "reported_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "location",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "persons_involved",
+      "data_type": "jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "witnesses",
+      "data_type": "jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "immediate_action",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "follow_up_required",
+      "data_type": "boolean",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "reportable_to_authority",
+      "data_type": "boolean",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "authority_notified_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_by",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "assigned_to",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "resolved_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "metadata",
+      "data_type": "jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "linked_risk_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "category",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    }
+  ],
+  "incident_categories": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "name",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "description",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "reportable",
+      "data_type": "boolean",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    }
+  ],
+  "houses": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "name",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "postcode",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "city",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "capacity",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "manager_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "registration_number",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "ofsted_rating",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "is_active",
+      "data_type": "boolean",
+      "is_nullable": "NO"
+    }
+  ],
+  "service_units": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "name",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "address",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "postcode",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "city",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "capacity",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "manager_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "registration_number",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "ofsted_rating",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "is_active",
+      "data_type": "boolean",
+      "is_nullable": "YES"
+    }
+  ],
+  "risks": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "service_unit_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "category_id",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "title",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "description",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "severity",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "likelihood",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "impact",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "risk_score",
+      "data_type": "integer",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "assigned_to",
+      "data_type": "uuid",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_by",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "reviewed_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "review_due_date",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "resolved_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "metadata",
+      "data_type": "jsonb",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "updated_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "category",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "trajectory",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "mitigation_status",
+      "data_type": "character varying",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "mitigation_notes",
+      "data_type": "text",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "last_reviewed_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "trajectory_score",
+      "data_type": "numeric",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "trajectory_trend",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    }
+  ],
+  "user_houses": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "house_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "company_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "role_in_house",
+      "data_type": "character varying",
+      "is_nullable": "YES"
+    },
+    {
+      "column_name": "assigned_at",
+      "data_type": "timestamp with time zone",
+      "is_nullable": "NO"
+    }
+  ],
+  "user_service_units": [
+    {
+      "column_name": "id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "user_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "service_unit_id",
+      "data_type": "uuid",
+      "is_nullable": "NO"
+    },
+    {
+      "column_name": "created_at",
+      "data_type": "timestamp without time zone",
+      "is_nullable": "NO"
+    }
+  ]
+}

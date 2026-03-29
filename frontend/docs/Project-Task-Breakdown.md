@@ -1,5 +1,5 @@
 # Project Task Breakdown Document
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -527,4 +527,4 @@ DevOps: 5% of sprint capacity
 - **User Adoption**: User engagement and feature usage
 - **System Uptime**: Production system availability
 
-This Project Task Breakdown Document provides a comprehensive roadmap for delivering the CareSignal Governance SaaS Platform, with clear priorities, dependencies, and risk mitigation strategies.
+This Project Task Breakdown Document provides a comprehensive roadmap for delivering the Ordin Core Governance SaaS Platform, with clear priorities, dependencies, and risk mitigation strategies.

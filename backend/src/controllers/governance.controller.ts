@@ -40,7 +40,11 @@ export class GovernanceController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const filters = { status: req.query.status, house_id: req.query.house_id };
+      const filters = { 
+        status: req.query.status, 
+        house_id: req.query.house_id,
+        assigned_user_id: req.query.assigned_user_id
+      };
       const result = await governanceService.findAllPulses(company_id, filters, page, limit);
       return res.json({ success: true, data: result.pulses, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {

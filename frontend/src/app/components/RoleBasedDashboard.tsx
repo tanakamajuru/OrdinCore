@@ -3,6 +3,7 @@ import { useNavigate } from "react-router";
 import { RegisteredManagerDashboard } from "./RegisteredManagerDashboard";
 import { ResponsibleIndividualDashboard } from "./ResponsibleIndividualDashboard";
 import { DirectorDashboard } from "./DirectorDashboard";
+import { TeamLeaderDashboard } from "./TeamLeaderDashboard";
 
 export function RoleBasedDashboard() {
   const navigate = useNavigate();
@@ -24,6 +25,8 @@ export function RoleBasedDashboard() {
   if (userRole === 'SUPER_ADMIN' || userRole === 'ADMIN') return null;
 
   switch (userRole) {
+    case 'TEAM_LEADER':
+      return <TeamLeaderDashboard />;
     case 'REGISTERED_MANAGER':
       return <RegisteredManagerDashboard />;
     case 'RESPONSIBLE_INDIVIDUAL':

@@ -62,73 +62,73 @@ export function Login() {
   return (
     <FullScreen handle={handle}>
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-      <div className="w-full max-w-md">
-        <div className="bg-card border-2 border-border p-8 shadow-md">
-          <div className="text-center mb-2 flex flex-col items-center">
+        <div className="w-full max-w-md">
+          <div className="bg-card border-2 border-border p-8 shadow-md">
+            <div className="text-center mb-2 flex flex-col items-center">
 
-            <img src={logo} alt="Logo" className="w-48 h-48 mb-1 mx-auto" />
+              <img src={logo} alt="Logo" className="w-48 h-48 mb-1 mx-auto" />
 
-            
-          </div>
 
-          <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
-            {error && (
-              <div className="text-destructive text-sm italic text-center">{error}</div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block mb-2 text-foreground font-medium">
-                Email
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                required
-                disabled={isLoading}
-                autoComplete="off"
-              />
             </div>
 
-            <div>
-              <label htmlFor="password" className="block mb-2 text-foreground font-medium">
-                Password
-              </label>
-              <input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                required
-                disabled={isLoading}
-                autoComplete="new-password"
-              />
-            </div>
+            <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
+              {error && (
+                <div className="text-destructive text-sm italic text-center">{error}</div>
+              )}
 
-            <button
-              type="submit"
-              className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
-              disabled={isLoading}
-            >
-              {isLoading ? "Logging in..." : "Login"}
-            </button>
+              <div>
+                <label htmlFor="email" className="block mb-2 text-foreground font-medium">
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  required
+                  disabled={isLoading}
+                  autoComplete="off"
+                />
+              </div>
 
-            <div className="text-center">
+              <div>
+                <label htmlFor="password" className="block mb-2 text-foreground font-medium">
+                  Password
+                </label>
+                <input
+                  id="password"
+                  type="password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  required
+                  disabled={isLoading}
+                  autoComplete="new-password"
+                />
+              </div>
+
               <button
-                type="button"
-                onClick={() => navigate("/forgotten-password")}
-                className="text-primary hover:text-primary/70 transition-colors underline"
+                type="submit"
+                className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                disabled={isLoading}
               >
-                Forgotten Password
+                {isLoading ? "Logging in..." : "Login"}
               </button>
-            </div>
-          </form>
+
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={() => navigate("/forgotten-password")}
+                  className="text-primary hover:text-primary/70 transition-colors underline"
+                >
+                  Forgotten Password
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
       </div>
-    </div>
-  </FullScreen>
+    </FullScreen>
   );
 }

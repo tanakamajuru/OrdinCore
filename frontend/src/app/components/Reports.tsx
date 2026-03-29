@@ -19,7 +19,7 @@ export function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
-  const [filters, setFilters] = useState<ReportFilters>({
+  const [filters, setFilters] = useState<ReportFilters & { leadershipObservations?: string; forwardPlan?: string }>({
     dateRange: {
       start: new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       end: new Date().toISOString().split('T')[0]
@@ -38,6 +38,7 @@ export function Reports() {
   const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
   const reportTypes = [
     { value: "governance_compliance", label: "Comprehensive Governance Report" },
+    { value: "organizational_monthly", label: "Monthly Board Report (Strategic)" },
     { value: "risk_summary", label: "Risk Register Summary" },
     { value: "escalation_report", label: "Escalation Activity Report" },
     { value: "custom", label: "Safeguarding Activity Report" },
@@ -73,7 +74,7 @@ export function Reports() {
       const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
       const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
       let houseId: string | null = null;
-      if (userRole === 'REGISTERED_MANAGER') {
+      if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
         const myHouse = Array.isArray(hData) ? hData[0] : hData;
@@ -148,7 +149,9 @@ export function Reports() {
           severity: filters.severity,
           houses: filters.houses,
           categories: filters.categories,
-          status: filters.status
+          status: filters.status,
+          leadership_observations: filters.leadershipObservations,
+          forward_plan: filters.forwardPlan
         }
       };
       
@@ -327,25 +330,27 @@ export function Reports() {
                 </div>
               </div>
 
-              {/* Houses Filter */}
-              <div>
-                <label className="block mb-2 text-black font-medium">Houses</label>
-                <div className="flex flex-wrap gap-2">
-                  {allHouses.map((house) => (
-                    <button
-                      key={house.id}
-                      onClick={() => handleArrayFilter('houses', house.id)}
-                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
-                        filters.houses.includes(house.id)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {house.name}
-                    </button>
-                  ))}
+              {/* Houses Filter - Hidden for RM/TL */}
+              {!['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(localStorage.getItem('userRole')?.toUpperCase() || '') && (
+                <div>
+                  <label className="block mb-2 text-black font-medium">Houses</label>
+                  <div className="flex flex-wrap gap-2">
+                    {allHouses.map((house) => (
+                      <button
+                        key={house.id}
+                        onClick={() => handleArrayFilter('houses', house.id)}
+                        className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
+                          filters.houses.includes(house.id)
+                            ? "bg-primary text-primary-foreground border-primary"
+                            : "bg-background text-foreground border-border hover:border-primary/50"
+                        }`}
+                      >
+                        {house.name}
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
 
               {/* Categories Filter */}
               <div>
@@ -389,6 +394,38 @@ export function Reports() {
             </div>
           )}
         </div>
+
+        {/* Manual Authoring Section for Monthly Board Report */}
+        {filters.reportType === "organizational_monthly" && (
+          <div className="bg-white border-2 border-black p-6 mb-6 shadow-sm">
+            <h2 className="text-xl font-bold text-primary mb-4">Board Report Finalisation</h2>
+            <p className="text-muted-foreground mb-6">As per governance rules, the Monthly Board Report must include executive narrative before generation.</p>
+            
+            <div className="space-y-6">
+              <div>
+                <label className="block font-semibold mb-2">Section 8: Leadership Observations</label>
+                <textarea 
+                  value={filters.leadershipObservations || ""}
+                  onChange={(e) => setFilters(prev => ({ ...prev, leadershipObservations: e.target.value }))}
+                  rows={4}
+                  placeholder="Enter strategic narrative summarizing the governance period..."
+                  className="w-full border-2 border-black p-4 focus:ring-0 text-black"
+                />
+              </div>
+              
+              <div>
+                <label className="block font-semibold mb-2">Section 9: Actions and Forward Plan</label>
+                <textarea 
+                  value={filters.forwardPlan || ""}
+                  onChange={(e) => setFilters(prev => ({ ...prev, forwardPlan: e.target.value }))}
+                  rows={4}
+                  placeholder="Detail the planned interventions and focus areas for the upcoming month..."
+                  className="w-full border-2 border-black p-4 focus:ring-0 text-black"
+                />
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Preview Section */}
         <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">

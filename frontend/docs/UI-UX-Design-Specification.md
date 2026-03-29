@@ -1,5 +1,5 @@
 # UI/UX Design Specification Document
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -28,7 +28,7 @@
 
 ### 1.1 Design Philosophy
 
-The CareSignal platform follows a **professional, minimalist design philosophy** with these core principles:
+The Ordin Core platform follows a **professional, minimalist design philosophy** with these core principles:
 
 - **Clarity First**: Information hierarchy that guides users naturally
 - **Efficiency**: Minimal clicks to complete tasks
@@ -565,7 +565,7 @@ The CareSignal platform follows a **professional, minimalist design philosophy**
 │    │      [   Login   ]           │    │
 │    └─────────────────────────────┘    │
 │                                     │
-│         © 2024 CareSignal           │
+│         © 2024 Ordin Core           │
 └─────────────────────────────────────┘
 ```
 
@@ -1209,4 +1209,4 @@ const announceToScreenReader = (message) => {
 - **Lists**: Use for sequential information
 - **Charts**: Use with proper labels and alternatives
 
-This UI/UX Design Specification provides comprehensive guidelines for implementing a consistent, accessible, and professional user interface for the CareSignal Governance SaaS Platform.
+This UI/UX Design Specification provides comprehensive guidelines for implementing a consistent, accessible, and professional user interface for the Ordin Core Governance SaaS Platform.

@@ -54,6 +54,10 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
+    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     await query(
       `UPDATE escalations SET status = 'resolved', resolved_at = NOW(), resolution_notes = $1, updated_at = NOW() WHERE id = $2`,
       [resolution_notes, id]
@@ -85,6 +89,10 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
+    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     const result = await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
@@ -112,6 +120,10 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
+    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     const result = await query(
       `UPDATE escalations SET escalated_to = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
       [assigned_to, id, company_id]
@@ -129,6 +141,10 @@ export class EscalationsService {
   async updatePriority(id: string, company_id: string, user_id: string, priority: string) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
 
     const result = await query(
       `UPDATE escalations SET priority = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,

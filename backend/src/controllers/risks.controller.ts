@@ -31,6 +31,15 @@ export class RisksController {
     try {
       const company_id = req.user!.company_id!;
       const risk = await risksService.findById(req.params.id, company_id);
+      
+      // Enforce OWN_SERVICE scope restriction
+      const userRole = req.user!.role?.toUpperCase() || '';
+      if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(userRole)) {
+        if (risk.house_id !== req.user!.assigned_house_id) {
+          return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
+        }
+      }
+
       return res.json({ success: true, data: risk, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Risk not found';

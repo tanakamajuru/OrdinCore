@@ -1,9 +1,9 @@
-# High-Level Design (HLD) - CareSignal Governance SaaS Platform
+# High-Level Design (HLD) - OrdinCore Governance SaaS Platform
 
-## 1. System Overview
+## Overview
 
 ### 1.1 Purpose
-The CareSignal Governance SaaS Platform is a multi-tenant web application designed for care home governance management. It provides structured workflows for daily governance pulses, weekly reviews, risk management, and compliance reporting.
+The OrdinCore Governance SaaS Platform is a multi-tenant web application designed for care home governance management. It provides structured workflows for daily governance pulses, weekly reviews, risk management, and compliance reporting.
 
 ### 1.2 Architecture Type
 - **Frontend**: Single Page Application (SPA) using React 18
@@ -177,4 +177,4 @@ src/
 - **Lucide React**: Consistent icon system
 - **Recharts**: Declarative charting library
 
-This HLD provides the strategic foundation for the CareSignal Governance SaaS Platform, ensuring scalability, maintainability, and alignment with business requirements.
+This HLD provides the strategic foundation for the Ordin Core Governance SaaS Platform, ensuring scalability, maintainability, and alignment with business requirements.

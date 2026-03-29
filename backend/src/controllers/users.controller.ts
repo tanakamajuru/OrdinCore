@@ -18,7 +18,14 @@ export class UsersController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const result = await usersService.findAll(company_id, page, limit);
+      const role = req.query.role as string;
+
+      let status = req.query.status as string;
+      if (!status && req.query.is_active) {
+        status = req.query.is_active === 'true' ? 'active' : 'inactive';
+      }
+
+      const result = await usersService.findAll(company_id, page, limit, role, status);
       return res.json({ success: true, data: result.users, meta: { total: result.total, page: result.page, limit: result.limit, pages: result.pages } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch users';
@@ -28,9 +35,11 @@ export class UsersController {
 
   async findById(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
-      const user = await usersService.findById(req.params.id, company_id);
-      return res.json({ success: true, data: user, meta: {} });
+      const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      const { id } = req.params;
+
+      const user = await usersService.findById(id, company_id);
+      return res.json({ success: true, data: user });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'User not found';
       return res.status(404).json({ success: false, message, errors: [] });
@@ -39,9 +48,9 @@ export class UsersController {
 
   async update(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
-      const user = await usersService.update(req.params.id, company_id, req.body);
-      return res.json({ success: true, data: user, meta: {} });
+      const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      const user = await usersService.update(req.params.id, company_id!, req.body);
+      return res.json({ success: true, data: user });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update user';
       return res.status(400).json({ success: false, message, errors: [] });

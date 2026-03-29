@@ -8,6 +8,7 @@ export interface User {
   assignedHouse?: string;
   organization?: string;
   isActive: boolean;
+  pulseDays?: string[];
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;
@@ -102,6 +103,7 @@ export interface GovernancePulse {
   companyId: string;
   pulseDate: string;
   weekStart?: string;
+  assignedUserId?: string;
   submittedBy?: string;
   status: PulseStatus;
   completedAt?: string;
@@ -121,7 +123,7 @@ export interface GovernancePulse {
   updatedAt: string;
 }
 
-export type PulseStatus = 'pending' | 'submitted' | 'missed' | 'overdue';
+export type PulseStatus = 'DRAFT' | 'SUBMITTED' | 'LOCKED' | 'pending' | 'submitted' | 'completed' | 'overdue' | 'missed';
 
 // User House junction types
 export interface UserHouse {

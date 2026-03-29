@@ -1,11 +1,11 @@
 #!/bin/bash
 
-# CareSignal Backend-Frontend Integration Setup Script
+# Ordin Core Backend-Frontend Integration Setup Script
 # This script automates the complete setup process
 
 set -e
 
-echo "🚀 CareSignal Backend-Frontend Integration Setup"
+echo "🚀 Ordin Core Backend-Frontend Integration Setup"
 echo "================================================"
 
 # Colors for output
@@ -261,7 +261,7 @@ start_services() {
     print_success "Frontend server started successfully"
     
     echo ""
-    print_success "🎉 CareSignal application is now running!"
+    print_success "🎉 Ordin Core application is now running!"
     echo ""
     echo "📊 Backend API: http://localhost:3001"
     echo "🌐 Frontend: http://localhost:5173"
@@ -280,12 +280,13 @@ start_services() {
 # Main execution
 main() {
     echo ""
-    print_status "Starting CareSignal setup process..."
+    echo "🚀 OrdinCore Backend-Frontend Integration Setup"
+    print_status "Starting OrdinCore setup process..."
     echo ""
     
     # Check if we're in the right directory
     if [ ! -f "backend/package.json" ] || [ ! -f "frontend/package.json" ]; then
-        print_error "Please run this script from the root directory of the CareSignal project."
+        print_error "Please run this script from the root directory of the OrdinCore project."
         exit 1
     fi
     

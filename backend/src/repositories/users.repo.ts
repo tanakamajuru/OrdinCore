@@ -9,53 +9,104 @@ export interface CreateUserDto {
   last_name: string;
   role: string;
   status?: string;
+  pulse_days?: string[];
 }
 
 export const usersRepo = {
-  async findById(id: string) {
-    const result = await query('SELECT * FROM users WHERE id = $1', [id]);
+  async findById(id: string, company_id?: string | null) {
+    const isSuperAdmin = !company_id;
+    const params = isSuperAdmin ? [id] : [id, company_id];
+    
+    const result = await query(
+      `SELECT u.*, (u.first_name || ' ' || u.last_name) as name, (u.status = 'active') as is_active,
+              COALESCE(uh.house_id, h_direct.id) AS assigned_house_id,
+              COALESCE(h.name, h_direct.name) AS assigned_house_name
+       FROM users u
+       LEFT JOIN user_houses uh ON uh.user_id = u.id
+       LEFT JOIN houses h ON h.id = uh.house_id
+       LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
+       WHERE u.id = $1 ${isSuperAdmin ? '' : 'AND u.company_id = $2'}`,
+      params
+    );
     return result.rows[0] || null;
   },
 
   async findByEmail(email: string) {
-    const result = await query('SELECT * FROM users WHERE email = $1', [email]);
+    const result = await query('SELECT *, (first_name || \' \' || last_name) as name, (status = \'active\') as is_active FROM users WHERE email = $1', [email]);
     return result.rows[0] || null;
   },
 
-  async findByCompany(company_id: string, limit = 50, offset = 0) {
-    const result = await query(
-      `SELECT u.*, p.job_title, p.phone, p.avatar_url
-       FROM users u
-       LEFT JOIN user_profiles p ON p.user_id = u.id
-       WHERE u.company_id = $1
-       ORDER BY u.created_at DESC
-       LIMIT $2 OFFSET $3`,
-      [company_id, limit, offset]
-    );
+  async findByCompany(company_id: string | null, limit = 50, offset = 0, role?: string, status?: string) {
+    const isSuperAdmin = !company_id;
+    let sql = `
+      SELECT u.id, u.email, u.first_name, u.last_name, 
+             (u.first_name || ' ' || u.last_name) as name,
+             u.role, u.status, (u.status = 'active') as is_active,
+             u.created_at, u.updated_at,
+             u.pulse_days,
+             COALESCE(uh.house_id, h_direct.id) AS assigned_house_id,
+             COALESCE(h.name, h_direct.name) AS assigned_house_name
+      FROM users u
+      LEFT JOIN user_houses uh ON uh.user_id = u.id
+      LEFT JOIN houses h ON h.id = uh.house_id
+      LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
+      WHERE 1=1 ${isSuperAdmin ? '' : 'AND u.company_id = $1'}
+    `;
+    const params: unknown[] = isSuperAdmin ? [] : [company_id];
+
+    if (role) {
+      sql += ` AND u.role = $${params.length + 1}`;
+      params.push(role);
+    }
+    if (status) {
+      sql += ` AND u.status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    sql += ` ORDER BY u.created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`;
+    params.push(limit, offset);
+
+    const result = await query(sql, params);
     return result.rows;
   },
 
-  async countByCompany(company_id: string) {
-    const result = await query('SELECT COUNT(*) FROM users WHERE company_id = $1', [company_id]);
+  async countByCompany(company_id: string, role?: string, status?: string) {
+    let sql = 'SELECT COUNT(*) FROM users WHERE company_id = $1';
+    const params: any[] = [company_id];
+
+    if (role) {
+      sql += ' AND role = $2';
+      params.push(role);
+    }
+    if (status) {
+      sql += ` AND status = $${params.length + 1}`;
+      params.push(status);
+    }
+
+    const result = await query(sql, params);
     return parseInt(result.rows[0].count);
   },
 
   async create(dto: CreateUserDto) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO users (id, company_id, email, password_hash, first_name, last_name, role, status)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING *`,
-      [id, dto.company_id || null, dto.email, dto.password_hash, dto.first_name, dto.last_name, dto.role, dto.status || 'active']
+      `INSERT INTO users (id, company_id, email, password_hash, first_name, last_name, role, status, pulse_days)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+       RETURNING *, (first_name || ' ' || last_name) as name, (status = 'active') as is_active`,
+      [id, dto.company_id || null, dto.email, dto.password_hash, dto.first_name, dto.last_name, dto.role, dto.status || 'active', JSON.stringify(dto.pulse_days || [])]
     );
     return result.rows[0];
   },
 
   async update(id: string, data: Partial<CreateUserDto> & { last_login?: Date }) {
-    const fields = Object.keys(data).map((k, i) => `${k} = $${i + 2}`).join(', ');
-    const values = Object.values(data);
+    const updateData = { ...data };
+    if (updateData.pulse_days) {
+      (updateData as any).pulse_days = JSON.stringify(updateData.pulse_days);
+    }
+    const fields = Object.keys(updateData).map((k, i) => `${k} = $${i + 2}`).join(', ');
+    const values = Object.values(updateData);
     const result = await query(
-      `UPDATE users SET ${fields}, updated_at = NOW() WHERE id = $1 RETURNING *`,
+      `UPDATE users SET ${fields}, updated_at = NOW() WHERE id = $1 RETURNING *, (first_name || ' ' || last_name) as name, (status = 'active') as is_active`,
       [id, ...values]
     );
     return result.rows[0];

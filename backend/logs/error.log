@@ -42,3 +42,15 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:16:7)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+2026-03-24 20:03:32 [error]: error: check constraint "users_role_check" of relation "users" is violated by some row
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+2026-03-24 20:04:06 [error]: error: check constraint "users_role_check" of relation "users" is violated by some row
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+2026-03-24 21:31:00 [error]: error: new row for relation "users" violates check constraint "users_role_check"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)

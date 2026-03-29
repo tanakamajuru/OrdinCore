@@ -181,30 +181,6 @@ const AdminPulseManagement: React.FC = () => {
     }
   };
 
-  // Delete pulse
-  const handleDeletePulse = async () => {
-    if (!selectedPulse) return;
-
-    try {
-      const response = await fetch(`/api/admin/pulses/${selectedPulse.id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
-      });
-
-      if (response.ok) {
-        toast.success('Pulse deleted successfully');
-        setIsDeleteDialogOpen(false);
-        setSelectedPulse(null);
-        fetchPulses();
-        fetchStats();
-      } else {
-        const error = await response.json();
-        toast.error(error.error || 'Failed to delete pulse');
-      }
-    } catch (error) {
-      toast.error('Network error occurred');
-    }
-  };
 
   useEffect(() => {
     fetchPulses();
@@ -322,16 +298,6 @@ const AdminPulseManagement: React.FC = () => {
                 >
                   <Edit className="h-4 w-4" />
                 </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    setSelectedPulse(pulse);
-                    setIsDeleteDialogOpen(true);
-                  }}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
               </div>
             </TableCell>
           </TableRow>
@@ -423,25 +389,7 @@ const AdminPulseManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
-      <Dialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete Governance Pulse</DialogTitle>
-            <DialogDescription>
-              Are you sure you want to delete this pulse? This action cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button onClick={() => setIsDeleteDialogOpen(false)} variant="outline">
-              Cancel
-            </Button>
-            <Button onClick={handleDeletePulse} variant="destructive">
-              Delete Pulse
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+
     </div>
   );
 };

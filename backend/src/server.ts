@@ -68,7 +68,7 @@ process.on('unhandledRejection', (reason) => {
 httpServer.listen(PORT, () => {
   logger.info(`
   ╔═══════════════════════════════════════════════════════╗
-  ║            🏥  CareSignal Backend v1.0.0              ║
+  ║            🏥  Ordin Core Backend v1.0.0              ║
   ╠═══════════════════════════════════════════════════════╣
   ║  Server:   http://localhost:${PORT}                      ║
   ║  API:      http://localhost:${PORT}/api/v1               ║

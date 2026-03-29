@@ -3,6 +3,7 @@ import { incidentsController } from '../controllers/incidents.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 import { requireRole } from '../middleware/role.middleware';
+import { requireScope } from '../middleware/scope.middleware';
 
 const router = Router();
 
@@ -48,7 +49,7 @@ router.post('/categories', requireAuth, requireTenant, requireRole('SUPER_ADMIN'
  *       200:
  *         description: Success
  */
-router.post('/', requireAuth, requireTenant, incidentsController.create.bind(incidentsController));
+router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), incidentsController.create.bind(incidentsController));
 /**
  * @openapi
  * /api/v1/incidents:
@@ -62,7 +63,7 @@ router.post('/', requireAuth, requireTenant, incidentsController.create.bind(inc
  *       200:
  *         description: Success
  */
-router.get('/', requireAuth, requireTenant, incidentsController.findAll.bind(incidentsController));
+router.get('/', requireAuth, requireTenant, requireScope, incidentsController.findAll.bind(incidentsController));
 /**
  * @openapi
  * /api/v1/incidents/{id}:
@@ -82,7 +83,7 @@ router.get('/', requireAuth, requireTenant, incidentsController.findAll.bind(inc
  *       200:
  *         description: Success
  */
-router.get('/:id', requireAuth, requireTenant, incidentsController.findById.bind(incidentsController));
+router.get('/:id', requireAuth, requireTenant, requireScope, incidentsController.findById.bind(incidentsController));
 /**
  * @openapi
  * /api/v1/incidents/{id}:
@@ -102,27 +103,8 @@ router.get('/:id', requireAuth, requireTenant, incidentsController.findById.bind
  *       200:
  *         description: Success
  */
-router.patch('/:id', requireAuth, requireTenant, incidentsController.update.bind(incidentsController));
-/**
- * @openapi
- * /api/v1/incidents/{id}:
- *   delete:
- *     tags:
- *       - Incidents
- *     summary: DELETE /api/v1/incidents/{id}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id', requireAuth, requireTenant, incidentsController.delete.bind(incidentsController));
+router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), incidentsController.update.bind(incidentsController));
+
 
 /**
  * @openapi
@@ -164,31 +146,7 @@ router.get('/:id/attachments', requireAuth, requireTenant, incidentsController.g
  *         description: Success
  */
 router.post('/:id/attachments', requireAuth, requireTenant, incidentsController.addAttachment.bind(incidentsController));
-/**
- * @openapi
- * /api/v1/incidents/{id}/attachments/{attachmentId}:
- *   delete:
- *     tags:
- *       - Incidents
- *     summary: DELETE /api/v1/incidents/{id}/attachments/{attachmentId}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: attachmentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id/attachments/:attachmentId', requireAuth, requireTenant, incidentsController.removeAttachment.bind(incidentsController));
+
 
 /**
  * @openapi

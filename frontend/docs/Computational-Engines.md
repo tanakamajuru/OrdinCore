@@ -1,8 +1,8 @@
-# CareSignal Governance Engines System
+# Ordin Core Governance Engines System
 
 ## Overview
 
-The CareSignal platform contains 15 internal computational engines that transform raw governance data (risks, pulses, escalations, incidents) into actionable insights, timelines, trends, and alerts. These engines run in the background and perform structured calculations, rule evaluations, and data aggregation.
+The Ordin Core platform contains 15 internal computational engines that transform raw governance data (risks, pulses, escalations, incidents) into actionable insights, timelines, trends, and alerts. These engines run in the background and perform structured calculations, rule evaluations, and data aggregation.
 
 ## Engine Architecture
 
@@ -454,4 +454,4 @@ const governanceTimeline = await GovernanceTimelineReconstructionEngine
 - **Benchmarking**: Industry comparison metrics
 - **Performance Analytics**: Governance effectiveness metrics
 
-This comprehensive engine system ensures that the CareSignal platform provides intelligent, automated governance management with real-time insights, regulatory compliance, and proactive risk management capabilities.
+This comprehensive engine system ensures that the Ordin Core platform provides intelligent, automated governance management with real-time insights, regulatory compliance, and proactive risk management capabilities.

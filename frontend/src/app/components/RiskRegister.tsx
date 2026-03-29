@@ -11,12 +11,12 @@ interface Risk {
   description: string;
   impact: string;
   category: string;
-  severity: "High" | "Medium" | "Low";
+  severity: "Low" | "Medium" | "High" | "Critical";
   dateIdentified: string;
   mitigation: string;
   rootCause: string;
   reviewDate: string;
-  status: "Open" | "Under Review" | "Escalated" | "Closed";
+  status: "Open" | "In Progress" | "Resolved" | "Escalated" | "Closed" | "Under Review";
   escalated: boolean;
   source: "Pulse" | "Out-of-Cycle" | "Manual";
   pulseDate?: string;
@@ -43,12 +43,22 @@ export function RiskRegister() {
   const [showOutOfCycle, setShowOutOfCycle] = useState(false);
   const [risks, setRisks] = useState<Risk[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [userHouseId, setUserHouseId] = useState<string | null>(null);
   const [userHouseName, setUserHouseName] = useState<string>('');
   const [allHousesData, setAllHouses] = useState<any[]>([]);
   const [categories, setCategoriesState] = useState<string[]>(["Clinical", "Operational", "Environmental", "Safety", "Administrative"]);
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
-  const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+  let user = { id: '', name: '' };
+  try {
+    const userStr = localStorage.getItem('user');
+    user = userStr ? JSON.parse(userStr) : { id: '', name: '' };
+  } catch (e) {
+    console.error('Failed to parse user from localStorage', e);
+  }
+  const userId = user.id || localStorage.getItem('userId') || '';
+  const userRoleDisplay = userRole || 'USER';
+  const prefillCreatedBy = user.name ? `${user.name} (${userRoleDisplay})` : "Current User";
 
   // Form states - must be declared before any conditional returns
   const [newRisk, setNewRisk] = useState<Partial<Risk>>({
@@ -64,7 +74,7 @@ export function RiskRegister() {
     status: "Open",
     escalated: false,
     source: "Pulse",
-    createdBy: "Current User",
+    createdBy: prefillCreatedBy,
     lastUpdated: new Date().toISOString().split('T')[0],
     updateHistory: []
   });
@@ -77,7 +87,7 @@ export function RiskRegister() {
     severity: "High",
     reason: "",
     requiresImmediateReview: false,
-    createdBy: "Current User"
+    createdBy: prefillCreatedBy
   });
 
   // Load risks from API
@@ -103,9 +113,9 @@ export function RiskRegister() {
       const allHouses = Array.isArray(housesData) ? housesData : [];
       setAllHouses(allHouses);
 
-      // Get user's house for RM role scoping
+      // Get user's house for RM/TL role scoping
       let houseId: string | null = null;
-      if (userRole === 'REGISTERED_MANAGER') {
+      if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
         const myHouse = Array.isArray(hData) ? hData[0] : hData;
@@ -136,12 +146,12 @@ export function RiskRegister() {
         description: r.title || r.description,
         impact: r.description || '',
         category: r.category_name || r.category || 'General',
-        severity: r.severity ? (r.severity.charAt(0).toUpperCase() + r.severity.slice(1)) as any : 'Medium',
+        severity: r.severity || 'Medium',
         dateIdentified: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
         mitigation: r.metadata?.mitigation || '',
         rootCause: r.metadata?.rootCause || '',
         reviewDate: r.review_due_date ? new Date(r.review_due_date).toISOString().split('T')[0] : '',
-        status: r.status ? (r.status.charAt(0).toUpperCase() + r.status.slice(1).replace('_', ' ')) as any : 'Open',
+        status: r.status || 'Open',
         escalated: r.status === 'escalated',
         source: r.metadata?.source || 'Manual',
         createdBy: r.created_by_name || '',
@@ -181,17 +191,19 @@ export function RiskRegister() {
 
   const handleAddRisk = async () => {
     if (!newRisk.description) { toast.error('Please enter a risk description'); return; }
-    // If RI, use selected house; if RM, use assigned house
-    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : newRisk.house;
+    // If RI, use selected house; if RM/TL, use assigned house
+    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
+    const targetHouseId = isScopedRole ? userHouseId : newRisk.house;
     if (!targetHouseId) { toast.error('House information required'); return; }
+    setIsSubmitting(true);
     try {
       const reviewDue = newRisk.reviewDate ? new Date(newRisk.reviewDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       await apiClient.post('/risks', {
         house_id: targetHouseId,
         title: newRisk.description,
         description: newRisk.impact || newRisk.description,
-        severity: (newRisk.severity || 'medium').toLowerCase(),
-        status: 'open',
+        severity: newRisk.severity || 'Medium',
+        status: 'Open',
         likelihood: 3,
         impact: 3,
         review_due_date: reviewDue,
@@ -204,22 +216,25 @@ export function RiskRegister() {
       });
       toast.success('Risk added successfully');
       setShowAddRisk(false);
-      setNewRisk({ house: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: '', lastUpdated: '', updateHistory: [] });
+      setNewRisk({ house: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: prefillCreatedBy, lastUpdated: '', updateHistory: [] });
       loadRisks();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to add risk'); }
+    finally { setIsSubmitting(false); }
   };
 
   const handleOutOfCycleRisk = async () => {
     if (!outOfCycleRisk.description || !outOfCycleRisk.reason) { toast.error('Please fill in description and reason'); return; }
-    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : outOfCycleRisk.house;
+    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
+    const targetHouseId = isScopedRole ? userHouseId : outOfCycleRisk.house;
     if (!targetHouseId) { toast.error('House information required'); return; }
+    setIsSubmitting(true);
     try {
       await apiClient.post('/risks', {
         house_id: targetHouseId,
         title: outOfCycleRisk.description,
         description: `[Out-of-Cycle] ${outOfCycleRisk.description}. Reason: ${outOfCycleRisk.reason}`,
-        severity: outOfCycleRisk.severity.toLowerCase(),
-        status: 'open',
+        severity: outOfCycleRisk.severity || 'Medium',
+        status: 'Open',
         likelihood: 4, impact: 4,
         metadata: { 
           source: 'Out-of-Cycle', 
@@ -230,9 +245,10 @@ export function RiskRegister() {
       });
       toast.success('Out-of-cycle risk created — will appear in next Pulse review');
       setShowOutOfCycle(false);
-      setOutOfCycleRisk({ house: '', description: '', category: '', severity: 'High', reason: '', requiresImmediateReview: false, createdBy: '' });
+      setOutOfCycleRisk({ house: '', description: '', category: '', severity: 'high', reason: '', requiresImmediateReview: false, createdBy: prefillCreatedBy });
       loadRisks();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create out-of-cycle risk'); }
+    finally { setIsSubmitting(false); }
   };
 
   // TODO: Implement risk update functionality when needed
@@ -288,22 +304,24 @@ export function RiskRegister() {
               <span className="text-xs text-muted-foreground">Out-of-cycle for urgent incidents</span>
             </div>
           </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setShowOutOfCycle(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
-            >
-              <AlertTriangle className="w-4 h-4 text-warning" />
-              Out-of-Cycle Risk
-            </button>
-            <button
-              onClick={() => setShowAddRisk(true)}
-              className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium shadow-sm"
-            >
-              <Plus className="w-4 h-4" />
-              Add Risk
-            </button>
-          </div>
+          {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(userRole) && (
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowOutOfCycle(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
+              >
+                <AlertTriangle className="w-4 h-4 text-warning" />
+                Out-of-Cycle Risk
+              </button>
+              <button
+                onClick={() => setShowAddRisk(true)}
+                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium shadow-sm"
+              >
+                <Plus className="w-4 h-4" />
+                Add Risk
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Filters */}
@@ -398,7 +416,7 @@ export function RiskRegister() {
                     <td className="border-b border-border px-4 py-4 whitespace-nowrap">
                       <span
                         className={`inline-block px-2 py-1 text-xs font-medium ${
-                          risk.severity === "High"
+                          risk.severity === "High" || risk.severity === "Critical"
                             ? "bg-destructive text-destructive-foreground"
                             : risk.severity === "Medium"
                             ? "bg-warning text-warning-foreground"
@@ -423,7 +441,7 @@ export function RiskRegister() {
                         className={`inline-block px-2 py-1 text-xs font-medium border border-border ${
                           risk.status === "Open"
                             ? "text-primary"
-                            : risk.status === "Under Review"
+                            : risk.status === "In Progress" || risk.status === "Under Review"
                             ? "bg-muted text-muted-foreground"
                             : risk.status === "Escalated"
                             ? "bg-destructive text-destructive-foreground"
@@ -467,7 +485,7 @@ export function RiskRegister() {
                     </option>
                   ))}
                 </select>
-                {userRole === 'registered-manager' && (
+                {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
                   <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
                 )}
               </div>
@@ -512,9 +530,10 @@ export function RiskRegister() {
                 <label className="block mb-2 text-black font-medium">Severity</label>
                 <select
                   value={newRisk.severity}
-                  onChange={(e) => setNewRisk({...newRisk, severity: e.target.value as "High" | "Medium" | "Low"})}
+                  onChange={(e) => setNewRisk({...newRisk, severity: e.target.value as any})}
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 >
+                  <option value="Critical">Critical</option>
                   <option value="High">High</option>
                   <option value="Medium">Medium</option>
                   <option value="Low">Low</option>
@@ -581,9 +600,10 @@ export function RiskRegister() {
               </button>
               <button
                 onClick={handleAddRisk}
-                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
-                Add Risk
+                {isSubmitting ? 'Adding...' : 'Add Risk'}
               </button>
             </div>
           </div>
@@ -621,7 +641,7 @@ export function RiskRegister() {
                     </option>
                   ))}
                 </select>
-                {userRole === 'registered-manager' && (
+                {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
                   <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
                 )}
               </div>
@@ -649,6 +669,7 @@ export function RiskRegister() {
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, severity: e.target.value})}
                   className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
                 >
+                  <option value="Critical">Critical</option>
                   <option value="High">High</option>
                   <option value="Medium">Medium</option>
                   <option value="Low">Low</option>
@@ -697,9 +718,10 @@ export function RiskRegister() {
               </button>
               <button
                 onClick={handleOutOfCycleRisk}
-                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+                disabled={isSubmitting}
+                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
-                Create Out-of-Cycle Risk
+                {isSubmitting ? 'Creating...' : 'Create Out-of-Cycle Risk'}
               </button>
             </div>
           </div>

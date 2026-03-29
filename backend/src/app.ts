@@ -25,6 +25,7 @@ import rolesRoutes from './routes/roles.routes';
 import systemRoutes from './routes/system.routes';
 import exportsRoutes from './routes/exports.routes';
 import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
+import adminRoutes from './routes/admin.routes';
 
 dotenv.config();
 
@@ -56,7 +57,7 @@ app.get('/health', (_, res) => {
 // ─── Swagger Documentation ───────────────────────────────────────────────────
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
-  customSiteTitle: 'CareSignal API',
+  customSiteTitle: 'Ordin Core API',
   customCss: `
     .swagger-ui .topbar { background-color: #1e293b; }
     .swagger-ui .topbar .download-url-wrapper { display: none; }
@@ -87,6 +88,7 @@ app.use(`${API}/roles`, rolesRoutes);
 app.use(`${API}/system`, systemRoutes);
 app.use(`${API}/exports`, exportsRoutes);
 app.use(`${API}/weekly-reviews`, weeklyReviewsRoutes);
+app.use(`${API}/admin`, adminRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

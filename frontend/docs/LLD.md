@@ -1,4 +1,4 @@
-# Low-Level Design (LLD) - CareSignal Governance SaaS Platform
+# Low-Level Design (LLD) - Ordin Core Governance SaaS Platform
 
 ## 1. Component-Level Architecture
 
@@ -824,7 +824,7 @@ const Navigation = () => {
         <div className="flex justify-between h-16">
           <div className="flex">
             <div className="flex-shrink-0 flex items-center">
-              <h1 className="text-xl font-bold text-black">CareSignal</h1>
+              <h1 className="text-xl font-bold text-black">Ordin Core</h1>
             </div>
             <div className="hidden sm:ml-6 sm:flex sm:space-x-8">
               {filteredItems.map((item) => (
@@ -1077,4 +1077,4 @@ const SearchInput = ({ onSearch }: SearchInputProps) => {
 };
 ```
 
-This LLD provides detailed implementation guidance for the CareSignal Governance SaaS Platform, covering component architecture, data models, state management, UI implementation, and performance optimizations.
+This LLD provides detailed implementation guidance for the Ordin Core Governance SaaS Platform, covering component architecture, data models, state management, UI implementation, and performance optimizations.

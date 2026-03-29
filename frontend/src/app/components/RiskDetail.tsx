@@ -44,6 +44,7 @@ interface TimelineEntry {
 export function RiskDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
   
   const [showAddAction, setShowAddAction] = useState(false);
   const [risk, setRisk] = useState<RiskDetail | null>(null);
@@ -63,6 +64,23 @@ export function RiskDetail() {
     event_type: "updated",
     description: ""
   });
+  const [isEscalating, setIsEscalating] = useState(false);
+
+  const handleEscalate = async () => {
+    if (!id) return;
+    setIsEscalating(true);
+    try {
+      await apiClient.post(`/risks/${id}/escalate`, {
+        reason: "Manual escalation by user"
+      });
+      toast.success('Risk escalated successfully');
+      loadRiskDetails(id);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to escalate risk');
+    } finally {
+      setIsEscalating(false);
+    }
+  };
 
   useEffect(() => {
     if (id) {
@@ -128,9 +146,9 @@ export function RiskDetail() {
     
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/risks/${id}/actions`, {
+      await apiClient.post(`/risks/${id}/action`, {
         description: newAction.action,
-        status: newAction.status.toLowerCase().replace(' ', '_'),
+        status: newAction.status,
         action_date: newAction.date || new Date().toISOString().split('T')[0]
       });
       
@@ -148,7 +166,7 @@ export function RiskDetail() {
       const newActionItem = {
         id: Date.now().toString(),
         description: newAction.action,
-        status: newAction.status.toLowerCase().replace(' ', '_'),
+        status: newAction.status,
         created_at: new Date().toISOString()
       };
       setActions(prev => [...prev, newActionItem]);
@@ -200,6 +218,7 @@ export function RiskDetail() {
       setIsSubmittingEvent(false);
     }
   };
+  
 
   if (isLoading) {
     return (
@@ -245,9 +264,9 @@ export function RiskDetail() {
             <h1 className="text-3xl font-semibold text-black">{risk.title || risk.description || 'Risk Details'}</h1>
             <span
               className={`px-3 py-1 ${
-                risk.severity === "high"
+                risk.severity === "High" || risk.severity === "Critical"
                   ? "bg-black text-white"
-                  : risk.severity === "medium"
+                  : risk.severity === "Medium"
                   ? "border-2 border-black"
                   : "bg-gray-200"
               }`}
@@ -257,10 +276,20 @@ export function RiskDetail() {
             <span className="px-3 py-1 border-2 border-black">
               {risk.status.charAt(0).toUpperCase() + risk.status.slice(1).replace('_', ' ')}
             </span>
-            {risk.escalated && (
+            {!(risk.escalated || risk.status.toLowerCase() === 'escalated') && (
               <span className="px-3 py-1 bg-black text-white">
                 Escalated
               </span>
+            )}
+            {!(risk.escalated || ['escalated', 'closed', 'resolved'].includes(risk.status.toLowerCase())) && 
+              ['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(userRole) && (
+              <button
+                onClick={handleEscalate}
+                disabled={isEscalating}
+                className="px-4 py-1 bg-white border-2 border-black hover:bg-gray-100 transition-colors text-sm font-semibold"
+              >
+                {isEscalating ? 'Escalating...' : 'Escalate Risk'}
+              </button>
             )}
           </div>
           <p className="text-gray-600">
@@ -324,16 +353,16 @@ export function RiskDetail() {
                       <div className="ml-4 text-right">
                         <span
                           className={`inline-block px-2 py-1 text-xs ${
-                            action.status === "complete"
+                            action.status === "Complete"
                               ? "bg-black text-white"
-                              : action.status === "in_progress"
+                              : action.status === "In Progress"
                               ? "border border-black"
-                              : action.status === "ongoing"
+                              : action.status === "Ongoing"
                               ? "bg-gray-200"
                               : "border border-gray-300 text-gray-400"
                           }`}
                         >
-                          {action.status.replace('_', ' ').charAt(0).toUpperCase() + action.status.replace('_', ' ').slice(1)}
+                          {action.status}
                         </span>
                         {action.created_at && (
                           <p className="text-sm text-gray-600 mt-1">

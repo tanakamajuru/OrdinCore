@@ -11,8 +11,8 @@ export class GovernanceService {
     if (!tpl.rows[0]) throw new Error('Governance template not found');
 
     const result = await query(
-      `INSERT INTO governance_pulses (id, company_id, house_id, template_id, status, due_date)
-       VALUES ($1,$2,$3,$4,'pending',$5) RETURNING *`,
+      `INSERT INTO governance_pulses (id, company_id, service_unit_id, template_id, status, due_date)
+       VALUES ($1,$2,$3,$4,'DRAFT',$5) RETURNING *`,
       [id, company_id, data.house_id, data.template_id, data.due_date]
     );
 
@@ -26,7 +26,14 @@ export class GovernanceService {
     let idx = 2;
 
     if (filters.status) { conditions.push(`gp.status = $${idx++}`); params.push(filters.status); }
-    if (filters.house_id) { conditions.push(`gp.house_id = $${idx++}`); params.push(filters.house_id); }
+    if (filters.house_id) { conditions.push(`gp.service_unit_id = $${idx++}`); params.push(filters.house_id); }
+    if (filters.assigned_user_id) { 
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (uuidRegex.test(filters.assigned_user_id as string)) {
+        conditions.push(`gp.assigned_user_id = $${idx++}`); 
+        params.push(filters.assigned_user_id); 
+      }
+    }
 
     const where = conditions.join(' AND ');
     const [pulses, countResult] = await Promise.all([
@@ -35,7 +42,7 @@ export class GovernanceService {
           u.first_name || ' ' || u.last_name AS completed_by_name
          FROM governance_pulses gp
          JOIN governance_templates gt ON gt.id = gp.template_id
-         JOIN houses h ON h.id = gp.house_id
+         JOIN houses h ON h.id = gp.service_unit_id
          LEFT JOIN users u ON u.id = gp.completed_by
          WHERE ${where}
          ORDER BY gp.due_date DESC
@@ -60,7 +67,7 @@ export class GovernanceService {
           FILTER (WHERE gq.id IS NOT NULL) AS questions
        FROM governance_pulses gp
        JOIN governance_templates gt ON gt.id = gp.template_id
-       JOIN houses h ON h.id = gp.house_id
+       JOIN houses h ON h.id = gp.service_unit_id
        LEFT JOIN governance_questions gq ON gq.template_id = gp.template_id
        WHERE gp.id = $1 AND gp.company_id = $2
        GROUP BY gp.id, gt.name, h.name`,
@@ -81,6 +88,11 @@ export class GovernanceService {
     const pulse = await query('SELECT * FROM governance_pulses WHERE id = $1 AND company_id = $2', [pulse_id, company_id]);
     if (!pulse.rows[0]) throw new Error('Governance pulse not found');
 
+    // [GOVERNANCE] Locked Means Locked
+    if (pulse.rows[0].status === 'completed' || pulse.rows[0].status === 'locked') {
+      throw new Error('This pulse is already completed/locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     let totalQuestions = answers.length;
     let flaggedCount = 0;
 
@@ -99,7 +111,7 @@ export class GovernanceService {
     const complianceScore = totalQuestions > 0 ? ((totalQuestions - flaggedCount) / totalQuestions) * 100 : 0;
 
     await query(
-      `UPDATE governance_pulses SET status = 'completed', completed_at = NOW(), completed_by = $1, compliance_score = $2, updated_at = NOW()
+      `UPDATE governance_pulses SET status = 'SUBMITTED', completed_at = NOW(), completed_by = $1, compliance_score = $2, updated_at = NOW()
        WHERE id = $3`,
       [user_id, complianceScore.toFixed(2), pulse_id]
     );
@@ -136,7 +148,7 @@ export class GovernanceService {
        LEFT JOIN governance_questions gq ON gq.template_id = gt.id
        WHERE gt.company_id = $1 OR gt.company_id IS NULL
        GROUP BY gt.id
-       ORDER BY gt.created_at DESC`,
+       ORDER BY (gt.company_id IS NULL AND gt.name = 'Standard Governance Pulse') DESC, gt.created_at DESC`,
       [company_id]
     );
     return result.rows;
@@ -168,7 +180,7 @@ export class GovernanceService {
     for (const key of allowed) {
       if (key in data) filteredData[key] = data[key];
     }
-    
+
     // Convert options to JSON string if it exists
     if (filteredData.options) {
       filteredData.options = JSON.stringify(filteredData.options);
@@ -176,7 +188,7 @@ export class GovernanceService {
 
     const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 4}`).join(', ');
     const values = Object.values(filteredData);
-    
+
     const result = await query(
       `UPDATE governance_questions SET ${fields} 
        WHERE id = $1 AND template_id = $2 AND (company_id = $3 OR company_id IS NULL) RETURNING *`,
@@ -216,11 +228,11 @@ export class GovernanceService {
   async checkPulseCompliance(company_id: string) {
     const result = await query(
       `UPDATE governance_pulses 
-       SET status = 'overdue', updated_at = NOW()
+       SET status = 'LOCKED', updated_at = NOW()
        WHERE company_id = $1 
-         AND status = 'pending' 
+         AND status = 'DRAFT' 
          AND due_date < NOW()
-       RETURNING id, house_id, due_date`,
+       RETURNING id, service_unit_id AS house_id, due_date`,
       [company_id]
     );
 
@@ -237,34 +249,63 @@ export class GovernanceService {
   }
 
   // [ENGINE] Governance Pulse Engine (Generation)
-  async generateMissingPulses(company_id: string) {
-    const housesRes = await query(
-      `SELECT h.id, hs.governance_frequency
-       FROM houses h
-       JOIN house_settings hs ON hs.house_id = h.id
-       WHERE h.company_id = $1 AND h.status = 'active'`,
-      [company_id]
-    );
+  async generateMissingPulses(company_id: string, house_id?: string, user_id?: string) {
+    const queryStr = `
+      SELECT u.id AS user_id, u.pulse_days, h.id AS house_id
+      FROM users u
+      JOIN houses h ON (h.manager_id = u.id OR EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = u.id AND uh.house_id = h.id))
+      WHERE u.status = 'active' AND u.company_id = $1
+      AND (u.pulse_days IS NOT NULL AND u.pulse_days <> '[]'::jsonb)
+      ${house_id ? 'AND h.id = $2' : ''}
+      ${user_id ? `AND u.id = $${house_id ? 3 : 2}` : ''}
+    `;
+    const params = [company_id];
+    if (house_id) params.push(house_id);
+    if (user_id) params.push(user_id);
+    
+    const targetRes = await query(queryStr, params);
 
-    for (const house of housesRes.rows) {
-      const pending = await query(
-        `SELECT id FROM governance_pulses 
-         WHERE house_id = $1 AND status = 'pending'`,
-        [house.id]
+    for (const target of targetRes.rows) {
+      const pulseDays = target.pulse_days || [];
+      
+      // Get template
+      const tplRes = await query(
+        `SELECT id FROM governance_templates 
+         WHERE (company_id = $1 OR (company_id IS NULL AND name = 'Standard Governance Pulse')) 
+         AND is_active = TRUE 
+         ORDER BY (company_id IS NULL AND name = 'Standard Governance Pulse') DESC, created_at DESC 
+         LIMIT 1`,
+        [company_id]
       );
+      
+      const templateId = tplRes.rows[0]?.id;
+      if (!templateId) continue;
 
-      if (pending.rows.length === 0) {
-        const tpl = await query(
-          'SELECT id FROM governance_templates WHERE (company_id = $1 OR company_id IS NULL) AND is_active = TRUE ORDER BY created_at DESC LIMIT 1',
-          [company_id]
-        );
-
-        if (tpl.rows[0]) {
-          await this.createPulse(company_id, {
-            house_id: house.id,
-            template_id: tpl.rows[0].id,
-            due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000)
-          });
+      // Check next 7 days
+      const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+      const today = new Date();
+      
+      for (let i = 0; i < 7; i++) {
+        const d = new Date();
+        d.setDate(today.getDate() + i);
+        const dayName = days[d.getDay()];
+        
+        if (pulseDays.includes(dayName)) {
+          const dateStr = d.toISOString().split('T')[0];
+          
+          const existing = await query(
+            'SELECT id FROM governance_pulses WHERE service_unit_id = $1 AND due_date = $2 AND assigned_user_id = $3',
+            [target.house_id, dateStr, target.user_id]
+          );
+          
+          if (existing.rows.length === 0) {
+            console.log(`[DEBUG_PULSE_GEN_XYZ] Generating pulse for user ${target.user_id} at house ${target.house_id} on ${dateStr}`);
+            await query(
+              `INSERT INTO governance_pulses (id, company_id, service_unit_id, template_id, status, due_date, assigned_user_id)
+               VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+              [uuidv4(), company_id, target.house_id, templateId, 'DRAFT', dateStr, target.user_id]
+            );
+          }
         }
       }
     }

@@ -1,5 +1,5 @@
 # Information Architecture Specification
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -1505,4 +1505,4 @@ const exportIncidentReconstruction = async (incidentId: string): Promise<Buffer>
 };
 ```
 
-This Information Architecture provides a comprehensive foundation for implementing CareSignal's governance-focused data model, ensuring data integrity, supporting the dual trajectory model, and maintaining the audit trail required for regulatory compliance and incident reconstruction.
+This Information Architecture provides a comprehensive foundation for implementing Ordin Core's governance-focused data model, ensuring data integrity, supporting the dual trajectory model, and maintaining the audit trail required for regulatory compliance and incident reconstruction.

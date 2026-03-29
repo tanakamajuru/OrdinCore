@@ -1,13 +1,14 @@
 import { Request, Response, NextFunction } from 'express';
 
-type Role = 'SUPER_ADMIN' | 'ADMIN' | 'REGISTERED_MANAGER' | 'RESPONSIBLE_INDIVIDUAL' | 'DIRECTOR';
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'RESPONSIBLE_INDIVIDUAL' | 'REGISTERED_MANAGER' | 'TEAM_LEADER';
 
 const ROLE_HIERARCHY: Record<Role, number> = {
   SUPER_ADMIN: 100,
-  ADMIN: 90,
-  RESPONSIBLE_INDIVIDUAL: 70,
-  REGISTERED_MANAGER: 50,
-  DIRECTOR: 30,
+  ADMIN: 95,
+  DIRECTOR: 90,
+  RESPONSIBLE_INDIVIDUAL: 80,
+  REGISTERED_MANAGER: 60,
+  TEAM_LEADER: 40,
 };
 
 export const requireRole = (...roles: Role[]) => {
@@ -17,7 +18,7 @@ export const requireRole = (...roles: Role[]) => {
       return;
     }
 
-    const userRole = req.user.role as Role;
+    const userRole = req.user.role?.toUpperCase() as Role;
 
     if (!roles.includes(userRole)) {
       res.status(403).json({
@@ -39,7 +40,7 @@ export const requireMinRole = (minRole: Role) => {
       return;
     }
 
-    const userRole = req.user.role as Role;
+    const userRole = req.user.role?.toUpperCase() as Role;
     const userLevel = ROLE_HIERARCHY[userRole] ?? 0;
     const minLevel = ROLE_HIERARCHY[minRole] ?? 0;
 
@@ -57,5 +58,5 @@ export const requireMinRole = (minRole: Role) => {
 };
 
 export const isSuperAdmin = (req: Request): boolean => {
-  return req.user?.role === 'SUPER_ADMIN';
+  return req.user?.role?.toUpperCase() === 'SUPER_ADMIN';
 };

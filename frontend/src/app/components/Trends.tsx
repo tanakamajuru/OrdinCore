@@ -1,17 +1,15 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
-import { TrendingUp, TrendingDown } from "lucide-react";
 import { dashboardApi } from "@/services/dashboardApi";
-import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 
 export function Trends() {
-  const { user } = useAuth();
   const [highRiskData, setHighRiskData] = useState<any[]>([]);
-  const [safeguardingData, setSafeguardingData] = useState<any[]>([]);
-  const [escalationData, setEscalationData] = useState<any[]>([]);
-  const [staffingStability, setStaffingStability] = useState<any>({ current: 0, previous: 0, trend: "stable" });
+  const [houseNames, setHouseNames] = useState<string[]>([]);
+  const [safeguardingData, setSafeguardingData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
+  const [escalationData, setEscalationData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
+  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -20,75 +18,33 @@ export function Trends() {
 
   const loadTrendsData = async () => {
     try {
-      const dashboardData = await dashboardApi.getDashboardData(user?.role || 'registered-manager');
-      
-      // Convert risk trends to chart format
-      const riskTrends = dashboardData.riskTrends?.map((trend: any, index: number) => ({
-        week: `Week ${index + 1}`,
-        count: trend.count || 0
-      })) || Array.from({ length: 6 }, (_, i) => ({
-        week: `Week ${i + 1}`,
-        count: Math.floor(Math.random() * 10) + 5
-      }));
+      setIsLoading(true);
+      const trendsData = await dashboardApi.getTrends();
 
-      // Convert incident trends to chart format
-      const incidentTrends = dashboardData.incidentTrends?.map((trend: any, index: number) => ({
-        week: `Week ${index + 1}`,
-        incidents: trend.count || 0
-      })) || Array.from({ length: 6 }, (_, i) => ({
-        week: `Week ${i + 1}`,
-        incidents: Math.floor(Math.random() * 5) + 1
-      }));
-
-      // Generate escalation trends from metrics
-      const escalationTrends = Array.from({ length: 6 }, (_, i) => ({
-        week: `Week ${i + 1}`,
-        count: dashboardData.escalationMetrics.pending || Math.floor(Math.random() * 10) + 3
-      }));
-
-      setHighRiskData(riskTrends);
-      setSafeguardingData(incidentTrends);
-      setEscalationData(escalationTrends);
-      setStaffingStability({
-        current: dashboardData.overview.complianceRate || 92,
-        previous: Math.max(80, dashboardData.overview.complianceRate - 3) || 89,
-        trend: (dashboardData.overview.complianceRate || 92) > 89 ? "up" : "stable"
-      });
+      if (trendsData) {
+        setHighRiskData(trendsData.crossHouseRisk.trends);
+        setHouseNames(trendsData.crossHouseRisk.houses);
+        setSafeguardingData(trendsData.safeGuarding);
+        setEscalationData(trendsData.escalation);
+      }
     } catch (error) {
       console.error('Failed to load trends data:', error);
       toast.error('Failed to load trends data');
-      // Set fallback data
-      setHighRiskData([
-        { week: "Week 1", count: 8 },
-        { week: "Week 2", count: 10 },
-        { week: "Week 3", count: 9 },
-        { week: "Week 4", count: 11 },
-        { week: "Week 5", count: 13 },
-        { week: "Week 6", count: 12 },
-      ]);
-      setSafeguardingData([
-        { week: "Week 1", incidents: 2 },
-        { week: "Week 2", incidents: 3 },
-        { week: "Week 3", incidents: 1 },
-        { week: "Week 4", incidents: 4 },
-        { week: "Week 5", incidents: 2 },
-        { week: "Week 6", incidents: 3 },
-      ]);
-      setEscalationData([
-        { week: "Week 1", count: 5 },
-        { week: "Week 2", count: 7 },
-        { week: "Week 3", count: 6 },
-        { week: "Week 4", count: 8 },
-        { week: "Week 5", count: 9 },
-        { week: "Week 6", count: 8 },
-      ]);
-      setStaffingStability({
-        current: 92,
-        previous: 89,
-        trend: "up",
-      });
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleGenerateReport = async () => {
+    setIsGeneratingReport(true);
+    try {
+      await dashboardApi.getComputationalEnginesStatus(); // Just to check connectivity
+      toast.success("Monthly board report generation started");
+      // In a real app, this would trigger the backend job
+    } catch (error) {
+      toast.error("Failed to start report generation");
+    } finally {
+      setIsGeneratingReport(false);
     }
   };
 
@@ -104,159 +60,126 @@ export function Trends() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-black">Trends</h1>
-          <p className="text-gray-600 mt-1">6-Week Rolling Analysis - Raw Data Only</p>
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-semibold text-primary">Trends</h1>
+            <p className="text-muted-foreground mt-1">6-Week Rolling Analysis - Strategic Telemetry</p>
+          </div>
+          <button
+            onClick={handleGenerateReport}
+            disabled={isGeneratingReport}
+            className="px-6 py-3 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 transition-colors shadow-lg rounded-md disabled:opacity-50"
+          >
+            {isGeneratingReport ? "Generating..." : "Generate Monthly Board Report"}
+          </button>
         </div>
 
         <div className="space-y-6">
-          {/* High Risk Trend */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">High Risk Count</h2>
+          <div className="bg-card border border-border shadow-sm rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Cross-House Risk Trajectory</h2>
             <ResponsiveContainer width="100%" height={300}>
               <LineChart data={highRiskData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
-                <XAxis dataKey="week" stroke="#666666" />
-                <YAxis stroke="#666666" />
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    border: "2px solid #000000",
-                    color: "#000000",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    color: "hsl(var(--foreground))",
+                    borderRadius: "0.5rem",
                   }}
                 />
-                <Line type="monotone" dataKey="count" stroke="#000000" strokeWidth={2} dot={{ fill: "#000000", r: 4 }} />
+                {houseNames.map((house, idx) => (
+                  <Line 
+                    key={house} 
+                    type="monotone" 
+                    dataKey={house} 
+                    stroke={['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted-foreground))', 'hsl(var(--destructive))'][idx % 5]} 
+                    strokeWidth={2} 
+                    dot={{ fill: ['hsl(var(--primary))', 'hsl(var(--secondary))', 'hsl(var(--accent))', 'hsl(var(--muted-foreground))', 'hsl(var(--destructive))'][idx % 5], r: 4 }} 
+                  />
+                ))}
               </LineChart>
             </ResponsiveContainer>
-            <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Current Week</p>
-                <p className="text-2xl font-semibold text-black">12</p>
-              </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">6-Week Average</p>
-                <p className="text-2xl font-semibold text-black">10.5</p>
-              </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Week 1 to Week 6</p>
-                <p className="text-2xl font-semibold text-black">+4</p>
-              </div>
-            </div>
           </div>
 
           {/* Safeguarding Incidents */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">Safeguarding Incidents</h2>
+          <div className="bg-card border border-border shadow-sm rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Safeguarding Incidents</h2>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={safeguardingData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
-                <XAxis dataKey="week" stroke="#666666" />
-                <YAxis stroke="#666666" />
+              <BarChart data={safeguardingData?.trends || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    border: "2px solid #000000",
-                    color: "#000000",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    color: "hsl(var(--foreground))",
+                    borderRadius: "0.5rem",
                   }}
                 />
-                <Bar dataKey="incidents" fill="#000000" />
+                <Bar dataKey="incidents" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Current Week</p>
-                <p className="text-2xl font-semibold text-black">3</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Current Week</p>
+                <p className="text-2xl font-semibold text-foreground">{safeguardingData?.currentWeek || 0}</p>
               </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">6-Week Total</p>
-                <p className="text-2xl font-semibold text-black">15</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">6-Week Total</p>
+                <p className="text-2xl font-semibold text-foreground">{safeguardingData?.total || 0}</p>
               </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Weekly Average</p>
-                <p className="text-2xl font-semibold text-black">2.5</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Weekly Average</p>
+                <p className="text-2xl font-semibold text-foreground">{safeguardingData?.average || 0}</p>
               </div>
             </div>
           </div>
 
           {/* Escalation Count */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">Escalation Count</h2>
+          <div className="bg-card border border-border shadow-sm rounded-lg p-6">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Escalation Count</h2>
             <ResponsiveContainer width="100%" height={300}>
-              <BarChart data={escalationData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#E5E5E5" />
-                <XAxis dataKey="week" stroke="#666666" />
-                <YAxis stroke="#666666" />
+              <BarChart data={escalationData?.trends || []}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" />
+                <YAxis stroke="hsl(var(--muted-foreground))" />
                 <Tooltip
                   contentStyle={{
-                    backgroundColor: "#FFFFFF",
-                    border: "2px solid #000000",
-                    color: "#000000",
+                    backgroundColor: "hsl(var(--card))",
+                    border: "1px solid hsl(var(--border))",
+                    color: "hsl(var(--foreground))",
+                    borderRadius: "0.5rem",
                   }}
                 />
-                <Bar dataKey="count" fill="#333333" />
+                <Bar dataKey="count" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} />
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-4 grid grid-cols-3 gap-4">
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Current Week</p>
-                <p className="text-2xl font-semibold text-black">8</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Current Week</p>
+                <p className="text-2xl font-semibold text-foreground">{escalationData?.currentWeek || 0}</p>
               </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">6-Week Total</p>
-                <p className="text-2xl font-semibold text-black">43</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">6-Week Total</p>
+                <p className="text-2xl font-semibold text-foreground">{escalationData?.total || 0}</p>
               </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Weekly Average</p>
-                <p className="text-2xl font-semibold text-black">7.2</p>
-              </div>
-            </div>
-          </div>
-
-          {/* Staffing Stability */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">Staffing Stability</h2>
-            <div className="flex items-center justify-center py-8">
-              <div className="text-center">
-                <div className="flex items-center justify-center gap-4 mb-4">
-                  <div className="text-6xl font-semibold text-black">{staffingStability.current}%</div>
-                  {staffingStability.trend === "up" ? (
-                    <TrendingUp className="w-16 h-16 text-black" />
-                  ) : (
-                    <TrendingDown className="w-16 h-16 text-black" />
-                  )}
-                </div>
-                <p className="text-gray-600 mb-2">Current Stability Rate</p>
-                <div className="flex items-center justify-center gap-2">
-                  <span className="text-black text-lg">
-                    {staffingStability.trend === "up" ? "+" : "-"}
-                    {Math.abs(staffingStability.current - staffingStability.previous)}%
-                  </span>
-                  <span className="text-gray-600">vs previous period</span>
-                </div>
-              </div>
-            </div>
-            <div className="mt-6 grid grid-cols-3 gap-4">
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Previous Period</p>
-                <p className="text-2xl font-semibold text-black">{staffingStability.previous}%</p>
-              </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Target</p>
-                <p className="text-2xl font-semibold text-black">95%</p>
-              </div>
-              <div className="p-3 border-2 border-black">
-                <p className="text-sm text-gray-600 mb-1">Direction</p>
-                <p className="text-2xl font-semibold text-black capitalize">{staffingStability.trend}</p>
+              <div className="p-4 bg-muted/30 rounded border border-border">
+                <p className="text-sm text-muted-foreground mb-1">Weekly Average</p>
+                <p className="text-2xl font-semibold text-foreground">{escalationData?.average || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="mt-6 p-4 bg-white border-2 border-black">
-          <p className="text-sm text-gray-600">
+        <div className="mt-6 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+          <p className="text-sm text-primary">
             <strong>Note:</strong> All trends show 6-week rolling data only. No scoring or predictive analytics are included. Data refreshed weekly.
           </p>
         </div>

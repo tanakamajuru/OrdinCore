@@ -1,5 +1,5 @@
 # Screen Architecture Specification
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -278,6 +278,7 @@ Must feel like a "quick leadership check-in," not paperwork completion.
 │ House: Maple House    Date: Monday, March 10, 2026          │
 │                                                             │
 │ Last Pulse: Wednesday | Next Pulse: Friday                  │
+
 ├─────────────────────────────────────────────────────────────┤
 │                                                             │
 │ 1. Emerging Risk Signals                                     │
@@ -647,4 +648,4 @@ Cross-house pattern detection and early warning system.
 - **Session Management**: Secure session handling with appropriate timeouts
 - **Audit Logging**: Comprehensive logging of all system access
 
-This screen architecture provides a comprehensive, role-based, and governance-focused user experience that ensures CareSignal delivers on its core promise of documenting leadership oversight behavior over time.
+This screen architecture provides a comprehensive, role-based, and governance-focused user experience that ensures Ordin Core delivers on its core promise of documenting leadership oversight behavior over time.

@@ -1,7 +1,7 @@
 {
-  "name": "caresignal-backend",
+  "name": "ordincore-backend",
   "version": "1.0.0",
-  "description": "CareSignal — Multi-tenant governance and risk management SaaS backend",
+  "description": "OrdinCore — Multi-tenant governance and risk management SaaS backend",
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",

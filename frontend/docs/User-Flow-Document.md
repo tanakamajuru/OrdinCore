@@ -1,5 +1,5 @@
 # User Flow Document
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -800,4 +800,4 @@ Access Resource → Permission Check → Access Denied → Error Message → Red
 - **Clear Indicators**: Visual and textual indicators
 - **Focus Management**: Logical focus flow
 
-This User Flow Document provides comprehensive guidance for implementing intuitive and efficient user journeys throughout the CareSignal Governance SaaS Platform.
+This User Flow Document provides comprehensive guidance for implementing intuitive and efficient user journeys throughout the Ordin Core Governance SaaS Platform.

@@ -18,11 +18,12 @@ interface User {
   email: string;
   name: string;
   role: string;
-  organization?: string;
+  is_active: boolean;
   assigned_house?: string;
+  assigned_house_id?: string;
   assigned_house_name?: string;
   pulse_days?: string[];
-  is_active: boolean;
+  organization?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -48,11 +49,6 @@ interface UserStats {
   monthlyRegistrations: Array<{ month: string; count: number }>;
 }
 
-interface House {
-  id: string;
-  name: string;
-  house_code: string;
-}
 
 const AdminUserManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
@@ -66,9 +62,10 @@ const AdminUserManagement: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
-  const [statusFilter, setStatusFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('active');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [currentUser, setCurrentUser] = useState<any>(null);
 
   // Form state
   const [formData, setFormData] = useState({
@@ -138,7 +135,7 @@ const AdminUserManagement: React.FC = () => {
           active,
           inactive: total - active,
           byRole: {},
-          assignedToHouse: list.filter((u: any) => u.assigned_house || u.house_id).length,
+          assignedToHouse: list.filter((u: any) => u.assigned_house_id || u.assigned_house || u.house_id).length,
           monthlyRegistrations: [],
         });
       }
@@ -155,6 +152,24 @@ const AdminUserManagement: React.FC = () => {
     };
     loadData();
   }, [currentPage, searchTerm, roleFilter, statusFilter]);
+
+  // Fetch current user info
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/auth/me`, {
+          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+        });
+        if (response.ok) {
+          const data = await response.json();
+          setCurrentUser(data.data);
+        }
+      } catch (error) {
+        console.error('Failed to fetch current user:', error);
+      }
+    };
+    fetchMe();
+  }, []);
 
   // Fetch houses for dropdown
   useEffect(() => {
@@ -199,6 +214,7 @@ const AdminUserManagement: React.FC = () => {
       };
       if (formData.assignedHouse && formData.assignedHouse.trim()) {
         requestData.house_id = formData.assignedHouse;
+        requestData.pulse_days = formData.pulseDays;
       }
 
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users`, {
@@ -230,13 +246,26 @@ const AdminUserManagement: React.FC = () => {
   const handleUpdateUser = async () => {
     if (!selectedUser) return;
     try {
+      // Split name into first/last
+      const nameParts = formData.name.trim().split(' ');
+      const first_name = nameParts[0] || '';
+      const last_name = nameParts.slice(1).join(' ') || '';
+
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}`, {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
-        body: JSON.stringify({ is_active: formData.isActive }),
+        body: JSON.stringify({
+          email: formData.email,
+          first_name,
+          last_name,
+          role: formData.role.toUpperCase().replace(/-/g, '_'),
+          is_active: formData.isActive,
+          house_id: formData.assignedHouse || null,
+          pulse_days: formData.pulseDays,
+        }),
       });
       if (response.ok) {
         toast.success('User updated successfully');
@@ -303,12 +332,12 @@ const AdminUserManagement: React.FC = () => {
         let errorData;
         try {
           errorData = await response.json();
-        console.error('Delete user error:', errorData);
+          console.error('Delete user error:', errorData);
         } catch (parseError) {
           console.error('Failed to parse error response:', parseError);
           errorData = { error: 'Failed to delete user' };
         }
-        
+
         // Check if error is about house management
         if (errorData && errorData.error && errorData.error.includes('managing a house')) {
           // Open reassignment dialog instead of showing error
@@ -369,13 +398,15 @@ const AdminUserManagement: React.FC = () => {
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
+    // Ensure role is in backend format (uppercase) for conditional UI fields
+    const formattedRole = user.role.toUpperCase().replace(/-/g, '_');
     setFormData({
       email: user.email,
       name: user.name,
       password: '',
-      role: user.role,
+      role: formattedRole,
       organization: user.organization || '',
-      assignedHouse: user.assigned_house || '',
+      assignedHouse: user.assigned_house_id || '',
       pulseDays: user.pulse_days || [],
       isActive: user.is_active
     });
@@ -394,10 +425,12 @@ const AdminUserManagement: React.FC = () => {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    switch (role) {
+    const r = role.toLowerCase().replace(/_/g, '-');
+    switch (r) {
       case 'admin': return 'bg-red-100 text-red-800';
       case 'director': return 'bg-purple-100 text-purple-800';
       case 'registered-manager': return 'bg-blue-100 text-blue-800';
+      case 'team-leader': return 'bg-orange-100 text-orange-800';
       case 'responsible-individual': return 'bg-green-100 text-green-800';
       default: return 'bg-gray-100 text-gray-800';
     }
@@ -427,7 +460,7 @@ const AdminUserManagement: React.FC = () => {
         setIsReassignDialogOpen(false);
         setUserToDelete(null);
         setSelectedNewManager('');
-        
+
         // Now delete the user directly
         await directDeleteUser(userToDelete.id);
       } else {
@@ -448,8 +481,8 @@ const AdminUserManagement: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <Button 
-            variant="outline" 
+          <Button
+            variant="outline"
             onClick={() => window.history.back()}
             className="flex items-center border-border text-foreground hover:bg-muted"
           >
@@ -486,7 +519,7 @@ const AdminUserManagement: React.FC = () => {
               <h2 className="text-sm font-medium text-muted-foreground">Inactive Users</h2>
               <Users className="h-4 w-4 text-destructive" />
             </div>
-              <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
+            <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
@@ -504,47 +537,48 @@ const AdminUserManagement: React.FC = () => {
           <h2 className="text-xl font-semibold text-primary mb-2">Filters</h2>
         </div>
         <div className="flex flex-wrap gap-4">
-            <div className="flex-1 min-w-[200px]">
-              <Label htmlFor="search" className="text-foreground">Search</Label>
-              <div className="relative">
-                <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-                <input
-                  id="search"
-                  placeholder="Search by name or email..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
-                />
-              </div>
-            </div>
-            <div className="min-w-[150px]">
-              <Label htmlFor="role" className="text-foreground">Role</Label>
-              <select 
-                value={roleFilter} 
-                onChange={(e) => setRoleFilter(e.target.value)}
-                className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                  <option value="all">All roles</option>
-                  <option value="admin">Admin</option>
-                  <option value="director">Director</option>
-                  <option value="registered-manager">Registered Manager</option>
-                  <option value="responsible-individual">Responsible Individual</option>
-              </select>
-            </div>
-            <div className="min-w-[150px]">
-              <Label htmlFor="status" className="text-foreground">Status</Label>
-              <select 
-                value={statusFilter} 
-                onChange={(e) => setStatusFilter(e.target.value)}
-                className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
-              >
-                  <option value="all">All status</option>
-                  <option value="active">Active</option>
-                  <option value="inactive">Inactive</option>
-              </select>
+          <div className="flex-1 min-w-[200px]">
+            <Label htmlFor="search" className="text-foreground">Search</Label>
+            <div className="relative">
+              <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
+              <input
+                id="search"
+                placeholder="Search by name or email..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none transition-shadow"
+              />
             </div>
           </div>
+          <div className="min-w-[150px]">
+            <Label htmlFor="role" className="text-foreground">Role</Label>
+            <select
+              value={roleFilter}
+              onChange={(e) => setRoleFilter(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+            >
+              <option value="all">All roles</option>
+              <option value="admin">Admin</option>
+              <option value="director">Director</option>
+              <option value="registered-manager">Registered Manager</option>
+              <option value="team-leader">Team Leader</option>
+              <option value="responsible-individual">Responsible Individual</option>
+            </select>
+          </div>
+          <div className="min-w-[150px]">
+            <Label htmlFor="status" className="text-foreground">Status</Label>
+            <select
+              value={statusFilter}
+              onChange={(e) => setStatusFilter(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
+            >
+              <option value="all">All status</option>
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
         </div>
+      </div>
 
       {/* Users Table */}
       <Card className="border-2 border-border bg-card shadow-sm">
@@ -554,109 +588,109 @@ const AdminUserManagement: React.FC = () => {
             <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
           </div>
           <CardContent className="p-0">
-          <Table>
-            <TableHeader className="bg-muted/50">
-              <TableRow className="border-border">
-                <TableHead className="text-primary font-bold">Name</TableHead>
-                <TableHead className="text-primary font-bold">Email</TableHead>
-                <TableHead className="text-primary font-bold">Role</TableHead>
-                <TableHead className="text-primary font-bold">Assigned House</TableHead>
-                <TableHead className="text-primary font-bold">Pulse Days</TableHead>
-                <TableHead className="text-primary font-bold">Status</TableHead>
-                <TableHead className="text-primary font-bold">Created</TableHead>
-                <TableHead className="text-primary font-bold">Actions</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id} className="border-border hover:bg-muted/30">
-                  <TableCell className="font-medium text-foreground">{user.name}</TableCell>
-                  <TableCell className="text-foreground">{user.email}</TableCell>
-                  <TableCell>
-                    <Badge className={`${getRoleBadgeColor(user.role)} shadow-sm border-none`}>
-                      {user.role.replace('-', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-foreground">{user.assigned_house_name || '-'}</TableCell>
-                  <TableCell>
-                    {user.role === 'registered-manager' && user.pulse_days ? (
-                      <div className="flex flex-wrap gap-1">
-                        {user.pulse_days.map((day) => (
-                          <Badge key={day} variant="outline" className="text-[10px] border-border text-muted-foreground">
-                            {day.slice(0, 3)}
-                          </Badge>
-                        ))}
-                      </div>
-                    ) : (
-                      '-'
-                    )}
-                  </TableCell>
-                  <TableCell>
-                    <Badge variant={user.is_active ? 'default' : 'secondary'} className={user.is_active ? "bg-success text-success-foreground" : ""}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-foreground">
-                    {new Date(user.created_at || '').toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(user)}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openPasswordDialog(user)}
-                      >
-                        <Key className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openDeleteDialog(user)}
-                        className="text-red-600 hover:text-red-800"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </TableCell>
+            <Table>
+              <TableHeader className="bg-muted/50">
+                <TableRow className="border-border">
+                  <TableHead className="text-primary font-bold">Name</TableHead>
+                  <TableHead className="text-primary font-bold">Email</TableHead>
+                  <TableHead className="text-primary font-bold">Role</TableHead>
+                  <TableHead className="text-primary font-bold">Assigned House</TableHead>
+                  <TableHead className="text-primary font-bold">Pulse Days</TableHead>
+                  <TableHead className="text-primary font-bold">Status</TableHead>
+                  <TableHead className="text-primary font-bold">Created</TableHead>
+                  <TableHead className="text-primary font-bold">Actions</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {users.map((user) => (
+                  <TableRow key={user.id} className="border-border hover:bg-muted/30">
+                    <TableCell className="font-medium text-foreground">{user.name}</TableCell>
+                    <TableCell className="text-foreground">{user.email}</TableCell>
+                    <TableCell>
+                      <Badge className={`${getRoleBadgeColor(user.role)} shadow-sm border-none`}>
+                        {user.role.toLowerCase().replace(/_|-/g, ' ')}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-foreground">{user.assigned_house_name || '-'}</TableCell>
+                    <TableCell>
+                      {['registered manager', 'team leader'].includes(user.role.toLowerCase().replace(/_|-/g, ' ')) && user.pulse_days ? (
+                        <div className="flex flex-wrap gap-1">
+                          {user.pulse_days.map((day) => (
+                            <Badge key={day} variant="outline" className="text-[10px] border-border text-muted-foreground">
+                              {day.slice(0, 3)}
+                            </Badge>
+                          ))}
+                        </div>
+                      ) : (
+                        '-'
+                      )}
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant={user.is_active ? 'default' : 'secondary'} className={user.is_active ? "bg-success text-success-foreground" : ""}>
+                        {user.is_active ? 'Active' : 'Inactive'}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-foreground">
+                      {new Date(user.created_at || '').toLocaleDateString()}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex space-x-2">
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openEditDialog(user)}
+                        >
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openPasswordDialog(user)}
+                        >
+                          <Key className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => openDeleteDialog(user)}
+                          className="text-red-600 hover:text-red-800"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
 
-          {/* Pagination */}
-          <div className="flex justify-between items-center mt-4">
-            <div className="text-sm text-muted-foreground">
-              Page {currentPage} of {totalPages}
+            {/* Pagination */}
+            <div className="flex justify-between items-center mt-4">
+              <div className="text-sm text-muted-foreground">
+                Page {currentPage} of {totalPages}
+              </div>
+              <div className="flex space-x-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage - 1)}
+                  disabled={currentPage === 1}
+                >
+                  Previous
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setCurrentPage(currentPage + 1)}
+                  disabled={currentPage === totalPages}
+                >
+                  Next
+                </Button>
+              </div>
             </div>
-            <div className="flex space-x-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage - 1)}
-                disabled={currentPage === 1}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setCurrentPage(currentPage + 1)}
-                disabled={currentPage === totalPages}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </div>
-    </Card>
+          </CardContent>
+        </div>
+      </Card>
 
       {/* Create User Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
@@ -706,19 +740,30 @@ const AdminUserManagement: React.FC = () => {
                 <SelectContent>
                   <SelectItem value="DIRECTOR">Director</SelectItem>
                   <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
+                  <SelectItem value="TEAM_LEADER">Team Leader</SelectItem>
                   <SelectItem value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="organization">Organization</Label>
-              <Input
-                id="organization"
-                value={formData.organization}
-                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-              />
-            </div>
-            {(formData.role === 'REGISTERED_MANAGER') && (
+            {currentUser?.role === 'SUPER_ADMIN' ? (
+              <div>
+                <Label htmlFor="organization">Organization</Label>
+                <Input
+                  id="organization"
+                  value={formData.organization}
+                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                  placeholder="Enter organization ID"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Organization</Label>
+                <div className="p-2 border-2 border-border rounded bg-muted text-muted-foreground">
+                  {currentUser?.company_name || 'Your Organization'}
+                </div>
+              </div>
+            )}
+            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
                 <Label htmlFor="assignedHouse">Assigned House</Label>
                 <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
@@ -736,7 +781,7 @@ const AdminUserManagement: React.FC = () => {
                 </Select>
               </div>
             )}
-            {(formData.role === 'REGISTERED_MANAGER') && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
                 <Label className="text-base font-medium">Pulse Days</Label>
                 <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
@@ -748,14 +793,14 @@ const AdminUserManagement: React.FC = () => {
                         checked={formData.pulseDays.includes(day)}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setFormData({ 
-                              ...formData, 
-                              pulseDays: [...formData.pulseDays, day] 
+                            setFormData({
+                              ...formData,
+                              pulseDays: [...formData.pulseDays, day]
                             });
                           } else {
-                            setFormData({ 
-                              ...formData, 
-                              pulseDays: formData.pulseDays.filter(d => d !== day) 
+                            setFormData({
+                              ...formData,
+                              pulseDays: formData.pulseDays.filter(d => d !== day)
                             });
                           }
                         }}
@@ -820,22 +865,33 @@ const AdminUserManagement: React.FC = () => {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="admin">Admin</SelectItem>
-                  <SelectItem value="director">Director</SelectItem>
-                  <SelectItem value="registered-manager">Registered Manager</SelectItem>
-                  <SelectItem value="responsible-individual">Responsible Individual</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                  <SelectItem value="DIRECTOR">Director</SelectItem>
+                  <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
+                  <SelectItem value="TEAM_LEADER">Team Leader</SelectItem>
+                  <SelectItem value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label htmlFor="edit-organization">Organization</Label>
-              <Input
-                id="edit-organization"
-                value={formData.organization}
-                onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-              />
-            </div>
-            {(formData.role === 'registered-manager') && (
+            {currentUser?.role === 'SUPER_ADMIN' ? (
+              <div>
+                <Label htmlFor="edit-organization">Organization</Label>
+                <Input
+                  id="edit-organization"
+                  value={formData.organization}
+                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
+                  placeholder="Enter organization ID"
+                />
+              </div>
+            ) : (
+              <div>
+                <Label>Organization</Label>
+                <div className="p-2 border-2 border-border rounded bg-muted text-muted-foreground">
+                  {currentUser?.company_name || 'Your Organization'}
+                </div>
+              </div>
+            )}
+            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
                 <Label htmlFor="edit-assignedHouse">Assigned House</Label>
                 <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
@@ -853,7 +909,7 @@ const AdminUserManagement: React.FC = () => {
                 </Select>
               </div>
             )}
-            {(formData.role === 'registered-manager') && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
                 <Label className="text-base font-medium">Pulse Days</Label>
                 <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
@@ -865,14 +921,14 @@ const AdminUserManagement: React.FC = () => {
                         checked={formData.pulseDays.includes(day)}
                         onCheckedChange={(checked) => {
                           if (checked) {
-                            setFormData({ 
-                              ...formData, 
-                              pulseDays: [...formData.pulseDays, day] 
+                            setFormData({
+                              ...formData,
+                              pulseDays: [...formData.pulseDays, day]
                             });
                           } else {
-                            setFormData({ 
-                              ...formData, 
-                              pulseDays: formData.pulseDays.filter(d => d !== day) 
+                            setFormData({
+                              ...formData,
+                              pulseDays: formData.pulseDays.filter(d => d !== day)
                             });
                           }
                         }}
@@ -969,7 +1025,7 @@ const AdminUserManagement: React.FC = () => {
               {userToDelete?.name} is currently managing a house. Please select a new manager before deleting this user.
             </DialogDescription>
           </DialogHeader>
-          
+
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="newManager">New Manager</Label>
@@ -983,9 +1039,9 @@ const AdminUserManagement: React.FC = () => {
                     .filter(user => {
                       // Don't show the user being deleted
                       if (user.id === userToDelete?.id) return false;
-                      
-                      // Only show users who can be managers (registered-manager or higher)
-                      return user.role === 'registered-manager' || user.role === 'admin' || user.role === 'director';
+
+                      // Only show users who can be managers (registered-manager, team-leader or higher)
+                      return ['REGISTERED_MANAGER', 'TEAM_LEADER', 'ADMIN', 'DIRECTOR'].includes(user.role.toUpperCase().replace(/-/g, '_'));
                     })
                     .map(user => (
                       <SelectItem key={user.id} value={user.id}>

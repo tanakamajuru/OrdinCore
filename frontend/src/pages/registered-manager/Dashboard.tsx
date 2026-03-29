@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { House, Risk, Incident, GovernancePulse, DashboardStats } from '@/types';
+import { House, Risk, Incident, GovernancePulse } from '@/types';
 import { apiClient } from '@/services/api';
 
 const RegisteredManagerDashboard: React.FC = () => {
@@ -9,7 +9,6 @@ const RegisteredManagerDashboard: React.FC = () => {
   const [risks, setRisks] = useState<Risk[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
   const [pendingPulses, setPendingPulses] = useState<GovernancePulse[]>([]);
-  const [stats, setStats] = useState<DashboardStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -19,20 +18,19 @@ const RegisteredManagerDashboard: React.FC = () => {
         if (user?.assignedHouse) {
           const houseResponse = await apiClient.getHouse(user.assignedHouse);
           if (houseResponse.success) {
-            setHouse(houseResponse.data);
+            setHouse(houseResponse.data || null);
           }
         }
 
-        const [risksResponse, incidentsResponse, pulsesResponse, statsResponse] = await Promise.all([
+        const [risksResponse, incidentsResponse, pulsesResponse] = await Promise.all([
           apiClient.getRisks(),
           apiClient.getIncidents(),
-          apiClient.getGovernancePulses(),
-          apiClient.getDashboardStats(),
+          apiClient.getGovernancePulses(1, 50, user?.id),
         ]);
 
         if (risksResponse.success) {
           // Filter risks for this manager's house
-          const houseRisks = (risksResponse.data || []).filter(risk => 
+          const houseRisks = (risksResponse.data || []).filter((risk: any) => 
             risk.houseId === user?.assignedHouse
           );
           setRisks(houseRisks);
@@ -40,22 +38,18 @@ const RegisteredManagerDashboard: React.FC = () => {
 
         if (incidentsResponse.success) {
           // Filter incidents for this manager's house
-          const houseIncidents = (incidentsResponse.data || []).filter(incident => 
+          const houseIncidents = (incidentsResponse.data || []).filter((incident: any) => 
             incident.houseId === user?.assignedHouse
           );
           setIncidents(houseIncidents);
         }
 
         if (pulsesResponse.success) {
-          // Filter pending pulses for this manager's house
-          const pending = (pulsesResponse.data || []).filter(pulse => 
-            pulse.houseId === user?.assignedHouse && pulse.status === 'pending'
+          // Filter pending pulses for this manager (assigned to them)
+          const pending = (pulsesResponse.data || []).filter((pulse: any) => 
+            pulse.assignedUserId === user?.id && (pulse.status === 'DRAFT' || pulse.status === 'pending')
           );
           setPendingPulses(pending);
-        }
-
-        if (statsResponse.success) {
-          setStats(statsResponse.data || null);
         }
       } catch (error) {
         console.error('Failed to fetch dashboard data:', error);

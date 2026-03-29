@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import { usersRepo } from '../repositories/users.repo';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { governanceService } from './governance.service';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -21,6 +22,23 @@ export class AuthService {
     // Update last login
     await usersRepo.update(user.id, { last_login: new Date() });
 
+    // Trigger pulse generation on login
+    const houseRoles = ['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'];
+    if (user.company_id) {
+      const houseId = user.assigned_house_id;
+      if (houseRoles.includes(user.role.toUpperCase()) && houseId) {
+        // Targeted generation for the user's house
+        void governanceService.generateMissingPulses(user.company_id, houseId, user.id).catch(err => {
+          console.error(`Failed to generate pulses for house ${houseId}:`, err);
+        });
+      } else {
+        // General generation for the company
+        void governanceService.generateMissingPulses(user.company_id).catch(err => {
+          console.error('Failed to generate missing pulses on login:', err);
+        });
+      }
+    }
+
     const token = this.generateToken(user);
     const refreshToken = this.generateRefreshToken(user);
 
@@ -32,10 +50,23 @@ export class AuthService {
   async me(userId: string) {
     const user = await usersRepo.findById(userId);
     if (!user) throw new Error('User not found');
+    
+    let company_name = null;
+    if (user.company_id) {
+      const comp = await query('SELECT name FROM companies WHERE id = $1', [user.company_id]);
+      company_name = comp.rows[0]?.name || null;
+    }
+
     const profile = await query('SELECT * FROM user_profiles WHERE user_id = $1', [userId]);
     const { password_hash, ...safeUser } = user;
     void password_hash;
-    return { ...safeUser, profile: profile.rows[0] || null };
+    return { 
+      ...safeUser, 
+      company_name, 
+      profile: profile.rows[0] || null,
+      assigned_house_id: user.assigned_house_id,
+      assigned_house_name: user.assigned_house_name
+    };
   }
 
   async changePassword(userId: string, currentPassword: string, newPassword: string) {

@@ -1,5 +1,5 @@
 # Market Differentiation Analysis
-# CareSignal Governance Infrastructure Platform
+# Ordin Core Governance Infrastructure Platform
 
 ## Document Information
 
@@ -34,20 +34,20 @@ Most governance software in the UK supported living sector focuses on:
 
 **The Problem**: These systems answer "what happened" but not "how leadership responded."
 
-#### CareSignal's Infrastructure Approach
-CareSignal transforms governance by focusing on **leadership behavior documentation**:
+#### Ordin Core's Infrastructure Approach
+Ordin Core transforms governance by focusing on **leadership behavior documentation**:
 
 ```
 Traditional Approach:
 Incident → Report → Checklist → Compliance Score
 
-CareSignal Approach:
+Ordin Core Approach:
 Daily Signals → Risk Trajectory → Oversight Response → Governance Evidence → Learning Culture
 ```
 
 ### The Governance Continuum
 
-CareSignal creates a **continuous governance rhythm** that:
+Ordin Core creates a **continuous governance rhythm** that:
 
 1. **Captures Early Signals**: 3× weekly pulse checks identify emerging risks
 2. **Tracks Response Patterns**: Documents how leadership responds to risks
@@ -89,7 +89,7 @@ CareSignal creates a **continuous governance rhythm** that:
 - **Strengths**: Strong audit trails and documentation
 - **Weaknesses**: Often complex, not governance-focused
 
-### CareSignal's Unique Position
+### Ordin Core's Unique Position
 
 #### The Governance Gap
 Most systems miss the **critical connection** between:
@@ -98,7 +98,7 @@ Most systems miss the **critical connection** between:
 - **Learning Culture**: Are we improving based on experience?
 
 #### Dual Trajectory Innovation
-CareSignal is the **only platform** that simultaneously tracks:
+Ordin Core is the **only platform** that simultaneously tracks:
 - **Risk Movement**: How risk is evolving across the organization
 - **Oversight Activity**: How leadership is responding to risk
 
@@ -151,21 +151,21 @@ This creates insights impossible to achieve with traditional tools.
 #### 1. Governance Behavior Documentation
 ```
 Traditional Systems: "We had 3 incidents this quarter."
-CareSignal: "We identified 12 emerging risks, escalated 4 appropriately, 
+Ordin Core: "We identified 12 emerging risks, escalated 4 appropriately, 
 and leadership reviewed all within SLA. Here's the timeline."
 ```
 
 #### 2. Cross-House Intelligence
 ```
 Traditional Systems: House-level data in isolation.
-CareSignal: "Staffing pressures are increasing in Houses B, D, and F. 
+Ordin Core: "Staffing pressures are increasing in Houses B, D, and F. 
 Here's the pattern and our coordinated response."
 ```
 
 #### 3. Incident Reconstruction
 ```
 Traditional Systems: "Incident occurred on March 15."
-CareSignal: "Risk signals emerged on March 1, escalated March 3, 
+Ordin Core: "Risk signals emerged on March 1, escalated March 3, 
 leadership reviewed March 5, incident occurred March 15. 
 Governance was present and appropriate."
 ```
@@ -173,7 +173,7 @@ Governance was present and appropriate."
 #### 4. Regulatory Dialogue
 ```
 Traditional Systems: "Here are our compliance reports."
-CareSignal: "Here's our governance evidence, showing how we 
+Ordin Core: "Here's our governance evidence, showing how we 
 identify and respond to risks continuously."
 ```
 
@@ -203,7 +203,7 @@ identify and respond to risks continuously."
 - **Leadership Questions**: "How did you respond to emerging risks?"
 - **Pattern Analysis**: Inspectors look for systemic issues
 
-#### CareSignal Inspection Advantages
+#### Ordin Core Inspection Advantages
 
 #### Pre-Inspection Preparation
 ```
@@ -242,8 +242,8 @@ Regulators are increasingly focusing on:
 - **Systemic Prevention**: How organizations prevent recurrence
 - **Continuous Improvement**: Evidence of learning from experience
 
-#### CareSignal Regulatory Alignment
-CareSignal directly addresses regulatory evolution by:
+#### Ordin Core Regulatory Alignment
+Ordin Core directly addresses regulatory evolution by:
 - **Documenting Governance Culture**: Continuous rhythm and response patterns
 - **Demonstrating Leadership Effectiveness**: Clear oversight evidence
 - **Enabling Systemic Prevention**: Cross-house pattern recognition
@@ -315,7 +315,7 @@ CareSignal directly addresses regulatory evolution by:
 
 ### Transforming the Market
 
-CareSignal doesn't just improve governance software—it **redefines** what governance means in the supported living sector:
+Ordin Core doesn't just improve governance software—it **redefines** what governance means in the supported living sector:
 
 #### From Reactive to Proactive
 - **Before**: Respond to incidents after they occur
@@ -335,7 +335,7 @@ CareSignal doesn't just improve governance software—it **redefines** what gove
 
 ### Long-Term Vision
 
-CareSignal aims to become the **standard for governance infrastructure** in the UK supported living sector, creating:
+Ordin Core aims to become the **standard for governance infrastructure** in the UK supported living sector, creating:
 
 #### Industry Standards
 - **Governance Rhythm**: 3× weekly pulse becomes industry standard
@@ -352,4 +352,4 @@ CareSignal aims to become the **standard for governance infrastructure** in the 
 - **Insurance Integration**: Insurance premiums based on governance evidence
 - **Investment Attraction**: Governance infrastructure becomes investment criteria
 
-This transformation positions CareSignal not just as a software provider, but as a **partner in governance excellence** that helps providers deliver better care while maintaining regulatory compliance and operational efficiency.
+This transformation positions Ordin Core not just as a software provider, but as a **partner in governance excellence** that helps providers deliver better care while maintaining regulatory compliance and operational efficiency.

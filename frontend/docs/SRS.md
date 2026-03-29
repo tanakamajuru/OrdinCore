@@ -1,5 +1,5 @@
 # Software Requirements Specification (SRS)
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -25,7 +25,7 @@
 
 ### 1.1 Purpose
 
-This Software Requirements Specification (SRS) document describes the functional and non-functional requirements for the CareSignal Governance SaaS Platform. This platform is designed to provide comprehensive governance management for care home operators, ensuring regulatory compliance, risk management, and operational oversight.
+This Software Requirements Specification (SRS) document describes the functional and non-functional requirements for the Ordin Core Governance SaaS Platform. This platform is designed to provide comprehensive governance management for care home operators, ensuring regulatory compliance, risk management, and operational oversight.
 
 ### 1.2 Document Scope
 
@@ -80,7 +80,7 @@ This document does not cover:
 
 ### 2.1 Product Perspective
 
-The CareSignal Governance SaaS Platform is a web-based application that operates as a standalone system with the following characteristics:
+The Ordin Core Governance SaaS Platform is a web-based application that operates as a standalone system with the following characteristics:
 
 - **Architecture**: Multi-tenant SaaS platform with provider-level data isolation
 - **Deployment**: Cloud-hosted with browser-based client access
@@ -1085,7 +1085,7 @@ The CareSignal Governance SaaS Platform is a web-based application that operates
 
 **Document Control**
 
-This document is version controlled and maintained by the CareSignal development team. All changes must be reviewed and approved by the designated stakeholders before implementation.
+This document is version controlled and maintained by the Ordin Core development team. All changes must be reviewed and approved by the designated stakeholders before implementation.
 
 **Contact Information**
 

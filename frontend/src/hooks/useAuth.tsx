@@ -7,9 +7,10 @@ interface User {
   first_name?: string;
   last_name?: string;
   name?: string;
-  role: 'SUPER_ADMIN' | 'ADMIN' | 'REGISTERED_MANAGER' | 'RESPONSIBLE_INDIVIDUAL' | 'DIRECTOR' | 'super-admin' | 'admin' | 'registered-manager' | 'responsible-individual' | 'director';
+  role: 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'RESPONSIBLE_INDIVIDUAL' | 'REGISTERED_MANAGER' | 'TEAM_LEADER' | 'super-admin' | 'admin' | 'director' | 'responsible-individual' | 'registered-manager' | 'team-leader';
   company_id?: string;
-  assignedHouse?: string;
+  assigned_house_id?: string;
+  assigned_house_name?: string;
   isActive?: boolean;
 }
 
@@ -50,8 +51,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           // Validate token by calling /auth/me
           const response = await apiClient.me();
           if (response.success && response.data) {
-            setUser(response.data as unknown as User);
+            const userData = response.data as unknown as User;
+            setUser(userData);
             setToken(storedToken);
+            localStorage.setItem('user', JSON.stringify(userData));
+            localStorage.setItem('userRole', userData.role);
           } else {
             // Token invalid
             localStorage.removeItem('authToken');

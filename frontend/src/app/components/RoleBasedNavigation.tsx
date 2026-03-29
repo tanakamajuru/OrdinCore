@@ -20,7 +20,7 @@ export function RoleBasedNavigation() {
           { path: "/reports", label: "Reports", icon: FileDown },
           { path: "/profile", label: "Profile", icon: User },
         ];
-      
+
       case 'REGISTERED_MANAGER':
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
@@ -30,7 +30,7 @@ export function RoleBasedNavigation() {
           { path: "/reports", label: "Reports", icon: FileDown },
           { path: "/profile", label: "Profile", icon: User },
         ];
-      
+
       case 'RESPONSIBLE_INDIVIDUAL':
         return [
           { path: "/dashboard", label: "Cross-Site Dashboard", icon: Home },
@@ -43,7 +43,17 @@ export function RoleBasedNavigation() {
           { path: "/trends", label: "Trend Analysis", icon: TrendingUp },
           { path: "/profile", label: "Profile", icon: User },
         ];
-      
+
+      case 'TEAM_LEADER':
+        return [
+          { path: "/dashboard", label: "Dashboard", icon: Home },
+          { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
+          { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
+          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/reports", label: "Reports", icon: FileDown },
+          { path: "/profile", label: "Profile", icon: User },
+        ];
+ 
       case 'DIRECTOR':
         return [
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
@@ -53,7 +63,7 @@ export function RoleBasedNavigation() {
           { path: "/trends", label: "Trend Monitoring", icon: BarChart3 },
           { path: "/profile", label: "Profile", icon: User },
         ];
-      
+
       default:
         return [];
     }
@@ -67,6 +77,7 @@ export function RoleBasedNavigation() {
       case 'REGISTERED_MANAGER': return 'Registered Manager';
       case 'RESPONSIBLE_INDIVIDUAL': return 'Responsible Individual';
       case 'DIRECTOR': return 'Director';
+      case 'TEAM_LEADER': return 'Team Leader';
       case 'SUPER_ADMIN': return 'Super Admin';
       default: return 'User';
     }
@@ -105,22 +116,21 @@ export function RoleBasedNavigation() {
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
-            <div className="text-xl font-bold text-primary">CareSignal</div>
+            <div className="text-xl font-bold text-primary">OrdinCore</div>
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
                 const hasNotification = item.path === '/escalation-log' && pendingEscalations > 0;
-                
+
                 return (
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative ${
-                      isActive
+                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative ${isActive
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-primary hover:bg-muted"
-                    }`}
+                      }`}
                   >
                     <Icon className="w-4 h-4" />
                     {item.label}

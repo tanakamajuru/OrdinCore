@@ -7,14 +7,15 @@ export class RisksService {
   async create(company_id: string, created_by: string, data: {
     house_id: string; title: string; description?: string; severity?: string; category_id?: string;
     likelihood?: number; impact?: number; assigned_to?: string; review_due_date?: Date;
+    metadata?: any;
   }) {
     const risk = await risksRepo.create({ company_id, created_by, ...data });
     await risksRepo.addEvent(risk.id, company_id, 'created', 'Risk created', created_by);
     await eventBus.emitEvent(EVENTS.RISK_CREATED, { risk_id: risk.id, company_id, created_by, severity: risk.severity });
-    
+
     // [ENGINE] Automated Escalation Trigger
     await this.checkAutoEscalation(risk);
-    
+
     return risk;
   }
 
@@ -36,22 +37,26 @@ export class RisksService {
   async update(id: string, company_id: string, user_id: string, data: Record<string, unknown>) {
     const risk = await risksRepo.findById(id, company_id);
     if (!risk) throw new Error('Risk not found');
+
+    // [GOVERNANCE] Locked Means Locked
+    if (risk.status === 'escalated' || risk.status === 'closed' || risk.status === 'resolved') {
+      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     const updated = await risksRepo.update(id, company_id, data);
     await risksRepo.addEvent(id, company_id, 'updated', `Risk updated`, user_id);
-    
+
     // [ENGINE] Automated Escalation Trigger
     if (data.severity) {
       await this.checkAutoEscalation(updated);
     }
-    
+
     return updated;
   }
 
   async delete(id: string, company_id: string, user_id: string) {
-    const risk = await risksRepo.findById(id, company_id);
-    if (!risk) throw new Error('Risk not found');
-    await risksRepo.delete(id, company_id);
-    await risksRepo.addEvent(id, company_id, 'closed', 'Risk closed', user_id);
+    // [GOVERNANCE] No Deletion Implementation
+    throw new Error('Hard deletion is prohibited for governance records (Governance Integrity Rule Section 7.1). Please resolve or close the risk instead.');
   }
 
   async addEvent(risk_id: string, company_id: string, user_id: string, data: { event_type: string; description: string }) {
@@ -76,17 +81,31 @@ export class RisksService {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
 
+    if (risk.status.toLowerCase() === 'escalated') {
+      throw new Error('Risk is already escalated');
+    }
+
+    // Find default target if missing
+    let target = data.escalated_to;
+    if (!target) {
+      const adminRes = await query(
+        "SELECT id FROM users WHERE company_id = $1 AND role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1",
+        [company_id]
+      );
+      target = adminRes.rows[0]?.id || risk.created_by;
+    }
+
     // Create escalation record
     const id = uuidv4();
     await query(
       `INSERT INTO escalations (id, company_id, risk_id, escalated_by, escalated_to, reason, status)
-       VALUES ($1,$2,$3,$4,$5,$6,'pending')`,
-      [id, company_id, risk_id, escalated_by, data.escalated_to, data.reason]
+       VALUES ($1,$2,$3,$4,$5,$6,'Pending')`,
+      [id, company_id, risk_id, escalated_by, target, data.reason]
     );
 
-    await risksRepo.update(risk_id, company_id, { status: 'escalated' });
-    await risksRepo.addEvent(risk_id, company_id, 'escalated', `Risk escalated: ${data.reason}`, escalated_by);
-    await eventBus.emitEvent(EVENTS.RISK_ESCALATED, { risk_id, company_id, escalated_by, escalated_to: data.escalated_to });
+    await risksRepo.update(risk_id, company_id, { status: 'Escalated' });
+    await risksRepo.addEvent(risk_id, company_id, 'Escalated', `Risk escalated: ${data.reason}`, escalated_by);
+    await eventBus.emitEvent(EVENTS.RISK_ESCALATED, { risk_id, company_id, escalated_by, escalated_to: target });
 
     return { escalation_id: id, message: 'Risk escalated successfully' };
   }
@@ -156,15 +175,23 @@ export class RisksService {
   }
 
   private async checkAutoEscalation(risk: any) {
-    if (risk.severity === 'high' || risk.severity === 'critical') {
+    if (risk.severity === 'High' || risk.severity === 'Critical') {
       // Check if already escalated
       const existing = await query(
-        "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'pending'",
+        "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'Pending'",
         [risk.id]
       );
       if (existing.rows.length === 0) {
+        // Use a valid UUID or find an admin. For now, we'll use the creator as the target if no system user is defined.
+        // Better: Find the first admin of the company
+        const adminRes = await query(
+          "SELECT id FROM users WHERE company_id = $1 AND role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1",
+          [risk.company_id]
+        );
+        const escalated_to = adminRes.rows[0]?.id || risk.created_by;
+
         await this.escalate(risk.id, risk.company_id, risk.created_by, {
-          escalated_to: 'SYSTEM',
+          escalated_to,
           reason: `Automated escalation: ${risk.severity.toUpperCase()} risk detected.`
         });
       }

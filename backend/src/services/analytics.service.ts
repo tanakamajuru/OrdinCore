@@ -29,6 +29,40 @@ export class AnalyticsService {
     return { trends: result.rows, by_status: statusResult.rows };
   }
 
+  async getMultiHouseRiskTrends(company_id: string, days = 42) { // 6 weeks = 42 days
+    const result = await query(
+      `SELECT 
+        DATE(r.created_at) AS date,
+        h.name AS house_name,
+        COUNT(*) AS count
+       FROM risks r
+       JOIN houses h ON h.id = r.house_id
+       WHERE r.company_id = $1 AND r.created_at >= NOW() - INTERVAL '${days} days'
+       GROUP BY DATE(r.created_at), h.name
+       ORDER BY date, house_name`,
+      [company_id]
+    );
+
+    // Pivot data for Recharts: { date: '...', 'House A': 5, 'House B': 3 }
+    const pivotedData: any[] = [];
+    const dateMap = new Map<string, any>();
+
+    result.rows.forEach((row: any) => {
+      const dateStr = row.date.toISOString().split('T')[0];
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, { date: dateStr });
+        pivotedData.push(dateMap.get(dateStr));
+      }
+      const dateObj = dateMap.get(dateStr);
+      dateObj[row.house_name] = parseInt(row.count);
+    });
+
+    // Get list of unique house names for the frontend to know which lines to draw
+    const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));
+
+    return { trends: pivotedData, houses: houseNames };
+  }
+
   async getSitePerformance(company_id: string) {
     const result = await query(
       `SELECT 
@@ -129,6 +163,59 @@ export class AnalyticsService {
       houses: houses.rows[0],
       governance: governance.rows[0],
       escalations: escalations.rows[0],
+    };
+  }
+
+  async getTrends(company_id: string) {
+    const multiHouseTrends = await this.getMultiHouseRiskTrends(company_id, 42);
+
+    const incidentsResult = await query(
+      `SELECT created_at FROM incidents WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
+      [company_id]
+    );
+    const escalationsResult = await query(
+      `SELECT created_at FROM escalations WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
+      [company_id]
+    );
+
+    const now = new Date();
+    const weeks = Array.from({ length: 6 }, (_, i) => {
+      const end = new Date(now);
+      end.setDate(end.getDate() - (5 - i) * 7);
+      const start = new Date(end);
+      start.setDate(start.getDate() - 7);
+      return { start, end, label: `Week ${i + 1}`, incidents: 0, escalations: 0 };
+    });
+
+    incidentsResult.rows.forEach((row: any) => {
+      const d = new Date(row.created_at);
+      const week = weeks.find(w => d >= w.start && d <= w.end);
+      if (week) week.incidents++;
+    });
+
+    escalationsResult.rows.forEach((row: any) => {
+      const d = new Date(row.created_at);
+      const week = weeks.find(w => d >= w.start && d <= w.end);
+      if (week) week.escalations++;
+    });
+
+    const incidentTrends = weeks.map(w => ({ week: w.label, incidents: w.incidents }));
+    const escalationTrends = weeks.map(w => ({ week: w.label, count: w.escalations }));
+
+    return {
+      crossHouseRisk: multiHouseTrends,
+      safeGuarding: {
+        trends: incidentTrends,
+        currentWeek: incidentTrends[5] ? incidentTrends[5].incidents : 0,
+        total: incidentTrends.reduce((sum, w) => sum + w.incidents, 0),
+        average: parseFloat((incidentTrends.reduce((sum, w) => sum + w.incidents, 0) / 6).toFixed(1))
+      },
+      escalation: {
+        trends: escalationTrends,
+        currentWeek: escalationTrends[5] ? escalationTrends[5].count : 0,
+        total: escalationTrends.reduce((sum, w) => sum + w.count, 0),
+        average: parseFloat((escalationTrends.reduce((sum, w) => sum + w.count, 0) / 6).toFixed(1))
+      }
     };
   }
 }

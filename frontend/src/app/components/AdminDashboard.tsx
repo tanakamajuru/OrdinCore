@@ -228,8 +228,8 @@ const AdminDashboard: React.FC = () => {
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
           <p className="text-gray-600">Manage users and system settings</p>
         </div>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           onClick={handleLogout}
           className="flex items-center gap-2"
         >
@@ -385,46 +385,46 @@ const AdminDashboard: React.FC = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-              {users.map((user) => (
-                <TableRow key={user.id}>
-                  <TableCell className="font-medium">{user.name}</TableCell>
-                  <TableCell>{user.email}</TableCell>
-                  <TableCell>
-                    <Badge className={getRoleBadgeColor(user.role)}>
-                      {user.role.replace('-', ' ')}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>{user.organization}</TableCell>
-                  <TableCell>
-                    <Badge variant={user.is_active ? 'default' : 'secondary'}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </Badge>
-                  </TableCell>
-                  <TableCell>
-                    {new Date(user.created_at).toLocaleDateString()}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex space-x-2">
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => openEditDialog(user)}
-                      >
-                        Edit
-                      </Button>
-                      <Button
-                        variant="destructive"
-                        size="sm"
-                        onClick={() => handleDeleteUser(user.id)}
-                      >
-                        Delete
-                      </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
+            {users.map((user) => (
+              <TableRow key={user.id}>
+                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell>{user.email}</TableCell>
+                <TableCell>
+                  <Badge className={getRoleBadgeColor(user.role)}>
+                    {user.role.replace('-', ' ')}
+                  </Badge>
+                </TableCell>
+                <TableCell>{user.organization}</TableCell>
+                <TableCell>
+                  <Badge variant={user.is_active ? 'default' : 'secondary'}>
+                    {user.is_active ? 'Active' : 'Inactive'}
+                  </Badge>
+                </TableCell>
+                <TableCell>
+                  {new Date(user.created_at).toLocaleDateString()}
+                </TableCell>
+                <TableCell>
+                  <div className="flex space-x-2">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => openEditDialog(user)}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      variant="destructive"
+                      size="sm"
+                      onClick={() => handleDeleteUser(user.id)}
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
       </div>
 
       {/* Edit User Dialog */}

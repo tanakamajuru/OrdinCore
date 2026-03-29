@@ -17,10 +17,10 @@ CREATE TABLE risks (
   category_id UUID REFERENCES risk_categories(id) ON DELETE SET NULL,
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  severity VARCHAR(50) NOT NULL DEFAULT 'medium'
-    CHECK (severity IN ('low', 'medium', 'high', 'critical')),
-  status VARCHAR(50) NOT NULL DEFAULT 'open'
-    CHECK (status IN ('open', 'in_progress', 'resolved', 'escalated', 'closed')),
+  severity VARCHAR(50) NOT NULL DEFAULT 'Medium'
+    CHECK (severity IN ('Low', 'Medium', 'High', 'Critical')),
+  status VARCHAR(50) NOT NULL DEFAULT 'Open'
+    CHECK (status IN ('Open', 'In Progress', 'Resolved', 'Escalated', 'Closed')),
   likelihood INTEGER CHECK (likelihood BETWEEN 1 AND 5),
   impact INTEGER CHECK (impact BETWEEN 1 AND 5),
   risk_score INTEGER GENERATED ALWAYS AS (COALESCE(likelihood, 1) * COALESCE(impact, 1)) STORED,
@@ -61,7 +61,7 @@ CREATE TABLE risk_actions (
   company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
   title VARCHAR(255) NOT NULL,
   description TEXT,
-  status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending', 'in_progress', 'completed', 'cancelled')),
+  status VARCHAR(50) DEFAULT 'Pending' CHECK (status IN ('Pending', 'In Progress', 'Completed', 'Cancelled', 'Ongoing')),
   assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
   due_date TIMESTAMPTZ,
   completed_at TIMESTAMPTZ,

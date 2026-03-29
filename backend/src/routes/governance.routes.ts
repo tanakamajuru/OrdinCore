@@ -3,6 +3,7 @@ import { governanceController } from '../controllers/governance.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
+import { requireScope } from '../middleware/scope.middleware';
 
 const router = Router();
 
@@ -142,7 +143,7 @@ router.delete('/templates/:id/questions/:questionId', requireAuth, requireTenant
  *       200:
  *         description: Success
  */
-router.post('/pulse', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governanceController.createPulse.bind(governanceController));
+router.post('/pulse', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), governanceController.createPulse.bind(governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses:
@@ -156,7 +157,7 @@ router.post('/pulse', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'AD
  *       200:
  *         description: Success
  */
-router.get('/pulses', requireAuth, requireTenant, governanceController.getPulses.bind(governanceController));
+router.get('/pulses', requireAuth, requireTenant, requireScope, governanceController.getPulses.bind(governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}:
@@ -176,7 +177,7 @@ router.get('/pulses', requireAuth, requireTenant, governanceController.getPulses
  *       200:
  *         description: Success
  */
-router.get('/pulses/:id', requireAuth, requireTenant, governanceController.getPulseById.bind(governanceController));
+router.get('/pulses/:id', requireAuth, requireTenant, requireScope, governanceController.getPulseById.bind(governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}/submit:
@@ -196,7 +197,7 @@ router.get('/pulses/:id', requireAuth, requireTenant, governanceController.getPu
  *       200:
  *         description: Success
  */
-router.post('/pulses/:id/submit', requireAuth, requireTenant, governanceController.submitAnswers.bind(governanceController));
+router.post('/pulses/:id/submit', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), governanceController.submitAnswers.bind(governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}/answers:
@@ -236,6 +237,6 @@ router.get('/pulses/:id/answers', requireAuth, requireTenant, governanceControll
  *       200:
  *         description: Success
  */
-router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governanceController.updatePulseStatus.bind(governanceController));
+router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), governanceController.updatePulseStatus.bind(governanceController));
 
 export default router;

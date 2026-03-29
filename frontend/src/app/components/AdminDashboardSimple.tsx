@@ -33,27 +33,20 @@ const AdminDashboardSimple: React.FC = () => {
   useEffect(() => {
     const fetchStats = async () => {
       try {
-        const [usersRes, housesRes] = await Promise.all([
-          apiClient.getUsers(1, 1),
-          apiClient.getHouses(),
+        const [userStatsRes, houseStatsRes] = await Promise.all([
+          apiClient.getAdminUserStats(),
+          apiClient.getAdminHouseStats(),
         ]);
 
-        const usersData = (usersRes as any).data;
-        const housesData = (housesRes as any).data;
-
-        const totalUsers = usersData?.total ?? (Array.isArray(usersData) ? usersData.length : 0);
-        const activeUsers = usersData?.activeCount ?? usersData?.active ?? totalUsers;
-        const houseList = Array.isArray(housesData) ? housesData : (housesData?.houses ?? []);
-        const totalHouses = houseList.length;
-        const activeHouses = houseList.filter((h: any) => h.status === 'active' || h.is_active).length || totalHouses;
-
-        setStats({
-          totalUsers,
-          activeUsers,
-          totalHouses,
-          activeHouses,
-          occupancyRate: totalHouses > 0 ? Math.round((activeHouses / totalHouses) * 100) : 0,
-        });
+        if (userStatsRes.success && houseStatsRes.success) {
+          setStats({
+            totalUsers: userStatsRes.data?.total || 0,
+            activeUsers: userStatsRes.data?.active || 0,
+            totalHouses: houseStatsRes.data?.total || 0,
+            activeHouses: houseStatsRes.data?.active || 0,
+            occupancyRate: houseStatsRes.data?.occupancyRate || 0,
+          });
+        }
       } catch (error) {
         console.error('Failed to fetch admin stats:', error);
       } finally {

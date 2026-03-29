@@ -7,9 +7,9 @@ CREATE TABLE escalations (
   escalated_by UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   escalated_to UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
   reason TEXT NOT NULL,
-  status VARCHAR(50) NOT NULL DEFAULT 'pending'
-    CHECK (status IN ('pending', 'acknowledged', 'in_progress', 'resolved', 'closed')),
-  priority VARCHAR(50) DEFAULT 'high' CHECK (priority IN ('medium', 'high', 'urgent', 'critical')),
+  status VARCHAR(50) NOT NULL DEFAULT 'Pending'
+    CHECK (status IN ('Pending', 'Acknowledged', 'In Progress', 'Resolved', 'Closed')),
+  priority VARCHAR(50) DEFAULT 'High' CHECK (priority IN ('Medium', 'High', 'Urgent', 'Critical')),
   acknowledged_at TIMESTAMPTZ,
   resolved_at TIMESTAMPTZ,
   resolution_notes TEXT,

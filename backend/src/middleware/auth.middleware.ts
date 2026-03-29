@@ -8,6 +8,7 @@ export interface JwtPayload {
   company_id: string | null;
   role: string;
   email: string;
+  assigned_house_id?: string | null;
   iat?: number;
   exp?: number;
 }
@@ -33,9 +34,14 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     const decoded = jwt.verify(token, secret) as JwtPayload;
 
-    // Verify user still exists and is active
+    // Verify user still exists and is active, and fetch assigned house
     const result = await query(
-      'SELECT id, company_id, email, role, status FROM users WHERE id = $1',
+      `SELECT u.id, u.company_id, u.email, u.role, u.status, 
+              COALESCE(uh.house_id, h_direct.id) AS assigned_house_id
+       FROM users u
+       LEFT JOIN user_houses uh ON uh.user_id = u.id
+       LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
+       WHERE u.id = $1`,
       [decoded.user_id]
     );
 
@@ -52,9 +58,10 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     req.user = {
       user_id: decoded.user_id,
-      company_id: decoded.company_id,
-      role: decoded.role,
-      email: decoded.email,
+      company_id: user.company_id,
+      role: user.role,
+      email: user.email,
+      assigned_house_id: user.assigned_house_id,
     };
 
     next();

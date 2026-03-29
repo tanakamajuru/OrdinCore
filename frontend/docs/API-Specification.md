@@ -1,8 +1,8 @@
-# API Specification - CareSignal Governance SaaS Platform
+# API Specification - Ordin Core Governance SaaS Platform
 
 ## Overview
 
-This document defines the RESTful API specification for the CareSignal Governance SaaS Platform backend integration. The API follows REST principles with JSON payloads and standard HTTP status codes.
+This document defines the RESTful API specification for the Ordin Core Governance SaaS Platform backend integration. The API follows REST principles with JSON payloads and standard HTTP status codes.
 
 ## Base URL
 
@@ -959,8 +959,8 @@ Pagination response format:
 ### Webhook Configuration
 Webhook URLs can be configured in the provider settings. Webhooks are sent with these headers:
 ```http
-X-CareSignal-Signature: <hmac_signature>
-X-CareSignal-Event: <event_type>
+X-Ordin Core-Signature: <hmac_signature>
+X-Ordin Core-Event: <event_type>
 Content-Type: application/json
 ```
 
@@ -976,4 +976,4 @@ Webhook payload example:
 }
 ```
 
-This API specification provides comprehensive endpoints for all CareSignal platform functionality, ensuring secure, scalable, and maintainable backend integration.
+This API specification provides comprehensive endpoints for all Ordin Core platform functionality, ensuring secure, scalable, and maintainable backend integration.

@@ -1,4 +1,4 @@
-import { ApiResponse, PaginatedResponse, User, Company, House, Risk, Incident, Escalation, GovernancePulse, LoginRequest, LoginResponse } from '@/types';
+import { ApiResponse, PaginatedResponse, User, Company, House, Risk, Incident, Escalation, GovernancePulse, LoginRequest, LoginResponse, DashboardStats } from '@/types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
@@ -215,8 +215,8 @@ class ApiClient {
   }
 
   // ─── Risk endpoints ────────────────────────────────────────────────────────
-  async getRisks(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<Risk>>> {
-    return this.request<PaginatedResponse<Risk>>(`/risks?page=${page}&limit=${limit}`);
+  async getRisks(page = 1, limit = 20): Promise<ApiResponse<Risk[]>> {
+    return this.request<Risk[]>(`/risks?page=${page}&limit=${limit}`);
   }
 
   async getRisk(id: string): Promise<ApiResponse<Risk>> {
@@ -260,8 +260,8 @@ class ApiClient {
   }
 
   // ─── Incident endpoints ──────────────────────────────────────────────────
-  async getIncidents(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<Incident>>> {
-    return this.request<PaginatedResponse<Incident>>(`/incidents?page=${page}&limit=${limit}`);
+  async getIncidents(page = 1, limit = 20): Promise<ApiResponse<Incident[]>> {
+    return this.request<Incident[]>(`/incidents?page=${page}&limit=${limit}`);
   }
 
   async getIncident(id: string): Promise<ApiResponse<Incident>> {
@@ -321,8 +321,9 @@ class ApiClient {
   }
 
   // ─── Governance Pulse endpoints ──────────────────────────────────────────
-  async getGovernancePulses(page = 1, limit = 20): Promise<ApiResponse<PaginatedResponse<GovernancePulse>>> {
-    return this.request<PaginatedResponse<GovernancePulse>>(`/governance/pulses?page=${page}&limit=${limit}`);
+  async getGovernancePulses(page = 1, limit = 20, assignedUserId?: string): Promise<ApiResponse<GovernancePulse[]>> {
+    const query = `?page=${page}&limit=${limit}${assignedUserId ? `&assigned_user_id=${assignedUserId}` : ''}`;
+    return this.request<GovernancePulse[]>(`/governance/pulses${query}`);
   }
 
   async getGovernancePulse(id: string): Promise<ApiResponse<GovernancePulse>> {
@@ -338,6 +339,10 @@ class ApiClient {
 
   async getGovernancePulsesForHouse(houseId: string): Promise<ApiResponse<GovernancePulse[]>> {
     return this.request<GovernancePulse[]>(`/houses/${houseId}/governance-pulses`);
+  }
+
+  async getDashboardStats(): Promise<ApiResponse<DashboardStats>> {
+    return this.request<DashboardStats>('/analytics/dashboard');
   }
 
   // ─── Analytics endpoints ─────────────────────────────────────────────────
@@ -389,6 +394,23 @@ class ApiClient {
 
   async downloadReport(id: string): Promise<ApiResponse<any>> {
     return this.request<any>(`/reports/${id}/download`);
+  }
+
+  // ─── Admin Stats endpoints ──────────────────────────────────────────────
+  async getAdminUserStats(): Promise<ApiResponse<{ total: number; active: number }>> {
+    return this.request<{ total: number; active: number }>('/admin/users/stats/summary');
+  }
+
+  async getAdminHouseStats(): Promise<ApiResponse<{ total: number; active: number; occupancyRate: number }>> {
+    return this.request<{ total: number; active: number; occupancyRate: number }>('/admin/houses/stats/summary');
+  }
+
+  async getAdminPulseStats(): Promise<ApiResponse<{ total: number; pending: number }>> {
+    return this.request<{ total: number; pending: number }>('/admin/pulses/stats/summary');
+  }
+
+  async getAdminRiskStats(): Promise<ApiResponse<{ total: number; active: number }>> {
+    return this.request<{ total: number; active: number }>('/admin/risks/stats/summary');
   }
 }
 

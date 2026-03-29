@@ -13,6 +13,8 @@ export interface CreateRiskDto {
   assigned_to?: string;
   created_by: string;
   review_due_date?: Date;
+  status?: string;
+  metadata?: any;
 }
 
 export const risksRepo = {
@@ -73,11 +75,11 @@ export const risksRepo = {
   async create(dto: CreateRiskDto) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO risks (id, company_id, house_id, category_id, title, description, severity, likelihood, impact, assigned_to, created_by, review_due_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12) RETURNING *`,
+      `INSERT INTO risks (id, company_id, house_id, category_id, title, description, severity, status, likelihood, impact, assigned_to, created_by, review_due_date, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
       [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description || null,
-       dto.severity || 'medium', dto.likelihood || null, dto.impact || null,
-       dto.assigned_to || null, dto.created_by, dto.review_due_date || null]
+       dto.severity || 'Medium', dto.status || 'Open', dto.likelihood || null, dto.impact || null,
+       dto.assigned_to || null, dto.created_by, dto.review_due_date || null, JSON.stringify(dto.metadata || {})]
     );
     return result.rows[0];
   },

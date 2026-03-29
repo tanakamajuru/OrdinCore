@@ -1,6 +1,6 @@
-# CareSignal Backend-Frontend Integration Guide
+# Ordin Core Backend-Frontend Integration Guide
 
-This guide provides complete instructions for implementing and integrating the CareSignal backend with the frontend, including the computational engines system.
+This guide provides complete instructions for implementing and integrating the Ordin Core backend with the frontend, including the computational engines system.
 
 ## 🚀 Quick Start
 

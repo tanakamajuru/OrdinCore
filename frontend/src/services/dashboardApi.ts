@@ -244,6 +244,23 @@ export const dashboardApi = {
     return response.data.data || [];
   },
 
+  // Get multi-house risk trends
+  getMultiHouseRiskTrends: async (days = 42): Promise<{ trends: any[], houses: string[] }> => {
+    const response = await apiClient.get<ApiResponse<{ trends: any[], houses: string[] }>>('/analytics/risk-trends/multi-house', { params: { days } });
+    return response.data.data!;
+  },
+
+  // Get trends data
+  getTrends: async (): Promise<any> => {
+    try {
+      const response = await apiClient.get<ApiResponse<any>>('/analytics/trends');
+      return response.data.data;
+    } catch (error) {
+      console.warn('Trends API failed');
+      return null;
+    }
+  },
+
   // Get pattern detection results
   getPatternDetections: async (houseId?: string, severity?: string) => {
     try {

@@ -37,8 +37,54 @@ interface HouseStats {
   total: number;
   active: number;
   withManager: number;
-  occupancyRate: number;
 }
+
+const HouseForm = ({ formData, managers, onChange }: { formData: any, managers: any[], onChange: (field: string, value: any) => void }) => (
+  <div className="grid gap-4 py-4">
+    {[
+      { id: "name", label: "House Name", placeholder: "e.g. Oakwood House", field: "name" },
+      { id: "address", label: "Address", placeholder: "Street address", field: "address" },
+      { id: "city", label: "City", placeholder: "City", field: "city" },
+      { id: "county", label: "County", placeholder: "County", field: "county" },
+      { id: "postcode", label: "Postcode", placeholder: "Postcode", field: "postcode" },
+      { id: "phone", label: "Phone", placeholder: "Phone number", field: "phone" },
+      { id: "email", label: "Email", placeholder: "Contact email", field: "email" },
+    ].map(({ id, label, placeholder, field }) => (
+      <div key={id} className="grid gap-2">
+        <Label htmlFor={id}>{label}</Label>
+        <Input
+          id={id}
+          placeholder={placeholder}
+          value={(formData as any)[field]}
+          onChange={(e) => onChange(field, e.target.value)}
+        />
+      </div>
+    ))}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid gap-2">
+          <Label htmlFor="capacity">Capacity</Label>
+          <Input id="capacity" type="number" placeholder="Max capacity" value={formData.capacity}
+            onChange={(e) => onChange("capacity", e.target.value)} />
+        </div>
+        <div className="grid gap-2">
+          <Label htmlFor="managerId">Assigned Manager</Label>
+          <Select 
+            value={formData.managerId} 
+            onValueChange={(val) => onChange("managerId", val)}
+          >
+            <SelectTrigger id="managerId">
+              <SelectValue placeholder="Select a manager" />
+            </SelectTrigger>
+            <SelectContent>
+              {managers.map((m: any) => (
+                <SelectItem key={m.id} value={m.id}>{m.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
+  </div>
+);
 
 const AdminHouseManagement: React.FC = () => {
   const [houses, setHouses] = useState<House[]>([]);
@@ -54,11 +100,27 @@ const AdminHouseManagement: React.FC = () => {
   const [selectedHouse, setSelectedHouse] = useState<House | null>(null);
 
   const emptyForm = {
-    name: "", houseCode: "", address: "", city: "",
+    name: "", address: "", city: "",
     county: "", postcode: "", phone: "", email: "",
-    capacity: "", currentOccupancy: "", managerId: "", isActive: true,
+    capacity: "", managerId: "", isActive: true,
   };
   const [formData, setFormData] = useState(emptyForm);
+  const [managers, setManagers] = useState<any[]>([]);
+  
+  const fetchManagers = async () => {
+    try {
+      const res = await fetch(`${API}/users?limit=100`, { headers: getHeaders() });
+      if (!res.ok) return;
+      const data = await res.json();
+      const allUsers = data.data ?? [];
+      const eligibleManagers = allUsers.filter((u: any) => 
+        ['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'].includes((u.role || '').toUpperCase())
+      );
+      setManagers(eligibleManagers);
+    } catch (err) {
+      console.error("Failed to fetch managers", err);
+    }
+  };
 
   const fetchHouses = async () => {
     try {
@@ -82,16 +144,13 @@ const AdminHouseManagement: React.FC = () => {
       total: list.length,
       active: list.filter(h => h.is_active).length,
       withManager: list.filter(h => h.manager_id).length,
-      occupancyRate: list.length > 0
-        ? Math.round(list.reduce((sum, h) => sum + (h.capacity > 0 ? (h.current_occupancy / h.capacity) * 100 : 0), 0) / list.length)
-        : 0,
     });
   };
 
   useEffect(() => {
     const load = async () => {
       setLoading(true);
-      await fetchHouses();
+      await Promise.all([fetchHouses(), fetchManagers()]);
       setLoading(false);
     };
     load();
@@ -110,7 +169,6 @@ const AdminHouseManagement: React.FC = () => {
         headers: getHeaders(),
         body: JSON.stringify({
           name: formData.name,
-          house_code: formData.houseCode,
           address: formData.address,
           city: formData.city,
           county: formData.county,
@@ -118,7 +176,7 @@ const AdminHouseManagement: React.FC = () => {
           phone: formData.phone,
           email: formData.email,
           capacity: parseInt(formData.capacity) || 0,
-          current_occupancy: parseInt(formData.currentOccupancy) || 0,
+          manager_id: formData.managerId || null,
           is_active: formData.isActive,
         }),
       });
@@ -143,7 +201,6 @@ const AdminHouseManagement: React.FC = () => {
         headers: getHeaders(),
         body: JSON.stringify({
           name: formData.name,
-          house_code: formData.houseCode,
           address: formData.address,
           city: formData.city,
           county: formData.county,
@@ -151,6 +208,7 @@ const AdminHouseManagement: React.FC = () => {
           phone: formData.phone,
           email: formData.email,
           capacity: parseInt(formData.capacity) || 0,
+          manager_id: formData.managerId || null,
           is_active: formData.isActive,
         }),
       });
@@ -183,7 +241,6 @@ const AdminHouseManagement: React.FC = () => {
     setSelectedHouse(house);
     setFormData({
       name: house.name,
-      houseCode: house.house_code,
       address: house.address,
       city: house.city,
       county: house.county,
@@ -191,15 +248,12 @@ const AdminHouseManagement: React.FC = () => {
       phone: house.phone || "",
       email: house.email || "",
       capacity: String(house.capacity),
-      currentOccupancy: String(house.current_occupancy),
       managerId: house.manager_id || "",
       isActive: house.is_active,
     });
     setIsEditDialogOpen(true);
   };
 
-  const occupancyColor = (rate: number) =>
-    rate >= 90 ? "text-red-600" : rate >= 75 ? "text-yellow-600" : "text-green-600";
 
   if (loading) return (
     <div className="min-h-screen flex items-center justify-center">
@@ -207,42 +261,9 @@ const AdminHouseManagement: React.FC = () => {
     </div>
   );
 
-  const HouseForm = () => (
-    <div className="grid gap-4 py-4">
-      {[
-        { id: "name", label: "House Name", placeholder: "e.g. Oakwood House", field: "name" },
-        { id: "houseCode", label: "House Code", placeholder: "e.g. OAK001", field: "houseCode" },
-        { id: "address", label: "Address", placeholder: "Street address", field: "address" },
-        { id: "city", label: "City", placeholder: "City", field: "city" },
-        { id: "county", label: "County", placeholder: "County", field: "county" },
-        { id: "postcode", label: "Postcode", placeholder: "Postcode", field: "postcode" },
-        { id: "phone", label: "Phone", placeholder: "Phone number", field: "phone" },
-        { id: "email", label: "Email", placeholder: "Contact email", field: "email" },
-      ].map(({ id, label, placeholder, field }) => (
-        <div key={id} className="grid gap-2">
-          <Label htmlFor={id}>{label}</Label>
-          <Input
-            id={id}
-            placeholder={placeholder}
-            value={(formData as any)[field]}
-            onChange={(e) => setFormData({ ...formData, [field]: e.target.value })}
-          />
-        </div>
-      ))}
-      <div className="grid grid-cols-2 gap-4">
-        <div className="grid gap-2">
-          <Label htmlFor="capacity">Capacity</Label>
-          <Input id="capacity" type="number" placeholder="Max capacity" value={formData.capacity}
-            onChange={(e) => setFormData({ ...formData, capacity: e.target.value })} />
-        </div>
-        <div className="grid gap-2">
-          <Label htmlFor="currentOccupancy">Current Occupancy</Label>
-          <Input id="currentOccupancy" type="number" placeholder="0" value={formData.currentOccupancy}
-            onChange={(e) => setFormData({ ...formData, currentOccupancy: e.target.value })} />
-        </div>
-      </div>
-    </div>
-  );
+  const handleFieldChange = (field: string, value: any) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+  };
 
   return (
     <div className="p-6 space-y-6">
@@ -265,7 +286,6 @@ const AdminHouseManagement: React.FC = () => {
           <StatCard title="Total Houses" value={stats.total} icon={Building} />
           <StatCard title="Active Houses" value={stats.active} icon={Building} />
           <StatCard title="Managers Assigned" value={stats.withManager} icon={Users} />
-          <StatCard title="Avg Occupancy" value={`${stats.occupancyRate}%`} icon={Users} />
         </div>
       )}
 
@@ -307,41 +327,33 @@ const AdminHouseManagement: React.FC = () => {
             <TableHeader>
               <TableRow>
                 <TableHead>Name</TableHead>
-                <TableHead>Code</TableHead>
                 <TableHead>Location</TableHead>
                 <TableHead>Manager</TableHead>
-                <TableHead>Occupancy</TableHead>
+                <TableHead>Capacity</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
-              {houses.map((house) => {
-                const rate = house.capacity > 0
-                  ? Math.round((house.current_occupancy / house.capacity) * 100) : 0;
-                return (
-                  <TableRow key={house.id}>
-                    <TableCell className="font-medium">{house.name}</TableCell>
-                    <TableCell><Badge variant="outline">{house.house_code}</Badge></TableCell>
-                    <TableCell>{[house.city, house.county].filter(Boolean).join(", ") || "—"}</TableCell>
-                    <TableCell>{house.manager_name || <Badge variant="secondary">None</Badge>}</TableCell>
-                    <TableCell>
-                      <span className={occupancyColor(rate)}>{house.current_occupancy}/{house.capacity}</span>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant={house.is_active ? "default" : "secondary"}>
-                        {house.is_active ? "Active" : "Inactive"}
-                      </Badge>
-                    </TableCell>
-                    <TableCell className="flex gap-2">
-                      <Button size="sm" variant="outline" onClick={() => openEditDialog(house)}><Edit size={14} /></Button>
-                      <Button size="sm" variant="outline" onClick={() => { setSelectedHouse(house); setIsDeleteDialogOpen(true); }}>
-                        <Trash2 size={14} />
-                      </Button>
-                    </TableCell>
-                  </TableRow>
-                );
-              })}
+              {houses.map((house) => (
+                <TableRow key={house.id}>
+                  <TableCell className="font-medium">{house.name}</TableCell>
+                  <TableCell>{[house.city, house.county].filter(Boolean).join(", ") || "—"}</TableCell>
+                  <TableCell>{house.manager_name || <Badge variant="secondary">None</Badge>}</TableCell>
+                  <TableCell>{house.capacity}</TableCell>
+                  <TableCell>
+                    <Badge variant={house.is_active ? "default" : "secondary"}>
+                      {house.is_active ? "Active" : "Inactive"}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="flex gap-2">
+                    <Button size="sm" variant="outline" onClick={() => openEditDialog(house)}><Edit size={14} /></Button>
+                    <Button size="sm" variant="outline" onClick={() => { setSelectedHouse(house); setIsDeleteDialogOpen(true); }}>
+                      <Trash2 size={14} />
+                    </Button>
+                  </TableCell>
+                </TableRow>
+              ))}
             </TableBody>
           </Table>
         )}
@@ -361,7 +373,7 @@ const AdminHouseManagement: React.FC = () => {
             <DialogTitle>Add New House</DialogTitle>
             <DialogDescription>Create a new care home or facility for your organisation</DialogDescription>
           </DialogHeader>
-          <HouseForm />
+          <HouseForm formData={formData} managers={managers} onChange={handleFieldChange} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateHouse}>Create House</Button>
@@ -375,7 +387,7 @@ const AdminHouseManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle>Edit House</DialogTitle>
           </DialogHeader>
-          <HouseForm />
+          <HouseForm formData={formData} managers={managers} onChange={handleFieldChange} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleUpdateHouse}>Save Changes</Button>

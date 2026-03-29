@@ -1,24 +1,24 @@
 @echo off
-REM CareSignal Backend-Frontend Integration Setup Script for Windows
+REM Ordin Core Backend-Frontend Integration Setup Script for Windows
 REM This script automates the complete setup process
 
 setlocal enabledelayedexpansion
 
 echo.
 echo ========================================
-echo CareSignal Backend-Frontend Integration Setup
+echo OrdinCore Backend-Frontend Integration Setup
 echo ========================================
 echo.
 
 REM Check if we're in the right directory
 if not exist "backend\package.json" (
-    echo [ERROR] Please run this script from the root directory of the CareSignal project.
+    echo [ERROR] Please run this script from the root directory of the OrdinCore project.
     pause
     exit /b 1
 )
 
 if not exist "frontend\package.json" (
-    echo [ERROR] Please run this script from the root directory of the CareSignal project.
+    echo [ERROR] Please run this script from the root directory of the OrdinCore project.
     pause
     exit /b 1
 )
@@ -239,7 +239,7 @@ cd ..
 echo [SUCCESS] Setup verification completed
 
 echo.
-echo [SUCCESS] 🎉 CareSignal setup completed successfully!
+echo [SUCCESS] 🎉 Ordin Core setup completed successfully!
 echo.
 echo 📊 Backend API: http://localhost:3001
 echo 🌐 Frontend: http://localhost:5173

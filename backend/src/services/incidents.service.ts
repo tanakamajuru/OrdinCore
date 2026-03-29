@@ -8,7 +8,7 @@ export class IncidentsService {
     persons_involved?: string[]; follow_up_required?: boolean;
   }) {
     const incident = await incidentsRepo.create({ company_id, created_by, ...data });
-    
+
     // Add creation event to timeline
     await incidentsRepo.addEvent(incident.id, company_id, {
       event_type: 'created',
@@ -17,7 +17,7 @@ export class IncidentsService {
       metadata: { severity: incident.severity, category: incident.category_id },
       created_by
     });
-    
+
     await eventBus.emitEvent(EVENTS.INCIDENT_CREATED, { incident_id: incident.id, company_id, created_by, severity: incident.severity });
     return incident;
   }
@@ -40,9 +40,14 @@ export class IncidentsService {
   async update(id: string, company_id: string, data: Record<string, unknown>) {
     const incident = await incidentsRepo.findById(id, company_id);
     if (!incident) throw new Error('Incident not found');
-    
+
+    // [GOVERNANCE] Locked Means Locked
+    if (incident.status === 'resolved' || incident.status === 'closed') {
+      throw new Error('This incident is resolved/closed and cannot be modified (Governance Integrity Rule Section 7.2)');
+    }
+
     const updated = await incidentsRepo.update(id, company_id, data);
-    
+
     // Add update event to timeline
     await incidentsRepo.addEvent(id, company_id, {
       event_type: 'updated',
@@ -51,14 +56,13 @@ export class IncidentsService {
       metadata: { updated_fields: Object.keys(data) },
       created_by: data.updated_by as string || incident.created_by
     });
-    
+
     return updated;
   }
 
   async delete(id: string, company_id: string) {
-    const incident = await incidentsRepo.findById(id, company_id);
-    if (!incident) throw new Error('Incident not found');
-    await incidentsRepo.delete(id, company_id);
+    // [GOVERNANCE] No Deletion Implementation
+    throw new Error('Hard deletion is prohibited for governance records (Governance Integrity Rule Section 7.1). Please resolve or close the incident instead.');
   }
 
   async getTimeline(incident_id: string, company_id: string) {
@@ -110,9 +114,14 @@ export class IncidentsService {
   async resolveIncident(incident_id: string, company_id: string, user_id: string, resolution_notes: string) {
     const incident = await incidentsRepo.findById(incident_id, company_id);
     if (!incident) throw new Error('Incident not found');
-    
+
+    // [GOVERNANCE] Locked Means Locked
+    if (incident.status === 'resolved' || incident.status === 'closed') {
+      throw new Error('This incident is already resolved/closed (Governance Integrity Rule Section 7.2)');
+    }
+
     const updated = await incidentsRepo.resolveIncident(incident_id, company_id, resolution_notes);
-    
+
     // Add resolution event to timeline
     await incidentsRepo.addEvent(incident_id, company_id, {
       event_type: 'resolved',
@@ -121,7 +130,7 @@ export class IncidentsService {
       metadata: { resolved_by: user_id, resolved_at: new Date() },
       created_by: user_id
     });
-    
+
     await eventBus.emitEvent(EVENTS.INCIDENT_RESOLVED, { incident_id, company_id, resolved_by: user_id });
     return updated;
   }

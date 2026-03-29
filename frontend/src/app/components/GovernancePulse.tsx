@@ -4,22 +4,65 @@ import { useNavigate } from "react-router";
 import { AlertTriangle, Plus, CheckCircle, Clock } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
+import { useAuth } from "@/hooks/useAuth";
 
 interface House { id: string; name: string; address: string; }
 interface PulseTemplate { id: string; name: string; }
 interface Question { id: string; question: string; question_type: string; options: string[]; required: boolean; order_index: number; }
 interface Pulse { id: string; status: string; due_date: string; completed_at: string | null; compliance_score: number | null; }
 
-const riskKeywords = ['risk', 'safeguarding', 'incident', 'deterioration', 'error', 'pressure', 'concern', 'escalation'];
+const HARDCODED_QUESTIONS: Question[] = [
+  { 
+    id: '00000000-0000-0000-0000-000000000011', 
+    question: 'Have any new risks emerged since the last pulse?', 
+    question_type: 'yes_no', 
+    options: [], 
+    required: true, 
+    order_index: 0 
+  },
+  { 
+    id: '00000000-0000-0000-0000-000000000012', 
+    question: 'Are any existing risks increasing or deteriorating?', 
+    question_type: 'yes_no', 
+    options: [], 
+    required: true, 
+    order_index: 1 
+  },
+  { 
+    id: '00000000-0000-0000-0000-000000000013', 
+    question: 'Any safeguarding concerns or indicators this week?', 
+    question_type: 'yes_no', 
+    options: [], 
+    required: true, 
+    order_index: 2 
+  },
+  { 
+    id: '00000000-0000-0000-0000-000000000014', 
+    question: 'Any operational pressures affecting service stability?', 
+    question_type: 'multiple_choice', 
+    options: ['Staffing pressure', 'Behavioural support challenges', 'Medication concerns', 'Environmental issue', 'None'], 
+    required: true, 
+    order_index: 3 
+  },
+  { 
+    id: '00000000-0000-0000-0000-000000000015', 
+    question: 'Does anything require leadership attention?', 
+    question_type: 'yes_no', 
+    options: [], 
+    required: true, 
+    order_index: 4 
+  }
+];
+
+const SYSTEM_TEMPLATE_ID = '00000000-0000-0000-0000-000000000001';
 
 export function GovernancePulse() {
   const navigate = useNavigate();
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
-  const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
-
+  const { user } = useAuth();
+  const userRole = (user?.role || '').toUpperCase();
+  const userId = user?.id;
+ 
   const [house, setHouse] = useState<House | null>(null);
-  const [template, setTemplate] = useState<PulseTemplate | null>(null);
-  const [questions, setQuestions] = useState<Question[]>([]);
   const [todayPulse, setTodayPulse] = useState<Pulse | null>(null);
   const [lastPulse, setLastPulse] = useState<Pulse | null>(null);
   const [nextPulseDate, setNextPulseDate] = useState<string>('');
@@ -30,27 +73,52 @@ export function GovernancePulse() {
   const [showRiskPrompt, setShowRiskPrompt] = useState(false);
   const [riskDescription, setRiskDescription] = useState('');
   const [submitted, setSubmitted] = useState(false);
-
+ 
   const currentDate = new Date().toLocaleDateString('en-GB', {
     weekday: 'long', day: '2-digit', month: 'long', year: 'numeric'
   });
-
-  useEffect(() => { loadData(); }, []);
+ 
+  useEffect(() => { 
+    // Init answers for hardcoded questions
+    const initAnswers: Record<string, string> = {};
+    HARDCODED_QUESTIONS.forEach(q => { initAnswers[q.id] = ''; });
+    setAnswers(initAnswers);
+    
+    loadData(); 
+  }, [user]);
 
   const loadData = async () => {
+    if (!user) {
+      setIsLoading(false);
+      return;
+    }
     try {
       // 1. Get house
       let myHouse: House | null = null;
-      if (userRole === 'REGISTERED_MANAGER') {
+      
+      if (user.assigned_house_id) {
+        myHouse = { 
+          id: user.assigned_house_id, 
+          name: user.assigned_house_name || 'Assigned House',
+          address: '' 
+        };
+      } else if (['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'].includes(userRole)) {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
-        myHouse = Array.isArray(hData) ? hData[0] : hData;
-      } else {
-        // RI/Director: fetch all houses
+        const houses = Array.isArray(hData) ? hData : [];
+        if (houses.length > 0) {
+          myHouse = houses[0];
+        }
+      } 
+      
+      // Fallback: If still no house, try fetching all company houses
+      if (!myHouse) {
         const hRes = await apiClient.get('/houses');
         const hData = (hRes.data as any).data || (hRes.data as any) || {};
         const list = hData.houses || hData.items || (Array.isArray(hData) ? hData : []);
-        myHouse = list[0];
+        if (list.length > 0) {
+          myHouse = list[0];
+        }
       }
       if (!myHouse) { setIsLoading(false); return; }
       setHouse(myHouse);
@@ -62,36 +130,17 @@ export function GovernancePulse() {
         if (settings.settings?.pulse_days) setPulseDays(settings.settings.pulse_days);
       } catch { /* use defaults */ }
 
-      // 3. Get governance template
-      const tRes = await apiClient.get('/governance/templates');
-      const tData = (tRes.data as any).data || (tRes.data as any) || {};
-      const templates = tData.templates || tData.items || (Array.isArray(tData) ? tData : []);
-      const tmpl = templates[0];
-      if (tmpl) {
-        setTemplate(tmpl);
-        // 4. Load questions
-        const qRes = await apiClient.get(`/governance/templates/${tmpl.id}/questions`);
-        const qData = (qRes.data as any).data || (qRes.data as any) || {};
-        const qs = qData.questions || qData.items || (Array.isArray(qData) ? qData : []);
-        const sorted = [...qs].sort((a: Question, b: Question) => a.order_index - b.order_index);
-        setQuestions(sorted);
-        // Init answers
-        const initAnswers: Record<string, string> = {};
-        sorted.forEach((q: Question) => { initAnswers[q.id] = ''; });
-        setAnswers(initAnswers);
-      }
-
-      // 5. Load pulses for this house
+      // 3. Load pulses for this house
       const pRes = await apiClient.get(`/governance/pulses?house_id=${myHouse.id}&limit=20`);
       const pData = (pRes.data as any).data || (pRes.data as any) || {};
       const pulses: Pulse[] = pData.pulses || pData.items || (Array.isArray(pData) ? pData : []);
 
       const todayStr = new Date().toDateString();
       const today = pulses.find(p => new Date(p.due_date).toDateString() === todayStr);
-      const completed = pulses.filter(p => p.status === 'completed').sort((a, b) =>
+      const completed = pulses.filter(p => ['SUBMITTED', 'LOCKED', 'completed'].includes(p.status)).sort((a, b) =>
         new Date(b.completed_at || b.due_date).getTime() - new Date(a.completed_at || a.due_date).getTime()
       );
-      const upcoming = pulses.filter(p => p.status === 'pending' && new Date(p.due_date) > new Date());
+      const upcoming = pulses.filter(p => (p.status === 'DRAFT' || p.status === 'pending') && new Date(p.due_date) > new Date());
 
       setTodayPulse(today || null);
       setLastPulse(completed[0] || null);
@@ -99,22 +148,35 @@ export function GovernancePulse() {
         setNextPulseDate(new Date(upcoming[1].due_date).toLocaleDateString('en-GB', { weekday: 'long', day: '2-digit', month: 'short' }));
       }
 
-      if (today?.status === 'completed') setSubmitted(true);
+      if (today?.status === 'SUBMITTED' || today?.status === 'LOCKED' || today?.status === 'completed') setSubmitted(true);
     } catch (err: any) {
       console.error('GovernancePulse load error:', err);
-      toast.error('Failed to load pulse data');
+      // Don't show toast error if it's just missing pulses for a brand new house
+      if (err.response?.status !== 404) {
+        toast.error('Failed to load pulse history');
+      }
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleAnswerChange = (questionId: string, value: string) => {
-    setAnswers(prev => ({ ...prev, [questionId]: value }));
+  const handleAnswerChange = (questionId: string, value: string, isMulti?: boolean) => {
+    if (isMulti) {
+      const current = answers[questionId] ? answers[questionId].split(',') : [];
+      const updated = current.includes(value)
+        ? current.filter(v => v !== value)
+        : [...current, value];
+      setAnswers(prev => ({ ...prev, [questionId]: updated.join(',') }));
+    } else {
+      setAnswers(prev => ({ ...prev, [questionId]: value }));
+    }
   };
+
+  const riskKeywords = ['risk', 'safeguarding', 'incident', 'deterioration', 'error', 'pressure', 'concern', 'escalation'];
 
   const checkForRiskFlag = () => {
     // Check if any yes_no answer flagged a risk or major concern
-    for (const q of questions) {
+    for (const q of HARDCODED_QUESTIONS) {
       if (q.question_type === 'yes_no' && answers[q.id] === 'yes') {
         const qText = q.question.toLowerCase();
         if (riskKeywords.some(kw => qText.includes(kw))) {
@@ -127,7 +189,7 @@ export function GovernancePulse() {
 
   const handleSubmit = async () => {
     // Validate required questions answered
-    const unanswered = questions.filter(q => q.required && !answers[q.id]);
+    const unanswered = HARDCODED_QUESTIONS.filter(q => q.required && !answers[q.id]);
     if (unanswered.length > 0) {
       toast.error(`Please answer all required questions (${unanswered.length} remaining)`);
       return;
@@ -136,7 +198,7 @@ export function GovernancePulse() {
     const hasRiskFlag = checkForRiskFlag();
     if (hasRiskFlag && !showRiskPrompt) {
       // Find which questions were flagged to pre-fill description if needed
-      const flaggedQs = questions.filter(q => q.question_type === 'yes_no' && answers[q.id] === 'yes' && riskKeywords.some(kw => q.question.toLowerCase().includes(kw)));
+      const flaggedQs = HARDCODED_QUESTIONS.filter(q => q.question_type === 'yes_no' && answers[q.id] === 'yes' && riskKeywords.some(kw => q.question.toLowerCase().includes(kw)));
       const initialDesc = flaggedQs.map(q => `${q.question}: ${answers[`${q.id}_detail`] || 'No detail provided'}`).join('\n');
       setRiskDescription(initialDesc);
       setShowRiskPrompt(true);
@@ -152,10 +214,10 @@ export function GovernancePulse() {
       let pulseId = todayPulse?.id;
 
       // Create pulse if none exists for today
-      if (!pulseId && house && template) {
+      if (!pulseId && house) {
         const createRes = await apiClient.post('/governance/pulse', {
           house_id: house.id,
-          template_id: template.id,
+          template_id: SYSTEM_TEMPLATE_ID,
           due_date: new Date().toISOString(),
           status: 'pending'
         });
@@ -166,7 +228,7 @@ export function GovernancePulse() {
       if (!pulseId) throw new Error('No pulse to submit');
 
       // Submit answers
-      const answersPayload = questions.map(q => ({
+      const answersPayload = HARDCODED_QUESTIONS.map(q => ({
         question_id: q.id,
         answer: answers[q.id] || '',
         answer_value: { value: answers[q.id] },
@@ -182,8 +244,8 @@ export function GovernancePulse() {
             house_id: house.id,
             title: 'Risk from Governance Pulse',
             description: riskDescription,
-            severity: 'high',
-            status: 'open',
+            severity: 'High',
+            status: 'Open',
             likelihood: 3,
             impact: 4,
           });
@@ -227,10 +289,10 @@ export function GovernancePulse() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-3xl">
+      <div className="p-6 md:px-12 lg:px-20 w-full pt-28 max-w-none">
         {/* Header */}
-        <div className="mb-8 border-b-2 border-border pb-6">
-          <h1 className="text-3xl font-semibold text-primary mb-2">Governance Pulse</h1>
+        <div className="mb-10 border-b-2 border-border pb-8">
+          <h1 className="text-4xl font-bold text-primary mb-2 tracking-tight">Governance Pulse</h1>
           <div className="flex justify-between items-center mt-4">
             <div>
               <span className="text-muted-foreground">House: </span>
@@ -265,15 +327,9 @@ export function GovernancePulse() {
         </div>
 
         {/* Questions */}
-        {questions.length === 0 ? (
-          <div className="text-center py-12 text-gray-500 border-2 border-gray-300 p-6">
-            <p>No pulse template configured yet.</p>
-            <p className="text-sm mt-2">Contact your Admin to set up governance questions.</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            {questions.map((q, idx) => (
-              <div key={q.id} className="bg-card border-2 border-border p-4 shadow-sm">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          {HARDCODED_QUESTIONS.map((q, idx) => (
+            <div key={q.id} className={`bg-card border-2 border-border p-8 shadow-sm hover:shadow-md transition-all duration-300 ${q.question_type === 'text' ? 'lg:col-span-2' : ''}`}>
                 <h3 className="font-semibold text-foreground mb-3">
                   {idx + 1}. {q.question}
                   {q.required && <span className="text-destructive ml-1">*</span>}
@@ -323,6 +379,24 @@ export function GovernancePulse() {
                   </div>
                 )}
 
+                {q.question_type === 'multi_select' && (
+                  <div className="space-y-2">
+                    {(q.options || []).map(opt => (
+                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
+                        <input
+                          type="checkbox"
+                          name={q.id}
+                          value={opt}
+                          checked={answers[q.id]?.split(',').includes(opt)}
+                          onChange={() => handleAnswerChange(q.id, opt, true)}
+                          className="w-4 h-4 text-primary focus:ring-primary rounded"
+                        />
+                        <span className="text-foreground">{opt}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+
                 {q.question_type === 'text' && (
                   <textarea
                     value={answers[q.id] || ''}
@@ -350,18 +424,18 @@ export function GovernancePulse() {
                 )}
               </div>
             ))}
-
-            <div className="flex justify-end mt-8">
-              <button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="px-8 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 shadow-sm"
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Governance Pulse'}
-              </button>
-            </div>
           </div>
-        )}
+
+          <div className="flex justify-center mt-12 pb-20">
+            <button
+              onClick={handleSubmit}
+              disabled={isSubmitting}
+              className="px-8 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 shadow-sm"
+            >
+              {isSubmitting ? 'Submitting...' : 'Submit Governance Pulse'}
+            </button>
+          </div>
+        </div>
 
         {/* Risk Creation Prompt */}
         {showRiskPrompt && (
@@ -400,6 +474,5 @@ export function GovernancePulse() {
           </div>
         )}
       </div>
-    </div>
-  );
+    );
 }

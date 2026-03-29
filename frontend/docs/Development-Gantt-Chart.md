@@ -1,11 +1,11 @@
 # Development Gantt Chart
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Project Timeline: 7 Weeks (March 4 - April 22, 2026)
 
 ## Overview
 
-This Gantt chart outlines the development schedule for both frontend and backend components of the CareSignal Governance SaaS Platform. The timeline is structured to ensure parallel development where possible, with key integration points and milestones.
+This Gantt chart outlines the development schedule for both frontend and backend components of the Ordin Core Governance SaaS Platform. The timeline is structured to ensure parallel development where possible, with key integration points and milestones.
 
 ## Team Structure
 
@@ -632,4 +632,4 @@ This Gantt chart outlines the development schedule for both frontend and backend
 - ✅ Troubleshooting documentation
 - ✅ Performance monitoring setup
 
-This Gantt chart provides a comprehensive roadmap for developing the CareSignal Governance SaaS Platform, ensuring timely delivery of a high-quality, fully functional application.
+This Gantt chart provides a comprehensive roadmap for developing the Ordin Core Governance SaaS Platform, ensuring timely delivery of a high-quality, fully functional application.

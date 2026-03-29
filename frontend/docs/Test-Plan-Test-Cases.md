@@ -1,5 +1,5 @@
 # Test Plan & Test Cases Document
-# CareSignal Governance SaaS Platform
+# Ordin Core Governance SaaS Platform
 
 ## Document Information
 
@@ -1304,4 +1304,4 @@ describe('Accessibility Tests', () => {
 - **Priority Levels**: P1 (Immediate), P2 (24h), P3 (72h), P4 (1 week)
 - **Resolution Targets**: Critical: 24h, High: 72h, Medium: 1 week, Low: 2 weeks
 
-This Test Plan & Test Cases Document provides comprehensive coverage for ensuring the CareSignal Governance SaaS Platform meets all quality, performance, security, and accessibility requirements.
+This Test Plan & Test Cases Document provides comprehensive coverage for ensuring the Ordin Core Governance SaaS Platform meets all quality, performance, security, and accessibility requirements.

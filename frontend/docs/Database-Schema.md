@@ -1,8 +1,8 @@
-# Database Schema - CareSignal Governance SaaS Platform
+# Database Schema - OrdinCore Governance SaaS Platform
 
 ## Overview
 
-This document defines the database schema for the CareSignal Governance SaaS Platform. The schema supports multi-tenant architecture with provider-level data isolation, immutable audit trails, and comprehensive governance data management.
+This document defines the database schema for the OrdinCore Governance SaaS Platform. The schema supports multi-tenant architecture with provider-level data isolation, immutable audit trails, and comprehensive governance data management.
 
 ## Database Design Principles
 
@@ -783,7 +783,7 @@ SELECT cron.schedule('cleanup-cache', '0 4 * * *', 'SELECT cleanup_expired_cache
 
 ```sql
 -- Daily full backup
-pg_dump -h localhost -U postgres -d caresignal_db -f /backups/caresignal_$(date +%Y%m%d).sql
+pg_dump -h localhost -U postgres -d ordincore_db -f /backups/ordincore_$(date +%Y%m%d).sql
 
 -- Incremental backup using WAL archiving
 archive_command = 'cp %p /backups/wal_archive/%f'
@@ -799,4 +799,4 @@ pg_basebackup -h localhost -D /backups/base_backup -U postgres -v -P -W
 pg_ctl start -D /backups/base_backup -o "-c recovery_target_time='2024-01-15 10:00:00'"
 ```
 
-This database schema provides a robust foundation for the CareSignal Governance SaaS Platform, ensuring data integrity, security, performance, and scalability for multi-tenant governance management.
+This database schema provides a robust foundation for the OrdinCore Governance SaaS Platform, ensuring data integrity, security, performance, and scalability for multi-tenant governance management.
