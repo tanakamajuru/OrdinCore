@@ -19,4 +19,4 @@ WHERE h.manager_id = u.id AND hs.settings ? 'pulse_days';
 UPDATE governance_pulses gp
 SET assigned_user_id = h.manager_id
 FROM houses h
-WHERE h.id = gp.service_unit_id AND gp.assigned_user_id IS NULL;
+WHERE h.id = gp.house_id AND gp.assigned_user_id IS NULL;

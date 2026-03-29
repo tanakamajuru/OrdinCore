@@ -6606,3 +6606,138 @@
   ╚═══════════════════════════════════════════════════════╝
   
 [OrdinCore] 2026-03-29 05:44:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:44:12 [info]: Socket.IO server initialized
+[OrdinCore] 2026-03-29 05:44:12 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-03-29 05:44:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:37 +0000] "GET /api/v1/risks?limit=200 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:44:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:37 +0000] "GET /api/v1/incidents?limit=200 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:44:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:37 +0000] "GET /api/v1/governance/pulses?limit=50 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:44:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:37 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:44:38 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:44:38 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:45:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:45:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:46:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:46:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:47:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:47:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:48:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:48:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:48:59 [info]: Processing report job 7: governance_compliance
+[OrdinCore] 2026-03-29 05:48:59 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:48:59 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:48:59 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 524 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:00 [info]: Event emitted: report_completed
+[OrdinCore] 2026-03-29 05:49:00 [info]: Report 8471a499-9bd9-4e91-92aa-53e935ab4d79 completed successfully as robust PDF
+[OrdinCore] 2026-03-29 05:49:00 [info]: Report job 7 completed
+[OrdinCore] 2026-03-29 05:49:02 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:02 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 1271 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:03 +0000] "GET /api/v1/reports/8471a499-9bd9-4e91-92aa-53e935ab4d79/download HTTP/1.1" 200 98 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:04 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:04 +0000] "GET /reports/8471a499-9bd9-4e91-92aa-53e935ab4d79.pdf HTTP/1.1" 200 2115 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:04 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:04 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:24 [info]: Processing report job 8: escalation_report
+[OrdinCore] 2026-03-29 05:49:24 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:49:24 [error]: error: column e.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at generateEscalationReport (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:144:18)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:266:48)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-03-29 05:49:24 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:24 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 549 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:24 [error]: error: column e.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at generateEscalationReport (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:144:18)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:266:48)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-03-29 05:49:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:26 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 1832 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:52 [info]: Processing report job 9: escalation_report
+[OrdinCore] 2026-03-29 05:49:52 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:49:52 [error]: error: column e.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at generateEscalationReport (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:144:18)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:266:48)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-03-29 05:49:52 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:52 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 523 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:49:52 [error]: error: column e.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at generateEscalationReport (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:144:18)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:266:48)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-03-29 05:49:53 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:49:53 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 2393 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:22 [info]: Processing report job 10: house_overview
+[OrdinCore] 2026-03-29 05:50:22 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:50:22 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:22 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 520 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:22 [info]: Event emitted: report_completed
+[OrdinCore] 2026-03-29 05:50:22 [info]: Report 7dc38130-9bb3-4ff6-a6d6-95f32d0d260d completed successfully as robust PDF
+[OrdinCore] 2026-03-29 05:50:22 [info]: Report job 10 completed
+[OrdinCore] 2026-03-29 05:50:24 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:24 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 2993 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:26 +0000] "GET /api/v1/reports/7dc38130-9bb3-4ff6-a6d6-95f32d0d260d/download HTTP/1.1" 200 98 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:26 +0000] "GET /reports/7dc38130-9bb3-4ff6-a6d6-95f32d0d260d.pdf HTTP/1.1" 200 1914 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:26 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:40 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:50:41 [info]: Processing report job 11: custom
+[OrdinCore] 2026-03-29 05:50:41 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:41 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 512 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:41 [info]: Event emitted: report_completed
+[OrdinCore] 2026-03-29 05:50:41 [info]: Report 7189e439-f2e2-4362-90d9-d1bfbe8b9928 completed successfully as robust PDF
+[OrdinCore] 2026-03-29 05:50:41 [info]: Report job 11 completed
+[OrdinCore] 2026-03-29 05:50:41 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:41 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 3585 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:44 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:44 +0000] "GET /api/v1/reports/7189e439-f2e2-4362-90d9-d1bfbe8b9928/download HTTP/1.1" 200 98 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:44 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:44 +0000] "GET /reports/7189e439-f2e2-4362-90d9-d1bfbe8b9928.pdf HTTP/1.1" 200 1920 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:44 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:44 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:50 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:50 +0000] "GET /api/v1/reports/7189e439-f2e2-4362-90d9-d1bfbe8b9928/download HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:50 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:50 +0000] "GET /reports/7189e439-f2e2-4362-90d9-d1bfbe8b9928.pdf HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:50:50 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:50:50 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:03 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:03 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:07 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:51:07 [info]: Processing report job 12: risk_summary
+[OrdinCore] 2026-03-29 05:51:07 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:07 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 518 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:07 [info]: Event emitted: report_completed
+[OrdinCore] 2026-03-29 05:51:07 [info]: Report 1b0227df-1db4-41cc-99df-f04ab870a4d5 completed successfully as robust PDF
+[OrdinCore] 2026-03-29 05:51:07 [info]: Report job 12 completed
+[OrdinCore] 2026-03-29 05:51:09 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:09 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 4183 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:11 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:11 +0000] "GET /api/v1/reports/1b0227df-1db4-41cc-99df-f04ab870a4d5/download HTTP/1.1" 200 98 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:11 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:11 +0000] "GET /reports/1b0227df-1db4-41cc-99df-f04ab870a4d5.pdf HTTP/1.1" 200 2109 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:11 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:11 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:22 [info]: Processing report job 13: incident_report
+[OrdinCore] 2026-03-29 05:51:22 [info]: Event emitted: report_requested
+[OrdinCore] 2026-03-29 05:51:22 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:22 +0000] "POST /api/v1/reports/request HTTP/1.1" 202 521 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:22 [info]: Event emitted: report_completed
+[OrdinCore] 2026-03-29 05:51:22 [info]: Report 60705fa9-ef51-43dc-87d2-f8d2791efae7 completed successfully as robust PDF
+[OrdinCore] 2026-03-29 05:51:22 [info]: Report job 13 completed
+[OrdinCore] 2026-03-29 05:51:23 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:23 +0000] "GET /api/v1/reports?limit=10 HTTP/1.1" 200 4784 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:25 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:25 +0000] "GET /api/v1/reports/60705fa9-ef51-43dc-87d2-f8d2791efae7/download HTTP/1.1" 200 98 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:25 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:25 +0000] "GET /reports/60705fa9-ef51-43dc-87d2-f8d2791efae7.pdf HTTP/1.1" 200 1851 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:25 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:25 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:35 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:35 +0000] "GET /api/v1/analytics/trends HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:51:35 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:51:35 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:52:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:52:37 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:53:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:53:37 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:54:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:54:37 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:55:37 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:55:37 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/analytics/trends HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/users?page=1&limit=20&is_active=true HTTP/1.1" 200 1979 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1980 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-03-29 05:56:26 [info]: ::1 - - [29/Mar/2026:03:56:26 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-03-29 05:57:29 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:57:29 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:58:28 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:58:28 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 05:59:28 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:03:59:28 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 06:00:28 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:04:00:28 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 06:01:29 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:04:01:29 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 06:02:28 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:04:02:28 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 06:03:29 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:04:03:29 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
+[OrdinCore] 2026-03-29 06:04:28 [info]: ::ffff:127.0.0.1 - - [29/Mar/2026:04:04:28 +0000] "GET /api/v1/escalations/stats HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:149.0) Gecko/20100101 Firefox/149.0"
