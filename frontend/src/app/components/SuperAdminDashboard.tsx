@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router";
 import {
   Building2, Users, Plus, Settings, LogOut, Globe, Shield,
@@ -134,6 +134,138 @@ export default function SuperAdminDashboard() {
     return 'bg-gray-100 text-gray-700';
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const paginatedCompanies = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return companies.slice(start, start + itemsPerPage);
+  }, [companies, currentPage]);
+
+  const totalPages = Math.ceil(companies.length / itemsPerPage);
+
+  const companiesTable = useMemo(() => {
+    if (isLoading) {
+      return (
+        <div className="flex items-center justify-center py-16">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mr-3" />
+          <span className="text-gray-500">Loading organisations...</span>
+        </div>
+      );
+    }
+    if (companies.length === 0) {
+      return (
+        <div className="text-center py-16 text-gray-400">
+          <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
+          <p className="text-lg font-medium">No organisations yet</p>
+          <p className="text-sm">Create the first organisation to get started</p>
+          <button
+            onClick={() => setShowCreateOrg(true)}
+            className="mt-4 px-5 py-2 bg-black text-white text-sm hover:bg-gray-800 transition-colors"
+          >
+            Create Organisation
+          </button>
+        </div>
+      );
+    }
+    return (
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-100">
+              <th className="text-left py-3 px-6 font-semibold text-gray-600">Organisation</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-600">Domain</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-600">Plan</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
+              <th className="text-left py-3 px-4 font-semibold text-gray-600">Created</th>
+              <th className="text-right py-3 px-6 font-semibold text-gray-600">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {paginatedCompanies.map((company) => (
+              <tr key={company.id} className="hover:bg-gray-50 transition-colors">
+                <td className="py-4 px-6">
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{company.name}</p>
+                      <p className="text-xs text-gray-400">{company.id.slice(0, 8)}...</p>
+                    </div>
+                  </div>
+                </td>
+                <td className="py-4 px-4 text-gray-600">{company.domain || '—'}</td>
+                <td className="py-4 px-4">
+                  <span className="capitalize text-gray-700">{company.plan || 'professional'}</span>
+                </td>
+                <td className="py-4 px-4">
+                  <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(company.status)}`}>
+                    {company.status}
+                  </span>
+                </td>
+                <td className="py-4 px-4 text-gray-500">
+                  {new Date(company.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
+                </td>
+                <td className="py-4 px-6 text-right">
+                  <div className="flex items-center justify-end gap-2">
+                    <button
+                      onClick={() => { setSelectedCompany(company); setNewAdmin({ ...newAdmin, company_id: company.id }); setShowCreateAdmin(true); }}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      <UserPlus className="w-3 h-3" />
+                      Add Admin
+                    </button>
+                    {company.status === 'active' ? (
+                      <button
+                        onClick={() => handleSuspendOrg(company)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors"
+                      >
+                        <AlertCircle className="w-3 h-3" />
+                        Suspend
+                      </button>
+                    ) : (
+                      <button
+                        onClick={() => apiClient.updateCompany(company.id, { status: 'active' } as any).then(loadData)}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-green-300 text-green-600 rounded hover:bg-green-50 transition-colors"
+                      >
+                        <CheckCircle className="w-3 h-3" />
+                        Activate
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        {totalPages > 1 && (
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
+            <span className="text-sm text-gray-500">
+              Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, companies.length)} of {companies.length} entries
+            </span>
+            <div className="flex gap-2">
+              <button
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
+                className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              >
+                Previous
+              </button>
+              <button
+                disabled={currentPage === totalPages}
+                onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
+                className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              >
+                Next
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    );
+  }, [isLoading, companies, paginatedCompanies, currentPage, itemsPerPage, totalPages, newAdmin]);
+
   return (
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Top navigation */}
@@ -224,96 +356,7 @@ export default function SuperAdminDashboard() {
             </button>
           </div>
 
-          {isLoading ? (
-            <div className="flex items-center justify-center py-16">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mr-3" />
-              <span className="text-gray-500">Loading organisations...</span>
-            </div>
-          ) : companies.length === 0 ? (
-            <div className="text-center py-16 text-gray-400">
-              <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-              <p className="text-lg font-medium">No organisations yet</p>
-              <p className="text-sm">Create the first organisation to get started</p>
-              <button
-                onClick={() => setShowCreateOrg(true)}
-                className="mt-4 px-5 py-2 bg-black text-white text-sm hover:bg-gray-800 transition-colors"
-              >
-                Create Organisation
-              </button>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-100">
-                    <th className="text-left py-3 px-6 font-semibold text-gray-600">Organisation</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Domain</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Plan</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-                    <th className="text-left py-3 px-4 font-semibold text-gray-600">Created</th>
-                    <th className="text-right py-3 px-6 font-semibold text-gray-600">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-50">
-                  {companies.map((company) => (
-                    <tr key={company.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="py-4 px-6">
-                        <div className="flex items-center gap-3">
-                          <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center">
-                            <Building2 className="w-4 h-4 text-white" />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">{company.name}</p>
-                            <p className="text-xs text-gray-400">{company.id.slice(0, 8)}...</p>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="py-4 px-4 text-gray-600">{company.domain || '—'}</td>
-                      <td className="py-4 px-4">
-                        <span className="capitalize text-gray-700">{company.plan || 'professional'}</span>
-                      </td>
-                      <td className="py-4 px-4">
-                        <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(company.status)}`}>
-                          {company.status}
-                        </span>
-                      </td>
-                      <td className="py-4 px-4 text-gray-500">
-                        {new Date(company.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
-                      </td>
-                      <td className="py-4 px-6 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <button
-                            onClick={() => { setSelectedCompany(company); setNewAdmin({ ...newAdmin, company_id: company.id }); setShowCreateAdmin(true); }}
-                            className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
-                          >
-                            <UserPlus className="w-3 h-3" />
-                            Add Admin
-                          </button>
-                          {company.status === 'active' ? (
-                            <button
-                              onClick={() => handleSuspendOrg(company)}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors"
-                            >
-                              <AlertCircle className="w-3 h-3" />
-                              Suspend
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => apiClient.updateCompany(company.id, { status: 'active' } as any).then(loadData)}
-                              className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-green-300 text-green-600 rounded hover:bg-green-50 transition-colors"
-                            >
-                              <CheckCircle className="w-3 h-3" />
-                              Activate
-                            </button>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          {companiesTable}
         </div>
       </div>
 

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useLocation } from "react-router";
 import { ChevronDown, AlertTriangle, Plus } from "lucide-react";
@@ -290,6 +290,116 @@ export function RiskRegister() {
     }
   };
 
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
+
+  const paginatedRisks = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredRisks.slice(start, start + itemsPerPage);
+  }, [filteredRisks, currentPage]);
+
+  const totalPages = Math.ceil(filteredRisks.length / itemsPerPage);
+
+  const risksTable = useMemo(() => (
+    <div className="bg-card border-2 border-border shadow-sm">
+      <div className="overflow-x-auto">
+        <table className="w-full border-collapse">
+          <thead>
+            <tr className="bg-primary text-primary-foreground text-sm whitespace-nowrap">
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">House</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Description</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Category</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Severity</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Date Identified</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Source</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Mitigation</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Escalated</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Status</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Review Date</th>
+            </tr>
+          </thead>
+          <tbody>
+            {paginatedRisks.map((risk, idx) => (
+              <tr
+                key={risk.id}
+                onClick={() => navigate(`/risk-register/${risk.id}`)}
+                className={`cursor-pointer transition-colors text-sm ${
+                  idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
+                }`}
+              >
+                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.house}</td>
+                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.description}>{risk.description}</td>
+                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.category}</td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">
+                  <span
+                    className={`inline-block px-2 py-1 text-xs font-medium ${
+                      risk.severity === "High" || risk.severity === "Critical"
+                        ? "bg-destructive text-destructive-foreground"
+                        : risk.severity === "Medium"
+                        ? "bg-warning text-warning-foreground"
+                        : "bg-success text-success-foreground"
+                    }`}
+                  >
+                    {risk.severity}
+                  </span>
+                </td>
+                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.dateIdentified}</td>
+                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
+                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
+                <td className="border-b border-border px-4 py-4 text-center whitespace-nowrap">
+                  <span className={`inline-block px-2 py-1 text-xs font-medium ${
+                    risk.escalated ? "bg-destructive text-destructive-foreground" : "text-muted-foreground"
+                  }`}>
+                    {risk.escalated ? "Yes" : "-"}
+                  </span>
+                </td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">
+                  <span
+                    className={`inline-block px-2 py-1 text-xs font-medium border border-border ${
+                      risk.status === "Open"
+                        ? "text-primary"
+                        : risk.status === "In Progress" || risk.status === "Under Review"
+                        ? "bg-muted text-muted-foreground"
+                        : risk.status === "Escalated"
+                        ? "bg-destructive text-destructive-foreground"
+                        : "bg-success text-success-foreground"
+                    }`}
+                  >
+                    {risk.status}
+                  </span>
+                </td>
+                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap text-gray-600 font-medium">{risk.reviewDate}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-gray-50 text-sm">
+          <span className="text-gray-500">
+            Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRisks.length)} of {filteredRisks.length} risks
+          </span>
+          <div className="flex gap-2">
+            <button
+              disabled={currentPage === 1}
+              onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
+              className="px-3 py-1 bg-white border border-border text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+            >
+              Previous
+            </button>
+            <button
+              disabled={currentPage === totalPages}
+              onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, totalPages)); }}
+              className="px-3 py-1 bg-white border border-border text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  ), [paginatedRisks, currentPage, totalPages, filteredRisks.length, navigate]);
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
@@ -384,84 +494,7 @@ export function RiskRegister() {
         </div>
 
         {/* Risk Table */}
-        <div className="bg-card border-2 border-border shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="bg-primary text-primary-foreground text-sm whitespace-nowrap">
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">House</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Description</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Category</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Severity</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Date Identified</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Source</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Mitigation</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Escalated</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Status</th>
-                  <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Review Date</th>
-                </tr>
-              </thead>
-              <tbody>
-                {filteredRisks.map((risk, idx) => (
-                  <tr
-                    key={risk.id}
-                    onClick={() => navigate(`/risk-register/${risk.id}`)}
-                    className={`cursor-pointer transition-colors text-sm ${
-                      idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
-                    }`}
-                  >
-                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.house}</td>
-                    <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.description}>{risk.description}</td>
-                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.category}</td>
-                    <td className="border-b border-border px-4 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-medium ${
-                          risk.severity === "High" || risk.severity === "Critical"
-                            ? "bg-destructive text-destructive-foreground"
-                            : risk.severity === "Medium"
-                            ? "bg-warning text-warning-foreground"
-                            : "bg-success text-success-foreground"
-                        }`}
-                      >
-                        {risk.severity}
-                      </span>
-                    </td>
-                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.dateIdentified}</td>
-                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
-                    <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
-                    <td className="border-b border-border px-4 py-4 text-center whitespace-nowrap">
-                      <span className={`inline-block px-2 py-1 text-xs font-medium ${
-                        risk.escalated ? "bg-destructive text-destructive-foreground" : "text-muted-foreground"
-                      }`}>
-                        {risk.escalated ? "Yes" : "-"}
-                      </span>
-                    </td>
-                    <td className="border-b border-border px-4 py-4 whitespace-nowrap">
-                      <span
-                        className={`inline-block px-2 py-1 text-xs font-medium border border-border ${
-                          risk.status === "Open"
-                            ? "text-primary"
-                            : risk.status === "In Progress" || risk.status === "Under Review"
-                            ? "bg-muted text-muted-foreground"
-                            : risk.status === "Escalated"
-                            ? "bg-destructive text-destructive-foreground"
-                            : "bg-success text-success-foreground"
-                        }`}
-                      >
-                        {risk.status}
-                      </span>
-                    </td>
-                    <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap text-gray-600 font-medium">{risk.reviewDate}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="mt-4 text-center text-gray-600">
-          Showing {filteredRisks.length} of {risks.length} risks
-        </div>
+        {risksTable}
       </div>
 
       {/* Add Risk Modal */}

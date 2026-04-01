@@ -1,0 +1,63 @@
+# ordincore.co.uk Nginx Production Configuration
+# Place this in /etc/nginx/sites-available/ordincore.co.uk and symlink to sites-enabled
+
+server {
+    listen 80;
+    server_name ordincore.co.uk www.ordincore.co.uk;
+
+    # Redirect all HTTP requests to HTTPS
+    location / {
+        return 301 https://$host$request_uri;
+    }
+}
+
+server {
+    listen 443 ssl http2;
+    server_name ordincore.co.uk www.ordincore.co.uk;
+
+    # SSL Configuration (Replace paths with your actual Let's Encrypt certificates)
+    ssl_certificate /etc/letsencrypt/live/ordincore.co.uk/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/ordincore.co.uk/privkey.pem;
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_prefer_server_ciphers on;
+
+    # Frontend React Static Files
+    # (Point this to your built frontend/dist directory)
+    root /var/www/ordincore/frontend/dist;
+    index index.html;
+
+    # Handles React Router client-side routing
+    location / {
+        try_files $uri $uri/ /index.html;
+    }
+
+    # Backend API Proxy
+    # Notice: NO trailing slash on proxy_pass!
+    # Your Node app explicitly defines '/api/v1/auth', so we want to pass '/api/v1' entirely, not strip it.
+    location /api/ {
+        proxy_pass http://127.0.0.1:3001; 
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        
+        # We rely on Node.js cors() middleware for CORS headers
+    }
+
+    # WebSocket Proxy (for Socket.io)
+    location /socket.io/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+
+    # Public reports and static assets hosted by Node
+    location /reports/ {
+        proxy_pass http://127.0.0.1:3001;
+        proxy_set_header Host $host;
+    }
+}
