@@ -8544,3 +8544,38 @@
 [OrdinCore] 2026-04-02 11:53:43 [info]: ::1 - - [02/Apr/2026:09:53:43 +0000] "GET /api/v1/companies HTTP/1.1" 200 3162 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 [OrdinCore] 2026-04-02 11:53:56 [info]: ::1 - - [02/Apr/2026:09:53:56 +0000] "PATCH /api/v1/companies/47a3b162-c906-472d-8b5e-b3b26e6ca535 HTTP/1.1" 200 305 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 [OrdinCore] 2026-04-02 11:53:56 [info]: ::1 - - [02/Apr/2026:09:53:56 +0000] "GET /api/v1/companies HTTP/1.1" 200 3165 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 12:55:01 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 12:55:01 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 13:10:09 [error]: Error: CORS blocked: https://ordincore.co.uk
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:45:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-04-02 13:26:01 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 13:26:01 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  

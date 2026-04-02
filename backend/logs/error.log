@@ -94,3 +94,14 @@
     at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
     at processTicksAndRejections (node:internal/process/task_queues:103:5)
     at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 13:10:09 [error]: Error: CORS blocked: https://ordincore.co.uk
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:45:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
