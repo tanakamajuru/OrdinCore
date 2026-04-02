@@ -303,7 +303,26 @@ export default function SuperAdminDashboard() {
     );
   }, [isLoading, companies, paginatedCompanies, currentPage, itemsPerPage, totalPages, newAdmin]);
 
+  const statsCards = useMemo(() => {
+
+    return [
+      { label: "Total Organisations", value: stats.totalCompanies, icon: Building2, color: "bg-blue-50 text-blue-700" },
+      { label: "Active Organisations", value: stats.activeCompanies, icon: CheckCircle, color: "bg-green-50 text-green-700" },
+      { label: "Total Users", value: stats.totalUsers, icon: Users, color: "bg-purple-50 text-purple-700" },
+      { label: "System Health", value: stats.systemHealth, icon: Activity, color: "bg-emerald-50 text-emerald-700" },
+    ].map((stat, idx) => (
+      <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+        <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center mb-3`}>
+          <stat.icon className="w-5 h-5" />
+        </div>
+        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
+        <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+      </div>
+    ));
+  }, [stats]);
+
   return (
+
     <div className="min-h-screen bg-gray-50 font-sans">
       {/* Top navigation */}
       <nav className="bg-black text-white px-6 py-4 flex items-center justify-between shadow-lg">
@@ -336,22 +355,36 @@ export default function SuperAdminDashboard() {
         )}
 
         {/* Header */}
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8 flex items-center justify-between relative z-10">
           <div>
             <h1 className="text-3xl font-bold text-gray-900">Platform Dashboard</h1>
             <p className="text-gray-500 mt-1">Manage all organisations on the OrdinCore platform</p>
           </div>
           <div className="flex gap-3">
             <button
-              onClick={() => { setShowCreateAdmin(true); setFormError(""); setFormSuccess(""); }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-black text-black font-medium hover:bg-gray-100 transition-colors"
+              id="create-admin-btn"
+              type="button"
+              onClick={() => {
+                console.log("Create Admin Clicked");
+                setShowCreateAdmin(true);
+                setFormError("");
+                setFormSuccess("");
+              }}
+              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-black text-black font-medium hover:bg-gray-100 transition-colors cursor-pointer relative z-20"
             >
               <UserPlus className="w-4 h-4" />
               Create Company Admin
             </button>
             <button
-              onClick={() => { setShowCreateOrg(true); setFormError(""); setFormSuccess(""); }}
-              className="flex items-center gap-2 px-5 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors"
+              id="create-org-btn"
+              type="button"
+              onClick={() => {
+                console.log("Create Org Clicked");
+                setShowCreateOrg(true);
+                setFormError("");
+                setFormSuccess("");
+              }}
+              className="flex items-center gap-2 px-5 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors cursor-pointer relative z-20"
             >
               <Plus className="w-4 h-4" />
               Create Organisation
@@ -361,21 +394,9 @@ export default function SuperAdminDashboard() {
 
         {/* Platform Stats */}
         <div className="grid grid-cols-4 gap-4 mb-8">
-          {[
-            { label: "Total Organisations", value: stats.totalCompanies, icon: Building2, color: "bg-blue-50 text-blue-700" },
-            { label: "Active Organisations", value: stats.activeCompanies, icon: CheckCircle, color: "bg-green-50 text-green-700" },
-            { label: "Total Users", value: stats.totalUsers, icon: Users, color: "bg-purple-50 text-purple-700" },
-            { label: "System Health", value: stats.systemHealth, icon: Activity, color: "bg-emerald-50 text-emerald-700" },
-          ].map((stat, idx) => (
-            <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
-              <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center mb-3`}>
-                <stat.icon className="w-5 h-5" />
-              </div>
-              <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
-            </div>
-          ))}
+          {statsCards}
         </div>
+
 
         {/* Organisations Table */}
         <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
