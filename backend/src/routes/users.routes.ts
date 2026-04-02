@@ -89,6 +89,8 @@ router.get('/:id', requireAuth, requireTenant, usersController.findById.bind(use
  *         description: Success
  */
 router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.update.bind(usersController));
+
+router.patch('/:id/password', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.resetPassword.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:

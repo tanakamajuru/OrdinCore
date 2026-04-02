@@ -44,12 +44,15 @@ export const usersRepo = {
              u.role, u.status, (u.status = 'active') as is_active,
              u.created_at, u.updated_at,
              u.pulse_days,
-             COALESCE(uh.house_id, h_direct.id) AS assigned_house_id,
-             COALESCE(h.name, h_direct.name) AS assigned_house_name
+             COALESCE(
+               (SELECT CASE WHEN COUNT(*) > 1 THEN 'all' ELSE MAX(house_id::text) END FROM user_houses WHERE user_id = u.id),
+               (SELECT CASE WHEN COUNT(*) > 1 THEN 'all' ELSE MAX(id::text) END FROM houses WHERE manager_id = u.id)
+             ) AS assigned_house_id,
+             COALESCE(
+               (SELECT CASE WHEN COUNT(*) > 1 THEN 'All Sites' ELSE MAX(h.name) END FROM user_houses uh JOIN houses h ON h.id = uh.house_id WHERE uh.user_id = u.id),
+               (SELECT CASE WHEN COUNT(*) > 1 THEN 'All Sites' ELSE MAX(name) END FROM houses WHERE manager_id = u.id)
+             ) AS assigned_house_name
       FROM users u
-      LEFT JOIN user_houses uh ON uh.user_id = u.id
-      LEFT JOIN houses h ON h.id = uh.house_id
-      LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
       WHERE 1=1 ${isSuperAdmin ? '' : 'AND u.company_id = $1'}
     `;
     const params: unknown[] = isSuperAdmin ? [] : [company_id];
@@ -136,6 +139,10 @@ export const usersRepo = {
       [user_id, house_id, company_id, role_in_house || null]
     );
     return result.rows[0];
+  },
+
+  async clearAssignedHouses(user_id: string) {
+    await query(`DELETE FROM user_houses WHERE user_id = $1`, [user_id]);
   },
 
   async getHouses(user_id: string) {

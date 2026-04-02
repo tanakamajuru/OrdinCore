@@ -109,4 +109,6 @@ router.get('/me', requireAuth, authController.me.bind(authController));
  */
 router.post('/change-password', requireAuth, authController.changePassword.bind(authController));
 
+router.post('/forgot-password', authController.forgotPassword.bind(authController));
+
 export default router;

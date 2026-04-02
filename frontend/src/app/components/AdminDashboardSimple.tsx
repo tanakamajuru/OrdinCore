@@ -97,7 +97,7 @@ const AdminDashboardSimple: React.FC = () => {
 
         <div className="bg-white border-2 border-black p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Total Houses</h3>
+            <h3 className="text-sm font-medium">Total Sites</h3>
             <Building className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
@@ -113,7 +113,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
           <div>
             <div className="text-2xl font-bold">{stats.occupancyRate}%</div>
-            <p className="text-xs text-muted-foreground">Across all houses</p>
+            <p className="text-xs text-muted-foreground">Across all sites</p>
           </div>
         </div>
 
@@ -155,22 +155,22 @@ const AdminDashboardSimple: React.FC = () => {
 
         <div className="bg-white border-2 border-black p-6">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">House Management</h3>
+            <h3 className="text-lg font-semibold">Site Management</h3>
             <p className="text-sm text-muted-foreground">
               Manage care homes and facilities
             </p>
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center">
-              <span>Total Houses</span>
+              <span>Total Sites</span>
               <span className="font-bold">{stats.totalHouses}</span>
             </div>
             <div className="flex justify-between items-center">
-              <span>Active Houses</span>
+              <span>Active Sites</span>
               <span className="font-bold text-green-600">{stats.activeHouses}</span>
             </div>
             <Button onClick={() => navigate('/admin-houses')} className="w-full">
-              Manage Houses
+              Manage Sites
             </Button>
           </div>
         </div>

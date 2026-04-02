@@ -146,6 +146,25 @@ export class AuthController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  /**
+   * @swagger
+   * /auth/forgot-password:
+   *   post:
+   *     tags: [Auth]
+   *     summary: Reset password to "default"
+   */
+  async forgotPassword(req: Request, res: Response) {
+    try {
+      const { email } = req.body;
+      if (!email) return res.status(400).json({ success: false, message: 'Email required', errors: [] });
+      await authService.resetToDefault(email);
+      return res.json({ success: true, message: 'Password reset to default successfully', meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Password reset failed';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const authController = new AuthController();

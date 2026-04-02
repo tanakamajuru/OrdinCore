@@ -8,7 +8,7 @@ export function ForgottenPassword() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [error, setError] = useState("");
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!email) {
@@ -23,10 +23,25 @@ export function ForgottenPassword() {
       return;
     }
     
-    // Simulate password reset request
-    console.log("Password reset requested for:", email);
-    setIsSubmitted(true);
-    setError("");
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/auth/forgot-password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ email }),
+      });
+
+      if (response.ok) {
+        setIsSubmitted(true);
+        setError("");
+      } else {
+        const errorData = await response.json();
+        setError(errorData.message || "Failed to reset password. User may not exist.");
+      }
+    } catch (err: any) {
+      setError("Network error occurred");
+    }
   };
 
   if (isSubmitted) {
@@ -41,13 +56,13 @@ export function ForgottenPassword() {
 
             <div className="bg-gray-50 border-2 border-gray-300 p-4 mb-6">
               <p className="text-sm text-gray-600 text-center">
-                We've sent password reset instructions to:
+                Your password has been successfully reset!
               </p>
-              <p className="text-black font-medium text-center mt-2">{email}</p>
+              <p className="text-black font-medium text-center mt-2"> Temporary password: default</p>
             </div>
 
             <div className="text-sm text-gray-600 text-center mb-6">
-              <p>If you don't receive the email within a few minutes, please check your spam folder.</p>
+              <p>Please log in with the default password and change your password immediately in account settings.</p>
             </div>
 
             <div className="space-y-4">
@@ -65,7 +80,7 @@ export function ForgottenPassword() {
                 }}
                 className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
               >
-                Try Different Email
+                Reset another account
               </button>
             </div>
           </div>
@@ -117,7 +132,7 @@ export function ForgottenPassword() {
               type="submit"
               className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors font-medium"
             >
-              Send Reset Instructions
+              Reset to Default Password
             </button>
 
             <div className="text-center">

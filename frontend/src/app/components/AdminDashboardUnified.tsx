@@ -70,7 +70,7 @@ const AdminDashboardUnified: React.FC = () => {
         // Mock recent activity for now if endpoint doesn't exist
         setRecentActivity([
           { id: '1', type: 'user', description: 'New user registered: John Doe', timestamp: '5 mins ago', user: 'Admin' },
-          { id: '2', type: 'house', description: 'House status updated: Sunshine Care', timestamp: '1 hour ago', user: 'Admin' },
+          { id: '2', type: 'house', description: 'Site status updated: Sunshine Care', timestamp: '1 hour ago', user: 'Admin' },
           { id: '3', type: 'risk', description: 'High severity risk flagged at Site A', timestamp: '2 hours ago', user: 'System' }
         ]);
       } catch (error) {
@@ -93,11 +93,11 @@ const AdminDashboardUnified: React.FC = () => {
       stats: `${stats?.totalUsers || 0} total users`
     },
     {
-      title: 'House Management',
+      title: 'Site Management',
       description: 'Manage care homes and facilities',
       icon: <Building className="h-8 w-8 text-success" />,
       action: () => navigate('/admin-houses'),
-      stats: `${stats?.totalHouses || 0} total houses`
+      stats: `${stats?.totalHouses || 0} total sites`
     },
     {
       title: 'Pulse Management',
@@ -140,7 +140,7 @@ const AdminDashboardUnified: React.FC = () => {
           changeType="increase"
         />
         <AdminStatsCard
-          title="Total Houses"
+          title="Total Sites"
           value={stats?.totalHouses || 0}
           icon={<Building className="h-6 w-6 text-success" />}
           change={stats?.totalHouses ? Math.round((stats.activeHouses / stats.totalHouses) * 100) : 0}

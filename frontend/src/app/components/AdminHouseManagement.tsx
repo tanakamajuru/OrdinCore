@@ -7,6 +7,7 @@ import { Badge } from "./ui/badge";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "./ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "./ui/alert-dialog";
+import { Switch } from "./ui/switch";
 import { Building, Home, Edit, Trash2, Search, Users, Key } from "lucide-react";
 import { toast } from "sonner";
 
@@ -42,7 +43,7 @@ interface HouseStats {
 const HouseForm = ({ formData, managers, onChange }: { formData: any, managers: any[], onChange: (field: string, value: any) => void }) => (
   <div className="grid gap-4 py-4">
     {[
-      { id: "name", label: "House Name", placeholder: "e.g. Oakwood House", field: "name" },
+      { id: "name", label: "Site Name", placeholder: "e.g. Oakwood Site", field: "name" },
       { id: "address", label: "Address", placeholder: "Street address", field: "address" },
       { id: "city", label: "City", placeholder: "City", field: "city" },
       { id: "county", label: "County", placeholder: "County", field: "county" },
@@ -82,6 +83,10 @@ const HouseForm = ({ formData, managers, onChange }: { formData: any, managers: 
             </SelectContent>
           </Select>
         </div>
+      </div>
+      <div className="flex items-center space-x-2 mt-4 text-sm">
+        <Switch id="isActive" checked={formData.isActive} onCheckedChange={(val) => onChange("isActive", val)} />
+        <Label htmlFor="isActive">Active</Label>
       </div>
   </div>
 );
@@ -129,13 +134,13 @@ const AdminHouseManagement: React.FC = () => {
       if (statusFilter !== "all") params.append("is_active", statusFilter === "active" ? "true" : "false");
 
       const res = await fetch(`${API}/houses?${params}`, { headers: getHeaders() });
-      if (!res.ok) { toast.error("Failed to fetch houses"); return; }
+      if (!res.ok) { toast.error("Failed to fetch sites"); return; }
       const data = await res.json();
       const list = data.data?.houses ?? data.data ?? [];
       setHouses(Array.isArray(list) ? list : []);
       setTotalPages(data.data?.totalPages ?? data.meta?.pages ?? 1);
     } catch (err) {
-      toast.error("Network error loading houses");
+      toast.error("Network error loading sites");
     }
   };
 
@@ -182,14 +187,14 @@ const AdminHouseManagement: React.FC = () => {
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to create house");
+        throw new Error(err.message || "Failed to create site");
       }
-      toast.success("House created successfully");
+      toast.success("Site created successfully");
       setIsCreateDialogOpen(false);
       resetForm();
       fetchHouses();
     } catch (err: any) {
-      toast.error(err.message || "Failed to create house");
+      toast.error(err.message || "Failed to create site");
     }
   };
 
@@ -213,7 +218,7 @@ const AdminHouseManagement: React.FC = () => {
         }),
       });
       if (!res.ok) throw new Error();
-      toast.success("House updated");
+      toast.success("Site updated");
       setIsEditDialogOpen(false);
       fetchHouses();
     } catch {
@@ -229,11 +234,11 @@ const AdminHouseManagement: React.FC = () => {
         headers: getHeaders(),
       });
       if (!res.ok) throw new Error();
-      toast.success("House deleted");
+      toast.success("Site archived");
       setIsDeleteDialogOpen(false);
       fetchHouses();
     } catch {
-      toast.error("Delete failed");
+      toast.error("Archive failed");
     }
   };
 
@@ -273,18 +278,18 @@ const AdminHouseManagement: React.FC = () => {
           <Button variant="outline" onClick={() => window.history.back()}>
             <Key className="mr-2 h-4 w-4" /> Back
           </Button>
-          <h1 className="text-3xl font-bold">House Management</h1>
+          <h1 className="text-3xl font-bold">Site Management</h1>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)}>
-          <Home className="mr-2 h-4 w-4" /> Add House
+          <Home className="mr-2 h-4 w-4" /> Add Site
         </Button>
       </div>
 
       {/* Stats */}
       {stats && (
         <div className="grid md:grid-cols-4 gap-6">
-          <StatCard title="Total Houses" value={stats.total} icon={Building} />
-          <StatCard title="Active Houses" value={stats.active} icon={Building} />
+          <StatCard title="Total Sites" value={stats.total} icon={Building} />
+          <StatCard title="Active Sites" value={stats.active} icon={Building} />
           <StatCard title="Managers Assigned" value={stats.withManager} icon={Users} />
         </div>
       )}
@@ -296,7 +301,7 @@ const AdminHouseManagement: React.FC = () => {
             <Label>Search</Label>
             <div className="relative">
               <Search className="absolute left-2 top-2.5 h-4 w-4" />
-              <Input className="pl-8" placeholder="Search house..." value={searchTerm}
+              <Input className="pl-8" placeholder="Search site..." value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)} />
             </div>
           </div>
@@ -319,8 +324,8 @@ const AdminHouseManagement: React.FC = () => {
         {houses.length === 0 ? (
           <div className="text-center py-12 text-gray-400">
             <Home className="w-12 h-12 mx-auto mb-3 opacity-30" />
-            <p className="font-medium">No houses yet</p>
-            <p className="text-sm">Click "Add House" to create the first care home</p>
+            <p className="font-medium">No sites yet</p>
+            <p className="text-sm">Click "Add Site" to create the first care environment</p>
           </div>
         ) : (
           <Table>
@@ -370,13 +375,13 @@ const AdminHouseManagement: React.FC = () => {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Add New House</DialogTitle>
-            <DialogDescription>Create a new care home or facility for your organisation</DialogDescription>
+            <DialogTitle>Add New Site</DialogTitle>
+            <DialogDescription>Create a new site or facility for your organisation</DialogDescription>
           </DialogHeader>
           <HouseForm formData={formData} managers={managers} onChange={handleFieldChange} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
-            <Button onClick={handleCreateHouse}>Create House</Button>
+            <Button onClick={handleCreateHouse}>Create Site</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -385,7 +390,7 @@ const AdminHouseManagement: React.FC = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit House</DialogTitle>
+            <DialogTitle>Edit Site</DialogTitle>
           </DialogHeader>
           <HouseForm formData={formData} managers={managers} onChange={handleFieldChange} />
           <DialogFooter>
@@ -399,12 +404,12 @@ const AdminHouseManagement: React.FC = () => {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete House?</AlertDialogTitle>
-            <AlertDialogDescription>This action cannot be undone.</AlertDialogDescription>
+            <AlertDialogTitle>Archive Site?</AlertDialogTitle>
+            <AlertDialogDescription>This action will archive the site and remove it from active lists.</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteHouse} className="bg-red-600">Delete</AlertDialogAction>
+            <AlertDialogAction onClick={handleDeleteHouse} className="bg-orange-600">Archive</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

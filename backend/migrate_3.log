@@ -1,0 +1,27 @@
+﻿
+> ordincore-backend@1.0.0 db:migrate C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend
+> ts-node src/scripts/migrate.ts
+
+­ƒôª Connected to PostgreSQL database
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 001_companies.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 002_users.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 003_roles_permissions.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 004_houses.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 005_risks.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 006_incidents.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 006b_incident_events.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 007_governance.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 008_escalations.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 009_notifications.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 010_reports.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 011_analytics.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 012_nullable_companyId_questions.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 012_system.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 013_add_multi_select_type.sql
+[OrdinCore] 2026-04-02 11:50:55 [[32minfo[39m]: Migration already executed: 014_add_team_leader_role.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: Ô£à Migration executed: 015_per_user_pulse_days.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: Ô£à Migration executed: 016_ensure_system_pulse_template.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: Ô£à Migration executed: 017_fix_governance_table_names.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: Ô£à Migration executed: 018_rebrand_to_houses.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: Ô£à Migration executed: 019_add_archived_company_status.sql
+[OrdinCore] 2026-04-02 11:50:58 [[32minfo[39m]: All migrations completed!

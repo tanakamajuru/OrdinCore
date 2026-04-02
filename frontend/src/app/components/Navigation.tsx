@@ -17,7 +17,7 @@ export function Navigation() {
   const adminNavItems = [
     { path: "/admin-dashboard", label: "Dashboard", icon: Home },
     { path: "/admin-users", label: "Users", icon: Users },
-    { path: "/admin-houses", label: "Houses", icon: Building },
+    { path: "/admin-houses", label: "Sites", icon: Building },
     { path: "/admin-pulses", label: "Pulses", icon: Activity },
     { path: "/admin-risks", label: "Risks", icon: AlertTriangle },
     { path: "/admin-settings", label: "Settings", icon: Settings },

@@ -1,4 +1,5 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
+import { Toaster } from "sonner";
 import { AuthProvider } from "@/hooks/useAuth";
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
@@ -45,6 +46,7 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   return (
     <AuthProvider>
+      <Toaster position="top-right" richColors />
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<Login />} />

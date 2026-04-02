@@ -82,3 +82,15 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\report.worker.ts:266:48)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-04-02 11:38:27 [error]: error: column "pulse_days" of relation "users" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 11:38:43 [error]: error: column "pulse_days" of relation "users" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 11:43:59 [error]: error: column gp.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)

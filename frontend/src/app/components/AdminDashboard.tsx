@@ -25,7 +25,7 @@ interface AdminStats {
   totalUsers: number;
   activeUsers: number;
   usersByRole: { role: string; count: string }[];
-  totalHouses: number;
+  totalSites: number;
   recentPulses: number;
 }
 
@@ -422,12 +422,12 @@ const AdminDashboard: React.FC = () => {
           </div>
           <div className="bg-white border-2 border-black p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Total Houses</h2>
+              <h2 className="text-sm font-medium text-black">Total Sites</h2>
               <Building className="h-4 w-4 text-black" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.totalHouses}</div>
+            <div className="text-2xl font-bold text-black">{stats.totalSites ?? (stats as any).totalHouses ?? 0}</div>
             <p className="text-xs text-gray-600">
-              Registered houses
+              Registered sites
             </p>
           </div>
           <div className="bg-white border-2 border-black p-6">

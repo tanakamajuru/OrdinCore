@@ -14,12 +14,20 @@ export class UsersService {
 
     const password_hash = await bcrypt.hash(data.password, 12);
     const status = data.is_active === false ? 'inactive' : 'active';
-    const user = await usersRepo.create({ company_id, email: data.email, password_hash, first_name: data.first_name, last_name: data.last_name, role: data.role, status });
+    const user = await usersRepo.create({ company_id, email: data.email, password_hash, first_name: data.first_name, last_name: data.last_name, role: data.role, status, pulse_days: data.pulse_days });
     await usersRepo.createProfile(user.id, { phone: data.phone, job_title: data.job_title });
 
     // Handle house assignment
     if (data.house_id) {
-      await housesRepo.update(data.house_id, company_id, { manager_id: user.id });
+      if (data.house_id === 'all') {
+        const houses = await housesRepo.findByCompany(company_id, 1000, 0);
+        for (const h of houses) {
+          await usersRepo.assignToHouse(user.id, h.id, company_id);
+        }
+      } else {
+        await housesRepo.update(data.house_id, company_id, { manager_id: user.id });
+        await usersRepo.assignToHouse(user.id, data.house_id, company_id);
+      }
     }
 
     const { password_hash: _, ...safeUser } = user;
@@ -52,12 +60,22 @@ export class UsersService {
     }
 
     // Handle house update
-    if (data.house_id && company_id) {
-      const role = (data.role || user.role).toUpperCase();
-      if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
-        await housesRepo.update(data.house_id, company_id, { manager_id: id });
-      } else if (['TEAM_LEADER', 'TL'].includes(role)) {
-        await usersRepo.assignToHouse(id, data.house_id, company_id);
+    if ('house_id' in data && company_id) {
+      await usersRepo.clearAssignedHouses(id);
+      
+      if (data.house_id) {
+        if (data.house_id === 'all') {
+          const houses = await housesRepo.findByCompany(company_id, 1000, 0);
+          for (const h of houses) {
+            await usersRepo.assignToHouse(id, h.id, company_id);
+          }
+        } else {
+          const role = (data.role || user.role).toUpperCase();
+          if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
+            await housesRepo.update(data.house_id, company_id, { manager_id: id });
+          }
+          await usersRepo.assignToHouse(id, data.house_id, company_id);
+        }
       }
     }
 
@@ -114,6 +132,13 @@ export class UsersService {
     const user = await usersRepo.findById(userId);
     if (!user || user.company_id !== company_id) throw new Error('User not found');
     return usersRepo.updateStatus(userId, 'active');
+  }
+
+  async resetPassword(userId: string, company_id: string, passwordString: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    const password_hash = await bcrypt.hash(passwordString, 12);
+    await usersRepo.update(userId, { password_hash } as any);
   }
 
   async search(company_id: string, queryStr: string, page = 1, limit = 50) {

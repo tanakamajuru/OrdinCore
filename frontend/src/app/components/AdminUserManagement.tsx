@@ -97,7 +97,7 @@ const AdminUserManagement: React.FC = () => {
         limit: '20',
         ...(searchTerm && { search: searchTerm }),
         ...(roleFilter && roleFilter !== 'all' && { role: roleFilter }),
-        ...(statusFilter && statusFilter !== 'all' && { is_active: statusFilter === 'active' ? 'true' : 'false' })
+        ...(statusFilter && statusFilter !== 'all' && { status: statusFilter })
       });
 
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users?${params}`, {
@@ -523,7 +523,7 @@ const AdminUserManagement: React.FC = () => {
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Assigned to Houses</h2>
+              <h2 className="text-sm font-medium text-muted-foreground">Assigned to Sites</h2>
               <Users className="h-4 w-4 text-primary" />
             </div>
             <div className="text-2xl font-bold text-foreground">{stats.assignedToHouse}</div>
@@ -594,7 +594,7 @@ const AdminUserManagement: React.FC = () => {
                   <TableHead className="text-primary font-bold">Name</TableHead>
                   <TableHead className="text-primary font-bold">Email</TableHead>
                   <TableHead className="text-primary font-bold">Role</TableHead>
-                  <TableHead className="text-primary font-bold">Assigned House</TableHead>
+                  <TableHead className="text-primary font-bold">Assigned Site</TableHead>
                   <TableHead className="text-primary font-bold">Pulse Days</TableHead>
                   <TableHead className="text-primary font-bold">Status</TableHead>
                   <TableHead className="text-primary font-bold">Created</TableHead>
@@ -639,6 +639,7 @@ const AdminUserManagement: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => openEditDialog(user)}
+                          title="Edit User"
                         >
                           <Edit className="h-4 w-4" />
                         </Button>
@@ -653,7 +654,8 @@ const AdminUserManagement: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => openDeleteDialog(user)}
-                          className="text-red-600 hover:text-red-800"
+                          className="text-orange-600 hover:text-orange-800"
+                          title="Archive User"
                         >
                           <Trash2 className="h-4 w-4" />
                         </Button>
@@ -765,13 +767,14 @@ const AdminUserManagement: React.FC = () => {
             )}
             {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
-                <Label htmlFor="assignedHouse">Assigned House</Label>
+                <Label htmlFor="assignedHouse">Assigned Site</Label>
                 <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select house" />
+                    <SelectValue placeholder="Select site" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No house assigned</SelectItem>
+                    <SelectItem value="none">No site assigned</SelectItem>
+                    <SelectItem value="all">All Sites</SelectItem>
                     {houses.map((house) => (
                       <SelectItem key={house.id} value={house.id}>
                         {house.name} ({house.house_code})
@@ -893,13 +896,14 @@ const AdminUserManagement: React.FC = () => {
             )}
             {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
               <div>
-                <Label htmlFor="edit-assignedHouse">Assigned House</Label>
+                <Label htmlFor="edit-assignedHouse">Assigned Site</Label>
                 <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select house" />
+                    <SelectValue placeholder="Select site" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">No house assigned</SelectItem>
+                    <SelectItem value="none">No site assigned</SelectItem>
+                    <SelectItem value="all">All Sites</SelectItem>
                     {houses.map((house) => (
                       <SelectItem key={house.id} value={house.id}>
                         {house.name} ({house.house_code})
@@ -997,20 +1001,19 @@ const AdminUserManagement: React.FC = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Delete User Dialog */}
+      {/* Archive User Dialog */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogTitle>Archive User?</AlertDialogTitle>
             <AlertDialogDescription>
-              This action cannot be undone. This will permanently delete the user account
-              for {selectedUser?.name} ({selectedUser?.email}).
+              This will archive the user account for {selectedUser?.name} ({selectedUser?.email}). They will no longer be able to log in, but their historical data will be preserved.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-red-600 hover:bg-red-800">
-              Delete
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-orange-600 hover:bg-orange-800">
+              Archive
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1020,9 +1023,9 @@ const AdminUserManagement: React.FC = () => {
       <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reassign House Manager</DialogTitle>
+            <DialogTitle>Reassign Site Manager</DialogTitle>
             <DialogDescription>
-              {userToDelete?.name} is currently managing a house. Please select a new manager before deleting this user.
+              {userToDelete?.name} is currently managing a site. Please select a new manager before archiving this user.
             </DialogDescription>
           </DialogHeader>
 
@@ -1058,7 +1061,7 @@ const AdminUserManagement: React.FC = () => {
               Cancel
             </Button>
             <Button onClick={handleReassignHouse}>
-              Reassign & Delete User
+              Reassign & Archive User
             </Button>
           </DialogFooter>
         </DialogContent>

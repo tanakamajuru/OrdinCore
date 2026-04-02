@@ -81,6 +81,13 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
+  async resetToDefault(email: string) {
+    const user = await usersRepo.findByEmail(email);
+    if (!user) throw new Error('User not found');
+    const hash = await bcrypt.hash('default', 12);
+    await usersRepo.update(user.id, { password_hash: hash } as any);
+  }
+
   async refreshToken(token: string) {
     let payload: { user_id: string };
     try {

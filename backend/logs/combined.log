@@ -8179,3 +8179,360 @@
 [OrdinCore] 2026-03-31 10:32:22 [info]: ::1 - - [31/Mar/2026:08:32:22 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 61 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 [OrdinCore] 2026-03-31 10:32:38 [info]: ::1 - - [31/Mar/2026:08:32:38 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
 [OrdinCore] 2026-03-31 10:32:39 [info]: ::1 - - [31/Mar/2026:08:32:39 +0000] "GET /api/v1/companies HTTP/1.1" 200 2545 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:01:00 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:01:00 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:01:32 [info]: ::1 - - [02/Apr/2026:07:01:32 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 596 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:02:01 [info]: ::1 - - [02/Apr/2026:07:02:01 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 61 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:02:07 [info]: ::1 - - [02/Apr/2026:07:02:07 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 61 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:02:21 [info]: ::1 - - [02/Apr/2026:07:02:21 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:02:21 [info]: ::1 - - [02/Apr/2026:07:02:21 +0000] "GET /api/v1/companies HTTP/1.1" 200 2545 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:18:00 [info]: ::1 - - [02/Apr/2026:07:18:00 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:27:20 [info]: ::1 - - [02/Apr/2026:07:27:20 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:29:15 [info]: ::1 - - [02/Apr/2026:07:29:15 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 596 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:29:15 [info]: ::1 - - [02/Apr/2026:07:29:15 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:30:41 [info]: ::1 - - [02/Apr/2026:07:30:41 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:30:41 [info]: ::1 - - [02/Apr/2026:07:30:41 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:21 [info]: ::1 - - [02/Apr/2026:07:34:21 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 596 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:31 [info]: ::1 - - [02/Apr/2026:07:34:31 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1096 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:31 [info]: ::1 - - [02/Apr/2026:07:34:31 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:31 [info]: ::1 - - [02/Apr/2026:07:34:31 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:44 [info]: ::1 - - [02/Apr/2026:07:34:44 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 634 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:44 [info]: ::1 - - [02/Apr/2026:07:34:44 +0000] "GET /api/v1/users?page=1&limit=20&is_active=true HTTP/1.1" 200 1979 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:44 [info]: ::1 - - [02/Apr/2026:07:34:44 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1980 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:34:44 [info]: ::1 - - [02/Apr/2026:07:34:44 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 523 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:08 [info]: ::1 - - [02/Apr/2026:07:35:08 +0000] "PATCH /api/v1/users/cb36f075-6084-4598-b963-e2532d9b3bd4 HTTP/1.1" 200 575 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:08 [info]: ::1 - - [02/Apr/2026:07:35:08 +0000] "GET /api/v1/users?page=1&limit=20&is_active=true HTTP/1.1" 200 1572 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:08 [info]: ::1 - - [02/Apr/2026:07:35:08 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1999 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:35 [info]: ::1 - - [02/Apr/2026:07:35:35 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:35 [info]: ::1 - - [02/Apr/2026:07:35:35 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:42 [info]: ::1 - - [02/Apr/2026:07:35:42 +0000] "GET /api/v1/users?limit=100 HTTP/1.1" 200 1999 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:35:42 [info]: ::1 - - [02/Apr/2026:07:35:42 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 530 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:36:22 [info]: ::1 - - [02/Apr/2026:07:36:22 +0000] "POST /api/v1/houses HTTP/1.1" 201 413 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:36:23 [info]: ::1 - - [02/Apr/2026:07:36:23 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 961 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:51 [info]: ::1 - - [02/Apr/2026:07:38:51 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:51 [info]: ::1 - - [02/Apr/2026:07:38:51 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 200 74 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:59 [info]: ::1 - - [02/Apr/2026:07:38:59 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:59 [info]: ::1 - - [02/Apr/2026:07:38:59 +0000] "GET /api/v1/users?page=1&limit=20&is_active=true HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:59 [info]: ::1 - - [02/Apr/2026:07:38:59 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 962 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:38:59 [info]: ::1 - - [02/Apr/2026:07:38:59 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:43:56 [info]: ::1 - - [02/Apr/2026:07:43:56 +0000] "GET /api/v1/users?page=1&limit=20 HTTP/1.1" 200 1998 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:43:56 [info]: ::1 - - [02/Apr/2026:07:43:56 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:44:02 [info]: ::1 - - [02/Apr/2026:07:44:02 +0000] "GET /api/v1/users?page=1&limit=20&is_active=false HTTP/1.1" 200 500 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:44:02 [info]: ::1 - - [02/Apr/2026:07:44:02 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:44:04 [info]: ::1 - - [02/Apr/2026:07:44:04 +0000] "GET /api/v1/users?page=1&limit=20 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:44:04 [info]: ::1 - - [02/Apr/2026:07:44:04 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:53:37 [info]: ::1 - - [02/Apr/2026:07:53:37 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:53:37 [info]: ::1 - - [02/Apr/2026:07:53:37 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:53:38 [info]: ::1 - - [02/Apr/2026:07:53:38 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:53:38 [info]: ::1 - - [02/Apr/2026:07:53:38 +0000] "GET /api/v1/users?page=1&limit=20 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:24 [info]: ::1 - - [02/Apr/2026:07:54:24 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:24 [info]: ::1 - - [02/Apr/2026:07:54:24 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:24 [info]: ::1 - - [02/Apr/2026:07:54:24 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:24 [info]: ::1 - - [02/Apr/2026:07:54:24 +0000] "GET /api/v1/users?page=1&limit=20 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:34 [info]: ::1 - - [02/Apr/2026:07:54:34 +0000] "GET /api/v1/users?page=1&limit=20 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:34 [info]: ::1 - - [02/Apr/2026:07:54:34 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:34 [info]: ::1 - - [02/Apr/2026:07:54:34 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:35 [info]: ::1 - - [02/Apr/2026:07:54:35 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 09:54:50 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:54:50 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:55:13 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:55:13 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:55:41 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:55:41 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:55:58 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:55:58 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:56:48 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:56:48 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:57:06 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:57:06 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:57:57 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:57:57 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 09:58:27 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 09:58:27 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 10:55:11 [info]: ::1 - - [02/Apr/2026:08:55:11 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:55:32 [info]: ::1 - - [02/Apr/2026:08:55:32 +0000] "POST /api/v1/auth/forgot-password HTTP/1.1" 400 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:55:59 [info]: ::1 - - [02/Apr/2026:08:55:59 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1096 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:55:59 [info]: ::1 - - [02/Apr/2026:08:55:59 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:55:59 [info]: ::1 - - [02/Apr/2026:08:55:59 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:56:19 [info]: ::1 - - [02/Apr/2026:08:56:19 +0000] "POST /api/v1/auth/forgot-password HTTP/1.1" 200 77 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:56:41 [info]: ::1 - - [02/Apr/2026:08:56:41 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 61 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:56:54 [info]: ::1 - - [02/Apr/2026:08:56:54 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1096 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:56:54 [info]: ::1 - - [02/Apr/2026:08:56:54 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:56:54 [info]: ::1 - - [02/Apr/2026:08:56:54 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:12 [info]: ::1 - - [02/Apr/2026:08:57:12 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:12 [info]: ::1 - - [02/Apr/2026:08:57:12 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:12 [info]: ::1 - - [02/Apr/2026:08:57:12 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 634 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:12 [info]: ::1 - - [02/Apr/2026:08:57:12 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:16 [info]: ::1 - - [02/Apr/2026:08:57:16 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:16 [info]: ::1 - - [02/Apr/2026:08:57:16 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:16 [info]: ::1 - - [02/Apr/2026:08:57:16 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:16 [info]: ::1 - - [02/Apr/2026:08:57:16 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:57:16 [info]: ::1 - - [02/Apr/2026:08:57:16 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:58:38 [info]: ::1 - - [02/Apr/2026:08:58:38 +0000] "POST /api/v1/users HTTP/1.1" 201 527 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:58:38 [info]: ::1 - - [02/Apr/2026:08:58:38 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:58:38 [info]: ::1 - - [02/Apr/2026:08:58:38 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:06 [info]: ::1 - - [02/Apr/2026:08:59:06 +0000] "GET /api/v1/users?page=1&limit=20&status=inactive HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:06 [info]: ::1 - - [02/Apr/2026:08:59:06 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:15 [info]: ::1 - - [02/Apr/2026:08:59:15 +0000] "GET /api/v1/users?page=1&limit=20&search=J&status=inactive HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:15 [info]: ::1 - - [02/Apr/2026:08:59:15 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:24 [info]: ::1 - - [02/Apr/2026:08:59:24 +0000] "GET /api/v1/users?page=1&limit=20&search=J&status=active HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:24 [info]: ::1 - - [02/Apr/2026:08:59:24 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 500 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:56 [info]: ::1 - - [02/Apr/2026:08:59:56 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 401 59 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 10:59:56 [info]: ::1 - - [02/Apr/2026:08:59:56 +0000] "GET /favicon.ico HTTP/1.1" 404 75 "-" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:00:21 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-02 11:00:21 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-02 11:04:38 [info]: ::1 - - [02/Apr/2026:09:04:38 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:04:52 [info]: ::1 - - [02/Apr/2026:09:04:52 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1096 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:04:52 [info]: ::1 - - [02/Apr/2026:09:04:52 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:04:52 [info]: ::1 - - [02/Apr/2026:09:04:52 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:03 [info]: ::1 - - [02/Apr/2026:09:05:03 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 1934 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:03 [info]: ::1 - - [02/Apr/2026:09:05:03 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2361 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:03 [info]: ::1 - - [02/Apr/2026:09:05:03 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 634 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:03 [info]: ::1 - - [02/Apr/2026:09:05:03 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:46 [info]: ::1 - - [02/Apr/2026:09:05:46 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:05:46 [info]: ::1 - - [02/Apr/2026:09:05:46 +0000] "GET /api/v1/users?page=1&limit=20&status=inactive HTTP/1.1" 200 500 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:07:47 [info]: ::1 - - [02/Apr/2026:09:07:47 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:07:47 [info]: ::1 - - [02/Apr/2026:09:07:47 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:07:59 [info]: ::1 - - [02/Apr/2026:09:07:59 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:07:59 [info]: ::1 - - [02/Apr/2026:09:07:59 +0000] "GET /api/v1/users?limit=100 HTTP/1.1" 200 2361 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:09:55 [info]: ::1 - - [02/Apr/2026:09:09:55 +0000] "POST /api/v1/houses HTTP/1.1" 201 418 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:09:55 [info]: ::1 - - [02/Apr/2026:09:09:55 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 1397 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:37 [info]: ::1 - - [02/Apr/2026:09:10:37 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:37 [info]: ::1 - - [02/Apr/2026:09:10:37 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 200 74 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:57 [info]: ::1 - - [02/Apr/2026:09:10:57 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:57 [info]: ::1 - - [02/Apr/2026:09:10:57 +0000] "GET /api/v1/auth/me HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:57 [info]: ::1 - - [02/Apr/2026:09:10:57 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:10:57 [info]: ::1 - - [02/Apr/2026:09:10:57 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 1398 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:13:05 [info]: ::1 - - [02/Apr/2026:09:13:05 +0000] "POST /api/v1/users HTTP/1.1" 201 550 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:13:05 [info]: ::1 - - [02/Apr/2026:09:13:05 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2746 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:13:05 [info]: ::1 - - [02/Apr/2026:09:13:05 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2319 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:13:47 [info]: ::1 - - [02/Apr/2026:09:13:47 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:13:47 [info]: ::1 - - [02/Apr/2026:09:13:47 +0000] "GET /api/v1/users?page=1&limit=20&status=inactive HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:14:07 [info]: ::1 - - [02/Apr/2026:09:14:07 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:14:07 [info]: ::1 - - [02/Apr/2026:09:14:07 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:14:43 [info]: ::1 - - [02/Apr/2026:09:14:43 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:14:43 [info]: ::1 - - [02/Apr/2026:09:14:43 +0000] "GET /api/v1/companies HTTP/1.1" 200 2545 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:15:33 [info]: ::1 - - [02/Apr/2026:09:15:33 +0000] "POST /api/v1/companies HTTP/1.1" 201 302 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:15:33 [info]: ::1 - - [02/Apr/2026:09:15:33 +0000] "GET /api/v1/companies HTTP/1.1" 200 2849 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:19:57 [info]: ::1 - - [02/Apr/2026:09:19:57 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:21:20 [info]: ::1 - - [02/Apr/2026:09:21:20 +0000] "POST /api/v1/companies HTTP/1.1" 201 308 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:21:20 [info]: ::1 - - [02/Apr/2026:09:21:20 +0000] "GET /api/v1/companies HTTP/1.1" 200 3160 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:22:14 [info]: ::1 - - [02/Apr/2026:09:22:14 +0000] "POST /api/v1/users HTTP/1.1" 201 521 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:22:44 [info]: ::1 - - [02/Apr/2026:09:22:44 +0000] "POST /api/v1/users HTTP/1.1" 201 521 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:16 [info]: ::1 - - [02/Apr/2026:09:23:16 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1085 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:16 [info]: ::1 - - [02/Apr/2026:09:23:16 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:16 [info]: ::1 - - [02/Apr/2026:09:23:16 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 200 74 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:27 [info]: ::1 - - [02/Apr/2026:09:23:27 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 771 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:27 [info]: ::1 - - [02/Apr/2026:09:23:27 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 956 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:27 [info]: ::1 - - [02/Apr/2026:09:23:27 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 770 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:27 [info]: ::1 - - [02/Apr/2026:09:23:27 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 76 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:47 [info]: ::1 - - [02/Apr/2026:09:23:47 +0000] "DELETE /api/v1/users/476d46e6-e879-40d2-ab11-647bbb6f1a1e HTTP/1.1" 200 64 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:47 [info]: ::1 - - [02/Apr/2026:09:23:47 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 422 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:23:47 [info]: ::1 - - [02/Apr/2026:09:23:47 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 774 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:24:30 [info]: ::1 - - [02/Apr/2026:09:24:30 +0000] "POST /api/v1/users HTTP/1.1" 400 62 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:24:38 [info]: ::1 - - [02/Apr/2026:09:24:38 +0000] "POST /api/v1/users HTTP/1.1" 400 62 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:25:00 [info]: ::1 - - [02/Apr/2026:09:25:00 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:25:00 [info]: ::1 - - [02/Apr/2026:09:25:00 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:25:18 [info]: ::1 - - [02/Apr/2026:09:25:18 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:25:18 [info]: ::1 - - [02/Apr/2026:09:25:18 +0000] "GET /api/v1/companies HTTP/1.1" 200 3160 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:32:27 [info]: ::1 - - [02/Apr/2026:09:32:27 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:32:28 [info]: ::1 - - [02/Apr/2026:09:32:28 +0000] "GET /api/v1/companies HTTP/1.1" 200 3160 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:32:41 [info]: ::1 - - [02/Apr/2026:09:32:41 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:32:42 [info]: ::1 - - [02/Apr/2026:09:32:42 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:33:06 [info]: ::1 - - [02/Apr/2026:09:33:06 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:33:07 [info]: ::1 - - [02/Apr/2026:09:33:07 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:33:32 [info]: ::1 - - [02/Apr/2026:09:33:32 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:33:33 [info]: ::1 - - [02/Apr/2026:09:33:33 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:34:07 [info]: ::1 - - [02/Apr/2026:09:34:07 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:34:07 [info]: ::1 - - [02/Apr/2026:09:34:07 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 596 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:34:42 [info]: ::1 - - [02/Apr/2026:09:34:42 +0000] "PATCH /api/v1/companies/68505153-47e6-4c87-b311-b7d04f4111d4 HTTP/1.1" 400 129 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:34:57 [info]: ::1 - - [02/Apr/2026:09:34:57 +0000] "PATCH /api/v1/companies/68505153-47e6-4c87-b311-b7d04f4111d4 HTTP/1.1" 400 129 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:35:51 [info]: ::1 - - [02/Apr/2026:09:35:51 +0000] "PATCH /api/v1/companies/47a3b162-c906-472d-8b5e-b3b26e6ca535 HTTP/1.1" 200 305 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:35:51 [info]: ::1 - - [02/Apr/2026:09:35:51 +0000] "GET /api/v1/companies HTTP/1.1" 200 3163 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:36:10 [info]: ::1 - - [02/Apr/2026:09:36:10 +0000] "PATCH /api/v1/companies/47a3b162-c906-472d-8b5e-b3b26e6ca535 HTTP/1.1" 200 302 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:36:10 [info]: ::1 - - [02/Apr/2026:09:36:10 +0000] "GET /api/v1/companies HTTP/1.1" 200 3160 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:36:31 [info]: ::1 - - [02/Apr/2026:09:36:31 +0000] "PATCH /api/v1/companies/47a3b162-c906-472d-8b5e-b3b26e6ca535 HTTP/1.1" 200 305 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:36:31 [info]: ::1 - - [02/Apr/2026:09:36:31 +0000] "GET /api/v1/companies HTTP/1.1" 200 3163 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:36:45 [info]: ::1 - - [02/Apr/2026:09:36:45 +0000] "PATCH /api/v1/companies/47a3b162-c906-472d-8b5e-b3b26e6ca535 HTTP/1.1" 400 129 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/146.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 001_companies.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 002_users.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 003_roles_permissions.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 004_houses.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 005_risks.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 006_incidents.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 006b_incident_events.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 007_governance.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 008_escalations.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 009_notifications.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 010_reports.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 011_analytics.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 012_nullable_companyId_questions.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 012_system.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 013_add_multi_select_type.sql
+[OrdinCore] 2026-04-02 11:38:27 [info]: Migration already executed: 014_add_team_leader_role.sql
+[OrdinCore] 2026-04-02 11:38:27 [error]: error: column "pulse_days" of relation "users" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 001_companies.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 002_users.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 003_roles_permissions.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 004_houses.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 005_risks.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 006_incidents.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 006b_incident_events.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 007_governance.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 008_escalations.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 009_notifications.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 010_reports.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 011_analytics.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 012_nullable_companyId_questions.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 012_system.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 013_add_multi_select_type.sql
+[OrdinCore] 2026-04-02 11:38:43 [info]: Migration already executed: 014_add_team_leader_role.sql
+[OrdinCore] 2026-04-02 11:38:43 [error]: error: column "pulse_days" of relation "users" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 001_companies.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 002_users.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 003_roles_permissions.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 004_houses.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 005_risks.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 006_incidents.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 006b_incident_events.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 007_governance.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 008_escalations.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 009_notifications.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 010_reports.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 011_analytics.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 012_nullable_companyId_questions.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 012_system.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 013_add_multi_select_type.sql
+[OrdinCore] 2026-04-02 11:43:59 [info]: Migration already executed: 014_add_team_leader_role.sql
+[OrdinCore] 2026-04-02 11:43:59 [error]: error: column gp.house_id does not exist
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:40:9)
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 001_companies.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 002_users.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 003_roles_permissions.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 004_houses.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 005_risks.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 006_incidents.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 006b_incident_events.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 007_governance.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 008_escalations.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 009_notifications.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 010_reports.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 011_analytics.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 012_nullable_companyId_questions.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 012_system.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 013_add_multi_select_type.sql
+[OrdinCore] 2026-04-02 11:50:55 [info]: Migration already executed: 014_add_team_leader_role.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: ✅ Migration executed: 015_per_user_pulse_days.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: ✅ Migration executed: 016_ensure_system_pulse_template.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: ✅ Migration executed: 017_fix_governance_table_names.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: ✅ Migration executed: 018_rebrand_to_houses.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: ✅ Migration executed: 019_add_archived_company_status.sql
+[OrdinCore] 2026-04-02 11:50:58 [info]: All migrations completed!

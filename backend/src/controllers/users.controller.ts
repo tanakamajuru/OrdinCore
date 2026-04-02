@@ -57,6 +57,18 @@ export class UsersController {
     }
   }
 
+  async resetPassword(req: Request, res: Response) {
+    try {
+      const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      const { id } = req.params;
+      await usersService.resetPassword(id, company_id!, req.body.password);
+      return res.json({ success: true, message: 'Password reset successfully' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Reset password failed';
+      return res.status(400).json({ success: false, message });
+    }
+  }
+
   async delete(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
