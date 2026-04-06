@@ -1,9 +1,10 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { pool } from '../config/database';
+import { getPool } from '../config/database';
 import logger from '../utils/logger';
 
 async function runMigrations() {
+  const pool = getPool();
   const client = await pool.connect();
   
   try {

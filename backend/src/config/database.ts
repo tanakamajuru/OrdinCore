@@ -1,10 +1,10 @@
 import { Pool, PoolConfig } from 'pg';
 
 
-let pool: Pool | null = null;
+let poolInstance: Pool | null = null;
 
-export const getPool = () => {
-  if (!pool) {
+export const getPool = (): Pool => {
+  if (!poolInstance) {
     const config: PoolConfig = {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
@@ -15,19 +15,17 @@ export const getPool = () => {
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
     };
-    pool = new Pool(config);
-    pool.on('connect', () => {
+    poolInstance = new Pool(config);
+    poolInstance.on('connect', () => {
       console.log('📦 Connected to PostgreSQL database');
     });
-    pool.on('error', (err) => {
+    poolInstance.on('error', (err) => {
       console.error('Unexpected error on idle client', err);
       process.exit(-1);
     });
   }
-  return pool;
+  return poolInstance;
 };
-
-export { pool }; // For existing imports that haven't shifted
 
 export const query = (text: string, params?: unknown[]) => {
   return getPool().query(text, params);
