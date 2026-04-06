@@ -9,6 +9,11 @@ export interface User {
   organization?: string;
   isActive: boolean;
   pulseDays?: string[];
+  pulse_days?: string[];
+  assigned_house_id?: string;
+  assigned_house_name?: string;
+  profilePicture?: string;
+  profile_picture?: string;
   lastLogin?: string;
   createdAt: string;
   updatedAt: string;

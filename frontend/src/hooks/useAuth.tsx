@@ -11,6 +11,8 @@ interface User {
   company_id?: string;
   assigned_house_id?: string;
   assigned_house_name?: string;
+  pulse_days?: string[];
+  profile_picture?: string;
   isActive?: boolean;
 }
 

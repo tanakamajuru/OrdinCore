@@ -8,6 +8,7 @@ export interface CreateIncidentDto {
   title: string;
   description: string;
   severity?: string;
+  status?: string;
   occurred_at: Date;
   location?: string;
   immediate_action?: string;
@@ -68,10 +69,10 @@ export const incidentsRepo = {
   async create(dto: CreateIncidentDto & { persons_involved?: string[]; follow_up_required?: boolean }) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`,
+      `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
       [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
-       dto.severity || 'moderate', dto.occurred_at, dto.location || null,
+       dto.severity || 'Medium', dto.status || 'Open', dto.occurred_at, dto.location || null,
        dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
        JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false]
     );

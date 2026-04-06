@@ -8,7 +8,8 @@ export interface JwtPayload {
   company_id: string | null;
   role: string;
   email: string;
-  assigned_house_id?: string | null;
+  assigned_house_id?: string | null; // Legacy
+  house_ids?: string[];
   iat?: number;
   exp?: number;
 }
@@ -34,14 +35,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     const decoded = jwt.verify(token, secret) as JwtPayload;
 
-    // Verify user still exists and is active, and fetch assigned house
+    // Verify user still exists and is active, and fetch assigned houses
     const result = await query(
       `SELECT u.id, u.company_id, u.email, u.role, u.status, 
-              COALESCE(uh.house_id, h_direct.id) AS assigned_house_id
+              ARRAY_AGG(DISTINCT COALESCE(uh.house_id, h_direct.id)) FILTER (WHERE COALESCE(uh.house_id, h_direct.id) IS NOT NULL) AS house_ids
        FROM users u
        LEFT JOIN user_houses uh ON uh.user_id = u.id
        LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
-       WHERE u.id = $1`,
+       WHERE u.id = $1
+       GROUP BY u.id`,
       [decoded.user_id]
     );
 
@@ -61,7 +63,8 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       company_id: user.company_id,
       role: user.role,
       email: user.email,
-      assigned_house_id: user.assigned_house_id,
+      house_ids: user.house_ids || [],
+      assigned_house_id: user.house_ids && user.house_ids.length > 0 ? user.house_ids[0] : null,
     };
 
     next();

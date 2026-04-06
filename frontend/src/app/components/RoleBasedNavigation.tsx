@@ -8,6 +8,9 @@ export function RoleBasedNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userData = JSON.parse(localStorage.getItem('user') || '{}');
+  const fullName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'User';
+  const userAvatar = userData.profile?.avatar_url || userData.profile_picture;
 
   const getNavigationItems = () => {
     switch (userRole) {
@@ -145,11 +148,24 @@ export function RoleBasedNavigation() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
-            <div className="text-sm text-muted-foreground mr-4">
-              {getRoleLabel()}
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center gap-3 pr-4 border-r-2 border-border">
+              <div className="flex flex-col items-end hidden sm:flex">
+                <span className="text-sm font-bold text-foreground leading-none">{fullName}</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">{getRoleLabel()}</span>
+              </div>
+              <div 
+                className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:border-black transition-colors"
+                onClick={() => navigate('/profile')}
+              >
+                {userAvatar ? (
+                  <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
+                ) : (
+                  <User className="w-5 h-5 text-muted-foreground" />
+                )}
+              </div>
             </div>
-            <Button onClick={handleLogout}>Logout</Button>
+            <Button variant="ghost" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>Logout</Button>
           </div>
         </div>
       </div>

@@ -7,7 +7,6 @@ import apiClient from "@/services/apiClient";
 import { useAuth } from "@/hooks/useAuth";
 
 interface House { id: string; name: string; address: string; }
-interface PulseTemplate { id: string; name: string; }
 interface Question { id: string; question: string; question_type: string; options: string[]; required: boolean; order_index: number; }
 interface Pulse { id: string; status: string; due_date: string; completed_at: string | null; compliance_score: number | null; }
 
@@ -59,14 +58,14 @@ const SYSTEM_TEMPLATE_ID = '00000000-0000-0000-0000-000000000001';
 export function GovernancePulse() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  const userRole = (user?.role || '').toUpperCase();
-  const userId = user?.id;
  
-  const [house, setHouse] = useState<House | null>(null);
+  const [sites, setSites] = useState<House[]>([]);
+  const [selectedSiteId, setSelectedSiteId] = useState<string>('');
+  const [site, setSite] = useState<House | null>(null);
   const [todayPulse, setTodayPulse] = useState<Pulse | null>(null);
   const [lastPulse, setLastPulse] = useState<Pulse | null>(null);
   const [nextPulseDate, setNextPulseDate] = useState<string>('');
-  const [pulseDays, setPulseDays] = useState<string[]>(['Monday', 'Wednesday', 'Friday']);
+  const [pulseDays, setPulseDays] = useState<string[]>(user?.pulse_days || ['Monday', 'Wednesday', 'Friday']);
   const [answers, setAnswers] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -79,11 +78,9 @@ export function GovernancePulse() {
   });
  
   useEffect(() => { 
-    // Init answers for hardcoded questions
     const initAnswers: Record<string, string> = {};
     HARDCODED_QUESTIONS.forEach(q => { initAnswers[q.id] = ''; });
     setAnswers(initAnswers);
-    
     loadData(); 
   }, [user]);
 
@@ -93,45 +90,48 @@ export function GovernancePulse() {
       return;
     }
     try {
-      // 1. Get house
-      let myHouse: House | null = null;
-      
-      if (user.assigned_house_id) {
-        myHouse = { 
-          id: user.assigned_house_id, 
-          name: user.assigned_house_name || 'Assigned House',
-          address: '' 
-        };
-      } else if (['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'].includes(userRole)) {
-        const hRes = await apiClient.get(`/users/${userId}/houses`);
-        const hData = (hRes.data as any).data || (hRes.data as any) || [];
-        const houses = Array.isArray(hData) ? hData : [];
-        if (houses.length > 0) {
-          myHouse = houses[0];
-        }
-      } 
-      
-      // Fallback: If still no house, try fetching all company houses
-      if (!myHouse) {
-        const hRes = await apiClient.get('/houses');
-        const hData = (hRes.data as any).data || (hRes.data as any) || {};
-        const list = hData.houses || hData.items || (Array.isArray(hData) ? hData : []);
-        if (list.length > 0) {
-          myHouse = list[0];
-        }
+      const hRes = await apiClient.get('/houses');
+      const hData = (hRes.data as any).data || (hRes.data as any) || {};
+      const list: House[] = hData.houses || hData.items || (Array.isArray(hData) ? hData : []);
+      setSites(list);
+
+      if (user.assigned_house_id && !selectedSiteId) {
+        setSelectedSiteId(user.assigned_house_id);
+      } else if (list.length > 0 && !selectedSiteId) {
+        setSelectedSiteId(list[0].id);
       }
-      if (!myHouse) { setIsLoading(false); return; }
-      setHouse(myHouse);
+    } catch (err) {
+      console.error('Failed to load sites:', err);
+      toast.error('Failed to load site list');
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
-      // 2. House settings for pulse days
+  useEffect(() => {
+    if (selectedSiteId) {
+      loadPulseForSite(selectedSiteId);
+    }
+  }, [selectedSiteId]);
+
+  const loadPulseForSite = async (siteId: string) => {
+    try {
+      const foundSite = sites.find(s => s.id === siteId);
+      if (foundSite) setSite(foundSite);
+
       try {
-        const settingsRes = await apiClient.get(`/houses/${myHouse.id}/settings`);
+        const settingsRes = await apiClient.get(`/houses/${siteId}/settings`);
         const settings = (settingsRes.data as any).data || (settingsRes.data as any) || {};
-        if (settings.settings?.pulse_days) setPulseDays(settings.settings.pulse_days);
-      } catch { /* use defaults */ }
+        if (settings.settings?.pulse_days) {
+          setPulseDays(settings.settings.pulse_days);
+        } else if (user?.pulse_days) {
+          setPulseDays(user.pulse_days);
+        }
+      } catch { 
+        if (user?.pulse_days) setPulseDays(user.pulse_days);
+      }
 
-      // 3. Load pulses for this house
-      const pRes = await apiClient.get(`/governance/pulses?house_id=${myHouse.id}&limit=20`);
+      const pRes = await apiClient.get(`/governance/pulses?house_id=${siteId}&limit=20`);
       const pData = (pRes.data as any).data || (pRes.data as any) || {};
       const pulses: Pulse[] = pData.pulses || pData.items || (Array.isArray(pData) ? pData : []);
 
@@ -151,7 +151,6 @@ export function GovernancePulse() {
       if (today?.status === 'SUBMITTED' || today?.status === 'LOCKED' || today?.status === 'completed') setSubmitted(true);
     } catch (err: any) {
       console.error('GovernancePulse load error:', err);
-      // Don't show toast error if it's just missing pulses for a brand new house
       if (err.response?.status !== 404) {
         toast.error('Failed to load pulse history');
       }
@@ -175,7 +174,6 @@ export function GovernancePulse() {
   const riskKeywords = ['risk', 'safeguarding', 'incident', 'deterioration', 'error', 'pressure', 'concern', 'escalation'];
 
   const checkForRiskFlag = () => {
-    // Check if any yes_no answer flagged a risk or major concern
     for (const q of HARDCODED_QUESTIONS) {
       if (q.question_type === 'yes_no' && answers[q.id] === 'yes') {
         const qText = q.question.toLowerCase();
@@ -188,7 +186,6 @@ export function GovernancePulse() {
   };
 
   const handleSubmit = async () => {
-    // Validate required questions answered
     const unanswered = HARDCODED_QUESTIONS.filter(q => q.required && !answers[q.id]);
     if (unanswered.length > 0) {
       toast.error(`Please answer all required questions (${unanswered.length} remaining)`);
@@ -197,7 +194,6 @@ export function GovernancePulse() {
 
     const hasRiskFlag = checkForRiskFlag();
     if (hasRiskFlag && !showRiskPrompt) {
-      // Find which questions were flagged to pre-fill description if needed
       const flaggedQs = HARDCODED_QUESTIONS.filter(q => q.question_type === 'yes_no' && answers[q.id] === 'yes' && riskKeywords.some(kw => q.question.toLowerCase().includes(kw)));
       const initialDesc = flaggedQs.map(q => `${q.question}: ${answers[`${q.id}_detail`] || 'No detail provided'}`).join('\n');
       setRiskDescription(initialDesc);
@@ -212,11 +208,9 @@ export function GovernancePulse() {
     setIsSubmitting(true);
     try {
       let pulseId = todayPulse?.id;
-
-      // Create pulse if none exists for today
-      if (!pulseId && house) {
+      if (!pulseId && site) {
         const createRes = await apiClient.post('/governance/pulse', {
-          house_id: house.id,
+          house_id: site.id,
           template_id: SYSTEM_TEMPLATE_ID,
           due_date: new Date().toISOString(),
           status: 'pending'
@@ -227,7 +221,6 @@ export function GovernancePulse() {
 
       if (!pulseId) throw new Error('No pulse to submit');
 
-      // Submit answers
       const answersPayload = HARDCODED_QUESTIONS.map(q => ({
         question_id: q.id,
         answer: answers[q.id] || '',
@@ -237,11 +230,10 @@ export function GovernancePulse() {
 
       await apiClient.post(`/governance/pulses/${pulseId}/submit`, { answers: answersPayload });
 
-      // Create risk if flagged and description given
-      if (showRiskPrompt && riskDescription && house) {
+      if (showRiskPrompt && riskDescription && site) {
         try {
           await apiClient.post('/risks', {
-            house_id: house.id,
+            house_id: site.id,
             title: 'Risk from Governance Pulse',
             description: riskDescription,
             severity: 'High',
@@ -290,13 +282,24 @@ export function GovernancePulse() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 md:px-12 lg:px-20 w-full pt-28 max-w-none">
-        {/* Header */}
         <div className="mb-10 border-b-2 border-border pb-8">
           <h1 className="text-4xl font-bold text-primary mb-2 tracking-tight">Governance Pulse</h1>
           <div className="flex justify-between items-center mt-4">
             <div>
-              <span className="text-muted-foreground">House: </span>
-              <span className="font-medium text-foreground">{house?.name || '—'}</span>
+              <span className="text-muted-foreground">Active Site: </span>
+              {sites.length > 1 ? (
+                <select 
+                  value={selectedSiteId}
+                  onChange={(e) => setSelectedSiteId(e.target.value)}
+                  className="bg-background border-2 border-border px-2 py-1 font-medium text-foreground ml-2 focus:ring-2 focus:ring-primary outline-none"
+                >
+                  {sites.map(s => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              ) : (
+                <span className="font-medium text-foreground">{site?.name || '—'}</span>
+              )}
             </div>
             <div>
               <span className="text-muted-foreground">Date: </span>
@@ -305,12 +308,11 @@ export function GovernancePulse() {
           </div>
         </div>
 
-        {/* Pulse Schedule Info */}
         <div className="mb-8 bg-muted border-2 border-border p-4 shadow-sm">
           <div className="flex justify-between text-sm flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4 text-muted-foreground" />
-              <span className="text-muted-foreground">Pulse days: </span>
+              <span className="text-muted-foreground">Pulse days for this site: </span>
               <span className="font-medium text-foreground">{pulseDays.join(', ')}</span>
             </div>
             <div>
@@ -326,7 +328,6 @@ export function GovernancePulse() {
           </div>
         </div>
 
-        {/* Questions */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {HARDCODED_QUESTIONS.map((q, idx) => (
             <div key={q.id} className={`bg-card border-2 border-border p-8 shadow-sm hover:shadow-md transition-all duration-300 ${q.question_type === 'text' ? 'lg:col-span-2' : ''}`}>
@@ -379,24 +380,6 @@ export function GovernancePulse() {
                   </div>
                 )}
 
-                {q.question_type === 'multi_select' && (
-                  <div className="space-y-2">
-                    {(q.options || []).map(opt => (
-                      <label key={opt} className="flex items-center gap-3 cursor-pointer">
-                        <input
-                          type="checkbox"
-                          name={q.id}
-                          value={opt}
-                          checked={answers[q.id]?.split(',').includes(opt)}
-                          onChange={() => handleAnswerChange(q.id, opt, true)}
-                          className="w-4 h-4 text-primary focus:ring-primary rounded"
-                        />
-                        <span className="text-foreground">{opt}</span>
-                      </label>
-                    ))}
-                  </div>
-                )}
-
                 {q.question_type === 'text' && (
                   <textarea
                     value={answers[q.id] || ''}
@@ -404,23 +387,6 @@ export function GovernancePulse() {
                     placeholder="Your observations..."
                     className="w-full h-24 px-3 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
                   />
-                )}
-
-                {q.question_type === 'scale' && (
-                  <div className="flex gap-2 mt-2">
-                    {[1, 2, 3, 4, 5].map(n => (
-                      <button
-                        key={n}
-                        onClick={() => handleAnswerChange(q.id, String(n))}
-                        className={`w-10 h-10 border-2 font-semibold transition-colors ${
-                          answers[q.id] === String(n) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary text-foreground'
-                        }`}
-                      >
-                        {n}
-                      </button>
-                    ))}
-                    <span className="text-sm text-muted-foreground self-center ml-2">1=Low, 5=High</span>
-                  </div>
                 )}
               </div>
             ))}
@@ -437,7 +403,6 @@ export function GovernancePulse() {
           </div>
         </div>
 
-        {/* Risk Creation Prompt */}
         {showRiskPrompt && (
           <div className="fixed inset-0 bg-background/50 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="bg-card border-2 border-border p-6 w-full max-w-md mx-4 shadow-xl">

@@ -97,6 +97,7 @@ export class AuthService {
     }
     const user = await usersRepo.findById(payload.user_id);
     if (!user) throw new Error('User not found');
+    if (user.status !== 'active') throw new Error('Account is inactive or suspended');
     const newToken = this.generateToken(user);
     return { token: newToken };
   }
@@ -118,6 +119,23 @@ export class AuthService {
       `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES ($1,$2,$3,$4,$5,$6)`,
       [uuidv4(), company_id, user_id, action, resource, resource_id || null]
     );
+  }
+
+  async updateProfile(userId: string, data: { first_name?: string; last_name?: string; avatar_url?: string }) {
+    if (data.first_name || data.last_name) {
+      await usersRepo.update(userId, { 
+        first_name: data.first_name, 
+        last_name: data.last_name 
+      } as any);
+    }
+    if (data.avatar_url !== undefined) {
+      await query(
+        `INSERT INTO user_profiles (user_id, avatar_url) VALUES ($1, $2)
+         ON CONFLICT (user_id) DO UPDATE SET avatar_url = $2, updated_at = NOW()`,
+        [userId, data.avatar_url]
+      );
+    }
+    return this.me(userId);
   }
 }
 

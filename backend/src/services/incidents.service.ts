@@ -3,7 +3,7 @@ import { eventBus, EVENTS } from '../events/eventBus';
 
 export class IncidentsService {
   async create(company_id: string, created_by: string, data: {
-    house_id: string; title: string; description: string; severity?: string; occurred_at: Date;
+    house_id: string; title: string; description: string; severity?: string; status?: string; occurred_at: Date;
     location?: string; immediate_action?: string; category_id?: string; assigned_to?: string;
     persons_involved?: string[]; follow_up_required?: boolean;
   }) {
@@ -14,7 +14,7 @@ export class IncidentsService {
       event_type: 'created',
       title: 'Incident Reported',
       description: `Incident "${incident.title}" was reported and logged`,
-      metadata: { severity: incident.severity, category: incident.category_id },
+      metadata: { severity: incident.severity, status: incident.status, category: incident.category_id },
       created_by
     });
 

@@ -22,13 +22,6 @@ interface Risk {
   pulseDate?: string;
   createdBy: string;
   lastUpdated: string;
-  updateHistory: Array<{
-    date: string;
-    field: string;
-    oldValue: any;
-    newValue: any;
-    updatedBy: string;
-  }>;
 }
 
 export function RiskRegister() {
@@ -57,8 +50,9 @@ export function RiskRegister() {
     console.error('Failed to parse user from localStorage', e);
   }
   const userId = user.id || localStorage.getItem('userId') || '';
-  const userRoleDisplay = userRole || 'USER';
-  const prefillCreatedBy = user.name ? `${user.name} (${userRoleDisplay})` : "Current User";
+  /* userRoleDisplay kept for future use */ const _userRoleDisplay = userRole || 'USER'; void _userRoleDisplay;
+  const fullName = `${(user as any).first_name || ''} ${(user as any).last_name || ''}`.trim();
+  const prefillCreatedBy = fullName || localStorage.getItem('userName') || 'Current User';
 
   // Form states - must be declared before any conditional returns
   const [newRisk, setNewRisk] = useState<Partial<Risk>>({
@@ -76,7 +70,6 @@ export function RiskRegister() {
     source: "Pulse",
     createdBy: prefillCreatedBy,
     lastUpdated: new Date().toISOString().split('T')[0],
-    updateHistory: []
   });
 
   // Out-of-cycle risk form state
@@ -167,115 +160,13 @@ export function RiskRegister() {
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading risk register...</p>
-        </div>
-      </div>
-    );
-  }
+  // Moved hooks above conditional return to fix React hook order violation
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const houses = ["All", ...allHousesData.map(h => h.name)];
   const severities = ["All", "High", "Medium", "Low"];
   const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
-
-  const filteredRisks = risks.filter((risk) => {
-    if (houseFilter !== "All" && risk.house !== houseFilter) return false;
-    if (severityFilter !== "All" && risk.severity !== severityFilter) return false;
-    if (statusFilter !== "All" && risk.status !== statusFilter) return false;
-    return true;
-  });
-
-  const handleAddRisk = async () => {
-    if (!newRisk.description) { toast.error('Please enter a risk description'); return; }
-    // If RI, use selected house; if RM/TL, use assigned house
-    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
-    const targetHouseId = isScopedRole ? userHouseId : newRisk.house;
-    if (!targetHouseId) { toast.error('House information required'); return; }
-    setIsSubmitting(true);
-    try {
-      const reviewDue = newRisk.reviewDate ? new Date(newRisk.reviewDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
-      await apiClient.post('/risks', {
-        house_id: targetHouseId,
-        title: newRisk.description,
-        description: newRisk.impact || newRisk.description,
-        severity: newRisk.severity || 'Medium',
-        status: 'Open',
-        likelihood: 3,
-        impact: 3,
-        review_due_date: reviewDue,
-        metadata: { 
-          mitigation: newRisk.mitigation, 
-          rootCause: newRisk.rootCause, 
-          category: newRisk.category,
-          source: 'Manual'
-        }
-      });
-      toast.success('Risk added successfully');
-      setShowAddRisk(false);
-      setNewRisk({ house: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: prefillCreatedBy, lastUpdated: '', updateHistory: [] });
-      loadRisks();
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to add risk'); }
-    finally { setIsSubmitting(false); }
-  };
-
-  const handleOutOfCycleRisk = async () => {
-    if (!outOfCycleRisk.description || !outOfCycleRisk.reason) { toast.error('Please fill in description and reason'); return; }
-    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
-    const targetHouseId = isScopedRole ? userHouseId : outOfCycleRisk.house;
-    if (!targetHouseId) { toast.error('House information required'); return; }
-    setIsSubmitting(true);
-    try {
-      await apiClient.post('/risks', {
-        house_id: targetHouseId,
-        title: outOfCycleRisk.description,
-        description: `[Out-of-Cycle] ${outOfCycleRisk.description}. Reason: ${outOfCycleRisk.reason}`,
-        severity: outOfCycleRisk.severity || 'Medium',
-        status: 'Open',
-        likelihood: 4, impact: 4,
-        metadata: { 
-          source: 'Out-of-Cycle', 
-          requiresImmediateReview: outOfCycleRisk.requiresImmediateReview,
-          category: outOfCycleRisk.category,
-          reason: outOfCycleRisk.reason
-        }
-      });
-      toast.success('Out-of-cycle risk created — will appear in next Pulse review');
-      setShowOutOfCycle(false);
-      setOutOfCycleRisk({ house: '', description: '', category: '', severity: 'high', reason: '', requiresImmediateReview: false, createdBy: prefillCreatedBy });
-      loadRisks();
-    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create out-of-cycle risk'); }
-    finally { setIsSubmitting(false); }
-  };
-
-  // TODO: Implement risk update functionality when needed
-  // const updateRisk = (id: string, field: keyof Risk, value: any) => {
-  //   setRisks(prev => prev.map(risk => {
-  //     if (risk.id === id) {
-  //       const oldValue = risk[field];
-  //       const updatedRisk = { 
-  //         ...risk, 
-  //         [field]: value,
-  //         lastUpdated: new Date().toISOString().split('T')[0],
-  //         updateHistory: [
-  //           ...risk.updateHistory,
-  //           {
-  //             date: new Date().toISOString().split('T')[0],
-  //             field: field as string,
-  //             oldValue: oldValue,
-  //             newValue: value,
-  //             updatedBy: "Current User"
-  //           }
-  //         ]
-  //       };
-  //       return updatedRisk;
-  //     }
-  //     return risk;
-  //   }));
-  // };
 
   const getSourceBadge = (source: string) => {
     switch (source) {
@@ -286,12 +177,18 @@ export function RiskRegister() {
       case "Manual":
         return <span className="px-2 py-1 border border-border text-xs text-muted-foreground">Manual</span>;
       default:
-        return <span className="px-2 py-1 border border-border text-xs text-muted-foreground">{source}</span>;
+        return <span className="px-2 py-1 border border-border text-xs text-muted-foreground">{source || 'Manual'}</span>;
     }
   };
 
-  const [currentPage, setCurrentPage] = useState(1);
-  const itemsPerPage = 10;
+  const filteredRisks = useMemo(() => {
+    return risks.filter((risk) => {
+      if (houseFilter !== "All" && risk.house !== houseFilter) return false;
+      if (severityFilter !== "All" && risk.severity !== severityFilter) return false;
+      if (statusFilter !== "All" && risk.status !== statusFilter) return false;
+      return true;
+    });
+  }, [risks, houseFilter, severityFilter, statusFilter]);
 
   const paginatedRisks = useMemo(() => {
     const start = (currentPage - 1) * itemsPerPage;
@@ -399,6 +296,81 @@ export function RiskRegister() {
       )}
     </div>
   ), [paginatedRisks, currentPage, totalPages, filteredRisks.length, navigate]);
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading risk register...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Re-added previously deleted non-hook logic
+  const handleAddRisk = async () => {
+    if (!newRisk.description) { toast.error('Please enter a risk description'); return; }
+    // If RI, use selected house; if RM/TL, use assigned house
+    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
+    const targetHouseId = isScopedRole ? userHouseId : newRisk.house;
+    if (!targetHouseId) { toast.error('House information required'); return; }
+    setIsSubmitting(true);
+    try {
+      const reviewDue = newRisk.reviewDate ? new Date(newRisk.reviewDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
+      await apiClient.post('/risks', {
+        house_id: targetHouseId,
+        title: newRisk.description,
+        description: newRisk.impact || newRisk.description,
+        severity: newRisk.severity || 'Medium',
+        status: 'Open',
+        likelihood: 3,
+        impact: 3,
+        review_due_date: reviewDue,
+        metadata: { 
+          mitigation: newRisk.mitigation, 
+          rootCause: newRisk.rootCause, 
+          category: newRisk.category,
+          source: 'Manual'
+        }
+      });
+      toast.success('Risk added successfully');
+      setShowAddRisk(false);
+      setNewRisk({ house: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: prefillCreatedBy, lastUpdated: '' });
+      loadRisks();
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to add risk'); }
+    finally { setIsSubmitting(false); }
+  };
+
+  const handleOutOfCycleRisk = async () => {
+    if (!outOfCycleRisk.description || !outOfCycleRisk.reason) { toast.error('Please fill in description and reason'); return; }
+    const isScopedRole = userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER';
+    const targetHouseId = isScopedRole ? userHouseId : outOfCycleRisk.house;
+    if (!targetHouseId) { toast.error('House information required'); return; }
+    setIsSubmitting(true);
+    try {
+      await apiClient.post('/risks', {
+        house_id: targetHouseId,
+        title: outOfCycleRisk.description,
+        description: `[Out-of-Cycle] ${outOfCycleRisk.description}. Reason: ${outOfCycleRisk.reason}`,
+        severity: outOfCycleRisk.severity || 'Medium',
+        status: 'Open',
+        likelihood: 4, impact: 4,
+        metadata: { 
+          source: 'Out-of-Cycle', 
+          requiresImmediateReview: outOfCycleRisk.requiresImmediateReview,
+          category: outOfCycleRisk.category,
+          reason: outOfCycleRisk.reason
+        }
+      });
+      toast.success('Out-of-cycle risk created — will appear in next Pulse review');
+      setShowOutOfCycle(false);
+      setOutOfCycleRisk({ house: '', description: '', category: '', severity: 'high', reason: '', requiresImmediateReview: false, createdBy: prefillCreatedBy });
+      loadRisks();
+    } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to create out-of-cycle risk'); }
+    finally { setIsSubmitting(false); }
+  };
+
 
   return (
     <div className="min-h-screen bg-background">

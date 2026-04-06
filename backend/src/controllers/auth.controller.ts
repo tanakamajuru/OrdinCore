@@ -165,6 +165,18 @@ export class AuthController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  async updateProfile(req: Request, res: Response) {
+    try {
+      const { first_name, last_name, avatar_url } = req.body;
+      const userId = req.user!.user_id;
+      const result = await authService.updateProfile(userId, { first_name, last_name, avatar_url });
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update profile';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const authController = new AuthController();

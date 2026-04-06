@@ -18,7 +18,11 @@ export class HousesController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const result = await housesService.findAll(company_id, page, limit);
+      const filters = {
+        search: req.query.search as string,
+        is_active: req.query.is_active as string,
+      };
+      const result = await housesService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.houses, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch houses';

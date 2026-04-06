@@ -49,7 +49,7 @@ export class UsersController {
   async update(req: Request, res: Response) {
     try {
       const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
-      const user = await usersService.update(req.params.id, company_id!, req.body);
+      const user = await usersService.update(req.params.id, company_id!, { ...req.body, house_ids: req.body.house_ids });
       return res.json({ success: true, data: user });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update user';

@@ -4,6 +4,47 @@ import { useNavigate } from "react-router";
 import { apiClient } from "@/services/api";
 import logo from "./images/logo.png";
 
+function PasswordInput({ id, value, onChange, disabled }: {
+  id: string;
+  value: string;
+  onChange: (v: string) => void;
+  disabled: boolean;
+}) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative">
+      <input
+        id={id}
+        type={show ? "text" : "password"}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="w-full px-4 py-2 pr-12 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+        required
+        disabled={disabled}
+        autoComplete="new-password"
+      />
+      <button
+        type="button"
+        onClick={() => setShow((s) => !s)}
+        className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+        tabIndex={-1}
+        aria-label={show ? "Hide password" : "Show password"}
+      >
+        {show ? (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-5.523 0-10-4.477-10-7 0-1.06.417-2.054 1.108-2.917M6.343 6.343A9.956 9.956 0 0112 5c5.523 0 10 4.477 10 7a9.97 9.97 0 01-2.343 5.657M3 3l18 18" />
+          </svg>
+        ) : (
+          <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.477 0 8.268 2.943 9.542 7-1.274 4.057-5.065 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+          </svg>
+        )}
+      </button>
+    </div>
+  );
+}
+
 export function Login() {
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -65,10 +106,7 @@ export function Login() {
         <div className="w-full max-w-md">
           <div className="bg-card border-2 border-border p-8 shadow-md">
             <div className="text-center mb-2 flex flex-col items-center">
-
               <img src={logo} alt="Logo" className="w-48 h-48 mb-1 mx-auto" />
-
-
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
@@ -96,15 +134,11 @@ export function Login() {
                 <label htmlFor="password" className="block mb-2 text-foreground font-medium">
                   Password
                 </label>
-                <input
+                <PasswordInput
                   id="password"
-                  type="password"
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
-                  required
+                  onChange={setPassword}
                   disabled={isLoading}
-                  autoComplete="new-password"
                 />
               </div>
 

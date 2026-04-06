@@ -5,11 +5,11 @@ export class HousesService {
     return housesRepo.create({ company_id, ...data });
   }
 
-  async findAll(company_id: string, page = 1, limit = 50) {
+  async findAll(company_id: string, filters: Record<string, unknown> = {}, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
     const [houses, total] = await Promise.all([
-      housesRepo.findByCompany(company_id, limit, offset),
-      housesRepo.countByCompany(company_id),
+      housesRepo.findByCompany(company_id, filters, limit, offset),
+      housesRepo.countByCompany(company_id, filters),
     ]);
     return { houses, total, page, limit, pages: Math.ceil(total / limit) };
   }

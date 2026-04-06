@@ -55,6 +55,7 @@ const AdminUserManagement: React.FC = () => {
   const [houses, setHouses] = useState<House[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -65,7 +66,7 @@ const AdminUserManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('active');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+
 
   // Form state
   const [formData, setFormData] = useState({
@@ -75,6 +76,7 @@ const AdminUserManagement: React.FC = () => {
     role: '',
     organization: '',
     assignedHouse: '',
+    assignedHouses: [] as string[],
     pulseDays: [] as string[],
     isActive: true
   });
@@ -84,10 +86,7 @@ const AdminUserManagement: React.FC = () => {
     confirmPassword: ''
   });
 
-  // House reassignment state
-  const [isReassignDialogOpen, setIsReassignDialogOpen] = useState(false);
-  const [userToDelete, setUserToDelete] = useState<User | null>(null);
-  const [selectedNewManager, setSelectedNewManager] = useState('');
+
 
   // Fetch users
   const fetchUsers = async () => {
@@ -110,7 +109,7 @@ const AdminUserManagement: React.FC = () => {
         const data = await response.json();
         const users = data.data?.users ?? data.data ?? [];
         setUsers(Array.isArray(users) ? users : []);
-        setTotalPages(data.data?.totalPages ?? data.pagination?.totalPages ?? 1);
+        setTotalPages(data.meta?.pages ?? 1);
       } else {
         toast.error('Failed to fetch users');
       }
@@ -119,7 +118,7 @@ const AdminUserManagement: React.FC = () => {
     }
   };
 
-  // Fetch user statistics — uses the users list to derive simple counts
+  // Fetch user statistics
   const fetchStats = async () => {
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users?page=1&limit=100`, {
@@ -129,7 +128,7 @@ const AdminUserManagement: React.FC = () => {
         const data = await response.json();
         const list: any[] = data.data?.users ?? data.data ?? [];
         const total = list.length;
-        const active = list.filter((u: any) => u.is_active !== false).length;
+        const active = list.filter((u: any) => u.status === 'active' || u.is_active !== false).length;
         setStats({
           total,
           active,
@@ -153,23 +152,6 @@ const AdminUserManagement: React.FC = () => {
     loadData();
   }, [currentPage, searchTerm, roleFilter, statusFilter]);
 
-  // Fetch current user info
-  useEffect(() => {
-    const fetchMe = async () => {
-      try {
-        const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/auth/me`, {
-          headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setCurrentUser(data.data);
-        }
-      } catch (error) {
-        console.error('Failed to fetch current user:', error);
-      }
-    };
-    fetchMe();
-  }, []);
 
   // Fetch houses for dropdown
   useEffect(() => {
@@ -186,33 +168,56 @@ const AdminUserManagement: React.FC = () => {
           setHouses([]);
         }
       } catch (error) {
-        console.error('Error fetching houses:', error);
+        console.error('Error fetching sites:', error);
         setHouses([]);
       }
     };
     fetchHousesForDropdown();
   }, []);
 
+  const validateForm = () => {
+    if (!formData.email || !formData.email.includes('@')) {
+      toast.error('Please enter a valid email address');
+      return false;
+    }
+    if (!formData.name || formData.name.trim().length < 2) {
+      toast.error('Please enter a full name');
+      return false;
+    }
+    if (!formData.role) {
+      toast.error('Please select a user role');
+      return false;
+    }
+    // Only require password on create
+    if (isCreateDialogOpen && (!formData.password || formData.password.length < 6)) {
+      toast.error('Password must be at least 6 characters');
+      return false;
+    }
+    return true;
+  };
+
   // Create user
   const handleCreateUser = async () => {
+    if (!validateForm()) return;
+    setIsSubmitting(true);
     try {
-      // Derive backend role string (backend expects UPPER_CASE)
       const backendRole = formData.role.toUpperCase().replace(/-/g, '_');
-
-      // Split name into first/last
       const nameParts = formData.name.trim().split(' ');
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
 
       const requestData: any = {
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         first_name,
         last_name,
         password: formData.password,
         role: backendRole,
-        is_active: formData.isActive,
+        status: formData.isActive ? 'active' : 'inactive',
       };
-      if (formData.assignedHouse && formData.assignedHouse.trim()) {
+      if (formData.assignedHouses && formData.assignedHouses.length > 0) {
+        requestData.house_ids = formData.assignedHouses;
+        requestData.pulse_days = formData.pulseDays;
+      } else if (formData.assignedHouse && formData.assignedHouse.trim()) {
         requestData.house_id = formData.assignedHouse;
         requestData.pulse_days = formData.pulseDays;
       }
@@ -237,16 +242,17 @@ const AdminUserManagement: React.FC = () => {
         toast.error(errorData.message || errorData.error || 'Failed to create user');
       }
     } catch (error) {
-      console.error('Create user failed:', error);
       toast.error('Network error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   // Update user
   const handleUpdateUser = async () => {
-    if (!selectedUser) return;
+    if (!selectedUser || !validateForm()) return;
+    setIsSubmitting(true);
     try {
-      // Split name into first/last
       const nameParts = formData.name.trim().split(' ');
       const first_name = nameParts[0] || '';
       const last_name = nameParts.slice(1).join(' ') || '';
@@ -258,12 +264,12 @@ const AdminUserManagement: React.FC = () => {
           'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           first_name,
           last_name,
           role: formData.role.toUpperCase().replace(/-/g, '_'),
-          is_active: formData.isActive,
-          house_id: formData.assignedHouse || null,
+          status: formData.isActive ? 'active' : 'inactive',
+          house_ids: formData.assignedHouses,
           pulse_days: formData.pulseDays,
         }),
       });
@@ -279,6 +285,8 @@ const AdminUserManagement: React.FC = () => {
       }
     } catch (error) {
       toast.error('Network error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -288,6 +296,11 @@ const AdminUserManagement: React.FC = () => {
       toast.error('Passwords do not match');
       return;
     }
+    if (passwordData.newPassword.length < 6) {
+      toast.error('Password must be at least 6 characters');
+      return;
+    }
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}/password`, {
         method: 'PATCH',
@@ -307,13 +320,15 @@ const AdminUserManagement: React.FC = () => {
       }
     } catch (error) {
       toast.error('Network error occurred');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  // Delete user
+  // Archive user (delete)
   const handleDeleteUser = async () => {
     if (!selectedUser) return;
-
+    setIsSubmitting(true);
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${selectedUser.id}`, {
         method: 'DELETE',
@@ -323,63 +338,18 @@ const AdminUserManagement: React.FC = () => {
       });
 
       if (response.ok) {
-        toast.success("User deleted successfully");
+        toast.success("User archived (set to inactive) successfully");
         setIsDeleteDialogOpen(false);
         setSelectedUser(null);
-        // Fetch fresh data to ensure table updates
         await Promise.all([fetchUsers(), fetchStats()]);
       } else {
-        let errorData;
-        try {
-          errorData = await response.json();
-          console.error('Delete user error:', errorData);
-        } catch (parseError) {
-          console.error('Failed to parse error response:', parseError);
-          errorData = { error: 'Failed to delete user' };
-        }
-
-        // Check if error is about house management
-        if (errorData && errorData.error && errorData.error.includes('managing a house')) {
-          // Open reassignment dialog instead of showing error
-          setUserToDelete(selectedUser);
-          setIsDeleteDialogOpen(false);
-          setIsReassignDialogOpen(true);
-        } else {
-          // Show detailed error information
-          const errorMessage = errorData.error || errorData.message || "Failed to delete user";
-          console.error('Detailed error:', errorData);
-          toast.error(errorMessage);
-        }
+        const errorData = await response.json().catch(() => ({ error: 'Failed to archive user' }));
+        toast.error(errorData.error || errorData.message || "Failed to archive user");
       }
     } catch (error) {
-      console.error('Delete user failed:', error);
       toast.error("Network error occurred");
-    }
-  };
-
-  // Direct delete user (for after house reassignment)
-  const directDeleteUser = async (userId: string) => {
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${userId}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        },
-      });
-
-      if (response.ok) {
-        toast.success("User deleted successfully");
-        setUserToDelete(null);
-        setSelectedNewManager('');
-        // Fetch fresh data to ensure table updates
-        await Promise.all([fetchUsers(), fetchStats()]);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to delete user");
-      }
-    } catch (error) {
-      console.error('Delete user failed:', error);
-      toast.error("Network error occurred");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -391,6 +361,7 @@ const AdminUserManagement: React.FC = () => {
       role: '',
       organization: '',
       assignedHouse: '',
+      assignedHouses: [],
       pulseDays: [],
       isActive: true
     });
@@ -398,7 +369,6 @@ const AdminUserManagement: React.FC = () => {
 
   const openEditDialog = (user: User) => {
     setSelectedUser(user);
-    // Ensure role is in backend format (uppercase) for conditional UI fields
     const formattedRole = user.role.toUpperCase().replace(/-/g, '_');
     setFormData({
       email: user.email,
@@ -407,6 +377,7 @@ const AdminUserManagement: React.FC = () => {
       role: formattedRole,
       organization: user.organization || '',
       assignedHouse: user.assigned_house_id || '',
+      assignedHouses: user.assigned_house_id === 'all' ? houses.map(h => h.id) : (user.assigned_house_id ? [user.assigned_house_id] : []),
       pulseDays: user.pulse_days || [],
       isActive: user.is_active
     });
@@ -436,43 +407,6 @@ const AdminUserManagement: React.FC = () => {
     }
   };
 
-  // Handle house reassignment
-  const handleReassignHouse = async () => {
-    if (!userToDelete || !selectedNewManager || selectedNewManager === 'none') {
-      toast.error('Please select a new manager');
-      return;
-    }
-
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/houses/${userToDelete.assigned_house}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
-        },
-        body: JSON.stringify({
-          manager_id: selectedNewManager === 'none' ? null : selectedNewManager,
-        }),
-      });
-
-      if (response.ok) {
-        toast.success("House reassigned successfully");
-        setIsReassignDialogOpen(false);
-        setUserToDelete(null);
-        setSelectedNewManager('');
-
-        // Now delete the user directly
-        await directDeleteUser(userToDelete.id);
-      } else {
-        const error = await response.json();
-        toast.error(error.error || "Failed to reassign house");
-      }
-    } catch (error) {
-      console.error('Reassign house failed:', error);
-      toast.error("Failed to reassign house");
-    }
-  };
-
   if (loading) {
     return <div className="p-6">Loading...</div>;
   }
@@ -481,14 +415,6 @@ const AdminUserManagement: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <Button
-            variant="outline"
-            onClick={() => window.history.back()}
-            className="flex items-center border-border text-foreground hover:bg-muted"
-          >
-            <Key className="mr-2 h-4 w-4" />
-            Back
-          </Button>
           <h1 className="text-3xl font-bold text-primary">User Management</h1>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
@@ -597,7 +523,6 @@ const AdminUserManagement: React.FC = () => {
                   <TableHead className="text-primary font-bold">Assigned Site</TableHead>
                   <TableHead className="text-primary font-bold">Pulse Days</TableHead>
                   <TableHead className="text-primary font-bold">Status</TableHead>
-                  <TableHead className="text-primary font-bold">Created</TableHead>
                   <TableHead className="text-primary font-bold">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -613,7 +538,7 @@ const AdminUserManagement: React.FC = () => {
                     </TableCell>
                     <TableCell className="text-foreground">{user.assigned_house_name || '-'}</TableCell>
                     <TableCell>
-                      {['registered manager', 'team leader'].includes(user.role.toLowerCase().replace(/_|-/g, ' ')) && user.pulse_days ? (
+                      {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(user.role.toUpperCase()) && user.pulse_days ? (
                         <div className="flex flex-wrap gap-1">
                           {user.pulse_days.map((day) => (
                             <Badge key={day} variant="outline" className="text-[10px] border-border text-muted-foreground">
@@ -630,9 +555,6 @@ const AdminUserManagement: React.FC = () => {
                         {user.is_active ? 'Active' : 'Inactive'}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-foreground">
-                      {new Date(user.created_at || '').toLocaleDateString()}
-                    </TableCell>
                     <TableCell>
                       <div className="flex space-x-2">
                         <Button
@@ -647,6 +569,7 @@ const AdminUserManagement: React.FC = () => {
                           variant="outline"
                           size="sm"
                           onClick={() => openPasswordDialog(user)}
+                          title="Reset Password"
                         >
                           <Key className="h-4 w-4" />
                         </Button>
@@ -698,45 +621,50 @@ const AdminUserManagement: React.FC = () => {
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New User</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+               <UserPlus className="w-5 h-5 text-primary" />
+               Create New User
+            </DialogTitle>
             <DialogDescription>
-              Add a new user to the system
+              Assign roles and sites to new members. Strict uniqueness enforced.
             </DialogDescription>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="email">Email</Label>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-2">
+              <Label htmlFor="create-email">Work Email</Label>
               <Input
-                id="email"
+                id="create-email"
                 type="email"
+                placeholder="email@organisation.co.uk"
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
+                className="border-2 border-border focus:ring-primary"
               />
             </div>
-            <div>
-              <Label htmlFor="name">Name</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="create-name">Full Name</Label>
               <Input
-                id="name"
+                id="create-name"
+                placeholder="Enter full name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
+                className="border-2 border-border focus:ring-primary"
               />
             </div>
-            <div>
-              <Label htmlFor="password">Password</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="create-password">Initial Password</Label>
               <Input
-                id="password"
+                id="create-password"
                 type="password"
                 value={formData.password}
                 onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                required
+                className="border-2 border-border focus:ring-primary"
               />
             </div>
-            <div>
-              <Label htmlFor="role">Role</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="create-role">System Role</Label>
               <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="create-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
@@ -747,128 +675,92 @@ const AdminUserManagement: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            {currentUser?.role === 'SUPER_ADMIN' ? (
-              <div>
-                <Label htmlFor="organization">Organization</Label>
-                <Input
-                  id="organization"
-                  value={formData.organization}
-                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                  placeholder="Enter organization ID"
-                />
-              </div>
-            ) : (
-              <div>
-                <Label>Organization</Label>
-                <div className="p-2 border-2 border-border rounded bg-muted text-muted-foreground">
-                  {currentUser?.company_name || 'Your Organization'}
-                </div>
-              </div>
-            )}
+            
             {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
-              <div>
-                <Label htmlFor="assignedHouse">Assigned Site</Label>
-                <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No site assigned</SelectItem>
-                    <SelectItem value="all">All Sites</SelectItem>
+              <>
+                <div className="grid gap-2">
+                  <Label>Assigned Sites</Label>
+                  <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded">
                     {houses.map((house) => (
-                      <SelectItem key={house.id} value={house.id}>
-                        {house.name} ({house.house_code})
-                      </SelectItem>
+                      <div key={house.id} className="flex items-center space-x-2">
+                        <Checkbox 
+                          id={`site-${house.id}`}
+                          checked={formData.assignedHouses.includes(house.id)}
+                          onCheckedChange={(checked) => {
+                            const newSites = checked 
+                              ? [...formData.assignedHouses, house.id]
+                              : formData.assignedHouses.filter(id => id !== house.id);
+                            setFormData({ ...formData, assignedHouses: newSites });
+                          }}
+                        />
+                        <Label htmlFor={`site-${house.id}`} className="font-normal cursor-pointer">
+                          {house.name}
+                        </Label>
+                      </div>
                     ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
-              <div>
-                <Label className="text-base font-medium">Pulse Days</Label>
-                <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                    <div key={day} className="flex items-center space-x-2">
-                      <Checkbox
-                        id={`create-${day}`}
-                        checked={formData.pulseDays.includes(day)}
-                        onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              pulseDays: [...formData.pulseDays, day]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              pulseDays: formData.pulseDays.filter(d => d !== day)
-                            });
-                          }
-                        }}
-                      />
-                      <Label htmlFor={`create-${day}`} className="text-sm">{day}</Label>
-                    </div>
-                  ))}
+                  </div>
                 </div>
-              </div>
+                <div className="grid gap-2">
+                  <Label>Pulse Reporting Days</Label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
+                      <div key={day} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`day-${day}`}
+                          checked={formData.pulseDays.includes(day)}
+                          onCheckedChange={(checked) => {
+                            const newDays = checked 
+                              ? [...formData.pulseDays, day]
+                              : formData.pulseDays.filter(d => d !== day);
+                            setFormData({ ...formData, pulseDays: newDays });
+                          }}
+                        />
+                        <Label htmlFor={`day-${day}`} className="font-normal">{day}</Label>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </>
             )}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-              />
-              <Label htmlFor="isActive">Active</Label>
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
-              Cancel
+            <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
+            <Button onClick={handleCreateUser} disabled={isSubmitting}>
+              {isSubmitting ? 'Creating...' : 'Create User'}
             </Button>
-            <Button onClick={handleCreateUser}>Create User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
       {/* Edit User Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent className="max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit User</DialogTitle>
-            <DialogDescription>
-              Update user information
-            </DialogDescription>
+             <DialogTitle className="flex items-center gap-2">
+               <Edit className="w-5 h-5 text-primary" />
+               Edit User
+            </DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
+          <div className="space-y-4 py-4">
+             <div className="grid gap-2">
               <Label htmlFor="edit-email">Email</Label>
-              <Input
-                id="edit-email"
-                type="email"
-                value={formData.email}
-                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                required
-              />
+              <Input id="edit-email" value={formData.email} disabled className="bg-muted opacity-50" />
             </div>
-            <div>
-              <Label htmlFor="edit-name">Name</Label>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-name">Full Name</Label>
               <Input
                 id="edit-name"
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                required
               />
             </div>
-            <div>
+             <div className="grid gap-2">
               <Label htmlFor="edit-role">Role</Label>
               <Select value={formData.role} onValueChange={(value) => setFormData({ ...formData, role: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="edit-role">
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ADMIN">Admin</SelectItem>
                   <SelectItem value="DIRECTOR">Director</SelectItem>
                   <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
                   <SelectItem value="TEAM_LEADER">Team Leader</SelectItem>
@@ -876,196 +768,97 @@ const AdminUserManagement: React.FC = () => {
                 </SelectContent>
               </Select>
             </div>
-            {currentUser?.role === 'SUPER_ADMIN' ? (
-              <div>
-                <Label htmlFor="edit-organization">Organization</Label>
-                <Input
-                  id="edit-organization"
-                  value={formData.organization}
-                  onChange={(e) => setFormData({ ...formData, organization: e.target.value })}
-                  placeholder="Enter organization ID"
-                />
-              </div>
-            ) : (
-              <div>
-                <Label>Organization</Label>
-                <div className="p-2 border-2 border-border rounded bg-muted text-muted-foreground">
-                  {currentUser?.company_name || 'Your Organization'}
+            <div className="flex items-center justify-between p-3 border-2 border-border rounded-md">
+                <div className="space-y-0.5">
+                  <Label>Status</Label>
+                  <p className="text-xs text-muted-foreground">{formData.isActive ? 'Active - Can login' : 'Inactive - Login blocked'}</p>
                 </div>
-              </div>
-            )}
+                <Switch checked={formData.isActive} onCheckedChange={(val) => setFormData({...formData, isActive: val})} />
+            </div>
+
             {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
-              <div>
-                <Label htmlFor="edit-assignedHouse">Assigned Site</Label>
-                <Select value={formData.assignedHouse} onValueChange={(value) => setFormData({ ...formData, assignedHouse: value === 'none' ? '' : value })}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Select site" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">No site assigned</SelectItem>
-                    <SelectItem value="all">All Sites</SelectItem>
-                    {houses.map((house) => (
-                      <SelectItem key={house.id} value={house.id}>
-                        {house.name} ({house.house_code})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
-              <div>
-                <Label className="text-base font-medium">Pulse Days</Label>
-                <p className="text-sm text-muted-foreground mb-3">Select the days when this manager should perform their governance pulse</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map((day) => (
-                    <div key={day} className="flex items-center space-x-2">
+              <div className="grid gap-2">
+                <Label>Assigned Sites</Label>
+                <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded">
+                  {houses.map((house) => (
+                    <div key={house.id} className="flex items-center space-x-2">
                       <Checkbox
-                        id={`edit-${day}`}
-                        checked={formData.pulseDays.includes(day)}
+                        id={`edit-site-${house.id}`}
+                        checked={formData.assignedHouses?.includes(house.id)}
                         onCheckedChange={(checked) => {
-                          if (checked) {
-                            setFormData({
-                              ...formData,
-                              pulseDays: [...formData.pulseDays, day]
-                            });
-                          } else {
-                            setFormData({
-                              ...formData,
-                              pulseDays: formData.pulseDays.filter(d => d !== day)
-                            });
-                          }
+                          const newSites = checked
+                            ? [...(formData.assignedHouses || []), house.id]
+                            : (formData.assignedHouses || []).filter(id => id !== house.id);
+                          setFormData({ ...formData, assignedHouses: newSites });
                         }}
                       />
-                      <Label htmlFor={`edit-${day}`} className="text-sm">{day}</Label>
+                      <Label htmlFor={`edit-site-${house.id}`} className="font-normal cursor-pointer">
+                        {house.name}
+                      </Label>
                     </div>
                   ))}
                 </div>
               </div>
             )}
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="edit-isActive"
-                checked={formData.isActive}
-                onCheckedChange={(checked) => setFormData({ ...formData, isActive: checked })}
-              />
-              <Label htmlFor="edit-isActive">Active</Label>
-            </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
+             <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>Cancel</Button>
+             <Button onClick={handleUpdateUser} disabled={isSubmitting}>
+              {isSubmitting ? 'Saving...' : 'Save Changes'}
             </Button>
-            <Button onClick={handleUpdateUser}>Update User</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Reset Password Dialog */}
+      {/* Password Reset Dialog */}
       <Dialog open={isPasswordDialogOpen} onOpenChange={setIsPasswordDialogOpen}>
-        <DialogContent className="max-w-md">
+        <DialogContent>
           <DialogHeader>
-            <DialogTitle>Reset Password</DialogTitle>
-            <DialogDescription>
-              Reset password for {selectedUser?.name}
-            </DialogDescription>
+            <DialogTitle>Reset User Password</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
-            <div>
-              <Label htmlFor="new-password">New Password</Label>
+          <div className="space-y-4 py-4">
+            <div className="grid gap-2">
+              <Label>New Password</Label>
               <Input
-                id="new-password"
                 type="password"
                 value={passwordData.newPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, newPassword: e.target.value })}
-                required
+                onChange={e => setPasswordData({...passwordData, newPassword: e.target.value})}
               />
             </div>
-            <div>
-              <Label htmlFor="confirm-password">Confirm Password</Label>
+            <div className="grid gap-2">
+              <Label>Confirm Password</Label>
               <Input
-                id="confirm-password"
                 type="password"
                 value={passwordData.confirmPassword}
-                onChange={(e) => setPasswordData({ ...passwordData, confirmPassword: e.target.value })}
-                required
+                onChange={e => setPasswordData({...passwordData, confirmPassword: e.target.value})}
               />
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleResetPassword}>Reset Password</Button>
+             <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
+             <Button onClick={handleResetPassword} disabled={isSubmitting}>Reset Password</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Archive User Dialog */}
+      {/* Delete/Archive Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive User?</AlertDialogTitle>
+            <AlertDialogTitle>Are you sure you want to archive this user?</AlertDialogTitle>
             <AlertDialogDescription>
-              This will archive the user account for {selectedUser?.name} ({selectedUser?.email}). They will no longer be able to log in, but their historical data will be preserved.
+              This will set the user to inactive. They will no longer be able to login, but their records will be preserved for governance compliance.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteUser} className="bg-orange-600 hover:bg-orange-800">
-              Archive
+            <AlertDialogAction onClick={handleDeleteUser} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Archive User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* House Reassignment Dialog */}
-      <Dialog open={isReassignDialogOpen} onOpenChange={setIsReassignDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Reassign Site Manager</DialogTitle>
-            <DialogDescription>
-              {userToDelete?.name} is currently managing a site. Please select a new manager before archiving this user.
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="grid gap-4 py-4">
-            <div className="grid gap-2">
-              <Label htmlFor="newManager">New Manager</Label>
-              <Select value={selectedNewManager} onValueChange={setSelectedNewManager}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select a new manager" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">No Manager</SelectItem>
-                  {users
-                    .filter(user => {
-                      // Don't show the user being deleted
-                      if (user.id === userToDelete?.id) return false;
-
-                      // Only show users who can be managers (registered-manager, team-leader or higher)
-                      return ['REGISTERED_MANAGER', 'TEAM_LEADER', 'ADMIN', 'DIRECTOR'].includes(user.role.toUpperCase().replace(/-/g, '_'));
-                    })
-                    .map(user => (
-                      <SelectItem key={user.id} value={user.id}>
-                        {user.name} ({user.email}) - {user.role}
-                      </SelectItem>
-                    ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setIsReassignDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleReassignHouse}>
-              Reassign & Archive User
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

@@ -37,15 +37,20 @@ export function IncidentCaseHub() {
   const [userHouseName, setUserHouseName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const defaultOccurredAt = () => new Date().toISOString().slice(0, 16); // 'YYYY-MM-DDTHH:MM'
+
   // Create incident form state
-  const [incidentForm, setIncidentForm] = useState({
-    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: ''
+  const [incidentForm, setIncidentForm] = useState<any>({
+    house_id: '', title: '', description: '', severity: 'Medium', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: ''
   });
 
   const [allHouses, setAllHouses] = useState<any[]>([]);
 
+  const userString = localStorage.getItem('user') || '{}';
+  const user = JSON.parse(userString);
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
-  const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
+  const userId = user.id;
+  const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User';
 
   useEffect(() => { loadIncidents(); }, []);
 
@@ -58,11 +63,16 @@ export function IncidentCaseHub() {
       setAllHouses(housesList);
 
       let houseId: string | null = null;
-      if (userRole === 'REGISTERED_MANAGER') {
+      if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
         const myHouse = Array.isArray(hData) ? hData[0] : hData;
-        if (myHouse) { houseId = myHouse.id; setUserHouseId(myHouse.id); setUserHouseName(myHouse.name); }
+        if (myHouse) { 
+          houseId = myHouse.id; 
+          setUserHouseId(myHouse.id); 
+          setUserHouseName(myHouse.name);
+          setIncidentForm((f: any) => ({ ...f, house_id: myHouse.id }));
+        }
       }
       const params = houseId ? `?house_id=${houseId}&limit=100` : '?limit=100';
       const res = await apiClient.get(`/incidents${params}`);
@@ -76,7 +86,7 @@ export function IncidentCaseHub() {
         description: inc.description || '',
         incidentDate: inc.occurred_at ? new Date(inc.occurred_at).toLocaleDateString('en-GB') : '',
         incidentType: inc.category_name || 'Incident',
-        status: inc.status === 'under_review' ? 'under-review' : (inc.status || 'open') as any,
+        status: inc.status || 'Open',
         createdAt: inc.created_at ? new Date(inc.created_at).toLocaleDateString('en-GB') : '',
         createdBy: inc.created_by_name || '',
         linkedRisks: 0, linkedEscalations: 0, externalRefs: []
@@ -92,8 +102,9 @@ export function IncidentCaseHub() {
     if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
       toast.error('Please fill in title, description and date'); return;
     }
-    const targetHouseId = userRole === 'REGISTERED_MANAGER' ? userHouseId : incidentForm.house_id;
+    const targetHouseId = (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') ? userHouseId : incidentForm.house_id;
     if (!targetHouseId) { toast.error('Please select a house'); return; }
+    if (!incidentForm.occurred_at) { toast.error('Please select a date'); return; }
 
     setIsSubmitting(true);
     try {
@@ -110,7 +121,7 @@ export function IncidentCaseHub() {
       });
       toast.success('Incident reported successfully');
       setShowCreateModal(false);
-      setIncidentForm({ house_id: '', title: '', description: '', severity: 'moderate', occurred_at: '', immediate_action: '', persons_involved: '', location: '' });
+      setIncidentForm({ house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '' });
       loadIncidents();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
     finally { setIsSubmitting(false); }
@@ -136,7 +147,7 @@ export function IncidentCaseHub() {
   };
 
   const filteredIncidents = getFilteredIncidents();
-  const canCreateIncident = ['REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL', 'DIRECTOR', 'ADMIN'].includes(userRole);
+  const canCreateIncident = ['REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL', 'DIRECTOR', 'ADMIN', 'TEAM_LEADER'].includes(userRole);
   const houses = ['All', ...allHouses.map(h => h.name)];
 
   if (isLoading) return (
@@ -371,8 +382,17 @@ export function IncidentCaseHub() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
+                        <label className="block text-sm font-semibold text-foreground mb-1">Incident Title *</label>
+                        <Input
+                          value={incidentForm.title}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })}
+                          className="border-border bg-background focus:ring-primary rounded-lg"
+                          placeholder="Brief title for this incident"
+                        />
+                      </div>
+                      <div>
                         <label className="block text-sm font-semibold text-foreground mb-1">House/Service *</label>
-                        <select className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <select value={incidentForm.house_id} onChange={(e) => setIncidentForm({ ...incidentForm, house_id: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           {getAvailableHouses().map(house => (
                             <option key={house.id} value={house.id}>
                               {house.name}
@@ -394,7 +414,7 @@ export function IncidentCaseHub() {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-1">Incident Type *</label>
-                        <select className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <select onChange={(e) => setIncidentForm({ ...incidentForm, type: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           <option value="">Select type...</option>
                           <option value="safeguarding">Safeguarding</option>
                           <option value="medication">Medication Error</option>
@@ -414,10 +434,10 @@ export function IncidentCaseHub() {
                           className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-destructive focus:outline-none text-sm font-bold text-destructive"
                         >
                           <option value="">Select severity...</option>
-                          <option value="critical">CRITICAL</option>
-                          <option value="serious">SERIOUS</option>
-                          <option value="moderate">MODERATE</option>
-                          <option value="low">LOW</option>
+                          <option value="Critical">Critical</option>
+                          <option value="High">High</option>
+                          <option value="Medium">Medium</option>
+                          <option value="Low">Low</option>
                         </select>
                       </div>
                     </div>
@@ -432,7 +452,7 @@ export function IncidentCaseHub() {
                     <div className="space-y-4">
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-1">Were warning signals present before this incident? *</label>
-                        <select className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <select onChange={(e) => setIncidentForm({ ...incidentForm, warning_signals: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           <option value="">Select...</option>
                           <option value="yes">Yes - risks were identified</option>
                           <option value="no">No - incident was unexpected</option>
@@ -581,16 +601,18 @@ export function IncidentCaseHub() {
                         <label className="block text-sm font-medium text-black mb-1">Your Name *</label>
                         <Input
                           placeholder="Your full name"
-                          className="border-black"
-                          defaultValue={userRole === 'registered-manager' ? 'Current RM' : 'Current User'}
+                          className="border-black bg-muted cursor-not-allowed"
+                          value={userName}
+                          readOnly
                         />
                       </div>
                       <div>
                         <label className="block text-sm font-medium text-black mb-1">Your Role *</label>
                         <Input
                           placeholder="Your role"
-                          className="border-black"
-                          defaultValue={userRole}
+                          className="border-black bg-muted cursor-not-allowed"
+                          value={userRole.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
+                          readOnly
                         />
                       </div>
                     </div>

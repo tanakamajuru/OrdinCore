@@ -108,6 +108,7 @@ router.get('/me', requireAuth, authController.me.bind(authController));
  *         description: Success
  */
 router.post('/change-password', requireAuth, authController.changePassword.bind(authController));
+router.patch('/profile', requireAuth, authController.updateProfile.bind(authController));
 
 router.post('/forgot-password', authController.forgotPassword.bind(authController));
 

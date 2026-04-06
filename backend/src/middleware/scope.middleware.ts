@@ -29,9 +29,9 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
   }
 
   // RM and TL are restricted to their OWN_SERVICE (assigned_house)
-  const assignedHouseId = req.user.assigned_house_id;
+  const userHouseIds = req.user.house_ids || [];
   
-  if (!assignedHouseId) {
+  if (userHouseIds.length === 0) {
     res.status(403).json({
       success: false,
       message: 'Access denied: No house assigned to this user profile.',
@@ -46,10 +46,10 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
     req.query.house_id || 
     (req.body as Record<string, unknown>)?.house_id;
 
-  if (requestedHouseId && requestedHouseId !== assignedHouseId) {
+  if (requestedHouseId && typeof requestedHouseId === 'string' && !userHouseIds.includes(requestedHouseId)) {
     res.status(404).json({
       success: false,
-      message: 'Not found',
+      message: 'Not found or not authorized for this site',
       errors: [],
     });
     return;
@@ -57,12 +57,16 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
 
   // Force house_id filter for GET requests if not specified
   if (req.method === 'GET' && !req.query.house_id && !req.params.houseId) {
-    req.query.house_id = assignedHouseId;
+    if (userHouseIds.length === 1) {
+      req.query.house_id = userHouseIds[0];
+    }
   }
   
   // Force house_id for POST/PUT if not specified
   if ((req.method === 'POST' || req.method === 'PUT' || req.method === 'PATCH') && !req.body.house_id) {
-    req.body.house_id = assignedHouseId;
+    if (userHouseIds.length === 1) {
+      req.body.house_id = userHouseIds[0];
+    }
   }
 
   next();

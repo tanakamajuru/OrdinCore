@@ -48,6 +48,8 @@ export function Profile() {
   const [isChangingPassword, setIsChangingPassword] = useState(false);
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
+  const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
+  const [tempAvatar, setTempAvatar] = useState<string | null>(null);
 
   useEffect(() => {
     loadProfile();
@@ -61,7 +63,6 @@ export function Profile() {
       setUser(data.data || data);
     } catch (err: any) {
       console.error('Failed to load profile:', err);
-      // Fallback to localStorage
       const stored = localStorage.getItem('user');
       if (stored) setUser(JSON.parse(stored));
     } finally {
@@ -77,7 +78,38 @@ export function Profile() {
       const data = res.data as any;
       setHouses(data.data || data || []);
     } catch (err) {
-      // ignore — houses not critical for profile display
+      // ignore
+    }
+  };
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 1024 * 1024) {
+        toast.error('Image is too large. Please select an image under 1MB.');
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setTempAvatar(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleUpdateProfile = async () => {
+    setIsUpdatingProfile(true);
+    try {
+      await apiClient.patch('/auth/profile', {
+        avatar_url: tempAvatar,
+      });
+      toast.success('Profile picture updated successfully');
+      loadProfile();
+      setTempAvatar(null);
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Failed to update profile picture');
+    } finally {
+      setIsUpdatingProfile(false);
     }
   };
 
@@ -134,50 +166,64 @@ export function Profile() {
         </div>
 
         <div className="space-y-6">
-          {/* User Information */}
           <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">User Information</h2>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Full Name</label>
-                <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{fullName || '—'}</div>
+            <div className="flex flex-col md:flex-row gap-6 mb-6 pb-6 border-b-2 border-gray-100">
+              <div className="flex flex-col items-center gap-3">
+                <div className="w-32 h-32 rounded-full border-4 border-black overflow-hidden bg-gray-100 flex items-center justify-center relative group">
+                  {(tempAvatar || displayUser.profile?.avatar_url) ? (
+                    <img src={tempAvatar || displayUser.profile?.avatar_url} alt="Profile" className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="text-4xl font-bold text-gray-400">
+                       {(displayUser.first_name?.[0] || '') + (displayUser.last_name?.[0] || '')}
+                    </div>
+                  )}
+                  <label className="absolute inset-0 bg-black/50 text-white flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-xs font-medium">
+                    CHANGE
+                    <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
+                  </label>
+                </div>
+                {tempAvatar && (
+                  <button 
+                    onClick={handleUpdateProfile} 
+                    disabled={isUpdatingProfile}
+                    className="text-xs bg-black text-white px-2 py-1 hover:bg-gray-800 disabled:opacity-50"
+                  >
+                    {isUpdatingProfile ? 'Saving...' : 'Save New Picture'}
+                  </button>
+                )}
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Role</label>
-                <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">
-                  {ROLE_LABELS[displayUser.role] || displayUser.role || '—'}
+              <div className="flex-1">
+                <h2 className="text-xl font-semibold mb-4 text-black">User Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Full Name</label>
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{fullName || '—'}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Role</label>
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black capitalize">
+                      {ROLE_LABELS[displayUser.role] || displayUser.role?.replace(/_/g, ' ').toLowerCase() || '—'}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Email</label>
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{displayUser.email || '—'}</div>
+                  </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Status</label>
+                    <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black capitalize">
+                      <span className={`inline-block w-2 h-2 rounded-full mr-2 ${displayUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
+                      {displayUser.status || '—'}
+                    </div>
+                  </div>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Email</label>
-                <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{displayUser.email || '—'}</div>
-              </div>
-              <div>
-                <label className="block text-sm text-gray-600 mb-1">Status</label>
-                <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black capitalize">
-                  <span className={`inline-block w-2 h-2 rounded-full mr-2 ${displayUser.status === 'active' ? 'bg-green-500' : 'bg-red-500'}`} />
-                  {displayUser.status || '—'}
-                </div>
-              </div>
-              {displayUser.profile?.job_title && (
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Job Title</label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{displayUser.profile.job_title}</div>
-                </div>
-              )}
-              {displayUser.profile?.phone && (
-                <div>
-                  <label className="block text-sm text-gray-600 mb-1">Phone</label>
-                  <div className="px-4 py-2 bg-gray-50 border border-gray-300 text-black">{displayUser.profile.phone}</div>
-                </div>
-              )}
             </div>
           </div>
 
-          {/* Assigned Houses */}
           {houses.length > 0 && (
             <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Assigned Houses</h2>
+              <h2 className="text-xl font-semibold mb-4 text-black">Assigned Sites</h2>
               <div className="space-y-2">
                 {houses.map((h: any) => (
                   <div key={h.id} className="flex justify-between items-center p-3 border border-gray-300">
@@ -192,7 +238,6 @@ export function Profile() {
             </div>
           )}
 
-          {/* Activity */}
           <div className="bg-white border-2 border-black p-6">
             <h2 className="text-xl font-semibold mb-4 text-black">Activity</h2>
             <div>
@@ -203,7 +248,6 @@ export function Profile() {
             </div>
           </div>
 
-          {/* Permissions */}
           <div className="bg-white border-2 border-black p-6">
             <h2 className="text-xl font-semibold mb-4 text-black">Permissions</h2>
             <div className="space-y-2">
@@ -216,7 +260,6 @@ export function Profile() {
             </div>
           </div>
 
-          {/* Change Password */}
           <div className="bg-white border-2 border-black p-6">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold text-black">Account Actions</h2>

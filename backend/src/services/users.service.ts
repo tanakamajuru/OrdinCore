@@ -7,6 +7,7 @@ export class UsersService {
     email: string; password: string; first_name: string; last_name: string; role: string; phone?: string; job_title?: string;
     is_active?: boolean;
     house_id?: string;
+    house_ids?: string[];
     pulse_days?: string[];
   }) {
     const existing = await usersRepo.findByEmail(data.email);
@@ -18,14 +19,18 @@ export class UsersService {
     await usersRepo.createProfile(user.id, { phone: data.phone, job_title: data.job_title });
 
     // Handle house assignment
-    if (data.house_id) {
+    if (data.house_ids && Array.isArray(data.house_ids)) {
+      for (const hId of data.house_ids) {
+        await usersRepo.assignToHouse(user.id, hId, company_id);
+      }
+    } else if (data.house_id) {
       if (data.house_id === 'all') {
         const houses = await housesRepo.findByCompany(company_id, 1000, 0);
         for (const h of houses) {
           await usersRepo.assignToHouse(user.id, h.id, company_id);
         }
       } else {
-        await housesRepo.update(data.house_id, company_id, { manager_id: user.id });
+        await housesRepo.update(data.house_id, company_id, { manager_id: user.id } as any);
         await usersRepo.assignToHouse(user.id, data.house_id, company_id);
       }
     }
@@ -50,7 +55,7 @@ export class UsersService {
     return user;
   }
 
-  async update(id: string, company_id: string | null, data: Partial<{ first_name: string; last_name: string; role: string; status: string; is_active: boolean; house_id: string; pulse_days: string[] }>) {
+  async update(id: string, company_id: string | null, data: Partial<{ first_name: string; last_name: string; role: string; status: string; is_active: boolean; house_id: string; house_ids: string[]; pulse_days: string[] }>) {
     const user = await usersRepo.findById(id, company_id);
     if (!user) throw new Error('User not found');
     
@@ -60,10 +65,14 @@ export class UsersService {
     }
 
     // Handle house update
-    if ('house_id' in data && company_id) {
+    if (('house_id' in data || 'house_ids' in data) && company_id) {
       await usersRepo.clearAssignedHouses(id);
       
-      if (data.house_id) {
+      if (data.house_ids && Array.isArray(data.house_ids)) {
+         for (const hId of data.house_ids) {
+            await usersRepo.assignToHouse(id, hId, company_id);
+         }
+      } else if (data.house_id) {
         if (data.house_id === 'all') {
           const houses = await housesRepo.findByCompany(company_id, 1000, 0);
           for (const h of houses) {
@@ -72,15 +81,15 @@ export class UsersService {
         } else {
           const role = (data.role || user.role).toUpperCase();
           if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
-            await housesRepo.update(data.house_id, company_id, { manager_id: id });
+            await housesRepo.update(data.house_id, company_id, { manager_id: id } as any);
           }
           await usersRepo.assignToHouse(id, data.house_id, company_id);
         }
       }
     }
 
-    const { house_id: _, is_active: ___, ...updateData } = data;
-    void _; void ___;
+    const { house_id: _, house_ids: __, is_active: ___, ...updateData } = data;
+    void _; void __; void ___;
 
     const updated = await usersRepo.update(id, updateData);
     const { password_hash, ...safe } = updated;

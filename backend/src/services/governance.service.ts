@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
+import { risksService } from './risks.service';
 
 export class GovernanceService {
   async createPulse(company_id: string, data: { house_id: string; template_id: string; due_date: Date }) {
@@ -11,7 +12,7 @@ export class GovernanceService {
     if (!tpl.rows[0]) throw new Error('Governance template not found');
 
     const result = await query(
-      `INSERT INTO governance_pulses (id, company_id, service_unit_id, template_id, status, due_date)
+      `INSERT INTO governance_pulses (id, company_id, house_id, template_id, status, due_date)
        VALUES ($1,$2,$3,$4,'DRAFT',$5) RETURNING *`,
       [id, company_id, data.house_id, data.template_id, data.due_date]
     );
@@ -26,7 +27,7 @@ export class GovernanceService {
     let idx = 2;
 
     if (filters.status) { conditions.push(`gp.status = $${idx++}`); params.push(filters.status); }
-    if (filters.house_id) { conditions.push(`gp.service_unit_id = $${idx++}`); params.push(filters.house_id); }
+    if (filters.house_id) { conditions.push(`gp.house_id = $${idx++}`); params.push(filters.house_id); }
     if (filters.assigned_user_id) { 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
       if (uuidRegex.test(filters.assigned_user_id as string)) {
@@ -42,7 +43,7 @@ export class GovernanceService {
           u.first_name || ' ' || u.last_name AS completed_by_name
          FROM governance_pulses gp
          JOIN governance_templates gt ON gt.id = gp.template_id
-         JOIN houses h ON h.id = gp.service_unit_id
+         JOIN houses h ON h.id = gp.house_id
          LEFT JOIN users u ON u.id = gp.completed_by
          WHERE ${where}
          ORDER BY gp.due_date DESC
@@ -67,7 +68,7 @@ export class GovernanceService {
           FILTER (WHERE gq.id IS NOT NULL) AS questions
        FROM governance_pulses gp
        JOIN governance_templates gt ON gt.id = gp.template_id
-       JOIN houses h ON h.id = gp.service_unit_id
+       JOIN houses h ON h.id = gp.house_id
        LEFT JOIN governance_questions gq ON gq.template_id = gp.template_id
        WHERE gp.id = $1 AND gp.company_id = $2
        GROUP BY gp.id, gt.name, h.name`,
@@ -117,6 +118,27 @@ export class GovernanceService {
     );
 
     await eventBus.emitEvent(EVENTS.GOVERNANCE_COMPLETED, { pulse_id, company_id, compliance_score: complianceScore });
+
+    // [GOVERNANCE] Risk Register Integration
+    // If any question was flagged (answered 'yes' to a risk question), create a risk in the register
+    if (flaggedCount > 0) {
+      for (const ans of answers) {
+        if (ans.flagged) {
+          // Get question text
+          const qRes = await query('SELECT question FROM governance_questions WHERE id = $1', [ans.question_id]);
+          const questionText = qRes.rows[0]?.question || 'Risk identified in governance pulse';
+          
+          await risksService.create(company_id, user_id, {
+            house_id: pulse.rows[0].house_id,
+            title: `Pulse Risk: ${questionText.substring(0, 50)}...`,
+            description: `Auto-generated from pulse answer: "${ans.answer}". Comment: ${ans.comment || 'None'}`,
+            severity: 'High',
+            metadata: { pulse_id, question_id: ans.question_id }
+          });
+        }
+      }
+    }
+
     return { message: 'Governance pulse submitted', compliance_score: complianceScore };
   }
 
@@ -232,7 +254,7 @@ export class GovernanceService {
        WHERE company_id = $1 
          AND status = 'DRAFT' 
          AND due_date < NOW()
-       RETURNING id, service_unit_id AS house_id, due_date`,
+       RETURNING id, house_id AS house_id, due_date`,
       [company_id]
     );
 
@@ -294,14 +316,14 @@ export class GovernanceService {
           const dateStr = d.toISOString().split('T')[0];
           
           const existing = await query(
-            'SELECT id FROM governance_pulses WHERE service_unit_id = $1 AND due_date = $2 AND assigned_user_id = $3',
+            'SELECT id FROM governance_pulses WHERE house_id = $1 AND due_date = $2 AND assigned_user_id = $3',
             [target.house_id, dateStr, target.user_id]
           );
           
           if (existing.rows.length === 0) {
             console.log(`[DEBUG_PULSE_GEN_XYZ] Generating pulse for user ${target.user_id} at house ${target.house_id} on ${dateStr}`);
             await query(
-              `INSERT INTO governance_pulses (id, company_id, service_unit_id, template_id, status, due_date, assigned_user_id)
+              `INSERT INTO governance_pulses (id, company_id, house_id, template_id, status, due_date, assigned_user_id)
                VALUES ($1, $2, $3, $4, $5, $6, $7)`,
               [uuidv4(), company_id, target.house_id, templateId, 'DRAFT', dateStr, target.user_id]
             );
