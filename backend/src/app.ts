@@ -3,7 +3,7 @@ import cors from 'cors';
 import helmet from 'helmet';
 import morgan from 'morgan';
 import swaggerUi from 'swagger-ui-express';
-import dotenv from 'dotenv';
+
 import path from 'path';
 
 import { swaggerSpec } from './config/swagger';
@@ -27,7 +27,7 @@ import exportsRoutes from './routes/exports.routes';
 import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
 import adminRoutes from './routes/admin.routes';
 
-dotenv.config();
+
 
 const app = express();
 
