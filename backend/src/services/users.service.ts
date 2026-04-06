@@ -25,7 +25,7 @@ export class UsersService {
       }
     } else if (data.house_id) {
       if (data.house_id === 'all') {
-        const houses = await housesRepo.findByCompany(company_id, 1000, 0);
+        const houses = await housesRepo.findByCompany(company_id, {}, 1000, 0);
         for (const h of houses) {
           await usersRepo.assignToHouse(user.id, h.id, company_id);
         }
@@ -74,7 +74,7 @@ export class UsersService {
          }
       } else if (data.house_id) {
         if (data.house_id === 'all') {
-          const houses = await housesRepo.findByCompany(company_id, 1000, 0);
+          const houses = await housesRepo.findByCompany(company_id, {}, 1000, 0);
           for (const h of houses) {
             await usersRepo.assignToHouse(id, h.id, company_id);
           }
