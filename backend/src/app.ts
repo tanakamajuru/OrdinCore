@@ -33,6 +33,10 @@ const app = express();
 
 // ─── Security & Parsing Middleware ────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
+const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+  .split(',')
+  .map(o => o.trim());
+
 app.use(cors({
   origin: (origin, callback) => {
     if (!origin) {
