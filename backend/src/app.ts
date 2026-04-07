@@ -33,15 +33,19 @@ const app = express();
 
 // ─── Security & Parsing Middleware ────────────────────────────────────────────
 app.use(helmet({ contentSecurityPolicy: false }));
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map(o => o.trim());
-
 app.use(cors({
   origin: (origin, callback) => {
-    // If no origin (like mobile apps or curl requests) or origin is in the allowed list
-    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
+    if (!origin) {
+      return callback(null, true);
+    }
+    
+    const isAllowed = allowedOrigins.some(allowed => 
+      origin === allowed || origin.endsWith(`.${allowed.replace(/^https?:\/\//, '')}`)
+    );
+
+    if (isAllowed) {
+      // Return only the exact origin that matched
+      callback(null, origin);
     } else {
       callback(new Error('Not allowed by CORS'));
     }
