@@ -1,7 +1,7 @@
 import './config/env';
 import http from 'http';
 import app from './app';
-import { pool } from './config/database';
+import { getPool } from './config/database';
 import { redis } from './config/redis';
 import { initSocketServer } from './websocket/socket.server';
 import { startReportWorker } from './workers/report.worker';
@@ -42,7 +42,7 @@ const shutdown = async (signal: string) => {
       await reportWorker.close();
       await analyticsWorker.close();
       await notificationWorker.close();
-      await pool.end();
+      await getPool().end();
       await redis.quit();
       logger.info('All connections closed. Exiting.');
       process.exit(0);
