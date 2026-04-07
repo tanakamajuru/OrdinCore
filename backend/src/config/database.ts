@@ -5,12 +5,13 @@ let poolInstance: Pool | null = null;
 
 export const getPool = (): Pool => {
   if (!poolInstance) {
+    const isProd = process.env.NODE_ENV === 'production';
     const config: PoolConfig = {
-      host: process.env.DB_HOST || 'localhost',
+      host: process.env.DB_HOST || (isProd ? 'localhost' : 'localhost'),
       port: parseInt(process.env.DB_PORT || '5432'),
-      database: process.env.DB_NAME || 'ordincore',
-      user: process.env.DB_USER || 'ordinuser',
-      password: process.env.DB_PASSWORD || 'postgres',
+      database: process.env.DB_NAME || (isProd ? 'ordincore' : 'caresignal'),
+      user: process.env.DB_USER || (isProd ? 'ordinuser' : 'postgres'),
+      password: process.env.DB_PASSWORD || (isProd ? 'Highway@1520' : 'postgres'),
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,

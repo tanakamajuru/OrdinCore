@@ -39,11 +39,11 @@ const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin || allowedOrigins.includes(origin)) {
+    // If no origin (like mobile apps or curl requests) or origin is in the allowed list
+    if (!origin || allowedOrigins.indexOf(origin) !== -1) {
       callback(null, true);
     } else {
-      // Return null, false to reject CORS without throwing an Express error
-      callback(null, false);
+      callback(new Error('Not allowed by CORS'));
     }
   },
   credentials: true,
