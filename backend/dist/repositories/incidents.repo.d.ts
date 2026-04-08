@@ -5,6 +5,7 @@ export interface CreateIncidentDto {
     title: string;
     description: string;
     severity?: string;
+    status?: string;
     occurred_at: Date;
     location?: string;
     immediate_action?: string;
@@ -51,16 +52,38 @@ export declare const incidentsRepo: {
         created_by: string;
     }): Promise<any>;
     getGovernanceTimeline(incident_id: string, company_id: string): Promise<{
-        id: string;
-        timestamp: any;
-        sourceType: any;
-        sourceId: any;
-        label: any;
-        detail: any;
-        actor: any;
-        actorRole: any;
-        gapFlag: any;
-        intervalToNext: number;
-    }[]>;
+        timeline: never[];
+        metrics: {};
+        patterns: never[];
+        findings: never[];
+        recommendations: never[];
+    } | {
+        timeline: {
+            id: string;
+            timestamp: any;
+            sourceType: any;
+            sourceId: any;
+            label: any;
+            detail: any;
+            actor: any;
+            actorRole: any;
+            gapFlag: any;
+        }[];
+        metrics: {
+            riskSignalsLogged: number;
+            escalationsTriggered: number;
+            leadershipReviews: number;
+            lastOversightReviewDays: number;
+            firstSignalToIncidentDays: number;
+            escalationResponseHours: number;
+        };
+        patterns: {
+            house: string;
+            signal: string;
+            detected: string;
+        }[];
+        findings: string[];
+        recommendations: string[];
+    }>;
 };
 //# sourceMappingURL=incidents.repo.d.ts.map

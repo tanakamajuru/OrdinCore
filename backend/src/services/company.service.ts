@@ -9,7 +9,40 @@ export class CompanyService {
        VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
       [id, data.name, data.domain || null, data.plan || 'starter', data.email || null, data.phone || null, data.address || null]
     );
-    return result.rows[0];
+    const company = result.rows[0];
+
+    // Initialize default Governance Template for the new company
+    try {
+      const templateId = '00000000-0000-0000-0000-000000000001';
+      await query(
+        `INSERT INTO governance_templates (id, company_id, name, description, frequency)
+         VALUES ($1, $2, $3, $4, $5)
+         ON CONFLICT (id) DO NOTHING`,
+        [templateId, company.id, 'Standard Governance Pulse', 'Standard daily governance and risk check', 'daily']
+      );
+
+      // Add default questions
+      const questions = [
+        { q: 'Have any new risks emerged since the last pulse?', t: 'yes_no' },
+        { q: 'Are any existing risks increasing or deteriorating?', t: 'yes_no' },
+        { q: 'Any safeguarding concerns or indicators this week?', t: 'yes_no' },
+        { q: 'Any operational pressures affecting service stability?', t: 'multiple_choice' },
+        { q: 'Does anything require leadership attention?', t: 'yes_no' }
+      ];
+
+      for (let i = 0; i < questions.length; i++) {
+        await query(
+          `INSERT INTO governance_questions (id, template_id, company_id, question, question_type, required, order_index)
+           VALUES ($1, $2, $3, $4, $5, $6, $7)
+           ON CONFLICT DO NOTHING`,
+          [uuidv4(), templateId, company.id, questions[i].q, questions[i].t, true, i]
+        );
+      }
+    } catch (err) {
+      console.error('Failed to initialize default governance template for company:', company.id, err);
+    }
+
+    return company;
   }
 
   async findAll(limit = 50, offset = 0) {

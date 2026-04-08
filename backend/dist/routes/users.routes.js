@@ -88,6 +88,7 @@ router.get('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTen
  *         description: Success
  */
 router.patch('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN'), users_controller_1.usersController.update.bind(users_controller_1.usersController));
+router.patch('/:id/password', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN'), users_controller_1.usersController.resetPassword.bind(users_controller_1.usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:

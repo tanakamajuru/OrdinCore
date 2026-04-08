@@ -19,7 +19,11 @@ class HousesController {
             const company_id = req.user.company_id;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 50;
-            const result = await houses_service_1.housesService.findAll(company_id, page, limit);
+            const filters = {
+                search: req.query.search,
+                is_active: req.query.is_active,
+            };
+            const result = await houses_service_1.housesService.findAll(company_id, filters, page, limit);
             return res.json({ success: true, data: result.houses, meta: { total: result.total, page, limit, pages: result.pages } });
         }
         catch (err) {

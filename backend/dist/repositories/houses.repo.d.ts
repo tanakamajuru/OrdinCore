@@ -10,8 +10,8 @@ export interface CreateHouseDto {
 }
 export declare const housesRepo: {
     findById(id: string, company_id?: string): Promise<any>;
-    findByCompany(company_id: string, limit?: number, offset?: number): Promise<any[]>;
-    countByCompany(company_id: string): Promise<number>;
+    findByCompany(company_id: string, filters?: Record<string, unknown>, limit?: number, offset?: number): Promise<any[]>;
+    countByCompany(company_id: string, filters?: Record<string, unknown>): Promise<number>;
     create(dto: CreateHouseDto): Promise<any>;
     update(id: string, company_id: string, data: Partial<CreateHouseDto>): Promise<any>;
     delete(id: string, company_id: string): Promise<void>;

@@ -6,6 +6,21 @@ class ReportsController {
     async request(req, res) {
         try {
             const company_id = req.user.company_id;
+            // Enforce RM/TL report scoping
+            const rbacRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'];
+            const userRole = req.user.role.toUpperCase();
+            if (!req.body.parameters)
+                req.body.parameters = {};
+            if (!rbacRoles.includes(userRole)) {
+                if (!req.user.assigned_house_id) {
+                    return res.status(403).json({ success: false, message: 'Access denied: No house assigned for reporting.', errors: [] });
+                }
+                if (req.body.parameters.house_id && req.body.parameters.house_id !== req.user.assigned_house_id) {
+                    return res.status(403).json({ success: false, message: 'Access denied: Cannot generate cross-house reports.', errors: [] });
+                }
+                // Force scoping
+                req.body.parameters.house_id = req.user.assigned_house_id;
+            }
             const report = await reports_service_1.reportsService.requestReport(company_id, req.user.user_id, req.body);
             return res.status(202).json({ success: true, data: report, meta: {} });
         }

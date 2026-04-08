@@ -49,6 +49,9 @@ class EscalationsService {
         const escalation = await (0, database_1.query)('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
         if (!escalation.rows[0])
             throw new Error('Escalation not found');
+        if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+            throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+        }
         await (0, database_1.query)(`UPDATE escalations SET status = 'resolved', resolved_at = NOW(), resolution_notes = $1, updated_at = NOW() WHERE id = $2`, [resolution_notes, id]);
         await (0, database_1.query)(`INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,'resolved',$4,$5)`, [(0, uuid_1.v4)(), id, company_id, resolution_notes, user_id]);
@@ -64,6 +67,9 @@ class EscalationsService {
         const escalation = await (0, database_1.query)('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
         if (!escalation.rows[0])
             throw new Error('Escalation not found');
+        if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+            throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+        }
         const result = await (0, database_1.query)(`INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`, [(0, uuid_1.v4)(), id, company_id, data.action_type, data.description, user_id]);
         return result.rows[0];
@@ -83,6 +89,9 @@ class EscalationsService {
         const escalation = await (0, database_1.query)('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
         if (!escalation.rows[0])
             throw new Error('Escalation not found');
+        if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+            throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+        }
         const result = await (0, database_1.query)(`UPDATE escalations SET escalated_to = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`, [assigned_to, id, company_id]);
         await (0, database_1.query)(`INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,'assigned','Escalation reassigned',$4)`, [(0, uuid_1.v4)(), id, company_id, user_id]);
@@ -92,9 +101,22 @@ class EscalationsService {
         const escalation = await (0, database_1.query)('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
         if (!escalation.rows[0])
             throw new Error('Escalation not found');
+        if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+            throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
+        }
         const result = await (0, database_1.query)(`UPDATE escalations SET priority = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`, [priority, id, company_id]);
         await (0, database_1.query)(`INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,'priority_updated',$4,$5)`, [(0, uuid_1.v4)(), id, company_id, `Priority updated to ${priority}`, user_id]);
+        return result.rows[0];
+    }
+    async getEscalationStats(company_id) {
+        const result = await (0, database_1.query)(`SELECT 
+        COUNT(*) AS total,
+        COUNT(*) FILTER (WHERE status = 'pending') AS pending,
+        COUNT(*) FILTER (WHERE status = 'acknowledged' OR status = 'in_progress') AS active,
+        COUNT(*) FILTER (WHERE priority = 'critical' OR priority = 'urgent') AS urgent_count
+       FROM escalations
+       WHERE company_id = $1`, [company_id]);
         return result.rows[0];
     }
 }

@@ -90,6 +90,17 @@ class EscalationsController {
             return res.status(400).json({ success: false, message, errors: [] });
         }
     }
+    async getStats(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const data = await escalations_service_1.escalationsService.getEscalationStats(company_id);
+            return res.json({ success: true, data, meta: {} });
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to get escalation stats';
+            return res.status(500).json({ success: false, message, errors: [] });
+        }
+    }
 }
 exports.EscalationsController = EscalationsController;
 exports.escalationsController = new EscalationsController();

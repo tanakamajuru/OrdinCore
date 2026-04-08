@@ -3,7 +3,7 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-require("dotenv/config");
+require("./config/env");
 const http_1 = __importDefault(require("http"));
 const app_1 = __importDefault(require("./app"));
 const database_1 = require("./config/database");
@@ -40,7 +40,7 @@ const shutdown = async (signal) => {
             await reportWorker.close();
             await analyticsWorker.close();
             await notificationWorker.close();
-            await database_1.pool.end();
+            await (0, database_1.getPool)().end();
             await redis_1.redis.quit();
             logger_1.default.info('All connections closed. Exiting.');
             process.exit(0);
@@ -65,7 +65,7 @@ process.on('unhandledRejection', (reason) => {
 httpServer.listen(PORT, () => {
     logger_1.default.info(`
   ╔═══════════════════════════════════════════════════════╗
-  ║            🏥  CareSignal Backend v1.0.0              ║
+  ║            🏥  Ordin Core Backend v1.0.0              ║
   ╠═══════════════════════════════════════════════════════╣
   ║  Server:   http://localhost:${PORT}                      ║
   ║  API:      http://localhost:${PORT}/api/v1               ║

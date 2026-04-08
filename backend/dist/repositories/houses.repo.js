@@ -14,20 +14,51 @@ exports.housesRepo = {
         const result = await (0, database_1.query)(sql, params);
         return result.rows[0] || null;
     },
-    async findByCompany(company_id, limit = 50, offset = 0) {
+    async findByCompany(company_id, filters = {}, limit = 50, offset = 0) {
+        const conditions = ['h.company_id = $1'];
+        const params = [company_id];
+        let idx = 2;
+        if (filters.search) {
+            conditions.push(`(h.name ILIKE $${idx} OR h.city ILIKE $${idx} OR h.postcode ILIKE $${idx})`);
+            params.push(`%${filters.search}%`);
+            idx++;
+        }
+        if (filters.is_active !== undefined) {
+            conditions.push(`h.is_active = $${idx++}`);
+            params.push(filters.is_active === 'true' || filters.is_active === true);
+        }
+        const where = conditions.join(' AND ');
         const result = await (0, database_1.query)(`SELECT h.*, u.first_name AS manager_first_name, u.last_name AS manager_last_name
        FROM houses h
        LEFT JOIN users u ON u.id = h.manager_id
-       WHERE h.company_id = $1
+       WHERE ${where}
        ORDER BY h.name
-       LIMIT $2 OFFSET $3`, [company_id, limit, offset]);
+       LIMIT $${idx++} OFFSET $${idx++}`, [...params, limit, offset]);
         return result.rows;
     },
-    async countByCompany(company_id) {
-        const result = await (0, database_1.query)('SELECT COUNT(*) FROM houses WHERE company_id = $1', [company_id]);
+    async countByCompany(company_id, filters = {}) {
+        const conditions = ['company_id = $1'];
+        const params = [company_id];
+        let idx = 2;
+        if (filters.search) {
+            conditions.push(`(name ILIKE $${idx} OR city ILIKE $${idx} OR postcode ILIKE $${idx})`);
+            params.push(`%${filters.search}%`);
+            idx++;
+        }
+        if (filters.is_active !== undefined) {
+            conditions.push(`is_active = $${idx++}`);
+            params.push(filters.is_active === 'true' || filters.is_active === true);
+        }
+        const where = conditions.join(' AND ');
+        const result = await (0, database_1.query)(`SELECT COUNT(*) FROM houses WHERE ${where}`, params);
         return parseInt(result.rows[0].count);
     },
     async create(dto) {
+        // [GOVERNANCE] Anti-duplication Check
+        const existing = await (0, database_1.query)('SELECT id FROM houses WHERE company_id = $1 AND (name = $2 OR (registration_number = $3 AND registration_number IS NOT NULL))', [dto.company_id, dto.name, dto.registration_number || null]);
+        if (existing.rows.length > 0) {
+            throw new Error('A site with this name or registration number already exists in your organisation (Governance Integrity Rule Section 8.4)');
+        }
         const id = (0, uuid_1.v4)();
         const result = await (0, database_1.query)(`INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, registration_number)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)

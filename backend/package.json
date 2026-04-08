@@ -40,9 +40,12 @@
     "@types/node": "^20.10.4",
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
+    "@types/ssh2": "^1.15.5",
     "@types/swagger-jsdoc": "^6.0.4",
     "@types/swagger-ui-express": "^4.1.6",
     "@types/uuid": "^9.0.7",
+    "ssh2": "^1.17.0",
+    "tar": "^7.5.13",
     "ts-node": "^10.9.2",
     "ts-node-dev": "^2.0.0",
     "typescript": "^5.3.3"

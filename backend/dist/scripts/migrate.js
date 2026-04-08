@@ -41,7 +41,8 @@ const path = __importStar(require("path"));
 const database_1 = require("../config/database");
 const logger_1 = __importDefault(require("../utils/logger"));
 async function runMigrations() {
-    const client = await database_1.pool.connect();
+    const pool = (0, database_1.getPool)();
+    const client = await pool.connect();
     try {
         // Create migrations tracking table
         await client.query(`
@@ -80,7 +81,7 @@ async function runMigrations() {
     }
     finally {
         client.release();
-        await database_1.pool.end();
+        await pool.end();
     }
 }
 runMigrations().catch((err) => {

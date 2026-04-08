@@ -8,6 +8,7 @@ export declare class AuthService {
     changePassword(userId: string, currentPassword: string, newPassword: string): Promise<{
         message: string;
     }>;
+    resetToDefault(email: string): Promise<void>;
     refreshToken(token: string): Promise<{
         token: string;
     }>;
@@ -21,6 +22,11 @@ export declare class AuthService {
         id: string;
     }): string;
     logAudit(company_id: string | null, user_id: string, action: string, resource: string, resource_id?: string): Promise<void>;
+    updateProfile(userId: string, data: {
+        first_name?: string;
+        last_name?: string;
+        avatar_url?: string;
+    }): Promise<any>;
 }
 export declare const authService: AuthService;
 //# sourceMappingURL=auth.service.d.ts.map

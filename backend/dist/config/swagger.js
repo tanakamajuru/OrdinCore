@@ -9,12 +9,12 @@ const options = {
     definition: {
         openapi: '3.0.0',
         info: {
-            title: 'CareSignal API',
+            title: 'OrdinCore API',
             version: '1.0.0',
-            description: 'CareSignal — Multi-tenant governance and risk management SaaS platform API. All endpoints require authentication unless stated otherwise.',
+            description: 'OrdinCore — Multi-tenant governance and risk management SaaS platform API. All endpoints require authentication unless stated otherwise.',
             contact: {
-                name: 'CareSignal Support',
-                email: 'support@caresignal.com',
+                name: 'OrdinCore Support',
+                email: 'support@ordincore.com',
             },
         },
         servers: [

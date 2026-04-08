@@ -113,8 +113,8 @@ export class GovernanceService {
 
     await query(
       `UPDATE governance_pulses SET status = 'SUBMITTED', completed_at = NOW(), completed_by = $1, compliance_score = $2, updated_at = NOW()
-       WHERE id = $3`,
-      [user_id, complianceScore.toFixed(2), pulse_id]
+       WHERE id = $3 AND company_id = $4`,
+      [user_id, complianceScore.toFixed(2), pulse_id, company_id]
     );
 
     await eventBus.emitEvent(EVENTS.GOVERNANCE_COMPLETED, { pulse_id, company_id, compliance_score: complianceScore });
@@ -122,20 +122,25 @@ export class GovernanceService {
     // [GOVERNANCE] Risk Register Integration
     // If any question was flagged (answered 'yes' to a risk question), create a risk in the register
     if (flaggedCount > 0) {
-      for (const ans of answers) {
-        if (ans.flagged) {
-          // Get question text
-          const qRes = await query('SELECT question FROM governance_questions WHERE id = $1', [ans.question_id]);
-          const questionText = qRes.rows[0]?.question || 'Risk identified in governance pulse';
-          
-          await risksService.create(company_id, user_id, {
-            house_id: pulse.rows[0].house_id,
-            title: `Pulse Risk: ${questionText.substring(0, 50)}...`,
-            description: `Auto-generated from pulse answer: "${ans.answer}". Comment: ${ans.comment || 'None'}`,
-            severity: 'High',
-            metadata: { pulse_id, question_id: ans.question_id }
-          });
+      try {
+        for (const ans of answers) {
+          if (ans.flagged) {
+            // Get question text
+            const qRes = await query('SELECT question FROM governance_questions WHERE id = $1', [ans.question_id]);
+            const questionText = qRes.rows[0]?.question || 'Risk identified in governance pulse';
+            
+            await risksService.create(company_id, user_id, {
+              house_id: pulse.rows[0].house_id,
+              title: `Pulse Risk: ${questionText.substring(0, 50)}...`,
+              description: `Auto-generated from pulse answer: "${ans.answer}". Comment: ${ans.comment || 'None'}`,
+              severity: 'High',
+              metadata: { pulse_id, question_id: ans.question_id }
+            });
+          }
         }
+      } catch (riskError) {
+        // We log but don't fail the pulse submission if risk creation fails
+        console.error('[GOVERNANCE_SERVICE] Failed to create secondary risks for pulse:', pulse_id, riskError);
       }
     }
 

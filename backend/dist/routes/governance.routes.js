@@ -5,6 +5,7 @@ const governance_controller_1 = require("../controllers/governance.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const role_middleware_1 = require("../middleware/role.middleware");
 const tenant_middleware_1 = require("../middleware/tenant.middleware");
+const scope_middleware_1 = require("../middleware/scope.middleware");
 const router = (0, express_1.Router)();
 // Templates
 /**
@@ -140,7 +141,7 @@ router.delete('/templates/:id/questions/:questionId', auth_middleware_1.requireA
  *       200:
  *         description: Success
  */
-router.post('/pulse', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governance_controller_1.governanceController.createPulse.bind(governance_controller_1.governanceController));
+router.post('/pulse', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), governance_controller_1.governanceController.createPulse.bind(governance_controller_1.governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses:
@@ -154,7 +155,7 @@ router.post('/pulse', auth_middleware_1.requireAuth, tenant_middleware_1.require
  *       200:
  *         description: Success
  */
-router.get('/pulses', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, governance_controller_1.governanceController.getPulses.bind(governance_controller_1.governanceController));
+router.get('/pulses', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, governance_controller_1.governanceController.getPulses.bind(governance_controller_1.governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}:
@@ -174,7 +175,7 @@ router.get('/pulses', auth_middleware_1.requireAuth, tenant_middleware_1.require
  *       200:
  *         description: Success
  */
-router.get('/pulses/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, governance_controller_1.governanceController.getPulseById.bind(governance_controller_1.governanceController));
+router.get('/pulses/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, governance_controller_1.governanceController.getPulseById.bind(governance_controller_1.governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}/submit:
@@ -194,7 +195,7 @@ router.get('/pulses/:id', auth_middleware_1.requireAuth, tenant_middleware_1.req
  *       200:
  *         description: Success
  */
-router.post('/pulses/:id/submit', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, governance_controller_1.governanceController.submitAnswers.bind(governance_controller_1.governanceController));
+router.post('/pulses/:id/submit', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), governance_controller_1.governanceController.submitAnswers.bind(governance_controller_1.governanceController));
 /**
  * @openapi
  * /api/v1/governance/pulses/{id}/answers:
@@ -234,6 +235,6 @@ router.get('/pulses/:id/answers', auth_middleware_1.requireAuth, tenant_middlewa
  *       200:
  *         description: Success
  */
-router.patch('/pulses/:id/status', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governance_controller_1.governanceController.updatePulseStatus.bind(governance_controller_1.governanceController));
+router.patch('/pulses/:id/status', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), governance_controller_1.governanceController.updatePulseStatus.bind(governance_controller_1.governanceController));
 exports.default = router;
 //# sourceMappingURL=governance.routes.js.map

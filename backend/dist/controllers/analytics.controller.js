@@ -14,6 +14,17 @@ class AnalyticsController {
             return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get risk trends', errors: [] });
         }
     }
+    async multiHouseRiskTrends(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const days = parseInt(req.query.days) || 42;
+            const data = await analytics_service_1.analyticsService.getMultiHouseRiskTrends(company_id, days);
+            return res.json({ success: true, data, meta: { days } });
+        }
+        catch (err) {
+            return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get multi-house risk trends', errors: [] });
+        }
+    }
     async sitePerformance(req, res) {
         try {
             const company_id = req.user.company_id;
@@ -54,6 +65,16 @@ class AnalyticsController {
         }
         catch (err) {
             return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get dashboard', errors: [] });
+        }
+    }
+    async trends(req, res) {
+        try {
+            const company_id = req.user.company_id;
+            const data = await analytics_service_1.analyticsService.getTrends(company_id);
+            return res.json({ success: true, data, meta: {} });
+        }
+        catch (err) {
+            return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get trends', errors: [] });
         }
     }
 }

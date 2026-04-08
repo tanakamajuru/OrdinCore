@@ -378,7 +378,8 @@ const AdminUserManagement: React.FC = () => {
       organization: user.organization || '',
       assignedHouse: user.assigned_house_id || '',
       assignedHouses: user.assigned_house_id === 'all' ? houses.map(h => h.id) : (user.assigned_house_id ? [user.assigned_house_id] : []),
-      pulseDays: user.pulse_days || [],
+      pulseDays: Array.isArray(user.pulse_days) ? user.pulse_days : 
+                 (typeof user.pulse_days === 'string' ? JSON.parse(user.pulse_days) : []),
       isActive: user.is_active
     });
     setIsEditDialogOpen(true);

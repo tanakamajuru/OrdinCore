@@ -6,12 +6,13 @@ export interface CreateUserDto {
     last_name: string;
     role: string;
     status?: string;
+    pulse_days?: string[];
 }
 export declare const usersRepo: {
-    findById(id: string): Promise<any>;
+    findById(id: string, company_id?: string | null): Promise<any>;
     findByEmail(email: string): Promise<any>;
-    findByCompany(company_id: string, limit?: number, offset?: number): Promise<any[]>;
-    countByCompany(company_id: string): Promise<number>;
+    findByCompany(company_id: string | null, limit?: number, offset?: number, role?: string, status?: string): Promise<any[]>;
+    countByCompany(company_id: string, role?: string, status?: string): Promise<number>;
     create(dto: CreateUserDto): Promise<any>;
     update(id: string, data: Partial<CreateUserDto> & {
         last_login?: Date;
@@ -22,6 +23,7 @@ export declare const usersRepo: {
         job_title?: string;
     }): Promise<any>;
     assignToHouse(user_id: string, house_id: string, company_id: string, role_in_house?: string): Promise<any>;
+    clearAssignedHouses(user_id: string): Promise<void>;
     getHouses(user_id: string): Promise<any[]>;
     getPermissions(user_id: string): Promise<any[]>;
     getRoleDetails(user_id: string): Promise<any[]>;

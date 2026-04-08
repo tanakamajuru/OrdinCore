@@ -5,6 +5,7 @@ const risks_controller_1 = require("../controllers/risks.controller");
 const auth_middleware_1 = require("../middleware/auth.middleware");
 const role_middleware_1 = require("../middleware/role.middleware");
 const tenant_middleware_1 = require("../middleware/tenant.middleware");
+const scope_middleware_1 = require("../middleware/scope.middleware");
 const router = (0, express_1.Router)();
 /**
  * @openapi
@@ -61,7 +62,7 @@ router.get('/assigned-to-me', auth_middleware_1.requireAuth, tenant_middleware_1
  *       200:
  *         description: Success
  */
-router.post('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), risks_controller_1.risksController.create.bind(risks_controller_1.risksController));
+router.post('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), risks_controller_1.risksController.create.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks:
@@ -75,7 +76,7 @@ router.post('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenan
  *       200:
  *         description: Success
  */
-router.get('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.findAll.bind(risks_controller_1.risksController));
+router.get('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, risks_controller_1.risksController.findAll.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}:
@@ -95,7 +96,7 @@ router.get('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant
  *       200:
  *         description: Success
  */
-router.get('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.findById.bind(risks_controller_1.risksController));
+router.get('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, risks_controller_1.risksController.findById.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}:
@@ -115,27 +116,7 @@ router.get('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTen
  *       200:
  *         description: Success
  */
-router.patch('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.update.bind(risks_controller_1.risksController));
-/**
- * @openapi
- * /api/v1/risks/{id}:
- *   delete:
- *     tags:
- *       - Risks
- *     summary: DELETE /api/v1/risks/{id}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risks_controller_1.risksController.delete.bind(risks_controller_1.risksController));
+router.patch('/:id', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, scope_middleware_1.requireScope, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), risks_controller_1.risksController.update.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/attachments:
@@ -178,31 +159,6 @@ router.get('/:id/attachments', auth_middleware_1.requireAuth, tenant_middleware_
 router.post('/:id/attachments', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.addAttachment.bind(risks_controller_1.risksController));
 /**
  * @openapi
- * /api/v1/risks/{id}/attachments/{attachmentId}:
- *   delete:
- *     tags:
- *       - Risks
- *     summary: DELETE /api/v1/risks/{id}/attachments/{attachmentId}
- *     security:
- *       - BearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *       - in: path
- *         name: attachmentId
- *         required: true
- *         schema:
- *           type: string
- *     responses:
- *       200:
- *         description: Success
- */
-router.delete('/:id/attachments/:attachmentId', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.removeAttachment.bind(risks_controller_1.risksController));
-/**
- * @openapi
  * /api/v1/risks/{id}/assign:
  *   post:
  *     tags:
@@ -240,7 +196,7 @@ router.post('/:id/assign', auth_middleware_1.requireAuth, tenant_middleware_1.re
  *       200:
  *         description: Success
  */
-router.patch('/:id/status', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, risks_controller_1.risksController.updateStatus.bind(risks_controller_1.risksController));
+router.patch('/:id/status', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('REGISTERED_MANAGER', 'TEAM_LEADER'), risks_controller_1.risksController.updateStatus.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/event:
@@ -320,7 +276,7 @@ router.post('/:id/action', auth_middleware_1.requireAuth, tenant_middleware_1.re
  *       200:
  *         description: Success
  */
-router.post('/:id/escalate', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risks_controller_1.risksController.escalate.bind(risks_controller_1.risksController));
+router.post('/:id/escalate', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, (0, role_middleware_1.requireRole)('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'), risks_controller_1.risksController.escalate.bind(risks_controller_1.risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/timeline:

@@ -39,11 +39,11 @@ class HousesService {
     async create(company_id, data) {
         return houses_repo_1.housesRepo.create({ company_id, ...data });
     }
-    async findAll(company_id, page = 1, limit = 50) {
+    async findAll(company_id, filters = {}, page = 1, limit = 50) {
         const offset = (page - 1) * limit;
         const [houses, total] = await Promise.all([
-            houses_repo_1.housesRepo.findByCompany(company_id, limit, offset),
-            houses_repo_1.housesRepo.countByCompany(company_id),
+            houses_repo_1.housesRepo.findByCompany(company_id, filters, limit, offset),
+            houses_repo_1.housesRepo.countByCompany(company_id, filters),
         ]);
         return { houses, total, page, limit, pages: Math.ceil(total / limit) };
     }

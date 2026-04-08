@@ -20,6 +20,7 @@ export declare class EscalationsService {
     getActions(id: string, company_id: string): Promise<any[]>;
     assignEscalation(id: string, company_id: string, user_id: string, assigned_to: string): Promise<any>;
     updatePriority(id: string, company_id: string, user_id: string, priority: string): Promise<any>;
+    getEscalationStats(company_id: string): Promise<any>;
 }
 export declare const escalationsService: EscalationsService;
 //# sourceMappingURL=escalations.service.d.ts.map

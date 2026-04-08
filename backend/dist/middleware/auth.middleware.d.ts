@@ -4,6 +4,8 @@ export interface JwtPayload {
     company_id: string | null;
     role: string;
     email: string;
+    assigned_house_id?: string | null;
+    house_ids?: string[];
     iat?: number;
     exp?: number;
 }

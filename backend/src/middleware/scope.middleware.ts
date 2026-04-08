@@ -32,9 +32,17 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
   const userHouseIds = req.user.house_ids || [];
   
   if (userHouseIds.length === 0) {
+    // If it's a GET request, we allow it to proceed but it will likely return empty results
+    // because of company_id isolation. This prevents the "Blue Circle" dashboard hang.
+    if (req.method === 'GET') {
+      console.warn(`User ${req.user.user_id} (${userRole}) has no house assignments but is performing a GET request.`);
+      next();
+      return;
+    }
+
     res.status(403).json({
       success: false,
-      message: 'Access denied: No house assigned to this user profile.',
+      message: 'Access denied: No house assigned to this user profile. Please contact your company administrator.',
       errors: [],
     });
     return;

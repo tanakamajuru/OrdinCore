@@ -105,3 +105,7 @@
     at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
     at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
     at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-04-07 22:45:27 [error]: error: password authentication failed for user "postgres"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async seed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\seeds\001_superadmin.ts:7:18)

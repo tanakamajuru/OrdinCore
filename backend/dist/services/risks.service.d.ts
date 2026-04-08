@@ -9,6 +9,7 @@ export declare class RisksService {
         impact?: number;
         assigned_to?: string;
         review_due_date?: Date;
+        metadata?: any;
     }): Promise<any>;
     findAll(company_id: string, filters?: Record<string, unknown>, page?: number, limit?: number): Promise<{
         risks: any[];
@@ -62,6 +63,7 @@ export declare class RisksService {
         pages: number;
     }>;
     updateStatus(risk_id: string, company_id: string, user_id: string, status: string): Promise<any>;
+    private checkAutoEscalation;
 }
 export declare const risksService: RisksService;
 //# sourceMappingURL=risks.service.d.ts.map

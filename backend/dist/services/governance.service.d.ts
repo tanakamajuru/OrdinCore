@@ -45,6 +45,8 @@ export declare class GovernanceService {
     removeTemplateQuestion(question_id: string, template_id: string, company_id: string): Promise<void>;
     getPulseAnswers(pulse_id: string, company_id: string): Promise<any[]>;
     updatePulseStatus(pulse_id: string, company_id: string, status: string): Promise<any>;
+    checkPulseCompliance(company_id: string): Promise<any[]>;
+    generateMissingPulses(company_id: string, house_id?: string, user_id?: string): Promise<void>;
 }
 export declare const governanceService: GovernanceService;
 //# sourceMappingURL=governance.service.d.ts.map

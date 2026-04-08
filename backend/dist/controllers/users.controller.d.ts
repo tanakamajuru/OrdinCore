@@ -4,6 +4,7 @@ export declare class UsersController {
     findAll(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     findById(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     update(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+    resetPassword(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     delete(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     assignHouse(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
     getPermissions(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;

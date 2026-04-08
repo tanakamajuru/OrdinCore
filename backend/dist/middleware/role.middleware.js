@@ -3,10 +3,11 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.isSuperAdmin = exports.requireMinRole = exports.requireRole = void 0;
 const ROLE_HIERARCHY = {
     SUPER_ADMIN: 100,
-    ADMIN: 90,
-    RESPONSIBLE_INDIVIDUAL: 70,
-    REGISTERED_MANAGER: 50,
-    DIRECTOR: 30,
+    ADMIN: 95,
+    DIRECTOR: 90,
+    RESPONSIBLE_INDIVIDUAL: 80,
+    REGISTERED_MANAGER: 60,
+    TEAM_LEADER: 40,
 };
 const requireRole = (...roles) => {
     return (req, res, next) => {
@@ -14,7 +15,7 @@ const requireRole = (...roles) => {
             res.status(401).json({ success: false, message: 'Not authenticated', errors: [] });
             return;
         }
-        const userRole = req.user.role;
+        const userRole = req.user.role?.toUpperCase();
         if (!roles.includes(userRole)) {
             res.status(403).json({
                 success: false,
@@ -33,7 +34,7 @@ const requireMinRole = (minRole) => {
             res.status(401).json({ success: false, message: 'Not authenticated', errors: [] });
             return;
         }
-        const userRole = req.user.role;
+        const userRole = req.user.role?.toUpperCase();
         const userLevel = ROLE_HIERARCHY[userRole] ?? 0;
         const minLevel = ROLE_HIERARCHY[minRole] ?? 0;
         if (userLevel < minLevel) {
@@ -49,7 +50,7 @@ const requireMinRole = (minRole) => {
 };
 exports.requireMinRole = requireMinRole;
 const isSuperAdmin = (req) => {
-    return req.user?.role === 'SUPER_ADMIN';
+    return req.user?.role?.toUpperCase() === 'SUPER_ADMIN';
 };
 exports.isSuperAdmin = isSuperAdmin;
 //# sourceMappingURL=role.middleware.js.map

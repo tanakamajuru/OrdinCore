@@ -10,6 +10,8 @@ export interface CreateRiskDto {
     assigned_to?: string;
     created_by: string;
     review_due_date?: Date;
+    status?: string;
+    metadata?: any;
 }
 export declare const risksRepo: {
     findById(id: string, company_id?: string): Promise<any>;

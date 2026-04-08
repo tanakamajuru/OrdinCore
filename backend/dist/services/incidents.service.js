@@ -11,7 +11,7 @@ class IncidentsService {
             event_type: 'created',
             title: 'Incident Reported',
             description: `Incident "${incident.title}" was reported and logged`,
-            metadata: { severity: incident.severity, category: incident.category_id },
+            metadata: { severity: incident.severity, status: incident.status, category: incident.category_id },
             created_by
         });
         await eventBus_1.eventBus.emitEvent(eventBus_1.EVENTS.INCIDENT_CREATED, { incident_id: incident.id, company_id, created_by, severity: incident.severity });
@@ -35,6 +35,10 @@ class IncidentsService {
         const incident = await incidents_repo_1.incidentsRepo.findById(id, company_id);
         if (!incident)
             throw new Error('Incident not found');
+        // [GOVERNANCE] Locked Means Locked
+        if (incident.status === 'resolved' || incident.status === 'closed') {
+            throw new Error('This incident is resolved/closed and cannot be modified (Governance Integrity Rule Section 7.2)');
+        }
         const updated = await incidents_repo_1.incidentsRepo.update(id, company_id, data);
         // Add update event to timeline
         await incidents_repo_1.incidentsRepo.addEvent(id, company_id, {
@@ -47,10 +51,8 @@ class IncidentsService {
         return updated;
     }
     async delete(id, company_id) {
-        const incident = await incidents_repo_1.incidentsRepo.findById(id, company_id);
-        if (!incident)
-            throw new Error('Incident not found');
-        await incidents_repo_1.incidentsRepo.delete(id, company_id);
+        // [GOVERNANCE] No Deletion Implementation
+        throw new Error('Hard deletion is prohibited for governance records (Governance Integrity Rule Section 7.1). Please resolve or close the incident instead.');
     }
     async getTimeline(incident_id, company_id) {
         const incident = await incidents_repo_1.incidentsRepo.findById(incident_id, company_id);
@@ -100,6 +102,10 @@ class IncidentsService {
         const incident = await incidents_repo_1.incidentsRepo.findById(incident_id, company_id);
         if (!incident)
             throw new Error('Incident not found');
+        // [GOVERNANCE] Locked Means Locked
+        if (incident.status === 'resolved' || incident.status === 'closed') {
+            throw new Error('This incident is already resolved/closed (Governance Integrity Rule Section 7.2)');
+        }
         const updated = await incidents_repo_1.incidentsRepo.resolveIncident(incident_id, company_id, resolution_notes);
         // Add resolution event to timeline
         await incidents_repo_1.incidentsRepo.addEvent(incident_id, company_id, {

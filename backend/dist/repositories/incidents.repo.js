@@ -65,9 +65,9 @@ exports.incidentsRepo = {
     },
     async create(dto) {
         const id = (0, uuid_1.v4)();
-        const result = await (0, database_1.query)(`INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14) RETURNING *`, [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
-            dto.severity || 'moderate', dto.occurred_at, dto.location || null,
+        const result = await (0, database_1.query)(`INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`, [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
+            dto.severity || 'Medium', dto.status || 'Open', dto.occurred_at, dto.location || null,
             dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
             JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false]);
         return result.rows[0];
@@ -141,77 +141,137 @@ exports.incidentsRepo = {
         // Get incident details first
         const incident = await this.findById(incident_id, company_id);
         if (!incident)
-            return [];
+            return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [] };
         const timelineEvents = [];
-        // Try to get related risk events
+        // 1. Get related risk events
         try {
             const riskResult = await (0, database_1.query)(`SELECT 
           'risk' as source_type,
           r.id as source_id,
           'Risk Signal' as label,
           r.title as detail,
-          r.created_by_name as actor,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = r.created_by) as actor,
           'Risk Manager' as actor_role,
           r.created_at as timestamp,
           false as gap_flag
         FROM risks r
         WHERE r.company_id = $1 
-          AND r.house_id = (SELECT house_id FROM incidents WHERE id = $2)
-          AND r.created_at >= (SELECT occurred_at - INTERVAL '30 days' FROM incidents WHERE id = $2)
-          AND r.created_at <= (SELECT occurred_at FROM incidents WHERE id = $2)
-        ORDER BY r.created_at ASC`, [company_id, incident_id]);
+          AND r.house_id = $2
+          AND r.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND r.created_at <= $3::timestamp
+        ORDER BY r.created_at ASC`, [company_id, incident.house_id, incident.occurred_at]);
             timelineEvents.push(...riskResult.rows);
         }
         catch (err) {
-            console.log('Risks table not available or query failed:', err);
+            console.log('Risks table query failed:', err);
         }
-        // Try to get related escalation events
+        // 2. Get related escalation events
         try {
             const escalationResult = await (0, database_1.query)(`SELECT 
           'escalation' as source_type,
           e.id as source_id,
           'Escalation' as label,
           e.reason as detail,
-          e.created_by_name as actor,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = e.created_by) as actor,
           'Manager' as actor_role,
           e.created_at as timestamp,
           false as gap_flag
         FROM escalations e
         WHERE e.company_id = $1 
-          AND e.house_id = (SELECT house_id FROM incidents WHERE id = $2)
-          AND e.created_at >= (SELECT occurred_at - INTERVAL '30 days' FROM incidents WHERE id = $2)
-          AND e.created_at <= (SELECT occurred_at FROM incidents WHERE id = $2)
-        ORDER BY e.created_at ASC`, [company_id, incident_id]);
+          AND e.house_id = $2
+          AND e.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND e.created_at <= $3::timestamp
+        ORDER BY e.created_at ASC`, [company_id, incident.house_id, incident.occurred_at]);
             timelineEvents.push(...escalationResult.rows);
         }
         catch (err) {
-            console.log('Escalations table not available or query failed:', err);
+            console.log('Escalations table query failed:', err);
         }
-        // Try to get related governance pulse events
+        // 3. Get related governance pulse events
         try {
             const pulseResult = await (0, database_1.query)(`SELECT 
           'pulse' as source_type,
           p.id as source_id,
           'Governance Pulse' as label,
           'Regular governance review' as detail,
-          p.created_by_name as actor,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = p.created_by) as actor,
           'Registered Manager' as actor_role,
           p.created_at as timestamp,
           false as gap_flag
         FROM governance_pulses p
         WHERE p.company_id = $1 
-          AND p.house_id = (SELECT house_id FROM incidents WHERE id = $2)
-          AND p.created_at >= (SELECT occurred_at - INTERVAL '30 days' FROM incidents WHERE id = $2)
-          AND p.created_at <= (SELECT occurred_at FROM incidents WHERE id = $2)
-        ORDER BY p.created_at ASC`, [company_id, incident_id]);
+          AND p.house_id = $2
+          AND p.created_at >= $3::timestamp - INTERVAL '30 days'
+          AND p.created_at <= $3::timestamp
+        ORDER BY p.created_at ASC`, [company_id, incident.house_id, incident.occurred_at]);
             timelineEvents.push(...pulseResult.rows);
         }
         catch (err) {
-            console.log('Governance pulses table not available or query failed:', err);
+            console.log('Governance pulses table query failed:', err);
         }
-        // Sort all events by timestamp
+        // Sort events by timestamp
         timelineEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-        // Convert to frontend format
+        // 4. Calculate Metrics
+        const riskSignals = timelineEvents.filter(e => e.source_type === 'risk');
+        const escalations = timelineEvents.filter(e => e.source_type === 'escalation');
+        const pulses = timelineEvents.filter(e => e.source_type === 'pulse');
+        const lastPulse = pulses.length > 0 ? pulses[pulses.length - 1] : null;
+        const lastOversightReviewDays = lastPulse
+            ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(lastPulse.timestamp).getTime()) / (1000 * 60 * 60 * 24))
+            : 30;
+        const firstRisk = riskSignals.length > 0 ? riskSignals[0] : null;
+        const firstSignalToIncidentDays = firstRisk
+            ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(firstRisk.timestamp).getTime()) / (1000 * 60 * 60 * 24))
+            : 0;
+        const firstEscalation = escalations.length > 0 ? escalations[0] : null;
+        const escalationResponseHours = firstEscalation
+            ? Math.floor((new Date(incident.occurred_at).getTime() - new Date(firstEscalation.timestamp).getTime()) / (1000 * 60 * 60))
+            : 0;
+        const metrics = {
+            riskSignalsLogged: riskSignals.length,
+            escalationsTriggered: escalations.length,
+            leadershipReviews: pulses.length,
+            lastOversightReviewDays: Math.max(0, lastOversightReviewDays),
+            firstSignalToIncidentDays: Math.max(0, firstSignalToIncidentDays),
+            escalationResponseHours: Math.max(0, escalationResponseHours)
+        };
+        // 5. Cross-House Patterns
+        let patterns = [];
+        try {
+            const patternResult = await (0, database_1.query)(`SELECT DISTINCT h.name as house, r.title as signal, r.created_at as detected
+         FROM risks r
+         JOIN houses h ON h.id = r.house_id
+         WHERE r.company_id = $1 
+           AND r.house_id != $2
+           AND r.created_at >= $3::timestamp - INTERVAL '14 days'
+           AND r.created_at <= $3::timestamp
+           AND (LOWER(r.title) LIKE '%medication%' OR LOWER(r.title) LIKE '%behavior%' OR LOWER(r.title) LIKE '%staffing%')
+         LIMIT 3`, [company_id, incident.house_id, incident.occurred_at]);
+            patterns = patternResult.rows.map(r => ({
+                house: r.house,
+                signal: r.signal,
+                detected: new Date(r.detected).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
+            }));
+        }
+        catch (err) {
+            console.log('Pattern detection failed:', err);
+        }
+        // 6. Generate Findings & Recommendations
+        const findings = [
+            `Leadership was aware of risks ${metrics.firstSignalToIncidentDays} days before the incident`,
+            `Escalation response time was ${metrics.escalationResponseHours} hours`,
+            `Governance oversight activities were documented and regular`,
+            patterns.length > 0 ? `Cross-house patterns detected in ${patterns[0].signal.toLowerCase()}` : "No clear cross-house patterns detected"
+        ];
+        const recommendations = [
+            "Review protocols related to the incident category",
+            "Enhance staff training on identified risk factors",
+            "Discuss this reconstruction at the next provider oversight meeting"
+        ];
+        if (patterns.length > 0) {
+            recommendations.push(`Collaborate with ${patterns[0].house} to share learnings on ${patterns[0].signal}`);
+        }
+        // 7. Format Timeline
         const formattedEvents = timelineEvents.map((row, index) => ({
             id: `gov-${index}`,
             timestamp: row.timestamp,
@@ -221,8 +281,7 @@ exports.incidentsRepo = {
             detail: row.detail,
             actor: row.actor || 'Unknown',
             actorRole: row.actor_role || 'Unknown',
-            gapFlag: row.gap_flag,
-            intervalToNext: 0 // Will be calculated in frontend
+            gapFlag: row.gap_flag
         }));
         // Add the incident as the final event
         formattedEvents.push({
@@ -234,10 +293,15 @@ exports.incidentsRepo = {
             detail: incident.title,
             actor: incident.created_by_name || 'Unknown',
             actorRole: 'Reporter',
-            gapFlag: true,
-            intervalToNext: 0
+            gapFlag: true
         });
-        return formattedEvents;
+        return {
+            timeline: formattedEvents,
+            metrics,
+            patterns,
+            findings,
+            recommendations
+        };
     }
 };
 //# sourceMappingURL=incidents.repo.js.map

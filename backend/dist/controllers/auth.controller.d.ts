@@ -94,6 +94,15 @@ export declare class AuthController {
      *         description: Password changed
      */
     changePassword(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+    /**
+     * @swagger
+     * /auth/forgot-password:
+     *   post:
+     *     tags: [Auth]
+     *     summary: Reset password to "default"
+     */
+    forgotPassword(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
+    updateProfile(req: Request, res: Response): Promise<Response<any, Record<string, any>>>;
 }
 export declare const authController: AuthController;
 //# sourceMappingURL=auth.controller.d.ts.map

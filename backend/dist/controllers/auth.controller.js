@@ -152,6 +152,38 @@ class AuthController {
             return res.status(400).json({ success: false, message, errors: [] });
         }
     }
+    /**
+     * @swagger
+     * /auth/forgot-password:
+     *   post:
+     *     tags: [Auth]
+     *     summary: Reset password to "default"
+     */
+    async forgotPassword(req, res) {
+        try {
+            const { email } = req.body;
+            if (!email)
+                return res.status(400).json({ success: false, message: 'Email required', errors: [] });
+            await auth_service_1.authService.resetToDefault(email);
+            return res.json({ success: true, message: 'Password reset to default successfully', meta: {} });
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : 'Password reset failed';
+            return res.status(400).json({ success: false, message, errors: [] });
+        }
+    }
+    async updateProfile(req, res) {
+        try {
+            const { first_name, last_name, avatar_url } = req.body;
+            const userId = req.user.user_id;
+            const result = await auth_service_1.authService.updateProfile(userId, { first_name, last_name, avatar_url });
+            return res.json({ success: true, data: result, meta: {} });
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : 'Failed to update profile';
+            return res.status(400).json({ success: false, message, errors: [] });
+        }
+    }
 }
 exports.AuthController = AuthController;
 exports.authController = new AuthController();

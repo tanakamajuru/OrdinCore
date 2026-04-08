@@ -7,7 +7,7 @@ export declare class HousesService {
         capacity?: number;
         manager_id?: string;
     }): Promise<any>;
-    findAll(company_id: string, page?: number, limit?: number): Promise<{
+    findAll(company_id: string, filters?: Record<string, unknown>, page?: number, limit?: number): Promise<{
         houses: any[];
         total: number;
         page: number;

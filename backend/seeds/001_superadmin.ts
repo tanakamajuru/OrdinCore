@@ -1,5 +1,7 @@
+import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { pool } from '../src/config/database';
+import { getPool } from '../src/config/database';
+const pool = getPool();
 import logger from '../src/utils/logger';
 
 async function seed() {

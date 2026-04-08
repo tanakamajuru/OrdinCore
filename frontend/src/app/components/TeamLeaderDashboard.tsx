@@ -14,22 +14,31 @@ export function TeamLeaderDashboard() {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
+    // If we have a user, load data. If not, we still need to stop loading at some point
+    // unless the RoleBasedDashboard redirects us first.
     if (user) {
       loadDashboardData();
+    } else {
+      // Small timeout to prevent infinite spinner if auth doesn't resolve quickly
+      const timer = setTimeout(() => {
+        if (!user) setIsLoading(false);
+      }, 5000);
+      return () => clearTimeout(timer);
     }
   }, [user]);
 
   const loadDashboardData = async () => {
-    if (!user) {
-      setIsLoading(false);
-      return;
-    }
-    
     try {
       setIsLoading(true);
       const [pulseRes, incidentRes] = await Promise.all([
-        apiClient.get(`/governance/pulses?limit=1&assigned_user_id=${user?.id}`),
-        apiClient.get('/incidents?limit=5')
+        apiClient.get(`/governance/pulses?limit=1&assigned_user_id=${user?.id}`).catch(err => {
+          console.error('Pulse fetch failed:', err);
+          return { data: { data: { pulses: [] } } };
+        }),
+        apiClient.get('/incidents?limit=5').catch(err => {
+          console.error('Incident fetch failed:', err);
+          return { data: { data: { incidents: [] } } };
+        })
       ]);
 
       const pulses = (pulseRes.data as any).data?.pulses || (pulseRes.data as any).data || [];
@@ -40,7 +49,7 @@ export function TeamLeaderDashboard() {
 
     } catch (error) {
       console.error('Failed to load TL dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      toast.error('Partial dashboard data loaded. Please check your connection.');
     } finally {
       setIsLoading(false);
     }

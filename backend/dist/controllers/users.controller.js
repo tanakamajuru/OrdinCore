@@ -19,7 +19,12 @@ class UsersController {
             const company_id = req.user.company_id;
             const page = parseInt(req.query.page) || 1;
             const limit = parseInt(req.query.limit) || 50;
-            const result = await users_service_1.usersService.findAll(company_id, page, limit);
+            const role = req.query.role;
+            let status = req.query.status;
+            if (!status && req.query.is_active) {
+                status = req.query.is_active === 'true' ? 'active' : 'inactive';
+            }
+            const result = await users_service_1.usersService.findAll(company_id, page, limit, role, status);
             return res.json({ success: true, data: result.users, meta: { total: result.total, page: result.page, limit: result.limit, pages: result.pages } });
         }
         catch (err) {
@@ -29,9 +34,10 @@ class UsersController {
     }
     async findById(req, res) {
         try {
-            const company_id = req.user.company_id;
-            const user = await users_service_1.usersService.findById(req.params.id, company_id);
-            return res.json({ success: true, data: user, meta: {} });
+            const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user.company_id;
+            const { id } = req.params;
+            const user = await users_service_1.usersService.findById(id, company_id);
+            return res.json({ success: true, data: user });
         }
         catch (err) {
             const message = err instanceof Error ? err.message : 'User not found';
@@ -40,13 +46,25 @@ class UsersController {
     }
     async update(req, res) {
         try {
-            const company_id = req.user.company_id;
-            const user = await users_service_1.usersService.update(req.params.id, company_id, req.body);
-            return res.json({ success: true, data: user, meta: {} });
+            const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user.company_id;
+            const user = await users_service_1.usersService.update(req.params.id, company_id, { ...req.body, house_ids: req.body.house_ids });
+            return res.json({ success: true, data: user });
         }
         catch (err) {
             const message = err instanceof Error ? err.message : 'Failed to update user';
             return res.status(400).json({ success: false, message, errors: [] });
+        }
+    }
+    async resetPassword(req, res) {
+        try {
+            const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user.company_id;
+            const { id } = req.params;
+            await users_service_1.usersService.resetPassword(id, company_id, req.body.password);
+            return res.json({ success: true, message: 'Password reset successfully' });
+        }
+        catch (err) {
+            const message = err instanceof Error ? err.message : 'Reset password failed';
+            return res.status(400).json({ success: false, message });
         }
     }
     async delete(req, res) {

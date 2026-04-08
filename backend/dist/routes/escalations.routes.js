@@ -21,6 +21,20 @@ const router = (0, express_1.Router)();
 router.get('/', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, escalations_controller_1.escalationsController.findAll.bind(escalations_controller_1.escalationsController));
 /**
  * @openapi
+ * /api/v1/escalations/stats:
+ *   get:
+ *     tags:
+ *       - Escalations
+ *     summary: GET /api/v1/escalations/stats
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/stats', auth_middleware_1.requireAuth, tenant_middleware_1.requireTenant, escalations_controller_1.escalationsController.getStats.bind(escalations_controller_1.escalationsController));
+/**
+ * @openapi
  * /api/v1/escalations/{id}:
  *   get:
  *     tags:

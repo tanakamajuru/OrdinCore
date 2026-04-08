@@ -108,5 +108,7 @@ router.get('/me', auth_middleware_1.requireAuth, auth_controller_1.authControlle
  *         description: Success
  */
 router.post('/change-password', auth_middleware_1.requireAuth, auth_controller_1.authController.changePassword.bind(auth_controller_1.authController));
+router.patch('/profile', auth_middleware_1.requireAuth, auth_controller_1.authController.updateProfile.bind(auth_controller_1.authController));
+router.post('/forgot-password', auth_controller_1.authController.forgotPassword.bind(auth_controller_1.authController));
 exports.default = router;
 //# sourceMappingURL=auth.routes.js.map
