@@ -14,11 +14,13 @@ export class CompanyService {
     // Initialize default Governance Template for the new company
     try {
       const templateId = '00000000-0000-0000-0000-000000000001';
+      const systemAdminId = '6b325646-1ed7-456f-8428-0e5effde1f9e'; // Valid Super Admin ID from DB
+      
       await query(
-        `INSERT INTO governance_templates (id, company_id, name, description, frequency)
-         VALUES ($1, $2, $3, $4, $5)
+        `INSERT INTO governance_templates (id, company_id, name, description, frequency, created_by, created_at, updated_at)
+         VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
          ON CONFLICT (id) DO NOTHING`,
-        [templateId, company.id, 'Standard Governance Pulse', 'Standard daily governance and risk check', 'daily']
+        [templateId, company.id, 'Standard Governance Pulse', 'Standard daily governance and risk check', 'daily', systemAdminId]
       );
 
       // Add default questions
@@ -32,8 +34,8 @@ export class CompanyService {
 
       for (let i = 0; i < questions.length; i++) {
         await query(
-          `INSERT INTO governance_questions (id, template_id, company_id, question, question_type, required, order_index)
-           VALUES ($1, $2, $3, $4, $5, $6, $7)
+          `INSERT INTO governance_questions (id, template_id, company_id, question, question_type, required, order_index, created_at)
+           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
            ON CONFLICT DO NOTHING`,
           [uuidv4(), templateId, company.id, questions[i].q, questions[i].t, true, i]
         );
