@@ -37,13 +37,13 @@ export function Reports() {
   const categories = ["Clinical", "Operational", "Environmental", "Safety", "Administrative"];
   const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
   const reportTypes = [
+    { value: "cross_site_summary", label: "Cross-Site Governance Summary" },
     { value: "governance_compliance", label: "Comprehensive Governance Report" },
     { value: "organizational_monthly", label: "Monthly Board Report (Strategic)" },
     { value: "risk_summary", label: "Risk Register Summary" },
     { value: "escalation_report", label: "Escalation Activity Report" },
     { value: "custom", label: "Safeguarding Activity Report" },
-    { value: "incident_report", label: "Incident Trend Analysis" },
-    { value: "house_overview", label: "Weekly Governance Summary" }
+    { value: "incident_report", label: "Incident Trend Analysis" }
   ];
 
   // Real preview data from backend

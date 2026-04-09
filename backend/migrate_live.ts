@@ -4,7 +4,7 @@ const conn = new Client();
 conn.on('ready', () => {
     console.log('⚡ SSH Ready');
     // Run migrations on the live server
-    const cmd = 'cd /var/www/ordincore/backend && npx ts-node src/scripts/migrate.ts';
+    const cmd = 'cd /var/www/ordincore/backend && NODE_ENV=production node dist/scripts/migrate.js';
 
     conn.exec(cmd, (err, stream) => {
         if (err) throw err;

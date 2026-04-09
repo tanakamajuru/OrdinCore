@@ -220,6 +220,47 @@ async function generateWeeklySummary(company_id: string, parameters: Record<stri
   };
 }
 
+async function generateCrossSiteSummary(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const result = await query(
+    `SELECT 
+      h.name AS house_name,
+      COUNT(DISTINCT r.id) FILTER (WHERE r.status != 'closed') AS open_risks,
+      COUNT(DISTINCT i.id) FILTER (WHERE i.status != 'closed') AS open_incidents,
+      COALESCE(AVG(gp.compliance_score) FILTER (WHERE gp.status = 'completed'), 0) AS avg_compliance
+     FROM houses h
+     LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
+     LEFT JOIN incidents i ON i.house_id = h.id AND i.company_id = $1
+     LEFT JOIN governance_pulses gp ON gp.house_id = h.id AND gp.company_id = $1
+     WHERE h.company_id = $1 AND h.status = 'active'
+     GROUP BY h.id, h.name
+     ORDER BY avg_compliance DESC`,
+    [company_id]
+  );
+
+  return {
+    title: "Cross-Site Governance Summary",
+    summary: "Comparative performance analysis across all active sites within the organization.",
+    sections: [
+      {
+        title: "1. Site-by-Site Comparison",
+        table: {
+          headers: ["Site Name", "Open Risks", "Open Incidents", "Avg Compliance %"],
+          rows: result.rows.map(r => [
+            r.house_name, 
+            r.open_risks.toString(), 
+            r.open_incidents.toString(), 
+            `${Math.round(r.avg_compliance)}%`
+          ])
+        }
+      },
+      {
+        title: "2. Strategic Recommendation",
+        content: "Sites with compliance scores below 85% should be prioritized for inner-sanctum audit and leadership support."
+      }
+    ]
+  };
+}
+
 async function generateComprehensive(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
   // Pull multiple datasets
   const [pulses, risks, escalations, incidents] = await Promise.all([
@@ -261,6 +302,7 @@ export function startReportWorker() {
       // Call appropriate data fetcher
       let reportData: ReportData;
       switch (type) {
+        case 'cross_site_summary': reportData = await generateCrossSiteSummary(company_id, parameters); break;
         case 'risk_summary': reportData = await generateRiskSummary(company_id, parameters); break;
         case 'organizational_monthly': reportData = await generateOrganizationalMonthly(company_id, parameters); break;
         case 'escalation_report': reportData = await generateEscalationReport(company_id, parameters); break;

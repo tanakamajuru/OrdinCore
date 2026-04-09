@@ -166,8 +166,40 @@ export class AnalyticsService {
     };
   }
 
+  async getMultiHouseIncidentTrends(company_id: string, days = 42) {
+    const result = await query(
+      `SELECT 
+        DATE(i.created_at) AS date,
+        h.name AS house_name,
+        COUNT(*) AS count
+       FROM incidents i
+       JOIN houses h ON h.id = i.house_id
+       WHERE i.company_id = $1 AND i.created_at >= NOW() - INTERVAL '${days} days'
+       GROUP BY DATE(i.created_at), h.name
+       ORDER BY date, house_name`,
+      [company_id]
+    );
+
+    const pivotedData: any[] = [];
+    const dateMap = new Map<string, any>();
+
+    result.rows.forEach((row: any) => {
+      const dateStr = row.date.toISOString().split('T')[0];
+      if (!dateMap.has(dateStr)) {
+        dateMap.set(dateStr, { date: dateStr });
+        pivotedData.push(dateMap.get(dateStr));
+      }
+      const dateObj = dateMap.get(dateStr);
+      dateObj[row.house_name] = parseInt(row.count);
+    });
+
+    const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));
+    return { trends: pivotedData, houses: houseNames };
+  }
+
   async getTrends(company_id: string) {
     const multiHouseTrends = await this.getMultiHouseRiskTrends(company_id, 42);
+    const multiHouseIncidents = await this.getMultiHouseIncidentTrends(company_id, 42);
 
     const incidentsResult = await query(
       `SELECT created_at FROM incidents WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
@@ -204,6 +236,7 @@ export class AnalyticsService {
 
     return {
       crossHouseRisk: multiHouseTrends,
+      crossHouseIncidents: multiHouseIncidents,
       safeGuarding: {
         trends: incidentTrends,
         currentWeek: incidentTrends[5] ? incidentTrends[5].incidents : 0,

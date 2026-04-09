@@ -154,16 +154,18 @@ export function RoleBasedNavigation() {
                 <span className="text-sm font-bold text-foreground leading-none">{fullName}</span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">{getRoleLabel()}</span>
               </div>
-              <div 
-                className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:border-black transition-colors"
+              <button 
+                type="button"
+                className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:border-primary-foreground/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 onClick={() => navigate('/profile')}
+                title="View Profile"
               >
                 {userAvatar ? (
                   <img src={userAvatar} alt="Profile" className="w-full h-full object-cover" />
                 ) : (
                   <User className="w-5 h-5 text-muted-foreground" />
                 )}
-              </div>
+              </button>
             </div>
             <Button variant="ghost" className="text-muted-foreground hover:text-destructive hover:bg-destructive/10" onClick={handleLogout}>Logout</Button>
           </div>
