@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { risksController } from '../controllers/risks.controller';
+import { actionEffectivenessController } from '../controllers/actionEffectiveness.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
@@ -65,6 +66,20 @@ router.get('/assigned-to-me', requireAuth, requireTenant, risksController.getAss
  *         description: Success
  */
 router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.create.bind(risksController));
+/**
+ * @openapi
+ * /api/v1/risks/promote:
+ *   post:
+ *     tags:
+ *       - Risks
+ *     summary: Promote a Signal Cluster to a formal Risk
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       201:
+ *         description: Success
+ */
+router.post('/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), risksController.promote.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks:
@@ -265,6 +280,28 @@ router.get('/:id/actions', requireAuth, requireTenant, risksController.getAction
 router.post('/:id/action', requireAuth, requireTenant, risksController.addAction.bind(risksController));
 /**
  * @openapi
+ * /api/v1/risks/{id}/actions/{actionId}/status:
+ *   patch:
+ *     tags:
+ *       - Risks
+ *     summary: Update action status
+ *     security:
+ *       - BearerAuth: []
+ */
+router.patch('/:id/actions/:actionId/status', requireAuth, requireTenant, risksController.updateActionStatus.bind(risksController));
+/**
+ * @openapi
+ * /api/v1/risks/{id}/actions/{actionId}/verify:
+ *   post:
+ *     tags:
+ *       - Risks
+ *     summary: Verify a risk action (RM/RI only)
+ *     security:
+ *       - BearerAuth: []
+ */
+router.post('/:id/actions/:actionId/verify', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.verifyAction.bind(risksController));
+/**
+ * @openapi
  * /api/v1/risks/{id}/escalate:
  *   post:
  *     tags:
@@ -333,5 +370,9 @@ router.get('/metrics/summary', requireAuth, requireTenant, risksController.getMe
  *         description: Success
  */
 router.patch('/bulk/reassign', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.bulkReassign.bind(risksController));
+
+// Effectiveness tracking
+router.patch('/:id/effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionEffectivenessController.rateEffectiveness.bind(actionEffectivenessController));
+router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionEffectivenessController.getPending.bind(actionEffectivenessController));
 
 export default router;

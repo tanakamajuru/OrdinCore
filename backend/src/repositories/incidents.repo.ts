@@ -38,16 +38,26 @@ export const incidentsRepo = {
     const params: unknown[] = [company_id];
     let idx = 2;
 
-    if (filters.status) { conditions.push(`i.status = $${idx++}`); params.push(filters.status); }
+    if (filters.status) { 
+      if (Array.isArray(filters.status)) {
+        conditions.push(`i.status = ANY($${idx++})`);
+        params.push(filters.status);
+      } else {
+        conditions.push(`i.status = $${idx++}`);
+        params.push(filters.status);
+      }
+    }
     if (filters.severity) { conditions.push(`i.severity = $${idx++}`); params.push(filters.severity); }
     if (filters.house_id) { conditions.push(`i.house_id = $${idx++}`); params.push(filters.house_id); }
 
     const where = conditions.join(' AND ');
     const result = await query(
-      `SELECT i.*, ic.name AS category_name, h.name AS house_name
+      `SELECT i.*, ic.name AS category_name, h.name AS house_name,
+              u.first_name || ' ' || u.last_name AS created_by_name
        FROM incidents i
        LEFT JOIN incident_categories ic ON ic.id = i.category_id
        LEFT JOIN houses h ON h.id = i.house_id
+       LEFT JOIN users u ON u.id = i.created_by
        WHERE ${where}
        ORDER BY i.occurred_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
@@ -60,7 +70,15 @@ export const incidentsRepo = {
     const conditions = ['company_id = $1'];
     const params: unknown[] = [company_id];
     let idx = 2;
-    if (filters.status) { conditions.push(`status = $${idx++}`); params.push(filters.status); }
+    if (filters.status) { 
+      if (Array.isArray(filters.status)) {
+        conditions.push(`status = ANY($${idx++})`);
+        params.push(filters.status);
+      } else {
+        conditions.push(`status = $${idx++}`);
+        params.push(filters.status);
+      }
+    }
     if (filters.severity) { conditions.push(`severity = $${idx++}`); params.push(filters.severity); }
     const result = await query(`SELECT COUNT(*) FROM incidents WHERE ${conditions.join(' AND ')}`, params);
     return parseInt(result.rows[0].count);
@@ -163,7 +181,7 @@ export const incidentsRepo = {
 
   async resolveIncident(incident_id: string, company_id: string, resolution_notes: string) {
     const result = await query(
-      `UPDATE incidents SET status = 'resolved', resolved_at = NOW(), updated_at = NOW() 
+      `UPDATE incidents SET status = 'Resolved', resolved_at = NOW(), updated_at = NOW() 
        WHERE id = $1 AND company_id = $2 RETURNING *`,
       [incident_id, company_id]
     );
@@ -171,7 +189,7 @@ export const incidentsRepo = {
   },
 
   async delete(id: string, company_id: string) {
-    await query("UPDATE incidents SET status = 'closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
+    await query("UPDATE incidents SET status = 'Closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
   },
 
   async addEvent(incident_id: string, company_id: string, data: {

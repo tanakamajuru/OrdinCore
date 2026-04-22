@@ -1,9 +1,9 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Ambulance, Plus, AlertTriangle, Activity } from "lucide-react";
+import { Ambulance, Plus, AlertTriangle, Activity, Shield } from "lucide-react";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 interface House { id: string; name: string; address: string; }
 interface Risk { id: string; title: string; severity: string; status: string; created_at: string; }
@@ -16,6 +16,7 @@ export function RegisteredManagerDashboard() {
   const [todayPulse, setTodayPulse] = useState<PulseSummary | null>(null);
   const [highRisks, setHighRisks] = useState<Risk[]>([]);
   const [incidents, setIncidents] = useState<Incident[]>([]);
+  const [teamPulses, setTeamPulses] = useState<any[]>([]);
   const [weeklyStats, setWeeklyStats] = useState({ highRiskDays: 0, safeguardingDays: 0, escalations: 0, activeIncidents: 0 });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -26,37 +27,53 @@ export function RegisteredManagerDashboard() {
       // 1. Get user's assigned house
       const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
       const housesRes = await apiClient.get(`/users/${userId}/houses`);
-      const housesData = (housesRes.data as any).data || (housesRes.data as any) || [];
+      const housesData = (housesRes as any).data || housesRes || [];
       const myHouse: House = Array.isArray(housesData) ? housesData[0] : null;
       if (myHouse) {
         setHouse(myHouse);
         const hid = myHouse.id;
 
-        // 2. Load in parallel: today's pulse, high risks, incidents, escalations
-        const [pulsesRes, risksRes, incidentsRes, escalationsRes] = await Promise.allSettled([
-          apiClient.get(`/governance/pulses?house_id=${hid}&limit=5`),
-          apiClient.get(`/risks?house_id=${hid}&severity=high&status=open&limit=3`),
-          apiClient.get(`/incidents?house_id=${hid}&status=open&limit=3`),
-          apiClient.get(`/escalations?house_id=${hid}&status=open&limit=1`),
+        // 2. Load in parallel: today's pulse, high risks, incidents, escalations, team pulses
+        const [pulsesRes, risksRes, incidentsRes, escalationsRes, teamPulsesRes] = await Promise.allSettled([
+          apiClient.get(`/governance/pulses?house_id=${hid}&limit=10`),
+          apiClient.get(`/risks?house_id=${hid}&severity=High&status=Open&limit=3`),
+          apiClient.get(`/incidents?house_id=${hid}&status=Open,In Progress&limit=3`),
+          apiClient.get(`/escalations?house_id=${hid}&status=Open&limit=1`),
+          apiClient.get(`/pulses?house_id=${hid}&review_status=New,Reviewed&limit=5`)
         ]);
 
         // Today's pulse
         if (pulsesRes.status === 'fulfilled') {
-          const pulseData = (pulsesRes.value.data as any).data || (pulsesRes.value.data as any) || {};
-          const pulses = pulseData.pulses || pulseData.items || (Array.isArray(pulseData) ? pulseData : []);
+          const pulseData = (pulsesRes.value as any).data || pulsesRes.value || {};
+          const pulses = Array.isArray(pulseData) ? pulseData : (pulseData.pulses || pulseData.items || []);
+          
+          // Debug pulse data
+          console.log('Pulse data for RM:', pulses);
+          
           const today = new Date().toDateString();
           const todayP = pulses.find((p: any) => new Date(p.due_date).toDateString() === today);
           setTodayPulse(todayP || pulses[0] || null);
 
-          // Weekly stats from pulse history
-          const completed = pulses.filter((p: any) => p.status === 'completed');
-          setWeeklyStats(prev => ({ ...prev, safeguardingDays: completed.length }));
+          // Weekly stats from pulse history - account for both Signal Pulses and Audit Pulses
+          const completedAuditCount = pulses.filter((p: any) => 
+            ['completed', 'COMPLETED', 'SUBMITTED', 'LOCKED'].includes(p.status)
+          ).length;
+
+          // Also get Signal Pulses (System 2) if available
+          let signalCount = 0;
+          if (teamPulsesRes.status === 'fulfilled') {
+            const tpData = (teamPulsesRes.value as any).data || teamPulsesRes.value || {};
+            const tps = Array.isArray(tpData) ? tpData : (tpData.pulses || tpData.items || []);
+            signalCount = tps.length;
+          }
+
+          setWeeklyStats(prev => ({ ...prev, safeguardingDays: completedAuditCount + signalCount }));
         }
 
         // High risks
         if (risksRes.status === 'fulfilled') {
-          const rData = (risksRes.value.data as any).data || (risksRes.value.data as any) || {};
-          const risks = rData.risks || rData.items || (Array.isArray(rData) ? rData : []);
+          const rData = (risksRes.value as any).data || risksRes.value || {};
+          const risks = Array.isArray(rData) ? rData : (rData.risks || rData.items || []);
           setHighRisks(risks.slice(0, 3));
           const totalHighRisks = (rData as any).total || risks.length;
           setWeeklyStats(prev => ({ ...prev, highRiskDays: totalHighRisks }));
@@ -64,8 +81,8 @@ export function RegisteredManagerDashboard() {
 
         // Incidents
         if (incidentsRes.status === 'fulfilled') {
-          const iData = (incidentsRes.value.data as any).data || (incidentsRes.value.data as any) || {};
-          const incs = iData.incidents || iData.items || (Array.isArray(iData) ? iData : []);
+          const iData = (incidentsRes.value as any).data || incidentsRes.value || {};
+          const incs = Array.isArray(iData) ? iData : (iData.incidents || iData.items || []);
           setIncidents(incs.slice(0, 3));
           const totalIncidents = (iData as any).total || incs.length;
           setWeeklyStats(prev => ({ ...prev, activeIncidents: totalIncidents }));
@@ -73,9 +90,17 @@ export function RegisteredManagerDashboard() {
 
         // Escalations
         if (escalationsRes.status === 'fulfilled') {
-          const eData = (escalationsRes.value.data as any).data || (escalationsRes.value.data as any) || {};
+          const eData = (escalationsRes.value as any).data || escalationsRes.value || {};
           const totalEscalations = (eData as any).total || (Array.isArray(eData) ? eData.length : 0);
           setWeeklyStats(prev => ({ ...prev, escalations: totalEscalations }));
+        }
+        
+        // Team Pulses for Oversight
+        if (teamPulsesRes.status === 'fulfilled') {
+          const tpData = (teamPulsesRes.value.data as any).data || (teamPulsesRes.value.data as any) || {};
+          const tps = tpData.pulses || tpData.items || (Array.isArray(tpData) ? tpData : []);
+          // Filter out the RM's own pulses from the oversight list
+          setTeamPulses(tps.filter((p: any) => p.created_by !== userId));
         }
       }
     } catch (err) {
@@ -200,6 +225,40 @@ export function RegisteredManagerDashboard() {
                 View All Risks
               </button>
             </div>
+
+            {/* Governance Oversight: Team Pulses */}
+            <div className="bg-card border-2 border-primary/20 p-6 shadow-sm">
+              <div className="flex items-center gap-2 mb-4">
+                <Shield className="w-5 h-5 text-primary" />
+                <h2 className="text-xl font-semibold text-primary">Governance Oversight</h2>
+              </div>
+              <p className="text-sm text-muted-foreground mb-4 italic">Recent pulses from Team Leaders awaiting oversight</p>
+              <div className="space-y-4">
+                {teamPulses.length > 0 ? teamPulses.map((pulse) => (
+                  <div key={pulse.id} className="p-3 border border-border rounded-lg bg-muted/30">
+                    <div className="flex justify-between items-start mb-1">
+                      <p className="font-bold text-sm text-foreground">{pulse.signal_type} Signal</p>
+                      <span className="text-[10px] bg-primary/10 text-primary px-2 py-0.5 rounded font-bold">
+                        {pulse.review_status || 'New'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="text-muted-foreground">{formatDate(pulse.entry_date)}</span>
+                      <button 
+                        onClick={() => navigate(`/signals/${pulse.id}`)}
+                        className="text-primary font-bold hover:underline"
+                      >
+                        Review
+                      </button>
+                    </div>
+                  </div>
+                )) : (
+                  <div className="text-center py-6 text-muted-foreground border border-dashed border-border rounded-lg">
+                    No team pulses to review
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           {/* Right Column */}
@@ -217,9 +276,9 @@ export function RegisteredManagerDashboard() {
                         <p className="text-sm text-muted-foreground">{formatDate(inc.occurred_at)}</p>
                       </div>
                       <span className={`px-2 py-1 text-xs rounded shadow-sm ${
-                        inc.status === 'under_review' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
+                        inc.status === 'In Progress' ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                       }`}>
-                        {inc.status.replace('_', ' ')}
+                        {inc.status}
                       </span>
                     </div>
                   </div>

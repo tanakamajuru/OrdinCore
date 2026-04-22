@@ -4,7 +4,7 @@ import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, 
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 interface Escalation {
   id: string;
@@ -38,7 +38,7 @@ export function EscalationLog() {
     try {
       setIsLoading(true);
       const res = await apiClient.get('/escalations?limit=100');
-      const data = (res.data as any).data || (res.data as any) || [];
+      const data = (res as any).data || res || [];
       setEscalations(Array.isArray(data) ? data : []);
     } catch (err) {
       console.error('Failed to load escalations', err);
@@ -121,7 +121,7 @@ export function EscalationLog() {
   const handleSelectEscalation = async (esc: Escalation) => {
     try {
       const res = await apiClient.get(`/escalations/${esc.id}`);
-      const fullData = (res.data as any).data;
+      const fullData = (res as any).data || res;
       setSelectedEscalation(fullData || esc);
     } catch (err) {
       console.error('Failed to load escalation details', err);

@@ -7,6 +7,7 @@ export class RisksService {
   async create(company_id: string, created_by: string, data: {
     house_id: string; title: string; description?: string; severity?: string; category_id?: string;
     likelihood?: number; impact?: number; assigned_to?: string; review_due_date?: Date;
+    source_cluster_id?: string; status?: string; trajectory?: string;
     metadata?: any;
   }) {
     const risk = await risksRepo.create({ company_id, created_by, ...data });
@@ -174,26 +175,149 @@ export class RisksService {
     return updated;
   }
 
-  private async checkAutoEscalation(risk: any) {
-    if (risk.severity === 'High' || risk.severity === 'Critical') {
-      // Check if already escalated
-      const existing = await query(
-        "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'Pending'",
-        [risk.id]
-      );
-      if (existing.rows.length === 0) {
-        // Use a valid UUID or find an admin. For now, we'll use the creator as the target if no system user is defined.
-        // Better: Find the first admin of the company
-        const adminRes = await query(
-          "SELECT id FROM users WHERE company_id = $1 AND role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1",
-          [risk.company_id]
-        );
-        const escalated_to = adminRes.rows[0]?.id || risk.created_by;
+  async updateActionStatus(action_id: string, risk_id: string, company_id: string, user_id: string, status: string) {
+    const action = await risksRepo.getActionById(action_id, company_id);
+    if (!action || action.risk_id !== risk_id) throw new Error('Action not found');
 
-        await this.escalate(risk.id, risk.company_id, risk.created_by, {
-          escalated_to,
-          reason: `Automated escalation: ${risk.severity.toUpperCase()} risk detected.`
-        });
+    const updated = await risksRepo.updateAction(action_id, company_id, { status });
+    await risksRepo.addEvent(risk_id, company_id, 'action_updated', `Action "${action.title}" status changed to ${status}`, user_id);
+    
+    if (status === 'Completed') {
+      await risksRepo.updateAction(action_id, company_id, { completed_at: new Date() });
+    }
+
+    return updated;
+  }
+
+  async verifyAction(action_id: string, risk_id: string, company_id: string, user: { id: string; role: string }, data: { notes: string }) {
+    const action = await risksRepo.getActionById(action_id, company_id);
+    if (!action || action.risk_id !== risk_id) throw new Error('Action not found');
+
+    // [GOVERNANCE] Four-Eyes Principle Section 8.1
+    if (action.created_by === user.id) {
+      throw new Error('Independent Verification Required: A user cannot verify an action they created themselves (Governance Integrity Rule Section 8.1).');
+    }
+
+    const updateData: Record<string, any> = { verification_notes: data.notes };
+
+    if (user.role === 'REGISTERED_MANAGER') {
+      updateData.verified_by_rm = user.id;
+      updateData.verified_at_rm = new Date();
+    } else if (user.role === 'DIRECTOR' || user.role === 'ADMIN' || user.role === 'SUPER_ADMIN') {
+      updateData.verified_by_ri = user.id;
+      updateData.verified_at_ri = new Date();
+    } else {
+      throw new Error('Unauthorized: Only Managers or Directors can verify governance actions.');
+    }
+
+    const updated = await risksRepo.updateAction(action_id, company_id, updateData);
+    await risksRepo.addEvent(risk_id, company_id, 'action_verified', `Action "${action.title}" verified by ${user.role}`, user.id);
+
+    return updated;
+  }
+
+  async promoteFromCluster(company_id: string, user_id: string, data: {
+    cluster_id: string; title: string; severity: string; trajectory: string;
+    description: string; house_id: string; category_id: string; likelihood: number; impact: number;
+  }) {
+    const cluster = await query('SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2', [data.cluster_id, company_id]);
+    if (cluster.rows.length === 0) throw new Error('Source cluster not found');
+
+    const risk = await this.create(company_id, user_id, {
+      ...data,
+      source_cluster_id: data.cluster_id,
+      status: 'Open'
+    });
+
+    // Update cluster status to 'Escalated' or 'Confirmed'
+    await query('UPDATE signal_clusters SET cluster_status = $1, linked_risk_id = $2 WHERE id = $3', 
+      ['Escalated', risk.id, data.cluster_id]);
+
+    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Signal Cluster ${data.cluster_id}`, user_id);
+    
+    return risk;
+  }
+
+  private async checkAutoEscalation(risk: any) {
+    // Rule 1: High/Critical severity and no progress in 24h (Simple version: trigger immediately on creation/update to high)
+    if (risk.severity === 'High' || risk.severity === 'Critical') {
+        await this.triggerEscalation(risk, `Automated escalation: ${risk.severity.toUpperCase()} risk detected.`);
+    }
+
+    // Rule 2: Open > 14 days (Defensible Governance)
+    const createdAt = new Date(risk.created_at);
+    const now = new Date();
+    const diffDays = Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    
+    if (diffDays > 14 && risk.status === 'Open') {
+        await this.triggerEscalation(risk, `Defensible Governance Rule: Risk open for more than 14 days without resolution.`);
+    }
+  }
+
+  private async triggerEscalation(risk: any, reason: string) {
+    // Check if already escalated
+    const existing = await query(
+      "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'Pending'",
+      [risk.id]
+    );
+    if (existing.rows.length > 0) return;
+
+    // Find the first Director of the company
+    const directorRes = await query(
+      "SELECT id FROM users WHERE company_id = $1 AND role = 'DIRECTOR' LIMIT 1",
+      [risk.company_id]
+    );
+    
+    // Fallback to Admin or Creator if no Director exists
+    let escalated_to = directorRes.rows[0]?.id;
+    if (!escalated_to) {
+        const adminRes = await query(
+            "SELECT id FROM users WHERE company_id = $1 AND role IN ('ADMIN', 'SUPER_ADMIN') LIMIT 1",
+            [risk.company_id]
+        );
+        escalated_to = adminRes.rows[0]?.id || risk.created_by;
+    }
+
+    await this.escalate(risk.id, risk.company_id, risk.created_by, {
+      escalated_to,
+      reason
+    });
+  }
+
+  async updateTrajectoryFromActions(risk_id: string, company_id: string) {
+
+    // 1. Fetch last 2 effective/ineffective ratings for COMPLETED actions
+    const ratings = await query(
+      `SELECT effectiveness FROM risk_actions 
+       WHERE risk_id = $1 AND company_id = $2 
+       AND status = 'Completed' AND effectiveness IS NOT NULL
+       ORDER BY completed_at DESC LIMIT 2`,
+      [risk_id, company_id]
+    );
+
+    if (ratings.rows.length < 2) return;
+
+    const r1 = ratings.rows[0].effectiveness;
+    const r2 = ratings.rows[1].effectiveness;
+
+    let newTrajectory: string | null = null;
+    let governanceNote: string | null = null;
+
+    if (r1 === 'Effective' && r2 === 'Effective') {
+      newTrajectory = 'Improving';
+    } else if (r1 === 'Ineffective' && r2 === 'Ineffective') {
+      newTrajectory = 'Deteriorating';
+      governanceNote = 'Critical Governance Concern: Two consecutive ineffective control actions detected.';
+    }
+
+    if (newTrajectory) {
+      await risksRepo.update(risk_id, company_id, { trajectory: newTrajectory });
+      await risksRepo.addEvent(risk_id, company_id, 'trajectory_auto_update', 
+        `Trajectory automatically updated to ${newTrajectory} based on action effectiveness.${governanceNote ? ' ' + governanceNote : ''}`, 
+        'SYSTEM');
+      
+      if (governanceNote) {
+        await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, { risk_id, company_id, note: governanceNote });
       }
     }
   }

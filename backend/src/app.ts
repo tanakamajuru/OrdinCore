@@ -17,6 +17,7 @@ import housesRoutes from './routes/houses.routes';
 import risksRoutes from './routes/risks.routes';
 import incidentsRoutes from './routes/incidents.routes';
 import governanceRoutes from './routes/governance.routes';
+import pulseRoutes from './routes/pulse.routes';
 import escalationsRoutes from './routes/escalations.routes';
 import reportsRoutes from './routes/reports.routes';
 import analyticsRoutes from './routes/analytics.routes';
@@ -26,6 +27,8 @@ import systemRoutes from './routes/system.routes';
 import exportsRoutes from './routes/exports.routes';
 import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
 import adminRoutes from './routes/admin.routes';
+import dailyGovernanceRoutes from './routes/dailyGovernance.routes';
+import incidentReconstructionRoutes from './routes/incidentReconstruction.routes';
 
 
 
@@ -102,6 +105,7 @@ app.use(`${API}/houses`, housesRoutes);
 app.use(`${API}/risks`, risksRoutes);
 app.use(`${API}/incidents`, incidentsRoutes);
 app.use(`${API}/governance`, governanceRoutes);
+app.use(`${API}/pulses`, pulseRoutes);
 app.use(`${API}/escalations`, escalationsRoutes);
 app.use(`${API}/reports`, reportsRoutes);
 app.use(`${API}/analytics`, analyticsRoutes);
@@ -111,6 +115,8 @@ app.use(`${API}/system`, systemRoutes);
 app.use(`${API}/exports`, exportsRoutes);
 app.use(`${API}/weekly-reviews`, weeklyReviewsRoutes);
 app.use(`${API}/admin`, adminRoutes);
+app.use(`${API}/daily-governance`, dailyGovernanceRoutes);
+app.use(`${API}/incident-reconstructions`, incidentReconstructionRoutes);
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

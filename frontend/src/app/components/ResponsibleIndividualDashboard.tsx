@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { Ambulance, Plus } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 export function ResponsibleIndividualDashboard() {
   const navigate = useNavigate();
@@ -30,17 +30,17 @@ export function ResponsibleIndividualDashboard() {
       // Fetch all core resources in parallel
       const [housesRes, risksRes, incidentsRes, escalationsRes, pulsesRes] = await Promise.allSettled([
         apiClient.get('/houses?limit=100'),
-        apiClient.get('/risks?status=open&severity=high&limit=100'),
-        apiClient.get('/incidents?status=open&limit=100'),
-        apiClient.get('/escalations?status=pending&limit=100'),
+        apiClient.get('/risks?status=Open&severity=high&limit=100'),
+        apiClient.get('/incidents?status=Open,In Progress&limit=100'),
+        apiClient.get('/escalations?status=Open&limit=100'),
         apiClient.get('/governance/pulses?limit=50')
       ]);
 
-      const houses = housesRes.status === 'fulfilled' ? ((housesRes.value.data as any).data || []) : [];
-      const risks = risksRes.status === 'fulfilled' ? ((risksRes.value.data as any).data?.risks || (risksRes.value.data as any).data || []) : [];
-      const incidents = incidentsRes.status === 'fulfilled' ? ((incidentsRes.value.data as any).data?.incidents || (incidentsRes.value.data as any).data || []) : [];
-      const escalations = escalationsRes.status === 'fulfilled' ? ((escalationsRes.value.data as any).data?.escalations || (escalationsRes.value.data as any).data || []) : [];
-      const pulses = pulsesRes.status === 'fulfilled' ? ((pulsesRes.value.data as any).data?.pulses || (pulsesRes.value.data as any).data || []) : [];
+      const houses = housesRes.status === 'fulfilled' ? ((housesRes.value as any).data || housesRes.value || []) : [];
+      const risks = risksRes.status === 'fulfilled' ? ((risksRes.value as any).data?.risks || (risksRes.value as any).data || risksRes.value || []) : [];
+      const incidents = incidentsRes.status === 'fulfilled' ? ((incidentsRes.value as any).data?.incidents || (incidentsRes.value as any).data || incidentsRes.value || []) : [];
+      const escalations = escalationsRes.status === 'fulfilled' ? ((escalationsRes.value as any).data?.escalations || (escalationsRes.value as any).data || escalationsRes.value || []) : [];
+      const pulses = pulsesRes.status === 'fulfilled' ? ((pulsesRes.value as any).data?.pulses || (pulsesRes.value as any).data || pulsesRes.value || []) : [];
 
       // Calculate aggregated stats
       setStats({
@@ -213,12 +213,12 @@ export function ResponsibleIndividualDashboard() {
                         <p className="text-xs text-muted-foreground">{incident.date}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`px-2 py-1 text-xs rounded capitalize ${
-                          incident.status === 'under_review' 
+                        <span className={`px-2 py-1 text-xs rounded shadow-sm ${
+                          incident.status === 'In Progress' 
                             ? 'bg-primary text-primary-foreground' 
                             : 'bg-muted text-muted-foreground'
                         }`}>
-                          {incident.status.replace('_', ' ')}
+                          {incident.status}
                         </span>
                       </div>
                     </div>

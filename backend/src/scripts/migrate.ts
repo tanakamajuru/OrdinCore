@@ -1,3 +1,4 @@
+import '../config/env';
 import * as fs from 'fs';
 import * as path from 'path';
 import { getPool } from '../config/database';

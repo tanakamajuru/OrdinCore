@@ -57,6 +57,31 @@ class ApiClient {
     localStorage.removeItem('user');
   }
 
+  // Public generic HTTP helpers to support consolidation
+  public async get<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...options, method: 'GET' });
+  }
+
+  public async post<T>(endpoint: string, data?: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { 
+      ...options, 
+      method: 'POST', 
+      body: data ? JSON.stringify(data) : options.body 
+    });
+  }
+
+  public async patch<T>(endpoint: string, data?: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { 
+      ...options, 
+      method: 'PATCH', 
+      body: data ? JSON.stringify(data) : options.body 
+    });
+  }
+
+  public async delete<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    return this.request<T>(endpoint, { ...options, method: 'DELETE' });
+  }
+
   // ─── Auth endpoints ────────────────────────────────────────────────────────
   async login(credentials: LoginRequest): Promise<ApiResponse<LoginResponse>> {
     const response = await this.request<LoginResponse>('/auth/login', {

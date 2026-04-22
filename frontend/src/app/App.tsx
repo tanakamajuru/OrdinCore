@@ -4,9 +4,11 @@ import { AuthProvider } from "@/hooks/useAuth";
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";
-import { GovernancePulse } from "./components/GovernancePulse";
 import { WeeklyReview } from "./components/WeeklyReview";
+import { SignalCaptureForm } from "./components/SignalCaptureForm";
+import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
+import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
@@ -15,9 +17,11 @@ import { MonthlyReport } from "./components/MonthlyReport";
 import { Reports } from "./components/Reports";
 import { IncidentCaseHub } from "./components/IncidentCaseHub";
 import { IncidentDetail } from "./components/IncidentDetail";
+import { PulseDetail } from "./components/PulseDetail";
 import { GovernanceTimeline } from "./components/GovernanceTimeline";
 import { ReconstructionReport } from "./components/ReconstructionReport";
 import { CrossHousePatternDetection } from "./components/CrossHousePatternDetection";
+import { SignalDetail } from "./components/SignalDetail";
 import AdminDashboard from "./components/AdminDashboard";
 import AdminDashboardSimple from "./components/AdminDashboardSimple";
 import AdminUserManagement from "./components/AdminUserManagement";
@@ -99,7 +103,22 @@ export default function App() {
           } />
           <Route path="/governance-pulse" element={
             <ProtectedRoute>
-              <GovernancePulse />
+              <SignalCaptureForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/governance-dashboard" element={
+            <ProtectedRoute>
+              <DailyOversightBoard />
+            </ProtectedRoute>
+          } />
+          <Route path="/governance-pulse/:id" element={
+            <ProtectedRoute>
+              <PulseDetail />
+            </ProtectedRoute>
+          } />
+          <Route path="/signals/:id" element={
+            <ProtectedRoute>
+              <SignalDetail />
             </ProtectedRoute>
           } />
           <Route path="/weekly-review" element={
@@ -110,6 +129,11 @@ export default function App() {
           <Route path="/risk-register" element={
             <ProtectedRoute>
               <RiskRegister />
+            </ProtectedRoute>
+          } />
+          <Route path="/risks/promote" element={
+            <ProtectedRoute>
+              <RiskPromotion />
             </ProtectedRoute>
           } />
           <Route path="/risk-register/:id" element={

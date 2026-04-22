@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { AlertCircle, Clock, PlusCircle } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 export function TeamLeaderDashboard() {
   const navigate = useNavigate();
@@ -31,20 +31,20 @@ export function TeamLeaderDashboard() {
     try {
       setIsLoading(true);
       const [pulseRes, incidentRes] = await Promise.all([
-        apiClient.get(`/governance/pulses?limit=1&assigned_user_id=${user?.id}`).catch(err => {
+        apiClient.get(`/pulses?limit=1`).catch(err => {
           console.error('Pulse fetch failed:', err);
-          return { data: { data: { pulses: [] } } };
+          return { data: { data: [] } };
         }),
         apiClient.get('/incidents?limit=5').catch(err => {
           console.error('Incident fetch failed:', err);
-          return { data: { data: { incidents: [] } } };
+          return { data: { data: [] } };
         })
       ]);
 
-      const pulses = (pulseRes.data as any).data?.pulses || (pulseRes.data as any).data || [];
+      const pulses = pulseRes.data || [];
       if (pulses.length > 0) setLastPulse(pulses[0]);
 
-      const incidents = (incidentRes.data as any).data?.incidents || (incidentRes.data as any).data || [];
+      const incidents = incidentRes.data || [];
       setRecentIncidents(incidents);
 
     } catch (error) {
@@ -69,7 +69,7 @@ export function TeamLeaderDashboard() {
       <div className="p-6 w-full pt-20">
         <div className="mb-8">
           <h1 className="text-3xl font-bold text-primary">Frontline Dashboard</h1>
-          <p className="text-muted-foreground">Welcome back, {user?.name || 'Team Leader'}</p>
+          <p className="text-muted-foreground">Welcome back, {user?.first_name} {user?.last_name || 'Team Leader'}</p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">

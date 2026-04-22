@@ -18,7 +18,12 @@ export class IncidentsController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const filters = { status: req.query.status, severity: req.query.severity, house_id: req.query.house_id };
+      const status = req.query.status as string;
+      const filters = { 
+        status: status && status.includes(',') ? status.split(',') : status, 
+        severity: req.query.severity, 
+        house_id: req.query.house_id 
+      };
       const result = await incidentsService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.incidents, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {

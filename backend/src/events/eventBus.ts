@@ -46,6 +46,8 @@ export const EVENTS = {
   REPORT_COMPLETED: 'report_completed',
   NOTIFICATION_SEND: 'notification_send',
   AUDIT_LOG: 'audit_log',
+  SIGNAL_CREATED: 'signal.created',
+  GOVERNANCE_CONCERN: 'governance_concern',
 } as const;
 
 export type EventType = (typeof EVENTS)[keyof typeof EVENTS];

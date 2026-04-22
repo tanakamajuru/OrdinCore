@@ -251,6 +251,65 @@ export class AnalyticsService {
       }
     };
   }
+
+  async getDirectorIntelligence(company_id: string) {
+    // 1. Control Failure Rate (signals recurring after risk closure)
+    const failureRes = await query(
+      `SELECT 
+        COUNT(*) FILTER (WHERE rule_number = 5) as failure_count,
+        COUNT(*) as total_events
+       FROM threshold_events te
+       JOIN signal_clusters sc ON sc.id = te.cluster_id
+       WHERE sc.company_id = $1 AND te.created_at >= NOW() - INTERVAL '30 days'`,
+      [company_id]
+    );
+
+    // 2. Domain Weakness (Cluster density by domain)
+    const domainWeakness = await query(
+      `SELECT 
+        risk_domain, 
+        COUNT(*) as cluster_count,
+        COUNT(*) FILTER (WHERE cluster_status = 'Escalated') as escalated_count
+       FROM signal_clusters
+       WHERE company_id = $1 AND cluster_status != 'Closed'
+       GROUP BY risk_domain
+       ORDER BY escalated_count DESC, cluster_count DESC`,
+      [company_id]
+    );
+
+    // 3. House Stability Ranking
+    const stabilityRanking = await query(
+      `SELECT 
+        h.name as house_name,
+        COALESCE(AVG(gp.compliance_score), 0) as avg_compliance,
+        COUNT(DISTINCT sc.id) as open_signal_clusters,
+        COUNT(DISTINCT r.id) FILTER (WHERE r.status != 'Closed') as open_risks,
+        (COALESCE(AVG(gp.compliance_score), 0) - (COUNT(DISTINCT sc.id) * 5) - (COUNT(DISTINCT r.id) FILTER (WHERE r.status != 'Closed') * 10)) as stability_score
+       FROM houses h
+       LEFT JOIN governance_pulses gp ON gp.house_id = h.id AND gp.status = 'completed'
+       LEFT JOIN signal_clusters sc ON sc.house_id = h.id AND sc.cluster_status != 'Closed'
+       LEFT JOIN risks r ON r.house_id = h.id
+       WHERE h.company_id = $1 AND h.status = 'active'
+       GROUP BY h.id, h.name
+       ORDER BY stability_score DESC`,
+      [company_id]
+    );
+
+    const fData = failureRes.rows[0];
+    const failureRate = fData.total_events > 0 ? (fData.failure_count / fData.total_events) * 100 : 0;
+
+    return {
+      control_failure: {
+        rate: parseFloat(failureRate.toFixed(2)),
+        count: parseInt(fData.failure_count)
+      },
+      domain_weakness: domainWeakness.rows,
+      house_stability: {
+        top_performers: stabilityRanking.rows.slice(0, 5),
+        concern_areas: stabilityRanking.rows.slice(-5).reverse()
+      }
+    };
+  }
 }
 
 export const analyticsService = new AnalyticsService();

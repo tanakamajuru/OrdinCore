@@ -261,6 +261,140 @@ async function generateCrossSiteSummary(company_id: string, parameters: Record<s
   };
 }
 
+async function generateDetailedEvidencePack(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const risk_id = parameters?.risk_id as string;
+  if (!risk_id) throw new Error("risk_id is required for Detailed Evidence Pack");
+
+  // 1. Risk Core Data
+  const riskRes = await query(
+    `SELECT r.*, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name
+     FROM risks r 
+     JOIN houses h ON r.house_id = h.id
+     JOIN users u ON r.created_by = u.id
+     WHERE r.id = $1 AND r.company_id = $2`,
+    [risk_id, company_id]
+  );
+  if (riskRes.rows.length === 0) throw new Error("Risk not found or access denied");
+  const risk = riskRes.rows[0];
+
+  // 2. Linked Signals (Lineage)
+  const signals = await query(
+    `SELECT gp.entry_date, gp.signal_type, gp.description, gp.severity
+     FROM risk_signal_links rsl
+     JOIN governance_pulses gp ON rsl.pulse_entry_id = gp.id
+     WHERE rsl.risk_id = $1
+     ORDER BY gp.entry_date DESC`,
+    [risk_id]
+  );
+
+  // 3. Verified Actions (Mitigation Audit)
+  const actions = await query(
+    `SELECT ra.title, ra.description, ra.status, ra.completed_at, ra.verification_notes,
+            u_rm.first_name || ' ' || u_rm.last_name as verifier_rm_name,
+            u_ri.first_name || ' ' || u_ri.last_name as verifier_ri_name
+     FROM risk_actions ra
+     LEFT JOIN users u_rm ON ra.verified_by_rm = u_rm.id
+     LEFT JOIN users u_ri ON ra.verified_by_ri = u_ri.id
+     WHERE ra.risk_id = $1
+     ORDER BY ra.created_at ASC`,
+    [risk_id]
+  );
+
+  return {
+    title: `CQC Evidence Pack: ${risk.title}`,
+    summary: `Comprehensive audit trail for risk registered in ${risk.house_name}. This document proves proactive identification, trajectory tracking, and independent verification of mitigations.`,
+    sections: [
+      {
+        title: "1. Risk Governance Profile",
+        table: {
+          headers: ["Attribute", "Value"],
+          rows: [
+            ["House", risk.house_name],
+            ["Registered By", risk.created_by_name],
+            ["Current Severity", risk.severity],
+            ["Current Trajectory", risk.trajectory],
+            ["Status", risk.status],
+            ["Risk Score", risk.risk_score.toString()]
+          ]
+        }
+      },
+      {
+        title: "2. Evidence Lineage (Signals)",
+        content: "The following observations directly informed the registration of this risk.",
+        table: {
+          headers: ["Date", "Type", "Description", "Severity"],
+          rows: signals.rows.map(s => [new Date(s.entry_date).toLocaleDateString(), s.signal_type, s.description, s.severity])
+        }
+      },
+      {
+        title: "3. Mitigation & Independent Verification Audit",
+        content: "Evidence of control measures and senior management sign-off (Four-Eyes Principle).",
+        table: {
+          headers: ["Action", "Status", "Completion", "Verified By", "Governance Notes"],
+          rows: actions.rows.map(a => [
+            a.title,
+            a.status,
+            a.completed_at ? new Date(a.completed_at).toLocaleDateString() : "Pending",
+            [a.verifier_rm_name, a.verifier_ri_name].filter(Boolean).join(" & ") || "Unverified",
+            a.verification_notes || "N/A"
+          ])
+        }
+      }
+    ]
+  };
+}
+
+async function generateWeeklyNarrativeReport(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const house_id = parameters?.house_id as string;
+  const week_ending = parameters?.week_ending as string;
+  
+  if (!house_id || !week_ending) throw new Error("house_id and week_ending are required for Weekly Narrative");
+
+  // 1. Fetch Weekly Review Record
+  const reviewRes = await query(
+    `SELECT wr.*, h.name as house_name, u.first_name || ' ' || u.last_name as manager_name
+     FROM weekly_reviews wr
+     JOIN houses h ON wr.house_id = h.id
+     JOIN users u ON wr.created_by = u.id
+     WHERE wr.house_id = $1 AND wr.week_ending = $2 AND wr.company_id = $3`,
+    [house_id, week_ending, company_id]
+  );
+
+  if (reviewRes.rows.length === 0) throw new Error("Weekly review not found for the specified period");
+  const review = reviewRes.rows[0];
+  const content = typeof review.content === 'string' ? JSON.parse(review.content) : review.content;
+
+  return {
+    title: `Weekly Governance Narrative: ${review.house_name}`,
+    summary: `Strategic leadership interpretation of governance rhythm for the week ending ${new Date(week_ending).toLocaleDateString()}. Status: ${review.status?.toUpperCase()}.`,
+    sections: [
+      {
+        title: "1. Leadership Interpretation",
+        content: content.leadership_interpretation || "No qualitative narrative provided."
+      },
+      {
+        title: "2. Governance Position",
+        table: {
+          headers: ["Metric", "Position"],
+          rows: [
+            ["Overall Position", content.overall_position || "Stable"],
+            ["Review Status", review.status],
+            ["Completed By", review.manager_name]
+          ]
+        }
+      },
+      {
+        title: "3. Escalating Patterns Identified",
+        list: content.escalating_signals?.map((s: any) => `${s.label} (${s.trajectory})`) || ["No escalating patterns identified this week."]
+      },
+      {
+        title: "4. Risk Interventions",
+        content: content.decisions_required || "No specific strategic decisions recorded."
+      }
+    ]
+  };
+}
+
 async function generateComprehensive(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
   // Pull multiple datasets
   const [pulses, risks, escalations, incidents] = await Promise.all([
@@ -310,6 +444,8 @@ export function startReportWorker() {
         case 'safeguarding_report': reportData = await generateSafeguardingReport(company_id, parameters); break;
         case 'incident_report': reportData = await generateIncidentReport(company_id, parameters); break;
         case 'house_overview': reportData = await generateWeeklySummary(company_id, parameters); break;
+        case 'weekly_narrative': reportData = await generateWeeklyNarrativeReport(company_id, parameters); break;
+        case 'detailed_evidence_pack': reportData = await generateDetailedEvidencePack(company_id, parameters); break;
         case 'governance_compliance': reportData = await generateComprehensive(company_id, parameters); break;
         default: reportData = await generateComprehensive(company_id, parameters); break;
       }

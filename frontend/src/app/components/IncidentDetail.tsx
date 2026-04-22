@@ -1,8 +1,10 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Calendar, MapPin, AlertTriangle, User, Clock } from "lucide-react";
+import { ArrowLeft, Calendar, MapPin, AlertTriangle, User, Clock, Shield } from "lucide-react";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
+import { Button } from "./ui/button";
 import apiClient from "@/services/apiClient";
 
 interface IncidentDetail {
@@ -36,9 +38,13 @@ export function IncidentDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   
+  const { user } = useAuth();
+  const userRole = (user?.role || localStorage.getItem('userRole') || '').toUpperCase();
+  
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -92,11 +98,27 @@ export function IncidentDetail() {
     }
   };
 
+  const updateStatus = async (newStatus: string) => {
+    if (!id || !incident) return;
+    
+    try {
+      setIsUpdating(true);
+      await apiClient.patch(`/incidents/${id}`, { status: newStatus });
+      toast.success(`Incident status updated to ${newStatus}`);
+      loadIncidentDetails(id);
+    } catch (err) {
+      console.error('Failed to update incident status:', err);
+      toast.error('Failed to update incident status');
+    } finally {
+      setIsUpdating(false);
+    }
+  };
+
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "under_review": return "bg-black text-white";
-      case "closed": return "bg-gray-200 text-gray-800";
-      case "archived": return "bg-gray-100 text-gray-600";
+      case "In Progress": return "bg-black text-white";
+      case "Closed": return "bg-gray-200 text-gray-800";
+      case "Archived": return "bg-gray-100 text-gray-600";
       default: return "bg-gray-200 text-gray-800";
     }
   };
@@ -159,13 +181,57 @@ export function IncidentDetail() {
               {incident.severity?.charAt(0).toUpperCase() + incident.severity?.slice(1)} Severity
             </span>
             <span className={`px-3 py-1 ${getStatusColor(incident.status)}`}>
-              {incident.status?.replace('_', ' ').charAt(0).toUpperCase() + incident.status?.replace('_', ' ').slice(1)}
+              {incident.status}
             </span>
           </div>
           <p className="text-gray-600">
             {incident.house_name} • Occurred {incident.occurred_at ? new Date(incident.occurred_at).toLocaleDateString('en-GB') : 'N/A'} • Reported by {incident.created_by_name || 'Unknown'}
           </p>
         </div>
+
+        {/* Governance Moderation Actions */}
+        {['REGISTERED_MANAGER', 'RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && incident.status !== 'closed' && (
+          <div className="bg-primary/5 border-2 border-primary/20 p-6 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
+            <div>
+              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Governance Moderation
+              </h3>
+              <p className="text-sm text-muted-foreground italic">Update the incident status following investigation</p>
+            </div>
+            <div className="flex gap-3">
+              {incident.status === 'Open' && (
+                <Button 
+                  onClick={() => updateStatus('In Progress')}
+                  disabled={isUpdating}
+                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-sm"
+                >
+                  {isUpdating ? 'Updating...' : 'Start Investigation'}
+                </Button>
+              )}
+              {incident.status !== 'Resolved' && incident.status !== 'Closed' && (
+                <Button 
+                  onClick={() => updateStatus('Resolved')}
+                  disabled={isUpdating}
+                  variant="outline"
+                  className="border-success text-success hover:bg-success/10 font-bold"
+                >
+                  {isUpdating ? 'Updating...' : 'Mark as Resolved'}
+                </Button>
+              )}
+              {['RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && (
+                <Button 
+                  onClick={() => updateStatus('Closed')}
+                  disabled={isUpdating}
+                  variant="destructive"
+                  className="font-bold shadow-md"
+                >
+                  {isUpdating ? 'Updating...' : 'Close & Archive Case'}
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-6">
           {/* Description */}

@@ -3,7 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { TrendingUp, BarChart3, PieChart, Activity, MapPin, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 export function TrendAnalysis() {
   const [activeTab, setActiveTab] = useState("overview");
@@ -25,9 +25,9 @@ export function TrendAnalysis() {
         apiClient.get('/analytics/governance-compliance?days=30')
       ]);
 
-      setTrends(trendsRes.data.data);
-      setPerformance(perfRes.data.data);
-      setCompliance(compRes.data.data);
+      setTrends((trendsRes as any).data || trendsRes);
+      setPerformance((perfRes as any).data || perfRes);
+      setCompliance((compRes as any).data || compRes);
     } catch (err) {
       console.error('Failed to load analytics', err);
       toast.error('Failed to load trend analysis data');

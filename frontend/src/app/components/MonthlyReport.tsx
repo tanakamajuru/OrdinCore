@@ -3,7 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { FileText, Download, CheckCircle, Clock } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
-import { apiClient } from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 
 export function MonthlyReport() {
@@ -18,8 +18,8 @@ export function MonthlyReport() {
         name: `Organizational Strategic Report - ${new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}`,
         parameters: { month: new Date().getMonth() + 1, year: new Date().getFullYear() }
       });
-      // Extract data from axios response
-      const reportData = response.data?.data || response.data;
+      // Extract data from unified response
+      const reportData = (response as any).data || response;
       setLastReport(reportData);
       toast.success("Monthly report generation requested");
     } catch (error) {

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, Plus } from "lucide-react";
+import { ArrowLeft, Plus, TrendingUp, TrendingDown, ArrowRightCircle } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 
@@ -16,6 +16,10 @@ interface RiskDetail {
   created_by_name: string;
   category_name: string;
   review_due_date: string;
+  trajectory: string;
+  source_cluster_name?: string;
+  source_cluster_id?: string;
+  risk_score: number;
   metadata?: {
     mitigation?: string;
     rootCause?: string;
@@ -28,9 +32,19 @@ interface RiskDetail {
 
 interface Action {
   id: string;
+  title: string;
   description: string;
   status: string;
   created_at: string;
+  created_by: string;
+  created_by_name: string;
+  verified_by_rm?: string;
+  verified_by_rm_name?: string;
+  verified_at_rm?: string;
+  verified_by_ri?: string;
+  verified_by_ri_name?: string;
+  verified_at_ri?: string;
+  verification_notes?: string;
 }
 
 interface TimelineEntry {
@@ -65,6 +79,10 @@ export function RiskDetail() {
     description: ""
   });
   const [isEscalating, setIsEscalating] = useState(false);
+  const [showVerifyAction, setShowVerifyAction] = useState<string | null>(null);
+  const [verificationNotes, setVerificationNotes] = useState("");
+  const [isVerifying, setIsVerifying] = useState(false);
+  const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
   const handleEscalate = async () => {
     if (!id) return;
@@ -218,6 +236,34 @@ export function RiskDetail() {
       setIsSubmittingEvent(false);
     }
   };
+
+  const handleUpdateActionStatus = async (actionId: string, newStatus: string) => {
+    try {
+      await apiClient.patch(`/risks/${id}/actions/${actionId}/status`, { status: newStatus });
+      toast.success(`Action marked as ${newStatus}`);
+      if (id) loadRiskDetails(id);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to update action status');
+    }
+  };
+
+  const handleVerifyAction = async () => {
+    if (!showVerifyAction) return;
+    setIsVerifying(true);
+    try {
+      await apiClient.post(`/risks/${id}/actions/${showVerifyAction}/verify`, { 
+        notes: verificationNotes 
+      });
+      toast.success('Action verified successfully');
+      setShowVerifyAction(null);
+      setVerificationNotes("");
+      if (id) loadRiskDetails(id);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to verify action');
+    } finally {
+      setIsVerifying(false);
+    }
+  };
   
 
   if (isLoading) {
@@ -261,50 +307,54 @@ export function RiskDetail() {
 
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl font-semibold text-black">{risk.title || risk.description || 'Risk Details'}</h1>
+            <h1 className="text-3xl font-black text-primary italic uppercase tracking-tighter">{risk.title}</h1>
             <span
-              className={`px-3 py-1 ${
+              className={`px-3 py-1 font-bold ${
                 risk.severity === "High" || risk.severity === "Critical"
-                  ? "bg-black text-white"
-                  : risk.severity === "Medium"
-                  ? "border-2 border-black"
-                  : "bg-gray-200"
+                  ? "bg-destructive text-white"
+                  : "border-2 border-primary"
               }`}
             >
-              {risk.severity.charAt(0).toUpperCase() + risk.severity.slice(1)} Severity
+              {risk.severity}
             </span>
-            <span className="px-3 py-1 border-2 border-black">
-              {risk.status.charAt(0).toUpperCase() + risk.status.slice(1).replace('_', ' ')}
+            <div className="flex items-center gap-2 px-3 py-1 border-2 border-border font-bold">
+                 {risk.trajectory === 'Improving' ? <TrendingUp className="text-success" /> : 
+                  risk.trajectory === 'Deteriorating' || risk.trajectory === 'Critical' ? <TrendingDown className="text-destructive animate-pulse" /> : 
+                  <ArrowRightCircle className="text-muted-foreground" />}
+                 {risk.trajectory}
+            </div>
+            <span className="px-3 py-1 bg-primary text-primary-foreground font-black">
+              SCORE: {risk.risk_score}
             </span>
-            {!(risk.escalated || risk.status.toLowerCase() === 'escalated') && (
-              <span className="px-3 py-1 bg-black text-white">
-                Escalated
-              </span>
-            )}
-            {!(risk.escalated || ['escalated', 'closed', 'resolved'].includes(risk.status.toLowerCase())) && 
-              ['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(userRole) && (
-              <button
-                onClick={handleEscalate}
-                disabled={isEscalating}
-                className="px-4 py-1 bg-white border-2 border-black hover:bg-gray-100 transition-colors text-sm font-semibold"
-              >
-                {isEscalating ? 'Escalating...' : 'Escalate Risk'}
-              </button>
-            )}
           </div>
-          <p className="text-gray-600">
-            {risk.house_name} • Reported {risk.created_at ? new Date(risk.created_at).toLocaleDateString('en-GB') : 'N/A'} by {risk.created_by_name || 'Unknown'}
+          <p className="text-muted-foreground font-medium uppercase tracking-widest text-sm">
+            {risk.house_name} • Registered {new Date(risk.created_at).toLocaleDateString()} by {risk.created_by_name}
           </p>
         </div>
 
         <div className="space-y-6">
-          {/* Description */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-3 text-black">Description</h2>
-            <p className="text-black">{risk.title || risk.description}</p>
-            {risk.description !== risk.title && (
-              <p className="text-black mt-2">{risk.description}</p>
-            )}
+          {/* Description & Evidence */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 bg-card border-2 border-border p-6 shadow-sm">
+                <h2 className="text-xs font-black uppercase text-muted-foreground mb-4 tracking-widest">Governance Description</h2>
+                <p className="text-lg font-medium leading-relaxed">{risk.description}</p>
+            </div>
+            <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
+                <h2 className="text-xs font-black uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
+                {risk.source_cluster_id ? (
+                    <div className="space-y-4">
+                        <div className="font-bold text-primary">Source Cluster: {risk.source_cluster_name}</div>
+                        <p className="text-sm text-muted-foreground italic">"Evidence promoted from Signal Cluster via RM Decision Protocol."</p>
+                        <button onClick={() => navigate(`/clusters/${risk.source_cluster_id}`)} className="text-xs font-black uppercase text-primary underline underline-offset-4">
+                            View Source Pattern
+                        </button>
+                    </div>
+                ) : (
+                    <div className="text-muted-foreground italic text-sm">
+                        Manual entry risk – No automated pattern link available.
+                    </div>
+                )}
+            </div>
           </div>
 
           {/* Impact & Mitigation */}
@@ -346,29 +396,65 @@ export function RiskDetail() {
                 actions.map((action, idx) => (
                   <div
                     key={action.id || idx}
-                    className={`p-4 ${idx % 2 === 0 ? "bg-gray-100" : "bg-white"} border border-gray-300`}
+                    className={`p-4 ${idx % 2 === 0 ? "bg-gray-100" : "bg-white"} border-b-2 border-black`}
                   >
                     <div className="flex justify-between items-start">
-                      <p className="text-black flex-1">{action.description}</p>
-                      <div className="ml-4 text-right">
-                        <span
-                          className={`inline-block px-2 py-1 text-xs ${
-                            action.status === "Complete"
-                              ? "bg-black text-white"
-                              : action.status === "In Progress"
-                              ? "border border-black"
-                              : action.status === "Ongoing"
-                              ? "bg-gray-200"
-                              : "border border-gray-300 text-gray-400"
-                          }`}
-                        >
-                          {action.status}
-                        </span>
-                        {action.created_at && (
-                          <p className="text-sm text-gray-600 mt-1">
+                      <div className="flex-1">
+                        <div className="flex items-center gap-3 mb-1">
+                            <p className="font-bold text-lg">{action.title || action.description}</p>
+                            <span
+                            className={`inline-block px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                                action.status === "Complete" || action.status === "Completed"
+                                ? "bg-black text-white"
+                                : "border-2 border-black"
+                            }`}
+                            >
+                            {action.status}
+                            </span>
+                        </div>
+                        <p className="text-sm text-muted-foreground mb-3">{action.description}</p>
+                        
+                        <div className="flex flex-wrap gap-2">
+                            {action.verified_by_rm && (
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground text-xs font-bold uppercase italic">
+                                    RM VERIFIED
+                                </div>
+                            )}
+                            {action.verified_by_ri && (
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive text-white text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                                    RI VERIFIED
+                                </div>
+                            )}
+                        </div>
+                      </div>
+
+                      <div className="ml-4 text-right flex flex-col items-end gap-2">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">
                             {new Date(action.created_at).toLocaleDateString('en-GB')}
-                          </p>
-                        )}
+                        </p>
+                        
+                        <div className="flex gap-2">
+                            {(action.status !== 'Complete' && action.status !== 'Completed') && (
+                                <button 
+                                    onClick={() => handleUpdateActionStatus(action.id, 'Completed')}
+                                    className="text-[10px] font-black uppercase underline hover:text-primary transition-colors"
+                                >
+                                    Mark Complete
+                                </button>
+                            )}
+
+                            {/* Verification Button: RM/RI only + Four Eyes */}
+                            {(['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && 
+                              action.created_by !== currentUserId && 
+                              !((userRole === 'REGISTERED_MANAGER' && action.verified_by_rm) || (['DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && action.verified_by_ri))) && (
+                                <button 
+                                    onClick={() => setShowVerifyAction(action.id)}
+                                    className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 hover:bg-primary transition-all"
+                                >
+                                    Verify Action
+                                </button>
+                            )}
+                        </div>
                       </div>
                     </div>
                   </div>
@@ -558,6 +644,55 @@ export function RiskDetail() {
                 className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
               >
                 {isSubmittingEvent ? 'Adding...' : 'Add Event'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Verification Modal */}
+      {showVerifyAction && (
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white border-2 border-black p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+            <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 bg-primary flex items-center justify-center text-white font-black text-2xl">V</div>
+                <div>
+                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Independent Verification</h2>
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Four-Eyes Governance Protocol</p>
+                </div>
+            </div>
+            
+            <p className="text-sm font-medium mb-6 p-4 border-l-4 border-primary bg-primary/5">
+                I confirm that I have reviewed the evidence for this action and verified it has been implemented correctly in accordance with company policy.
+            </p>
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Verification Notes</label>
+                <textarea
+                  value={verificationNotes}
+                  onChange={(e) => setVerificationNotes(e.target.value)}
+                  className="w-full h-32 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 text-lg font-medium resize-none"
+                  placeholder="Summarize the verification evidence..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-8">
+              <button
+                onClick={() => {
+                  setShowVerifyAction(null);
+                  setVerificationNotes("");
+                }}
+                className="px-6 py-2 bg-white text-black font-black uppercase tracking-widest border-2 border-black hover:bg-gray-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleVerifyAction}
+                disabled={isVerifying || !verificationNotes}
+                className="px-6 py-2 bg-black text-white font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+              >
+                {isVerifying ? 'Signing Off...' : 'Confirm Sign-Off'}
               </button>
             </div>
           </div>

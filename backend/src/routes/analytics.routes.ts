@@ -106,5 +106,19 @@ router.get('/trends', requireAuth, requireTenant, requireMinRole('REGISTERED_MAN
  *         description: Success
  */
 router.get('/escalation-rate', requireAuth, requireTenant, analyticsController.escalationRate.bind(analyticsController));
+/**
+ * @openapi
+ * /api/v1/analytics/director-intelligence:
+ *   get:
+ *     tags:
+ *       - Analytics
+ *     summary: GET /api/v1/analytics/director-intelligence
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Success
+ */
+router.get('/director-intelligence', requireAuth, requireTenant, requireMinRole('DIRECTOR'), analyticsController.directorIntelligence.bind(analyticsController));
 
 export default router;

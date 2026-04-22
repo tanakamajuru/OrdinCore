@@ -1,78 +1,104 @@
-import 'dotenv/config';
-import { query } from '../config/database';
-import { v4 as uuidv4 } from 'uuid';
+import { Pool } from 'pg';
 import bcrypt from 'bcryptjs';
-import { companyService } from '../services/company.service';
-import { usersService } from '../services/users.service';
-import { housesService } from '../services/houses.service';
+import dotenv from 'dotenv';
+import path from 'path';
+
+dotenv.config({ path: path.join(__dirname, '../../.env') });
+
+const pool = new Pool({
+  host: process.env.DB_HOST,
+  port: Number(process.env.DB_PORT),
+  database: process.env.DB_NAME,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  ssl: false,
+});
 
 async function seed() {
-    console.log('--- SEEDING JOURNEY TEST DATA ---');
-    const passwordHash = await bcrypt.hash('Password123!', 12);
-    const companyName = 'Journey Test Co V2';
-    
-    try {
-        // 1. Create Company
-        console.log('1. Creating Company...');
-        const company = await companyService.create({ name: companyName, plan: 'starter' });
-        console.log('   Success:', company.id);
-        
-        // 2. Create Director
-        console.log('2. Creating Director...');
-        const dir = await usersService.create(company.id, {
-            email: 'dir_test_v2@example.com',
-            password: 'Password123!',
-            first_name: 'Jane',
-            last_name: 'Director',
-            role: 'DIR'
-        });
-        console.log('   Success:', dir.id);
-        
-        // 3. Create House (Site)
-        console.log('3. Creating House...');
-        const house = await housesService.create(company.id, {
-            name: 'Site Alpha',
-            address: '456 Alpha Way',
-            city: 'Beta City',
-            postcode: 'AL1 1PH'
-        });
-        console.log('   Success:', house.id);
-        
-        // 4. Create Registered Manager
-        console.log('4. Creating Registered Manager...');
-        const rm = await usersService.create(company.id, {
-            email: 'rm_test_v2@example.com',
-            password: 'Password123!',
-            first_name: 'Robert',
-            last_name: 'Manager',
-            role: 'REGISTERED_MANAGER',
-            house_ids: [house.id]
-        });
-        console.log('   Success:', rm.id);
-        
-        // 5. Create Team Leader
-        console.log('5. Creating Team Leader...');
-        const tl = await usersService.create(company.id, {
-            email: 'tl_test_v2@example.com',
-            password: 'Password123!',
-            first_name: 'Thomas',
-            last_name: 'Leader',
-            role: 'TEAM_LEADER',
-            house_ids: [house.id],
-            pulse_days: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-        });
-        console.log('   Success:', tl.id);
-        
-        console.log('--- SEEDING COMPLETED SUCCESSFULLY ---');
-        console.log('DIR: dir_test_v2@example.com / Password123!');
-        console.log('RM:  rm_test_v2@example.com / Password123!');
-        console.log('TL:  tl_test_v2@example.com / Password123!');
-        
-    } catch (err) {
-        console.error('--- SEEDING FAILED ---');
-        console.error(err);
-        process.exit(1);
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+
+    // 1. Create/Find Company
+    let companyId;
+    const existingCompany = await client.query("SELECT id FROM companies WHERE name = 'Oakwood Care' LIMIT 1");
+    if (existingCompany.rows.length > 0) {
+      companyId = existingCompany.rows[0].id;
+      console.log(`ℹ️  Company Oakwood Care already exists (${companyId})`);
+    } else {
+      const companyRes = await client.query("INSERT INTO companies (name, status) VALUES ('Oakwood Care', 'active') RETURNING id");
+      companyId = companyRes.rows[0].id;
+      console.log(`✅ Created Company: Oakwood Care (${companyId})`);
     }
+
+    // 2. Create Site 1 (House)
+    let houseId;
+    const existingHouse = await client.query("SELECT id FROM houses WHERE name = 'Site 1' AND company_id = $1 LIMIT 1", [companyId]);
+    if (existingHouse.rows.length > 0) {
+      houseId = existingHouse.rows[0].id;
+      console.log(`ℹ️  House Site 1 already exists (${houseId})`);
+    } else {
+      const houseRes = await client.query(
+        `INSERT INTO houses (company_id, name, address, city, postcode, status, capacity)
+         VALUES ($1, 'Site 1', 'Oakwood Drive', 'London', 'OK1 1AA', 'active', 10)
+         RETURNING id`,
+        [companyId]
+      );
+      houseId = houseRes.rows[0].id;
+      console.log(`✅ Created House: Site 1 (${houseId})`);
+    }
+
+    const passwordHash = await bcrypt.hash('Pass123!', 10);
+
+    const testUsers = [
+      { name: 'Tanaka Majuru', email: 'admin@oakwoodcare.co.uk', role: 'ADMIN', days: [] },
+      { name: 'Ngoni Majuru', email: 'tl2@oakwoodcare.co.uk', role: 'TEAM_LEADER', days: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'] },
+      { name: 'Gerald Majuru', email: 'dir@oakwoodcare.co.uk', role: 'DIRECTOR', days: [] },
+      { name: 'Tashinga Majuru', email: 'ri@oakwoodcare.co.uk', role: 'RESPONSIBLE_INDIVIDUAL', days: [] },
+      { name: 'Ronald Majuru', email: 'rm@oakwoodcare.co.uk', role: 'REGISTERED_MANAGER', days: ['Tue', 'Thu', 'Sat'] },
+      { name: 'Tariro Majuru', email: 'tl@oakwoodcare.co.uk', role: 'TEAM_LEADER', days: ['Mon', 'Wed', 'Fri'] }
+    ];
+
+    for (const u of testUsers) {
+      const [firstName, lastName] = u.name.split(' ');
+      const userRes = await client.query(
+        `INSERT INTO users (company_id, first_name, last_name, email, password_hash, role, status, pulse_days)
+         VALUES ($1, $2, $3, $4, $5, $6, 'active', $7)
+         ON CONFLICT (email) DO UPDATE SET 
+            role = EXCLUDED.role, 
+            pulse_days = EXCLUDED.pulse_days,
+            first_name = EXCLUDED.first_name,
+            last_name = EXCLUDED.last_name
+         RETURNING id`,
+        [companyId, firstName, lastName, u.email, passwordHash, u.role, JSON.stringify(u.days)]
+      );
+      const userId = userRes.rows[0].id;
+      console.log(`✅ User: ${u.email} (${u.role})`);
+
+      // Assign to Site 1 if not global role
+      if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(u.role)) {
+        await client.query(
+          `INSERT INTO user_houses (user_id, house_id, company_id, role_in_house)
+           VALUES ($1, $2, $3, $4)
+           ON CONFLICT (user_id, house_id) DO NOTHING`,
+          [userId, houseId, companyId, u.role === 'REGISTERED_MANAGER' ? 'manager' : 'staff']
+        );
+        
+        if (u.role === 'REGISTERED_MANAGER') {
+          await client.query(`UPDATE houses SET manager_id = $1 WHERE id = $2`, [userId, houseId]);
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    console.log('🚀 Seeding complete for Journey Verification');
+  } catch (err) {
+    await client.query('ROLLBACK');
+    console.error('❌ Seeding failed:', err);
+  } finally {
+    client.release();
+    pool.end();
+  }
 }
 
 seed();

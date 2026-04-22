@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { FileDown, Filter, Calendar } from "lucide-react";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 interface ReportFilters {
   dateRange: {
@@ -13,6 +13,9 @@ interface ReportFilters {
   categories: string[];
   status: string[];
   reportType: string;
+  riskId?: string;
+  weekEnding?: string;
+  houseId?: string;
 }
 
 export function Reports() {
@@ -39,12 +42,16 @@ export function Reports() {
   const reportTypes = [
     { value: "cross_site_summary", label: "Cross-Site Governance Summary" },
     { value: "governance_compliance", label: "Comprehensive Governance Report" },
+    { value: "detailed_evidence_pack", label: "CQC Evidence Pack (Risk Lineage)" },
+    { value: "weekly_narrative", label: "Weekly Governance Narrative" },
     { value: "organizational_monthly", label: "Monthly Board Report (Strategic)" },
     { value: "risk_summary", label: "Risk Register Summary" },
     { value: "escalation_report", label: "Escalation Activity Report" },
     { value: "custom", label: "Safeguarding Activity Report" },
     { value: "incident_report", label: "Incident Trend Analysis" }
   ];
+
+  const [activeRisks, setActiveRisks] = useState<any[]>([]);
 
   // Real preview data from backend
   const [previewData, setPreviewData] = useState({
@@ -57,12 +64,24 @@ export function Reports() {
     loadAllHouses();
     loadPreviewData(); 
     loadGeneratedReports();
+    loadActiveRisks();
   }, []);
+
+  const loadActiveRisks = async () => {
+    try {
+      const res = await apiClient.get('/risks?limit=100');
+      const data = (res as any).data || res || [];
+      const list = data.risks || data.items || (Array.isArray(data) ? data : []);
+      setActiveRisks(list);
+    } catch (err) {
+      console.error('Failed to load risks:', err);
+    }
+  };
 
   const loadAllHouses = async () => {
     try {
       const res = await apiClient.get('/houses?limit=100');
-      const data = (res.data as any).data || (res.data as any) || [];
+      const data = (res as any).data || res || [];
       if (Array.isArray(data)) setAllHouses(data);
     } catch (err) {
       console.error('Failed to load houses:', err);
@@ -76,7 +95,7 @@ export function Reports() {
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
-        const hData = (hRes.data as any).data || (hRes.data as any) || [];
+        const hData = (hRes as any).data || hRes || [];
         const myHouse = Array.isArray(hData) ? hData[0] : hData;
         if (myHouse) houseId = myHouse.id;
       }
@@ -86,11 +105,11 @@ export function Reports() {
         apiClient.get(`/incidents${hParam}${hParam ? '&' : '?'}limit=200`),
         apiClient.get(`/governance/pulses${hParam}${hParam ? '&' : '?'}limit=50`),
       ]);
-      const r = risksRes.status === 'fulfilled' ? ((risksRes.value.data as any).data || (risksRes.value.data as any) || {}) : {};
+      const r = risksRes.status === 'fulfilled' ? ((risksRes.value as any).data || risksRes.value || {}) : {};
       const risks = r.risks || r.items || (Array.isArray(r) ? r : []);
-      const i = incRes.status === 'fulfilled' ? ((incRes.value.data as any).data || (incRes.value.data as any) || {}) : {};
+      const i = incRes.status === 'fulfilled' ? ((incRes.value as any).data || incRes.value || {}) : {};
       const incs = i.incidents || i.items || (Array.isArray(i) ? i : []);
-      const p = pulseRes.status === 'fulfilled' ? ((pulseRes.value.data as any).data || (pulseRes.value.data as any) || {}) : {};
+      const p = pulseRes.status === 'fulfilled' ? ((pulseRes.value as any).data || pulseRes.value || {}) : {};
       const pulses = p.pulses || p.items || (Array.isArray(p) ? p : []);
       setPreviewData({
         totalRisks: risks.length,
@@ -108,7 +127,7 @@ export function Reports() {
   const loadGeneratedReports = async () => {
     try {
       const res = await apiClient.get('/reports?limit=10');
-      const data = (res.data as any).data || (res.data as any) || [];
+      const data = (res as any).data || res || [];
       const list = data.reports || data.items || (Array.isArray(data) ? data : []);
       setGeneratedReports(list);
     } catch (err) {
@@ -151,12 +170,15 @@ export function Reports() {
           categories: filters.categories,
           status: filters.status,
           leadership_observations: filters.leadershipObservations,
-          forward_plan: filters.forwardPlan
+          forward_plan: filters.forwardPlan,
+          risk_id: filters.riskId,
+          week_ending: filters.weekEnding,
+          house_id: filters.houseId || filters.houses[0]
         }
       };
       
       const res = await apiClient.post('/reports/request', requestPayload);
-      const data = (res.data as any).data || (res.data as any);
+      const data = (res as any).data || res;
       
       alert(`Report generation requested! Report ID: ${data.id || 'N/A'}`);
       
@@ -174,7 +196,7 @@ export function Reports() {
   const handleDownload = async (reportId: string) => {
     try {
       const res = await apiClient.get(`/reports/${reportId}/download`);
-      const data = (res.data as any).data || (res.data as any);
+      const data = (res as any).data || res;
       
       if (data.file_url) {
         // Since it's a relative URL from backend worker (/reports/id.json), 
@@ -234,17 +256,74 @@ export function Reports() {
               <button
                 key={type.value}
                 onClick={() => handleFilterChange('reportType', type.value)}
-                className={`p-4 border-2 text-left transition-colors shadow-sm ${
+                className={`p-4 border-2 text-left transition-all ${
                   filters.reportType === type.value
-                    ? "bg-primary text-primary-foreground border-primary"
-                    : "bg-card text-foreground border-border hover:border-primary/50"
+                    ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-x-1 -translate-y-1"
+                    : "bg-white text-black border-black hover:border-primary/50 shadow-sm"
                 }`}
               >
-                <div className="font-medium">{type.label}</div>
+                <div className="font-black uppercase italic text-xs mb-1 opacity-70">Layer 4 Oversight</div>
+                <div className="font-bold tracking-tight">{type.label}</div>
               </button>
             ))}
           </div>
         </div>
+
+        {/* Phase 4: Dynamic Parameter Selection */}
+        {(filters.reportType === "detailed_evidence_pack" || filters.reportType === "weekly_narrative") && (
+          <div className="bg-white border-2 border-black p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+            <h2 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2">
+                <span className="w-8 h-8 bg-primary text-white flex items-center justify-center font-black rounded-none">!</span>
+                Report Context Required
+            </h2>
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {filters.reportType === "detailed_evidence_pack" && (
+                    <div>
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Target Risk Lineage</label>
+                        <select 
+                            value={filters.riskId || ""}
+                            onChange={(e) => setFilters({...filters, riskId: e.target.value})}
+                            className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
+                        >
+                            <option value="">Select a Risk for Evidence Review...</option>
+                            {activeRisks.map(r => (
+                                <option key={r.id} value={r.id}>{r.title} ({r.severity})</option>
+                            ))}
+                        </select>
+                        <p className="text-[10px] mt-2 text-muted-foreground uppercase font-bold">This will generate a full CQC-compliant audit trail for the selected risk.</p>
+                    </div>
+                )}
+
+                {filters.reportType === "weekly_narrative" && (
+                    <>
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Service Unit</label>
+                            <select 
+                                value={filters.houseId || ""}
+                                onChange={(e) => setFilters({...filters, houseId: e.target.value})}
+                                className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
+                            >
+                                <option value="">Select House...</option>
+                                {allHouses.map(h => (
+                                    <option key={h.id} value={h.id}>{h.name}</option>
+                                ))}
+                            </select>
+                        </div>
+                        <div>
+                            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Week Ending Date</label>
+                            <input 
+                                type="date"
+                                value={filters.weekEnding || ""}
+                                onChange={(e) => setFilters({...filters, weekEnding: e.target.value})}
+                                className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
+                            />
+                        </div>
+                    </>
+                )}
+            </div>
+          </div>
+        )}
 
         {/* Filters Section */}
         <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">

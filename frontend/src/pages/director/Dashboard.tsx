@@ -2,6 +2,28 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { House, Risk, Incident, DashboardStats } from '@/types';
 import { apiClient } from '@/services/api';
+import { 
+  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  BarChart, Bar
+} from 'recharts';
+
+const trendData = [
+  { date: 'Mon', signals: 12, incidents: 2 },
+  { date: 'Tue', signals: 19, incidents: 1 },
+  { date: 'Wed', signals: 15, incidents: 4 },
+  { date: 'Thu', signals: 22, incidents: 0 },
+  { date: 'Fri', signals: 30, incidents: 3 },
+  { date: 'Sat', signals: 10, incidents: 1 },
+  { date: 'Sun', signals: 8, incidents: 0 },
+];
+
+const domainData = [
+  { name: 'Clinical', failures: 14 },
+  { name: 'Staffing', failures: 8 },
+  { name: 'Env', failures: 12 },
+  { name: 'Health/Safety', failures: 5 },
+  { name: 'Medication', failures: 19 },
+];
 
 const DirectorDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -152,6 +174,41 @@ const DirectorDashboard: React.FC = () => {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+        {/* Panel 3: 7-Day Signal Trend */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">7-Day Signal Trend</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={trendData}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" />
+                <YAxis />
+                <Tooltip />
+                <Line type="monotone" dataKey="signals" stroke="#2563eb" strokeWidth={2} />
+                <Line type="monotone" dataKey="incidents" stroke="#dc2626" strokeWidth={2} />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Panel 5: Domain Weakness Analysis */}
+        <div className="bg-white shadow rounded-lg p-6">
+          <h2 className="text-lg font-medium text-gray-900 mb-4">Domain Weakness Analysis</h2>
+          <div className="h-64">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={domainData} layout="vertical">
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis type="number" />
+                <YAxis dataKey="name" type="category" width={100} />
+                <Tooltip />
+                <Bar dataKey="failures" fill="#f59e0b" />
+              </BarChart>
+            </ResponsiveContainer>
           </div>
         </div>
       </div>

@@ -75,6 +75,16 @@ export class AnalyticsController {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get trends', errors: [] });
     }
   }
+
+  async directorIntelligence(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await analyticsService.getDirectorIntelligence(company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to get director intelligence', errors: [] });
+    }
+  }
 }
 
 export const analyticsController = new AnalyticsController();

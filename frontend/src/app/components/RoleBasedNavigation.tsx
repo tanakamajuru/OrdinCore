@@ -1,16 +1,24 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
 import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 export function RoleBasedNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
-  const userData = JSON.parse(localStorage.getItem('user') || '{}');
-  const fullName = `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || 'User';
-  const userAvatar = userData.profile?.avatar_url || userData.profile_picture;
+  const { user, logout, isLoading: isAuthLoading } = useAuth();
+  
+  // Use user state if available, fallback to localStorage for immediate UI stability
+  const rawRole = user?.role || localStorage.getItem('userRole') || '';
+  const userRole = rawRole.toUpperCase();
+  
+  const firstName = user?.first_name || '';
+  const lastName = user?.last_name || '';
+  const displayName = user?.name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : localStorage.getItem('userName')) || 'User';
+  
+  const userAvatar = (user as any)?.profile?.avatar_url || user?.profile_picture;
 
   const getNavigationItems = () => {
     switch (userRole) {
@@ -21,7 +29,6 @@ export function RoleBasedNavigation() {
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/profile", label: "Profile", icon: User },
         ];
 
       case 'REGISTERED_MANAGER':
@@ -31,7 +38,6 @@ export function RoleBasedNavigation() {
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/profile", label: "Profile", icon: User },
         ];
 
       case 'RESPONSIBLE_INDIVIDUAL':
@@ -44,7 +50,6 @@ export function RoleBasedNavigation() {
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Cross-Site Reports", icon: FileDown },
           { path: "/trends", label: "Trend Analysis", icon: TrendingUp },
-          { path: "/profile", label: "Profile", icon: User },
         ];
 
       case 'TEAM_LEADER':
@@ -54,7 +59,6 @@ export function RoleBasedNavigation() {
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/profile", label: "Profile", icon: User },
         ];
  
       case 'DIRECTOR':
@@ -64,7 +68,6 @@ export function RoleBasedNavigation() {
           { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/reports", label: "Reports", icon: FileDown },
           { path: "/trends", label: "Trend Monitoring", icon: BarChart3 },
-          { path: "/profile", label: "Profile", icon: User },
         ];
 
       default:
@@ -109,7 +112,7 @@ export function RoleBasedNavigation() {
   }, [userRole]);
 
   const handleLogout = () => {
-    localStorage.clear();
+    logout();
     navigate('/login');
   };
 
@@ -118,9 +121,9 @@ export function RoleBasedNavigation() {
     <nav className="bg-card border-b-2 border-border fixed top-0 left-0 right-0 z-50">
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8">
-            <div className="text-xl font-bold text-primary">OrdinCore</div>
-            <div className="hidden md:flex space-x-1">
+          <div className="flex items-center space-x-8 flex-1 min-w-0">
+            <div className="text-xl font-bold text-primary flex-shrink-0">OrdinCore</div>
+            <div className="hidden md:flex space-x-1 overflow-x-auto no-scrollbar">
               {navItems.map((item) => {
                 const Icon = item.icon;
                 const isActive = location.pathname === item.path;
@@ -130,7 +133,7 @@ export function RoleBasedNavigation() {
                   <button
                     key={item.path}
                     onClick={() => navigate(item.path)}
-                    className={`flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative ${isActive
+                    className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative whitespace-nowrap ${isActive
                         ? "bg-primary text-primary-foreground"
                         : "text-muted-foreground hover:text-primary hover:bg-muted"
                       }`}
@@ -148,10 +151,10 @@ export function RoleBasedNavigation() {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
             <div className="flex items-center gap-3 pr-4 border-r-2 border-border">
               <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-bold text-foreground leading-none">{fullName}</span>
+                <span className="text-sm font-bold text-foreground leading-none">{displayName}</span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">{getRoleLabel()}</span>
               </div>
               <button 

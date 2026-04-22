@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { governanceController } from '../controllers/governance.controller';
+import { pulseController } from '../controllers/pulse.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';

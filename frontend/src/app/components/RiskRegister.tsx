@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useLocation } from "react-router";
-import { ChevronDown, AlertTriangle, Plus } from "lucide-react";
+import { ChevronDown, AlertTriangle, Plus, TrendingUp, TrendingDown, ArrowRightCircle, Target } from "lucide-react";
 import { toast } from "sonner";
-import apiClient from "@/services/apiClient";
+import { apiClient } from "@/services/api";
 
 interface Risk {
   id: string;
@@ -18,8 +18,10 @@ interface Risk {
   reviewDate: string;
   status: "Open" | "In Progress" | "Resolved" | "Escalated" | "Closed" | "Under Review";
   escalated: boolean;
-  source: "Pulse" | "Out-of-Cycle" | "Manual";
-  pulseDate?: string;
+  source: "Pulse" | "Out-of-Cycle" | "Manual" | "Cluster";
+  trajectory: "Improving" | "Stable" | "Deteriorating" | "Critical";
+  sourceClusterName?: string;
+  riskScore: number;
   createdBy: string;
   lastUpdated: string;
 }
@@ -145,11 +147,13 @@ export function RiskRegister() {
         rootCause: r.metadata?.rootCause || '',
         reviewDate: r.review_due_date ? new Date(r.review_due_date).toISOString().split('T')[0] : '',
         status: r.status || 'Open',
-        escalated: r.status === 'escalated',
-        source: r.metadata?.source || 'Manual',
+        escalated: r.status === 'Escalated',
+        source: r.source_cluster_id ? 'Cluster' : (r.metadata?.source || 'Manual'),
+        trajectory: r.trajectory || 'Stable',
+        sourceClusterName: r.source_cluster_name,
+        riskScore: r.risk_score || 0,
         createdBy: r.created_by_name || '',
         lastUpdated: r.updated_at ? new Date(r.updated_at).toISOString().split('T')[0] : '',
-        updateHistory: []
       }));
       setRisks(mapped);
     } catch (error) {
@@ -172,6 +176,8 @@ export function RiskRegister() {
     switch (source) {
       case "Pulse":
         return <span className="px-2 py-1 bg-muted border border-border text-xs text-foreground">Pulse</span>;
+      case "Cluster":
+        return <span className="px-2 py-1 bg-primary/10 border border-primary/50 text-xs text-primary font-bold">Signal Cluster</span>;
       case "Out-of-Cycle":
         return <span className="px-2 py-1 bg-primary text-primary-foreground text-xs">Out-of-Cycle</span>;
       case "Manual":
@@ -179,6 +185,15 @@ export function RiskRegister() {
       default:
         return <span className="px-2 py-1 border border-border text-xs text-muted-foreground">{source || 'Manual'}</span>;
     }
+  };
+
+  const getTrajectoryIcon = (trajectory: string) => {
+      switch (trajectory) {
+          case 'Improving': return <TrendingUp size={16} className="text-success" />;
+          case 'Deteriorating': return <TrendingDown size={16} className="text-destructive animate-pulse" />;
+          case 'Critical': return <TrendingDown size={16} className="text-destructive stroke-[3px] animate-bounce" />;
+          default: return <ArrowRightCircle size={16} className="text-muted-foreground" />;
+      }
   };
 
   const filteredRisks = useMemo(() => {
@@ -206,10 +221,11 @@ export function RiskRegister() {
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">House</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Description</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Category</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Score</th>
+              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Trend</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Severity</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Date Identified</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Source</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Mitigation</th>
               <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Escalated</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Status</th>
               <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Review Date</th>
@@ -225,8 +241,17 @@ export function RiskRegister() {
                 }`}
               >
                 <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.house}</td>
-                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.description}>{risk.description}</td>
+                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
+                    <div className="font-bold">{risk.description}</div>
+                    {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase font-black">Pattern: {risk.sourceClusterName}</div>}
+                </td>
                 <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.category}</td>
+                <td className="border-b border-gray-200 px-4 py-4 text-center">
+                    <span className="font-black text-lg">{risk.riskScore}</span>
+                </td>
+                <td className="border-b border-gray-200 px-4 py-4 text-center">
+                    <div className="flex justify-center">{getTrajectoryIcon(risk.trajectory)}</div>
+                </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">
                   <span
                     className={`inline-block px-2 py-1 text-xs font-medium ${

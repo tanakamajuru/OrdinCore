@@ -264,7 +264,12 @@ export function IncidentCaseHub() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 className="text-lg font-bold text-primary">{incident.title}</h3>
+                        <h3 
+                          className="text-lg font-bold text-primary cursor-pointer hover:underline"
+                          onClick={() => navigate(`/incidents/${incident.id}`)}
+                        >
+                          {incident.title}
+                        </h3>
                         <span className={`px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getStatusColor(incident.status)}`}>
                           {incident.status.replace('-', ' ').toUpperCase()}
                         </span>

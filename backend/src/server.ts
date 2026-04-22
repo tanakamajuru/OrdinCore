@@ -7,6 +7,12 @@ import { initSocketServer } from './websocket/socket.server';
 import { startReportWorker } from './workers/report.worker';
 import { startAnalyticsWorker } from './workers/analytics.worker';
 import { startNotificationWorker } from './workers/notification.worker';
+import { startPatternWorker } from './workers/pattern.worker';
+import { startDailyGovernanceWorker, scheduleDailyGovernanceCheck } from './workers/dailyGovernanceCheck.worker';
+import { startActionEffectivenessPromptWorker } from './workers/actionEffectivenessPrompt.worker';
+import { startSafeguardingEscalationWorker } from './workers/safeguardingEscalation.worker';
+import { Queue } from 'bullmq';
+import { redisConnection } from './config/redis';
 import { eventBus, EVENTS } from './events/eventBus';
 import logger from './utils/logger';
 
@@ -22,6 +28,13 @@ initSocketServer(httpServer);
 const reportWorker = startReportWorker();
 const analyticsWorker = startAnalyticsWorker();
 const notificationWorker = startNotificationWorker();
+const patternWorker = startPatternWorker();
+const dailyGovWorker = startDailyGovernanceWorker();
+scheduleDailyGovernanceCheck();
+const effortWorker = startActionEffectivenessPromptWorker();
+const safeguardingWorker = startSafeguardingEscalationWorker();
+// Simple schedule trigger for the prompt worker
+new Queue('action-effectiveness-prompt', { connection: redisConnection }).add('action-effectiveness-prompt', {}, { repeat: { pattern: '0 * * * *' } });
 
 // ─── Event Bus: Wire up global listeners ─────────────────────────────────────
 eventBus.on(EVENTS.RISK_ESCALATED, (payload) => {
@@ -42,6 +55,10 @@ const shutdown = async (signal: string) => {
       await reportWorker.close();
       await analyticsWorker.close();
       await notificationWorker.close();
+      await patternWorker.close();
+      await dailyGovWorker.close();
+      await effortWorker.stop();
+      await safeguardingWorker.stop();
       await getPool().end();
       await redis.quit();
       logger.info('All connections closed. Exiting.');

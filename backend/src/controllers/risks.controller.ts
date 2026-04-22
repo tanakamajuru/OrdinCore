@@ -13,6 +13,18 @@ export class RisksController {
     }
   }
 
+  async promote(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      const risk = await risksService.promoteFromCluster(company_id, user_id, req.body);
+      return res.status(201).json({ success: true, data: risk, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to promote cluster to risk';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async findAll(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
@@ -98,6 +110,40 @@ export class RisksController {
       return res.json({ success: true, data: { actions }, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to retrieve actions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async updateActionStatus(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const action = await risksService.updateActionStatus(
+        req.params.actionId,
+        req.params.id,
+        company_id,
+        req.user!.user_id,
+        req.body.status
+      );
+      return res.json({ success: true, data: action, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update action status';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async verifyAction(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const action = await risksService.verifyAction(
+        req.params.actionId,
+        req.params.id,
+        company_id,
+        { id: req.user!.user_id, role: req.user!.role! },
+        req.body
+      );
+      return res.json({ success: true, data: action, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to verify action';
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
