@@ -14001,3 +14001,116 @@
 [OrdinCore] 2026-04-22 09:52:20 [info]: ::1 - - [22/Apr/2026:07:52:20 +0000] "GET /api/v1/pulses?house_id=8a835b50-f27e-4e1d-985b-a380f03504ea&review_status=New,Reviewed&limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 [OrdinCore] 2026-04-22 09:52:21 [info]: ::1 - - [22/Apr/2026:07:52:21 +0000] "GET /api/v1/escalations?house_id=8a835b50-f27e-4e1d-985b-a380f03504ea&status=Open&limit=1 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
 [OrdinCore] 2026-04-22 10:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 11:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 12:38:09 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-22 12:38:14 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-22 12:38:14 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-22 12:38:15 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-22 12:38:15 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 12:43:29 [info]: ::1 - - [22/Apr/2026:10:43:29 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 693 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:43:49 [info]: ::1 - - [22/Apr/2026:10:43:49 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:43:49 [info]: ::1 - - [22/Apr/2026:10:43:49 +0000] "GET /api/v1/companies HTTP/1.1" 200 6587 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:44:17 [info]: ::1 - - [22/Apr/2026:10:44:17 +0000] "POST /api/v1/companies HTTP/1.1" 201 314 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:44:17 [info]: ::1 - - [22/Apr/2026:10:44:17 +0000] "GET /api/v1/companies HTTP/1.1" 200 6903 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:44:52 [info]: ::1 - - [22/Apr/2026:10:44:52 +0000] "POST /api/v1/users HTTP/1.1" 201 512 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:45:52 [info]: ::1 - - [22/Apr/2026:10:45:52 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 12:45:52 [info]: ::1 - - [22/Apr/2026:10:45:52 +0000] "GET /api/v1/companies HTTP/1.1" 200 6903 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 13:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 13:21:30 [info]: ✅ Superadmin created: superadmin@caresignal.com / admin123
+[OrdinCore] 2026-04-22 13:21:30 [info]:    User ID: c54d7130-0a8f-4963-990b-b612a7cd9d62
+[OrdinCore] 2026-04-22 13:22:01 [info]: ::1 - - [22/Apr/2026:11:22:01 +0000] "GET /api/v1/auth/me HTTP/1.1" 401 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 13:22:12 [info]: ::1 - - [22/Apr/2026:11:22:12 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1011 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 13:22:12 [info]: ::1 - - [22/Apr/2026:11:22:12 +0000] "GET /api/v1/companies HTTP/1.1" 200 65 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 13:22:33 [info]: ::1 - - [22/Apr/2026:11:22:33 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:22:33 [info]: ::1 - - [22/Apr/2026:11:22:33 +0000] "POST /api/v1/companies HTTP/1.1" 401 55 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:22:42 [info]: ::1 - - [22/Apr/2026:11:22:42 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:47:51 [info]: ::1 - - [22/Apr/2026:11:47:51 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:47:51 [info]: ::1 - - [22/Apr/2026:11:47:51 +0000] "POST /api/v1/companies HTTP/1.1" 201 321 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:47:51 [info]: ::1 - - [22/Apr/2026:11:47:51 +0000] "POST /api/v1/users HTTP/1.1" 201 512 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:28 [info]: ::1 - - [22/Apr/2026:11:56:28 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1064 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:28 [info]: ::1 - - [22/Apr/2026:11:56:28 +0000] "POST /api/v1/houses HTTP/1.1" 201 430 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:28 [info]: ::1 - - [22/Apr/2026:11:56:28 +0000] "POST /api/v1/houses HTTP/1.1" 201 429 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:28 [info]: ::1 - - [22/Apr/2026:11:56:28 +0000] "POST /api/v1/houses HTTP/1.1" 201 431 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:29 [info]: ::1 - - [22/Apr/2026:11:56:29 +0000] "POST /api/v1/users HTTP/1.1" 201 508 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:29 [info]: ::1 - - [22/Apr/2026:11:56:29 +0000] "POST /api/v1/houses/f1b07dfc-46b6-4c68-8f24-505b16798030/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:30 [info]: ::1 - - [22/Apr/2026:11:56:30 +0000] "POST /api/v1/users HTTP/1.1" 201 502 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:30 [info]: ::1 - - [22/Apr/2026:11:56:30 +0000] "POST /api/v1/houses/78b7b232-6feb-4a91-bb91-62d8d440eb6b/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:31 [info]: ::1 - - [22/Apr/2026:11:56:31 +0000] "POST /api/v1/users HTTP/1.1" 201 522 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:31 [info]: ::1 - - [22/Apr/2026:11:56:31 +0000] "POST /api/v1/houses/f1b07dfc-46b6-4c68-8f24-505b16798030/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 13:56:31 [info]: ::1 - - [22/Apr/2026:11:56:31 +0000] "POST /api/v1/users HTTP/1.1" 400 119 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 14:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 15:10:58 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-22 15:16:38 [info]: ::1 - - [22/Apr/2026:13:16:38 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 934 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:16:48 [info]: ::1 - - [22/Apr/2026:13:16:48 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1086 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:16:48 [info]: ::1 - - [22/Apr/2026:13:16:48 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:16:49 [info]: ::1 - - [22/Apr/2026:13:16:49 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 200 74 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:17:18 [info]: ::1 - - [22/Apr/2026:13:17:18 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 75 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:17:18 [info]: ::1 - - [22/Apr/2026:13:17:18 +0000] "GET /api/v1/users?limit=100 HTTP/1.1" 200 414 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:18:17 [info]: ::1 - - [22/Apr/2026:13:18:17 +0000] "POST /api/v1/houses HTTP/1.1" 201 448 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:18:17 [info]: ::1 - - [22/Apr/2026:13:18:17 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 540 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:18:56 [info]: ::1 - - [22/Apr/2026:13:18:56 +0000] "POST /api/v1/houses HTTP/1.1" 201 446 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:18:57 [info]: ::1 - - [22/Apr/2026:13:18:57 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 1004 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:23 [info]: ::1 - - [22/Apr/2026:13:19:23 +0000] "POST /api/v1/houses HTTP/1.1" 201 450 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:23 [info]: ::1 - - [22/Apr/2026:13:19:23 +0000] "GET /api/v1/houses?page=1&limit=20 HTTP/1.1" 200 1472 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:35 [info]: ::1 - - [22/Apr/2026:13:19:35 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 1473 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:35 [info]: ::1 - - [22/Apr/2026:13:19:35 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 955 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:35 [info]: ::1 - - [22/Apr/2026:13:19:35 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 413 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:19:35 [info]: ::1 - - [22/Apr/2026:13:19:35 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 414 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:20:40 [info]: ::1 - - [22/Apr/2026:13:20:40 +0000] "POST /api/v1/users HTTP/1.1" 201 508 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:20:40 [info]: ::1 - - [22/Apr/2026:13:20:40 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 791 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:20:40 [info]: ::1 - - [22/Apr/2026:13:20:40 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 790 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:10 [info]: ::1 - - [22/Apr/2026:13:21:10 +0000] "POST /api/v1/users HTTP/1.1" 201 552 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:10 [info]: ::1 - - [22/Apr/2026:13:21:10 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 1169 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:10 [info]: ::1 - - [22/Apr/2026:13:21:10 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1170 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:38 [info]: ::1 - - [22/Apr/2026:13:21:38 +0000] "PATCH /api/v1/users/9f8d919c-4605-44a6-84a7-8f8ea7dda38d HTTP/1.1" 200 492 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:39 [info]: ::1 - - [22/Apr/2026:13:21:39 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 1160 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:21:39 [info]: ::1 - - [22/Apr/2026:13:21:39 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1161 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:22:29 [info]: ::1 - - [22/Apr/2026:13:22:29 +0000] "POST /api/v1/users HTTP/1.1" 201 530 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:22:30 [info]: ::1 - - [22/Apr/2026:13:22:30 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 1559 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:22:30 [info]: ::1 - - [22/Apr/2026:13:22:30 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1560 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:01 [info]: ::1 - - [22/Apr/2026:13:23:01 +0000] "POST /api/v1/users HTTP/1.1" 201 514 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:02 [info]: ::1 - - [22/Apr/2026:13:23:02 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 1943 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:02 [info]: ::1 - - [22/Apr/2026:13:23:02 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 1942 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:46 [info]: ::1 - - [22/Apr/2026:13:23:46 +0000] "POST /api/v1/users HTTP/1.1" 201 516 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:46 [info]: ::1 - - [22/Apr/2026:13:23:46 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2285 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:23:46 [info]: ::1 - - [22/Apr/2026:13:23:46 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2286 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:16 [info]: ::1 - - [22/Apr/2026:13:24:16 +0000] "POST /api/v1/users HTTP/1.1" 201 519 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:16 [info]: ::1 - - [22/Apr/2026:13:24:16 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2631 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:16 [info]: ::1 - - [22/Apr/2026:13:24:16 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2632 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:44 [info]: ::1 - - [22/Apr/2026:13:24:44 +0000] "PATCH /api/v1/users/858e8702-977f-4896-ac1f-0852091b7deb HTTP/1.1" 200 506 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:44 [info]: ::1 - - [22/Apr/2026:13:24:44 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2631 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:24:44 [info]: ::1 - - [22/Apr/2026:13:24:44 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2632 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:25:09 [info]: ::1 - - [22/Apr/2026:13:25:09 +0000] "PATCH /api/v1/users/858e8702-977f-4896-ac1f-0852091b7deb HTTP/1.1" 200 506 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:25:09 [info]: ::1 - - [22/Apr/2026:13:25:09 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2631 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:25:09 [info]: ::1 - - [22/Apr/2026:13:25:09 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2632 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:27:12 [info]: ::1 - - [22/Apr/2026:13:27:12 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1086 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:27:12 [info]: ::1 - - [22/Apr/2026:13:27:12 +0000] "POST /api/v1/houses HTTP/1.1" 400 162 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:19 [info]: ::1 - - [22/Apr/2026:13:29:19 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1086 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:19 [info]: ::1 - - [22/Apr/2026:13:29:19 +0000] "POST /api/v1/houses HTTP/1.1" 201 430 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:19 [info]: ::1 - - [22/Apr/2026:13:29:19 +0000] "POST /api/v1/houses HTTP/1.1" 201 429 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:19 [info]: ::1 - - [22/Apr/2026:13:29:19 +0000] "POST /api/v1/houses HTTP/1.1" 201 431 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:20 [info]: ::1 - - [22/Apr/2026:13:29:20 +0000] "POST /api/v1/users HTTP/1.1" 201 508 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:20 [info]: ::1 - - [22/Apr/2026:13:29:20 +0000] "POST /api/v1/houses/913337c5-ef3b-41d2-96e8-b2f1ea7368e4/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:21 [info]: ::1 - - [22/Apr/2026:13:29:21 +0000] "POST /api/v1/users HTTP/1.1" 201 502 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:21 [info]: ::1 - - [22/Apr/2026:13:29:21 +0000] "POST /api/v1/houses/06f15bff-fbd6-4de0-b199-942bdcac1bb5/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:21 [info]: ::1 - - [22/Apr/2026:13:29:21 +0000] "POST /api/v1/users HTTP/1.1" 201 522 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:21 [info]: ::1 - - [22/Apr/2026:13:29:21 +0000] "POST /api/v1/houses/913337c5-ef3b-41d2-96e8-b2f1ea7368e4/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:22 [info]: ::1 - - [22/Apr/2026:13:29:22 +0000] "POST /api/v1/users HTTP/1.1" 201 514 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:22 [info]: ::1 - - [22/Apr/2026:13:29:22 +0000] "POST /api/v1/houses/913337c5-ef3b-41d2-96e8-b2f1ea7368e4/users HTTP/1.1" 404 121 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:23 [info]: ::1 - - [22/Apr/2026:13:29:23 +0000] "POST /api/v1/users HTTP/1.1" 201 502 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:24 [info]: ::1 - - [22/Apr/2026:13:29:24 +0000] "POST /api/v1/users HTTP/1.1" 201 519 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:29:24 [info]: ::1 - - [22/Apr/2026:13:29:24 +0000] "PUT /api/v1/houses/913337c5-ef3b-41d2-96e8-b2f1ea7368e4 HTTP/1.1" 404 114 "-" "axios/1.15.0"
+[OrdinCore] 2026-04-22 15:32:41 [info]: ::1 - - [22/Apr/2026:13:32:41 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 955 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:33:04 [info]: ::1 - - [22/Apr/2026:13:33:04 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1071 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:33:04 [info]: ::1 - - [22/Apr/2026:13:33:04 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 200 26 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-22 15:33:04 [info]: ::1 - - [22/Apr/2026:13:33:04 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
