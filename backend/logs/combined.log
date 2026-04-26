@@ -18562,3 +18562,17 @@
   ╚═══════════════════════════════════════════════════════╝
   
 [OrdinCore] 2026-04-26 13:44:06 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-26 13:44:23 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-26 13:44:28 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-26 13:44:28 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-26 13:44:28 [info]: Scheduled daily governance check at 08:00
