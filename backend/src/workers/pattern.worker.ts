@@ -67,9 +67,12 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     }
 
     // Link the current pulse to the cluster if not already linked
+    // Use COALESCE to fallback to completed_by or assigned_user_id if created_by is NULL
     await query(
         `INSERT INTO risk_signal_links (cluster_id, pulse_entry_id, linked_by) 
-         VALUES ($1, $2, (SELECT created_by FROM governance_pulses WHERE id = $2)) 
+         SELECT $1, $2, COALESCE(created_by, completed_by, assigned_user_id)
+         FROM governance_pulses 
+         WHERE id = $2 AND COALESCE(created_by, completed_by, assigned_user_id) IS NOT NULL
          ON CONFLICT DO NOTHING`,
         [cluster_id, pulse_id]
     );

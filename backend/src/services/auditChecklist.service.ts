@@ -3,13 +3,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
 
 export class AuditChecklistService {
-  async createPulse(company_id: string, data: { house_id: string; entry_date: string }) {
+  async createPulse(company_id: string, data: { house_id: string; entry_date: string; user_id?: string }) {
     const id = uuidv4();
 
     const result = await query(
-      `INSERT INTO governance_pulses (id, company_id, house_id, review_status, entry_date, description)
-       VALUES ($1,$2,$3,'New', $4, 'Systematic Governance Pulse') RETURNING *, review_status as status, entry_date as due_date`,
-      [id, company_id, data.house_id, data.entry_date]
+      `INSERT INTO governance_pulses (id, company_id, house_id, review_status, entry_date, description, created_by)
+       VALUES ($1,$2,$3,'New', $4, 'Systematic Governance Pulse', $5) RETURNING *, review_status as status, entry_date as due_date`,
+      [id, company_id, data.house_id, data.entry_date, data.user_id || null]
     );
 
     return result.rows[0];
