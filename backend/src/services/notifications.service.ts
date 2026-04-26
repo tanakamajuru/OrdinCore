@@ -87,6 +87,11 @@ export class NotificationsService {
       [user_id, company_id, ...Object.values(prefs)]
     );
   }
+
+  async sendSMS(phoneNumber: string, message: string) {
+    // Mock implementation for Twilio/SNS
+    console.log(`[SMS] To ${phoneNumber}: ${message}`);
+  }
 }
 
 export const notificationsService = new NotificationsService();

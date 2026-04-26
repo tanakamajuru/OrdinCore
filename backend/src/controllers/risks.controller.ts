@@ -5,7 +5,18 @@ export class RisksController {
   async create(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const risk = await risksService.create(company_id, req.user!.user_id, req.body);
+      const userRole = req.user!.role?.toUpperCase() || '';
+      const { override_cluster_requirement, ...data } = req.body;
+
+      if (!override_cluster_requirement || userRole !== 'SUPER_ADMIN') {
+        return res.status(400).json({ 
+          success: false, 
+          message: 'Risks must be promoted from a signal cluster', 
+          errors: [] 
+        });
+      }
+
+      const risk = await risksService.create(company_id, req.user!.user_id, data);
       return res.status(201).json({ success: true, data: risk, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create risk';

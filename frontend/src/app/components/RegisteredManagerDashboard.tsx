@@ -47,8 +47,7 @@ export function RegisteredManagerDashboard() {
           const pulseData = (pulsesRes.value as any).data || pulsesRes.value || {};
           const pulses = Array.isArray(pulseData) ? pulseData : (pulseData.pulses || pulseData.items || []);
           
-          // Debug pulse data
-          console.log('Pulse data for RM:', pulses);
+          // Debug pulse data removed to prevent memory exhaustion
           
           const today = new Date().toDateString();
           const todayP = pulses.find((p: any) => new Date(p.due_date).toDateString() === today);

@@ -220,8 +220,25 @@ export class RisksService {
     cluster_id: string; title: string; severity: string; trajectory: string;
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
   }) {
-    const cluster = await query('SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2', [data.cluster_id, company_id]);
-    if (cluster.rows.length === 0) throw new Error('Source cluster not found');
+    const clusterRes = await query(
+      `SELECT id, signal_count, first_signal_date, last_signal_date FROM signal_clusters 
+       WHERE id = $1 AND company_id = $2`,
+      [data.cluster_id, company_id]
+    );
+    if (clusterRes.rows.length === 0) throw new Error('Source cluster not found');
+    const cluster = clusterRes.rows[0];
+
+    // Check minimum signal count OR immediate trigger
+    const hasCritical = await query(
+      `SELECT 1 FROM governance_pulses 
+       WHERE id IN (SELECT pulse_entry_id FROM risk_signal_links WHERE cluster_id = $1)
+       AND severity = 'Critical' LIMIT 1`,
+      [data.cluster_id]
+    );
+    
+    if (cluster.signal_count < 3 && hasCritical.rows.length === 0) {
+      throw new Error('Cluster must have at least 3 signals or 1 Critical signal');
+    }
 
     const risk = await this.create(company_id, user_id, {
       ...data,

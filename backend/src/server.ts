@@ -11,6 +11,9 @@ import { startPatternWorker } from './workers/pattern.worker';
 import { startDailyGovernanceWorker, scheduleDailyGovernanceCheck } from './workers/dailyGovernanceCheck.worker';
 import { startActionEffectivenessPromptWorker } from './workers/actionEffectivenessPrompt.worker';
 import { startSafeguardingEscalationWorker } from './workers/safeguardingEscalation.worker';
+import { startEffectivenessReminderWorker } from './workers/effectivenessReminder.worker';
+import { startRecurrenceWatchWorker } from './workers/recurrenceWatch.worker';
+import { startNoSignalPromptWorker } from './workers/noSignalPrompt.worker';
 import { Queue } from 'bullmq';
 import { redisConnection } from './config/redis';
 import { eventBus, EVENTS } from './events/eventBus';
@@ -33,6 +36,14 @@ const dailyGovWorker = startDailyGovernanceWorker();
 scheduleDailyGovernanceCheck();
 const effortWorker = startActionEffectivenessPromptWorker();
 const safeguardingWorker = startSafeguardingEscalationWorker();
+const effectivenessReminderWorker = startEffectivenessReminderWorker();
+const recurrenceWatchWorker = startRecurrenceWatchWorker();
+const noSignalPromptWorker = startNoSignalPromptWorker();
+
+// Simple schedule triggers for daily jobs
+new Queue('effectiveness-reminder', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
+new Queue('recurrence-watch', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 1 * * *' } });
+new Queue('no-signal-prompt', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 9 * * *' } });
 // Simple schedule trigger for the prompt worker
 new Queue('action-effectiveness-prompt', { connection: redisConnection }).add('action-effectiveness-prompt', {}, { repeat: { pattern: '0 * * * *' } });
 
@@ -59,6 +70,9 @@ const shutdown = async (signal: string) => {
       await dailyGovWorker.close();
       await effortWorker.stop();
       await safeguardingWorker.stop();
+      await effectivenessReminderWorker.close();
+      await recurrenceWatchWorker.close();
+      await noSignalPromptWorker.close();
       await getPool().end();
       await redis.quit();
       logger.info('All connections closed. Exiting.');

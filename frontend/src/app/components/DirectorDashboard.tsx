@@ -4,6 +4,7 @@ import { useNavigate } from "react-router";
 import { AlertTriangle, Ambulance } from "lucide-react";
 import { dashboardApi } from "@/services/dashboardApi";
 import { toast } from "sonner";
+import { apiClient } from "@/services/api";
 
 export function DirectorDashboard() {
   const navigate = useNavigate();
@@ -33,7 +34,27 @@ export function DirectorDashboard() {
   const loadPatternDetections = async () => {
     try {
       const patterns = await dashboardApi.getPatternDetections();
-      setPatternDetections(patterns);
+      let thresholdEvents = [];
+      try {
+        const tRes = await apiClient.get('/threshold-events?output_type=Control Failure');
+        thresholdEvents = tRes.data?.data || [];
+      } catch (err) {
+        // Fallback or ignore if endpoint doesn't exist
+      }
+      
+      const formattedEvents = thresholdEvents.map((t: any) => ({
+        type: t.rule_name || "Control Failure",
+        detail: t.description || "Repeated control failure detected",
+        priority: "High"
+      }));
+
+      const formattedPatterns = patterns.map((pattern: any) => ({
+        type: pattern.patternType || "Pattern Detection",
+        detail: pattern.patternDescription || "Pattern detected",
+        priority: pattern.severity === 'critical' ? 'High' : pattern.severity === 'high' ? 'High' : 'Medium'
+      }));
+
+      setPatternDetections([...formattedEvents, ...formattedPatterns]);
     } catch (error) {
            console.error('Failed to load pattern detections:', error);
     }
@@ -93,11 +114,7 @@ export function DirectorDashboard() {
       trend: data.trend as string
     })) : [];
 
-  const strategicInsights = patternDetections.map((pattern: any) => ({
-    type: pattern.patternType || "Pattern Detection",
-    detail: pattern.patternDescription || "Pattern detected",
-    priority: pattern.severity === 'critical' ? 'High' : pattern.severity === 'high' ? 'High' : 'Medium'
-  }));
+  const strategicInsights = patternDetections;
 
   return (
     <div className="min-h-screen bg-background">

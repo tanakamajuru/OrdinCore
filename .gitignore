@@ -1,0 +1,14 @@
+node_modules/
+.env
+*.log
+backend/dist/
+frontend/dist/
+backend/public/reports/*.pdf
+*.txt
+*.md
+!README.md
+!implementation_plan.md
+!task.md
+!walkthrough.md
+scratch/
+backend/scratch/

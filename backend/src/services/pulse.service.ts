@@ -50,6 +50,12 @@ export class PulseService {
                     });
                 }
                 
+                // Add simulated SMS using notificationsService (import needs to be added at top, but we'll inline require or just console.log for SMS)
+                const { notificationsService } = require('./notifications.service');
+                await notificationsService.sendSMS('DEPUTY_PHONE', `URGENT: Safeguarding at ${houseName}. RM is absent.`);
+                await notificationsService.sendSMS('DIRECTOR_PHONE', `URGENT: Safeguarding at ${houseName}. RM is absent.`);
+                await notificationsService.sendSMS('ONCALL_PHONE', `URGENT: Safeguarding at ${houseName}. RM is absent.`);
+                
                 // Set 4h acknowledgment timer via Queue
                 const escalationQueue = new Queue('safeguarding-escalation', { connection: redis });
                 await escalationQueue.add('check:acknowledgment', {

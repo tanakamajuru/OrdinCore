@@ -32,7 +32,7 @@ export function ResponsibleIndividualDashboard() {
         apiClient.get('/houses?limit=100'),
         apiClient.get('/risks?status=Open&severity=high&limit=100'),
         apiClient.get('/incidents?status=Open,In Progress&limit=100'),
-        apiClient.get('/escalations?status=Open&limit=100'),
+        apiClient.get('/escalations?status=Pending&limit=100'),
         apiClient.get('/governance/pulses?limit=50')
       ]);
 
@@ -73,18 +73,26 @@ export function ResponsibleIndividualDashboard() {
 
       // Build site summaries
       if (Array.isArray(houses)) {
-        const summaries = houses.map((house: any) => {
+        const summaries = await Promise.all(houses.map(async (house: any) => {
           const houseRisks = Array.isArray(risks) ? risks.filter((r: any) => r.house_id === house.id).length : 0;
           const houseEscalations = Array.isArray(escalations) ? escalations.filter((e: any) => e.house_id === house.id).length : 0;
           const lastPulse = Array.isArray(pulses) ? pulses.find((p: any) => p.house_id === house.id) : null;
           
+          let narrativeDraft = "";
+          try {
+             const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${house.id}&week_ending=${new Date().toISOString().split('T')[0]}`);
+             narrativeDraft = previewRes.data?.data?.narrative_draft || "";
+          } catch(err) {}
+
           return {
+            id: house.id,
             house: house.name,
             highRisks: houseRisks,
             escalations: houseEscalations,
-            lastPulse: lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB') : 'No pulses yet'
+            lastPulse: lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB') : 'No pulses yet',
+            narrativeDraft
           };
-        });
+        }));
         setSiteSummaries(summaries.slice(0, 5));
       }
 
@@ -182,17 +190,28 @@ export function ResponsibleIndividualDashboard() {
               <h2 className="text-xl font-semibold mb-4 text-primary">Site Summaries</h2>
               <div className="space-y-3">
                 {siteSummariesArr.length > 0 ? siteSummariesArr.map((site: any, idx: number) => (
-                  <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                    <div className="flex justify-between items-center">
+                  <div key={idx} className="border-b border-border pb-4 last:border-b-0">
+                    <div className="flex justify-between items-start">
                       <div>
                         <p className="font-medium text-foreground">{site.house}</p>
                         <p className="text-sm text-muted-foreground">High Risks: {site.highRisks} | Escalations: {site.escalations}</p>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm text-muted-foreground">Last Pulse</span>
-                        <p className="text-sm font-medium text-foreground">{site.lastPulse}</p>
+                      <div className="text-right flex flex-col items-end">
+                        <span className="text-sm text-muted-foreground">Last Pulse: {site.lastPulse}</span>
+                        <button 
+                            onClick={() => navigate(`/reports?house_id=${site.id}&type=evidence`)}
+                            className="mt-2 text-[10px] font-black uppercase bg-primary text-white px-2 py-1 hover:bg-black transition-all"
+                        >
+                            Evidence Pack
+                        </button>
                       </div>
                     </div>
+                    {site.narrativeDraft && (
+                        <div className="bg-muted p-3 mt-3 border-l-2 border-primary text-xs italic text-muted-foreground font-medium">
+                            <span className="block font-black uppercase not-italic text-[10px] text-foreground mb-1 tracking-widest">Narrative Draft</span>
+                            {site.narrativeDraft}
+                        </div>
+                    )}
                   </div>
                 )) : (
                   <p className="text-center py-4 text-muted-foreground border border-dashed border-border">No sites found</p>

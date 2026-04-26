@@ -45,6 +45,7 @@ interface Action {
   verified_by_ri_name?: string;
   verified_at_ri?: string;
   verification_notes?: string;
+  effectiveness?: string;
 }
 
 interface TimelineEntry {
@@ -82,6 +83,11 @@ export function RiskDetail() {
   const [showVerifyAction, setShowVerifyAction] = useState<string | null>(null);
   const [verificationNotes, setVerificationNotes] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
+  
+  const [showEffectivenessAction, setShowEffectivenessAction] = useState<string | null>(null);
+  const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Ineffective">("Effective");
+  const [isRating, setIsRating] = useState(false);
+
   const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
   const handleEscalate = async () => {
@@ -264,6 +270,23 @@ export function RiskDetail() {
       setIsVerifying(false);
     }
   };
+
+  const handleRateEffectiveness = async () => {
+    if (!showEffectivenessAction) return;
+    setIsRating(true);
+    try {
+      await apiClient.post(`/risks/${id}/actions/${showEffectivenessAction}/effectiveness`, { 
+        effectiveness: effectivenessRating 
+      });
+      toast.success('Effectiveness rated successfully');
+      setShowEffectivenessAction(null);
+      if (id) loadRiskDetails(id);
+    } catch (error: any) {
+      toast.error(error.response?.data?.message || 'Failed to rate effectiveness');
+    } finally {
+      setIsRating(false);
+    }
+  };
   
 
   if (isLoading) {
@@ -425,6 +448,11 @@ export function RiskDetail() {
                                     RI VERIFIED
                                 </div>
                             )}
+                            {action.effectiveness && (
+                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)] ${action.effectiveness === 'Effective' ? 'bg-success text-white' : 'bg-destructive text-white'}`}>
+                                    {action.effectiveness}
+                                </div>
+                            )}
                         </div>
                       </div>
 
@@ -452,6 +480,15 @@ export function RiskDetail() {
                                     className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 hover:bg-primary transition-all"
                                 >
                                     Verify Action
+                                </button>
+                            )}
+
+                            {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
+                                <button 
+                                    onClick={() => setShowEffectivenessAction(action.id)}
+                                    className="text-[10px] font-black uppercase bg-primary text-white px-2 py-1 hover:bg-black transition-all"
+                                >
+                                    Rate Effectiveness
                                 </button>
                             )}
                         </div>
@@ -693,6 +730,53 @@ export function RiskDetail() {
                 className="px-6 py-2 bg-black text-white font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isVerifying ? 'Signing Off...' : 'Confirm Sign-Off'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Effectiveness Modal */}
+      {showEffectivenessAction && (
+        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
+          <div className="bg-white border-2 border-black p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+            <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">Rate Effectiveness</h2>
+            <p className="text-sm font-medium mb-6">
+                Did this action effectively mitigate the risk or prevent recurrence?
+            </p>
+
+            <div className="flex gap-4 mb-8">
+                <button
+                    onClick={() => setEffectivenessRating('Effective')}
+                    className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
+                        effectivenessRating === 'Effective' ? 'bg-success text-white border-success' : 'bg-white text-black border-black hover:bg-gray-100'
+                    }`}
+                >
+                    Effective
+                </button>
+                <button
+                    onClick={() => setEffectivenessRating('Ineffective')}
+                    className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
+                        effectivenessRating === 'Ineffective' ? 'bg-destructive text-white border-destructive' : 'bg-white text-black border-black hover:bg-gray-100'
+                    }`}
+                >
+                    Ineffective
+                </button>
+            </div>
+            
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setShowEffectivenessAction(null)}
+                className="px-6 py-2 bg-white text-black font-black uppercase tracking-widest border-2 border-black hover:bg-gray-100 transition-all"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleRateEffectiveness}
+                disabled={isRating}
+                className="px-6 py-2 bg-black text-white font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+              >
+                {isRating ? 'Saving...' : 'Submit Rating'}
               </button>
             </div>
           </div>

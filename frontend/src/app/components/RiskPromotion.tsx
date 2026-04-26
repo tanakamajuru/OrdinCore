@@ -56,19 +56,12 @@ export function RiskPromotion() {
   const loadData = async () => {
     try {
       const [cRes, catRes, uRes] = await Promise.all([
-        apiClient.get(`/pulses/dashboard`), // Simplified, usually need cluster by ID
+        apiClient.get(`/clusters/${clusterId}`),
         apiClient.get('/risks/categories'),
         apiClient.get('/users')
       ]);
       
-      // Stub: Should fetch cluster by ID. For now finding in dashboard result or simulated
-      const clusterData = {
-          id: clusterId,
-          cluster_label: "Staffing Pressure Pattern",
-          risk_domain: "Staffing",
-          signal_count: 5,
-          house_id: user?.assigned_house_id
-      };
+      const clusterData = (cRes as any).data?.data || (cRes as any).data;
       setCluster(clusterData);
       setFormData(prev => ({ 
           ...prev, 

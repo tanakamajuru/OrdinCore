@@ -79,7 +79,7 @@ async function escalateToDeputy(house: any) {
   // Create/Update log to mark as Deputy Cover
   await query(
     `UPDATE daily_governance_log 
-     SET review_type = 'Deputy Cover', escalation_sent = true 
+     SET review_type = 'Deputy Cover', escalation_sent = true, deputy_assigned_at = NOW()
      WHERE house_id = $1 AND review_date = CURRENT_DATE - INTERVAL '1 day'`,
     [house.id]
   );
@@ -105,6 +105,18 @@ async function notifyDirector(house: any) {
   const directorId = directorsRes.rows[0]?.id;
 
   if (directorId) {
+    await query(
+      `UPDATE daily_governance_log 
+       SET director_alerted_at = NOW()
+       WHERE house_id = $1 AND review_date = CURRENT_DATE - INTERVAL '1 day'`,
+      [house.id]
+    );
+    
+    await query(`
+        INSERT INTO system_prompts (company_id, user_id, title, message, prompt_type)
+        VALUES ($1, $2, $3, $4, $5)
+    `, [house.company_id, directorId, '72h Absence Fallback', `The daily oversight review for ${house.name} has been missed for 72 hours.`, 'ABSENCE_ALERT']);
+
     await notificationsService.create({
       company_id: house.company_id,
       user_id: directorId,
