@@ -378,8 +378,8 @@ const AdminHouseManagement: React.FC = () => {
                   <TableCell className="text-sm text-muted-foreground">{house.registration_number || '—'}</TableCell>
                   <TableCell>{[house.city, house.postcode].filter(Boolean).join(", ")}</TableCell>
                   <TableCell>
-                    {house.manager_name ? (
-                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {house.manager_name}</span>
+                    {house.manager_first_name ? (
+                      <span className="flex items-center gap-1"><Users className="w-3 h-3" /> {house.manager_first_name} {house.manager_last_name}</span>
                     ) : <Badge variant="outline" className="text-muted-foreground">Unassigned</Badge>}
                   </TableCell>
                   <TableCell>{house.capacity} Beds</TableCell>

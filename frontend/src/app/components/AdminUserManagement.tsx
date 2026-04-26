@@ -189,9 +189,15 @@ const AdminUserManagement: React.FC = () => {
       return false;
     }
     // Only require password on create
-    if (isCreateDialogOpen && (!formData.password || formData.password.length < 6)) {
-      toast.error('Password must be at least 6 characters');
-      return false;
+    if (isCreateDialogOpen) {
+      if (!formData.password || formData.password.length < 8) {
+        toast.error('Password must be at least 8 characters long');
+        return false;
+      }
+      if (!/[a-zA-Z]/.test(formData.password) || !/[0-9]/.test(formData.password)) {
+        toast.error('Password must contain at least one letter and one number');
+        return false;
+      }
     }
     return true;
   };
@@ -296,8 +302,12 @@ const AdminUserManagement: React.FC = () => {
       toast.error('Passwords do not match');
       return;
     }
-    if (passwordData.newPassword.length < 6) {
-      toast.error('Password must be at least 6 characters');
+    if (passwordData.newPassword.length < 8) {
+      toast.error('Password must be at least 8 characters long');
+      return;
+    }
+    if (!/[a-zA-Z]/.test(passwordData.newPassword) || !/[0-9]/.test(passwordData.newPassword)) {
+      toast.error('Password must contain at least one letter and one number');
       return;
     }
     setIsSubmitting(true);
@@ -485,11 +495,11 @@ const AdminUserManagement: React.FC = () => {
               className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <option value="all">All roles</option>
-              <option value="admin">Admin</option>
-              <option value="director">Director</option>
-              <option value="registered-manager">Registered Manager</option>
-              <option value="team-leader">Team Leader</option>
-              <option value="responsible-individual">Responsible Individual</option>
+              <option value="ADMIN">Admin</option>
+              <option value="DIRECTOR">Director</option>
+              <option value="REGISTERED_MANAGER">Registered Manager</option>
+              <option value="TEAM_LEADER">Team Leader</option>
+              <option value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</option>
             </select>
           </div>
           <div className="min-w-[150px]">

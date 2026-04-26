@@ -3,6 +3,17 @@ import { usersRepo } from '../repositories/users.repo';
 import { housesRepo } from '../repositories/houses.repo';
 
 export class UsersService {
+  private validatePassword(password: string) {
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters long');
+    }
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasLetter || !hasNumber) {
+      throw new Error('Password must contain at least one letter and one number');
+    }
+  }
+
   async create(company_id: string, data: {
     email: string; password: string; first_name: string; last_name: string; role: string; phone?: string; job_title?: string;
     is_active?: boolean;
@@ -13,6 +24,7 @@ export class UsersService {
     const existing = await usersRepo.findByEmail(data.email);
     if (existing) throw new Error('Email already in use');
 
+    this.validatePassword(data.password);
     const password_hash = await bcrypt.hash(data.password, 12);
     const status = data.is_active === false ? 'inactive' : 'active';
     const user = await usersRepo.create({ company_id, email: data.email, password_hash, first_name: data.first_name, last_name: data.last_name, role: data.role, status, pulse_days: data.pulse_days });
@@ -22,6 +34,10 @@ export class UsersService {
     if (data.house_ids && Array.isArray(data.house_ids)) {
       for (const hId of data.house_ids) {
         await usersRepo.assignToHouse(user.id, hId, company_id);
+        const role = data.role.toUpperCase();
+        if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
+          await housesRepo.update(hId, company_id, { manager_id: user.id } as any);
+        }
       }
     } else if (data.house_id) {
       if (data.house_id === 'all') {
@@ -30,7 +46,10 @@ export class UsersService {
           await usersRepo.assignToHouse(user.id, h.id, company_id);
         }
       } else {
-        await housesRepo.update(data.house_id, company_id, { manager_id: user.id } as any);
+        const role = data.role.toUpperCase();
+        if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
+          await housesRepo.update(data.house_id, company_id, { manager_id: user.id } as any);
+        }
         await usersRepo.assignToHouse(user.id, data.house_id, company_id);
       }
     }
@@ -65,31 +84,44 @@ export class UsersService {
     }
 
     // Handle house update
-    if (('house_id' in data || 'house_ids' in data) && company_id) {
+    if (('house_id' in data || 'house_ids' in data)) {
       await usersRepo.clearAssignedHouses(id);
       
+      const targetCompanyId = company_id || user.company_id;
+      if (!targetCompanyId) throw new Error('Company Context Missing');
+
       if (data.house_ids && Array.isArray(data.house_ids)) {
          for (const hId of data.house_ids) {
-            await usersRepo.assignToHouse(id, hId, company_id);
+            await usersRepo.assignToHouse(id, hId, targetCompanyId);
+            const role = (data.role || user.role).toUpperCase();
+            if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
+              await housesRepo.update(hId, targetCompanyId, { manager_id: id } as any);
+            }
          }
       } else if (data.house_id) {
         if (data.house_id === 'all') {
-          const houses = await housesRepo.findByCompany(company_id, {}, 1000, 0);
+          const houses = await housesRepo.findByCompany(targetCompanyId, {}, 1000, 0);
           for (const h of houses) {
-            await usersRepo.assignToHouse(id, h.id, company_id);
+            await usersRepo.assignToHouse(id, h.id, targetCompanyId);
           }
         } else {
           const role = (data.role || user.role).toUpperCase();
           if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
-            await housesRepo.update(data.house_id, company_id, { manager_id: id } as any);
+            await housesRepo.update(data.house_id, targetCompanyId, { manager_id: id } as any);
           }
-          await usersRepo.assignToHouse(id, data.house_id, company_id);
+          await usersRepo.assignToHouse(id, data.house_id, targetCompanyId);
         }
       }
     }
 
     const { house_id: _, house_ids: __, is_active: ___, ...updateData } = data;
     void _; void __; void ___;
+
+    if (Object.keys(updateData).length === 0) {
+      const { password_hash, ...safe } = user;
+      void password_hash;
+      return safe;
+    }
 
     const updated = await usersRepo.update(id, updateData);
     const { password_hash, ...safe } = updated;
@@ -143,27 +175,28 @@ export class UsersService {
     return usersRepo.updateStatus(userId, 'active');
   }
 
-  async resetPassword(userId: string, company_id: string, passwordString: string) {
-    const user = await usersRepo.findById(userId);
-    if (!user || user.company_id !== company_id) throw new Error('User not found');
+  async resetPassword(userId: string, company_id: string | null, passwordString: string) {
+    const user = await usersRepo.findById(userId, company_id);
+    if (!user) throw new Error('User not found');
+    
+    this.validatePassword(passwordString);
     const password_hash = await bcrypt.hash(passwordString, 12);
     await usersRepo.update(userId, { password_hash } as any);
   }
 
-  async search(company_id: string, queryStr: string, page = 1, limit = 50) {
+  async search(company_id: string, queryStr: string, page = 1, limit = 50, role?: string, status?: string) {
     const offset = (page - 1) * limit;
-    // Basic search filtering implemented in service level for simplicity on top of existing findByCompany
-    const [users, total] = await Promise.all([
-      usersRepo.findByCompany(company_id, 1000, 0), // fetch all and sort in memory (or add search to repo)
-      usersRepo.countByCompany(company_id)
+    const [users] = await Promise.all([
+      usersRepo.findByCompany(company_id, 1000, 0, role, status),
     ]);
     
     queryStr = queryStr.toLowerCase();
-    const filtered = users.filter(u => 
-      u.first_name.toLowerCase().includes(queryStr) || 
-      u.last_name.toLowerCase().includes(queryStr) || 
-      u.email.toLowerCase().includes(queryStr)
-    );
+    const filtered = users.filter(u => {
+      const firstName = (u.first_name || '').toLowerCase();
+      const lastName = (u.last_name || '').toLowerCase();
+      const email = (u.email || '').toLowerCase();
+      return firstName.includes(queryStr) || lastName.includes(queryStr) || email.includes(queryStr);
+    });
     
     const paginated = filtered.slice(offset, offset + limit);
     return { 

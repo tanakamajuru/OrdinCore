@@ -103,6 +103,9 @@ export const usersRepo = {
 
   async update(id: string, data: Partial<CreateUserDto> & { last_login?: Date }) {
     const updateData = { ...data };
+    if (Object.keys(updateData).length === 0) {
+      return this.findById(id);
+    }
     if (updateData.pulse_days) {
       (updateData as any).pulse_days = JSON.stringify(updateData.pulse_days);
     }

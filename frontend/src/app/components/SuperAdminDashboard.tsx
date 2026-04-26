@@ -100,6 +100,16 @@ export default function SuperAdminDashboard() {
     e.preventDefault();
     setFormError("");
     setFormSuccess("");
+
+    if (newAdmin.password.length < 8) {
+      setFormError("Password must be at least 8 characters long");
+      return;
+    }
+    if (!/[a-zA-Z]/.test(newAdmin.password) || !/[0-9]/.test(newAdmin.password)) {
+      setFormError("Password must contain at least one letter and one number");
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const payload = {

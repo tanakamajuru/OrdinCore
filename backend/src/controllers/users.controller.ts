@@ -19,13 +19,22 @@ export class UsersController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const role = req.query.role as string;
+      const search = (req.query.search || req.query.q) as string;
 
       let status = req.query.status as string;
       if (!status && req.query.is_active) {
         status = req.query.is_active === 'true' ? 'active' : 'inactive';
       }
-
-      const result = await usersService.findAll(company_id, page, limit, role, status);
+      
+      console.log(`[UsersController.findAll] company_id: ${company_id}, page: ${page}, limit: ${limit}, role: ${role}, status: ${status}, search: ${search}`);
+      
+      let result;
+      if (search) {
+        result = await usersService.search(company_id, search, page, limit, role, status);
+      } else {
+        result = await usersService.findAll(company_id, page, limit, role, status);
+      }
+      console.log(`[UsersController.findAll] found ${result.users.length} users (total: ${result.total})`);
       return res.json({ success: true, data: result.users, meta: { total: result.total, page: result.page, limit: result.limit, pages: result.pages } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch users';

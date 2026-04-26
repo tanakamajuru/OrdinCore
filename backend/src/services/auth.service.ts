@@ -11,6 +11,17 @@ const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-fallback';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
 
 export class AuthService {
+  private validatePassword(password: string) {
+    if (!password || password.length < 8) {
+      throw new Error('Password must be at least 8 characters long');
+    }
+    const hasLetter = /[a-zA-Z]/.test(password);
+    const hasNumber = /[0-9]/.test(password);
+    if (!hasLetter || !hasNumber) {
+      throw new Error('Password must contain at least one letter and one number');
+    }
+  }
+
   async login(email: string, password: string) {
     const user = await usersRepo.findByEmail(email);
     if (!user) throw new Error('Invalid credentials');
@@ -76,6 +87,7 @@ export class AuthService {
     const valid = await bcrypt.compare(currentPassword, user.password_hash);
     if (!valid) throw new Error('Current password is incorrect');
 
+    this.validatePassword(newPassword);
     const hash = await bcrypt.hash(newPassword, 12);
     await usersRepo.update(userId, { password_hash: hash });
     return { message: 'Password changed successfully' };
@@ -84,7 +96,7 @@ export class AuthService {
   async resetToDefault(email: string) {
     const user = await usersRepo.findByEmail(email);
     if (!user) throw new Error('User not found');
-    const hash = await bcrypt.hash('default', 12);
+    const hash = await bcrypt.hash('Default123!', 12); // Use a string that passes validation (mixed case + number)
     await usersRepo.update(user.id, { password_hash: hash } as any);
   }
 
