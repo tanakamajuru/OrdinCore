@@ -31,6 +31,7 @@ import AdminRiskManagement from "./components/AdminRiskManagement";
 import AdminSettings from "./components/AdminSettings";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { ComputationalEngines } from "./components/ComputationalEngines";
+import { PulseHistory } from "./components/PulseHistory";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -104,6 +105,11 @@ export default function App() {
           <Route path="/governance-pulse" element={
             <ProtectedRoute>
               <SignalCaptureForm />
+            </ProtectedRoute>
+          } />
+          <Route path="/pulse-history" element={
+            <ProtectedRoute>
+              <PulseHistory />
             </ProtectedRoute>
           } />
           <Route path="/governance-dashboard" element={

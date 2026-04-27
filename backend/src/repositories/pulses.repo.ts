@@ -57,6 +57,7 @@ export const pulsesRepo = {
         }
         if (filters.start_date) { conditions.push(`gp.entry_date >= $${idx++}`); params.push(filters.start_date); }
         if (filters.end_date) { conditions.push(`gp.entry_date <= $${idx++}`); params.push(filters.end_date); }
+        if (filters.created_by) { conditions.push(`gp.created_by = $${idx++}`); params.push(filters.created_by); }
 
         const where = conditions.join(' AND ');
         const result = await query(
