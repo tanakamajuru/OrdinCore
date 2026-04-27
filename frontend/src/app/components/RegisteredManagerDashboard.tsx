@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Ambulance, Plus, AlertTriangle, Activity, Shield } from "lucide-react";
+import { Ambulance, Plus, AlertTriangle, Activity, Shield, FileText } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 
@@ -175,6 +175,13 @@ export function RegisteredManagerDashboard() {
                 }`}
               >
                 {todayPulse?.status === 'completed' ? 'View Pulse' : 'Start Pulse'}
+              </button>
+              <button
+                onClick={() => navigate("/pulse-history")}
+                className="w-full mt-4 py-2 text-sm font-bold text-primary hover:underline flex items-center justify-center gap-2 border-t border-border pt-4"
+              >
+                <FileText className="w-4 h-4" />
+                View Your Pulse History
               </button>
             </div>
 
