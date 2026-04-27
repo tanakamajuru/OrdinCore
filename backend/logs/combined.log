@@ -18896,3 +18896,41 @@
 [OrdinCore] 2026-04-27 12:34:59 [info]: Pattern detection job 166 completed
 [OrdinCore] 2026-04-27 12:34:59 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:59 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 200 13937 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
 [OrdinCore] 2026-04-27 12:35:00 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:35:00 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:35:02 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:35:06 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:35:06 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:35:06 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:35:47 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:35:47 +0000] "GET /api/v1/houses HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:35:47 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:35:47 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:35:47 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:35:47 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:21 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:21 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:21 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:21 +0000] "GET /api/v1/users/990dea81-a652-4aa2-b6c5-3292af5dfa55/houses HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:21 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:21 +0000] "GET /api/v1/risks/categories HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:21 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:21 +0000] "GET /api/v1/risks?house_id=38ba95e5-81a2-409b-992e-862b3f31e889&limit=100 HTTP/1.1" 200 76 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:27 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:27 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:36:27 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:36:27 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:39:29 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:39:29 +0000] "GET /api/v1/houses HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:39:48 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:39:49 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:39:49 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:39:49 [info]: Scheduled daily governance check at 08:00

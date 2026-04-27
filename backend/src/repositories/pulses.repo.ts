@@ -60,7 +60,7 @@ export const pulsesRepo = {
 
         const where = conditions.join(' AND ');
         const result = await query(
-            `SELECT gp.*, gp.review_status as status, gp.entry_date as created_at, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name
+            `SELECT gp.*, gp.review_status as status, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
@@ -74,7 +74,7 @@ export const pulsesRepo = {
 
     async findById(id: string, company_id: string) {
         const result = await query(
-            `SELECT gp.*, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name,
+            `SELECT gp.*, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name,
                     rb.first_name || ' ' || rb.last_name as reviewed_by_name
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
