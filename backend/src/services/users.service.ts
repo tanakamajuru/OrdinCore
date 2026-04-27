@@ -61,9 +61,14 @@ export class UsersService {
 
   async findAll(company_id: string | null, page = 1, limit = 50, role?: string, status?: string) {
     const offset = (page - 1) * limit;
+    
+    // Normalize filters
+    const normalizedRole = role && role !== 'all' ? role.toUpperCase() : undefined;
+    const normalizedStatus = status && status !== 'all' ? status.toLowerCase() : undefined;
+
     const [users, total] = await Promise.all([
-      usersRepo.findByCompany(company_id, limit, offset, role, status),
-      usersRepo.countByCompany(company_id, role, status),
+      usersRepo.findByCompany(company_id, limit, offset, normalizedRole, normalizedStatus),
+      usersRepo.countByCompany(company_id, normalizedRole, normalizedStatus),
     ]);
     return { users: users.map(({ password_hash, ...u }) => { void password_hash; return u; }), total, page, limit, pages: Math.ceil(total / limit) };
   }
@@ -186,8 +191,13 @@ export class UsersService {
 
   async search(company_id: string | null, queryStr: string, page = 1, limit = 50, role?: string, status?: string) {
     const offset = (page - 1) * limit;
+    
+    // Normalize filters
+    const normalizedRole = role && role !== 'all' ? role.toUpperCase() : undefined;
+    const normalizedStatus = status && status !== 'all' ? status.toLowerCase() : undefined;
+
     const [users] = await Promise.all([
-      usersRepo.findByCompany(company_id, 1000, 0, role, status),
+      usersRepo.findByCompany(company_id, 1000, 0, normalizedRole, normalizedStatus),
     ]);
     
     queryStr = queryStr.toLowerCase();

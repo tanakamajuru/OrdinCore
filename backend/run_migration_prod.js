@@ -2,8 +2,9 @@ const { Client } = require('ssh2');
 
 const conn = new Client();
 conn.on('ready', () => {
-  console.log('⚡ SSH Client Ready - Checking risks schema');
-  const cmd = `PGPASSWORD='Highway@1520' psql -h localhost -U ordinuser -d ordincore -c "\\d risks"`;
+  console.log('⚡ SSH Client Ready - Checking role values');
+  const query = `SELECT DISTINCT role FROM users`;
+  const cmd = `PGPASSWORD='Highway@1520' psql -h localhost -U ordinuser -d ordincore -c "${query}"`;
   conn.exec(cmd, (err, stream) => {
     if (err) throw err;
     stream.on('close', (code) => {
