@@ -38,6 +38,8 @@ export default function SuperAdminDashboard() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
+  const [showUnarchiveModal, setShowUnarchiveModal] = useState(false);
   const [showManageAdmins, setShowManageAdmins] = useState(false);
   const [newOrg, setNewOrg] = useState({ name: "", domain: "", contactEmail: "", plan: "professional" });
   const [newAdmin, setNewAdmin] = useState({ first_name: "", last_name: "", email: "", password: "", company_id: "" });
@@ -169,6 +171,30 @@ export default function SuperAdminDashboard() {
     }
   };
 
+  const handleUnsuspendOrg = async () => {
+    if (!selectedCompany) return;
+    try {
+      await apiClient.updateCompany(selectedCompany.id, { status: 'active' } as any);
+      setShowUnsuspendModal(false);
+      setSelectedCompany(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to unsuspend organisation");
+    }
+  };
+
+  const handleUnarchiveOrg = async () => {
+    if (!selectedCompany) return;
+    try {
+      await apiClient.updateCompany(selectedCompany.id, { status: 'active' } as any);
+      setShowUnarchiveModal(false);
+      setSelectedCompany(null);
+      loadData();
+    } catch (err: any) {
+      alert(err.message || "Failed to unarchive organisation");
+    }
+  };
+
   const statusColor = (status: string) => {
     if (status === 'active') return 'bg-green-100 text-green-800';
     if (status === 'suspended') return 'bg-yellow-100 text-yellow-800';
@@ -273,11 +299,19 @@ export default function SuperAdminDashboard() {
                       </button>
                     ) : company.status === 'suspended' ? (
                       <button
-                        onClick={() => apiClient.updateCompany(company.id, { status: 'active' } as any).then(loadData)}
+                        onClick={() => { setSelectedCompany(company); setShowUnsuspendModal(true); }}
                         className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-green-300 text-green-600 rounded hover:bg-green-50 transition-colors"
                       >
                         <CheckCircle className="w-3 h-3" />
-                        Activate
+                        Unsuspend
+                      </button>
+                    ) : company.status === 'archived' ? (
+                      <button
+                        onClick={() => { setSelectedCompany(company); setShowUnarchiveModal(true); }}
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                      >
+                        <RefreshCw className="w-3 h-3" />
+                        Unarchive
                       </button>
                     ) : null}
                     {company.status !== 'archived' && (
@@ -522,6 +556,63 @@ export default function SuperAdminDashboard() {
                 className="flex-1 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm font-medium"
               >
                 Archive
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Unsuspend Modal */}
+      {showUnsuspendModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <CheckCircle className="w-6 h-6 text-green-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Unsuspend Organisation?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to unsuspend <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This will allow all their users to log in again.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowUnsuspendModal(false); setSelectedCompany(null); }}
+                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUnsuspendOrg}
+                className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
+              >
+                Unsuspend
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Unarchive Modal */}
+      {showUnarchiveModal && (
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+            <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <RefreshCw className="w-6 h-6 text-blue-600" />
+            </div>
+            <h3 className="text-lg font-bold text-gray-900 mb-2">Unarchive Organisation?</h3>
+            <p className="text-sm text-gray-500 mb-6">
+              Are you sure you want to unarchive <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This will move the organisation back to the active list.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => { setShowUnarchiveModal(false); setSelectedCompany(null); }}
+                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleUnarchiveOrg}
+                className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+              >
+                Unarchive
               </button>
             </div>
           </div>
