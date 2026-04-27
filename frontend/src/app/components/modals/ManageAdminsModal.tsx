@@ -54,14 +54,14 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
 
   useEffect(() => {
     if (isOpen) {
-      fetchAdmins();
+      const timer = setTimeout(() => {
+        fetchAdmins();
+      }, 300); // Debounce
+      return () => clearTimeout(timer);
     }
-  }, [isOpen, statusFilter, companyId]);
+  }, [isOpen, statusFilter, companyId, searchTerm]);
 
-  const handleSearch = (e: React.FormEvent) => {
-    e.preventDefault();
-    fetchAdmins();
-  };
+
 
   const toggleAdminStatus = async (admin: AdminUser) => {
     const newStatus = admin.status === 'active' ? 'suspend' : 'activate';
@@ -129,7 +129,7 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
 
         {/* Filters */}
         <div className="p-6 border-b border-gray-100 flex flex-wrap gap-4 items-end">
-          <form onSubmit={handleSearch} className="flex-1 min-w-[300px]">
+          <div className="flex-1 min-w-[300px]">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block">Search Admins</label>
             <div className="relative">
               <Search className="absolute left-3 top-2.5 h-4 w-4 text-gray-400" />
@@ -138,10 +138,18 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
               />
+              {searchTerm && (
+                <button 
+                  onClick={() => setSearchTerm('')}
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
             </div>
-          </form>
+          </div>
           <div className="w-48">
             <label className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1 block">Status</label>
             <select

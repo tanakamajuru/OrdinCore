@@ -204,8 +204,12 @@ export class UsersService {
     const filtered = users.filter(u => {
       const firstName = (u.first_name || '').toLowerCase();
       const lastName = (u.last_name || '').toLowerCase();
+      const fullName = `${firstName} ${lastName}`.trim();
       const email = (u.email || '').toLowerCase();
-      return firstName.includes(queryStr) || lastName.includes(queryStr) || email.includes(queryStr);
+      return firstName.includes(queryStr) || 
+             lastName.includes(queryStr) || 
+             email.includes(queryStr) ||
+             fullName.includes(queryStr);
     });
     
     const paginated = filtered.slice(offset, offset + limit);

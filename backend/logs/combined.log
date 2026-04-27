@@ -18869,3 +18869,30 @@
   ╚═══════════════════════════════════════════════════════╝
   
 [OrdinCore] 2026-04-27 12:30:18 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:30:39 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:30:40 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:30:40 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:30:40 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:34:18 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:18 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:18 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:18 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:25 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:25 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 694 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:25 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:25 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:25 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:25 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:33 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:33 +0000] "GET /api/v1/houses HTTP/1.1" 200 580 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:59 [info]: Event emitted: signal.created
+[OrdinCore] 2026-04-27 12:34:59 [info]: Pattern detection job queued for pulse 266c069a-ef6f-4462-878f-08ee876e0ebc
+[OrdinCore] 2026-04-27 12:34:59 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:59 +0000] "POST /api/v1/pulses HTTP/1.1" 201 913 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:34:59 [info]: Processing pattern detection for pulse 266c069a-ef6f-4462-878f-08ee876e0ebc
+[OrdinCore] 2026-04-27 12:34:59 [info]: Pattern detection job 166 completed
+[OrdinCore] 2026-04-27 12:34:59 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:34:59 +0000] "GET /api/v1/pulses?limit=1 HTTP/1.1" 200 13937 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:35:00 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:35:00 +0000] "GET /api/v1/incidents?limit=5 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
