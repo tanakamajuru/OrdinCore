@@ -18576,3 +18576,261 @@
   ╚═══════════════════════════════════════════════════════╝
   
 [OrdinCore] 2026-04-26 13:44:28 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-26 14:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 15:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 16:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 17:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 18:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 18:00:00 [info]: Running Action Effectiveness Reminder check
+[OrdinCore] 2026-04-26 18:00:00 [info]: Effectiveness reminder job repeat:7596391e0acb7940351419b727f0261c:1777219200000 completed
+[OrdinCore] 2026-04-26 19:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 20:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 21:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 22:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-26 23:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 00:00:00 [info]: Running Action Effectiveness Reminder check
+[OrdinCore] 2026-04-27 00:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 00:00:00 [info]: Effectiveness reminder job repeat:7596391e0acb7940351419b727f0261c:1777240800000 completed
+[OrdinCore] 2026-04-27 01:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 01:00:00 [info]: Running Recurrence Watch (Rule 5)
+[OrdinCore] 2026-04-27 01:00:00 [info]: Recurrence watch job repeat:8aee01184706c1f2bad695ee85e72573:1777244400000 completed
+[OrdinCore] 2026-04-27 02:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 03:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 04:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 05:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 06:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 06:00:00 [info]: Running Action Effectiveness Reminder check
+[OrdinCore] 2026-04-27 06:00:00 [info]: Effectiveness reminder job repeat:7596391e0acb7940351419b727f0261c:1777262400000 completed
+[OrdinCore] 2026-04-27 07:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 08:32:27 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 08:32:27 [info]: Running daily governance absence check
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification 003ccbc5-0e47-4718-8b74-525d1ed6d86a for user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Rose House" to user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification 003ccbc5-0e47-4718-8b74-525d1ed6d86a dispatched
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification 60e86736-4c4a-4e9c-aaf0-3940965615da for user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Oak Lodge (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Oak Lodge" to user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification 60e86736-4c4a-4e9c-aaf0-3940965615da dispatched
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification b78c68de-ef2a-4342-9dcd-c8dc26bab7af for user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Maple Court (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Oak Lodge (Residential)" to user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification b78c68de-ef2a-4342-9dcd-c8dc26bab7af dispatched
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification a3f6ee31-fd2d-41d4-ad2e-3a3771b56f88 for user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Rose House (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Maple Court (Residential)" to user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification a3f6ee31-fd2d-41d4-ad2e-3a3771b56f88 dispatched
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification 77c16e7a-a71d-41c0-bed6-b968a05eaaa4 for user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Site 1 to Director
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Rose House (Residential)" to user aebf3203-6ee8-47a5-9cc3-00842ddd4b4a
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification 77c16e7a-a71d-41c0-bed6-b968a05eaaa4 dispatched
+[OrdinCore] 2026-04-27 08:32:27 [info]: Processing notification 57365732-7c73-42dd-9c13-cf8217b7a16d for user 4f02065e-dbd5-4448-894e-c0232f8e92a5
+[OrdinCore] 2026-04-27 08:32:27 [info]: [Email] Would send "Escalation: Missed Governance Review – Site 1" to user 4f02065e-dbd5-4448-894e-c0232f8e92a5
+[OrdinCore] 2026-04-27 08:32:27 [info]: Notification 57365732-7c73-42dd-9c13-cf8217b7a16d dispatched
+[OrdinCore] 2026-04-27 09:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 09:00:00 [info]: Running No-Signal Prompt Check
+[OrdinCore] 2026-04-27 09:00:00 [info]: No signal prompt job repeat:02daf78d35fe8a1bb055a8e52befddd9:1777273200000 completed
+[OrdinCore] 2026-04-27 10:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 11:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 11:09:04 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:09:07 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:09:07 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:09:07 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:14:21 [info]: ::1 - - [27/Apr/2026:09:14:21 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:14:21 [info]: ::1 - - [27/Apr/2026:09:14:21 +0000] "GET /api/v1/companies HTTP/1.1" 200 1008 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:15:24 [info]: ::1 - - [27/Apr/2026:09:15:24 +0000] "POST /api/v1/users HTTP/1.1" 201 515 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:15:33 [info]: ::1 - - [27/Apr/2026:09:15:33 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 934 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:15:41 [info]: ::1 - - [27/Apr/2026:09:15:41 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1079 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:15:42 [info]: ::1 - - [27/Apr/2026:09:15:42 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 200 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:15:42 [info]: ::1 - - [27/Apr/2026:09:15:42 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 200 74 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:18:40 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:18:41 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:18:41 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:18:41 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:18:48 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:18:49 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:18:49 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:18:49 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:19:14 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:19:15 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:19:15 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:19:15 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:19:56 [info]: ::1 - - [27/Apr/2026:09:19:56 +0000] "GET /api/v1/admin/users/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:19:56 [info]: ::1 - - [27/Apr/2026:09:19:56 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 948 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:19:56 [info]: ::1 - - [27/Apr/2026:09:19:56 +0000] "GET /api/v1/admin/houses/stats/summary HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:20:47 [info]: ::1 - - [27/Apr/2026:09:20:47 +0000] "GET /api/v1/users?page=1&limit=20&status=active HTTP/1.1" 200 2703 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:20:47 [info]: ::1 - - [27/Apr/2026:09:20:47 +0000] "GET /api/v1/users?page=1&limit=100 HTTP/1.1" 200 2704 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:20:47 [info]: ::1 - - [27/Apr/2026:09:20:47 +0000] "GET /api/v1/houses?limit=100 HTTP/1.1" 200 581 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/147.0.0.0 Safari/537.36"
+[OrdinCore] 2026-04-27 11:20:59 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:20:59 +0000] "GET /api/v1/auth/me HTTP/1.1" 401 55 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:47:19 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:47:19 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:47:19 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:47:19 +0000] "GET /api/v1/companies HTTP/1.1" 200 1008 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:47:46 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:47:46 +0000] "GET /api/v1/users?role=ADMIN&limit=100 HTTP/1.1" 200 2106 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:48:09 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:48:09 +0000] "POST /api/v1/auth/login HTTP/1.1" 401 61 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:48:16 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:48:16 +0000] "POST /api/v1/auth/login HTTP/1.1" 200 1033 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:48:16 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:48:16 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:49:23 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:49:25 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:49:25 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:49:25 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:49:43 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:49:43 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:50:06 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:50:06 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 200 761 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:50:35 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 11:50:37 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 11:50:37 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 11:50:37 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 11:50:45 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:50:45 +0000] "GET /api/v1/companies HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:50:45 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:50:45 +0000] "GET /api/v1/auth/me HTTP/1.1" 200 934 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:54:27 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:54:27 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 200 865 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:54:37 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:54:37 +0000] "PATCH /api/v1/users/6465256b-f13b-43ef-8a50-0a3718199f26/suspend HTTP/1.1" 400 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:55:16 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:55:16 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 11:59:55 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:09:59:55 +0000] "PATCH /api/v1/users/6465256b-f13b-43ef-8a50-0a3718199f26/suspend HTTP/1.1" 400 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:00:00 [info]: Running action effectiveness prompt scan...
+[OrdinCore] 2026-04-27 12:00:00 [info]: Running Action Effectiveness Reminder check
+[OrdinCore] 2026-04-27 12:00:00 [info]: Effectiveness reminder job repeat:7596391e0acb7940351419b727f0261c:1777284000000 completed
+[OrdinCore] 2026-04-27 12:00:07 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:00:07 +0000] "PATCH /api/v1/users/6465256b-f13b-43ef-8a50-0a3718199f26/suspend HTTP/1.1" 400 56 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:00:29 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:00:30 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:00:30 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:00:30 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:00:37 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:00:38 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:00:38 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:00:38 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:00:45 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:00:48 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:00:48 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:00:48 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:01:05 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:01:05 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:01:14 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:01:14 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:01:20 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:01:20 +0000] "PATCH /api/v1/users/6465256b-f13b-43ef-8a50-0a3718199f26/suspend HTTP/1.1" 400 121 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:01:31 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:01:31 +0000] "PATCH /api/v1/users/a7b54487-be6a-4ee5-b6ae-a08024514d4d/suspend HTTP/1.1" 400 121 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:01:56 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:01:57 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:01:57 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:01:57 [info]: Scheduled daily governance check at 08:00
+[OrdinCore] 2026-04-27 12:02:06 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:02:06 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:02:53 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:02:53 +0000] "PATCH /api/v1/users/a7b54487-be6a-4ee5-b6ae-a08024514d4d/suspend HTTP/1.1" 200 558 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:02:53 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:02:53 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 200 868 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:03:02 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:03:02 +0000] "PATCH /api/v1/users/a7b54487-be6a-4ee5-b6ae-a08024514d4d/activate HTTP/1.1" 200 556 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:03:02 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:03:02 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 200 865 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:03:40 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:03:40 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:03:41 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:03:41 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:04:03 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:04:03 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:04:07 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:04:07 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:04:08 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:04:08 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=c38ba336-3dd3-4f56-a385-539765a4e112 HTTP/1.1" 304 - "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:04:11 [info]: ::ffff:127.0.0.1 - - [27/Apr/2026:10:04:11 +0000] "GET /api/v1/users?role=ADMIN&limit=100&company_id=e9ec1d9e-56e5-4ec4-b2ef-9ae35452a40c HTTP/1.1" 200 1237 "http://localhost:5173/" "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:150.0) Gecko/20100101 Firefox/150.0"
+[OrdinCore] 2026-04-27 12:05:05 [info]: 🌐 Environment loaded from .env (development mode)
+[OrdinCore] 2026-04-27 12:05:07 [info]: Socket.IO server initialized
+[OrdinCore] 2026-04-27 12:05:07 [info]: 
+  ╔═══════════════════════════════════════════════════════╗
+  ║            🏥  Ordin Core Backend v1.0.0              ║
+  ╠═══════════════════════════════════════════════════════╣
+  ║  Server:   http://localhost:3001                      ║
+  ║  API:      http://localhost:3001/api/v1               ║
+  ║  Swagger:  http://localhost:3001/api-docs             ║
+  ║  Health:   http://localhost:3001/health               ║
+  ║  Env:      development                          ║
+  ╚═══════════════════════════════════════════════════════╝
+  
+[OrdinCore] 2026-04-27 12:05:07 [info]: Scheduled daily governance check at 08:00

@@ -30,6 +30,8 @@ interface House {
   capacity: number;
   manager_id?: string;
   manager_name?: string;
+  manager_first_name?: string;
+  manager_last_name?: string;
   is_active: boolean;
 }
 

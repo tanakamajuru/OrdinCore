@@ -8,6 +8,7 @@ import {
 import { apiClient } from "@/services/api";
 import CreateOrgModal from "./modals/CreateOrgModal";
 import CreateAdminModal from "./modals/CreateAdminModal";
+import ManageAdminsModal from "./modals/ManageAdminsModal";
 
 
 interface Company {
@@ -37,6 +38,7 @@ export default function SuperAdminDashboard() {
   const [selectedCompany, setSelectedCompany] = useState<Company | null>(null);
   const [showSuspendModal, setShowSuspendModal] = useState(false);
   const [showArchiveModal, setShowArchiveModal] = useState(false);
+  const [showManageAdmins, setShowManageAdmins] = useState(false);
   const [newOrg, setNewOrg] = useState({ name: "", domain: "", contactEmail: "", plan: "professional" });
   const [newAdmin, setNewAdmin] = useState({ first_name: "", last_name: "", email: "", password: "", company_id: "" });
   const [formError, setFormError] = useState("");
@@ -254,6 +256,13 @@ export default function SuperAdminDashboard() {
                       <UserPlus className="w-3 h-3" />
                       Add Admin
                     </button>
+                    <button
+                      onClick={() => { setSelectedCompany(company); setShowManageAdmins(true); }}
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                    >
+                      <Users className="w-3 h-3" />
+                      View Admins
+                    </button>
                     {company.status === 'active' ? (
                       <button
                         onClick={() => confirmSuspendOrg(company)}
@@ -451,6 +460,13 @@ export default function SuperAdminDashboard() {
         selectedCompany={selectedCompany}
         formError={formError}
         isSubmitting={isSubmitting}
+      />
+
+      <ManageAdminsModal
+        isOpen={showManageAdmins}
+        onClose={() => { setShowManageAdmins(false); setSelectedCompany(null); }}
+        companyId={selectedCompany?.id}
+        companyName={selectedCompany?.name}
       />
 
 

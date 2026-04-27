@@ -15,7 +15,7 @@ export class UsersController {
 
   async findAll(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
+      const company_id = req.user!.role === 'SUPER_ADMIN' ? (req.query.company_id as string || null) : req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const role = req.query.role as string;
@@ -80,8 +80,8 @@ export class UsersController {
 
   async delete(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
-      await usersService.delete(req.params.id, company_id);
+      const company_id = req.user!.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      await usersService.delete(req.params.id, company_id!);
       return res.json({ success: true, data: { message: 'User deactivated' }, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to delete user';
@@ -147,7 +147,7 @@ export class UsersController {
 
   async suspend(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
+      const company_id = req.user!.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
       const result = await usersService.suspend(req.params.id, company_id);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
@@ -158,7 +158,7 @@ export class UsersController {
 
   async activate(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
+      const company_id = req.user!.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
       const result = await usersService.activate(req.params.id, company_id);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
@@ -169,7 +169,7 @@ export class UsersController {
 
   async search(req: Request, res: Response) {
     try {
-      const company_id = req.user!.company_id!;
+      const company_id = req.user!.role === 'SUPER_ADMIN' ? (req.query.company_id as string || null) : req.user!.company_id!;
       const queryStr = req.query.q as string;
       if (!queryStr) return res.json({ success: true, data: [], meta: { total: 0 } });
       const result = await usersService.search(company_id, queryStr, parseInt(req.query.page as string) || 1, parseInt(req.query.limit as string) || 50);

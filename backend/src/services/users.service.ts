@@ -59,7 +59,7 @@ export class UsersService {
     return safeUser;
   }
 
-  async findAll(company_id: string, page = 1, limit = 50, role?: string, status?: string) {
+  async findAll(company_id: string | null, page = 1, limit = 50, role?: string, status?: string) {
     const offset = (page - 1) * limit;
     const [users, total] = await Promise.all([
       usersRepo.findByCompany(company_id, limit, offset, role, status),
@@ -129,9 +129,9 @@ export class UsersService {
     return safe;
   }
 
-  async delete(id: string, company_id: string) {
+  async delete(id: string, company_id: string | null) {
     const user = await usersRepo.findById(id);
-    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    if (!user || (company_id && user.company_id !== company_id)) throw new Error('User not found');
     await usersRepo.delete(id);
   }
 
@@ -163,15 +163,15 @@ export class UsersService {
     return usersRepo.assignRole(userId, roleName);
   }
 
-  async suspend(userId: string, company_id: string) {
+  async suspend(userId: string, company_id: string | null) {
     const user = await usersRepo.findById(userId);
-    if (!user || user.company_id !== company_id) throw new Error('User not found');
-    return usersRepo.updateStatus(userId, 'suspended');
+    if (!user || (company_id && user.company_id !== company_id)) throw new Error('User not found');
+    return usersRepo.updateStatus(userId, 'inactive');
   }
 
-  async activate(userId: string, company_id: string) {
+  async activate(userId: string, company_id: string | null) {
     const user = await usersRepo.findById(userId);
-    if (!user || user.company_id !== company_id) throw new Error('User not found');
+    if (!user || (company_id && user.company_id !== company_id)) throw new Error('User not found');
     return usersRepo.updateStatus(userId, 'active');
   }
 
@@ -184,7 +184,7 @@ export class UsersService {
     await usersRepo.update(userId, { password_hash } as any);
   }
 
-  async search(company_id: string, queryStr: string, page = 1, limit = 50, role?: string, status?: string) {
+  async search(company_id: string | null, queryStr: string, page = 1, limit = 50, role?: string, status?: string) {
     const offset = (page - 1) * limit;
     const [users] = await Promise.all([
       usersRepo.findByCompany(company_id, 1000, 0, role, status),

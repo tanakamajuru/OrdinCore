@@ -1274,3 +1274,9 @@
     at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
     at processTicksAndRejections (node:internal/process/task_queues:103:5)
     at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:42:9)
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Oak Lodge (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Maple Court (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Rose House (Residential) to Director
+[OrdinCore] 2026-04-27 08:32:27 [error]: Escalating 72h absence for Site 1 to Director

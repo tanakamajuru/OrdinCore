@@ -39,7 +39,7 @@ export const usersRepo = {
   async findByCompany(company_id: string | null, limit = 50, offset = 0, role?: string, status?: string) {
     const isSuperAdmin = !company_id;
     let sql = `
-      SELECT u.id, u.email, u.first_name, u.last_name, 
+      SELECT u.id, u.email, u.first_name, u.last_name, u.company_id,
              (u.first_name || ' ' || u.last_name) as name,
              u.role, u.status, (u.status = 'active') as is_active,
              u.created_at, u.updated_at,
@@ -73,12 +73,13 @@ export const usersRepo = {
     return result.rows;
   },
 
-  async countByCompany(company_id: string, role?: string, status?: string) {
-    let sql = 'SELECT COUNT(*) FROM users WHERE company_id = $1';
-    const params: any[] = [company_id];
+  async countByCompany(company_id: string | null, role?: string, status?: string) {
+    const isSuperAdmin = !company_id;
+    let sql = `SELECT COUNT(*) FROM users WHERE 1=1 ${isSuperAdmin ? '' : 'AND company_id = $1'}`;
+    const params: any[] = isSuperAdmin ? [] : [company_id];
 
     if (role) {
-      sql += ' AND role = $2';
+      sql += ` AND role = $${params.length + 1}`;
       params.push(role);
     }
     if (status) {
