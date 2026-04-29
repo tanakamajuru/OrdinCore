@@ -224,9 +224,15 @@ async function generateCrossSiteSummary(company_id: string, parameters: Record<s
   const result = await query(
     `SELECT 
       h.name AS house_name,
-      COUNT(DISTINCT r.id) FILTER (WHERE r.status != 'closed') AS open_risks,
-      COUNT(DISTINCT i.id) FILTER (WHERE i.status != 'closed') AS open_incidents,
-      COALESCE(AVG(gp.compliance_score) FILTER (WHERE gp.status = 'completed'), 0) AS avg_compliance
+      COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed', 'resolved')) AS open_risks,
+      COUNT(DISTINCT i.id) FILTER (WHERE LOWER(i.status::text) NOT IN ('closed', 'resolved')) AS open_incidents,
+      COALESCE(
+        ROUND(
+          100.0 * COUNT(gp.id) FILTER (WHERE gp.review_status != 'New') / NULLIF(COUNT(gp.id), 0),
+          2
+        ), 
+        100
+      ) AS avg_compliance
      FROM houses h
      LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
      LEFT JOIN incidents i ON i.house_id = h.id AND i.company_id = $1
@@ -398,7 +404,8 @@ async function generateWeeklyNarrativeReport(company_id: string, parameters: Rec
 async function generateComprehensive(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
   // Pull multiple datasets
   const [pulses, risks, escalations, incidents] = await Promise.all([
-    query(`SELECT status, COUNT(*) as c FROM governance_pulses WHERE company_id = $1 GROUP BY status`, [company_id]),
+    query(`SELECT review_status as status, COUNT(*) as c FROM governance_pulses WHERE company_id = $1 GROUP BY review_status`, [company_id]),
+
     query(`SELECT status, COUNT(*) as c FROM risks WHERE company_id = $1 GROUP BY status`, [company_id]),
     query(`SELECT status, COUNT(*) as c FROM escalations WHERE company_id = $1 GROUP BY status`, [company_id]),
     query(`SELECT severity, COUNT(*) as c FROM incidents WHERE company_id = $1 GROUP BY severity`, [company_id])

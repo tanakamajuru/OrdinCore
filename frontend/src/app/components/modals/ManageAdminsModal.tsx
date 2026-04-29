@@ -39,13 +39,23 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
   const fetchAdmins = async () => {
     setLoading(true);
     try {
-      // Fetch users with role ADMIN, optionally filtered by company
-      const url = `/users?role=ADMIN&limit=100${searchTerm ? `&search=${encodeURIComponent(searchTerm)}` : ''}${statusFilter !== 'all' ? `&status=${statusFilter}` : ''}${companyId ? `&company_id=${companyId}` : ''}`;
+      const trimmedSearch = searchTerm.trim();
+      const params = new URLSearchParams();
+      params.append('role', 'ADMIN');
+      params.append('limit', '100');
+      
+      if (trimmedSearch) params.append('search', trimmedSearch);
+      if (statusFilter !== 'all') params.append('status', statusFilter);
+      if (companyId) params.append('company_id', companyId);
+
+      const url = `/users?${params.toString()}`;
       const response = await apiClient.get<any>(url);
-      if (response.success) {
+      
+      if (response && response.success) {
         setAdmins(response.data || []);
       }
     } catch (error) {
+      console.error('Failed to fetch admins:', error);
       toast.error('Failed to load admins');
     } finally {
       setLoading(false);
@@ -56,7 +66,7 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
     if (isOpen) {
       const timer = setTimeout(() => {
         fetchAdmins();
-      }, 300); // Debounce
+      }, 500); // Increased debounce for better stability
       return () => clearTimeout(timer);
     }
   }, [isOpen, statusFilter, companyId, searchTerm]);

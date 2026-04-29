@@ -2,6 +2,7 @@ import { useState } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
 import { apiClient } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 import logo from "./images/logo.png";
 
 function PasswordInput({ id, value, onChange, disabled }: {
@@ -52,6 +53,7 @@ export function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const handle = useFullScreenHandle();
+  const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -66,31 +68,16 @@ export function Login() {
     setError("");
 
     try {
-      const response = await apiClient.login({ email, password });
-      const data = response as any;
-
-      if (data.success && data.data) {
-        const { user, token } = data.data;
-
-        // Store authentication data consistently
-        localStorage.setItem('authToken', token);
-        localStorage.setItem('user', JSON.stringify(user));
-        localStorage.setItem('userRole', user.role);
-        localStorage.setItem('userName', `${user.first_name || ''} ${user.last_name || ''}`.trim() || user.email);
-        localStorage.setItem('userEmail', user.email);
-        localStorage.setItem('userId', user.id);
-
-        // Route based on user role
-        const role = (user.role || '').toUpperCase();
-        if (role === 'SUPER_ADMIN') {
-          navigate('/super-admin');
-        } else if (role === 'ADMIN') {
-          navigate('/admin-dashboard');
-        } else {
-          navigate('/dashboard');
-        }
+      await login(email, password);
+      
+      // Get role from localStorage since login() sets it there
+      const role = (localStorage.getItem('userRole') || '').toUpperCase();
+      if (role === 'SUPER_ADMIN') {
+        navigate('/super-admin');
+      } else if (role === 'ADMIN') {
+        navigate('/admin-dashboard');
       } else {
-        setError(data.message || data.error || "Invalid email or password");
+        navigate('/dashboard');
       }
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");

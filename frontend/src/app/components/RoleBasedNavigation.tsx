@@ -56,9 +56,8 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
-          { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          { path: "/reports", label: "Reports", icon: FileDown },
+          { path: "/my-actions", label: "My Actions", icon: FileText },
         ];
  
       case 'DIRECTOR':

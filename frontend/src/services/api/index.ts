@@ -4,7 +4,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/
 
 // Generic API helper
 class ApiClient {
-  private baseURL: string;
+  public baseURL: string;
+
   private token: string | null = null;
 
   constructor(baseURL: string) {

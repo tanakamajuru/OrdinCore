@@ -29,6 +29,11 @@ import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
 import adminRoutes from './routes/admin.routes';
 import dailyGovernanceRoutes from './routes/dailyGovernance.routes';
 import incidentReconstructionRoutes from './routes/incidentReconstruction.routes';
+import thresholdEventsRoutes from './routes/thresholdEvents.routes';
+import clustersRoutes from './routes/clusters.routes';
+import riGovernanceRoutes from './routes/riGovernance.routes';
+import directorGovernanceRoutes from './routes/directorGovernance.routes';
+
 
 
 
@@ -117,6 +122,11 @@ app.use(`${API}/weekly-reviews`, weeklyReviewsRoutes);
 app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/daily-governance`, dailyGovernanceRoutes);
 app.use(`${API}/incident-reconstructions`, incidentReconstructionRoutes);
+app.use(`${API}/threshold-events`, thresholdEventsRoutes);
+app.use(`${API}/clusters`, clustersRoutes);
+app.use(`${API}/ri-governance`, riGovernanceRoutes);
+app.use(`${API}/director-governance`, directorGovernanceRoutes);
+
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
 app.use('*', (req, res) => {

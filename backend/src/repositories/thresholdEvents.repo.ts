@@ -30,5 +30,24 @@ export const thresholdEventsRepo = {
       ]
     );
     return res.rows[0];
+  },
+  async findAll(company_id: string, filters: { output_type?: string; house_id?: string }) {
+    let sql = `SELECT * FROM threshold_events WHERE company_id = $1`;
+    const params: any[] = [company_id];
+    
+    if (filters.output_type) {
+      params.push(filters.output_type);
+      sql += ` AND output_type = $${params.length}`;
+    }
+    
+    if (filters.house_id) {
+      params.push(filters.house_id);
+      sql += ` AND house_id = $${params.length}`;
+    }
+    
+    sql += ` ORDER BY created_at DESC`;
+    
+    const res = await query(sql, params);
+    return res.rows;
   }
 };

@@ -45,6 +45,8 @@ export function IncidentCaseHub() {
   });
 
   const [allHouses, setAllHouses] = useState<any[]>([]);
+  const [allRisks, setAllRisks] = useState<any[]>([]);
+  const [allEscalations, setAllEscalations] = useState<any[]>([]);
 
   const userString = localStorage.getItem('user') || '{}';
   const user = JSON.parse(userString);
@@ -61,6 +63,18 @@ export function IncidentCaseHub() {
       const hDataAll = (housesRes.data as any).data || (housesRes.data as any) || [];
       const housesList = Array.isArray(hDataAll) ? hDataAll : [];
       setAllHouses(housesList);
+
+      // Load all risks for company
+      const risksRes = await apiClient.get('/risks?limit=100');
+      const rData = (risksRes.data as any).data || (risksRes.data as any) || [];
+      const risksList = Array.isArray(rData) ? rData : (rData.risks || rData.items || []);
+      setAllRisks(risksList);
+
+      // Load all escalations for company
+      const escalationsRes = await apiClient.get('/escalations?limit=100');
+      const eData = (escalationsRes.data as any).data || (escalationsRes.data as any) || [];
+      const escalationsList = Array.isArray(eData) ? eData : (eData.escalations || eData.items || []);
+      setAllEscalations(escalationsList);
 
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
@@ -118,10 +132,12 @@ export function IncidentCaseHub() {
         immediate_action: incidentForm.immediate_action,
         persons_involved: incidentForm.persons_involved ? [incidentForm.persons_involved] : [],
         follow_up_required: true,
+        linked_risks: incidentForm.linked_risks || [],
+        linked_escalations: incidentForm.linked_escalations || [],
       });
       toast.success('Incident reported successfully');
       setShowCreateModal(false);
-      setIncidentForm({ house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '' });
+      setIncidentForm({ house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', linked_risks: [], linked_escalations: [] });
       loadIncidents();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
     finally { setIsSubmitting(false); }
@@ -466,18 +482,35 @@ export function IncidentCaseHub() {
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-1">Link to Existing Risk Register Items</label>
-                        <select className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-24" multiple>
-                          <option value="risk-001">Risk-001: Medication administration errors</option>
-                          <option value="risk-002">Risk-002: Fire safety system failure</option>
-                          <option value="risk-003">Risk-003: Critical staffing shortage</option>
+                        <select 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-24" 
+                          multiple
+                          value={incidentForm.linked_risks || []}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                            setIncidentForm({ ...incidentForm, linked_risks: values });
+                          }}
+                        >
+                          {allRisks.map(risk => (
+                            <option key={risk.id} value={risk.id}>{risk.id.slice(0,8).toUpperCase()}: {risk.title}</option>
+                          ))}
                         </select>
                         <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 italic">Select all relevant risk items (hold Ctrl/Cmd to select multiple)</p>
                       </div>
                       <div>
                         <label className="block text-sm font-semibold text-foreground mb-1">Link to Escalations</label>
-                        <select className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-16" multiple>
-                          <option value="esc-001">ESC-001: Medication risk escalation</option>
-                          <option value="esc-002">ESC-002: Staffing pressure escalation</option>
+                        <select 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-16" 
+                          multiple
+                          value={incidentForm.linked_escalations || []}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                            setIncidentForm({ ...incidentForm, linked_escalations: values });
+                          }}
+                        >
+                          {allEscalations.map(esc => (
+                            <option key={esc.id} value={esc.id}>{esc.id.slice(0,8).toUpperCase()}: {esc.reason || 'Escalation'}</option>
+                          ))}
                         </select>
                       </div>
                     </div>
@@ -515,7 +548,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Witnesses</label>
+                        <label className="block text-sm font-medium text-black mb-1">Place of occurence</label>
                         <Input
                           value={incidentForm.location}
                           onChange={(e) => setIncidentForm({ ...incidentForm, location: e.target.value })}

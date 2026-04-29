@@ -19,9 +19,11 @@ export class IncidentsController {
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
       const status = req.query.status as string;
+      const severityRaw = req.query.severity as string;
+      const severity = severityRaw ? severityRaw.charAt(0).toUpperCase() + severityRaw.slice(1).toLowerCase() : undefined;
       const filters = { 
         status: status && status.includes(',') ? status.split(',') : status, 
-        severity: req.query.severity, 
+        severity, 
         house_id: req.query.house_id 
       };
       const result = await incidentsService.findAll(company_id, filters, page, limit);

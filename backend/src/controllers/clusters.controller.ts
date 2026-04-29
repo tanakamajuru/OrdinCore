@@ -22,6 +22,28 @@ export class ClustersController {
       return res.status(500).json({ success: false, message, errors: [] });
     }
   }
+
+  async findAll(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = {
+        status: req.query.status as string,
+        house_id: req.query.house_id as string,
+      };
+      
+      const sql = `SELECT c.*, h.name as house_name 
+                  FROM signal_clusters c
+                  JOIN houses h ON h.id = c.house_id
+                  WHERE c.company_id = $1
+                  ORDER BY c.last_signal_date DESC`;
+      
+      const result = await query(sql, [company_id]);
+      return res.json({ success: true, data: result.rows, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch clusters';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const clustersController = new ClustersController();

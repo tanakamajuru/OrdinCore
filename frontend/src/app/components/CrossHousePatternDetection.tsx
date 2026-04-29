@@ -1,9 +1,11 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, Eye } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { apiClient } from "@/services/api";
+import { toast } from "sonner";
 
 interface RiskPattern {
   id: string;
@@ -12,102 +14,49 @@ interface RiskPattern {
   affectedHouses: string[];
   severity: "low" | "medium" | "high";
   firstDetected: string;
+  lastDetected: string;
   frequency: number;
   trend: "increasing" | "stable" | "decreasing";
   relatedIncidents: number;
 }
 
-interface HouseSignal {
-  houseId: string;
-  houseName: string;
-  signal: string;
-  category: string;
-  severity: "low" | "medium" | "high";
-  detectedDate: string;
-  frequency: number;
-}
-
-const mockPatterns: RiskPattern[] = [
-  {
-    id: "PATTERN-001",
-    patternType: "Medication Refusal",
-    description: "Increasing medication refusal patterns across multiple houses",
-    affectedHouses: ["House B", "House D"],
-    severity: "high",
-    firstDetected: "2024-01-05",
-    frequency: 8,
-    trend: "increasing",
-    relatedIncidents: 1
-  },
-  {
-    id: "PATTERN-002", 
-    patternType: "Staffing Pressure",
-    description: "Staffing shortages reported during night shifts",
-    affectedHouses: ["House A", "House C"],
-    severity: "medium",
-    firstDetected: "2024-01-08",
-    frequency: 5,
-    trend: "stable",
-    relatedIncidents: 0
-  },
-  {
-    id: "PATTERN-003",
-    patternType: "Behavioral Escalation",
-    description: "Weekend behavioral escalation patterns",
-    affectedHouses: ["House B", "House E"],
-    severity: "medium",
-    firstDetected: "2024-01-12",
-    frequency: 4,
-    trend: "decreasing",
-    relatedIncidents: 0
-  }
-];
-
-const mockHouseSignals: HouseSignal[] = [
-  {
-    houseId: "house-b",
-    houseName: "House B",
-    signal: "Medication refusal increasing",
-    category: "Clinical",
-    severity: "high",
-    detectedDate: "2024-01-05",
-    frequency: 3
-  },
-  {
-    houseId: "house-d",
-    houseName: "House D", 
-    signal: "Medication refusal increasing",
-    category: "Clinical",
-    severity: "medium",
-    detectedDate: "2024-01-08",
-    frequency: 2
-  },
-  {
-    houseId: "house-a",
-    houseName: "House A",
-    signal: "Staffing pressure - night shifts",
-    category: "Operational",
-    severity: "medium",
-    detectedDate: "2024-01-08",
-    frequency: 2
-  },
-  {
-    houseId: "house-c",
-    houseName: "House C",
-    signal: "Staffing pressure - night shifts", 
-    category: "Operational",
-    severity: "medium",
-    detectedDate: "2024-01-10",
-    frequency: 1
-  }
-];
-
 export function CrossHousePatternDetection() {
-  const [patterns, setPatterns] = useState<RiskPattern[]>(mockPatterns);
-  const [houseSignals, setHouseSignals] = useState<HouseSignal[]>(mockHouseSignals);
+  const [patterns, setPatterns] = useState<RiskPattern[]>([]);
+  const [loading, setLoading] = useState(true);
   const [selectedPattern, setSelectedPattern] = useState<RiskPattern | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
+
+  useEffect(() => {
+    loadPatterns();
+  }, []);
+
+  const loadPatterns = async () => {
+    try {
+      setLoading(true);
+      const res = await apiClient.get('/clusters');
+      const data = (res as any).data || [];
+      
+      const formatted: RiskPattern[] = data.map((c: any) => ({
+        id: c.id,
+        patternType: c.risk_domain,
+        description: c.cluster_label,
+        affectedHouses: [c.house_name], // Backend returns one house per cluster for now, but we can aggregate if needed
+        severity: c.trajectory === 'Critical' ? 'high' : c.trajectory === 'Deteriorating' ? 'high' : 'medium',
+        firstDetected: c.first_signal_date,
+        lastDetected: c.last_signal_date,
+        frequency: parseInt(c.signal_count),
+        trend: c.trajectory.toLowerCase(),
+        relatedIncidents: 0 // Will need another query or join
+      }));
+      
+      setPatterns(formatted);
+    } catch (err) {
+      toast.error("Failed to load patterns");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredPatterns = patterns.filter(pattern => {
     const matchesSearch = pattern.patternType.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -144,11 +93,16 @@ export function CrossHousePatternDetection() {
   };
 
   const getRelatedSignals = (pattern: RiskPattern) => {
-    return houseSignals.filter(signal => 
-      signal.signal.toLowerCase().includes(pattern.patternType.toLowerCase()) ||
-      pattern.affectedHouses.includes(signal.houseName)
-    );
+    return []; // Future implementation: fetch signals for cluster
   };
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-white">

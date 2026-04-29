@@ -1,10 +1,13 @@
+import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
-import { AuthProvider } from "@/hooks/useAuth";
+import { AuthProvider, useAuth } from "../hooks/useAuth";
+console.log('useAuth import:', useAuth);
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";
 import { WeeklyReview } from "./components/WeeklyReview";
+import { EvidencePackViewer } from "./components/EvidencePackViewer";
 import { SignalCaptureForm } from "./components/SignalCaptureForm";
 import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
@@ -35,16 +38,36 @@ import { PulseHistory } from "./components/PulseHistory";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = localStorage.getItem('authToken');
-  return token ? <>{children}</> : <Navigate to="/login" replace />;
+  const { isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
 // Super Admin Only Route
 const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
-  const token = localStorage.getItem('authToken');
-  const role = (localStorage.getItem('userRole') || '').toUpperCase();
-  if (!token) return <Navigate to="/login" replace />;
+  const { user, isAuthenticated, isLoading } = useAuth();
+  
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
+      </div>
+    );
+  }
+  
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  
+  const role = user?.role?.toUpperCase() || '';
   if (role !== 'SUPER_ADMIN') return <Navigate to="/dashboard" replace />;
+  
   return <>{children}</>;
 };
 
@@ -130,6 +153,11 @@ export default function App() {
           <Route path="/weekly-review" element={
             <ProtectedRoute>
               <WeeklyReview />
+            </ProtectedRoute>
+          } />
+          <Route path="/ri-governance/houses/:house_id/evidence-pack" element={
+            <ProtectedRoute>
+              <EvidencePackViewer />
             </ProtectedRoute>
           } />
           <Route path="/risk-register" element={

@@ -63,6 +63,8 @@ export function ReconstructionReport() {
   const [findings, setFindings] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [existingReport, setExistingReport] = useState<any>(null);
+
 
   useEffect(() => {
     if (incidentId) {
@@ -124,6 +126,22 @@ export function ReconstructionReport() {
         setTimelineEvents([]);
         setMetrics(defaultMetrics);
       }
+      
+      
+      // Check for existing reports
+      try {
+        const reportsRes = await apiClient.get('/reports?limit=100');
+        const reportsData = (reportsRes.data as any).data || (reportsRes.data as any);
+        const allReports = Array.isArray(reportsData) ? reportsData : (reportsData.reports || []);
+        const report = allReports.find((r: any) => 
+          r.type === 'reconstruction_report' && 
+          r.parameters?.incident_id === id && 
+          r.status === 'completed'
+        );
+        setExistingReport(report);
+      } catch (err) {
+        console.error("Failed to check for existing reports", err);
+      }
     } catch (err) {
       console.error("Failed to load incident report data", err);
     } finally {
@@ -131,7 +149,13 @@ export function ReconstructionReport() {
     }
   };
 
+
   const generateReport = async () => {
+    if (existingReport && existingReport.status === 'completed') {
+      handleDownload(existingReport.id);
+      return;
+    }
+
     setIsGenerating(true);
     try {
       const requestPayload = {
@@ -154,6 +178,25 @@ export function ReconstructionReport() {
       setIsGenerating(false);
     }
   };
+
+  const handleDownload = async (reportId: string) => {
+    try {
+      const res = await apiClient.get(`/reports/${reportId}/download`);
+      const data = (res.data as any).data || res;
+      if (data.file_url) {
+        const downloadUrl = data.file_url.startsWith('http') 
+          ? data.file_url 
+          : `${apiClient.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
+        window.open(downloadUrl, '_blank');
+      } else {
+        alert('Download URL not available yet.');
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      alert('Failed to download report');
+    }
+  };
+
 
   const exportTimeline = () => {
     // In real implementation, this would export timeline data

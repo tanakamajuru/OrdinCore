@@ -1,11 +1,19 @@
-const { Client } = require('pg');
-const client = new Client({
-  host: 'localhost', port: 5432, database: 'caresignal_db', user: 'postgres', password: 'Chemz@25',
+const { Pool } = require('pg');
+require('dotenv').config({ path: './.env' });
+
+const pool = new Pool({
+  connectionString: process.env.DATABASE_URL || 'postgres://postgres:Chemz%4025@localhost:5432/caresignal_db'
 });
-async function run() {
-  await client.connect();
-  const res = await client.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public'");
-  console.log(res.rows.map(r => r.table_name).join(', '));
-  await client.end();
+
+async function check() {
+  try {
+    const res = await pool.query("SELECT table_name FROM information_schema.tables WHERE table_schema = 'public' ORDER BY table_name");
+    console.log('Existing tables:', res.rows.map(r => r.table_name).join(', '));
+  } catch (err) {
+    console.error('Check failed:', err.message);
+  } finally {
+    await pool.end();
+  }
 }
-run();
+
+check();

@@ -22,11 +22,12 @@ const TRAJECTORIES = ['Improving', 'Stable', 'Deteriorating', 'Critical'];
 export function RiskPromotion() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const candidateId = searchParams.get('candidate_id');
   const clusterId = searchParams.get('cluster_id');
   const { user } = useAuth();
   
   const [isLoading, setIsLoading] = useState(true);
-  const [cluster, setCluster] = useState<any>(null);
+  const [sourceData, setSourceData] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
 
@@ -45,35 +46,50 @@ export function RiskPromotion() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!clusterId) {
-        toast.error("No cluster ID provided");
+    if (!candidateId && !clusterId) {
+        toast.error("No source ID provided (candidate_id or cluster_id)");
         navigate('/governance-dashboard');
         return;
     }
     loadData();
-  }, [clusterId]);
+  }, [candidateId, clusterId]);
 
   const loadData = async () => {
     try {
-      const [cRes, catRes, uRes] = await Promise.all([
-        apiClient.get(`/clusters/${clusterId}`),
+      const [catRes, uRes] = await Promise.all([
         apiClient.get('/risks/categories'),
         apiClient.get('/users')
       ]);
-      
-      const clusterData = (cRes as any).data?.data || (cRes as any).data;
-      setCluster(clusterData);
-      setFormData(prev => ({ 
-          ...prev, 
-          title: `Risk: ${clusterData.cluster_label}`,
-          description: `Identified via OrdinCore pattern detection. Includes ${clusterData.signal_count} recent signals in ${clusterData.risk_domain}.`
-      }));
 
       setCategories((catRes as any).data || catRes || []);
       setUsers((uRes as any).data || uRes || []);
 
+      if (candidateId) {
+        const cRes = await apiClient.get(`/governance/risk-candidates?id=${candidateId}`);
+        const candidate = (cRes as any).data?.[0];
+        if (candidate) {
+          setSourceData(candidate);
+          setFormData(prev => ({ 
+              ...prev, 
+              title: `Risk: ${candidate.risk_domain}`,
+              description: `Automated Risk Candidate detected by OrdinCore. Reason: ${candidate.reason}. Trajectory: ${candidate.pattern_trajectory}.`
+          }));
+        }
+      } else if (clusterId) {
+        const cRes = await apiClient.get(`/governance/clusters?id=${clusterId}`);
+        const cluster = (cRes as any).data?.[0];
+        if (cluster) {
+          setSourceData(cluster);
+          setFormData(prev => ({ 
+              ...prev, 
+              title: `Risk: ${cluster.cluster_label}`,
+              description: `Identified via OrdinCore pattern detection. Includes ${cluster.signal_count} recent signals in ${cluster.risk_domain}.`
+          }));
+        }
+      }
+
     } catch (err) {
-      toast.error("Failed to load promotion data");
+      toast.error("Failed to load promotion source data");
     } finally {
       setIsLoading(false);
     }
@@ -84,8 +100,9 @@ export function RiskPromotion() {
     try {
       await apiClient.post('/risks/promote', {
           ...formData,
+          candidate_id: candidateId,
           cluster_id: clusterId,
-          house_id: cluster.house_id
+          house_id: sourceData.house_id
       });
       toast.success("Risk formally registered");
       navigate('/risk-register');
@@ -105,7 +122,9 @@ export function RiskPromotion() {
         
         <div className="mb-8 border-b-8 border-primary pb-6">
           <h1 className="text-5xl font-black text-primary italic uppercase tracking-tighter">Risk Promotion</h1>
-          <p className="text-muted-foreground font-medium mt-2 uppercase tracking-widest">Formalizing Cluster {clusterId?.slice(0,8)}</p>
+          <p className="text-muted-foreground font-medium mt-2 uppercase tracking-widest">
+            {candidateId ? `Formalizing Candidate ${candidateId.slice(0,8)}` : `Formalizing Cluster ${clusterId?.slice(0,8)}`}
+          </p>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

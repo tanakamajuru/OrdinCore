@@ -36,6 +36,21 @@ export class ExportsController {
   async exportHouses(req: Request, res: Response) {
     return this.handleExportRequest(req, res, exportsService.exportHouses.bind(exportsService));
   }
+
+  async exportEvidencePack(req: Request, res: Response) {
+    try {
+        const company_id = req.user!.company_id!;
+        const { house_id } = req.params;
+        const result = await (exportsService.exportEvidencePack(company_id, house_id) as any);
+        
+        res.setHeader('Content-disposition', `attachment; filename=${result.filename}`);
+        res.setHeader('Content-type', result.contentType);
+        return res.send(result.content);
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Failed to generate evidence pack';
+        return res.status(500).json({ success: false, message });
+      }
+  }
 }
 
 export const exportsController = new ExportsController();

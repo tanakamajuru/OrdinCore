@@ -19,13 +19,13 @@ export class EscalationsService {
           r.title AS risk_title,
           i.title AS incident_title,
           h.name AS house_name,
-          COALESCE(e.house_id, r.house_id, i.house_id) AS house_id
+          COALESCE(e.service_unit_id, r.house_id, i.house_id) AS house_id
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
          LEFT JOIN risks r ON r.id = e.risk_id
          LEFT JOIN incidents i ON i.id = e.incident_id
-         LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
+         LEFT JOIN houses h ON h.id = COALESCE(e.service_unit_id, r.house_id, i.house_id)
          WHERE ${where}
          ORDER BY e.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
         params

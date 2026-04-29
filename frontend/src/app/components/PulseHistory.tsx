@@ -6,7 +6,8 @@ import {
   Calendar, 
   AlertCircle, 
   ExternalLink,
-  ChevronRight
+  ChevronRight,
+  X
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -30,6 +31,7 @@ export function PulseHistory() {
   const [pulses, setPulses] = useState<PulseRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [searchDate, setSearchDate] = useState("");
 
   useEffect(() => {
     if (user) {
@@ -41,13 +43,14 @@ export function PulseHistory() {
     try {
       setIsLoading(true);
       // Fetch pulses created by this user
-      const res = await apiClient.get('/pulses', { 
-        params: { 
-          created_by: user?.user_id || user?.id,
-          limit: 100 
-        } 
-      });
-      const data = res.data.data || res.data;
+      const params: any = { limit: 100 };
+      const role = (user?.role || '').toUpperCase().replace('-', '_');
+      if (role === 'TEAM_LEADER' || role === 'TL') {
+        params.created_by = user?.id;
+      }
+
+      const res = await apiClient.get('/pulses', { params });
+      const data = (res.data as any).data || res.data;
       setPulses(data);
     } catch (err) {
       console.error('Failed to load pulse history:', err);
@@ -57,11 +60,15 @@ export function PulseHistory() {
     }
   };
 
-  const filteredPulses = pulses.filter(p => 
-    p.signal_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.house_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    p.description.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  const filteredPulses = pulses.filter(p => {
+    const matchesText = p.signal_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.house_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      p.description.toLowerCase().includes(searchTerm.toLowerCase());
+    
+    const matchesDate = !searchDate || p.entry_date.includes(searchDate);
+    
+    return matchesText && matchesDate;
+  });
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB');
 
@@ -80,18 +87,41 @@ export function PulseHistory() {
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
             <h1 className="text-4xl font-black text-primary tracking-tighter uppercase italic">Pulse History</h1>
-            <p className="text-muted-foreground font-medium">All governance signals you have submitted</p>
+            <p className="text-muted-foreground font-medium">
+              {(user?.role?.toUpperCase() === 'TEAM_LEADER' || user?.role?.toUpperCase() === 'TL') 
+                ? "All governance signals you have submitted" 
+                : "All governance signals for your organisation"}
+            </p>
           </div>
           
-          <div className="relative w-full md:w-64">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-            <input
-              type="text"
-              placeholder="Search history..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all font-bold"
-            />
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="relative flex-1 sm:w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+              <input
+                type="text"
+                placeholder="Search history..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all font-bold"
+              />
+            </div>
+            <div className="relative flex-1 sm:w-48">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
+              <input
+                type="date"
+                value={searchDate}
+                onChange={(e) => setSearchDate(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all font-bold appearance-none"
+              />
+              {searchDate && (
+                <button 
+                  onClick={() => setSearchDate('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-primary"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              )}
+            </div>
           </div>
         </div>
 

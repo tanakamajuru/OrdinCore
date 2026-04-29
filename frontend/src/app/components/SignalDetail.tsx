@@ -4,6 +4,7 @@ import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, AlertCircle, Shield, Clock, User, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 
 interface SignalDetail {
   id: string;
@@ -27,6 +28,7 @@ interface SignalDetail {
 export function SignalDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
+  const { user } = useAuth();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -177,7 +179,7 @@ export function SignalDetail() {
                </div>
             </div>
             
-            {signal.review_status === 'New' && (
+            {signal.review_status === 'New' && user?.role !== 'TEAM_LEADER' && (
                 <div className="flex justify-end mt-8">
                     <button 
                         onClick={async () => {

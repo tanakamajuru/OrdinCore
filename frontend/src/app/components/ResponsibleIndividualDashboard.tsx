@@ -1,24 +1,28 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Ambulance, Plus } from "lucide-react";
+import { 
+  Activity, 
+  ShieldAlert, 
+  BarChart3, 
+  LayoutGrid, 
+  ArrowUpRight, 
+  ArrowDownRight, 
+  CheckCircle2, 
+  AlertCircle,
+  FileText,
+  Clock,
+  UserCheck
+} from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 
 export function ResponsibleIndividualDashboard() {
   const navigate = useNavigate();
-  const { } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
-  const [stats, setStats] = useState({
-    totalSites: 0,
-    activeHighRisks: 0,
-    pendingEscalations: 0,
-    activeIncidents: 0
-  });
-  const [recentEscalations, setRecentEscalations] = useState<any[]>([]);
-  const [recentIncidents, setRecentIncidents] = useState<any[]>([]);
-  const [siteSummaries, setSiteSummaries] = useState<any[]>([]);
+  const [data, setData] = useState<any>(null);
 
   useEffect(() => {
     loadDashboardData();
@@ -27,80 +31,26 @@ export function ResponsibleIndividualDashboard() {
   const loadDashboardData = async () => {
     try {
       setIsLoading(true);
-      // Fetch all core resources in parallel
-      const [housesRes, risksRes, incidentsRes, escalationsRes, pulsesRes] = await Promise.allSettled([
-        apiClient.get('/houses?limit=100'),
-        apiClient.get('/risks?status=Open&severity=high&limit=100'),
-        apiClient.get('/incidents?status=Open,In Progress&limit=100'),
-        apiClient.get('/escalations?status=Pending&limit=100'),
-        apiClient.get('/governance/pulses?limit=50')
-      ]);
-
-      const houses = housesRes.status === 'fulfilled' ? ((housesRes.value as any).data || housesRes.value || []) : [];
-      const risks = risksRes.status === 'fulfilled' ? ((risksRes.value as any).data?.risks || (risksRes.value as any).data || risksRes.value || []) : [];
-      const incidents = incidentsRes.status === 'fulfilled' ? ((incidentsRes.value as any).data?.incidents || (incidentsRes.value as any).data || incidentsRes.value || []) : [];
-      const escalations = escalationsRes.status === 'fulfilled' ? ((escalationsRes.value as any).data?.escalations || (escalationsRes.value as any).data || escalationsRes.value || []) : [];
-      const pulses = pulsesRes.status === 'fulfilled' ? ((pulsesRes.value as any).data?.pulses || (pulsesRes.value as any).data || pulsesRes.value || []) : [];
-
-      // Calculate aggregated stats
-      setStats({
-        totalSites: houses.length,
-        activeHighRisks: Array.isArray(risks) ? risks.length : 0,
-        pendingEscalations: Array.isArray(escalations) ? escalations.length : 0,
-        activeIncidents: Array.isArray(incidents) ? incidents.length : 0
-      });
-
-      // Map recent escalations
-      if (Array.isArray(escalations)) {
-        setRecentEscalations(escalations.slice(0, 5).map((e: any) => ({
-          risk: e.risk_title || e.description || 'Unnamed Risk',
-          house: houses.find((h: any) => h.id === e.house_id)?.name || 'Unknown Site',
-          escalatedDate: new Date(e.created_at).toLocaleDateString('en-GB'),
-          status: e.priority || 'Medium'
-        })));
-      }
-
-      // Map recent incidents
-      if (Array.isArray(incidents)) {
-        setRecentIncidents(incidents.slice(0, 5).map((i: any) => ({
-          id: i.id,
-          house: houses.find((h: any) => h.id === i.house_id)?.name || 'Unknown Site',
-          type: i.severity,
-          date: new Date(i.occurred_at).toLocaleDateString('en-GB'),
-          status: i.status
-        })));
-      }
-
-      // Build site summaries
-      if (Array.isArray(houses)) {
-        const summaries = await Promise.all(houses.map(async (house: any) => {
-          const houseRisks = Array.isArray(risks) ? risks.filter((r: any) => r.house_id === house.id).length : 0;
-          const houseEscalations = Array.isArray(escalations) ? escalations.filter((e: any) => e.house_id === house.id).length : 0;
-          const lastPulse = Array.isArray(pulses) ? pulses.find((p: any) => p.house_id === house.id) : null;
-          
-          let narrativeDraft = "";
-          try {
-             const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${house.id}&week_ending=${new Date().toISOString().split('T')[0]}`);
-             narrativeDraft = previewRes.data?.data?.narrative_draft || "";
-          } catch(err) {}
-
-          return {
-            id: house.id,
-            house: house.name,
-            highRisks: houseRisks,
-            escalations: houseEscalations,
-            lastPulse: lastPulse ? new Date(lastPulse.completed_at || lastPulse.due_date).toLocaleDateString('en-GB') : 'No pulses yet',
-            narrativeDraft
-          };
-        }));
-        setSiteSummaries(summaries.slice(0, 5));
-      }
-
+      const res = await apiClient.get('/ri-governance/dashboard/overview');
+      setData(res.data?.data);
     } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      toast.error('Failed to load dashboard data');
+      console.error('Failed to load RI dashboard data:', error);
+      toast.error('Failed to load assurance data');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleAcknowledge = async (incidentId: string) => {
+    try {
+        await apiClient.post(`/ri-governance/incidents/${incidentId}/acknowledge`, {
+            acknowledgement_text: "Reviewed and accepted RM mitigation plan.",
+            is_statutory_notification: true
+        });
+        toast.success("Incident acknowledged and signed off");
+        loadDashboardData();
+    } catch (err) {
+        toast.error("Failed to acknowledge incident");
     }
   };
 
@@ -108,194 +58,257 @@ export function ResponsibleIndividualDashboard() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Loading Assurance Telemetry...</p>
         </div>
       </div>
     );
   }
 
-  const crossSiteSnapshot = [
-    { label: "Total Sites", value: stats.totalSites.toString() },
-    { label: "Active High Risks", value: stats.activeHighRisks.toString() },
-    { label: "Pending Escalations", value: stats.pendingEscalations.toString() },
-    { label: "Active Incidents", value: stats.activeIncidents.toString() },
-  ];
-
-  const escalatedRisks = recentEscalations;
-  const activeIncidents = recentIncidents;
-  const siteSummariesArr = siteSummaries;
-
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background text-foreground font-sans selection:bg-primary selection:text-white">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-primary">Cross-Site Dashboard</h1>
-          <p className="text-muted-foreground mt-1">Aggregated view across all houses</p>
+      
+      <div className="p-8 w-full pt-24 max-w-[1600px] mx-auto">
+        {/* Header Section */}
+        <div className="flex justify-between items-end mb-10 border-b-4 border-black pb-6">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <ShieldAlert className="w-8 h-8 text-primary" />
+              <h1 className="text-4xl font-black uppercase tracking-tighter italic">Responsible Individual</h1>
+            </div>
+            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Statutory Assurance & Governance Integrity Dashboard</p>
+          </div>
+          <div className="text-right">
+            <p className="text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Last 7 Days Compliance</p>
+            <div className="flex gap-2">
+                <span className="bg-success/10 text-success text-[10px] font-black px-2 py-1 border border-success/20 uppercase tracking-tighter">98.4% System Health</span>
+                <span className="bg-primary text-white text-[10px] font-black px-2 py-1 uppercase tracking-tighter">Inspection Ready</span>
+            </div>
+          </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Cross-Site Snapshot */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Cross-Site Governance Snapshot</h2>
-              <div className="space-y-3">
-                {crossSiteSnapshot.map((item, idx) => (
-                  <div key={idx} className="flex justify-between items-center">
-                    <span className="text-foreground">{item.label}</span>
-                    <span className="font-semibold text-foreground">{item.value}</span>
+        {/* 4-Quadrant Grid */}
+        <div className="grid grid-cols-2 gap-8">
+          
+          {/* QUADRANT A: Governance Compliance Heatmap */}
+          <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+            <CardHeader className="border-b-2 border-black bg-muted/30">
+              <CardTitle className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                    <LayoutGrid className="w-6 h-6 text-primary" />
+                    <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant A: Governance Heatmap</span>
+                </div>
+                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Process Adherence</span>
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse">
+                  <thead>
+                    <tr className="border-b-2 border-black">
+                      <th className="py-2 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Service Name</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-7</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-6</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-5</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-4</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-3</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-2</th>
+                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-1</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-border">
+                    {data?.heatmap?.reduce((acc: any[], curr: any) => {
+                        const existing = acc.find(h => h.house_id === curr.house_id);
+                        if (existing) {
+                            existing.days.push(curr);
+                        } else {
+                            acc.push({ house_id: curr.house_id, house_name: curr.house_name, days: [curr] });
+                        }
+                        return acc;
+                    }, []).map((site: any) => (
+                      <tr key={site.house_id} className="group hover:bg-muted/50 transition-colors">
+                        <td className="py-3 font-black text-sm uppercase tracking-tighter">{site.house_name}</td>
+                        {site.days.map((day: any, idx: number) => (
+                          <td key={idx} className="py-3 text-center">
+                            <div className={`w-3 h-3 mx-auto rounded-none border border-black ${
+                                day.daily_status === 'completed' ? 'bg-success' : 'bg-destructive shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                            }`} />
+                          </td>
+                        ))}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* QUADRANT B: Overall Service Position (OSP) Ladder */}
+          <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+            <CardHeader className="border-b-2 border-black bg-muted/30">
+                <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <Activity className="w-6 h-6 text-primary" />
+                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant B: OSP Ladder</span>
+                    </div>
+                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Site Ranking</span>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-4">
+                {data?.osp_ladder?.map((site: any) => (
+                  <div 
+                    key={site.house_id}
+                    onClick={() => navigate(`/ri-governance/houses/${site.house_id}/evidence-pack`)}
+                    className="group border-2 border-black p-4 flex justify-between items-center hover:bg-black hover:text-white transition-all cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-x-[-2px] translate-y-[-2px] hover:translate-x-0 hover:translate-y-0"
+                  >
+                    <div>
+                      <h3 className="text-lg font-black uppercase tracking-tighter italic">{site.house_name}</h3>
+                      <div className="flex gap-2 items-center mt-1">
+                        <span className={`text-[10px] font-black px-2 py-0.5 uppercase border border-current ${
+                            site.overall_position === 'Stable' ? 'text-success' : 
+                            site.overall_position === 'Watch' ? 'text-warning' : 'text-destructive'
+                        }`}>
+                            {site.overall_position || 'No Review'}
+                        </span>
+                        <span className="text-[10px] font-bold text-muted-foreground">Rank: {site.position_rank}</span>
+                      </div>
+                    </div>
+                    <div className="flex flex-col items-end">
+                        <ArrowUpRight className="w-5 h-5 text-success group-hover:text-success-foreground" />
+                        <span className="text-[10px] font-black uppercase mt-1">Evidence Pack</span>
+                    </div>
                   </div>
                 ))}
               </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Pending Escalations */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Pending Escalations</h2>
-              <div className="space-y-3">
-                {escalatedRisks.length > 0 ? escalatedRisks.map((risk, idx) => (
-                  <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-foreground">{risk.risk}</p>
-                        <p className="text-sm text-muted-foreground">{risk.house}</p>
+          {/* QUADRANT C: Action Effectiveness Trends */}
+          <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+            <CardHeader className="border-b-2 border-black bg-muted/30">
+                <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <BarChart3 className="w-6 h-6 text-primary" />
+                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant C: Effectiveness Trends</span>
+                    </div>
+                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Domain Analysis</span>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-6">
+              <div className="space-y-6">
+                {data?.effectiveness?.map((domain: any) => {
+                  const total = parseInt(domain.effective_count) + parseInt(domain.neutral_count) + parseInt(domain.ineffective_count);
+                  const effectivePct = (parseInt(domain.effective_count) / total) * 100;
+                  const neutralPct = (parseInt(domain.neutral_count) / total) * 100;
+                  const ineffectivePct = (parseInt(domain.ineffective_count) / total) * 100;
+
+                  return (
+                    <div key={domain.category_id}>
+                      <div className="flex justify-between text-[10px] font-black uppercase mb-2 tracking-widest">
+                        <span>{domain.domain}</span>
+                        <span className="text-muted-foreground">{total} MEASUREMENTS</span>
                       </div>
-                      <div className="text-right">
-                        <span className="text-sm text-muted-foreground">{risk.escalatedDate}</span>
-                        <p className={`text-sm font-medium capitalize ${
-                          risk.status.toLowerCase() === 'high' ? 'text-destructive' : 'text-warning'
-                        }`}>{risk.status}</p>
+                      <div className="w-full h-8 flex border-2 border-black shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                        <div style={{ width: `${effectivePct}%` }} className="bg-success h-full flex items-center justify-center text-[10px] font-black text-white">{effectivePct > 10 && 'EFF'}</div>
+                        <div style={{ width: `${neutralPct}%` }} className="bg-muted h-full flex items-center justify-center text-[10px] font-black text-muted-foreground">{neutralPct > 10 && 'NEU'}</div>
+                        <div style={{ width: `${ineffectivePct}%` }} className="bg-destructive h-full flex items-center justify-center text-[10px] font-black text-white">{ineffectivePct > 10 && 'INE'}</div>
                       </div>
                     </div>
-                  </div>
-                )) : (
-                  <p className="text-center py-4 text-muted-foreground border border-dashed border-border">No pending escalations</p>
+                  );
+                })}
+                {(!data?.effectiveness || data.effectiveness.length === 0) && (
+                    <div className="text-center py-10 border-2 border-dashed border-black">
+                        <p className="text-[10px] font-black uppercase text-muted-foreground">Insufficient effectiveness data collected</p>
+                    </div>
                 )}
               </div>
-              <button
-                onClick={() => navigate("/escalation-log")}
-                className="w-full mt-4 py-2 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-              >
-                View All Escalations
-              </button>
-            </div>
-          </div>
+            </CardContent>
+          </Card>
 
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Site Summaries */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Site Summaries</h2>
-              <div className="space-y-3">
-                {siteSummariesArr.length > 0 ? siteSummariesArr.map((site: any, idx: number) => (
-                  <div key={idx} className="border-b border-border pb-4 last:border-b-0">
-                    <div className="flex justify-between items-start">
-                      <div>
-                        <p className="font-medium text-foreground">{site.house}</p>
-                        <p className="text-sm text-muted-foreground">High Risks: {site.highRisks} | Escalations: {site.escalations}</p>
-                      </div>
-                      <div className="text-right flex flex-col items-end">
-                        <span className="text-sm text-muted-foreground">Last Pulse: {site.lastPulse}</span>
-                        <button 
-                            onClick={() => navigate(`/reports?house_id=${site.id}&type=evidence`)}
-                            className="mt-2 text-[10px] font-black uppercase bg-primary text-white px-2 py-1 hover:bg-black transition-all"
-                        >
-                            Evidence Pack
-                        </button>
-                      </div>
+          {/* QUADRANT D: Serious Incidents & Statutory Sign-Off */}
+          <Card className="border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card overflow-hidden">
+            <CardHeader className="border-b-2 border-black bg-destructive/10">
+                <CardTitle className="flex items-center justify-between">
+                    <div className="flex items-center gap-3 text-destructive">
+                        <AlertCircle className="w-6 h-6" />
+                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant D: Serious Incidents</span>
                     </div>
-                    {site.narrativeDraft && (
-                        <div className="bg-muted p-3 mt-3 border-l-2 border-primary text-xs italic text-muted-foreground font-medium">
-                            <span className="block font-black uppercase not-italic text-[10px] text-foreground mb-1 tracking-widest">Narrative Draft</span>
-                            {site.narrativeDraft}
+                    <span className="bg-destructive text-white text-[10px] font-black px-2 py-0.5 uppercase tracking-widest animate-pulse">Statutory Sign-Off Required</span>
+                </CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="divide-y-2 divide-black max-h-[500px] overflow-y-auto">
+                {data?.serious_incidents?.length > 0 ? data.serious_incidents.map((incident: any) => (
+                  <div key={incident.id} className="p-6 bg-card hover:bg-muted/30 transition-colors">
+                    <div className="flex justify-between items-start mb-4">
+                      <div className="max-w-[70%]">
+                        <div className="flex items-center gap-2 mb-1">
+                            <span className="bg-black text-white text-[10px] font-black px-2 py-0.5 uppercase">{incident.house_name}</span>
+                            <span className="text-[10px] font-black uppercase text-destructive tracking-widest">{incident.severity}</span>
                         </div>
-                    )}
-                  </div>
-                )) : (
-                  <p className="text-center py-4 text-muted-foreground border border-dashed border-border">No sites found</p>
-                )}
-              </div>
-            </div>
-
-            {/* Active Incidents */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Active Serious Incidents</h2>
-              <div className="space-y-3">
-                {activeIncidents.length > 0 ? activeIncidents.map((incident, idx) => (
-                  <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className="font-medium text-foreground">{incident.id.split('-')[0]}...</p>
-                        <p className="text-sm text-muted-foreground">{incident.house} - {incident.type}</p>
-                        <p className="text-xs text-muted-foreground">{incident.date}</p>
+                        <h4 className="text-lg font-black leading-tight uppercase tracking-tighter italic">{incident.title}</h4>
+                        <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{incident.description}</p>
                       </div>
                       <div className="text-right">
-                        <span className={`px-2 py-1 text-xs rounded shadow-sm ${
-                          incident.status === 'In Progress' 
-                            ? 'bg-primary text-primary-foreground' 
-                            : 'bg-muted text-muted-foreground'
-                        }`}>
-                          {incident.status}
-                        </span>
+                        <div className="flex items-center gap-1 text-[10px] font-black uppercase text-muted-foreground mb-1">
+                            <Clock className="w-3 h-3" />
+                            {new Date(incident.occurred_at).toLocaleDateString('en-GB')}
+                        </div>
+                        <span className="text-[9px] font-bold uppercase block text-muted-foreground tracking-tighter">ID: {incident.id.split('-')[0]}...</span>
                       </div>
+                    </div>
+                    <div className="flex gap-3">
+                        <button 
+                            onClick={() => handleAcknowledge(incident.id)}
+                            className="flex-1 bg-black text-white py-3 px-4 text-xs font-black uppercase tracking-widest hover:bg-success hover:text-white transition-all flex items-center justify-center gap-2"
+                        >
+                            <UserCheck className="w-4 h-4" />
+                            Acknowledge Sign-Off
+                        </button>
+                        <button 
+                            onClick={() => navigate(`/incidents/${incident.id}`)}
+                            className="bg-white border-2 border-black py-3 px-6 text-xs font-black uppercase tracking-widest hover:bg-muted transition-all"
+                        >
+                            Forensics
+                        </button>
                     </div>
                   </div>
                 )) : (
-                  <p className="text-center py-4 text-muted-foreground border border-dashed border-border">No active incidents</p>
+                  <div className="p-12 text-center">
+                    <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
+                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">No outstanding statutory sign-offs</p>
+                  </div>
                 )}
               </div>
-              <div className="flex gap-2 mt-4">
-                <button
-                  onClick={() => navigate("/incidents")}
-                  className="flex-1 py-2 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
-                >
-                  <Ambulance className="w-4 h-4 mr-2 inline" />
-                  Manage All Incidents
-                </button>
-                <button
-                  onClick={() => navigate("/incidents")}
-                  className="flex-1 py-2 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  <Plus className="w-4 h-4 mr-2 inline" />
-                  Add Incident
-                </button>
-              </div>
-            </div>
+            </CardContent>
+          </Card>
 
-            {/* Quick Actions */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Quick Actions</h2>
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate("/incidents")}
-                  className="w-full py-3 px-4 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors"
-                >
-                  <Ambulance className="w-4 h-4 mr-2 inline" />
-                  Manage Serious Incidents
-                </button>
-                <button
-                  onClick={() => navigate("/escalation-log")}
-                  className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
-                >
-                  Review Escalations
-                </button>
-                <button
-                  onClick={() => navigate("/reports")}
-                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
-                >
-                  Generate Cross-Site Report
-                </button>
-                <button
-                  onClick={() => navigate("/trends")}
-                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
-                >
-                  View Trend Analysis
-                </button>
-              </div>
-            </div>
-          </div>
+        </div>
+
+        {/* Footer Quick Actions */}
+        <div className="mt-12 grid grid-cols-4 gap-6">
+            <button className="bg-muted border-2 border-black p-6 hover:bg-black hover:text-white transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <FileText className="w-6 h-6 mb-3" />
+                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-white">Generate Quarterly Report</span>
+                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Board Ready Narrative</span>
+            </button>
+            <button className="bg-muted border-2 border-black p-6 hover:bg-black hover:text-white transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <Activity className="w-6 h-6 mb-3" />
+                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-white">Leadership Stability</span>
+                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deputy Cover Density: 12%</span>
+            </button>
+            <button className="bg-muted border-2 border-black p-6 hover:bg-black hover:text-white transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <AlertCircle className="w-6 h-6 mb-3" />
+                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-white">Regulatory Alerts</span>
+                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">3 Statutory Tasks Pending</span>
+            </button>
+            <button className="bg-muted border-2 border-black p-6 hover:bg-black hover:text-white transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+                <BarChart3 className="w-6 h-6 mb-3" />
+                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-white">Company Telemetry</span>
+                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deep Trend Analysis</span>
+            </button>
         </div>
       </div>
     </div>

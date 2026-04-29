@@ -9,7 +9,10 @@ export interface CreateHouseDto {
   city?: string;
   capacity?: number;
   manager_id?: string;
+  primary_rm_id?: string;
+  deputy_rm_id?: string;
   registration_number?: string;
+  last_daily_review_at?: string | Date;
 }
 
 export const housesRepo = {
@@ -86,17 +89,17 @@ export const housesRepo = {
 
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, registration_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [id, dto.company_id, dto.name, dto.address || null, dto.postcode || null, dto.city || null,
-       dto.capacity || 0, dto.manager_id || null, dto.registration_number || null]
+       dto.capacity || 0, dto.manager_id || null, dto.primary_rm_id || null, dto.deputy_rm_id || null, dto.registration_number || null]
     );
     return result.rows[0];
   },
 
   async update(id: string, company_id: string, data: Partial<CreateHouseDto>) {
-    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'status', 'registration_number'];
+    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'registration_number', 'last_daily_review_at'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in data) filteredData[key] = (data as Record<string, unknown>)[key];

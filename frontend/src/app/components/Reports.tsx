@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { FileDown, Filter, Calendar } from "lucide-react";
 import { apiClient } from "@/services/api";
+import { MonthlyReportEditor } from "./MonthlyReportEditor";
 
 interface ReportFilters {
   dateRange: {
@@ -21,6 +22,8 @@ interface ReportFilters {
 export function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showMonthlyEditor, setShowMonthlyEditor] = useState(false);
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
   
   const [filters, setFilters] = useState<ReportFilters & { leadershipObservations?: string; forwardPlan?: string }>({
     dateRange: {
@@ -35,7 +38,6 @@ export function Reports() {
   });
 
   const [allHouses, setAllHouses] = useState<any[]>([]);
-
   const severities = ["High", "Medium", "Low"];
   const categories = ["Clinical", "Operational", "Environmental", "Safety", "Administrative"];
   const statuses = ["All", "Open", "Under Review", "Escalated", "Closed"];
@@ -52,8 +54,6 @@ export function Reports() {
   ];
 
   const [activeRisks, setActiveRisks] = useState<any[]>([]);
-
-  // Real preview data from backend
   const [previewData, setPreviewData] = useState({
     totalRisks: 0, highSeverity: 0, escalated: 0, resolved: 0,
     safeguardingConcerns: 0, incidentCount: 0, staffingStability: 0, pulsesCompleted: 0
@@ -121,7 +121,7 @@ export function Reports() {
         staffingStability: pulses.length > 0 ? Math.round(pulses.filter((x: any) => x.status === 'completed').length / pulses.length * 100) : 0,
         pulsesCompleted: pulses.filter((x: any) => x.status === 'completed').length,
       });
-    } catch { /* silently fail - keep zeros */ }
+    } catch { /* silently fail */ }
   };
 
   const loadGeneratedReports = async () => {
@@ -136,10 +136,7 @@ export function Reports() {
   };
 
   const handleFilterChange = (category: keyof ReportFilters, value: any) => {
-    setFilters(prev => ({
-      ...prev,
-      [category]: value
-    }));
+    setFilters(prev => ({ ...prev, [category]: value }));
   };
 
   const handleArrayFilter = (category: keyof ReportFilters, value: string) => {
@@ -147,18 +144,29 @@ export function Reports() {
     const newArray = currentArray.includes(value)
       ? currentArray.filter(item => item !== value)
       : [...currentArray, value];
-    
-    setFilters(prev => ({
-      ...prev,
-      [category]: newArray
-    }));
+    setFilters(prev => ({ ...prev, [category]: newArray }));
   };
 
   const generateReport = async () => {
+    if (filters.reportType === 'organizational_monthly' && userRole === 'DIRECTOR') {
+      setShowMonthlyEditor(true);
+      return;
+    }
+    if (filters.reportType === 'weekly_narrative' && (!filters.houseId && (!filters.houses || filters.houses.length === 0))) {
+      alert("Please select a Service Unit (House) for the Weekly Narrative report.");
+      return;
+    }
+    if (filters.reportType === 'weekly_narrative' && !filters.weekEnding) {
+      alert("Please select a Week Ending date for the Weekly Narrative report.");
+      return;
+    }
+    if (filters.reportType === 'detailed_evidence_pack' && !filters.riskId) {
+      alert("Please select a Target Risk for the Evidence Pack.");
+      return;
+    }
+
     setIsGenerating(true);
-    
     try {
-      // Create request payload matching backend ReportsService schema
       const requestPayload = {
         type: filters.reportType || 'governance_compliance',
         name: `Governance Report - ${new Date().toLocaleDateString('en-GB')}`,
@@ -176,17 +184,11 @@ export function Reports() {
           house_id: filters.houseId || filters.houses[0]
         }
       };
-      
-      const res = await apiClient.post('/reports/request', requestPayload);
-      const data = (res as any).data || res;
-      
-      alert(`Report generation requested! Report ID: ${data.id || 'N/A'}`);
-      
-      // Refresh list to show new pending request
+      await apiClient.post('/reports/request', requestPayload);
+      alert(`Report generation requested!`);
       loadGeneratedReports();
     } catch (err: any) {
       console.error('Failed to request report:', err);
-      // Fallback
       alert(`Failed to request report: ${err.response?.data?.message || err.message}`);
     } finally {
       setIsGenerating(false);
@@ -197,23 +199,17 @@ export function Reports() {
     try {
       const res = await apiClient.get(`/reports/${reportId}/download`);
       const data = (res as any).data || res;
-      
       if (data.file_url) {
-        // Since it's a relative URL from backend worker (/reports/id.json), 
-        // we might need to prefix it with the API base URL if it's not absolute.
-        // But window.open usually handles absolute or relative to current origin.
-        // Let's assume the user wants it opened.
         const downloadUrl = data.file_url.startsWith('http') 
           ? data.file_url 
-          : `${apiClient.defaults.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
-          
+          : `${apiClient.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
+
         window.open(downloadUrl, '_blank');
       } else {
         alert('Download URL not available yet.');
       }
     } catch (err) {
       console.error('Download failed:', err);
-      alert('Failed to download report.');
     }
   };
 
@@ -232,390 +228,162 @@ export function Reports() {
   };
 
   const getActiveFiltersCount = () => {
-    return filters.severity.length + 
-           filters.houses.length + 
-           filters.categories.length + 
-           filters.status.length + 
-           (filters.reportType !== "governance_compliance" ? 1 : 0);
+    return filters.severity.length + filters.houses.length + filters.categories.length + filters.status.length + (filters.reportType !== "governance_compliance" ? 1 : 0);
   };
 
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
-        <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-primary">Reports & Analytics</h1>
-          <p className="text-muted-foreground mt-1">Generate custom governance reports with advanced filtering</p>
-        </div>
-
-        {/* Report Type Selection */}
-        <div className="bg-white border-2 border-black p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4 text-black">Report Type</h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {reportTypes.map((type) => (
-              <button
-                key={type.value}
-                onClick={() => handleFilterChange('reportType', type.value)}
-                className={`p-4 border-2 text-left transition-all ${
-                  filters.reportType === type.value
-                    ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-x-1 -translate-y-1"
-                    : "bg-white text-black border-black hover:border-primary/50 shadow-sm"
-                }`}
-              >
-                <div className="font-black uppercase italic text-xs mb-1 opacity-70">Layer 4 Oversight</div>
-                <div className="font-bold tracking-tight">{type.label}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Phase 4: Dynamic Parameter Selection */}
-        {(filters.reportType === "detailed_evidence_pack" || filters.reportType === "weekly_narrative") && (
-          <div className="bg-white border-2 border-black p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-            <h2 className="text-xl font-black uppercase italic mb-4 flex items-center gap-2">
-                <span className="w-8 h-8 bg-primary text-white flex items-center justify-center font-black rounded-none">!</span>
-                Report Context Required
-            </h2>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {filters.reportType === "detailed_evidence_pack" && (
-                    <div>
-                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Target Risk Lineage</label>
-                        <select 
-                            value={filters.riskId || ""}
-                            onChange={(e) => setFilters({...filters, riskId: e.target.value})}
-                            className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
-                        >
-                            <option value="">Select a Risk for Evidence Review...</option>
-                            {activeRisks.map(r => (
-                                <option key={r.id} value={r.id}>{r.title} ({r.severity})</option>
-                            ))}
-                        </select>
-                        <p className="text-[10px] mt-2 text-muted-foreground uppercase font-bold">This will generate a full CQC-compliant audit trail for the selected risk.</p>
-                    </div>
-                )}
-
-                {filters.reportType === "weekly_narrative" && (
-                    <>
-                        <div>
-                            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Service Unit</label>
-                            <select 
-                                value={filters.houseId || ""}
-                                onChange={(e) => setFilters({...filters, houseId: e.target.value})}
-                                className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
-                            >
-                                <option value="">Select House...</option>
-                                {allHouses.map(h => (
-                                    <option key={h.id} value={h.id}>{h.name}</option>
-                                ))}
-                            </select>
-                        </div>
-                        <div>
-                            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Week Ending Date</label>
-                            <input 
-                                type="date"
-                                value={filters.weekEnding || ""}
-                                onChange={(e) => setFilters({...filters, weekEnding: e.target.value})}
-                                className="w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 font-bold"
-                            />
-                        </div>
-                    </>
-                )}
+        {showMonthlyEditor ? (
+          <MonthlyReportEditor onClose={() => setShowMonthlyEditor(false)} />
+        ) : (
+          <>
+            <div className="mb-6">
+              <h1 className="text-3xl font-semibold text-primary">Reports & Analytics</h1>
+              <p className="text-muted-foreground mt-1">Generate custom governance reports with advanced filtering</p>
             </div>
-          </div>
-        )}
 
-        {/* Filters Section */}
-        <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
-          <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-primary">Filters</h2>
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className="flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary hover:bg-primary/5 transition-colors font-medium shadow-sm"
-              >
-                <Filter className="w-4 h-4" />
-                {showFilters ? "Hide Filters" : "Show Filters"}
-                {getActiveFiltersCount() > 0 && (
-                  <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full">
-                    {getActiveFiltersCount()}
-                  </span>
-                )}
-              </button>
-              {getActiveFiltersCount() > 0 && (
-                <button
-                  onClick={clearFilters}
-                  className="px-4 py-2 border-2 border-border text-foreground hover:bg-muted transition-colors font-medium"
-                >
-                  Clear All
-                </button>
-              )}
-            </div>
-          </div>
-
-          {showFilters && (
-            <div className="space-y-6">
-              {/* Date Range */}
-              <div>
-                <label className="block mb-2 text-foreground font-semibold flex items-center gap-2">
-                  <Calendar className="w-4 h-4 text-primary" />
-                  Date Range
-                </label>
-                <div className="flex gap-4">
-                  <div className="flex-1">
-                    <label className="block mb-1 text-sm text-muted-foreground">From</label>
-                    <input
-                      type="date"
-                      value={filters.dateRange.start}
-                      onChange={(e) => handleFilterChange('dateRange', {
-                        ...filters.dateRange,
-                        start: e.target.value
-                      })}
-                      className="w-full px-4 py-2 bg-background border-2 border-border rounded focus:ring-2 focus:ring-primary focus:outline-none text-foreground"
-                    />
-                  </div>
-                  <div className="flex-1">
-                    <label className="block mb-1 text-sm text-muted-foreground">To</label>
-                    <input
-                      type="date"
-                      value={filters.dateRange.end}
-                      onChange={(e) => handleFilterChange('dateRange', {
-                        ...filters.dateRange,
-                        end: e.target.value
-                      })}
-                      className="w-full px-4 py-2 bg-background border-2 border-border rounded focus:ring-2 focus:ring-primary focus:outline-none text-foreground"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Severity Filter */}
-              <div>
-                <label className="block mb-2 text-foreground font-semibold">Severity</label>
-                <div className="flex flex-wrap gap-2">
-                  {severities.map((severity) => (
-                    <button
-                      key={severity}
-                      onClick={() => handleArrayFilter('severity', severity)}
-                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
-                        filters.severity.includes(severity)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {severity}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Houses Filter - Hidden for RM/TL */}
-              {!['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(localStorage.getItem('userRole')?.toUpperCase() || '') && (
-                <div>
-                  <label className="block mb-2 text-black font-medium">Houses</label>
-                  <div className="flex flex-wrap gap-2">
-                    {allHouses.map((house) => (
-                      <button
-                        key={house.id}
-                        onClick={() => handleArrayFilter('houses', house.id)}
-                        className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
-                          filters.houses.includes(house.id)
-                            ? "bg-primary text-primary-foreground border-primary"
-                            : "bg-background text-foreground border-border hover:border-primary/50"
-                        }`}
-                      >
-                        {house.name}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Categories Filter */}
-              <div>
-                <label className="block mb-2 text-black font-medium">Categories</label>
-                <div className="flex flex-wrap gap-2">
-                  {categories.map((category) => (
-                    <button
-                      key={category}
-                      onClick={() => handleArrayFilter('categories', category)}
-                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
-                        filters.categories.includes(category)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {category}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Status Filter */}
-              <div>
-                <label className="block mb-2 text-black font-medium">Status</label>
-                <div className="flex flex-wrap gap-2">
-                  {statuses.map((status) => (
-                    <button
-                      key={status}
-                      onClick={() => handleArrayFilter('status', status)}
-                      className={`px-4 py-2 border-2 transition-colors font-medium shadow-sm ${
-                        filters.status.includes(status)
-                          ? "bg-primary text-primary-foreground border-primary"
-                          : "bg-background text-foreground border-border hover:border-primary/50"
-                      }`}
-                    >
-                      {status}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Manual Authoring Section for Monthly Board Report */}
-        {filters.reportType === "organizational_monthly" && (
-          <div className="bg-white border-2 border-black p-6 mb-6 shadow-sm">
-            <h2 className="text-xl font-bold text-primary mb-4">Board Report Finalisation</h2>
-            <p className="text-muted-foreground mb-6">As per governance rules, the Monthly Board Report must include executive narrative before generation.</p>
-            
-            <div className="space-y-6">
-              <div>
-                <label className="block font-semibold mb-2">Section 8: Leadership Observations</label>
-                <textarea 
-                  value={filters.leadershipObservations || ""}
-                  onChange={(e) => setFilters(prev => ({ ...prev, leadershipObservations: e.target.value }))}
-                  rows={4}
-                  placeholder="Enter strategic narrative summarizing the governance period..."
-                  className="w-full border-2 border-black p-4 focus:ring-0 text-black"
-                />
-              </div>
-              
-              <div>
-                <label className="block font-semibold mb-2">Section 9: Actions and Forward Plan</label>
-                <textarea 
-                  value={filters.forwardPlan || ""}
-                  onChange={(e) => setFilters(prev => ({ ...prev, forwardPlan: e.target.value }))}
-                  rows={4}
-                  placeholder="Detail the planned interventions and focus areas for the upcoming month..."
-                  className="w-full border-2 border-black p-4 focus:ring-0 text-black"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Preview Section */}
-        <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4 text-primary">Report Preview</h2>
-          <div className="bg-muted/50 border-2 border-border p-4 rounded-lg">
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Total Risks</p>
-                <p className="text-2xl font-bold text-foreground">{previewData.totalRisks}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">High Severity</p>
-                <p className="text-2xl font-bold text-destructive">{previewData.highSeverity}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Escalated</p>
-                <p className="text-2xl font-bold text-warning">{previewData.escalated}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Resolved</p>
-                <p className="text-2xl font-bold text-success">{previewData.resolved}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Safeguarding</p>
-                <p className="text-2xl font-bold text-destructive">{previewData.safeguardingConcerns}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Incidents</p>
-                <p className="text-2xl font-bold text-foreground">{previewData.incidentCount}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Staffing Stability</p>
-                <p className="text-2xl font-bold text-success">{previewData.staffingStability}%</p>
-              </div>
-              <div className="text-center">
-                <p className="text-sm text-muted-foreground mb-1">Date Range</p>
-                <p className="text-sm font-bold text-primary">
-                  {filters.dateRange.start} to {filters.dateRange.end}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Generate Report Button */}
-        <div className="flex justify-center">
-          <button
-            onClick={generateReport}
-            disabled={isGenerating}
-            className={`flex items-center gap-2 px-12 py-4 font-bold rounded-lg transition-all shadow-lg ${
-              isGenerating
-                ? "bg-muted text-muted-foreground cursor-not-allowed"
-                : "bg-primary text-primary-foreground hover:bg-primary/90 active:scale-95"
-            }`}
-          >
-            <FileDown className="w-5 h-5" />
-            {isGenerating ? "Generating Report..." : "Generate Report"}
-          </button>
-        </div>
-
-        {/* Recent Reports */}
-        <div className="mt-8 bg-card border-2 border-border p-6 shadow-sm">
-          <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-bold text-primary">Recent Generated Reports</h2>
-            <button 
-              onClick={loadGeneratedReports}
-              className="text-sm border-2 border-primary text-primary px-4 py-2 rounded hover:bg-primary/5 transition-colors font-medium shadow-sm"
-            >
-              Refresh List
-            </button>
-          </div>
-          <div className="space-y-4">
-            {generatedReports.length === 0 ? (
-              <div className="text-center py-10 text-muted-foreground border-2 border-dashed border-border rounded-lg">
-                No reports generated yet
-              </div>
-            ) : (
-              generatedReports.map((report) => (
-                <div key={report.id} className="flex justify-between items-center p-5 bg-background border border-border rounded-lg shadow-sm hover:border-primary/30 transition-colors">
-                  <div>
-                    <p className="font-bold text-foreground mb-1">
-                      {reportTypes.find(t => t.value === report.report_type)?.label || report.report_type || 'Governance Report'}
-                    </p>
-                    <p className="text-sm text-muted-foreground">
-                      {(report.date_from && report.date_to) ? `${new Date(report.date_from).toLocaleDateString('en-GB')} - ${new Date(report.date_to).toLocaleDateString('en-GB')} • ` : ''}
-                      Generated: {new Date(report.created_at).toLocaleString('en-GB')}
-                    </p>
-                    <div className="flex items-center gap-2 mt-2">
-                       <span className={`text-[10px] px-2 py-0.5 rounded font-bold shadow-sm ${
-                        report.status === 'completed' ? 'bg-success text-success-foreground' :
-                        report.status === 'failed' ? 'bg-destructive text-destructive-foreground' :
-                        'bg-warning text-warning-foreground'
-                      }`}>{report.status?.toUpperCase() || 'UNKNOWN'}</span>
-                    </div>
-                  </div>
-                  <button 
-                    onClick={() => handleDownload(report.id)}
-                    disabled={report.status !== 'completed'}
-                    className={`px-6 py-2 border-2 rounded transition-all font-bold shadow-sm ${
-                      report.status === 'completed' 
-                        ? 'border-primary text-primary hover:bg-primary/5 active:bg-primary/10' 
-                        : 'border-border text-muted-foreground cursor-not-allowed opacity-50'
+            <div className="bg-white border-2 border-black p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4 text-black">Report Type</h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                {reportTypes.map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => handleFilterChange('reportType', type.value)}
+                    className={`p-4 border-2 text-left transition-all ${
+                      filters.reportType === type.value
+                        ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-x-1 -translate-y-1"
+                        : "bg-white text-black border-black hover:border-primary/50 shadow-sm"
                     }`}
                   >
-                    Download PDF
+                    <div className="font-black uppercase italic text-xs mb-1 opacity-70">Layer 4 Oversight</div>
+                    <div className="font-bold tracking-tight">{type.label}</div>
                   </button>
+                ))}
+              </div>
+            </div>
+
+            {(filters.reportType === "detailed_evidence_pack" || filters.reportType === "weekly_narrative") && (
+              <div className="bg-white border-2 border-black p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+                <h2 className="text-xl font-black uppercase italic mb-4">Report Context Required</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {filters.reportType === "detailed_evidence_pack" && (
+                    <div>
+                      <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Target Risk Lineage</label>
+                      <select 
+                        value={filters.riskId || ""}
+                        onChange={(e) => setFilters({...filters, riskId: e.target.value})}
+                        className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                      >
+                        <option value="">Select a Risk...</option>
+                        {activeRisks.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
+                      </select>
+                    </div>
+                  )}
+                  {filters.reportType === "weekly_narrative" && (
+                    <>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Service Unit</label>
+                        <select 
+                          value={filters.houseId || ""}
+                          onChange={(e) => setFilters({...filters, houseId: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                        >
+                          <option value="">Select House...</option>
+                          {allHouses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Week Ending Date</label>
+                        <input 
+                          type="date"
+                          value={filters.weekEnding || ""}
+                          onChange={(e) => setFilters({...filters, weekEnding: e.target.value})}
+                          className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                        />
+                      </div>
+                    </>
+                  )}
                 </div>
-              ))
+              </div>
             )}
-          </div>
-        </div>
+
+            <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="text-xl font-semibold text-primary">Filters</h2>
+                <div className="flex gap-2">
+                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary font-medium">
+                    <Filter className="w-4 h-4" /> {showFilters ? "Hide Filters" : "Show Filters"}
+                  </button>
+                  {getActiveFiltersCount() > 0 && <button onClick={clearFilters} className="px-4 py-2 border-2 border-border text-foreground font-medium">Clear All</button>}
+                </div>
+              </div>
+              {showFilters && (
+                <div className="space-y-6">
+                  <div>
+                    <label className="block mb-2 text-foreground font-semibold">Date Range</label>
+                    <div className="flex gap-4">
+                      <input type="date" value={filters.dateRange.start} onChange={(e) => handleFilterChange('dateRange', {...filters.dateRange, start: e.target.value})} className="flex-1 px-4 py-2 border-2 border-border rounded" />
+                      <input type="date" value={filters.dateRange.end} onChange={(e) => handleFilterChange('dateRange', {...filters.dateRange, end: e.target.value})} className="flex-1 px-4 py-2 border-2 border-border rounded" />
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-foreground font-semibold">Severity</label>
+                    <div className="flex flex-wrap gap-2">
+                      {severities.map(s => <button key={s} onClick={() => handleArrayFilter('severity', s)} className={`px-4 py-2 border-2 ${filters.severity.includes(s) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"}`}>{s}</button>)}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-center">
+              <button
+                onClick={generateReport}
+                disabled={isGenerating}
+                className={`flex items-center gap-2 px-12 py-4 font-bold rounded-lg transition-all shadow-lg ${isGenerating ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}
+              >
+                <FileDown className="w-5 h-5" /> {isGenerating ? "Generating..." : "Generate Report"}
+              </button>
+            </div>
+
+            <div className="mt-8 bg-card border-2 border-border p-6 shadow-sm">
+              <h2 className="text-xl font-bold text-primary mb-6">Recent Reports</h2>
+              <div className="space-y-4">
+                {generatedReports.map((report) => (
+                  <div key={report.id} className="flex justify-between items-center p-5 bg-background border border-border rounded-lg shadow-sm">
+                    <div>
+                      <p className="font-bold text-foreground">{reportTypes.find(t => t.value === report.type)?.label || report.type}</p>
+                      <p className="text-sm text-muted-foreground">{new Date(report.created_at).toLocaleString('en-GB')}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-2">
+                      <span className={`text-[10px] font-black uppercase px-2 py-1 border ${
+                        report.status === 'completed' ? 'bg-success/10 text-success border-success/20' :
+                        report.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20' :
+                        'bg-warning/10 text-warning border-warning/20'
+                      }`}>
+                        {report.status}
+                      </span>
+                      <button 
+                        onClick={() => handleDownload(report.id)} 
+                        disabled={report.status !== 'completed'} 
+                        className="px-6 py-2 border-2 rounded font-bold border-primary text-primary hover:bg-primary/5 disabled:opacity-50 disabled:grayscale transition-all"
+                      >
+                        Download
+                      </button>
+                      {report.status === 'failed' && report.error_message && (
+                        <p className="text-[10px] text-destructive font-bold max-w-[200px] text-right truncate" title={report.error_message}>
+                          Error: {report.error_message}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

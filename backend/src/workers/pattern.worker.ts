@@ -29,28 +29,25 @@ export const startPatternWorker = () => {
 };
 
 async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string) {
-    // 1. Fetch 14-day history for this domain + house
-    const signals14dRes = await query(
+    // [ORDI CORE DOCTRINE] 21-day rolling window for signal memory and reactivation
+    const history21dRes = await query(
         `SELECT gp.*, rsl.cluster_id 
          FROM governance_pulses gp
          LEFT JOIN risk_signal_links rsl ON gp.id = rsl.pulse_entry_id
          WHERE gp.company_id = $1 AND gp.house_id = $2 
-         AND gp.created_at >= NOW() - INTERVAL '14 days'
+         AND gp.entry_date >= CURRENT_DATE - INTERVAL '21 days'
          AND $3 = ANY(gp.risk_domain)
-         ORDER BY gp.created_at DESC`,
+         ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
         [company_id, house_id, domain]
     );
-    const recentSignals = signals14dRes.rows;
+    const recentSignals = history21dRes.rows;
     if (recentSignals.length === 0) return;
-
-    // We need the current pulse object
-    const currentPulse = recentSignals.find(s => s.id === pulse_id) || recentSignals[0];
 
     // Find active cluster or create one
     let clusterRes = await query(
         `SELECT * FROM signal_clusters 
          WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3 
-         AND cluster_status IN ('Emerging', 'Escalated')`,
+         AND cluster_status IN ('Emerging', 'Escalated', 'Confirmed')`,
         [company_id, house_id, domain]
     );
 
@@ -61,18 +58,15 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         const newClusterRes = await query(
             `INSERT INTO signal_clusters (company_id, house_id, risk_domain, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
              VALUES ($1, $2, $3, $4, 'Emerging', 0, NOW(), NOW(), 'Stable') RETURNING id`,
-            [company_id, house_id, domain, `${domain} Signals – ${house_id} (New)`]
+            [company_id, house_id, domain, `${domain} Signal Cluster – ${house_id}`]
         );
         cluster_id = newClusterRes.rows[0].id;
     }
 
-    // Link the current pulse to the cluster if not already linked
-    // Use COALESCE to fallback to completed_by or assigned_user_id if created_by is NULL
+    // Link the current pulse to the cluster
     await query(
         `INSERT INTO risk_signal_links (cluster_id, pulse_entry_id, linked_by) 
-         SELECT $1, $2, COALESCE(created_by, completed_by, assigned_user_id)
-         FROM governance_pulses 
-         WHERE id = $2 AND COALESCE(created_by, completed_by, assigned_user_id) IS NOT NULL
+         SELECT $1, $2, created_by FROM governance_pulses WHERE id = $2
          ON CONFLICT DO NOTHING`,
         [cluster_id, pulse_id]
     );
@@ -81,106 +75,119 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     const linkRes = await query(`SELECT COUNT(*) FROM risk_signal_links WHERE cluster_id = $1`, [cluster_id]);
     const signal_count = parseInt(linkRes.rows[0].count);
 
-    // Base filters
-    const signals7d = recentSignals.filter(s => new Date(s.created_at) >= new Date(Date.now() - 7 * 24 * 60 * 60 * 1000));
-    const signals10d = recentSignals.filter(s => new Date(s.created_at) >= new Date(Date.now() - 10 * 24 * 60 * 60 * 1000));
-    const signals48h = recentSignals.filter(s => new Date(s.created_at) >= new Date(Date.now() - 48 * 60 * 60 * 1000));
+    // Timing Filters
+    const now = new Date();
+    const signals7d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
+    const signals10d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000));
+    const signals48h = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 48 * 60 * 60 * 1000));
 
     // Get RM user ID for notifications
-    const rmRes = await query(`SELECT user_id as id FROM user_houses WHERE house_id = $1 AND role_in_house = 'REGISTERED_MANAGER' LIMIT 1`, [house_id]);
+    const rmRes = await query(`SELECT manager_id as id FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
     const rm_id = rmRes.rows[0]?.id;
-
-    // ==========================================
-    // RULE EVALUATIONS
-    // ==========================================
 
     let cluster_status = 'Emerging';
     let trajectory = 'Stable';
 
-    // Rule 1: Repetition (>=3 in 7 days)
+    // 1. Pattern Emerging: ≥3 same-domain signals within 7 days
     if (signals7d.length >= 3) {
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Repetition', output_type: 'Signal Flag', description: '≥3 same-domain signals in 7 days' });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Pattern Emerging', output_type: 'Signal Flag', description: '≥3 same-domain signals in 7 days' });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
+             VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5) ON CONFLICT DO NOTHING`,
+            [company_id, house_id, cluster_id, domain, 'Pattern Emerging', signals7d.map(s => s.id)]
+        );
     }
 
-    // Rule 2: Escalation (>=5 in 10 days OR >=2 escalating entries)
+    // 2. Risk Review Required: ≥5 signals in 10 days OR ≥2 Escalating flags
     const escalating = signals10d.filter(s => s.pattern_concern === 'Escalating');
     if (signals10d.length >= 5 || escalating.length >= 2) {
         cluster_status = 'Escalated';
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 2, rule_name: 'Escalation', output_type: 'Risk Review Required', description: '≥5 in 10 days OR ≥2 escalating entries' });
-        if (rm_id) await notificationsService.create({ company_id, user_id: rm_id, type: 'PATTERN_ESCALATION', title: 'Pattern Escalated', body: `${domain} pattern requires review.` });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 2, rule_name: 'Risk Review Required', output_type: 'Risk Review Required', description: '≥5 in 10 days OR ≥2 escalating entries' });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
+             VALUES ($1, $2, $3, $4, 'Risk Review Required', $5) ON CONFLICT DO NOTHING`,
+            [company_id, house_id, cluster_id, domain, 'Risk Review Required', signals10d.map(s => s.id)]
+        );
     }
 
-    // Rule 3: Immediate (1 Critical OR 2 High in 48h)
+    // 3. Immediate Risk Consideration: 1 Critical OR 2 High in 48h
     const criticals = signals48h.filter(s => s.severity === 'Critical');
     const highs = signals48h.filter(s => s.severity === 'High');
     if (criticals.length >= 1 || highs.length >= 2) {
         cluster_status = 'Escalated';
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 3, rule_name: 'Immediate Risk', output_type: 'Mandatory Review', description: 'Critical/High severity threshold met in 48h' });
-        if (rm_id) await notificationsService.create({ company_id, user_id: rm_id, type: 'IMMEDIATE_RISK', title: 'Immediate Risk Detected', body: `Urgent review required for ${domain} pattern.` });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 3, rule_name: 'Immediate Risk', output_type: 'Immediate Alert', description: 'Critical/High severity threshold met in 48h' });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
+             VALUES ($1, $2, $3, $4, 'Immediate Risk', $5) ON CONFLICT DO NOTHING`,
+            [company_id, house_id, cluster_id, domain, 'Immediate Risk', signals48h.map(s => s.id)]
+        );
     }
 
-    // Rule 4: Trajectory
-    const hasLowerBefore = signals7d.some(s => s.id !== pulse_id && compareSeverity(s.severity, currentPulse.severity) < 0);
-    if (hasLowerBefore && currentPulse.severity !== 'Low') {
+    // 4. Deteriorating Trajectory: Severity progression Low→Moderate→High within 7 days
+    const hasLow = signals7d.some(s => s.severity === 'Low');
+    const hasMod = signals7d.some(s => s.severity === 'Moderate');
+    const hasHigh = signals7d.some(s => s.severity === 'High');
+    if (hasLow && hasMod && hasHigh) {
         trajectory = 'Deteriorating';
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 4, rule_name: 'Trajectory Deterioration', output_type: 'Signal Flag', description: 'Severity progression within 7 days' });
-        if (rm_id) await notificationsService.create({ company_id, user_id: rm_id, type: 'TRAJECTORY_WARNING', title: 'Trajectory Deteriorating', body: `${domain} severity is escalating.` });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 4, rule_name: 'Deteriorating Trajectory', output_type: 'Signal Flag', description: 'Severity progression Low→Moderate→High within 7 days' });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
+             VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5) ON CONFLICT DO NOTHING`,
+            [company_id, house_id, cluster_id, domain, 'Deteriorating Trajectory', signals7d.map(s => s.id)]
+        );
     }
 
-    // Rule 6: Behaviour (>=3 agitation signals in 7 days)
+    // Reactivation Check (21-day rolling)
+    if (recentSignals.length >= 3) {
+        await query(
+            `UPDATE signal_clusters SET cluster_status = 'Confirmed' WHERE id = $1 AND cluster_status = 'Emerging'`,
+            [cluster_id]
+        );
+    }
+
+    // Domain-Specific Thresholds
     if (domain === 'Behaviour') {
-        if (signals7d.length >= 3) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Behaviour', output_type: 'Pattern flag', description: '≥3 behaviour signals in 7 days' });
+        const aggression = signals7d.filter(s => s.description.toLowerCase().includes('aggression') || s.description.toLowerCase().includes('agitation'));
+        if (aggression.length >= 1 && (aggression[0].severity === 'High' || aggression[0].severity === 'Critical')) {
+            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6.1, rule_name: 'Behaviour: Physical Aggression', output_type: 'Immediate Risk', description: 'Physical aggression signal detected' });
+        }
+    } else if (domain === 'Medication') {
+        const errors = signals7d.filter(s => s.signal_type === 'Medication');
+        if (errors.length >= 3) {
+            cluster_status = 'Escalated';
+            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 7, rule_name: 'Medication: Risk Review', output_type: 'Risk Review Required', description: '≥3 medication signals in 7 days' });
         }
     }
 
-    // Rule 7: Medication (>=2 medication errors in 7 days)
-    if (domain === 'Medication') {
-        if (signals7d.length >= 2) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 7, rule_name: 'Medication', output_type: 'Pattern flag', description: '≥2 medication errors in 7 days' });
-        }
-    }
-
-    // Rule 8: Staffing (>=3 understaffed shifts in 7 days)
-    if (domain === 'Staffing') {
-        if (signals7d.length >= 3) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 8, rule_name: 'Staffing', output_type: 'Pattern flag', description: '≥3 staffing signals in 7 days' });
-        }
-    }
-
-    // Rule 9: Environment (>=3 hazards in 7 days)
-    if (domain === 'Environment') {
-        if (signals7d.length >= 3) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 9, rule_name: 'Environment', output_type: 'Pattern flag', description: '≥3 environmental hazards in 7 days' });
-        }
-    }
-
-    // Rule 10: Governance (>=2 missed reviews/audits)
-    if (domain === 'Governance') {
-        if (signals7d.length >= 2) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 10, rule_name: 'Governance', output_type: 'Pattern flag', description: '≥2 governance failure signals in 7 days' });
-        }
-    }
-
-    // Cross-Service Rule: Same issue appears in >=2 services within 7 days
-    const crossRes = await query(
-        `SELECT COUNT(DISTINCT house_id) as count FROM signal_clusters 
-         WHERE company_id = $1 AND risk_domain = $2 AND last_signal_date >= NOW() - INTERVAL '7 days'`,
-        [company_id, domain]
+    // 5. Control Failure (recurrence): Same domain reappears within 14 days of risk closure
+    const recentClosedRisks = await query(
+        `SELECT id, resolved_at FROM risks 
+         WHERE house_id = $1 AND company_id = $2 AND status = 'Closed'
+         AND category_id IN (SELECT id FROM risk_categories WHERE name = $3)
+         AND resolved_at >= CURRENT_DATE - INTERVAL '14 days'
+         LIMIT 1`,
+        [house_id, company_id, domain]
     );
-    if (parseInt(crossRes.rows[0].count) >= 2) {
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 0, rule_name: 'System-Level Risk', output_type: 'System-Level Risk flag', description: 'Pattern detected across multiple services' });
-        const dirRes = await query(`SELECT id FROM users WHERE company_id = $1 AND role = 'DIRECTOR'`, [company_id]);
-        for (const dir of dirRes.rows) {
-            await notificationsService.create({ company_id, user_id: dir.id, type: 'SYSTEM_RISK', title: 'System-Level Risk', body: `${domain} issue appearing across multiple services.` });
-        }
+
+    if (recentClosedRisks.rows.length > 0) {
+        await thresholdEventsRepo.create({ 
+            company_id, house_id, pulse_id, cluster_id, 
+            rule_number: 5, rule_name: 'Control Failure (Recurrence)', 
+            output_type: 'Immediate Risk', 
+            description: `Domain ${domain} reappeared within 14 days of risk closure (${recentClosedRisks.rows[0].id})` 
+        });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
+             VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5) ON CONFLICT DO NOTHING`,
+            [company_id, house_id, cluster_id, domain, 'Control Failure (Recurrence)', [pulse_id]]
+        );
     }
 
     // Finalize Cluster Update
     await query(
-        `UPDATE signal_clusters SET cluster_status = $1, trajectory = $2, signal_count = $3, last_signal_date = NOW(), cluster_label = $4
-         WHERE id = $5`,
-        [cluster_status, trajectory, signal_count, `${domain} Signals – ${signal_count} recent`, cluster_id]
+        `UPDATE signal_clusters SET cluster_status = $1, trajectory = $2, signal_count = $3, last_signal_date = NOW()
+         WHERE id = $4`,
+        [cluster_status, trajectory, signal_count, cluster_id]
     );
 }
 

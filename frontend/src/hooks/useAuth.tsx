@@ -93,8 +93,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       const { user: userData, token: userToken } = (response as any).data;
       setUser(userData);
       setToken(userToken);
+      
+      // Store authentication data consistently
       localStorage.setItem('authToken', userToken);
       localStorage.setItem('user', JSON.stringify(userData));
+      localStorage.setItem('userRole', userData.role);
+      localStorage.setItem('userName', `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email);
+      localStorage.setItem('userEmail', userData.email);
+      localStorage.setItem('userId', userData.id);
     } else {
       throw new Error((response as any).message || 'Login failed');
     }

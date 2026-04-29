@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { governanceController } from '../controllers/governance.controller';
 import { pulseController } from '../controllers/pulse.controller';
+import { dailyGovernanceController } from '../controllers/dailyGovernance.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
@@ -239,5 +240,16 @@ router.get('/pulses/:id/answers', requireAuth, requireTenant, governanceControll
  *         description: Success
  */
 router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), governanceController.updatePulseStatus.bind(governanceController));
+
+// Clusters & Candidates
+router.get('/clusters', requireAuth, requireTenant, requireScope, governanceController.getClusters.bind(governanceController));
+router.get('/risk-candidates', requireAuth, requireTenant, requireScope, governanceController.getRiskCandidates.bind(governanceController));
+
+// Action Effectiveness
+router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, governanceController.getActionEffectiveness.bind(governanceController));
+
+// Daily Governance Log
+router.post('/daily-log/open', requireAuth, requireTenant, requireScope, dailyGovernanceController.openLog.bind(dailyGovernanceController));
+router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, dailyGovernanceController.completeLog.bind(dailyGovernanceController));
 
 export default router;

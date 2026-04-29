@@ -13,7 +13,7 @@ export function startAnalyticsWorker() {
     const [risks, incidents, governance, escalations, houses, users] = await Promise.all([
       query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'open') AS open, COUNT(*) FILTER (WHERE status = 'resolved') AS resolved, COUNT(*) FILTER (WHERE severity = 'critical') AS critical FROM risks WHERE company_id = $1`, [company_id]),
       query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'open') AS open FROM incidents WHERE company_id = $1`, [company_id]),
-      query(`SELECT COALESCE(AVG(compliance_score),0) AS compliance_rate FROM governance_pulses WHERE company_id = $1 AND status = 'completed'`, [company_id]),
+      query(`SELECT COALESCE(100.0 * COUNT(*) FILTER (WHERE review_status != 'New') / NULLIF(COUNT(*), 0), 0) AS compliance_rate FROM governance_pulses WHERE company_id = $1`, [company_id]),
       query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE status = 'resolved') AS resolved FROM escalations WHERE company_id = $1`, [company_id]),
       query(`SELECT COUNT(*) AS total FROM houses WHERE company_id = $1 AND status = 'active'`, [company_id]),
       query(`SELECT COUNT(*) AS total FROM users WHERE company_id = $1 AND status = 'active'`, [company_id]),

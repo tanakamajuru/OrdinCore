@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { AlertCircle, Clock, PlusCircle, FileText } from "lucide-react";
+import { AlertCircle, Clock, PlusCircle, FileText, Activity } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -76,88 +76,76 @@ export function TeamLeaderDashboard() {
           {/* Left: Quick Actions */}
           <div className="space-y-6">
             <div className="bg-card border-2 border-primary/20 p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-4 flex items-center gap-2">
+              <h2 className="text-xl font-black uppercase italic tracking-tighter mb-4 flex items-center gap-2">
                 <PlusCircle className="w-5 h-5 text-primary" />
-                Quick Actions
+                Frontline Reporting
               </h2>
               <div className="grid grid-cols-1 gap-4">
                 <button
+                  onClick={() => navigate("/governance-pulse")}
+                  className="w-full py-6 px-6 bg-primary text-primary-foreground font-black text-2xl italic tracking-tighter hover:bg-primary/90 transition-all shadow-xl flex items-center justify-center gap-4 group"
+                >
+                  <Activity className="w-8 h-8 group-hover:scale-110 transition-transform" />
+                  COMPLETE DAILY PULSE
+                </button>
+                <button
                   onClick={() => navigate("/incidents")}
-                  className="w-full py-4 px-6 bg-destructive text-destructive-foreground font-bold text-lg hover:bg-destructive/90 transition-all shadow-md flex items-center justify-center gap-3"
+                  className="w-full py-4 px-6 bg-destructive text-destructive-foreground font-black text-xl italic tracking-tighter hover:bg-destructive/90 transition-all shadow-md flex items-center justify-center gap-3"
                 >
                   <AlertCircle className="w-6 h-6" />
                   REPORT SERIOUS INCIDENT
-                </button>
-                <button
-                  onClick={() => navigate("/governance-pulse")}
-                  className="w-full py-4 px-6 bg-primary text-primary-foreground font-bold text-lg hover:bg-primary/90 transition-all shadow-md flex items-center justify-center gap-3"
-                >
-                  <Clock className="w-6 h-6" />
-                  COMPLETE DAILY PULSE
                 </button>
               </div>
             </div>
 
             {/* Daily Pulse Status */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-bold mb-4">Daily Pulse Status</h2>
+              <h2 className="text-xl font-bold mb-4">Observation History</h2>
               {lastPulse ? (
                 <div className="flex items-center justify-between p-4 bg-muted/30 border border-border rounded">
                   <div>
-                    <p className="font-bold text-foreground">Last Pulse Attempt</p>
-                    <p className="text-sm text-muted-foreground">{new Date(lastPulse.created_at).toLocaleString()}</p>
+                    <p className="font-bold text-foreground italic uppercase text-xs tracking-widest opacity-60">Latest Signal Recorded</p>
+                    <p className="font-black text-lg text-primary italic tracking-tighter mt-1">{lastPulse.signal_type}</p>
+                    <p className="text-[10px] text-muted-foreground font-bold mt-1">{new Date(lastPulse.pulse_date || lastPulse.created_at).toLocaleString('en-GB')}</p>
                   </div>
-                  <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                    ['SUBMITTED', 'LOCKED', 'completed'].includes(lastPulse.status) ? 'bg-success/20 text-success' : 'bg-warning/20 text-warning'
+                  <div className={`px-4 py-1 border-2 font-black italic text-xs tracking-widest ${
+                    ['SUBMITTED', 'LOCKED', 'completed'].includes(lastPulse.status) ? 'border-success/30 text-success bg-success/5' : 'border-warning/30 text-warning bg-warning/5'
                   }`}>
                     {lastPulse.status.toUpperCase()}
                   </div>
                 </div>
               ) : (
-                <div className="text-center py-6 text-muted-foreground border border-dashed border-border">
-                  No pulse records found.
+                <div className="text-center py-6 text-muted-foreground border border-dashed border-border italic font-bold">
+                  No signals recorded yet.
                 </div>
               )}
               <button
                 onClick={() => navigate("/pulse-history")}
-                className="w-full mt-4 py-2 text-sm font-bold text-primary hover:underline flex items-center justify-center gap-2 border-t border-border pt-4"
+                className="w-full mt-4 py-2 text-sm font-black text-primary hover:underline flex items-center justify-center gap-2 border-t-2 border-border pt-4 uppercase italic tracking-widest"
               >
                 <FileText className="w-4 h-4" />
-                View Submission History
+                View Full Signal History
               </button>
             </div>
           </div>
 
-          {/* Right: Recent Activity */}
+          {/* Right: Assigned Actions */}
           <div className="bg-card border-2 border-border p-6 shadow-sm">
-            <h2 className="text-xl font-bold mb-4">My Recent Reports</h2>
+            <h2 className="text-xl font-black uppercase italic tracking-tighter mb-4 flex items-center gap-2">
+              <Clock className="w-5 h-5 text-primary" />
+              My Assigned Actions
+            </h2>
             <div className="space-y-4">
-              {recentIncidents.length > 0 ? recentIncidents.map((incident) => (
-                <div key={incident.id} className="p-4 border border-border hover:border-primary/50 transition-colors">
-                  <div className="flex justify-between items-start mb-1">
-                    <p className="font-bold text-foreground">{incident.title || `Incident #${incident.id.substring(0,8)}`}</p>
-                    <span className={`text-[10px] px-2 py-0.5 rounded font-black ${
-                      incident.severity === 'serious' || incident.severity === 'critical' ? 'bg-destructive text-destructive-foreground' : 'bg-muted text-muted-foreground'
-                    }`}>
-                      {incident.severity.toUpperCase()}
-                    </span>
-                  </div>
-                  <div className="flex justify-between items-center text-xs text-muted-foreground">
-                    <span>{new Date(incident.created_at).toLocaleDateString()}</span>
-                    <span className="capitalize">{incident.status.replace('_', ' ')}</span>
-                  </div>
-                </div>
-              )) : (
-                <div className="text-center py-12 text-muted-foreground border border-dashed border-border">
-                  No incidents reported recently.
-                </div>
-              )}
+              {/* This will be populated from ra.* where assigned_user_id = TL.id */}
+              <div className="text-center py-12 text-muted-foreground border border-dashed border-border font-bold italic uppercase tracking-widest opacity-40">
+                No active actions assigned by Manager.
+              </div>
             </div>
             <button
-              onClick={() => navigate("/incidents")}
-              className="w-full mt-6 py-2 text-sm font-bold text-primary hover:underline"
+              onClick={() => navigate("/my-actions")}
+              className="w-full mt-6 py-3 bg-muted text-foreground font-black uppercase italic tracking-widest hover:bg-muted/80 transition-all border-2 border-border"
             >
-              View Full History
+              Go to Action Tracker
             </button>
           </div>
         </div>

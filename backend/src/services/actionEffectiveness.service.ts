@@ -31,7 +31,7 @@ export class ActionEffectivenessService {
   async getPendingEffectiveness(company_id: string, house_id?: string) {
     // Actions completed > 48h ago but not yet rated
     let sql = `
-      SELECT ra.*, h.name as house_name, r.risk_title
+      SELECT ra.*, h.name as house_name, r.title as risk_title
       FROM risk_actions ra
       JOIN risks r ON r.id = ra.risk_id
       JOIN houses h ON h.id = r.house_id

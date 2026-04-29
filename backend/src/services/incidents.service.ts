@@ -2,11 +2,7 @@ import { incidentsRepo } from '../repositories/incidents.repo';
 import { eventBus, EVENTS } from '../events/eventBus';
 
 export class IncidentsService {
-  async create(company_id: string, created_by: string, data: {
-    house_id: string; title: string; description: string; severity?: string; status?: string; occurred_at: Date;
-    location?: string; immediate_action?: string; category_id?: string; assigned_to?: string;
-    persons_involved?: string[]; follow_up_required?: boolean;
-  }) {
+  async create(company_id: string, created_by: string, data: any) {
     const incident = await incidentsRepo.create({ company_id, created_by, ...data });
 
     // Add creation event to timeline

@@ -108,11 +108,17 @@ export function SignalCaptureForm() {
 
   const loadHouses = async () => {
     try {
-      const res = await apiClient.get('/houses');
-      const data = res.data.data || res.data;
-      setHouses(data);
-      if (data.length > 0) setFormData(prev => ({ ...prev, house_id: data[0].id }));
+      // RMs and TLs should only see their assigned houses if possible
+      const housesRes = await apiClient.get('/houses?limit=100');
+      const hData = (housesRes as any).data || (housesRes as any) || [];
+      const housesList = Array.isArray(hData) ? hData : [];
+      
+      setHouses(housesList);
+      if (housesList.length > 0) {
+        setFormData(prev => ({ ...prev, house_id: housesList[0].id }));
+      }
     } catch (err) {
+      console.error('Failed to load houses', err);
       toast.error("Failed to load houses");
     }
   };

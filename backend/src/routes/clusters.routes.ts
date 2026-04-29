@@ -5,6 +5,7 @@ import { requireTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
+router.get('/', requireAuth, requireTenant, clustersController.findAll.bind(clustersController));
 router.get('/:id', requireAuth, requireTenant, clustersController.findById.bind(clustersController));
 
 export default router;

@@ -25,12 +25,36 @@ export class DailyGovernanceService {
     return result.rows[0];
   }
 
-  async completeLog(log_id: string, note: string, user_id: string, company_id: string) {
+  async completeLog(log_id: string, note: string, user_id: string, company_id: string, is_deputy_review: boolean = false) {
+    // 1. Check for High/Critical signals today if deputy review
+    let enhanced_oversight = false;
+    let director_notified = null;
+
+    if (is_deputy_review) {
+      const logRes = await query('SELECT house_id FROM daily_governance_log WHERE id = $1', [log_id]);
+      const house_id = logRes.rows[0]?.house_id;
+      
+      const signalsRes = await query(
+        `SELECT COUNT(*) FROM governance_pulses 
+         WHERE house_id = $1 AND entry_date = CURRENT_DATE 
+         AND severity IN ('High', 'Critical')`,
+        [house_id]
+      );
+      
+      if (parseInt(signalsRes.rows[0].count) > 0) {
+        enhanced_oversight = true;
+        director_notified = new Date();
+        // [INTEGRATION] In a real system, trigger SMS/Email here via notificationsService
+      }
+    }
+
     const result = await query(
       `UPDATE daily_governance_log 
-       SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW()
+       SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW(), 
+           is_deputy_review = $4, review_type = $5, 
+           enhanced_oversight_required = $6, director_notified_at = $7
        WHERE id = $3 RETURNING *`,
-      [note, user_id, log_id]
+      [note, user_id, log_id, is_deputy_review, is_deputy_review ? 'Deputy Cover' : 'Primary', enhanced_oversight, director_notified]
     );
 
     if (!result.rows[0]) throw new Error('Governance log not found');

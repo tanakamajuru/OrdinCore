@@ -1,4 +1,5 @@
 import { auditChecklistService } from './auditChecklist.service';
+import { query } from '../config/database';
 
 export class GovernanceService {
   async createPulse(company_id: string, data: any) {
@@ -55,6 +56,50 @@ export class GovernanceService {
 
   async generateMissingPulses(company_id: string, house_id?: string, user_id?: string) {
     return auditChecklistService.generateMissingPulses(company_id, house_id, user_id);
+  }
+
+  async getClusters(company_id: string, filters: any) {
+    let q = 'SELECT * FROM signal_clusters WHERE company_id = $1';
+    const params: any[] = [company_id];
+    if (filters.house_id) {
+      params.push(filters.house_id);
+      q += ` AND house_id = $${params.length}`;
+    }
+    if (filters.status) {
+      params.push(filters.status);
+      q += ` AND cluster_status = $${params.length}`;
+    }
+    q += ' ORDER BY last_signal_date DESC';
+    const res = await query(q, params);
+    return res.rows;
+  }
+
+  async getRiskCandidates(company_id: string, filters: any) {
+    let q = 'SELECT * FROM risk_candidates WHERE company_id = $1';
+    const params: any[] = [company_id];
+    if (filters.house_id) {
+      params.push(filters.house_id);
+      q += ` AND house_id = $${params.length}`;
+    }
+    if (filters.status) {
+      params.push(filters.status);
+      q += ` AND status = $${params.length}`;
+    }
+    q += ' ORDER BY created_at DESC';
+    const res = await query(q, params);
+    return res.rows;
+  }
+
+  async getActionEffectiveness(company_id: string, filters: any) {
+    let q = 'SELECT * FROM action_effectiveness WHERE company_id = $1';
+    const params: any[] = [company_id];
+    if (filters.house_id) {
+      params.push(filters.house_id);
+      q += ` AND house_id = $${params.length}`;
+    }
+    q += ' ORDER BY evaluated_at DESC';
+    const res = await query(q, params);
+    return res.rows;
   }
 }
 

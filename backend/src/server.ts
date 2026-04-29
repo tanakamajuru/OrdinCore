@@ -14,6 +14,9 @@ import { startSafeguardingEscalationWorker } from './workers/safeguardingEscalat
 import { startEffectivenessReminderWorker } from './workers/effectivenessReminder.worker';
 import { startRecurrenceWatchWorker } from './workers/recurrenceWatch.worker';
 import { startNoSignalPromptWorker } from './workers/noSignalPrompt.worker';
+import { startActionEffectivenessWorker } from './workers/actionEffectiveness.worker';
+import { startRiAssuranceWorker } from './workers/riAssurance.worker';
+import { startDirectorGovernanceWorker } from './workers/directorGovernance.worker';
 import { Queue } from 'bullmq';
 import { redisConnection } from './config/redis';
 import { eventBus, EVENTS } from './events/eventBus';
@@ -39,13 +42,30 @@ const safeguardingWorker = startSafeguardingEscalationWorker();
 const effectivenessReminderWorker = startEffectivenessReminderWorker();
 const recurrenceWatchWorker = startRecurrenceWatchWorker();
 const noSignalPromptWorker = startNoSignalPromptWorker();
+const actionEffectivenessWorker = startActionEffectivenessWorker();
+const riAssuranceWorker = startRiAssuranceWorker();
+const directorGovernanceWorker = startDirectorGovernanceWorker();
+
 
 // Simple schedule triggers for daily jobs
+const riQueue = new Queue('ri-assurance', { connection: redisConnection });
+riQueue.add('osp-delta', {}, { repeat: { pattern: '0 1 * * *' } }); // 1 AM daily
+riQueue.add('deputy-cover', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
+riQueue.add('unacknowledged-reminders', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
+riQueue.add('heatmap-refresh', {}, { repeat: { pattern: '0 * * * *' } }); // Hourly
+
 new Queue('effectiveness-reminder', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
 new Queue('recurrence-watch', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 1 * * *' } });
 new Queue('no-signal-prompt', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 9 * * *' } });
 // Simple schedule trigger for the prompt worker
 new Queue('action-effectiveness-prompt', { connection: redisConnection }).add('action-effectiveness-prompt', {}, { repeat: { pattern: '0 * * * *' } });
+new Queue('action-effectiveness', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
+
+// Director Governance Scheduling
+const directorQueue = new Queue('director-governance', { connection: redisConnection });
+directorQueue.add('detect-control-failures', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
+directorQueue.add('publish-monthly-reports', {}, { repeat: { pattern: '0 2 1 * *' } }); // 2 AM on 1st of month
+
 
 // ─── Event Bus: Wire up global listeners ─────────────────────────────────────
 eventBus.on(EVENTS.RISK_ESCALATED, (payload) => {
@@ -73,7 +93,11 @@ const shutdown = async (signal: string) => {
       await effectivenessReminderWorker.close();
       await recurrenceWatchWorker.close();
       await noSignalPromptWorker.close();
+      await actionEffectivenessWorker.close();
+      await riAssuranceWorker.close();
+      await directorGovernanceWorker.close();
       await getPool().end();
+
       await redis.quit();
       logger.info('All connections closed. Exiting.');
       process.exit(0);

@@ -68,5 +68,28 @@ export const clustersRepo = {
             [house_id, risk_domain]
         );
         return result.rows;
+    },
+    async findAll(company_id: string, filters: { status?: string; house_id?: string }) {
+        let sql = `SELECT c.*, h.name as house_name 
+                  FROM signal_clusters c
+                  JOIN houses h ON h.id = c.house_id
+                  WHERE c.company_id = $1`;
+        const params: any[] = [company_id];
+        let idx = 2;
+        
+        if (filters.status) {
+            sql += ` AND c.cluster_status = $${idx++}`;
+            params.push(filters.status);
+        }
+        
+        if (filters.house_id) {
+            sql += ` AND c.house_id = $${idx++}`;
+            params.push(filters.house_id);
+        }
+        
+        sql += ` ORDER BY c.last_signal_date DESC`;
+        
+        const result = await query(sql, params);
+        return result.rows;
     }
 };

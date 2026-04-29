@@ -140,6 +140,42 @@ export class GovernanceController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  async getClusters(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = { house_id: req.query.house_id as string, status: req.query.status as string };
+      const clusters = await governanceService.getClusters(company_id, filters);
+      return res.json({ success: true, data: clusters });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch clusters';
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
+  async getRiskCandidates(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = { house_id: req.query.house_id as string, status: req.query.status as string };
+      const candidates = await governanceService.getRiskCandidates(company_id, filters);
+      return res.json({ success: true, data: candidates });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch risk candidates';
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
+  async getActionEffectiveness(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = { house_id: req.query.house_id as string };
+      const effectiveness = await governanceService.getActionEffectiveness(company_id, filters);
+      return res.json({ success: true, data: effectiveness });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch action effectiveness';
+      return res.status(500).json({ success: false, message });
+    }
+  }
 }
 
 export const governanceController = new GovernanceController();

@@ -9,6 +9,28 @@ import { toast } from "sonner";
 export function MonthlyReport() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [lastReport, setLastReport] = useState<any>(null);
+  const [reports, setReports] = useState<any[]>([]);
+  const [isLoadingReports, setIsLoadingReports] = useState(false);
+
+  useEffect(() => {
+    loadRecentReports();
+  }, []);
+
+  const loadRecentReports = async () => {
+    try {
+      setIsLoadingReports(true);
+      const res = await apiClient.get('/reports?limit=5');
+      const data = (res as any).data || res;
+      const allReports = Array.isArray(data) ? data : (data.reports || []);
+      // Filter for organizational monthly reports
+      setReports(allReports.filter((r: any) => r.type === 'organizational_monthly'));
+    } catch (err) {
+      console.error('Failed to load reports:', err);
+    } finally {
+      setIsLoadingReports(false);
+    }
+  };
+
 
   const generateReport = async () => {
     setIsGenerating(true);
@@ -22,6 +44,8 @@ export function MonthlyReport() {
       const reportData = (response as any).data || response;
       setLastReport(reportData);
       toast.success("Monthly report generation requested");
+      loadRecentReports();
+
     } catch (error) {
       console.error('Failed to generate report:', error);
       toast.error("Failed to request report generation");
@@ -29,6 +53,25 @@ export function MonthlyReport() {
       setIsGenerating(false);
     }
   };
+
+  const handleDownload = async (reportId: string) => {
+    try {
+      const res = await apiClient.get(`/reports/${reportId}/download`);
+      const data = (res as any).data || res;
+      if (data.file_url) {
+        const downloadUrl = data.file_url.startsWith('http') 
+          ? data.file_url 
+          : `${apiClient.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
+        window.open(downloadUrl, '_blank');
+      } else {
+        toast.error('Download URL not available yet.');
+      }
+    } catch (err) {
+      console.error('Download failed:', err);
+      toast.error('Failed to download report');
+    }
+  };
+
 
   return (
     <div className="min-h-screen bg-white">
@@ -107,17 +150,36 @@ export function MonthlyReport() {
                 <CardTitle className="text-lg">Recent Reports</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0">
+                {isLoadingReports ? (
+                  <div className="text-center py-4 text-sm text-gray-500">Loading reports...</div>
+                ) : reports.length === 0 ? (
+                  <div className="text-center py-4 text-sm text-gray-500">No strategic reports generated yet.</div>
+                ) : reports.map((report) => (
+                  <div key={report.id} className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0">
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-400" />
-                      <div className="text-sm font-medium text-black">Monthly_Report_Q{i}.pdf</div>
+                      <div className="text-sm font-medium text-black truncate max-w-[150px]">{report.name}</div>
                     </div>
-                    <Button variant="ghost" size="sm" className="text-black">
-                      <Download className="w-4 h-4" />
-                    </Button>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${
+                        report.status === 'completed' ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'
+                      }`}>
+                        {report.status}
+                      </span>
+                      {report.status === 'completed' && (
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="text-black h-8 w-8 p-0"
+                          onClick={() => handleDownload(report.id)}
+                        >
+                          <Download className="w-4 h-4" />
+                        </Button>
+                      )}
+                    </div>
                   </div>
                 ))}
+
               </CardContent>
             </Card>
           </div>

@@ -28,7 +28,17 @@ export class RisksController {
     try {
       const company_id = req.user!.company_id!;
       const user_id = req.user!.user_id;
-      const risk = await risksService.promoteFromCluster(company_id, user_id, req.body);
+      const { candidate_id, cluster_id } = req.body;
+      
+      let risk;
+      if (candidate_id) {
+        risk = await risksService.promoteFromCandidate(company_id, user_id, req.body);
+      } else if (cluster_id) {
+        risk = await risksService.promoteFromCluster(company_id, user_id, req.body);
+      } else {
+        return res.status(400).json({ success: false, message: 'Source candidate_id or cluster_id required' });
+      }
+
       return res.status(201).json({ success: true, data: risk, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to promote cluster to risk';
@@ -41,7 +51,9 @@ export class RisksController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const filters = { status: req.query.status, severity: req.query.severity, house_id: req.query.house_id, assigned_to: req.query.assigned_to };
+      const severityRaw = req.query.severity as string;
+      const severity = severityRaw ? severityRaw.charAt(0).toUpperCase() + severityRaw.slice(1).toLowerCase() : undefined;
+      const filters = { status: req.query.status, severity, house_id: req.query.house_id, assigned_to: req.query.assigned_to };
       const result = await risksService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.risks, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {

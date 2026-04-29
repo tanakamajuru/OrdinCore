@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from './ui/switch';
 import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { Users, UserPlus, Edit, Trash2, Key, Search } from 'lucide-react';
+import { Users, UserPlus, Edit, Trash2, Key, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface User {
@@ -363,6 +363,33 @@ const AdminUserManagement: React.FC = () => {
     }
   };
 
+  // Restore user (set to active)
+  const handleRestoreUser = async (user: User) => {
+    setIsSubmitting(true);
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${user.id}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({ status: 'active' }),
+      });
+
+      if (response.ok) {
+        toast.success("User restored successfully");
+        await Promise.all([fetchUsers(), fetchStats()]);
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to restore user' }));
+        toast.error(errorData.error || errorData.message || "Failed to restore user");
+      }
+    } catch (error) {
+      toast.error("Network error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -584,15 +611,27 @@ const AdminUserManagement: React.FC = () => {
                         >
                           <Key className="h-4 w-4" />
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => openDeleteDialog(user)}
-                          className="text-orange-600 hover:text-orange-800"
-                          title="Archive User"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                        {user.is_active ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => openDeleteDialog(user)}
+                            className="text-orange-600 hover:text-orange-800"
+                            title="Archive User"
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleRestoreUser(user)}
+                            className="text-green-600 hover:text-green-800"
+                            title="Restore User"
+                          >
+                            <RefreshCw className="h-4 w-4" />
+                          </Button>
+                        )}
                       </div>
                     </TableCell>
                   </TableRow>

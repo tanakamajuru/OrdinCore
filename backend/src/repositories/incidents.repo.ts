@@ -30,7 +30,31 @@ export const incidentsRepo = {
       WHERE i.id = $1`;
     if (company_id) { sql += ' AND i.company_id = $2'; params.push(company_id); }
     const result = await query(sql, params);
-    return result.rows[0] || null;
+    const incident = result.rows[0] || null;
+
+    if (incident) {
+      // Fetch linked risks
+      const risksResult = await query(
+        `SELECT r.id, r.title, r.severity, r.status 
+         FROM risks r 
+         JOIN incident_risks ir ON ir.risk_id = r.id 
+         WHERE ir.incident_id = $1`,
+        [id]
+      );
+      incident.linked_risks = risksResult.rows;
+
+      // Fetch linked escalations
+      const escResult = await query(
+        `SELECT e.id, e.reason, e.status, e.severity 
+         FROM escalations e 
+         JOIN incident_escalations ie ON ie.escalation_id = e.id 
+         WHERE ie.incident_id = $1`,
+        [id]
+      );
+      incident.linked_escalations = escResult.rows;
+    }
+
+    return incident;
   },
 
   async findByCompany(company_id: string, filters: Record<string, unknown> = {}, limit = 50, offset = 0) {
@@ -84,7 +108,12 @@ export const incidentsRepo = {
     return parseInt(result.rows[0].count);
   },
 
-  async create(dto: CreateIncidentDto & { persons_involved?: string[]; follow_up_required?: boolean }) {
+  async create(dto: CreateIncidentDto & { 
+    persons_involved?: string[]; 
+    follow_up_required?: boolean;
+    linked_risks?: string[];
+    linked_escalations?: string[];
+  }) {
     const id = uuidv4();
     const result = await query(
       `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
@@ -94,7 +123,30 @@ export const incidentsRepo = {
        dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
        JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false]
     );
-    return result.rows[0];
+
+    const incident = result.rows[0];
+
+    // Handle linked risks
+    if (dto.linked_risks && dto.linked_risks.length > 0) {
+      for (const riskId of dto.linked_risks) {
+        await query(
+          `INSERT INTO incident_risks (incident_id, risk_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [id, riskId]
+        );
+      }
+    }
+
+    // Handle linked escalations
+    if (dto.linked_escalations && dto.linked_escalations.length > 0) {
+      for (const escId of dto.linked_escalations) {
+        await query(
+          `INSERT INTO incident_escalations (incident_id, escalation_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [id, escId]
+        );
+      }
+    }
+
+    return incident;
   },
 
   async update(id: string, company_id: string, data: Partial<CreateIncidentDto> & { status?: string; resolved_at?: Date }) {

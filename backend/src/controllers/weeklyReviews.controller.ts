@@ -36,6 +36,13 @@ export class WeeklyReviewsController {
     try {
       const company_id = req.user!.company_id!;
       const { house_id, week_ending } = req.query;
+
+      // Validate house_id as UUID
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!house_id || !uuidRegex.test(house_id as string)) {
+        return res.status(400).json({ success: false, message: 'Invalid or missing house_id. Please ensure a house is selected.' });
+      }
+
       const data = await weeklyReviewsService.prepareReview(company_id, house_id as string, week_ending as string);
       return res.json({ success: true, data });
     } catch (err: unknown) {

@@ -2,9 +2,10 @@ import React from 'react';
 import { Stepper, Step, StepLabel, Box, Typography } from '@mui/material';
 
 const steps = [
-  'Scope', 'Pulses', 'Patterns', 'Escalations', 'Protective', 
-  'Interpretation', 'Risks', 'Trajectory', 'Control Failures', 
-  'Decisions', 'Actions', 'Position', 'Sign-off'
+  'Service', 'Period', 'Counts', 'Signals', 'Repeats', 
+  'Worsening', 'Improvements', 'Interpretation', 'Affected Risks', 
+  'Risk Analysis', 'Control Failures', 'Decisions', 'Actions', 
+  'Position', 'Narrative'
 ];
 
 interface WeeklyReviewStepNavProps {
