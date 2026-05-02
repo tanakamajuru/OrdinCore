@@ -4,16 +4,19 @@
 -- 1. Make company_id nullable in governance_templates
 ALTER TABLE governance_templates ALTER COLUMN company_id DROP NOT NULL;
 
--- 2. Create the System Standard Pulse Template (Shared across all companies)
+-- 2. Make created_by nullable temporarily to allow system template creation
+ALTER TABLE governance_templates ALTER COLUMN created_by DROP NOT NULL;
+
+-- 3. Create the System Standard Pulse Template (Shared across all companies)
 INSERT INTO governance_templates (id, company_id, name, description, frequency, is_active, created_by)
 VALUES (
-  '00000000-0000-0000-0000-000000000001', 
-  NULL, 
-  'System Standard Pulse', 
-  'Hardcoded system-wide governance pulse template', 
-  'daily', 
-  true, 
-  (SELECT id FROM users WHERE role = 'SUPER_ADMIN' LIMIT 1)
+  '00000000-0000-0000-0000-000000000001',
+  NULL,
+  'System Standard Pulse',
+  'Hardcoded system-wide governance pulse template',
+  'daily',
+  true,
+  NULL
 )
 ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, is_active = true;
 
