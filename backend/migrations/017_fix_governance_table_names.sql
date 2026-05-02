@@ -33,10 +33,15 @@ ALTER TABLE governance_answers ADD COLUMN IF NOT EXISTS comment TEXT;
 ALTER TABLE governance_answers ADD COLUMN IF NOT EXISTS answered_by UUID REFERENCES users(id) ON DELETE RESTRICT;
 ALTER TABLE governance_answers ADD COLUMN IF NOT EXISTS answered_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
 
--- 3. Set answered_by if it was null (fallback to a super admin)
-UPDATE governance_answers 
-SET answered_by = (SELECT id FROM users WHERE role = 'SUPER_ADMIN' LIMIT 1)
-WHERE answered_by IS NULL;
+-- 3. Set answered_by if it was null (fallback to any user or leave null)
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM users LIMIT 1) THEN
+        UPDATE governance_answers
+        SET answered_by = (SELECT id FROM users LIMIT 1)
+        WHERE answered_by IS NULL;
+    END IF;
+END $$;
 
--- 4. Mark column NOT NULL after populating
-ALTER TABLE governance_answers ALTER COLUMN answered_by SET NOT NULL;
+-- 4. Make answered_by nullable since we might not have a user
+ALTER TABLE governance_answers ALTER COLUMN answered_by DROP NOT NULL;
