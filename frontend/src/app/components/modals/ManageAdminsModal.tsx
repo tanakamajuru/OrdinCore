@@ -129,8 +129,11 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
               </p>
             </div>
           </div>
-          <button 
-            onClick={onClose}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              onClose();
+            }}
             className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-muted-foreground"
           >
             <X className="w-6 h-6" />
