@@ -139,13 +139,24 @@ async function seed() {
             }
         }
 
-        // 6. Seed Clusters and Candidates manually
-        console.log('🧬 Seeding Clusters & Candidates...');
+        // 6. Seed Risk Categories first
+        console.log('📋 Seeding Risk Categories...');
         const categories = {
             'Behaviour': '484775f7-9852-46bc-a9b5-cc838b786495',
             'Medication': 'e92e1c94-3ac4-4d1e-be58-3e0ec8045d77',
             'Staffing': 'd3861712-8837-4546-aee8-37f1da6f71c9'
         };
+
+        for (const [name, id] of Object.entries(categories)) {
+            await pool.query(`
+                INSERT INTO risk_categories (id, company_id, name, description, color, created_at)
+                VALUES ($1, $2, $3, $4, '#ef4444', NOW())
+                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+            `, [id, companyId, name, `${name} related risks`]);
+        }
+
+        // 7. Seed Clusters and Candidates
+        console.log('🧬 Seeding Clusters & Candidates...');
 
         for (const house of houses) {
             for (const [domain, catId] of Object.entries(categories)) {
