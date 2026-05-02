@@ -68,6 +68,6 @@ FROM houses h
 CROSS JOIN last_7_days l7
 LEFT JOIN daily_governance_log dgl ON dgl.house_id = h.id AND dgl.review_date = l7.review_date
 LEFT JOIN weekly_reviews wr ON wr.house_id = h.id AND wr.week_ending >= l7.review_date AND wr.week_ending < l7.review_date + 7
-WHERE h.is_active = true;
+WHERE h.status = 'active';
 
 CREATE UNIQUE INDEX idx_sgc_mv_unique ON service_governance_compliance_mv (house_id, review_date);
