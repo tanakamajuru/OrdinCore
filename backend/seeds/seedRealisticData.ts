@@ -17,9 +17,19 @@ const pool = new Pool({
 async function seed() {
     console.log('🚀 Starting Realistic Data Seeding...');
     const companyId = '11111111-1111-1111-1111-111111111111';
-    
+
     try {
         await pool.query('BEGIN');
+
+        // 0. Ensure company exists
+        console.log('🏢 Ensuring company exists...');
+        const companyResult = await pool.query(
+            `INSERT INTO companies (id, name, status, created_at, updated_at)
+             VALUES ($1, $2, 'active', NOW(), NOW())
+             ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name
+             RETURNING id`,
+            [companyId, 'OrdinCore Demo Company']
+        );
 
         // 1. Clear existing dynamic data
         console.log('🧹 Clearing old data...');
