@@ -94,7 +94,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
              VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, 'Pattern Emerging', signals7d.map(s => s.id)]
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id)]
         );
     }
 
@@ -106,7 +106,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
              VALUES ($1, $2, $3, $4, 'Risk Review Required', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, 'Risk Review Required', signals10d.map(s => s.id)]
+            [company_id, house_id, cluster_id, domain, signals10d.map(s => s.id)]
         );
     }
 
@@ -119,7 +119,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
              VALUES ($1, $2, $3, $4, 'Immediate Risk', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, 'Immediate Risk', signals48h.map(s => s.id)]
+            [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id)]
         );
     }
 
@@ -133,7 +133,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
              VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, 'Deteriorating Trajectory', signals7d.map(s => s.id)]
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id)]
         );
     }
 
@@ -179,7 +179,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
              VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, 'Control Failure (Recurrence)', [pulse_id]]
+            [company_id, house_id, cluster_id, domain, [pulse_id]]
         );
     }
 

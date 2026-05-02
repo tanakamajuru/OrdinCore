@@ -62,40 +62,40 @@ const ResponsibleIndividualDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Responsible Individual Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {user?.name}</p>
-        <p className="text-sm text-gray-500 mt-1">Cross-site oversight for {assignedHouses.length} houses</p>
+        <h1 className="text-3xl font-bold text-foreground">Responsible Individual Dashboard</h1>
+        <p className="text-muted-foreground mt-2">Welcome back, {user?.name}</p>
+        <p className="text-sm text-muted-foreground mt-1">Cross-site oversight for {assignedHouses.length} houses</p>
       </div>
 
       {/* Cross-Site Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Assigned Houses</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{assignedHouses.length}</p>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-muted-foreground">Assigned Houses</h3>
+          <p className="text-2xl font-bold text-foreground mt-2">{assignedHouses.length}</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Open Escalations</h3>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-muted-foreground">Open Escalations</h3>
           <p className="text-2xl font-bold text-red-600 mt-2">{escalations.length}</p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">High Priority Risks</h3>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-muted-foreground">High Priority Risks</h3>
           <p className="text-2xl font-bold text-orange-600 mt-2">
             {risks.filter(r => r.severity === 'High' || r.severity === 'Critical').length}
           </p>
         </div>
         
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Total Risks</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{risks.length}</p>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-muted-foreground">Total Risks</h3>
+          <p className="text-2xl font-bold text-foreground mt-2">{risks.length}</p>
         </div>
       </div>
 
       {/* Open Escalations */}
-      <div className="bg-white shadow rounded-lg mb-8">
-        <div className="px-6 py-4 border-b border-gray-200 flex justify-between items-center">
-          <h2 className="text-lg font-medium text-gray-900">Open Escalations</h2>
+      <div className="bg-card shadow rounded-lg mb-8">
+        <div className="px-6 py-4 border-b border-border flex justify-between items-center">
+          <h2 className="text-lg font-medium text-foreground">Open Escalations</h2>
           <button className="text-blue-600 hover:text-blue-900 text-sm">
             View All
           </button>
@@ -103,7 +103,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
         
         <div className="p-6 space-y-4">
           {escalations.map((escalation) => (
-            <div key={escalation.id} className="flex items-center justify-between p-4 bg-red-50 border border-red-200 rounded">
+            <div key={escalation.id} className="flex items-center justify-between p-4 bg-destructive/10 border border-destructive/20 rounded">
               <div className="flex-1">
                 <h4 className="font-medium text-red-800">Escalation ID: {escalation.id.substring(0, 8)}</h4>
                 <p className="text-sm text-red-600 mt-1">
@@ -114,10 +114,10 @@ const ResponsibleIndividualDashboard: React.FC = () => {
                 </p>
               </div>
               <div className="flex space-x-2">
-                <button className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700">
+                <button className="bg-blue-600 text-primary-foreground px-3 py-1 rounded text-sm hover:bg-blue-700">
                   Review
                 </button>
-                <button className="bg-green-600 text-white px-3 py-1 rounded text-sm hover:bg-green-700">
+                <button className="bg-green-600 text-primary-foreground px-3 py-1 rounded text-sm hover:bg-green-700">
                   Resolve
                 </button>
               </div>
@@ -126,7 +126,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
           
           {escalations.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500">No open escalations</p>
+              <p className="text-muted-foreground">No open escalations</p>
             </div>
           )}
         </div>
@@ -134,9 +134,9 @@ const ResponsibleIndividualDashboard: React.FC = () => {
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         {/* Assigned Houses */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">Assigned Houses</h2>
+        <div className="bg-card shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-medium text-foreground">Assigned Houses</h2>
           </div>
           
           <div className="p-6 space-y-3">
@@ -145,10 +145,10 @@ const ResponsibleIndividualDashboard: React.FC = () => {
               const criticalRisks = houseRisks.filter(r => r.severity === 'Critical');
               
               return (
-                <div key={house.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                <div key={house.id} className="flex items-center justify-between p-3 bg-muted rounded">
                   <div>
-                    <h4 className="font-medium text-gray-900">{house.name}</h4>
-                    <p className="text-sm text-gray-500">
+                    <h4 className="font-medium text-foreground">{house.name}</h4>
+                    <p className="text-sm text-muted-foreground">
                       {houseRisks.length} risks • {criticalRisks.length} critical
                     </p>
                   </div>
@@ -161,16 +161,16 @@ const ResponsibleIndividualDashboard: React.FC = () => {
             
             {assignedHouses.length === 0 && (
               <div className="text-center py-8">
-                <p className="text-gray-500">No houses assigned</p>
+                <p className="text-muted-foreground">No houses assigned</p>
               </div>
             )}
           </div>
         </div>
 
         {/* High Priority Risks */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">High Priority Risks</h2>
+        <div className="bg-card shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-border">
+            <h2 className="text-lg font-medium text-foreground">High Priority Risks</h2>
           </div>
           
           <div className="p-6 space-y-4">
@@ -181,10 +181,10 @@ const ResponsibleIndividualDashboard: React.FC = () => {
                 const house = assignedHouses.find(h => h.id === risk.houseId);
                 
                 return (
-                  <div key={risk.id} className="flex items-center justify-between p-3 bg-gray-50 rounded">
+                  <div key={risk.id} className="flex items-center justify-between p-3 bg-muted rounded">
                     <div>
-                      <h4 className="font-medium text-gray-900">{risk.title}</h4>
-                      <p className="text-sm text-gray-500">
+                      <h4 className="font-medium text-foreground">{risk.title}</h4>
+                      <p className="text-sm text-muted-foreground">
                         {house?.name || 'Unknown House'} • {risk.severity}
                       </p>
                     </div>
@@ -200,7 +200,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
             
             {risks.filter(r => r.severity === 'High' || r.severity === 'Critical').length === 0 && (
               <div className="text-center py-8">
-                <p className="text-gray-500">No high priority risks</p>
+                <p className="text-muted-foreground">No high priority risks</p>
               </div>
             )}
           </div>
@@ -209,15 +209,15 @@ const ResponsibleIndividualDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Review Escalations
           </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          <button className="bg-green-600 text-primary-foreground px-4 py-2 rounded hover:bg-green-700">
             Cross-Site Reports
           </button>
-          <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+          <button className="bg-purple-600 text-primary-foreground px-4 py-2 rounded hover:bg-purple-700">
             Risk Assessment
           </button>
         </div>

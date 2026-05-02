@@ -155,6 +155,32 @@ export const risksRepo = {
     return result.rows;
   },
 
+  async findAllActions(company_id: string, filters: any = {}) {
+    const conditions: string[] = ['ra.company_id = $1'];
+    const params: unknown[] = [company_id];
+    let idx = 2;
+
+    if (filters.house_id) {
+      conditions.push(`r.house_id = $${idx++}`);
+      params.push(filters.house_id);
+    }
+    if (filters.status) {
+      conditions.push(`ra.status = $${idx++}`);
+      params.push(filters.status);
+    }
+
+    const where = conditions.join(' AND ');
+    const result = await query(
+      `SELECT ra.*, r.title as risk_title, r.house_id
+       FROM risk_actions ra
+       JOIN risks r ON r.id = ra.risk_id
+       WHERE ${where}
+       ORDER BY ra.due_date ASC`,
+      params
+    );
+    return result.rows;
+  },
+
   async getActionById(id: string, company_id: string) {
     const result = await query(
       `SELECT * FROM risk_actions WHERE id = $1 AND company_id = $2`,
@@ -196,9 +222,9 @@ export const risksRepo = {
   async createCategory(company_id: string, data: { name: string; description?: string; color?: string; created_by: string }) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO risk_categories (id, company_id, name, description, color, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [id, company_id, data.name, data.description || null, data.color || '#cccccc', data.created_by]
+      `INSERT INTO risk_categories (id, company_id, name, description, color)
+       VALUES ($1,$2,$3,$4,$5) RETURNING *`,
+      [id, company_id, data.name, data.description || null, data.color || '#cccccc']
     );
     return result.rows[0];
   },

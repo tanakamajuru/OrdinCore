@@ -59,10 +59,10 @@ const AdminDashboardSimple: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading dashboard...</p>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border mx-auto"></div>
+          <p className="mt-2 text-muted-foreground">Loading dashboard...</p>
         </div>
       </div>
     );
@@ -84,7 +84,7 @@ const AdminDashboardSimple: React.FC = () => {
 
       {/* Statistics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
             <h3 className="text-sm font-medium">Total Users</h3>
             <Users className="h-4 w-4 text-muted-foreground" />
@@ -95,7 +95,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
             <h3 className="text-sm font-medium">Total Sites</h3>
             <Building className="h-4 w-4 text-muted-foreground" />
@@ -106,7 +106,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
             <h3 className="text-sm font-medium">Occupancy Rate</h3>
             <Activity className="h-4 w-4 text-muted-foreground" />
@@ -117,7 +117,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
             <h3 className="text-sm font-medium">System Health</h3>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
@@ -131,7 +131,7 @@ const AdminDashboardSimple: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="mb-4">
             <h3 className="text-lg font-semibold">User Management</h3>
             <p className="text-sm text-muted-foreground">
@@ -153,7 +153,7 @@ const AdminDashboardSimple: React.FC = () => {
           </div>
         </div>
 
-        <div className="bg-white border-2 border-black p-6">
+        <div className="bg-card border-2 border-border p-6">
           <div className="mb-4">
             <h3 className="text-lg font-semibold">Site Management</h3>
             <p className="text-sm text-muted-foreground">

@@ -291,10 +291,10 @@ export function RiskDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading risk details...</p>
+          <p className="mt-2 text-muted-foreground">Loading risk details...</p>
         </div>
       </div>
     );
@@ -302,12 +302,12 @@ export function RiskDetail() {
 
   if (!risk) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-black mb-4">Risk not found</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Risk not found</h2>
           <button
             onClick={() => navigate("/risk-register")}
-            className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
           >
             Back to Risk Register
           </button>
@@ -317,12 +317,12 @@ export function RiskDetail() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <button
           onClick={() => navigate("/risk-register")}
-          className="flex items-center gap-2 text-black hover:text-gray-600 transition-colors mb-6 underline"
+          className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline"
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Risk Register
@@ -334,7 +334,7 @@ export function RiskDetail() {
             <span
               className={`px-3 py-1 font-bold ${
                 risk.severity === "High" || risk.severity === "Critical"
-                  ? "bg-destructive text-white"
+                  ? "bg-destructive text-primary-foreground"
                   : "border-2 border-primary"
               }`}
             >
@@ -368,7 +368,7 @@ export function RiskDetail() {
                     <div className="space-y-4">
                         <div className="font-bold text-primary">Source Cluster: {risk.source_cluster_name}</div>
                         <p className="text-sm text-muted-foreground italic">"Evidence promoted from Signal Cluster via RM Decision Protocol."</p>
-                        <button onClick={() => navigate(`/clusters/${risk.source_cluster_id}`)} className="text-xs font-black uppercase text-primary underline underline-offset-4">
+                        <button onClick={() => navigate(`/patterns`)} className="text-xs font-black uppercase text-primary underline underline-offset-4">
                             View Source Pattern
                         </button>
                     </div>
@@ -382,29 +382,29 @@ export function RiskDetail() {
 
           {/* Impact & Mitigation */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-3 text-black">Impact</h2>
-              <p className="text-black">{risk.metadata?.impact || 'No impact assessment available'}</p>
+            <div className="bg-card border-2 border-border p-6">
+              <h2 className="text-xl font-semibold mb-3 text-foreground">Impact</h2>
+              <p className="text-foreground">{risk.metadata?.impact || 'No impact assessment available'}</p>
             </div>
-            <div className="bg-white border-2 border-black p-6">
-              <h2 className="text-xl font-semibold mb-3 text-black">Mitigation Plan</h2>
-              <p className="text-black">{risk.metadata?.mitigation || 'No mitigation plan available'}</p>
+            <div className="bg-card border-2 border-border p-6">
+              <h2 className="text-xl font-semibold mb-3 text-foreground">Mitigation Plan</h2>
+              <p className="text-foreground">{risk.metadata?.mitigation || 'No mitigation plan available'}</p>
             </div>
           </div>
 
           {/* Root Cause */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-3 text-black">Root Cause Analysis</h2>
-            <p className="text-black">{risk.metadata?.rootCause || 'No root cause analysis available'}</p>
+          <div className="bg-card border-2 border-border p-6">
+            <h2 className="text-xl font-semibold mb-3 text-foreground">Root Cause Analysis</h2>
+            <p className="text-foreground">{risk.metadata?.rootCause || 'No root cause analysis available'}</p>
           </div>
 
           {/* Actions */}
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-black">Actions Taken</h2>
+              <h2 className="text-xl font-semibold text-foreground">Actions Taken</h2>
               <button
                 onClick={() => setShowAddAction(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Action
@@ -412,14 +412,14 @@ export function RiskDetail() {
             </div>
             <div className="space-y-3">
               {actions.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No actions recorded yet
                 </div>
               ) : (
                 actions.map((action, idx) => (
                   <div
                     key={action.id || idx}
-                    className={`p-4 ${idx % 2 === 0 ? "bg-gray-100" : "bg-white"} border-b-2 border-black`}
+                    className={`p-4 ${idx % 2 === 0 ? "bg-muted" : "bg-card"} border-b-2 border-border`}
                   >
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
@@ -428,8 +428,8 @@ export function RiskDetail() {
                             <span
                             className={`inline-block px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
                                 action.status === "Complete" || action.status === "Completed"
-                                ? "bg-black text-white"
-                                : "border-2 border-black"
+                                ? "bg-primary text-primary-foreground"
+                                : "border-2 border-border"
                             }`}
                             >
                             {action.status}
@@ -444,12 +444,12 @@ export function RiskDetail() {
                                 </div>
                             )}
                             {action.verified_by_ri && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive text-white text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive text-primary-foreground text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)]">
                                     RI VERIFIED
                                 </div>
                             )}
                             {action.effectiveness && (
-                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)] ${action.effectiveness === 'Effective' ? 'bg-success text-white' : 'bg-destructive text-white'}`}>
+                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)] ${action.effectiveness === 'Effective' ? 'bg-success text-primary-foreground' : 'bg-destructive text-primary-foreground'}`}>
                                     {action.effectiveness}
                                 </div>
                             )}
@@ -477,7 +477,7 @@ export function RiskDetail() {
                               !((userRole === 'REGISTERED_MANAGER' && action.verified_by_rm) || (['DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && action.verified_by_ri))) && (
                                 <button 
                                     onClick={() => setShowVerifyAction(action.id)}
-                                    className="text-[10px] font-black uppercase bg-black text-white px-2 py-1 hover:bg-primary transition-all"
+                                    className="text-[10px] font-black uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
                                 >
                                     Verify Action
                                 </button>
@@ -486,7 +486,7 @@ export function RiskDetail() {
                             {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
                                 <button 
                                     onClick={() => setShowEffectivenessAction(action.id)}
-                                    className="text-[10px] font-black uppercase bg-primary text-white px-2 py-1 hover:bg-black transition-all"
+                                    className="text-[10px] font-black uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
                                 >
                                     Rate Effectiveness
                                 </button>
@@ -501,12 +501,12 @@ export function RiskDetail() {
           </div>
 
           {/* Timeline */}
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-black">Timeline</h2>
+              <h2 className="text-xl font-semibold text-foreground">Timeline</h2>
               <button
                 onClick={() => setShowAddEvent(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+                className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
               >
                 <Plus className="w-4 h-4" />
                 Add Event
@@ -514,24 +514,24 @@ export function RiskDetail() {
             </div>
             <div className="space-y-4">
               {timeline.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No timeline events available
                 </div>
               ) : (
                 timeline.map((entry, idx) => (
                   <div key={entry.id || idx} className="flex gap-4">
                     <div className="relative">
-                      <div className="w-3 h-3 bg-black mt-1.5" />
+                      <div className="w-3 h-3 bg-primary mt-1.5" />
                       {idx < timeline.length - 1 && (
                         <div className="absolute top-6 left-1/2 -translate-x-1/2 w-0.5 h-12 bg-gray-300" />
                       )}
                     </div>
                     <div className="flex-1 pb-6">
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         {entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-GB') : 'N/A'}
                       </p>
-                      <p className="text-black">{entry.description}</p>
-                      <p className="text-sm text-gray-600">{entry.created_by_name || 'Unknown'}</p>
+                      <p className="text-foreground">{entry.description}</p>
+                      <p className="text-sm text-muted-foreground">{entry.created_by_name || 'Unknown'}</p>
                     </div>
                   </div>
                 ))
@@ -540,28 +540,28 @@ export function RiskDetail() {
           </div>
 
           {/* Risk Details */}
-          <div className="bg-white border-2 border-black p-6">
-            <h2 className="text-xl font-semibold mb-4 text-black">Risk Details</h2>
+          <div className="bg-card border-2 border-border p-6">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Risk Details</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Category</p>
-                <p className="text-black">{risk.category_name || 'General'}</p>
+                <p className="text-sm text-muted-foreground mb-1">Category</p>
+                <p className="text-foreground">{risk.category_name || 'General'}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-1">Review Due Date</p>
-                <p className="text-black">
+                <p className="text-sm text-muted-foreground mb-1">Review Due Date</p>
+                <p className="text-foreground">
                   {risk.review_due_date ? new Date(risk.review_due_date).toLocaleDateString('en-GB') : 'Not set'}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-1">Last Updated</p>
-                <p className="text-black">
+                <p className="text-sm text-muted-foreground mb-1">Last Updated</p>
+                <p className="text-foreground">
                   {risk.updated_at ? new Date(risk.updated_at).toLocaleDateString('en-GB') : 'N/A'}
                 </p>
               </div>
               <div>
-                <p className="text-sm text-gray-600 mb-1">Source</p>
-                <p className="text-black">{risk.metadata?.source || 'Manual'}</p>
+                <p className="text-sm text-muted-foreground mb-1">Source</p>
+                <p className="text-foreground">{risk.metadata?.source || 'Manual'}</p>
               </div>
             </div>
           </div>
@@ -570,27 +570,27 @@ export function RiskDetail() {
       
       {/* Add Action Modal */}
       {showAddAction && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white border-2 border-black p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-black">Add New Action</h2>
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Add New Action</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-black font-medium">Action Description</label>
+                <label className="block mb-2 text-foreground font-medium">Action Description</label>
                 <textarea
                   value={newAction.action}
                   onChange={(e) => setNewAction({...newAction, action: e.target.value})}
-                  className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                  className="w-full h-20 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                   placeholder="Describe the action to be taken..."
                 />
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Status</label>
+                <label className="block mb-2 text-foreground font-medium">Status</label>
                 <select
                   value={newAction.status}
                   onChange={(e) => setNewAction({...newAction, status: e.target.value as any})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="Pending">Pending</option>
                   <option value="In Progress">In Progress</option>
@@ -600,12 +600,12 @@ export function RiskDetail() {
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Date of Action</label>
+                <label className="block mb-2 text-foreground font-medium">Date of Action</label>
                 <input
                   type="date"
                   value={newAction.date}
                   onChange={(e) => setNewAction({...newAction, date: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 />
               </div>
             </div>
@@ -616,14 +616,14 @@ export function RiskDetail() {
                   setShowAddAction(false);
                   setNewAction({ action: "", status: "Pending", date: "" });
                 }}
-                className="px-4 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddAction}
                 disabled={isSubmitting}
-                className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? 'Adding...' : 'Add Action'}
               </button>
@@ -634,17 +634,17 @@ export function RiskDetail() {
 
       {/* Add Event Modal */}
       {showAddEvent && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white border-2 border-black p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-black">Add Timeline Event</h2>
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+            <h2 className="text-xl font-semibold mb-4 text-foreground">Add Timeline Event</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-black font-medium">Event Type</label>
+                <label className="block mb-2 text-foreground font-medium">Event Type</label>
                 <select
                   value={newEvent.event_type}
                   onChange={(e) => setNewEvent({...newEvent, event_type: e.target.value as any})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="updated">Updated</option>
                   <option value="review">Review</option>
@@ -655,11 +655,11 @@ export function RiskDetail() {
               </div>
 
               <div>
-                <label className="block mb-2 text-black font-medium">Description</label>
+                <label className="block mb-2 text-foreground font-medium">Description</label>
                 <textarea
                   value={newEvent.description}
                   onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
-                  className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                  className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                   placeholder="Describe what happened..."
                 />
               </div>
@@ -671,14 +671,14 @@ export function RiskDetail() {
                   setShowAddEvent(false);
                   setNewEvent({ event_type: "updated", description: "" });
                 }}
-                className="px-4 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddEvent}
                 disabled={isSubmittingEvent}
-                className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
               >
                 {isSubmittingEvent ? 'Adding...' : 'Add Event'}
               </button>
@@ -688,10 +688,10 @@ export function RiskDetail() {
       )}
       {/* Verification Modal */}
       {showVerifyAction && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white border-2 border-black p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-primary flex items-center justify-center text-white font-black text-2xl">V</div>
+                <div className="w-12 h-12 bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl">V</div>
                 <div>
                     <h2 className="text-2xl font-black uppercase italic tracking-tighter">Independent Verification</h2>
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Four-Eyes Governance Protocol</p>
@@ -708,7 +708,7 @@ export function RiskDetail() {
                 <textarea
                   value={verificationNotes}
                   onChange={(e) => setVerificationNotes(e.target.value)}
-                  className="w-full h-32 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 text-lg font-medium resize-none"
+                  className="w-full h-32 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-0 text-lg font-medium resize-none"
                   placeholder="Summarize the verification evidence..."
                 />
               </div>
@@ -720,14 +720,14 @@ export function RiskDetail() {
                   setShowVerifyAction(null);
                   setVerificationNotes("");
                 }}
-                className="px-6 py-2 bg-white text-black font-black uppercase tracking-widest border-2 border-black hover:bg-gray-100 transition-all"
+                className="px-6 py-2 bg-card text-foreground font-black uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleVerifyAction}
                 disabled={isVerifying || !verificationNotes}
-                className="px-6 py-2 bg-black text-white font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isVerifying ? 'Signing Off...' : 'Confirm Sign-Off'}
               </button>
@@ -738,8 +738,8 @@ export function RiskDetail() {
 
       {/* Effectiveness Modal */}
       {showEffectivenessAction && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white border-2 border-black p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
             <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">Rate Effectiveness</h2>
             <p className="text-sm font-medium mb-6">
                 Did this action effectively mitigate the risk or prevent recurrence?
@@ -749,7 +749,7 @@ export function RiskDetail() {
                 <button
                     onClick={() => setEffectivenessRating('Effective')}
                     className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
-                        effectivenessRating === 'Effective' ? 'bg-success text-white border-success' : 'bg-white text-black border-black hover:bg-gray-100'
+                        effectivenessRating === 'Effective' ? 'bg-success text-primary-foreground border-success' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
                     Effective
@@ -757,7 +757,7 @@ export function RiskDetail() {
                 <button
                     onClick={() => setEffectivenessRating('Ineffective')}
                     className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
-                        effectivenessRating === 'Ineffective' ? 'bg-destructive text-white border-destructive' : 'bg-white text-black border-black hover:bg-gray-100'
+                        effectivenessRating === 'Ineffective' ? 'bg-destructive text-primary-foreground border-destructive' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
                     Ineffective
@@ -767,14 +767,14 @@ export function RiskDetail() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowEffectivenessAction(null)}
-                className="px-6 py-2 bg-white text-black font-black uppercase tracking-widest border-2 border-black hover:bg-gray-100 transition-all"
+                className="px-6 py-2 bg-card text-foreground font-black uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRateEffectiveness}
                 disabled={isRating}
-                className="px-6 py-2 bg-black text-white font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}
               </button>

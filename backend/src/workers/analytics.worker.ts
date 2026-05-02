@@ -50,7 +50,7 @@ export function startAnalyticsWorker() {
 
     logger.info(`Analytics snapshot created for company ${company_id}`);
     return snapshot;
-  }, { connection: redisConnection, concurrency: 5 });
+  }, { connection: redisConnection, concurrency: 1 });
 
   worker.on('failed', (job: Job | undefined, err: Error) => logger.error(`Analytics job ${job?.id} failed`, err));
   return worker;

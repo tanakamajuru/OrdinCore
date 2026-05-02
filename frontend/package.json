@@ -5,7 +5,26 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "test": "playwright test",
+    "test:ui": "playwright test --ui",
+    "test:headed": "playwright test --headed",
+    "test:debug": "playwright test --debug",
+    "test:report": "playwright show-report",
+    "test:e2e": "playwright test --project=chromium",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:all": "playwright test",
+    "test:api": "playwright test tests/api/",
+    "test:ui-only": "playwright test tests/0*-*.spec.ts",
+    "test:closed-loop": "playwright test tests/05-closed-loop.spec.ts",
+    "test:team-leader": "playwright test tests/01-team-leader.spec.ts",
+    "test:registered-manager": "playwright test tests/02-registered-manager.spec.ts",
+    "test:responsible-individual": "playwright test tests/03-responsible-individual.spec.ts",
+    "test:director": "playwright test tests/04-director.spec.ts",
+    "test:smoke": "playwright test --grep \"smoke\"",
+    "test:regression": "playwright test --grep \"regression\"",
+    "pretest:e2e": "cd ../backend && NODE_ENV=test npx ts-node seeds/seedTestData.ts",
+    "posttest:e2e": "playwright show-report"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",
@@ -49,9 +68,11 @@
     "lucide-react": "0.487.0",
     "motion": "12.23.24",
     "next-themes": "0.4.6",
+    "react": "18.3.1",
     "react-day-picker": "8.10.1",
     "react-dnd": "16.0.1",
     "react-dnd-html5-backend": "16.0.1",
+    "react-dom": "18.3.1",
     "react-full-screen": "^1.1.1",
     "react-fullscreen": "^0.1.0",
     "react-hook-form": "7.55.0",
@@ -64,12 +85,13 @@
     "sonner": "2.0.3",
     "tailwind-merge": "3.2.0",
     "tw-animate-css": "1.3.8",
-    "vaul": "1.1.2",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "uuid": "^14.0.0",
+    "vaul": "1.1.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.44.0",
     "@tailwindcss/vite": "4.1.12",
+    "@types/uuid": "^11.0.0",
     "@vitejs/plugin-react": "4.7.0",
     "tailwindcss": "4.1.12",
     "vite": "6.3.5"

@@ -24,6 +24,11 @@ export class UsersService {
     const existing = await usersRepo.findByEmail(data.email);
     if (existing) throw new Error('Email already in use');
 
+    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER'];
+    if (!allowedRoles.includes(data.role.toUpperCase())) {
+      throw new Error(`Invalid role: ${data.role}`);
+    }
+
     this.validatePassword(data.password);
     const password_hash = await bcrypt.hash(data.password, 12);
     const status = data.is_active === false ? 'inactive' : 'active';
@@ -137,6 +142,17 @@ export class UsersService {
   async delete(id: string, company_id: string | null) {
     const user = await usersRepo.findById(id);
     if (!user || (company_id && user.company_id !== company_id)) throw new Error('User not found');
+    
+    const protectedEmails = [
+      'superadmin1@ordincore.co.uk',
+      'superadmin2@ordincore.co.uk',
+      'superadmin3@ordincore.co.uk',
+      'superadmin4@ordincore.co.uk'
+    ];
+    if (protectedEmails.includes(user.email)) {
+      throw new Error('Cannot delete default superadmin account');
+    }
+
     await usersRepo.delete(id);
   }
 

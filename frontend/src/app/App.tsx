@@ -2,7 +2,6 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
-console.log('useAuth import:', useAuth);
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";

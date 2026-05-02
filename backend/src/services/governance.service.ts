@@ -62,8 +62,9 @@ export class GovernanceService {
     let q = 'SELECT * FROM signal_clusters WHERE company_id = $1';
     const params: any[] = [company_id];
     if (filters.house_id) {
-      params.push(filters.house_id);
-      q += ` AND house_id = $${params.length}`;
+      const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
+      params.push(houseIds);
+      q += ` AND house_id = ANY($${params.length}::uuid[])`;
     }
     if (filters.status) {
       params.push(filters.status);
@@ -77,9 +78,14 @@ export class GovernanceService {
   async getRiskCandidates(company_id: string, filters: any) {
     let q = 'SELECT * FROM risk_candidates WHERE company_id = $1';
     const params: any[] = [company_id];
+    if (filters.id) {
+      params.push(filters.id);
+      q += ` AND id = $${params.length}`;
+    }
     if (filters.house_id) {
-      params.push(filters.house_id);
-      q += ` AND house_id = $${params.length}`;
+      const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
+      params.push(houseIds);
+      q += ` AND house_id = ANY($${params.length}::uuid[])`;
     }
     if (filters.status) {
       params.push(filters.status);
@@ -94,10 +100,11 @@ export class GovernanceService {
     let q = 'SELECT * FROM action_effectiveness WHERE company_id = $1';
     const params: any[] = [company_id];
     if (filters.house_id) {
-      params.push(filters.house_id);
-      q += ` AND house_id = $${params.length}`;
+      const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
+      params.push(houseIds);
+      q += ` AND house_id = ANY($${params.length}::uuid[])`;
     }
-    q += ' ORDER BY evaluated_at DESC';
+    q += ' ORDER BY calculated_at DESC';
     const res = await query(q, params);
     return res.rows;
   }

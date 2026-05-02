@@ -51,16 +51,16 @@ export class RiGovernanceService {
     );
 
     // 4. Serious Incidents (Unacknowledged Sign-off feed)
-    const incidents = await query(
-      `SELECT i.*, h.name as house_name, ra.id as acknowledgement_id
-       FROM incidents i
-       JOIN houses h ON h.id = i.house_id
-       LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
-       WHERE i.company_id = $1 AND i.severity IN ('serious', 'critical')
-       AND ra.id IS NULL
-       ORDER BY i.occurred_at DESC`,
-      [company_id]
-    );
+     const incidents = await query(
+       `SELECT i.*, h.name as house_name, ra.id as acknowledgement_id
+        FROM incidents i
+        JOIN houses h ON h.id = i.house_id
+        LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
+        WHERE i.company_id = $1 AND i.severity IN ('High', 'Critical')
+        AND ra.id IS NULL
+        ORDER BY i.occurred_at DESC`,
+       [company_id]
+     );
 
     // 5. Deputy Cover Metrics
     const deputyCover = await query(

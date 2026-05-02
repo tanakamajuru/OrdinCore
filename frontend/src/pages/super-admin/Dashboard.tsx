@@ -45,71 +45,71 @@ const SuperAdminDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-900">Super Admin Dashboard</h1>
-        <p className="text-gray-600 mt-2">Welcome back, {user?.name}</p>
+        <h1 className="text-3xl font-bold text-foreground">Super Admin Dashboard</h1>
+        <p className="text-muted-foreground mt-2">Welcome back, {user?.name}</p>
       </div>
 
       {/* Platform Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <div className="bg-white p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-gray-500">Total Companies</h3>
-          <p className="text-2xl font-bold text-gray-900 mt-2">{companies.length}</p>
+        <div className="bg-card p-6 rounded-lg shadow">
+          <h3 className="text-sm font-medium text-muted-foreground">Total Companies</h3>
+          <p className="text-2xl font-bold text-foreground mt-2">{companies.length}</p>
         </div>
         
         {stats && (
           <>
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Total Risks</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{stats.totalRisks}</p>
+            <div className="bg-card p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-muted-foreground">Total Risks</h3>
+              <p className="text-2xl font-bold text-foreground mt-2">{stats.totalRisks}</p>
             </div>
             
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Open Incidents</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{stats.openIncidents}</p>
+            <div className="bg-card p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-muted-foreground">Open Incidents</h3>
+              <p className="text-2xl font-bold text-foreground mt-2">{stats.openIncidents}</p>
             </div>
             
-            <div className="bg-white p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-gray-500">Open Escalations</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-2">{stats.openEscalations}</p>
+            <div className="bg-card p-6 rounded-lg shadow">
+              <h3 className="text-sm font-medium text-muted-foreground">Open Escalations</h3>
+              <p className="text-2xl font-bold text-foreground mt-2">{stats.openEscalations}</p>
             </div>
           </>
         )}
       </div>
 
       {/* Companies Table */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">Companies</h2>
+      <div className="bg-card shadow rounded-lg">
+        <div className="px-6 py-4 border-b border-border">
+          <h2 className="text-lg font-medium text-foreground">Companies</h2>
         </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
+            <thead className="bg-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Contact Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-white divide-y divide-gray-200">
+            <tbody className="bg-card divide-y divide-gray-200">
               {companies.map((company) => (
                 <tr key={company.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
                     {company.name}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {company.contactEmail}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {new Date(company.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
@@ -130,7 +130,7 @@ const SuperAdminDashboard: React.FC = () => {
           
           {companies.length === 0 && (
             <div className="text-center py-8">
-              <p className="text-gray-500">No companies found</p>
+              <p className="text-muted-foreground">No companies found</p>
             </div>
           )}
         </div>
@@ -138,15 +138,15 @@ const SuperAdminDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-gray-900 mb-4">Quick Actions</h2>
+        <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <button className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700">
+          <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Create New Company
           </button>
-          <button className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">
+          <button className="bg-green-600 text-primary-foreground px-4 py-2 rounded hover:bg-green-700">
             View Platform Reports
           </button>
-          <button className="bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700">
+          <button className="bg-purple-600 text-primary-foreground px-4 py-2 rounded hover:bg-purple-700">
             System Settings
           </button>
         </div>

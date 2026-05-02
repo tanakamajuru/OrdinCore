@@ -207,9 +207,9 @@ const AdminDashboard: React.FC = () => {
       'operations-manager': 'bg-orange-100 text-orange-800',
       'quality-manager': 'bg-teal-100 text-teal-800',
       'safeguarding-lead': 'bg-yellow-100 text-yellow-800',
-      'facilities-manager': 'bg-gray-100 text-gray-800'
+      'facilities-manager': 'bg-muted text-foreground'
     };
-    return colors[role] || 'bg-gray-100 text-gray-800';
+    return colors[role] || 'bg-muted text-foreground';
   };
 
   if (loading) {
@@ -286,7 +286,7 @@ const AdminDashboard: React.FC = () => {
           </TableBody>
         </Table>
         {totalPages > 1 && (
-          <div className="flex items-center justify-between mt-4 text-sm text-gray-500 bg-gray-50 p-2 rounded border border-gray-100">
+          <div className="flex items-center justify-between mt-4 text-sm text-muted-foreground bg-muted p-2 rounded border border-gray-100">
             <span>Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, users.length)} of {users.length} entries</span>
             <div className="flex space-x-2">
               <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => Math.max(1, p - 1))}>Previous</Button>
@@ -303,7 +303,7 @@ const AdminDashboard: React.FC = () => {
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-3xl font-bold">Admin Dashboard</h1>
-          <p className="text-gray-600">Manage users and system settings</p>
+          <p className="text-muted-foreground">Manage users and system settings</p>
         </div>
         <Button
           variant="outline"
@@ -400,43 +400,43 @@ const AdminDashboard: React.FC = () => {
       {/* Stats Cards */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Total Users</h2>
-              <Users className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-foreground">Total Users</h2>
+              <Users className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.totalUsers}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-2xl font-bold text-foreground">{stats.totalUsers}</div>
+            <p className="text-xs text-muted-foreground">
               Registered in system
             </p>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Active Users</h2>
-              <Activity className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-foreground">Active Users</h2>
+              <Activity className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.activeUsers}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-2xl font-bold text-foreground">{stats.activeUsers}</div>
+            <p className="text-xs text-muted-foreground">
               Currently active
             </p>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Total Sites</h2>
-              <Building className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-foreground">Total Sites</h2>
+              <Building className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.totalSites ?? (stats as any).totalHouses ?? 0}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-2xl font-bold text-foreground">{stats.totalSites ?? (stats as any).totalHouses ?? 0}</div>
+            <p className="text-xs text-muted-foreground">
               Registered sites
             </p>
           </div>
-          <div className="bg-white border-2 border-black p-6">
+          <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-black">Recent Pulses</h2>
-              <TrendingUp className="h-4 w-4 text-black" />
+              <h2 className="text-sm font-medium text-foreground">Recent Pulses</h2>
+              <TrendingUp className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-black">{stats.recentPulses}</div>
-            <p className="text-xs text-gray-600">
+            <div className="text-2xl font-bold text-foreground">{stats.recentPulses}</div>
+            <p className="text-xs text-muted-foreground">
               Last 30 days
             </p>
           </div>
@@ -444,10 +444,10 @@ const AdminDashboard: React.FC = () => {
       )}
 
       {/* Users Table */}
-      <div className="bg-white border-2 border-black p-6">
+      <div className="bg-card border-2 border-border p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold text-black mb-2">User Management</h2>
-          <p className="text-gray-600">Manage all users in the system. Create, edit, and delete user accounts.</p>
+          <h2 className="text-xl font-semibold text-foreground mb-2">User Management</h2>
+          <p className="text-muted-foreground">Manage all users in the system. Create, edit, and delete user accounts.</p>
         </div>
         {usersTable}
       </div>

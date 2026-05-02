@@ -152,13 +152,13 @@ export function DirectorDashboard() {
                 <Shield className="w-8 h-8 text-destructive" />
                 <h2 className="text-2xl font-black uppercase italic tracking-tighter text-destructive">Statutory Escalation: Unacknowledged Incidents</h2>
               </div>
-              <span className="bg-destructive text-white px-3 py-1 font-black uppercase text-sm animate-pulse">Critical Governance Breach</span>
+              <span className="bg-destructive text-primary-foreground px-3 py-1 font-black uppercase text-sm animate-pulse">Critical Governance Breach</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {unacknowledgedIncidents.map((incident: any) => (
-                <div key={incident.id} className="bg-white border-2 border-destructive p-4 group hover:shadow-md transition-all">
+                <div key={incident.id} className="bg-card border-2 border-destructive p-4 group hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-black uppercase bg-destructive text-white px-2 py-0.5">{incident.severity}</span>
+                    <span className="text-[10px] font-black uppercase bg-destructive text-primary-foreground px-2 py-0.5">{incident.severity}</span>
                     <span className="flex items-center gap-1 text-[10px] font-bold text-destructive">
                       <Clock className="w-3 h-3" />
                       {Math.round(incident.age_hours)}H UNACKNOWLEDGED
@@ -167,7 +167,7 @@ export function DirectorDashboard() {
                   <h3 className="font-black text-primary uppercase italic tracking-tighter mb-1">{incident.title}</h3>
                   <p className="text-xs font-bold text-muted-foreground mb-3">{incident.house_name}</p>
                   <Button 
-                    className="w-full bg-destructive text-white hover:bg-destructive/90 font-bold uppercase text-xs rounded-none"
+                    className="w-full bg-destructive text-primary-foreground hover:bg-destructive/90 font-bold uppercase text-xs rounded-none"
                     onClick={() => navigate(`/incidents/${incident.id}`)}
                   >
                     Direct Intervention

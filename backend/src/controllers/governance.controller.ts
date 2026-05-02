@@ -156,7 +156,7 @@ export class GovernanceController {
   async getRiskCandidates(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const filters = { house_id: req.query.house_id as string, status: req.query.status as string };
+      const filters = { house_id: req.query.house_id as string, status: req.query.status as string, id: req.query.id as string };
       const candidates = await governanceService.getRiskCandidates(company_id, filters);
       return res.json({ success: true, data: candidates });
     } catch (err: unknown) {

@@ -4,6 +4,7 @@ import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, Ba
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { apiClient } from "@/services/api";
+import { ThemeToggle } from "./ThemeToggle";
 
 export function RoleBasedNavigation() {
   const location = useLocation();
@@ -57,7 +58,7 @@ export function RoleBasedNavigation() {
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          { path: "/my-actions", label: "My Actions", icon: FileText },
+          // { path: "/my-actions", label: "My Actions", icon: FileText },
         ];
  
       case 'DIRECTOR':
@@ -151,6 +152,7 @@ export function RoleBasedNavigation() {
           </div>
 
           <div className="flex items-center space-x-4 flex-shrink-0 ml-4">
+            <ThemeToggle />
             <div className="flex items-center gap-3 pr-4 border-r-2 border-border">
               <div className="flex flex-col items-end hidden sm:flex">
                 <span className="text-sm font-bold text-foreground leading-none">{displayName}</span>

@@ -8,6 +8,8 @@ import { requireScope } from '../middleware/scope.middleware';
 
 const router = Router();
 
+router.get('/actions', requireAuth, requireTenant, risksController.getAllActions.bind(risksController));
+
 /**
  * @openapi
  * /api/v1/risks/categories:

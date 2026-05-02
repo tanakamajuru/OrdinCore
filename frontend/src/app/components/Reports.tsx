@@ -244,8 +244,8 @@ export function Reports() {
               <p className="text-muted-foreground mt-1">Generate custom governance reports with advanced filtering</p>
             </div>
 
-            <div className="bg-white border-2 border-black p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4 text-black">Report Type</h2>
+            <div className="bg-card border-2 border-border p-6 mb-6">
+              <h2 className="text-xl font-semibold mb-4 text-foreground">Report Type</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {reportTypes.map((type) => (
                   <button
@@ -254,7 +254,7 @@ export function Reports() {
                     className={`p-4 border-2 text-left transition-all ${
                       filters.reportType === type.value
                         ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-x-1 -translate-y-1"
-                        : "bg-white text-black border-black hover:border-primary/50 shadow-sm"
+                        : "bg-card text-foreground border-border hover:border-primary/50 shadow-sm"
                     }`}
                   >
                     <div className="font-black uppercase italic text-xs mb-1 opacity-70">Layer 4 Oversight</div>
@@ -265,7 +265,7 @@ export function Reports() {
             </div>
 
             {(filters.reportType === "detailed_evidence_pack" || filters.reportType === "weekly_narrative") && (
-              <div className="bg-white border-2 border-black p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+              <div className="bg-card border-2 border-border p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
                 <h2 className="text-xl font-black uppercase italic mb-4">Report Context Required</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {filters.reportType === "detailed_evidence_pack" && (
@@ -274,7 +274,7 @@ export function Reports() {
                       <select 
                         value={filters.riskId || ""}
                         onChange={(e) => setFilters({...filters, riskId: e.target.value})}
-                        className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                        className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
                       >
                         <option value="">Select a Risk...</option>
                         {activeRisks.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
@@ -288,7 +288,7 @@ export function Reports() {
                         <select 
                           value={filters.houseId || ""}
                           onChange={(e) => setFilters({...filters, houseId: e.target.value})}
-                          className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                          className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
                         >
                           <option value="">Select House...</option>
                           {allHouses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
@@ -300,7 +300,7 @@ export function Reports() {
                           type="date"
                           value={filters.weekEnding || ""}
                           onChange={(e) => setFilters({...filters, weekEnding: e.target.value})}
-                          className="w-full px-4 py-3 bg-white border-2 border-black font-bold"
+                          className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
                         />
                       </div>
                     </>

@@ -187,7 +187,7 @@ export function DailyOversightBoard() {
                       <div className="font-bold text-foreground">{a.title}</div>
                       <div className="text-xs text-muted-foreground mt-1">Due: {new Date(a.due_date).toLocaleDateString()} • {a.risk_title || "General"}</div>
                     </div>
-                    <div className={`px-2 py-1 text-[10px] font-black uppercase ${a.status === 'Overdue' ? 'bg-destructive text-white' : 'bg-warning text-black'}`}>
+                    <div className={`px-2 py-1 text-[10px] font-black uppercase ${a.status === 'Overdue' ? 'bg-destructive text-primary-foreground' : 'bg-warning text-foreground'}`}>
                       {a.status}
                     </div>
                  </div>

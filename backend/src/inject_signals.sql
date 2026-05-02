@@ -1,0 +1,7 @@
+INSERT INTO governance_pulses (company_id, house_id, created_by, description, immediate_action, signal_type, risk_domain, severity, has_happened_before, pattern_concern, escalation_required)
+VALUES 
+('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', '11111111-1111-1111-1111-111111111102', 'Medication refusal by resident', 'Re-offered later, reported to doctor', 'Medication', '{"Medication"}', 'Moderate', 'No', 'None', 'None'),
+('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', '11111111-1111-1111-1111-111111111102', 'Aggressive behavior towards staff', 'De-escalated, resident moved to quiet room', 'Incident', '{"Safeguarding"}', 'High', 'Yes', 'Possible', 'Manager Review'),
+('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', '11111111-1111-1111-1111-111111111102', 'Unexplained bruise on resident arm', 'Bodymap completed, manager notified', 'Incident', '{"Health & Safety"}', 'High', 'No', 'Possible', 'Manager Review'),
+('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', '11111111-1111-1111-1111-111111111102', 'Staff absence due to sickness', 'Rota adjusted, agency staff called', 'Staffing', '{"Workforce"}', 'Low', 'No', 'None', 'None'),
+('11111111-1111-1111-1111-111111111111', '11111111-2222-3333-4444-555555555555', '11111111-1111-1111-1111-111111111102', 'Boiler failure in kitchen', 'Maintenance notified, space heaters deployed', 'Environment', '{"Health & Safety"}', 'Moderate', 'No', 'None', 'None');

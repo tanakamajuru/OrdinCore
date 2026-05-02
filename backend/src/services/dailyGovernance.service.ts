@@ -52,7 +52,7 @@ export class DailyGovernanceService {
       `UPDATE daily_governance_log 
        SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW(), 
            is_deputy_review = $4, review_type = $5, 
-           enhanced_oversight_required = $6, director_notified_at = $7
+           escalation_sent = $6, director_alerted_at = $7
        WHERE id = $3 RETURNING *`,
       [note, user_id, log_id, is_deputy_review, is_deputy_review ? 'Deputy Cover' : 'Primary', enhanced_oversight, director_notified]
     );

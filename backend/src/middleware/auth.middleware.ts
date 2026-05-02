@@ -58,13 +58,19 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       return;
     }
 
+    let finalHouseIds = user.house_ids || [];
+    if (finalHouseIds.length === 0 && (user.role === 'RESPONSIBLE_INDIVIDUAL' || user.role === 'DIRECTOR' || user.role === 'SUPER_ADMIN')) {
+      const allHouses = await query('SELECT id FROM houses WHERE company_id = $1 AND status != $2', [user.company_id, 'closed']);
+      finalHouseIds = allHouses.rows.map(h => h.id);
+    }
+
     req.user = {
       user_id: decoded.user_id,
       company_id: user.company_id,
       role: user.role,
       email: user.email,
-      house_ids: user.house_ids || [],
-      assigned_house_id: user.house_ids && user.house_ids.length > 0 ? user.house_ids[0] : null,
+      house_ids: finalHouseIds,
+      assigned_house_id: finalHouseIds.length > 0 ? finalHouseIds[0] : null,
     };
 
     next();

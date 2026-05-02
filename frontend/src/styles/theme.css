@@ -1,48 +1,113 @@
 @custom-variant dark (&:is(.dark *));
 
+/* ─── Ordin Core Brand Palette ───────────────────────────
+   Deep navy   #0B1628   dark bg / darkest base
+   Steel blue  #1A3259   dark card / sidebar surfaces
+   Cobalt      #2F6CB5   primary actions & ring (both modes)
+   Sky blue    #5B9FD4   accent / hover states
+   Ice blue    #A8CDE8   dark muted foreground
+   Silver mist #DCE8F0   dark foreground text & trim
+   ─── Light-mode additions ────────────────────────────────
+   Pale sky    #F0F6FC   light background
+   Soft blue   #E2EEF8   light card / sidebar surfaces
+   Steel text  #0B1628   light foreground (body text)
+   Mid text    #3D5A7A   light muted foreground
+   Light bdr   #B8D3EA   light borders & inputs
+──────────────────────────────────────────────────────── */
+
+/* ── Light theme (default) ─────────────────────────────── */
 :root {
-  --font-size: 16px;
-  --background: #F7FAFC;
-  --foreground: #2D3748;
+  --font-size: 14px;
+  --background: #F0F6FC;
+  --foreground: #0B1628;
   --card: #FFFFFF;
-  --card-foreground: #2D3748;
+  --card-foreground: #0B1628;
   --popover: #FFFFFF;
-  --popover-foreground: #2D3748;
-  --primary: #1F4E79;
+  --popover-foreground: #0B1628;
+  --primary: #2F6CB5;
   --primary-foreground: #FFFFFF;
-  --secondary: #1FA7A1;
-  --secondary-foreground: #FFFFFF;
-  --muted: #EDF2F7;
-  --muted-foreground: #718096;
-  --accent: #EDF2F7;
-  --accent-foreground: #2D3748;
-  --success: #38A169;
+  --secondary: #E2EEF8;
+  --secondary-foreground: #1A3259;
+  --muted: #E2EEF8;
+  --muted-foreground: #3D5A7A;
+  --accent: #1A3259;
+  --accent-foreground: #FFFFFF;
+  --success: #2E7D32;
   --success-foreground: #FFFFFF;
-  --warning: #F6AD55;
+  --warning: #ED6C02;
   --warning-foreground: #FFFFFF;
-  --destructive: #E53E3E;
+  --destructive: #D32F2F;
   --destructive-foreground: #FFFFFF;
-  --border: #E2E8F0;
-  --input: #E2E8F0;
+  --border: #B8D3EA;
+  --input: #B8D3EA;
   --input-background: #FFFFFF;
-  --switch-background: #E2E8F0;
+  --switch-background: #B8D3EA;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: #1FA7A1;
-  --chart-1: #1F4E79;
-  --chart-2: #1FA7A1;
-  --chart-3: #38A169;
-  --chart-4: #F6AD55;
-  --chart-5: #E53E3E;
-  --radius: 0.5rem;
-  --sidebar: #FFFFFF;
-  --sidebar-foreground: #2D3748;
-  --sidebar-primary: #1F4E79;
+  --ring: #2F6CB5;
+  --chart-1: #2F6CB5;
+  --chart-2: #5B9FD4;
+  --chart-3: #1A3259;
+  --chart-4: #ED6C02;
+  --chart-5: #7C3AED;
+  --radius: 6px;
+  --radius-card: 12px;
+  --shadow-sm: 0 1px 2px rgba(11,22,40,0.08);
+  --shadow-md: 0 4px 8px rgba(11,22,40,0.12);
+  --shadow-lg: 0 8px 16px rgba(11,22,40,0.16);
+  --sidebar: #E2EEF8;
+  --sidebar-foreground: #0B1628;
+  --sidebar-primary: #2F6CB5;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EDF2F7;
-  --sidebar-accent-foreground: #1F4E79;
-  --sidebar-border: #E2E8F0;
-  --sidebar-ring: #1FA7A1;
+  --sidebar-accent: #5B9FD4;
+  --sidebar-accent-foreground: #0B1628;
+  --sidebar-border: #B8D3EA;
+  --sidebar-ring: #2F6CB5;
+}
+
+/* ── Dark theme (.dark class) ───────────────────────────── */
+.dark, :root.dark {
+  --background: #0B1628;
+  --foreground: #DCE8F0;
+  --card: #1A3259;
+  --card-foreground: #DCE8F0;
+  --popover: #1A3259;
+  --popover-foreground: #DCE8F0;
+  --primary: #2F6CB5;
+  --primary-foreground: #FFFFFF;
+  --secondary: #1A3259;
+  --secondary-foreground: #5B9FD4;
+  --muted: #1A3259;
+  --muted-foreground: #A8CDE8;
+  --accent: #5B9FD4;
+  --accent-foreground: #0B1628;
+  --success: #2E7D32;
+  --success-foreground: #FFFFFF;
+  --warning: #ED6C02;
+  --warning-foreground: #FFFFFF;
+  --destructive: #D32F2F;
+  --destructive-foreground: #FFFFFF;
+  --border: #2A4A6B;
+  --input: #2A4A6B;
+  --input-background: #1A3259;
+  --switch-background: #2A4A6B;
+  --ring: #2F6CB5;
+  --chart-1: #2F6CB5;
+  --chart-2: #5B9FD4;
+  --chart-3: #A8CDE8;
+  --chart-4: #FFB74D;
+  --chart-5: #BA68C8;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
+  --shadow-md: 0 4px 8px rgba(0,0,0,0.35);
+  --shadow-lg: 0 8px 16px rgba(0,0,0,0.5);
+  --sidebar: #1A3259;
+  --sidebar-foreground: #DCE8F0;
+  --sidebar-primary: #2F6CB5;
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #5B9FD4;
+  --sidebar-accent-foreground: #0B1628;
+  --sidebar-border: #2A4A6B;
+  --sidebar-ring: #2F6CB5;
 }
 
 @theme inline {
@@ -76,10 +141,14 @@
   --color-chart-3: var(--chart-3);
   --color-chart-4: var(--chart-4);
   --color-chart-5: var(--chart-5);
-  --radius-sm: calc(var(--radius) - 4px);
-  --radius-md: calc(var(--radius) - 2px);
-  --radius-lg: var(--radius);
+  --radius-sm: calc(var(--radius) - 2px);
+  --radius-md: var(--radius);
+  --radius-lg: calc(var(--radius) + 2px);
   --radius-xl: calc(var(--radius) + 4px);
+  --radius-card: var(--radius-card);
+  --shadow-sm: var(--shadow-sm);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
   --color-sidebar: var(--sidebar);
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
@@ -97,46 +166,57 @@
 
   body {
     @apply bg-background text-foreground;
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   html {
     font-size: var(--font-size);
-    font-family: 'DM Sans', sans-serif;
+    font-family: 'Inter', system-ui, sans-serif;
   }
 
   h1 {
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 24px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.3px;
   }
 
   h2 {
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 20px;
+    font-weight: 600;
+    line-height: 1.3;
+    letter-spacing: -0.2px;
   }
 
   h3 {
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 18px;
+    font-weight: 600;
+    line-height: 1.4;
+    letter-spacing: -0.2px;
   }
 
   h4 {
-    font-weight: var(--font-weight-medium);
+    font-weight: 600;
     line-height: 1.5;
+    letter-spacing: -0.2px;
   }
 
   label {
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.4;
+    letter-spacing: 0.3px;
   }
 
   button {
-    font-weight: var(--font-weight-medium);
-    line-height: 1.5;
+    font-weight: 500;
+    line-height: 1;
+    letter-spacing: 0.3px;
   }
 
   input {
-    font-weight: var(--font-weight-normal);
+    font-size: 14px;
+    font-weight: 400;
     line-height: 1.5;
   }
 }

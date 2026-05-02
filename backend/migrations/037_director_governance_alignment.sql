@@ -3,7 +3,7 @@
 -- automated reporting, and intervention tracking tables.
 
 -- 1. Create control_failure_flags table
-CREATE TABLE control_failure_flags (
+CREATE TABLE IF NOT EXISTS control_failure_flags (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     service_id UUID NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
     risk_id UUID REFERENCES risks(id) ON DELETE SET NULL,
@@ -15,11 +15,11 @@ CREATE TABLE control_failure_flags (
     resolution_note TEXT NULL
 );
 
-CREATE INDEX idx_control_failure_service ON control_failure_flags(service_id);
-CREATE INDEX idx_control_failure_unresolved ON control_failure_flags(resolved_at) WHERE resolved_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_control_failure_service ON control_failure_flags(service_id);
+CREATE INDEX IF NOT EXISTS idx_control_failure_unresolved ON control_failure_flags(resolved_at) WHERE resolved_at IS NULL;
 
 -- 2. Create director_interventions table
-CREATE TABLE director_interventions (
+CREATE TABLE IF NOT EXISTS director_interventions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     director_user_id UUID NOT NULL REFERENCES users(id) ON DELETE RESTRICT,
     service_id UUID NOT NULL REFERENCES houses(id) ON DELETE CASCADE,
@@ -31,11 +31,11 @@ CREATE TABLE director_interventions (
     actioned_response TEXT NULL
 );
 
-CREATE INDEX idx_director_int_service ON director_interventions(service_id);
-CREATE INDEX idx_director_int_director ON director_interventions(director_user_id);
+CREATE INDEX IF NOT EXISTS idx_director_int_service ON director_interventions(service_id);
+CREATE INDEX IF NOT EXISTS idx_director_int_director ON director_interventions(director_user_id);
 
 -- 3. Create monthly_board_reports table
-CREATE TABLE monthly_board_reports (
+CREATE TABLE IF NOT EXISTS monthly_board_reports (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     report_period_start DATE NOT NULL,
     report_period_end DATE NOT NULL,
@@ -48,14 +48,14 @@ CREATE TABLE monthly_board_reports (
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE
 );
 
-CREATE INDEX idx_monthly_reports_period ON monthly_board_reports(report_period_start, report_period_end);
-CREATE INDEX idx_monthly_reports_company ON monthly_board_reports(company_id);
+CREATE INDEX IF NOT EXISTS idx_monthly_reports_period ON monthly_board_reports(report_period_start, report_period_end);
+CREATE INDEX IF NOT EXISTS idx_monthly_reports_company ON monthly_board_reports(company_id);
 
 -- 4. Add director_alert_flags to houses
-ALTER TABLE houses ADD COLUMN director_alert_flags JSONB DEFAULT '{}';
+ALTER TABLE houses ADD COLUMN IF NOT EXISTS director_alert_flags JSONB DEFAULT '{}';
 
 -- 5. Support action effectiveness outcomes (Ref: Implementation Plan 2.1, 3.1)
 -- These columns allow for both automated and manual override of action outcomes
-ALTER TABLE risk_actions ADD COLUMN calculated_outcome action_effectiveness NULL;
-ALTER TABLE risk_actions ADD COLUMN rm_override_outcome action_effectiveness NULL;
-ALTER TABLE risk_actions ADD COLUMN director_override_outcome action_effectiveness NULL;
+ALTER TABLE risk_actions ADD COLUMN IF NOT EXISTS calculated_outcome action_effectiveness NULL;
+ALTER TABLE risk_actions ADD COLUMN IF NOT EXISTS rm_override_outcome action_effectiveness NULL;
+ALTER TABLE risk_actions ADD COLUMN IF NOT EXISTS director_override_outcome action_effectiveness NULL;

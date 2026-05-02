@@ -12,6 +12,7 @@ import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
 import { Users, UserPlus, Edit, Trash2, Key, Search, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { ROLES } from '../../constants/roles';
 
 interface User {
   id: string;
@@ -434,14 +435,15 @@ const AdminUserManagement: React.FC = () => {
   };
 
   const getRoleBadgeColor = (role: string) => {
-    const r = role.toLowerCase().replace(/_/g, '-');
+    const r = role.toUpperCase();
     switch (r) {
-      case 'admin': return 'bg-red-100 text-red-800';
-      case 'director': return 'bg-purple-100 text-purple-800';
-      case 'registered-manager': return 'bg-blue-100 text-blue-800';
-      case 'team-leader': return 'bg-orange-100 text-orange-800';
-      case 'responsible-individual': return 'bg-green-100 text-green-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case ROLES.SUPER_ADMIN: return 'bg-red-200 text-red-900 border-red-300';
+      case ROLES.ADMIN: return 'bg-red-100 text-red-800';
+      case ROLES.DIRECTOR: return 'bg-purple-100 text-purple-800';
+      case ROLES.REGISTERED_MANAGER: return 'bg-blue-100 text-blue-800';
+      case ROLES.TEAM_LEADER: return 'bg-orange-100 text-orange-800';
+      case ROLES.RESPONSIBLE_INDIVIDUAL: return 'bg-green-100 text-green-800';
+      default: return 'bg-muted text-foreground';
     }
   };
 
@@ -522,11 +524,12 @@ const AdminUserManagement: React.FC = () => {
               className="w-full px-3 py-2 border-2 border-border rounded bg-background text-foreground focus:ring-2 focus:ring-primary focus:outline-none"
             >
               <option value="all">All roles</option>
-              <option value="ADMIN">Admin</option>
-              <option value="DIRECTOR">Director</option>
-              <option value="REGISTERED_MANAGER">Registered Manager</option>
-              <option value="TEAM_LEADER">Team Leader</option>
-              <option value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</option>
+              <option value={ROLES.SUPER_ADMIN}>Super Admin</option>
+              <option value={ROLES.ADMIN}>Admin</option>
+              <option value={ROLES.DIRECTOR}>Director</option>
+              <option value={ROLES.REGISTERED_MANAGER}>Registered Manager</option>
+              <option value={ROLES.TEAM_LEADER}>Team Leader</option>
+              <option value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</option>
             </select>
           </div>
           <div className="min-w-[150px]">
@@ -718,10 +721,11 @@ const AdminUserManagement: React.FC = () => {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DIRECTOR">Director</SelectItem>
-                  <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
-                  <SelectItem value="TEAM_LEADER">Team Leader</SelectItem>
-                  <SelectItem value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</SelectItem>
+                  <SelectItem value={ROLES.DIRECTOR}>Director</SelectItem>
+                  <SelectItem value={ROLES.REGISTERED_MANAGER}>Registered Manager</SelectItem>
+                  <SelectItem value={ROLES.TEAM_LEADER}>Team Leader</SelectItem>
+                  <SelectItem value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</SelectItem>
+                  <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -811,10 +815,11 @@ const AdminUserManagement: React.FC = () => {
                   <SelectValue placeholder="Select role" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DIRECTOR">Director</SelectItem>
-                  <SelectItem value="REGISTERED_MANAGER">Registered Manager</SelectItem>
-                  <SelectItem value="TEAM_LEADER">Team Leader</SelectItem>
-                  <SelectItem value="RESPONSIBLE_INDIVIDUAL">Responsible Individual</SelectItem>
+                  <SelectItem value={ROLES.DIRECTOR}>Director</SelectItem>
+                  <SelectItem value={ROLES.REGISTERED_MANAGER}>Registered Manager</SelectItem>
+                  <SelectItem value={ROLES.TEAM_LEADER}>Team Leader</SelectItem>
+                  <SelectItem value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</SelectItem>
+                  <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>

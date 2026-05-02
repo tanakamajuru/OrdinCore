@@ -12,7 +12,7 @@ export class AdminController {
           COUNT(*) AS total, 
           COUNT(*) FILTER (WHERE status = 'active') AS active 
          FROM users 
-         WHERE ($1::text IS NULL OR company_id::text = $1::text)`,
+         WHERE ($1::text IS NULL OR (company_id::text = $1::text AND role != 'SUPER_ADMIN'))`,
         [company_id]
       );
       

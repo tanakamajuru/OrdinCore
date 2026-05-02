@@ -70,7 +70,7 @@ export function CrossHousePatternDetection() {
       case "high": return "bg-red-100 text-red-800 border-red-300";
       case "medium": return "bg-orange-100 text-orange-800 border-orange-300";
       case "low": return "bg-green-100 text-green-800 border-green-300";
-      default: return "bg-gray-100 text-gray-800 border-gray-300";
+      default: return "bg-muted text-foreground border-border";
     }
   };
 
@@ -87,8 +87,8 @@ export function CrossHousePatternDetection() {
     switch (trend) {
       case "increasing": return "text-red-600";
       case "decreasing": return "text-green-600";
-      case "stable": return "text-gray-600";
-      default: return "text-gray-600";
+      case "stable": return "text-muted-foreground";
+      default: return "text-muted-foreground";
     }
   };
 
@@ -98,24 +98,24 @@ export function CrossHousePatternDetection() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-black"></div>
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-border"></div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-black mb-2">Cross-House Pattern Detection</h1>
-          <p className="text-gray-600">Identify and analyze recurring risk patterns across all services</p>
+          <h1 className="text-3xl font-bold text-foreground mb-2">Cross-House Pattern Detection</h1>
+          <p className="text-muted-foreground">Identify and analyze recurring risk patterns across all services</p>
         </div>
 
         {/* Filters */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardContent className="p-6">
             <div className="flex gap-4 items-center">
               <div className="flex-1 relative">
@@ -124,20 +124,20 @@ export function CrossHousePatternDetection() {
                   placeholder="Search patterns..."
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10 border-black"
+                  className="pl-10 border-border"
                 />
               </div>
               <select
                 value={severityFilter}
                 onChange={(e) => setSeverityFilter(e.target.value as any)}
-                className="px-3 py-2 border-2 border-black rounded"
+                className="px-3 py-2 border-2 border-border rounded"
               >
                 <option value="all">All Severities</option>
                 <option value="high">High</option>
                 <option value="medium">Medium</option>
                 <option value="low">Low</option>
               </select>
-              <Button variant="outline" className="border-black hover:bg-black hover:text-white">
+              <Button variant="outline" className="border-border hover:bg-primary hover:text-primary-foreground">
                 <Filter className="w-4 h-4 mr-2" />
                 More Filters
               </Button>
@@ -148,7 +148,7 @@ export function CrossHousePatternDetection() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Patterns List */}
           <div className="lg:col-span-2">
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5" />
@@ -162,15 +162,15 @@ export function CrossHousePatternDetection() {
                       key={pattern.id}
                       className={`border-2 rounded-lg p-4 cursor-pointer transition-colors ${
                         selectedPattern?.id === pattern.id 
-                          ? "border-black bg-gray-50" 
-                          : "border-gray-300 hover:border-black"
+                          ? "border-border bg-muted" 
+                          : "border-border hover:border-border"
                       }`}
                       onClick={() => setSelectedPattern(pattern)}
                     >
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-bold text-black">{pattern.patternType}</h3>
+                            <h3 className="font-bold text-foreground">{pattern.patternType}</h3>
                             <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(pattern.severity)}`}>
                               {pattern.severity.toUpperCase()}
                             </span>
@@ -178,8 +178,8 @@ export function CrossHousePatternDetection() {
                               {getTrendIcon(pattern.trend)} {pattern.trend}
                             </span>
                           </div>
-                          <p className="text-sm text-gray-600 mb-2">{pattern.description}</p>
-                          <div className="flex items-center gap-4 text-sm text-gray-500">
+                          <p className="text-sm text-muted-foreground mb-2">{pattern.description}</p>
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
                               {pattern.affectedHouses.length} houses
@@ -204,7 +204,7 @@ export function CrossHousePatternDetection() {
                       
                       <div className="flex flex-wrap gap-2">
                         {pattern.affectedHouses.map((house, index) => (
-                          <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded border">
+                          <span key={index} className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded border">
                             {house}
                           </span>
                         ))}
@@ -221,37 +221,37 @@ export function CrossHousePatternDetection() {
             {selectedPattern ? (
               <>
                 {/* Pattern Overview */}
-                <Card className="border-2 border-black">
+                <Card className="border-2 border-border">
                   <CardHeader>
                     <CardTitle className="text-lg">Pattern Overview</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Pattern Type</div>
-                        <div className="font-bold text-black">{selectedPattern.patternType}</div>
+                        <div className="text-sm text-muted-foreground mb-1">Pattern Type</div>
+                        <div className="font-bold text-foreground">{selectedPattern.patternType}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Description</div>
-                        <div className="text-sm text-gray-700">{selectedPattern.description}</div>
+                        <div className="text-sm text-muted-foreground mb-1">Description</div>
+                        <div className="text-sm text-muted-foreground">{selectedPattern.description}</div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Severity</div>
+                        <div className="text-sm text-muted-foreground mb-1">Severity</div>
                         <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(selectedPattern.severity)}`}>
                           {selectedPattern.severity.toUpperCase()}
                         </span>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Trend</div>
+                        <div className="text-sm text-muted-foreground mb-1">Trend</div>
                         <div className={`font-medium ${getTrendColor(selectedPattern.trend)}`}>
                           {getTrendIcon(selectedPattern.trend)} {selectedPattern.trend}
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm text-gray-500 mb-1">Affected Houses</div>
+                        <div className="text-sm text-muted-foreground mb-1">Affected Houses</div>
                         <div className="flex flex-wrap gap-2">
                           {selectedPattern.affectedHouses.map((house, index) => (
-                            <span key={index} className="px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded border">
+                            <span key={index} className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded border">
                               {house}
                             </span>
                           ))}
@@ -262,24 +262,24 @@ export function CrossHousePatternDetection() {
                 </Card>
 
                 {/* Related Signals */}
-                <Card className="border-2 border-black">
+                <Card className="border-2 border-border">
                   <CardHeader>
                     <CardTitle className="text-lg">Related Signals</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-3">
                       {getRelatedSignals(selectedPattern).map((signal, index) => (
-                        <div key={index} className="p-3 bg-gray-50 rounded border">
+                        <div key={index} className="p-3 bg-muted rounded border">
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <div className="font-medium text-black text-sm">{signal.houseName}</div>
-                              <div className="text-sm text-gray-600">{signal.signal}</div>
+                              <div className="font-medium text-foreground text-sm">{signal.houseName}</div>
+                              <div className="text-sm text-muted-foreground">{signal.signal}</div>
                             </div>
                             <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(signal.severity)}`}>
                               {signal.severity}
                             </span>
                           </div>
-                          <div className="flex justify-between text-xs text-gray-500">
+                          <div className="flex justify-between text-xs text-muted-foreground">
                             <span>{signal.category}</span>
                             <span>{signal.frequency} occurrences</span>
                             <span>{new Date(signal.detectedDate).toLocaleDateString()}</span>
@@ -291,7 +291,7 @@ export function CrossHousePatternDetection() {
                 </Card>
 
                 {/* Recommendations */}
-                <Card className="border-2 border-black">
+                <Card className="border-2 border-border">
                   <CardHeader>
                     <CardTitle className="text-lg">Leadership Actions</CardTitle>
                   </CardHeader>
@@ -312,11 +312,11 @@ export function CrossHousePatternDetection() {
                         </div>
                       </div>
                       
-                      <Button className="w-full bg-black text-white hover:bg-gray-800">
+                      <Button className="w-full bg-primary text-primary-foreground hover:bg-[#008394]">
                         <Eye className="w-4 h-4 mr-2" />
                         View Full Analysis
                       </Button>
-                      <Button variant="outline" className="w-full border-black hover:bg-black hover:text-white">
+                      <Button variant="outline" className="w-full border-border hover:bg-primary hover:text-primary-foreground">
                         Add to Governance Review
                       </Button>
                     </div>
@@ -324,10 +324,10 @@ export function CrossHousePatternDetection() {
                 </Card>
               </>
             ) : (
-              <Card className="border-2 border-black">
+              <Card className="border-2 border-border">
                 <CardContent className="p-6 text-center">
                   <TrendingUp className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <div className="text-gray-600">Select a pattern to view details</div>
+                  <div className="text-muted-foreground">Select a pattern to view details</div>
                 </CardContent>
               </Card>
             )}

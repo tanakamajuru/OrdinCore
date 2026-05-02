@@ -68,11 +68,11 @@ export function ControlFailurePanel() {
           <ShieldAlert className="w-6 h-6 text-destructive" />
           <CardTitle className="text-xl font-black uppercase italic tracking-tighter text-destructive">Active Control Failures Detected</CardTitle>
         </div>
-        <span className="bg-destructive text-white px-2 py-0.5 text-[10px] font-black uppercase animate-pulse">Action Required</span>
+        <span className="bg-destructive text-primary-foreground px-2 py-0.5 text-[10px] font-black uppercase animate-pulse">Action Required</span>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         {failures.map((failure) => (
-          <div key={failure.id} className="bg-white border-2 border-destructive/20 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group hover:border-destructive/40 transition-all">
+          <div key={failure.id} className="bg-card border-2 border-destructive/20 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group hover:border-destructive/40 transition-all">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
                 <span className="text-xs font-black uppercase bg-destructive/10 text-destructive px-1.5 py-0.5">{failure.failure_type.replace('_', ' ')}</span>
@@ -97,7 +97,7 @@ export function ControlFailurePanel() {
               <Button 
                 variant="default" 
                 size="sm" 
-                className="flex-1 md:flex-none bg-destructive text-white hover:bg-destructive/90 font-bold uppercase text-[10px]"
+                className="flex-1 md:flex-none bg-destructive text-primary-foreground hover:bg-destructive/90 font-bold uppercase text-[10px]"
                 onClick={() => setResolvingId(failure.id)}
               >
                 <CheckCircle className="w-3 h-3 mr-1" />
@@ -109,7 +109,7 @@ export function ControlFailurePanel() {
       </CardContent>
 
       <Dialog open={!!resolvingId} onOpenChange={(open) => !open && setResolvingId(null)}>
-        <DialogContent className="border-4 border-black rounded-none">
+        <DialogContent className="border-4 border-border rounded-none">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Resolve Control Failure</DialogTitle>
           </DialogHeader>
@@ -119,15 +119,15 @@ export function ControlFailurePanel() {
               placeholder="Detail the intervention taken to address this repeated control failure..."
               value={resolutionNote}
               onChange={(e) => setResolutionNote(e.target.value)}
-              className="border-2 border-black focus-visible:ring-0 min-h-[120px]"
+              className="border-2 border-border focus-visible:ring-0 min-h-[120px]"
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolvingId(null)} className="border-2 border-black font-bold uppercase">Cancel</Button>
+            <Button variant="outline" onClick={() => setResolvingId(null)} className="border-2 border-border font-bold uppercase">Cancel</Button>
             <Button 
               onClick={handleResolve} 
               disabled={isResolving}
-              className="bg-black text-white hover:bg-gray-800 font-bold uppercase"
+              className="bg-primary text-primary-foreground hover:bg-[#008394] font-bold uppercase"
             >
               {isResolving ? <Loader2 className="animate-spin w-4 h-4" /> : "Confirm Resolution"}
             </Button>

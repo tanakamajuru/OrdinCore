@@ -125,6 +125,10 @@ export class WeeklyReviewsService {
     const startStr = start.toISOString().split('T')[0];
     const endStr = end.toISOString().split('T')[0];
 
+    const houseRes = await query('SELECT name FROM houses WHERE id = $1 AND company_id = $2', [house_id, company_id]);
+    const house = houseRes.rows[0];
+    if (!house) throw new Error('House not found or access denied');
+
     // Step 3 & 4: Pulse Data
     const signalsRes = await query(
       `SELECT id, entry_date, entry_time, signal_type, severity, risk_domain, pattern_concern, description 
@@ -164,7 +168,13 @@ export class WeeklyReviewsService {
       [house_id, company_id]
     );
 
+    // [GOVERNANCE] Senior roles need a list of available houses to switch context
+    const housesRes = await query('SELECT id, name FROM houses WHERE company_id = $1 AND is_active = true', [company_id]);
+
     return {
+      house_id,
+      house_name: house.name,
+      available_houses: housesRes.rows,
       week_range: { start: startStr, end: endStr },
       auto_population: {
         pulse_count: signals.length,
@@ -201,6 +211,20 @@ export class WeeklyReviewsService {
        FROM weekly_reviews wr
        JOIN users u ON u.id = wr.created_by
        WHERE wr.id = $1 AND wr.company_id = $2`,
+      [id, company_id]
+    );
+    return result.rows[0];
+  }
+
+  async complete(id: string, company_id: string, user_id: string) {
+    const existing = await this.findById(id, company_id);
+    if (!existing) throw new Error('Review not found');
+
+    const result = await query(
+      `UPDATE weekly_reviews 
+       SET status = 'LOCKED', updated_at = NOW() 
+       WHERE id = $1 AND company_id = $2 
+       RETURNING *`,
       [id, company_id]
     );
     return result.rows[0];

@@ -196,7 +196,7 @@ export function IncidentCaseHub() {
                   : 'Serious incident management across all services'
                 }
               </p>
-              {userRole === 'registered-manager' && (
+              {userRole === 'REGISTERED_MANAGER' && (
                 <p className="text-sm text-muted-foreground mt-1">Showing incidents for your assigned house only</p>
               )}
             </div>
@@ -212,7 +212,7 @@ export function IncidentCaseHub() {
           </div>
 
           {/* Filters */}
-          {userRole !== 'registered-manager' && (
+          {userRole !== 'REGISTERED_MANAGER' && (
             <Card className="border-2 border-border mb-6 bg-card shadow-sm">
               <CardContent className="p-6">
                 <div className="flex gap-4 items-center">
@@ -256,7 +256,7 @@ export function IncidentCaseHub() {
           )}
 
           {/* Search only for RM */}
-          {userRole === 'registered-manager' && (
+          {userRole === 'REGISTERED_MANAGER' && (
             <Card className="border-2 border-border mb-6 bg-card shadow-sm">
               <CardContent className="p-6">
                 <div className="relative">
@@ -362,7 +362,7 @@ export function IncidentCaseHub() {
                 <Ambulance className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
                 <h3 className="text-xl font-semibold text-primary mb-2">No incidents found</h3>
                 <p>
-                  {userRole === 'registered-manager'
+                  {userRole === 'REGISTERED_MANAGER'
                     ? 'There are no incidents for your assigned house.'
                     : 'No incidents match your current filters.'
                   }
@@ -380,7 +380,7 @@ export function IncidentCaseHub() {
 
           {/* Create Serious Incident Modal */}
           {showCreateModal && (
-            <div className="fixed inset-0 backdrop-blur-sm bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="fixed inset-0 backdrop-blur-sm bg-primary/50 flex items-center justify-center z-50 p-4">
               <div className="bg-card border-2 border-border shadow-2xl rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6 sticky top-0 bg-card pb-4 border-b border-border z-10">
                   <h2 className="text-2xl font-bold text-primary">Report Serious Incident</h2>
@@ -420,7 +420,7 @@ export function IncidentCaseHub() {
                             </option>
                           ))}
                         </select>
-                        {userRole === 'registered-manager' && (
+                        {userRole === 'REGISTERED_MANAGER' && (
                           <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 italic">Only your assigned house is available</p>
                         )}
                       </div>
@@ -517,78 +517,78 @@ export function IncidentCaseHub() {
                   </div>
 
                   {/* Incident Details */}
-                  <div className="border-b border-gray-200 pb-6">
-                    <h3 className="font-semibold text-black mb-4">Incident Details</h3>
+                  <div className="border-b border-border pb-6">
+                    <h3 className="font-semibold text-foreground mb-4">Incident Details</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Incident Description *</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Incident Description *</label>
                         <textarea
                           value={incidentForm.description}
                           onChange={(e) => setIncidentForm({ ...incidentForm, description: e.target.value })}
-                          className="w-full border-2 border-black rounded p-2 h-24 resize-none"
+                          className="w-full border-2 border-border rounded p-2 h-24 resize-none"
                           placeholder="Provide detailed description of what happened..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Immediate Actions Taken</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Immediate Actions Taken</label>
                         <textarea
                           value={incidentForm.immediate_action}
                           onChange={(e) => setIncidentForm({ ...incidentForm, immediate_action: e.target.value })}
-                          className="w-full border-2 border-black rounded p-2 h-20 resize-none"
+                          className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Describe immediate response and actions taken..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">People Involved</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">People Involved</label>
                         <Input
                           value={incidentForm.persons_involved}
                           onChange={(e) => setIncidentForm({ ...incidentForm, persons_involved: e.target.value })}
                           placeholder="Names of residents, staff, or others involved (if applicable)"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Place of occurence</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Place of occurence</label>
                         <Input
                           value={incidentForm.location}
                           onChange={(e) => setIncidentForm({ ...incidentForm, location: e.target.value })}
                           placeholder="Location of the incident"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                     </div>
                   </div>
 
                   {/* External References */}
-                  <div className="border-b border-gray-200 pb-6">
-                    <h3 className="font-semibold text-black mb-4">External References</h3>
+                  <div className="border-b border-border pb-6">
+                    <h3 className="font-semibold text-foreground mb-4">External References</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Local Authority Referral</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Local Authority Referral</label>
                         <Input
                           placeholder="LA safeguarding reference number (if applicable)"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">CQC Notification</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">CQC Notification</label>
                         <Input
                           placeholder="CQC notification reference (if applicable)"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Police Reference</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Police Reference</label>
                         <Input
                           placeholder="Police reference number (if applicable)"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Other External References</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Other External References</label>
                         <Input
                           placeholder="Any other external reference numbers"
-                          className="border-black"
+                          className="border-border"
                         />
                       </div>
                     </div>
@@ -596,11 +596,11 @@ export function IncidentCaseHub() {
 
                   {/* Leadership Assessment */}
                   <div className="pb-6">
-                    <h3 className="font-semibold text-black mb-4">Leadership Assessment</h3>
+                    <h3 className="font-semibold text-foreground mb-4">Leadership Assessment</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Was this incident foreseeable?</label>
-                        <select className="w-full border-2 border-black rounded p-2">
+                        <label className="block text-sm font-medium text-foreground mb-1">Was this incident foreseeable?</label>
+                        <select className="w-full border-2 border-border rounded p-2">
                           <option value="">Select...</option>
                           <option value="yes">Yes - risks were known</option>
                           <option value="no">No - unexpected event</option>
@@ -608,23 +608,23 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Related Risk Factors</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Related Risk Factors</label>
                         <textarea
-                          className="w-full border-2 border-black rounded p-2 h-20 resize-none"
+                          className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Any risk factors that contributed to this incident..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Preventive Measures Needed</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Preventive Measures Needed</label>
                         <textarea
-                          className="w-full border-2 border-black rounded p-2 h-20 resize-none"
+                          className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Measures needed to prevent similar incidents..."
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Leadership Commentary</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Leadership Commentary</label>
                         <textarea
-                          className="w-full border-2 border-black rounded p-2 h-20 resize-none"
+                          className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Leadership perspective on the incident and implications..."
                         />
                       </div>
@@ -633,22 +633,22 @@ export function IncidentCaseHub() {
 
                   {/* Reporting Information */}
                   <div className="pb-6">
-                    <h3 className="font-semibold text-black mb-4">Reporting Information</h3>
+                    <h3 className="font-semibold text-foreground mb-4">Reporting Information</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Your Name *</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Your Name *</label>
                         <Input
                           placeholder="Your full name"
-                          className="border-black bg-muted cursor-not-allowed"
+                          className="border-border bg-muted cursor-not-allowed"
                           value={userName}
                           readOnly
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-black mb-1">Your Role *</label>
+                        <label className="block text-sm font-medium text-foreground mb-1">Your Role *</label>
                         <Input
                           placeholder="Your role"
-                          className="border-black bg-muted cursor-not-allowed"
+                          className="border-border bg-muted cursor-not-allowed"
                           value={userRole.split('_').map(w => w.charAt(0) + w.slice(1).toLowerCase()).join(' ')}
                           readOnly
                         />

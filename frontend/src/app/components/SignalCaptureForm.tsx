@@ -68,7 +68,7 @@ const FieldWrapper = ({ step, title, icon: Icon, children, currentStep, nextStep
               <button 
                   onClick={handleSubmit}
                   disabled={isSubmitting || !validateStep(11)}
-                  className="flex items-center gap-2 px-8 py-3 bg-success text-white hover:bg-success/90 disabled:opacity-50 transition-all font-bold"
+                  className="flex items-center gap-2 px-8 py-3 bg-success text-primary-foreground hover:bg-success/90 disabled:opacity-50 transition-all font-bold"
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Signal'} <Save size={20} />
               </button>

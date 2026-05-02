@@ -173,7 +173,7 @@ export function EscalationLog() {
                         {esc.priority}
                       </span>
                       <span className="text-gray-400 text-xs">|</span>
-                      <span className="text-xs font-medium text-gray-500 flex items-center gap-1">
+                      <span className="text-xs font-medium text-muted-foreground flex items-center gap-1">
                         <MapPin className="w-3 h-3" /> {esc.house_name}
                       </span>
                     </div>
@@ -308,7 +308,7 @@ export function EscalationLog() {
                 </div>
               </div>
             ) : (
-              <div className="h-full flex flex-col items-center justify-center p-12 border-2 border-dashed border-gray-200 rounded-lg text-gray-400">
+              <div className="h-full flex flex-col items-center justify-center p-12 border-2 border-dashed border-border rounded-lg text-gray-400">
                 <AlertCircle className="w-12 h-12 mb-4 opacity-20" />
                 <p className="text-center font-medium">Select an escalation to view details and take action</p>
               </div>

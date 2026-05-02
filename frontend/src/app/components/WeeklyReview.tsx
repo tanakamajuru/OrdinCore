@@ -29,23 +29,27 @@ export function WeeklyReview() {
     try {
       setIsLoading(true);
       const user = JSON.parse(localStorage.getItem('user') || '{}');
+      const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase();
       let houseId = user.assigned_house_id;
 
-      if (!houseId || houseId === '1') {
-        const hRes = await apiClient.get('/houses');
-        const hData = hRes.data?.data || hRes.data || [];
-        const houses = Array.isArray(hData) ? hData : (hData.items || []);
-        if (houses.length > 0) {
-          houseId = houses[0].id;
+      const hRes = await apiClient.get('/houses');
+      const hData = hRes.data?.data || hRes.data || [];
+      const housesList = Array.isArray(hData) ? hData : (hData.items || []);
+      
+      const isValidHouse = houseId && houseId !== '1' && houseId !== 'all' && houseId !== 'undefined' && housesList.some((h: any) => h.id === houseId);
+      
+      if (!isValidHouse) {
+        if (housesList.length > 0) {
+          houseId = housesList[0].id;
         } else {
-          toast.error("No houses found.");
+          toast.error("No services found in your company context.");
           setIsLoading(false);
           return;
         }
       }
       
       const weekEnding = new Date().toISOString().split('T')[0];
-      const previewRes = await apiClient.get(`/weekly-reviews/prepare?house_id=${houseId}&week_ending=${weekEnding}`);
+      const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${houseId}&week_ending=${weekEnding}`);
       const auto = previewRes.data?.data?.auto_population || {};
       setPreviewData(previewRes.data?.data || {});
       
@@ -173,23 +177,42 @@ export function WeeklyReview() {
   };
 
   const renderStepContent = () => {
-    const sectionClass = "bg-white border-2 border-black p-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]";
-    const titleClass = "text-xl font-black uppercase italic text-primary mb-6 flex items-center gap-2";
-    const labelClass = "block mb-2 text-[10px] font-black uppercase tracking-widest text-muted-foreground";
-    const inputClass = "w-full px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 text-lg font-medium shadow-[4px_4px_0px_rgba(0,0,0,1)] mb-4";
-    const areaClass = "w-full h-32 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-0 text-lg font-medium resize-none shadow-[4px_4px_0px_rgba(0,0,0,1)] mb-4";
+    const sectionClass = "bg-card border border-border rounded-xl p-6 shadow-md";
+    const titleClass = "text-xl font-semibold text-primary mb-6 flex items-center gap-2";
+    const labelClass = "block mb-2 text-sm font-medium text-muted-foreground";
+    const inputClass = "w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg font-medium shadow-sm mb-4";
+    const areaClass = "w-full h-32 px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg font-medium resize-none shadow-sm mb-4";
 
     switch(currentStep) {
       case 0: return (
         <div className={sectionClass}>
           <h2 className={titleClass}><Shield className="w-6 h-6"/> Step 1: Service Scope</h2>
-          <label className={labelClass}>Assigned Service(s)</label>
-          <div className="flex flex-wrap gap-2 mb-4">
-             {formData.step1_services?.map((s: string) => (
-               <span key={s} className="bg-black text-white px-3 py-1 text-xs font-black uppercase italic tracking-widest">
-                 {previewData?.house_name || 'Your Service'}
-               </span>
-             ))}
+          <label className={labelClass}>Select Service for Review</label>
+          <div className="flex flex-col gap-4 mb-4">
+             <select 
+               value={formData.step1_services?.[0] || ''} 
+               onChange={async (e) => {
+                 const newId = e.target.value;
+                 setFormData({...formData, step1_services: [newId]});
+                 // Re-load preview data for the selected house
+                 try {
+                   setIsLoading(true);
+                   const weekEnding = new Date().toISOString().split('T')[0];
+                   const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${newId}&week_ending=${weekEnding}`);
+                   setPreviewData(previewRes.data?.data || {});
+                 } catch (err) {
+                   toast.error("Failed to load data for this service");
+                 } finally {
+                   setIsLoading(false);
+                 }
+               }}
+               className={inputClass}
+             >
+               {previewData?.available_houses?.map((h: any) => (
+                 <option key={h.id} value={h.id}>{h.name}</option>
+               )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
+             </select>
+             <p className="text-[10px] font-bold text-muted-foreground italic">You must complete a separate review for each service under your oversight.</p>
           </div>
         </div>
       );
@@ -213,13 +236,13 @@ export function WeeklyReview() {
           <h2 className={titleClass}><FileText className="w-6 h-6"/> Step 4: Signal Registry</h2>
           <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
             {formData.step4_signals?.map((s: any) => (
-              <div key={s.id} className="p-4 border-2 border-black bg-muted/20">
+              <div key={s.id} className="p-4 border border-border bg-muted/20">
                 <div className="flex justify-between items-start mb-2">
-                  <span className="bg-black text-white px-2 py-0.5 text-[10px] font-black uppercase italic tracking-widest">{s.signal_type}</span>
+                  <span className="bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-medium rounded-full">{s.signal_type}</span>
                   <span className="font-bold text-xs">{new Date(s.entry_date).toLocaleDateString()}</span>
                 </div>
                 <p className="text-sm font-medium">{s.description}</p>
-                <div className="mt-2 flex gap-4 text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                <div className="mt-2 flex gap-4 text-xs font-medium text-muted-foreground">
                   <span>Domain: {s.risk_domain}</span>
                   <span>Severity: {s.severity}</span>
                 </div>
@@ -282,7 +305,7 @@ export function WeeklyReview() {
           {/* Mocked multi-select list for risks */}
           <div className="space-y-2">
             {formData.step10_risk_analysis?.map((r: any) => (
-               <div key={r.risk_id} className="p-3 bg-black text-white text-sm font-black uppercase italic tracking-widest">
+               <div key={r.risk_id} className="p-3 bg-primary text-primary-foreground text-sm font-black uppercase italic tracking-widest">
                  {r.title}
                </div>
             ))}
@@ -295,15 +318,15 @@ export function WeeklyReview() {
           <div className="overflow-x-auto">
             <table className="w-full border-collapse">
               <thead>
-                <tr className="border-b-2 border-black">
-                  <th className="text-left py-2 text-[10px] font-black uppercase tracking-widest">Risk</th>
-                  <th className="text-left py-2 text-[10px] font-black uppercase tracking-widest">Trajectory</th>
-                  <th className="text-left py-2 text-[10px] font-black uppercase tracking-widest">Controls Effective?</th>
+                <tr className="border-b-2 border-border">
+                  <th className="text-left py-2 text-[10px] font-medium">Risk</th>
+                  <th className="text-left py-2 text-[10px] font-medium">Trajectory</th>
+                  <th className="text-left py-2 text-[10px] font-medium">Controls Effective?</th>
                 </tr>
               </thead>
               <tbody>
                 {formData.step10_risk_analysis?.map((r: any, idx: number) => (
-                  <tr key={r.risk_id} className="border-b border-gray-200">
+                  <tr key={r.risk_id} className="border-b border-border">
                     <td className="py-4 font-bold text-sm">{r.title}</td>
                     <td className="py-4">
                       <select 
@@ -370,14 +393,14 @@ export function WeeklyReview() {
       case 12: return (
         <div className={sectionClass}>
           <h2 className={titleClass}>Step 13: Action Tracker</h2>
-          <button className="w-full py-4 border-2 border-dashed border-black text-sm font-black uppercase tracking-widest hover:bg-muted mb-6">
+          <button className="w-full py-4 border border-dashed border-border text-sm font-medium hover:bg-muted mb-6">
             + Create New Governance Action
           </button>
           <div className="space-y-4">
              {formData.step13_new_actions?.map((a: any, idx: number) => (
-                <div key={idx} className="p-4 border-2 border-black">
+                <div key={idx} className="p-4 border border-border">
                   <p className="font-bold">{a.title}</p>
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mt-1">Assignee: {a.owner} | Due: {a.due}</p>
+                  <p className="text-[10px] font-medium text-muted-foreground mt-1">Assignee: {a.owner} | Due: {a.due}</p>
                 </div>
              ))}
           </div>
@@ -391,8 +414,8 @@ export function WeeklyReview() {
               <button
                 key={p}
                 onClick={() => setFormData({...formData, step14_overall_position: p})}
-                className={`py-4 px-6 text-left font-black uppercase italic border-2 border-black transition-all ${
-                  formData.step14_overall_position === p ? 'bg-black text-white shadow-[4px_4px_0px_rgba(255,0,0,1)]' : 'bg-white hover:bg-muted'
+                className={`py-4 px-6 text-left font-black uppercase italic border border-border transition-all ${
+                  formData.step14_overall_position === p ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted'
                 }`}
               >
                 {p}
@@ -418,25 +441,25 @@ export function WeeklyReview() {
   };
 
   if (isLoading) return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-      <span className="font-black uppercase tracking-widest italic">Syncing Doctrine Logic...</span>
+      <span className="font-medium italic">Syncing Doctrine Logic...</span>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#FDFCFB]">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-24 max-w-4xl mx-auto">
-        <div className="mb-12 border-b-4 border-black pb-8">
+        <div className="mb-12 border-b-4 border-border pb-8">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-5xl font-black uppercase italic tracking-tighter text-primary">Governance Review</h1>
-              <p className="text-sm font-bold uppercase tracking-[0.2em] text-muted-foreground mt-2">RM Sequential Oversight | Phase {currentStep + 1} of 15</p>
+              <h1 className="text-4xl font-bold text-primary">Governance Review</h1>
+              <p className="text-sm font-medium text-muted-foreground mt-2">RM Sequential Oversight | Phase {currentStep + 1} of 15</p>
             </div>
             <div className="text-right">
                <span className="block text-[10px] font-black uppercase text-muted-foreground">Status</span>
-               <span className="inline-block px-3 py-1 bg-black text-white text-xs font-black uppercase italic tracking-widest">{status}</span>
+               <span className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs font-black uppercase italic tracking-widest">{status}</span>
             </div>
           </div>
         </div>
@@ -451,7 +474,7 @@ export function WeeklyReview() {
           <button
             onClick={handlePrevStep}
             disabled={currentStep === 0 || isSaving}
-            className="py-4 px-8 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors font-black uppercase tracking-widest disabled:opacity-50 shadow-[4px_4px_0px_rgba(0,0,0,1)] active:translate-x-[2px] active:translate-y-[2px] active:shadow-none"
+            className="py-4 px-8 bg-card text-foreground border border-border hover:bg-muted transition-colors font-medium rounded-md disabled:opacity-50"
           >
             Previous
           </button>
@@ -460,7 +483,7 @@ export function WeeklyReview() {
             <button
               onClick={handleNextStep}
               disabled={isSaving || status === 'Locked'}
-              className="py-4 px-10 bg-black text-white hover:bg-primary transition-all font-black uppercase italic tracking-widest disabled:opacity-50 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+              className="py-4 px-10 bg-primary text-primary-foreground hover:bg-primary transition-all rounded-md font-medium disabled:opacity-50"
             >
               {isSaving ? 'Synching...' : 'Validate & Proceed'}
             </button>
@@ -468,7 +491,7 @@ export function WeeklyReview() {
             <button
               onClick={handleSubmitAndLock}
               disabled={isSaving || status === 'Locked'}
-              className="py-4 px-10 bg-destructive text-white hover:bg-black transition-all font-black uppercase italic tracking-widest disabled:opacity-50 shadow-[8px_8px_0px_rgba(0,0,0,1)] hover:shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+              className="py-4 px-10 bg-destructive text-primary-foreground hover:bg-primary transition-all rounded-md font-medium disabled:opacity-50"
             >
               {isSaving ? 'Locking...' : 'LOCK & PUBLISH GOVERNANCE'}
             </button>

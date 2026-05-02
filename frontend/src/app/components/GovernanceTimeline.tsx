@@ -200,12 +200,12 @@ export function GovernanceTimeline() {
 
   const getSourceColor = (sourceType: string) => {
     switch (sourceType) {
-      case "pulse": return "bg-black text-white";
-      case "risk": return "bg-gray-800 text-white";
-      case "escalation": return "bg-black text-white";
-      case "weekly-review": return "bg-gray-700 text-white";
-      case "incident": return "bg-black text-white";
-      default: return "bg-gray-600 text-white";
+      case "pulse": return "bg-primary text-primary-foreground";
+      case "risk": return "bg-gray-800 text-primary-foreground";
+      case "escalation": return "bg-primary text-primary-foreground";
+      case "weekly-review": return "bg-gray-700 text-primary-foreground";
+      case "incident": return "bg-primary text-primary-foreground";
+      default: return "bg-gray-600 text-primary-foreground";
     }
   };
 
@@ -222,10 +222,10 @@ export function GovernanceTimeline() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading governance timeline...</p>
+          <p className="mt-2 text-muted-foreground">Loading governance timeline...</p>
         </div>
       </div>
     );
@@ -233,12 +233,12 @@ export function GovernanceTimeline() {
 
   if (!incident) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-black mb-4">Incident not found</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Incident not found</h2>
           <button
             onClick={() => navigate('/incidents')}
-            className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
           >
             Back to Incidents
           </button>
@@ -248,7 +248,7 @@ export function GovernanceTimeline() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         {/* Header */}
@@ -256,53 +256,53 @@ export function GovernanceTimeline() {
           <Button
             variant="outline"
             onClick={() => navigate('/incidents')}
-            className="border-black hover:bg-black hover:text-white"
+            className="border-border hover:bg-primary hover:text-primary-foreground"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back to Incidents
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-black">Governance Timeline</h1>
-            <p className="text-gray-600">Chronological oversight trail for {incident.title}</p>
+            <h1 className="text-3xl font-bold text-foreground">Governance Timeline</h1>
+            <p className="text-muted-foreground">Chronological oversight trail for {incident.title}</p>
           </div>
         </div>
 
         {/* Incident Summary */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardContent className="p-6">
             <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
               <div className="flex items-center gap-2">
-                <MapPin className="w-4 h-4 text-gray-500" />
+                <MapPin className="w-4 h-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-gray-500">Service</div>
+                  <div className="text-sm text-muted-foreground">Service</div>
                   <div className="font-medium">{incident.house_name}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Calendar className="w-4 h-4 text-gray-500" />
+                <Calendar className="w-4 h-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-gray-500">Incident Date</div>
+                  <div className="text-sm text-muted-foreground">Incident Date</div>
                   <div className="font-medium">{incident.occurred_at ? new Date(incident.occurred_at).toLocaleDateString('en-GB') : 'N/A'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-gray-500" />
+                <AlertTriangle className="w-4 h-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-gray-500">Type</div>
+                  <div className="text-sm text-muted-foreground">Type</div>
                   <div className="font-medium">{incident.category_name || 'General'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <FileText className="w-4 h-4 text-gray-500" />
+                <FileText className="w-4 h-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-gray-500">Status</div>
+                  <div className="text-sm text-muted-foreground">Status</div>
                   <div className="font-medium">{incident.status?.replace('_', ' ').charAt(0).toUpperCase() + incident.status?.replace('_', ' ').slice(1)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
-                <Clock className="w-4 h-4 text-gray-500" />
+                <Clock className="w-4 h-4 text-muted-foreground" />
                 <div>
-                  <div className="text-sm text-gray-500">Response Time</div>
+                  <div className="text-sm text-muted-foreground">Response Time</div>
                   <div className="font-medium">{events.length > 0 ? 'Timeline Available' : 'N/A'}</div>
                 </div>
               </div>
@@ -313,7 +313,7 @@ export function GovernanceTimeline() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
           {/* Timeline */}
           <div className="lg:col-span-2">
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Clock className="w-5 h-5" />
@@ -336,28 +336,28 @@ export function GovernanceTimeline() {
                       <div className="flex-1 pb-6">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <h4 className="font-bold text-black">{event.label}</h4>
-                            <p className="text-sm text-gray-600 mt-1">{event.detail}</p>
+                            <h4 className="font-bold text-foreground">{event.label}</h4>
+                            <p className="text-sm text-muted-foreground mt-1">{event.detail}</p>
                           </div>
                           {event.gapFlag && (
-                            <span className="px-2 py-1 bg-black text-white text-xs rounded">
+                            <span className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded">
                               GAP
                             </span>
                           )}
                         </div>
                         
-                        <div className="flex items-center gap-4 text-sm text-gray-500 mt-3">
+                        <div className="flex items-center gap-4 text-sm text-muted-foreground mt-3">
                           <span>{formatDate(event.timestamp)}</span>
                           <span>{formatTime(event.timestamp)}</span>
                           <span>by {event.actor}</span>
                           <span>({event.actorRole})</span>
                           {event.intervalToNext && (
-                            <span className="text-black font-medium">→ {event.intervalToNext} days</span>
+                            <span className="text-foreground font-medium">→ {event.intervalToNext} days</span>
                           )}
                         </div>
 
                         {event.gapFlag && (
-                          <div className="mt-2 p-2 bg-gray-100 border border-gray-300 rounded text-sm text-gray-800">
+                          <div className="mt-2 p-2 bg-muted border border-border rounded text-sm text-foreground">
                             <strong>Gap detected:</strong> Extended period between oversight activities
                           </div>
                         )}
@@ -372,39 +372,39 @@ export function GovernanceTimeline() {
           {/* Side Panel */}
           <div className="space-y-6">
             {/* Oversight Summary */}
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Oversight Summary</CardTitle>
               </CardHeader>
               <CardContent className="p-6">
                 <div className="space-y-3">
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Risk recognition</span>
-                    <span className="text-sm font-medium text-black">
+                    <span className="text-sm text-muted-foreground">Risk recognition</span>
+                    <span className="text-sm font-medium text-foreground">
                       {events.filter(e => e.sourceType === 'risk').length > 0 ? 'Early signal recorded' : 'No prior signals'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Escalation discipline</span>
-                    <span className="text-sm font-medium text-black">
+                    <span className="text-sm text-muted-foreground">Escalation discipline</span>
+                    <span className="text-sm font-medium text-foreground">
                       {events.filter(e => e.sourceType === 'escalation').length > 0 ? 'Escalations present' : 'No escalations'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Leadership review</span>
-                    <span className="text-sm font-medium text-black">
+                    <span className="text-sm text-muted-foreground">Leadership review</span>
+                    <span className="text-sm font-medium text-foreground">
                       {events.filter(e => e.sourceType === 'pulse').length > 0 ? 'Governance activities recorded' : 'No governance activities'}
                     </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-sm text-gray-600">Documentation</span>
-                    <span className="text-sm font-medium text-black">{events.length > 0 ? 'Complete' : 'Limited'}</span>
+                    <span className="text-sm text-muted-foreground">Documentation</span>
+                    <span className="text-sm font-medium text-foreground">{events.length > 0 ? 'Complete' : 'Limited'}</span>
                   </div>
                 </div>
 
-                <div className="mt-4 p-3 bg-gray-100 rounded border border-gray-300">
-                  <div className="text-sm font-medium text-black mb-1">Governance Interpretation</div>
-                  <div className="text-sm text-gray-700">
+                <div className="mt-4 p-3 bg-muted rounded border border-border">
+                  <div className="text-sm font-medium text-foreground mb-1">Governance Interpretation</div>
+                  <div className="text-sm text-muted-foreground">
                     {events.length > 1 ? 
                       `Leadership oversight present with ${events.length - 1} pre-incident activities.` : 
                       'Limited oversight activities prior to incident.'}
@@ -414,7 +414,7 @@ export function GovernanceTimeline() {
             </Card>
 
             {/* Cross-House Signals */}
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="text-lg flex items-center gap-2">
                   <TrendingUp className="w-5 h-5" />
@@ -425,7 +425,7 @@ export function GovernanceTimeline() {
                 <div className="space-y-3">
                   {events.length > 1 ? (
                     events.slice(0, -1).map((event, index) => (
-                      <div key={index} className="flex justify-between items-center p-2 bg-gray-50 rounded border">
+                      <div key={index} className="flex justify-between items-center p-2 bg-muted rounded border">
                         <span className="text-sm font-medium">{event.label}</span>
                         <span className={`text-sm px-2 py-1 rounded ${getSourceColor(event.sourceType)}`}>
                           {event.sourceType.charAt(0).toUpperCase() + event.sourceType.slice(1)}
@@ -433,14 +433,14 @@ export function GovernanceTimeline() {
                       </div>
                     ))
                   ) : (
-                    <div className="text-center py-4 text-gray-500">
+                    <div className="text-center py-4 text-muted-foreground">
                       No related governance activities found
                     </div>
                   )}
                 </div>
                 
                 {events.length > 1 && (
-                  <div className="mt-4 p-2 bg-gray-100 border border-gray-300 rounded text-sm text-gray-800">
+                  <div className="mt-4 p-2 bg-muted border border-border rounded text-sm text-foreground">
                     <strong>Pattern detected:</strong> {events.length - 1} governance activities prior to incident
                   </div>
                 )}
@@ -448,7 +448,7 @@ export function GovernanceTimeline() {
             </Card>
 
             {/* Actions */}
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="text-lg">Actions</CardTitle>
               </CardHeader>
@@ -456,21 +456,21 @@ export function GovernanceTimeline() {
                 <div className="space-y-3">
                   <Button
                     onClick={() => navigate(`/incidents/${incidentId}/report`)}
-                    className="w-full bg-black text-white hover:bg-gray-800"
+                    className="w-full bg-primary text-primary-foreground hover:bg-[#008394]"
                   >
                     <Download className="w-4 h-4 mr-2" />
                     Generate Reconstruction Report
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full border-black hover:bg-black hover:text-white"
+                    className="w-full border-border hover:bg-primary hover:text-primary-foreground"
                   >
                     <FileText className="w-4 h-4 mr-2" />
                     Export Timeline
                   </Button>
                   <Button
                     variant="outline"
-                    className="w-full border-black hover:bg-black hover:text-white"
+                    className="w-full border-border hover:bg-primary hover:text-primary-foreground"
                   >
                     <Users className="w-4 h-4 mr-2" />
                     Add Leadership Commentary

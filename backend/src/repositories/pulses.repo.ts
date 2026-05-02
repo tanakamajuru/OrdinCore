@@ -52,8 +52,12 @@ export const pulsesRepo = {
             params.push(filters.review_status); 
         }
         if (filters.severity) { 
-            conditions.push(Array.isArray(filters.severity) ? `gp.severity = ANY($${idx++}::severity_level[])` : `gp.severity = $${idx++}`); 
-            params.push(filters.severity); 
+            let severityValues = filters.severity;
+            if (typeof severityValues === 'string' && severityValues.includes(',')) {
+                severityValues = severityValues.split(',');
+            }
+            conditions.push(Array.isArray(severityValues) ? `gp.severity = ANY($${idx++}::severity_level[])` : `gp.severity = $${idx++}`); 
+            params.push(severityValues); 
         }
         if (filters.start_date) { conditions.push(`gp.entry_date >= $${idx++}`); params.push(filters.start_date); }
         if (filters.end_date) { conditions.push(`gp.entry_date <= $${idx++}`); params.push(filters.end_date); }

@@ -33,6 +33,9 @@ export class PulseController {
             if (typeof filters.review_status === 'string' && filters.review_status.includes(',')) {
                 filters.review_status = filters.review_status.split(',');
             }
+            if (typeof filters.severity === 'string' && filters.severity.includes(',')) {
+                filters.severity = filters.severity.split(',');
+            }
             const pulses = await pulseService.getPulses(company_id, filters);
             res.json({ success: true, data: pulses });
         } catch (err: any) {

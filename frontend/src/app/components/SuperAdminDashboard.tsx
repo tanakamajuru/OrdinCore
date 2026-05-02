@@ -9,6 +9,7 @@ import { apiClient } from "@/services/api";
 import CreateOrgModal from "./modals/CreateOrgModal";
 import CreateAdminModal from "./modals/CreateAdminModal";
 import ManageAdminsModal from "./modals/ManageAdminsModal";
+import { ThemeToggle } from "./ThemeToggle";
 
 
 interface Company {
@@ -199,7 +200,7 @@ export default function SuperAdminDashboard() {
     if (status === 'active') return 'bg-green-100 text-green-800';
     if (status === 'suspended') return 'bg-yellow-100 text-yellow-800';
     if (status === 'archived') return 'bg-red-100 text-red-800';
-    return 'bg-gray-100 text-gray-700';
+    return 'bg-muted text-muted-foreground';
   };
 
   const [currentPage, setCurrentPage] = useState(1);
@@ -216,8 +217,8 @@ export default function SuperAdminDashboard() {
     if (isLoading) {
       return (
         <div className="flex items-center justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-black mr-3" />
-          <span className="text-gray-500">Loading organisations...</span>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-border mr-3" />
+          <span className="text-muted-foreground">Loading organisations...</span>
         </div>
       );
     }
@@ -229,7 +230,7 @@ export default function SuperAdminDashboard() {
           <p className="text-sm">Create the first organisation to get started</p>
           <button
             onClick={() => setShowCreateOrg(true)}
-            className="mt-4 px-5 py-2 bg-black text-white text-sm hover:bg-gray-800 transition-colors"
+            className="mt-4 px-5 py-2 bg-primary text-primary-foreground text-sm hover:bg-[#008394] transition-colors"
           >
             Create Organisation
           </button>
@@ -240,51 +241,51 @@ export default function SuperAdminDashboard() {
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-gray-50 border-b border-gray-100">
-              <th className="text-left py-3 px-6 font-semibold text-gray-600">Organisation</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-600">Plan</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-600">Status</th>
-              <th className="text-left py-3 px-4 font-semibold text-gray-600">Created</th>
-              <th className="text-right py-3 px-6 font-semibold text-gray-600">Actions</th>
+            <tr className="bg-muted border-b border-gray-100">
+              <th className="text-left py-3 px-6 font-semibold text-muted-foreground">Organisation</th>
+              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Plan</th>
+              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Status</th>
+              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Created</th>
+              <th className="text-right py-3 px-6 font-semibold text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
             {paginatedCompanies.map((company) => (
-              <tr key={company.id} className="hover:bg-gray-50 transition-colors">
+              <tr key={company.id} className="hover:bg-muted transition-colors">
                 <td className="py-4 px-6">
                   <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 bg-black rounded-lg flex items-center justify-center">
-                      <Building2 className="w-4 h-4 text-white" />
+                    <div className="w-9 h-9 bg-primary rounded-lg flex items-center justify-center">
+                      <Building2 className="w-4 h-4 text-primary-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-gray-900">{company.name}</p>
+                      <p className="font-semibold text-foreground">{company.name}</p>
                       <p className="text-xs text-gray-400">{company.id.slice(0, 8)}...</p>
                     </div>
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <span className="capitalize text-gray-700">{company.plan || 'professional'}</span>
+                  <span className="capitalize text-muted-foreground">{company.plan || 'professional'}</span>
                 </td>
                 <td className="py-4 px-4">
                   <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(company.status)}`}>
                     {company.status}
                   </span>
                 </td>
-                <td className="py-4 px-4 text-gray-500">
+                <td className="py-4 px-4 text-muted-foreground">
                   {new Date(company.created_at).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}
                 </td>
                 <td className="py-4 px-6 text-right">
                   <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => { setSelectedCompany(company); setNewAdmin({ ...newAdmin, company_id: company.id }); setShowCreateAdmin(true); }}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-border text-muted-foreground rounded hover:bg-muted transition-colors"
                     >
                       <UserPlus className="w-3 h-3" />
                       Add Admin
                     </button>
                     <button
                       onClick={() => { setSelectedCompany(company); setShowManageAdmins(true); }}
-                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors"
+                      className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-border text-muted-foreground rounded hover:bg-muted transition-colors"
                     >
                       <Users className="w-3 h-3" />
                       View Admins
@@ -292,7 +293,7 @@ export default function SuperAdminDashboard() {
                     {company.status === 'active' ? (
                       <button
                         onClick={() => confirmSuspendOrg(company)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-yellow-300 text-yellow-600 rounded hover:bg-yellow-50 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-yellow-300 text-yellow-600 rounded hover:bg-yellow-50 transition-colors"
                       >
                         <AlertCircle className="w-3 h-3" />
                         Suspend
@@ -300,7 +301,7 @@ export default function SuperAdminDashboard() {
                     ) : company.status === 'suspended' ? (
                       <button
                         onClick={() => { setSelectedCompany(company); setShowUnsuspendModal(true); }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-green-300 text-green-600 rounded hover:bg-green-50 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-green-300 text-green-600 rounded hover:bg-green-50 transition-colors"
                       >
                         <CheckCircle className="w-3 h-3" />
                         Unsuspend
@@ -308,7 +309,7 @@ export default function SuperAdminDashboard() {
                     ) : company.status === 'archived' ? (
                       <button
                         onClick={() => { setSelectedCompany(company); setShowUnarchiveModal(true); }}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-blue-300 text-blue-600 rounded hover:bg-blue-50 transition-colors"
                       >
                         <RefreshCw className="w-3 h-3" />
                         Unarchive
@@ -317,7 +318,7 @@ export default function SuperAdminDashboard() {
                     {company.status !== 'archived' && (
                       <button
                         onClick={() => confirmArchiveOrg(company)}
-                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-white border border-red-300 text-red-600 rounded hover:bg-red-50 transition-colors"
+                        className="flex items-center gap-1 px-3 py-1.5 text-xs bg-card border border-red-300 text-red-600 rounded hover:bg-destructive/10 transition-colors"
                       >
                         <Trash2 className="w-3 h-3" />
                         Archive
@@ -330,22 +331,22 @@ export default function SuperAdminDashboard() {
           </tbody>
         </table>
         {totalPages > 1 && (
-          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-gray-50">
-            <span className="text-sm text-gray-500">
+          <div className="flex items-center justify-between px-6 py-3 border-t border-gray-100 bg-muted">
+            <span className="text-sm text-muted-foreground">
               Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, companies.length)} of {companies.length} entries
             </span>
             <div className="flex gap-2">
               <button
                 disabled={currentPage === 1}
                 onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                className="px-3 py-1 text-sm bg-card border border-border text-muted-foreground rounded disabled:opacity-50 hover:bg-muted transition-colors"
               >
                 Previous
               </button>
               <button
                 disabled={currentPage === totalPages}
                 onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                className="px-3 py-1 text-sm bg-white border border-gray-300 text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+                className="px-3 py-1 text-sm bg-card border border-border text-muted-foreground rounded disabled:opacity-50 hover:bg-muted transition-colors"
               >
                 Next
               </button>
@@ -364,33 +365,34 @@ export default function SuperAdminDashboard() {
       { label: "Total Users", value: stats.totalUsers, icon: Users, color: "bg-purple-50 text-purple-700" },
       { label: "System Health", value: stats.systemHealth, icon: Activity, color: "bg-emerald-50 text-emerald-700" },
     ].map((stat, idx) => (
-      <div key={idx} className="bg-white border border-gray-200 rounded-xl p-5 shadow-sm">
+      <div key={idx} className="bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center mb-3`}>
           <stat.icon className="w-5 h-5" />
         </div>
-        <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-        <p className="text-sm text-gray-500 mt-1">{stat.label}</p>
+        <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+        <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
       </div>
     ));
   }, [stats]);
 
   return (
 
-    <div className="min-h-screen bg-gray-50 font-sans">
+    <div className="min-h-screen bg-muted font-sans">
       {/* Top navigation */}
-      <nav className="bg-black text-white px-6 py-4 flex items-center justify-between shadow-lg">
+      <nav className="bg-primary text-primary-foreground px-6 py-4 flex items-center justify-between shadow-lg">
         <div className="flex items-center gap-3">
-          <Shield className="w-7 h-7 text-white" />
+          <Shield className="w-7 h-7 text-primary-foreground" />
           <div>
             <span className="text-xl font-bold tracking-tight">OrdinCore</span>
-            <span className="ml-3 text-xs bg-white text-black px-2 py-0.5 rounded font-semibold">PLATFORM ADMIN</span>
+            <span className="ml-3 text-xs bg-card text-foreground px-2 py-0.5 rounded font-semibold">PLATFORM ADMIN</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
+          <ThemeToggle />
           <span className="text-sm text-gray-300">Welcome, {adminName}</span>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-2 text-sm text-gray-300 hover:text-white transition-colors"
+            className="flex items-center gap-2 text-sm text-gray-300 hover:text-primary-foreground transition-colors"
           >
             <LogOut className="w-4 h-4" />
             Log Out
@@ -410,8 +412,8 @@ export default function SuperAdminDashboard() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between relative z-10">
           <div>
-            <h1 className="text-3xl font-bold text-gray-900">Platform Dashboard</h1>
-            <p className="text-gray-500 mt-1">Manage all organisations on the OrdinCore platform</p>
+            <h1 className="text-3xl font-bold text-foreground">Platform Dashboard</h1>
+            <p className="text-muted-foreground mt-1">Manage all organisations on the OrdinCore platform</p>
           </div>
           <div className="flex gap-3">
             <button
@@ -423,7 +425,7 @@ export default function SuperAdminDashboard() {
                 setFormError("");
                 setFormSuccess("");
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-white border-2 border-black text-black font-medium hover:bg-gray-100 transition-colors cursor-pointer relative z-20"
+              className="flex items-center gap-2 px-4 py-2 bg-card border-2 border-border text-foreground font-medium hover:bg-muted transition-colors cursor-pointer relative z-20"
             >
               <UserPlus className="w-4 h-4" />
               Create Company Admin
@@ -437,7 +439,7 @@ export default function SuperAdminDashboard() {
                 setFormError("");
                 setFormSuccess("");
               }}
-              className="flex items-center gap-2 px-5 py-2 bg-black text-white font-medium hover:bg-gray-800 transition-colors cursor-pointer relative z-20"
+              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground font-medium hover:bg-[#008394] transition-colors cursor-pointer relative z-20"
             >
               <Plus className="w-4 h-4" />
               Create Organisation
@@ -452,16 +454,16 @@ export default function SuperAdminDashboard() {
 
 
         {/* Organisations Table */}
-        <div className="bg-white border border-gray-200 rounded-xl shadow-sm">
+        <div className="bg-card border border-border rounded-xl shadow-sm">
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
                 <Globe className="w-5 h-5" />
                 Organisations
               </h2>
-              <p className="text-sm text-gray-500">{companies.length} organisations registered on the platform</p>
+              <p className="text-sm text-muted-foreground">{companies.length} organisations registered on the platform</p>
             </div>
-            <button onClick={loadData} className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+            <button onClick={loadData} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors">
               <RefreshCw className="w-4 h-4" />
               Refresh
             </button>
@@ -506,25 +508,25 @@ export default function SuperAdminDashboard() {
 
       {/* Suspend Modal */}
       {showSuspendModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <div className="fixed inset-0 bg-primary/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-6 h-6 text-yellow-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Suspend Organisation?</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to suspend <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This will immediately prevent all their users from logging in.
+            <h3 className="text-lg font-bold text-foreground mb-2">Suspend Organisation?</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to suspend <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will immediately prevent all their users from logging in.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowSuspendModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleSuspendOrg}
-                className="flex-1 py-2 bg-yellow-600 text-white rounded hover:bg-yellow-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-yellow-600 text-primary-foreground rounded hover:bg-yellow-700 transition-colors text-sm font-medium"
               >
                 Suspend
               </button>
@@ -535,25 +537,25 @@ export default function SuperAdminDashboard() {
 
       {/* Archive Modal */}
       {showArchiveModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <div className="fixed inset-0 bg-primary/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Archive Organisation?</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to archive <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This organisation will be removed from active lists.
+            <h3 className="text-lg font-bold text-foreground mb-2">Archive Organisation?</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to archive <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This organisation will be removed from active lists.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowArchiveModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleArchiveOrg}
-                className="flex-1 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-red-600 text-primary-foreground rounded hover:bg-red-700 transition-colors text-sm font-medium"
               >
                 Archive
               </button>
@@ -563,25 +565,25 @@ export default function SuperAdminDashboard() {
       )}
       {/* Unsuspend Modal */}
       {showUnsuspendModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <div className="fixed inset-0 bg-primary/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Unsuspend Organisation?</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to unsuspend <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This will allow all their users to log in again.
+            <h3 className="text-lg font-bold text-foreground mb-2">Unsuspend Organisation?</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to unsuspend <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will allow all their users to log in again.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowUnsuspendModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUnsuspendOrg}
-                className="flex-1 py-2 bg-green-600 text-white rounded hover:bg-green-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-green-600 text-primary-foreground rounded hover:bg-green-700 transition-colors text-sm font-medium"
               >
                 Unsuspend
               </button>
@@ -592,25 +594,25 @@ export default function SuperAdminDashboard() {
 
       {/* Unarchive Modal */}
       {showUnarchiveModal && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
+        <div className="fixed inset-0 bg-primary/60 z-50 flex items-center justify-center p-4">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 text-center">
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <RefreshCw className="w-6 h-6 text-blue-600" />
             </div>
-            <h3 className="text-lg font-bold text-gray-900 mb-2">Unarchive Organisation?</h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Are you sure you want to unarchive <span className="font-semibold text-gray-900">{selectedCompany?.name}</span>? This will move the organisation back to the active list.
+            <h3 className="text-lg font-bold text-foreground mb-2">Unarchive Organisation?</h3>
+            <p className="text-sm text-muted-foreground mb-6">
+              Are you sure you want to unarchive <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will move the organisation back to the active list.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowUnarchiveModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-gray-300 text-gray-700 rounded hover:bg-gray-50 transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
               >
                 Cancel
               </button>
               <button
                 onClick={handleUnarchiveOrg}
-                className="flex-1 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-blue-600 text-primary-foreground rounded hover:bg-blue-700 transition-colors text-sm font-medium"
               >
                 Unarchive
               </button>

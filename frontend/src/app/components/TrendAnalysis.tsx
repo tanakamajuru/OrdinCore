@@ -118,7 +118,7 @@ export function TrendAnalysis() {
             </div>
 
             {/* Risk Distribution Chart (Visualized with simple bars) */}
-            <Card className="border-2 border-black">
+            <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <PieChart className="w-5 h-5" />

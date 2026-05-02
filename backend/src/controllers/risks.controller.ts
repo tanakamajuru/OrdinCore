@@ -67,10 +67,11 @@ export class RisksController {
       const company_id = req.user!.company_id!;
       const risk = await risksService.findById(req.params.id, company_id);
       
-      // Enforce OWN_SERVICE scope restriction
+      // Enforce house scope restriction for service-level roles
       const userRole = req.user!.role?.toUpperCase() || '';
       if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(userRole)) {
-        if (risk.house_id !== req.user!.assigned_house_id) {
+        const userHouseIds = req.user!.house_ids || [];
+        if (!userHouseIds.includes(risk.house_id)) {
           return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
         }
       }
@@ -133,6 +134,18 @@ export class RisksController {
       return res.json({ success: true, data: { actions }, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to retrieve actions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async getAllActions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = { house_id: req.query.house_id, status: req.query.status };
+      const actions = await risksService.findAllActions(company_id, filters);
+      return res.json({ success: true, data: actions, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to retrieve all actions';
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }

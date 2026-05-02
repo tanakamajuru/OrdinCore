@@ -78,6 +78,10 @@ export class RisksService {
     return risksRepo.getActions(risk_id, company_id);
   }
 
+  async findAllActions(company_id: string, filters: any = {}) {
+    return risksRepo.findAllActions(company_id, filters);
+  }
+
   async escalate(risk_id: string, company_id: string, escalated_by: string, data: { escalated_to: string; reason: string }) {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');

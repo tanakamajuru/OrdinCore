@@ -25,7 +25,7 @@ export const usersRepo = {
        LEFT JOIN user_houses uh ON uh.user_id = u.id
        LEFT JOIN houses h ON h.id = uh.house_id
        LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
-       WHERE u.id = $1 ${isSuperAdmin ? '' : 'AND u.company_id = $2'}`,
+       WHERE u.id = $1 ${isSuperAdmin ? '' : "AND u.company_id = $2 AND u.role != 'SUPER_ADMIN'"}`,
       params
     );
     return result.rows[0] || null;
@@ -53,7 +53,7 @@ export const usersRepo = {
                (SELECT CASE WHEN COUNT(*) > 1 THEN 'All Sites' ELSE MAX(name) END FROM houses WHERE manager_id = u.id)
              ) AS assigned_house_name
       FROM users u
-      WHERE 1=1 ${isSuperAdmin ? '' : 'AND u.company_id = $1'}
+      WHERE 1=1 ${isSuperAdmin ? '' : "AND u.company_id = $1 AND u.role != 'SUPER_ADMIN'"}
     `;
     const params: unknown[] = isSuperAdmin ? [] : [company_id];
 
@@ -75,7 +75,7 @@ export const usersRepo = {
 
   async countByCompany(company_id: string | null, role?: string, status?: string) {
     const isSuperAdmin = !company_id;
-    let sql = `SELECT COUNT(*) FROM users WHERE 1=1 ${isSuperAdmin ? '' : 'AND company_id = $1'}`;
+    let sql = `SELECT COUNT(*) FROM users WHERE 1=1 ${isSuperAdmin ? '' : "AND company_id = $1 AND role != 'SUPER_ADMIN'"}`;
     const params: any[] = isSuperAdmin ? [] : [company_id];
 
     if (role) {

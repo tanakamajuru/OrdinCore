@@ -1,7 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useLocation } from "react-router";
-import { ChevronDown, AlertTriangle, Plus, TrendingUp, TrendingDown, ArrowRightCircle, Target } from "lucide-react";
+import { ChevronDown, AlertTriangle, Plus, TrendingUp, TrendingDown, ArrowRightCircle, Target, Download } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 
@@ -57,8 +57,9 @@ export function RiskRegister() {
   const prefillCreatedBy = fullName || localStorage.getItem('userName') || 'Current User';
 
   // Form states - must be declared before any conditional returns
-  const [newRisk, setNewRisk] = useState<Partial<Risk>>({
+  const [newRisk, setNewRisk] = useState<Partial<Risk> & { title?: string }>({
     house: "",
+    title: "",
     description: "",
     impact: "",
     category: "",
@@ -218,17 +219,17 @@ export function RiskRegister() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-primary text-primary-foreground text-sm whitespace-nowrap">
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">House</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Description</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Category</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Score</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Trend</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Severity</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Date Identified</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Source</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-center font-semibold">Escalated</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Status</th>
-              <th className="border-b border-gray-300 px-4 py-3 text-left font-semibold">Review Date</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">House</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Description</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Category</th>
+              <th className="border-b border-border px-4 py-3 text-center font-semibold">Score</th>
+              <th className="border-b border-border px-4 py-3 text-center font-semibold">Trend</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Severity</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Date Identified</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Source</th>
+              <th className="border-b border-border px-4 py-3 text-center font-semibold">Escalated</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Status</th>
+              <th className="border-b border-border px-4 py-3 text-left font-semibold">Review Date</th>
             </tr>
           </thead>
           <tbody>
@@ -237,19 +238,19 @@ export function RiskRegister() {
                 key={risk.id}
                 onClick={() => navigate(`/risk-register/${risk.id}`)}
                 className={`cursor-pointer transition-colors text-sm ${
-                  idx % 2 === 0 ? "bg-white hover:bg-gray-50" : "bg-gray-50 hover:bg-gray-100"
+                  idx % 2 === 0 ? "bg-card hover:bg-muted" : "bg-muted hover:bg-muted"
                 }`}
               >
-                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.house}</td>
-                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.house}</td>
+                <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
                     <div className="font-bold">{risk.description}</div>
                     {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase font-black">Pattern: {risk.sourceClusterName}</div>}
                 </td>
-                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.category}</td>
-                <td className="border-b border-gray-200 px-4 py-4 text-center">
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.category}</td>
+                <td className="border-b border-border px-4 py-4 text-center">
                     <span className="font-black text-lg">{risk.riskScore}</span>
                 </td>
-                <td className="border-b border-gray-200 px-4 py-4 text-center">
+                <td className="border-b border-border px-4 py-4 text-center">
                     <div className="flex justify-center">{getTrajectoryIcon(risk.trajectory)}</div>
                 </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">
@@ -265,9 +266,9 @@ export function RiskRegister() {
                     {risk.severity}
                   </span>
                 </td>
-                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{risk.dateIdentified}</td>
-                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
-                <td className="border-b border-gray-200 px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.dateIdentified}</td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
+                <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
                 <td className="border-b border-border px-4 py-4 text-center whitespace-nowrap">
                   <span className={`inline-block px-2 py-1 text-xs font-medium ${
                     risk.escalated ? "bg-destructive text-destructive-foreground" : "text-muted-foreground"
@@ -290,29 +291,29 @@ export function RiskRegister() {
                     {risk.status}
                   </span>
                 </td>
-                <td className="border-b border-gray-200 px-4 py-4 whitespace-nowrap text-gray-600 font-medium">{risk.reviewDate}</td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap text-muted-foreground font-medium">{risk.reviewDate}</td>
               </tr>
             ))}
           </tbody>
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-gray-50 text-sm">
-          <span className="text-gray-500">
+        <div className="flex items-center justify-between px-6 py-3 border-t border-border bg-muted text-sm">
+          <span className="text-muted-foreground">
             Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredRisks.length)} of {filteredRisks.length} risks
           </span>
           <div className="flex gap-2">
             <button
               disabled={currentPage === 1}
               onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.max(prev - 1, 1)); }}
-              className="px-3 py-1 bg-white border border-border text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              className="px-3 py-1 bg-card border border-border text-muted-foreground rounded disabled:opacity-50 hover:bg-muted transition-colors"
             >
               Previous
             </button>
             <button
               disabled={currentPage === totalPages}
               onClick={(e) => { e.stopPropagation(); setCurrentPage(prev => Math.min(prev + 1, totalPages)); }}
-              className="px-3 py-1 bg-white border border-border text-gray-700 rounded disabled:opacity-50 hover:bg-gray-50 transition-colors"
+              className="px-3 py-1 bg-card border border-border text-muted-foreground rounded disabled:opacity-50 hover:bg-muted transition-colors"
             >
               Next
             </button>
@@ -345,8 +346,8 @@ export function RiskRegister() {
       const reviewDue = newRisk.reviewDate ? new Date(newRisk.reviewDate).toISOString() : new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString();
       await apiClient.post('/risks', {
         house_id: targetHouseId,
-        title: newRisk.description,
-        description: newRisk.impact || newRisk.description,
+        title: newRisk.title || newRisk.description,
+        description: newRisk.description || newRisk.impact,
         severity: newRisk.severity || 'Medium',
         status: 'Open',
         likelihood: 3,
@@ -361,7 +362,7 @@ export function RiskRegister() {
       });
       toast.success('Risk added successfully');
       setShowAddRisk(false);
-      setNewRisk({ house: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: prefillCreatedBy, lastUpdated: '' });
+      setNewRisk({ house: '', title: '', description: '', impact: '', category: '', severity: 'Medium', dateIdentified: new Date().toISOString().split('T')[0], mitigation: '', rootCause: '', reviewDate: '', status: 'Open', escalated: false, source: 'Pulse', createdBy: prefillCreatedBy, lastUpdated: '' });
       loadRisks();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to add risk'); }
     finally { setIsSubmitting(false); }
@@ -396,6 +397,77 @@ export function RiskRegister() {
     finally { setIsSubmitting(false); }
   };
 
+  const handleExportExcel = () => {
+    const escapeHtml = (unsafe: string) => {
+      return (unsafe || "").toString()
+           .replace(/&/g, "&amp;")
+           .replace(/</g, "&lt;")
+           .replace(/>/g, "&gt;")
+           .replace(/"/g, "&quot;")
+           .replace(/'/g, "&#039;");
+    };
+
+    let tableHtml = `
+      <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+      <head><meta charset="UTF-8"></head>
+      <body>
+        <table border="1">
+          <thead>
+            <tr>
+              <th style="background-color: #00A3B2; color: white;">House</th>
+              <th style="background-color: #00A3B2; color: white;">Description</th>
+              <th style="background-color: #00A3B2; color: white;">Category</th>
+              <th style="background-color: #00A3B2; color: white;">Score</th>
+              <th style="background-color: #00A3B2; color: white;">Trend</th>
+              <th style="background-color: #00A3B2; color: white;">Severity</th>
+              <th style="background-color: #00A3B2; color: white;">Date Identified</th>
+              <th style="background-color: #00A3B2; color: white;">Source</th>
+              <th style="background-color: #00A3B2; color: white;">Escalated</th>
+              <th style="background-color: #00A3B2; color: white;">Status</th>
+              <th style="background-color: #00A3B2; color: white;">Review Date</th>
+              <th style="background-color: #00A3B2; color: white;">Mitigation Plan</th>
+              <th style="background-color: #00A3B2; color: white;">Root Cause</th>
+            </tr>
+          </thead>
+          <tbody>
+    `;
+    
+    filteredRisks.forEach(risk => {
+      tableHtml += `
+        <tr>
+          <td>${escapeHtml(risk.house || '')}</td>
+          <td>${escapeHtml(risk.description || '')}</td>
+          <td>${escapeHtml(risk.category || '')}</td>
+          <td>${risk.riskScore || 0}</td>
+          <td>${escapeHtml(risk.trajectory || '')}</td>
+          <td>${escapeHtml(risk.severity || '')}</td>
+          <td>${escapeHtml(risk.dateIdentified || '')}</td>
+          <td>${escapeHtml(risk.source || '')}</td>
+          <td>${risk.escalated ? "Yes" : "No"}</td>
+          <td>${escapeHtml(risk.status || '')}</td>
+          <td>${escapeHtml(risk.reviewDate || '')}</td>
+          <td>${escapeHtml(risk.mitigation || '')}</td>
+          <td>${escapeHtml(risk.rootCause || '')}</td>
+        </tr>
+      `;
+    });
+    
+    tableHtml += `
+          </tbody>
+        </table>
+      </body>
+      </html>
+    `;
+
+    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", \`Risk_Register_\${new Date().toISOString().split('T')[0]}.xls\`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -411,24 +483,16 @@ export function RiskRegister() {
               <span className="text-xs text-muted-foreground">Out-of-cycle for urgent incidents</span>
             </div>
           </div>
-          {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(userRole) && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => setShowOutOfCycle(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
-              >
-                <AlertTriangle className="w-4 h-4 text-warning" />
-                Out-of-Cycle Risk
-              </button>
-              <button
-                onClick={() => setShowAddRisk(true)}
-                className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium shadow-sm"
-              >
-                <Plus className="w-4 h-4" />
-                Add Risk
-              </button>
-            </div>
-          )}
+          <div className="flex gap-3">
+            <button 
+              onClick={handleExportExcel}
+              className="flex items-center gap-2 bg-card text-foreground border-2 border-border px-4 py-2 hover:bg-muted transition-colors font-medium text-sm"
+            >
+              <Download className="w-4 h-4" />
+              Export to Excel
+            </button>
+            {/* Removed direct risk creation buttons to enforce Cluster Promotion Doctrine */}
+          </div>
         </div>
 
         {/* Filters */}
@@ -502,11 +566,11 @@ export function RiskRegister() {
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-black font-medium">House</label>
+                <label className="block mb-2 text-foreground font-medium">House</label>
                 <select
                   value={newRisk.house}
                   onChange={(e) => setNewRisk({...newRisk, house: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Select house</option>
                   {allHousesData.map((house) => (
@@ -516,36 +580,36 @@ export function RiskRegister() {
                   ))}
                 </select>
                 {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
-                  <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
+                  <p className="text-xs text-muted-foreground mt-1">Only your assigned house is available</p>
                 )}
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Risk Title</label>
+                <label className="block mb-2 text-foreground font-medium">Risk Title</label>
                 <input
                   type="text"
-                  value={newRisk.description}
-                  onChange={(e) => setNewRisk({...newRisk, description: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  value={newRisk.title || ""}
+                  onChange={(e) => setNewRisk({...newRisk, title: e.target.value})}
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 />
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Reported By</label>
+                <label className="block mb-2 text-foreground font-medium">Reported By</label>
                 <input
                   type="text"
                   value={newRisk.createdBy || ""}
                   onChange={(e) => setNewRisk({...newRisk, createdBy: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 />
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Category</label>
+                <label className="block mb-2 text-foreground font-medium">Category</label>
                 <select
                   value={newRisk.category}
                   onChange={(e) => setNewRisk({...newRisk, category: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Select category</option>
                   {categories.map((category) => (
@@ -557,11 +621,11 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Severity</label>
+                <label className="block mb-2 text-foreground font-medium">Severity</label>
                 <select
                   value={newRisk.severity}
                   onChange={(e) => setNewRisk({...newRisk, severity: e.target.value as any})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="Critical">Critical</option>
                   <option value="High">High</option>
@@ -571,52 +635,52 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Date Identified</label>
+                <label className="block mb-2 text-foreground font-medium">Date Identified</label>
                 <input
                   type="date"
                   value={newRisk.dateIdentified}
                   onChange={(e) => setNewRisk({...newRisk, dateIdentified: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 />
               </div>
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Description</label>
+              <label className="block mb-2 text-foreground font-medium">Description</label>
               <textarea
                 value={newRisk.description}
                 onChange={(e) => setNewRisk({...newRisk, description: e.target.value})}
-                className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Detailed description of the risk..."
               />
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Impact</label>
+              <label className="block mb-2 text-foreground font-medium">Impact</label>
               <textarea
                 value={newRisk.impact || ""}
                 onChange={(e) => setNewRisk({...newRisk, impact: e.target.value})}
-                className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-20 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Potential impact on residents, operations, compliance..."
               />
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Mitigation Plan</label>
+              <label className="block mb-2 text-foreground font-medium">Mitigation Plan</label>
               <textarea
                 value={newRisk.mitigation}
                 onChange={(e) => setNewRisk({...newRisk, mitigation: e.target.value})}
-                className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Immediate and long-term mitigation actions..."
               />
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Root Cause Analysis</label>
+              <label className="block mb-2 text-foreground font-medium">Root Cause Analysis</label>
               <textarea
                 value={newRisk.rootCause || ""}
                 onChange={(e) => setNewRisk({...newRisk, rootCause: e.target.value})}
-                className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-20 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Underlying causes contributing to this risk..."
               />
             </div>
@@ -624,14 +688,14 @@ export function RiskRegister() {
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setShowAddRisk(false)}
-                className="px-6 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                className="px-6 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleAddRisk}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? 'Adding...' : 'Add Risk'}
               </button>
@@ -642,15 +706,15 @@ export function RiskRegister() {
 
       {/* Out-of-Cycle Risk Modal */}
       {showOutOfCycle && (
-        <div className="fixed inset-0 backdrop-blur-md bg-black/30 flex items-center justify-center z-50">
-          <div className="bg-white border-2 border-black p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
-              <AlertTriangle className="w-6 h-6 text-black" />
-              <h2 className="text-xl font-semibold text-black">Create Out-of-Cycle Risk</h2>
+              <AlertTriangle className="w-6 h-6 text-foreground" />
+              <h2 className="text-xl font-semibold text-foreground">Create Out-of-Cycle Risk</h2>
             </div>
             
-            <div className="bg-gray-50 border-2 border-gray-300 p-4 mb-4">
-              <p className="text-sm text-gray-600">
+            <div className="bg-muted border-2 border-border p-4 mb-4">
+              <p className="text-sm text-muted-foreground">
                 Use this only for serious incidents or safeguarding events that occur between Governance Pulses. 
                 This risk will be flagged for mandatory review at the next scheduled Pulse.
               </p>
@@ -658,11 +722,11 @@ export function RiskRegister() {
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-black font-medium">House</label>
+                <label className="block mb-2 text-foreground font-medium">House</label>
                 <select
                   value={outOfCycleRisk.house}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, house: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Select house</option>
                   {allHousesData.map((house) => (
@@ -672,16 +736,16 @@ export function RiskRegister() {
                   ))}
                 </select>
                 {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
-                  <p className="text-xs text-gray-500 mt-1">Only your assigned house is available</p>
+                  <p className="text-xs text-muted-foreground mt-1">Only your assigned house is available</p>
                 )}
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Category</label>
+                <label className="block mb-2 text-foreground font-medium">Category</label>
                 <select
                   value={outOfCycleRisk.category}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, category: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Select category</option>
                   {categories.map((category) => (
@@ -693,11 +757,11 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-black font-medium">Severity</label>
+                <label className="block mb-2 text-foreground font-medium">Severity</label>
                 <select
                   value={outOfCycleRisk.severity}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, severity: e.target.value})}
-                  className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="Critical">Critical</option>
                   <option value="High">High</option>
@@ -708,21 +772,21 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Risk Description</label>
+              <label className="block mb-2 text-foreground font-medium">Risk Description</label>
               <textarea
                 value={outOfCycleRisk.description}
                 onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, description: e.target.value})}
-                className="w-full h-24 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Describe the incident or concern..."
               />
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-black font-medium">Reason for Out-of-Cycle Creation</label>
+              <label className="block mb-2 text-foreground font-medium">Reason for Out-of-Cycle Creation</label>
               <textarea
                 value={outOfCycleRisk.reason}
                 onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, reason: e.target.value})}
-                className="w-full h-20 px-4 py-3 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black resize-none"
+                className="w-full h-20 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
                 placeholder="Explain why this risk requires immediate creation outside the normal Pulse rhythm..."
               />
             </div>
@@ -733,23 +797,23 @@ export function RiskRegister() {
                   type="checkbox"
                   checked={outOfCycleRisk.requiresImmediateReview}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, requiresImmediateReview: e.target.checked})}
-                  className="w-4 h-4 border-2 border-black"
+                  className="w-4 h-4 border-2 border-border"
                 />
-                <span className="text-black font-medium">Requires immediate review at next Pulse</span>
+                <span className="text-foreground font-medium">Requires immediate review at next Pulse</span>
               </label>
             </div>
             
             <div className="flex justify-end gap-4">
               <button
                 onClick={() => setShowOutOfCycle(false)}
-                className="px-6 py-2 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
+                className="px-6 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
               <button
                 onClick={handleOutOfCycleRisk}
                 disabled={isSubmitting}
-                className="px-6 py-2 bg-black text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
               >
                 {isSubmitting ? 'Creating...' : 'Create Out-of-Cycle Risk'}
               </button>

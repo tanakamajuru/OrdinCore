@@ -201,13 +201,13 @@ const AdminRiskManagement: React.FC = () => {
       escalated: 'text-red-600',
       mitigated: 'text-green-600',
       reviewed: 'text-purple-600',
-      closed: 'text-gray-600'
+      closed: 'text-muted-foreground'
     };
-    return colors[type as keyof typeof colors] || 'text-gray-600';
+    return colors[type as keyof typeof colors] || 'text-muted-foreground';
   };
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-muted min-h-screen">
       <AdminPageHeader 
         title="Risk Management" 
         description="Track and manage risk activities across all facilities"
@@ -293,13 +293,13 @@ const AdminRiskManagement: React.FC = () => {
             <TableCell>
               <div>
                 <div className="font-medium">{risk.house_name}</div>
-                <div className="text-sm text-gray-500">{risk.house_code}</div>
+                <div className="text-sm text-muted-foreground">{risk.house_code}</div>
               </div>
             </TableCell>
             <TableCell>
               <div>
                 <div className="font-medium">{risk.performed_by_name}</div>
-                <div className="text-sm text-gray-500">{risk.performed_by_email}</div>
+                <div className="text-sm text-muted-foreground">{risk.performed_by_email}</div>
               </div>
             </TableCell>
             <TableCell>

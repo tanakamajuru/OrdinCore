@@ -27,8 +27,8 @@ export {
 export const AdminPageHeader: React.FC<{ title: string; description?: string; children?: React.ReactNode }> = ({ title, description, children }) => (
   <div className="flex justify-between items-center mb-6">
     <div>
-      <h1 className="text-3xl font-bold text-gray-900">{title}</h1>
-      {description && <p className="text-gray-600 mt-1">{description}</p>}
+      <h1 className="text-3xl font-bold text-foreground">{title}</h1>
+      {description && <p className="text-muted-foreground mt-1">{description}</p>}
     </div>
     {children}
   </div>
@@ -37,14 +37,14 @@ export const AdminPageHeader: React.FC<{ title: string; description?: string; ch
 export const AdminStatsCard: React.FC<{ title: string; value: string | number; icon?: React.ReactNode; change?: number; changeType?: 'increase' | 'decrease' | 'neutral' }> = ({ 
   title, value, icon, change, changeType = 'neutral' 
 }) => {
-  const changeColor = changeType === 'increase' ? 'text-green-600' : changeType === 'decrease' ? 'text-red-600' : 'text-gray-600';
+  const changeColor = changeType === 'increase' ? 'text-green-600' : changeType === 'decrease' ? 'text-red-600' : 'text-muted-foreground';
   
   return (
-    <div className="bg-white border-2 border-black p-6 shadow-sm">
+    <div className="bg-card border-2 border-border p-6 shadow-sm">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-medium text-gray-600">{title}</p>
-          <p className="text-2xl font-bold text-gray-900">{value}</p>
+          <p className="text-sm font-medium text-muted-foreground">{title}</p>
+          <p className="text-2xl font-bold text-foreground">{value}</p>
           {change !== undefined && (
             <p className={`text-sm ${changeColor}`}>
               {changeType === 'increase' ? '+' : changeType === 'decrease' ? '-' : ''}{change}%
@@ -63,12 +63,12 @@ export const AdminDataTable: React.FC<{
   loading?: boolean;
   empty?: string;
 }> = ({ children, headers, loading = false, empty = "No data available" }) => (
-  <div className="bg-white border-2 border-black shadow-sm overflow-hidden">
+  <div className="bg-card border-2 border-border shadow-sm overflow-hidden">
     <Table>
       <TableHeader>
         <TableRow>
           {headers.map((header, index) => (
-            <TableHead key={index} className="font-semibold text-gray-900">
+            <TableHead key={index} className="font-semibold text-foreground">
               {header}
             </TableHead>
           ))}
@@ -85,7 +85,7 @@ export const AdminDataTable: React.FC<{
       </TableBody>
     </Table>
     {!loading && React.Children.count(children) === 0 && (
-      <div className="text-center py-8 text-gray-500">
+      <div className="text-center py-8 text-muted-foreground">
         {empty}
       </div>
     )}
@@ -154,7 +154,7 @@ export const AdminPagination: React.FC<{
 export const getStatusBadge = (status: string) => {
   const statusConfig = {
     active: { variant: 'default' as const, className: 'bg-green-100 text-green-800' },
-    inactive: { variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800' },
+    inactive: { variant: 'secondary' as const, className: 'bg-muted text-foreground' },
     pending: { variant: 'secondary' as const, className: 'bg-yellow-100 text-yellow-800' },
     completed: { variant: 'default' as const, className: 'bg-blue-100 text-blue-800' },
     overdue: { variant: 'destructive' as const, className: 'bg-red-100 text-red-800' },
@@ -163,7 +163,7 @@ export const getStatusBadge = (status: string) => {
     serious: { variant: 'destructive' as const, className: 'bg-red-100 text-red-800' },
   };
   
-  const config = statusConfig[status as keyof typeof statusConfig] || { variant: 'secondary' as const, className: 'bg-gray-100 text-gray-800' };
+  const config = statusConfig[status as keyof typeof statusConfig] || { variant: 'secondary' as const, className: 'bg-muted text-foreground' };
   
   return <Badge variant={config.variant} className={config.className}>{status}</Badge>;
 };

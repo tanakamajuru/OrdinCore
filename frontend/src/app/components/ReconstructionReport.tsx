@@ -218,10 +218,10 @@ export function ReconstructionReport() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900 mx-auto"></div>
-          <p className="mt-2 text-gray-600">Loading reconstruction report...</p>
+          <p className="mt-2 text-muted-foreground">Loading reconstruction report...</p>
         </div>
       </div>
     );
@@ -229,12 +229,12 @@ export function ReconstructionReport() {
 
   if (!incident) {
     return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
+      <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-black mb-4">Report data not found</h2>
+          <h2 className="text-xl font-semibold text-foreground mb-4">Report data not found</h2>
           <button
             onClick={() => navigate('/incidents')}
-            className="px-4 py-2 bg-black text-white hover:bg-gray-800 transition-colors"
+            className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
           >
             Back to Incidents
           </button>
@@ -244,7 +244,7 @@ export function ReconstructionReport() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         {/* Header */}
@@ -253,14 +253,14 @@ export function ReconstructionReport() {
             <Button
               variant="outline"
               onClick={() => navigate(`/incidents/${incidentId}/timeline`)}
-              className="border-black hover:bg-black hover:text-white"
+              className="border-border hover:bg-primary hover:text-primary-foreground"
             >
               <ArrowLeft className="w-4 h-4 mr-2" />
               Back to Timeline
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-black">Governance Reconstruction Report</h1>
-              <p className="text-gray-600">Official oversight documentation for {incident.id}</p>
+              <h1 className="text-3xl font-bold text-foreground">Governance Reconstruction Report</h1>
+              <p className="text-muted-foreground">Official oversight documentation for {incident.id}</p>
             </div>
           </div>
           
@@ -268,7 +268,7 @@ export function ReconstructionReport() {
             <select
               value={reportFormat}
               onChange={(e) => setReportFormat(e.target.value as "pdf" | "word")}
-              className="px-3 py-2 border-2 border-black rounded"
+              className="px-3 py-2 border-2 border-border rounded"
             >
               <option value="pdf">PDF</option>
               <option value="word">Word</option>
@@ -276,7 +276,7 @@ export function ReconstructionReport() {
             <Button
               onClick={generateReport}
               disabled={isGenerating}
-              className="bg-black text-white hover:bg-gray-800"
+              className="bg-primary text-primary-foreground hover:bg-[#008394]"
             >
               <Download className="w-4 h-4 mr-2" />
               {isGenerating ? "Generating..." : `Export ${reportFormat.toUpperCase()}`}
@@ -285,36 +285,36 @@ export function ReconstructionReport() {
         </div>
 
         {/* Report Header */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardContent className="p-8">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-black mb-2">SERIOUS INCIDENT GOVERNANCE REPORT</h2>
-              <p className="text-gray-600">OrdinCore Governance Reconstruction System</p>
+              <h2 className="text-2xl font-bold text-foreground mb-2">SERIOUS INCIDENT GOVERNANCE REPORT</h2>
+              <p className="text-muted-foreground">OrdinCore Governance Reconstruction System</p>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
               <div>
-                <div className="text-sm text-gray-500 mb-1">Service</div>
-                <div className="font-bold text-black">{incident.houseName}</div>
+                <div className="text-sm text-muted-foreground mb-1">Service</div>
+                <div className="font-bold text-foreground">{incident.houseName}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Incident Type</div>
-                <div className="font-bold text-black">{incident.incidentType}</div>
+                <div className="text-sm text-muted-foreground mb-1">Incident Type</div>
+                <div className="font-bold text-foreground">{incident.incidentType}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Incident Date</div>
-                <div className="font-bold text-black">{incident.incidentDate}</div>
+                <div className="text-sm text-muted-foreground mb-1">Incident Date</div>
+                <div className="font-bold text-foreground">{incident.incidentDate}</div>
               </div>
               <div>
-                <div className="text-sm text-gray-500 mb-1">Report Status</div>
-                <div className="font-bold text-black">{incident.status}</div>
+                <div className="text-sm text-muted-foreground mb-1">Report Status</div>
+                <div className="font-bold text-foreground">{incident.status}</div>
               </div>
             </div>
           </CardContent>
         </Card>
 
         {/* Executive Summary */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
@@ -323,27 +323,27 @@ export function ReconstructionReport() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
-              <div className="text-center p-4 bg-gray-50 rounded border">
-                <div className="text-2xl font-bold text-black">{metrics.riskSignalsLogged}</div>
-                <div className="text-sm text-gray-600">Risk Signals Logged</div>
+              <div className="text-center p-4 bg-muted rounded border">
+                <div className="text-2xl font-bold text-foreground">{metrics.riskSignalsLogged}</div>
+                <div className="text-sm text-muted-foreground">Risk Signals Logged</div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded border">
-                <div className="text-2xl font-bold text-black">{metrics.escalationsTriggered}</div>
-                <div className="text-sm text-gray-600">Escalations Triggered</div>
+              <div className="text-center p-4 bg-muted rounded border">
+                <div className="text-2xl font-bold text-foreground">{metrics.escalationsTriggered}</div>
+                <div className="text-sm text-muted-foreground">Escalations Triggered</div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded border">
-                <div className="text-2xl font-bold text-black">{metrics.leadershipReviews}</div>
-                <div className="text-sm text-gray-600">Leadership Reviews</div>
+              <div className="text-center p-4 bg-muted rounded border">
+                <div className="text-2xl font-bold text-foreground">{metrics.leadershipReviews}</div>
+                <div className="text-sm text-muted-foreground">Leadership Reviews</div>
               </div>
-              <div className="text-center p-4 bg-gray-50 rounded border">
-                <div className="text-2xl font-bold text-black">{metrics.lastOversightReviewDays} days</div>
-                <div className="text-sm text-gray-600">Last Oversight Before Incident</div>
+              <div className="text-center p-4 bg-muted rounded border">
+                <div className="text-2xl font-bold text-foreground">{metrics.lastOversightReviewDays} days</div>
+                <div className="text-sm text-muted-foreground">Last Oversight Before Incident</div>
               </div>
             </div>
 
-            <div className="mt-6 p-4 bg-gray-100 border border-gray-300 rounded">
-              <div className="font-medium text-black mb-2">Key Findings:</div>
-              <ul className="text-sm text-gray-800 space-y-1">
+            <div className="mt-6 p-4 bg-muted border border-border rounded">
+              <div className="font-medium text-foreground mb-2">Key Findings:</div>
+              <ul className="text-sm text-foreground space-y-1">
                 {findings.map((finding, i) => (
                   <li key={i}>• {finding}</li>
                 ))}
@@ -353,7 +353,7 @@ export function ReconstructionReport() {
         </Card>
 
         {/* Governance Timeline */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Clock className="w-5 h-5" />
@@ -363,14 +363,14 @@ export function ReconstructionReport() {
           <CardContent className="p-6">
             <div className="space-y-4">
               {timelineEvents.length === 0 ? (
-                <div className="text-center py-8 text-gray-500">
+                <div className="text-center py-8 text-muted-foreground">
                   No governance timeline events linked to this incident.
                 </div>
               ) : timelineEvents.map((event, index) => (
-                <div key={index} className="flex gap-4 p-4 bg-gray-50 rounded border">
+                <div key={index} className="flex gap-4 p-4 bg-muted rounded border">
                   <div className="flex-shrink-0">
                     <div className={`w-10 h-10 rounded-full flex items-center justify-center ${
-                      event.gapFlag ? "bg-gray-800 text-white" : "bg-black text-white"
+                      event.gapFlag ? "bg-gray-800 text-primary-foreground" : "bg-primary text-primary-foreground"
                     }`}>
                       {event.gapFlag ? <XCircle className="w-5 h-5" /> : <CheckCircle className="w-5 h-5" />}
                     </div>
@@ -378,19 +378,19 @@ export function ReconstructionReport() {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-bold text-black">{
+                        <div className="font-bold text-foreground">{
                           event.timestamp.includes('T') ? new Date(event.timestamp).toLocaleString('en-GB') : event.timestamp
                         }</div>
-                        <div className="font-medium text-black mt-1">{event.label}</div>
-                        <div className="text-gray-600 mt-1">{event.detail}</div>
+                        <div className="font-medium text-foreground mt-1">{event.label}</div>
+                        <div className="text-muted-foreground mt-1">{event.detail}</div>
                       </div>
                       {event.gapFlag && (
-                        <span className="px-2 py-1 bg-black text-white text-xs rounded">
+                        <span className="px-2 py-1 bg-primary text-primary-foreground text-xs rounded">
                           CRITICAL GAP
                         </span>
                       )}
                     </div>
-                    <div className="text-sm text-gray-500">
+                    <div className="text-sm text-muted-foreground">
                       Action by: {event.actor} ({event.actorRole})
                     </div>
                   </div>
@@ -401,7 +401,7 @@ export function ReconstructionReport() {
         </Card>
 
         {/* Compliance Assessment */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <AlertTriangle className="w-5 h-5" />
@@ -410,57 +410,57 @@ export function ReconstructionReport() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="space-y-4">
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+              <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-black">Escalation Response Time</div>
-                  <div className="text-sm text-gray-600">Time between escalation trigger and leadership review</div>
+                  <div className="font-medium text-foreground">Escalation Response Time</div>
+                  <div className="text-sm text-muted-foreground">Time between escalation trigger and leadership review</div>
                 </div>
                 <div className="text-right">
                   <div className={`font-bold ${
-                    getComplianceStatus("escalationResponse") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("escalationResponse") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.escalationResponseHours} hours
                   </div>
                   <div className={`text-sm ${
-                    getComplianceStatus("escalationResponse") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("escalationResponse") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {getComplianceStatus("escalationResponse") === "compliant" ? "✓ Compliant" : "✗ Non-compliant"}
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+              <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-black">Oversight Frequency</div>
-                  <div className="text-sm text-gray-600">Days between last governance review and incident</div>
+                  <div className="font-medium text-foreground">Oversight Frequency</div>
+                  <div className="text-sm text-muted-foreground">Days between last governance review and incident</div>
                 </div>
                 <div className="text-right">
                   <div className={`font-bold ${
-                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.lastOversightReviewDays} days
                   </div>
                   <div className={`text-sm ${
-                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {getComplianceStatus("oversightFrequency") === "compliant" ? "✓ Compliant" : "✗ Non-compliant"}
                   </div>
                 </div>
               </div>
 
-              <div className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+              <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-black">Risk Recognition Timeline</div>
-                  <div className="text-sm text-gray-600">Days from first signal to incident</div>
+                  <div className="font-medium text-foreground">Risk Recognition Timeline</div>
+                  <div className="text-sm text-muted-foreground">Days from first signal to incident</div>
                 </div>
                 <div className="text-right">
                   <div className={`font-bold ${
-                    getComplianceStatus("riskRecognition") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("riskRecognition") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.firstSignalToIncidentDays} days
                   </div>
                   <div className={`text-sm ${
-                    getComplianceStatus("riskRecognition") === "compliant" ? "text-black" : "text-black"
+                    getComplianceStatus("riskRecognition") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {getComplianceStatus("riskRecognition") === "compliant" ? "✓ Early recognition" : "✗ Delayed recognition"}
                   </div>
@@ -471,7 +471,7 @@ export function ReconstructionReport() {
         </Card>
 
         {/* Cross-House Pattern Analysis */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Users className="w-5 h-5" />
@@ -480,22 +480,22 @@ export function ReconstructionReport() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="mb-4">
-              <div className="font-medium text-black mb-2">Organizational Risk Patterns</div>
-              <div className="text-sm text-gray-600 mb-4">
+              <div className="font-medium text-foreground mb-2">Organizational Risk Patterns</div>
+              <div className="text-sm text-muted-foreground mb-4">
                 Analysis of similar risk signals across all houses during the relevant period
               </div>
             </div>
 
             <div className="space-y-3">
               {patterns.length === 0 ? (
-                <div className="text-sm text-gray-500 italic">No significant organizational patterns detected in this period.</div>
+                <div className="text-sm text-muted-foreground italic">No significant organizational patterns detected in this period.</div>
               ) : patterns.map((pattern, index) => (
-                <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded border">
+                <div key={index} className="flex justify-between items-center p-3 bg-muted rounded border">
                   <div>
-                    <div className="font-medium text-black">{pattern.house}</div>
-                    <div className="text-sm text-gray-600">{pattern.signal}</div>
+                    <div className="font-medium text-foreground">{pattern.house}</div>
+                    <div className="text-sm text-muted-foreground">{pattern.signal}</div>
                   </div>
-                  <div className="text-sm text-gray-500">Detected: {pattern.detected}</div>
+                  <div className="text-sm text-muted-foreground">Detected: {pattern.detected}</div>
                 </div>
               ))}
             </div>
@@ -512,7 +512,7 @@ export function ReconstructionReport() {
         </Card>
 
         {/* Leadership Conclusions */}
-        <Card className="border-2 border-black mb-6">
+        <Card className="border-2 border-border mb-6">
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <FileText className="w-5 h-5" />
@@ -522,9 +522,9 @@ export function ReconstructionReport() {
           <CardContent className="p-6">
             <div className="space-y-6">
               <div>
-                <div className="font-bold text-black mb-3">Governance Effectiveness Assessment</div>
-                <div className="bg-gray-100 border border-gray-300 rounded p-4">
-                  <div className="text-gray-800">
+                <div className="font-bold text-foreground mb-3">Governance Effectiveness Assessment</div>
+                <div className="bg-muted border border-border rounded p-4">
+                  <div className="text-foreground">
                     <div className="font-medium mb-2">✓ OVERSIGHT PRESENT</div>
                     <div className="text-sm space-y-1">
                       <div>• Risk signals were identified and documented prior to incident</div>
@@ -537,21 +537,21 @@ export function ReconstructionReport() {
               </div>
 
               <div>
-                <div className="font-bold text-black mb-3">Recommendations</div>
+                <div className="font-bold text-foreground mb-3">Recommendations</div>
                 <div className="space-y-2">
                   {recommendations.map((rec, i) => (
                     <div key={i} className="flex gap-2">
-                      <span className="text-black">{i + 1}.</span>
-                      <span className="text-gray-700">{rec}</span>
+                      <span className="text-foreground">{i + 1}.</span>
+                      <span className="text-muted-foreground">{rec}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               <div>
-                <div className="font-bold text-black mb-3">Report Certification</div>
-                <div className="bg-gray-50 border border-gray-300 rounded p-4">
-                  <div className="text-sm text-gray-700 space-y-2">
+                <div className="font-bold text-foreground mb-3">Report Certification</div>
+                <div className="bg-muted border border-border rounded p-4">
+                  <div className="text-sm text-muted-foreground space-y-2">
                     <div>This report was automatically generated by OrdinCore Governance Reconstruction System</div>
                     <div>All timeline events are sourced from immutable system records</div>
                     <div>Report generated on: {new Date().toLocaleDateString('en-GB', { 
@@ -570,7 +570,7 @@ export function ReconstructionReport() {
           <Button
             onClick={generateReport}
             disabled={isGenerating}
-            className="bg-black text-white hover:bg-gray-800 px-8"
+            className="bg-primary text-primary-foreground hover:bg-[#008394] px-8"
           >
             <Download className="w-4 h-4 mr-2" />
             {isGenerating ? "Generating..." : "Download Full Report"}
@@ -578,7 +578,7 @@ export function ReconstructionReport() {
           <Button
             variant="outline"
             onClick={exportTimeline}
-            className="border-black hover:bg-black hover:text-white px-8"
+            className="border-border hover:bg-primary hover:text-primary-foreground px-8"
           >
             <FileText className="w-4 h-4 mr-2" />
             Export Timeline Only

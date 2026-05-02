@@ -197,7 +197,7 @@ const AdminPulseManagement: React.FC = () => {
   ];
 
   return (
-    <div className="p-6 space-y-6 bg-gray-50 min-h-screen">
+    <div className="p-6 space-y-6 bg-muted min-h-screen">
       <AdminPageHeader 
         title="Pulse Management" 
         description="Monitor and manage governance pulses across all facilities"
@@ -274,14 +274,14 @@ const AdminPulseManagement: React.FC = () => {
             <TableCell>
               <div>
                 <div className="font-medium">{pulse.house_name}</div>
-                <div className="text-sm text-gray-500">{pulse.house_code}</div>
+                <div className="text-sm text-muted-foreground">{pulse.house_code}</div>
               </div>
             </TableCell>
             <TableCell>{new Date(pulse.pulse_date).toLocaleDateString()}</TableCell>
             <TableCell>
               <div>
                 <div className="font-medium">{pulse.submitted_by_name}</div>
-                <div className="text-sm text-gray-500">{pulse.submitted_by_email}</div>
+                <div className="text-sm text-muted-foreground">{pulse.submitted_by_email}</div>
               </div>
             </TableCell>
             <TableCell>{getStatusBadge(pulse.status)}</TableCell>
@@ -363,7 +363,7 @@ const AdminPulseManagement: React.FC = () => {
                     checked={selectedPulse.escalation_required}
                     onCheckedChange={(checked) => setSelectedPulse({...selectedPulse, escalation_required: checked})}
                   />
-                  <span className="text-sm text-gray-600">
+                  <span className="text-sm text-muted-foreground">
                     {selectedPulse.escalation_required ? 'Yes' : 'No'}
                   </span>
                 </div>

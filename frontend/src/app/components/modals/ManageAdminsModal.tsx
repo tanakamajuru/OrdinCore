@@ -112,26 +112,26 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
+    <div className="fixed inset-0 bg-primary/60 z-[60] flex items-center justify-center p-4 backdrop-blur-sm">
+      <div className="bg-card rounded-xl shadow-2xl w-full max-w-5xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in duration-200">
         {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50">
+        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-muted">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-black rounded-lg flex items-center justify-center shadow-md">
-              <Users className="w-5 h-5 text-white" />
+            <div className="w-10 h-10 bg-primary rounded-lg flex items-center justify-center shadow-md">
+              <Users className="w-5 h-5 text-primary-foreground" />
             </div>
             <div>
-              <h2 className="text-xl font-bold text-gray-900">
+              <h2 className="text-xl font-bold text-foreground">
                 {companyName ? `Admins for ${companyName}` : 'Manage Company Admins'}
               </h2>
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-muted-foreground">
                 {companyName ? `Managing administrative access for this organisation` : 'Platform-wide administrative control'}
               </p>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-gray-600"
+            className="p-2 hover:bg-gray-200 rounded-full transition-colors text-gray-400 hover:text-muted-foreground"
           >
             <X className="w-6 h-6" />
           </button>
@@ -148,12 +148,12 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
                 placeholder="Search by name or email..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-10 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black focus:border-transparent transition-all"
+                className="w-full pl-10 pr-10 py-2 bg-muted border border-border rounded-lg focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
               />
               {searchTerm && (
                 <button 
                   onClick={() => setSearchTerm('')}
-                  className="absolute right-3 top-2.5 text-gray-400 hover:text-gray-600"
+                  className="absolute right-3 top-2.5 text-gray-400 hover:text-muted-foreground"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -165,7 +165,7 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none transition-all"
+              className="w-full px-3 py-2 bg-muted border border-border rounded-lg focus:ring-2 focus:ring-ring outline-none transition-all"
             >
               <option value="all">All Status</option>
               <option value="active">Active Only</option>
@@ -174,7 +174,7 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
           </div>
           <button 
             onClick={fetchAdmins}
-            className="p-2 bg-gray-100 hover:bg-gray-200 text-gray-600 rounded-lg transition-colors"
+            className="p-2 bg-muted hover:bg-gray-200 text-muted-foreground rounded-lg transition-colors"
             title="Refresh"
           >
             <RefreshCw className={`w-5 h-5 ${loading ? 'animate-spin' : ''}`} />
@@ -185,19 +185,19 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
         <div className="flex-1 overflow-y-auto p-6">
           {loading && admins.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 opacity-40">
-              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-black mb-4" />
+              <div className="animate-spin rounded-full h-10 w-10 border-b-2 border-border mb-4" />
               <p>Loading admins...</p>
             </div>
           ) : admins.length === 0 ? (
-            <div className="text-center py-20 bg-gray-50 rounded-xl border border-dashed border-gray-200">
+            <div className="text-center py-20 bg-muted rounded-xl border border-dashed border-border">
               <Users className="w-12 h-12 mx-auto mb-4 text-gray-300" />
-              <h3 className="text-lg font-medium text-gray-900">No admins found</h3>
-              <p className="text-sm text-gray-500">Try adjusting your search or filters</p>
+              <h3 className="text-lg font-medium text-foreground">No admins found</h3>
+              <p className="text-sm text-muted-foreground">Try adjusting your search or filters</p>
             </div>
           ) : (
             <div className="overflow-hidden border border-gray-100 rounded-xl">
               <table className="w-full text-sm text-left">
-                <thead className="bg-gray-50 text-gray-500 font-medium uppercase text-[10px] tracking-widest border-b border-gray-100">
+                <thead className="bg-muted text-muted-foreground font-medium uppercase text-[10px] tracking-widest border-b border-gray-100">
                   <tr>
                     <th className="px-6 py-4">Admin Details</th>
                     <th className="px-6 py-4">Status</th>
@@ -206,14 +206,14 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {admins.map((admin) => (
-                    <tr key={admin.id} className="hover:bg-gray-50/50 transition-colors">
+                    <tr key={admin.id} className="hover:bg-muted/50 transition-colors">
                       <td className="px-6 py-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 bg-black/5 rounded-full flex items-center justify-center font-bold text-black text-xs">
+                          <div className="w-8 h-8 bg-primary/5 rounded-full flex items-center justify-center font-bold text-foreground text-xs">
                             {admin.first_name[0]}{admin.last_name[0]}
                           </div>
                           <div>
-                            <p className="font-bold text-gray-900">{admin.first_name} {admin.last_name}</p>
+                            <p className="font-bold text-foreground">{admin.first_name} {admin.last_name}</p>
                             <p className="text-xs text-gray-400">{admin.email}</p>
                           </div>
                         </div>
@@ -237,10 +237,10 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
                                 onCheckedChange={() => toggleAdminStatus(admin)}
                              />
                           </div>
-                          <div className="h-8 w-[1px] bg-gray-100 mx-1" />
+                          <div className="h-8 w-[1px] bg-muted mx-1" />
                           <button
                             onClick={() => { setSelectedAdmin(admin); setShowPasswordReset(true); }}
-                            className="p-2 hover:bg-gray-100 rounded-lg text-gray-400 hover:text-black transition-all"
+                            className="p-2 hover:bg-muted rounded-lg text-gray-400 hover:text-foreground transition-all"
                             title="Reset Password"
                           >
                             <Key className="w-4 h-4" />
@@ -258,14 +258,14 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
 
       {/* Password Reset Modal Overlay */}
       {showPasswordReset && selectedAdmin && (
-        <div className="fixed inset-0 bg-black/40 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-sm p-6 border border-gray-100">
-            <h3 className="text-lg font-bold text-gray-900 mb-2 flex items-center gap-2">
-              <Key className="w-5 h-5 text-black" />
+        <div className="fixed inset-0 bg-primary/40 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="bg-card rounded-xl shadow-2xl w-full max-w-sm p-6 border border-gray-100">
+            <h3 className="text-lg font-bold text-foreground mb-2 flex items-center gap-2">
+              <Key className="w-5 h-5 text-foreground" />
               Reset Admin Password
             </h3>
-            <p className="text-sm text-gray-500 mb-6">
-              Enter a new password for <span className="font-bold text-gray-900">{selectedAdmin.first_name}</span>. They will need to use this to log in immediately.
+            <p className="text-sm text-muted-foreground mb-6">
+              Enter a new password for <span className="font-bold text-foreground">{selectedAdmin.first_name}</span>. They will need to use this to log in immediately.
             </p>
             <div className="space-y-4">
               <input
@@ -274,19 +274,19 @@ const ManageAdminsModal: React.FC<ManageAdminsModalProps> = ({ isOpen, onClose, 
                 autoFocus
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-black outline-none transition-all"
+                className="w-full px-4 py-2 bg-muted border border-border rounded-lg focus:ring-2 focus:ring-ring outline-none transition-all"
               />
               <div className="flex gap-3">
                 <button
                   onClick={() => { setShowPasswordReset(false); setNewPassword(''); }}
-                  className="flex-1 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors text-sm font-medium"
+                  className="flex-1 py-2 border border-border text-muted-foreground rounded-lg hover:bg-muted transition-colors text-sm font-medium"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleResetPassword}
                   disabled={isSubmitting || newPassword.length < 8}
-                  className="flex-1 py-2 bg-black text-white rounded-lg hover:bg-gray-800 transition-colors text-sm font-medium disabled:opacity-50"
+                  className="flex-1 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-[#008394] transition-colors text-sm font-medium disabled:opacity-50"
                 >
                   {isSubmitting ? 'Resetting...' : 'Confirm Reset'}
                 </button>

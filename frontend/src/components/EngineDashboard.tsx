@@ -103,7 +103,7 @@ const EngineDashboardComponent: React.FC = () => {
       case 'failed':
         return <AlertCircle className="h-4 w-4 text-red-500" />;
       default:
-        return <Clock className="h-4 w-4 text-gray-500" />;
+        return <Clock className="h-4 w-4 text-muted-foreground" />;
     }
   };
 
@@ -116,7 +116,7 @@ const EngineDashboardComponent: React.FC = () => {
       case 'failed':
         return 'bg-red-100 text-red-800';
       default:
-        return 'bg-gray-100 text-gray-800';
+        return 'bg-muted text-foreground';
     }
   };
 
@@ -144,7 +144,7 @@ const EngineDashboardComponent: React.FC = () => {
 
   if (!dashboard) {
     return (
-      <div className="text-center text-gray-500 py-8">
+      <div className="text-center text-muted-foreground py-8">
         Failed to load engine dashboard
       </div>
     );
@@ -237,7 +237,7 @@ const EngineDashboardComponent: React.FC = () => {
                 <CardContent>
                   <div className="space-y-3">
                     <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Enabled</span>
+                      <span className="text-sm text-muted-foreground">Enabled</span>
                       <Switch
                         checked={engine.enabled}
                         onCheckedChange={(enabled) => toggleEngine(engine.engine, enabled)}
@@ -247,21 +247,21 @@ const EngineDashboardComponent: React.FC = () => {
                     
                     {engine.lastRun && (
                       <div className="text-sm">
-                        <span className="text-gray-600">Last run: </span>
+                        <span className="text-muted-foreground">Last run: </span>
                         {new Date(engine.lastRun).toLocaleString()}
                       </div>
                     )}
                     
                     {engine.nextRun && (
                       <div className="text-sm">
-                        <span className="text-gray-600">Next run: </span>
+                        <span className="text-muted-foreground">Next run: </span>
                         {new Date(engine.nextRun).toLocaleString()}
                       </div>
                     )}
                     
                     {engine.duration && (
                       <div className="text-sm">
-                        <span className="text-gray-600">Duration: </span>
+                        <span className="text-muted-foreground">Duration: </span>
                         {formatDuration(engine.duration)}
                       </div>
                     )}
@@ -357,7 +357,7 @@ const EngineDashboardComponent: React.FC = () => {
                         {getStatusIcon(execution.success ? 'completed' : 'failed')}
                         <div>
                           <div className="text-sm font-medium">{execution.engine}</div>
-                          <div className="text-xs text-gray-500">
+                          <div className="text-xs text-muted-foreground">
                             {new Date(execution.startTime).toLocaleString()}
                           </div>
                         </div>
@@ -390,7 +390,7 @@ const EngineDashboardComponent: React.FC = () => {
                       {getStatusIcon(execution.success ? 'completed' : 'failed')}
                       <div>
                         <div className="font-medium">{execution.engine}</div>
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-muted-foreground">
                           {new Date(execution.startTime).toLocaleString()} - {new Date(execution.endTime).toLocaleString()}
                         </div>
                       </div>
@@ -476,7 +476,7 @@ const EngineDashboardComponent: React.FC = () => {
             </div>
             
             {engineMetrics.lastError && (
-              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded">
+              <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
                 <h4 className="font-medium text-red-800 mb-1">Last Error</h4>
                 <p className="text-sm text-red-600">{engineMetrics.lastError}</p>
               </div>

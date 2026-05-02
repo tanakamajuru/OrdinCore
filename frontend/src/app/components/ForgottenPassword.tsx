@@ -1,6 +1,9 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export function ForgottenPassword() {
   const navigate = useNavigate();
@@ -16,7 +19,6 @@ export function ForgottenPassword() {
       return;
     }
     
-    // Simple email validation
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     if (!emailRegex.test(email)) {
       setError("Please enter a valid email address");
@@ -46,109 +48,100 @@ export function ForgottenPassword() {
 
   if (isSubmitted) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="w-full max-w-md">
-          <div className="bg-white border-2 border-black p-8">
-            <div className="text-center mb-8">
-              <h1 className="text-3xl font-semibold text-black mb-2">Password Reset Sent</h1>
-              <p className="text-gray-600">Check your email for reset instructions</p>
-            </div>
+          <Card>
+            <CardHeader className="text-center">
+              <CardTitle className="text-3xl">Password Reset Sent</CardTitle>
+              <CardDescription>Check your email for reset instructions</CardDescription>
+            </CardHeader>
 
-            <div className="bg-gray-50 border-2 border-gray-300 p-4 mb-6">
-              <p className="text-sm text-gray-600 text-center">
-                Your password has been successfully reset!
-              </p>
-              <p className="text-black font-medium text-center mt-2"> Temporary password: default</p>
-            </div>
+            <CardContent>
+              <div className="bg-muted border border-border p-4 mb-6 rounded-md">
+                <p className="text-sm text-muted-foreground text-center">
+                  Your password has been successfully reset!
+                </p>
+                <p className="text-foreground font-medium text-center mt-2"> Temporary password: Default123!</p>
+              </div>
 
-            <div className="text-sm text-gray-600 text-center mb-6">
-              <p>Please log in with the default password and change your password immediately in account settings.</p>
-            </div>
+              <div className="text-sm text-muted-foreground text-center mb-6">
+                <p>Please log in with the default password and change your password immediately in account settings.</p>
+              </div>
 
-            <div className="space-y-4">
-              <button
-                onClick={() => navigate("/login")}
-                className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors font-medium"
-              >
-                Return to Login
-              </button>
-              
-              <button
-                onClick={() => {
-                  setIsSubmitted(false);
-                  setEmail("");
-                }}
-                className="w-full py-3 px-4 bg-white text-black border-2 border-black hover:bg-gray-100 transition-colors"
-              >
-                Reset another account
-              </button>
-            </div>
-          </div>
+              <div className="space-y-4">
+                <Button
+                  onClick={() => navigate("/login")}
+                  className="w-full"
+                >
+                  Return to Login
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-white">
+    <div className="min-h-screen flex items-center justify-center p-4 bg-background">
       <div className="w-full max-w-md">
-        <div className="bg-white border-2 border-black p-8">
-          <button
-            onClick={() => navigate("/login")}
-            className="flex items-center gap-2 text-black hover:text-gray-600 transition-colors mb-6"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            Back to Login
-          </button>
-
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-semibold text-black mb-2">Forgotten Password</h1>
-            <p className="text-gray-600">Enter your email to reset your password</p>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            {error && (
-              <div className="text-black text-sm italic text-center bg-red-50 border-2 border-red-200 p-3">
-                {error}
-              </div>
-            )}
-
-            <div>
-              <label htmlFor="email" className="block mb-2 text-black font-medium">
-                Email Address
-              </label>
-              <input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-2 bg-white border-2 border-black focus:outline-none focus:ring-2 focus:ring-black text-black"
-                placeholder="Enter your work email"
-                required
-              />
-            </div>
-
+        <Card>
+          <CardHeader>
             <button
-              type="submit"
-              className="w-full py-3 px-4 bg-black text-white hover:bg-gray-800 transition-colors font-medium"
+              onClick={() => navigate("/login")}
+              className="flex w-fit items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-2 text-sm font-medium"
             >
-              Reset to Default Password
+              <ArrowLeft className="w-4 h-4" />
+              Back to Login
             </button>
+            <CardTitle className="text-3xl text-center">Forgotten Password</CardTitle>
+            <CardDescription className="text-center">Enter your email to reset your password</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {error && (
+                <div className="text-destructive text-sm italic text-center bg-destructive/10 border border-destructive/20 p-3 rounded-md">
+                  {error}
+                </div>
+              )}
 
-            <div className="text-center">
-              <p className="text-sm text-gray-600">
-                Remember your password?{" "}
-                <button
-                  type="button"
-                  onClick={() => navigate("/login")}
-                  className="text-black hover:text-gray-600 transition-colors underline font-medium"
-                >
-                  Sign In
-                </button>
-              </p>
-            </div>
-          </form>
-        </div>
+              <div className="space-y-2">
+                <label htmlFor="email" className="block text-foreground font-medium text-sm">
+                  Email Address
+                </label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="Enter your work email"
+                  required
+                />
+              </div>
+
+              <Button
+                type="submit"
+                className="w-full"
+              >
+                Reset to Default Password
+              </Button>
+
+              <div className="text-center mt-4">
+                <p className="text-sm text-muted-foreground">
+                  Remember your password?{" "}
+                  <button
+                    type="button"
+                    onClick={() => navigate("/login")}
+                    className="text-primary hover:text-primary/80 transition-colors underline font-medium"
+                  >
+                    Sign In
+                  </button>
+                </p>
+              </div>
+            </form>
+          </CardContent>
+        </Card>
       </div>
     </div>
   );

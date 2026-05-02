@@ -166,7 +166,7 @@ export function Dashboard() {
               </div>
               <button
                 onClick={() => navigate("/governance-pulse")}
-                className={`w-full py-3 px-4 text-white transition-colors shadow-sm ${getTodayPulseButtonColor()}`}
+                className={`w-full py-3 px-4 text-primary-foreground transition-colors shadow-sm ${getTodayPulseButtonColor()}`}
               >
                 {getTodayPulseButtonText()}
               </button>

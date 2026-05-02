@@ -61,14 +61,15 @@ export class EscalationsService {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
+    const status = 'Resolved';
     await query(
-      `UPDATE escalations SET status = 'resolved', resolved_at = NOW(), resolution_notes = $1, updated_at = NOW() WHERE id = $2`,
-      [resolution_notes, id]
+      `UPDATE escalations SET status = $1, resolved_at = NOW(), resolution_notes = $2, updated_at = NOW() WHERE id = $3`,
+      [status, resolution_notes, id]
     );
 
     await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
-       VALUES ($1,$2,$3,'resolved',$4,$5)`,
+       VALUES ($1,$2,$3,'Resolved',$4,$5)`,
       [uuidv4(), id, company_id, resolution_notes, user_id]
     );
 
@@ -78,11 +79,11 @@ export class EscalationsService {
 
   async acknowledge(id: string, company_id: string, user_id: string) {
     await query(
-      `UPDATE escalations SET status = 'acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`,
+      `UPDATE escalations SET status = 'Acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`,
       [id, company_id]
     );
     await query(
-      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by) VALUES ($1,$2,$3,'acknowledged','Escalation acknowledged',$4)`,
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by) VALUES ($1,$2,$3,'Acknowledged','Escalation acknowledged',$4)`,
       [uuidv4(), id, company_id, user_id]
     );
     return { message: 'Escalation acknowledged' };
@@ -92,7 +93,7 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
-    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+    if (escalation.rows[0].status === 'Resolved' || escalation.rows[0].status === 'Closed') {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
@@ -123,7 +124,7 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
-    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+    if (escalation.rows[0].status === 'Resolved' || escalation.rows[0].status === 'Closed') {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
@@ -145,13 +146,15 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
-    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
+    if (escalation.rows[0].status === 'Resolved' || escalation.rows[0].status === 'Closed') {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
+    // Normalize priority to capitalize first letter to match DB constraint
+    const normalizedPriority = priority.charAt(0).toUpperCase() + priority.slice(1).toLowerCase();
     const result = await query(
       `UPDATE escalations SET priority = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3 RETURNING *`,
-      [priority, id, company_id]
+      [normalizedPriority, id, company_id]
     );
 
     await query(

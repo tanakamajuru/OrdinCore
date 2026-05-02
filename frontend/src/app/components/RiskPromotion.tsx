@@ -157,7 +157,7 @@ export function RiskPromotion() {
                             <button 
                                 key={s}
                                 onClick={() => setFormData(p => ({ ...p, severity: s }))}
-                                className={`p-3 text-left font-bold border-2 transition-all ${formData.severity === s ? 'bg-destructive text-white border-destructive' : 'bg-background border-border hover:border-primary'}`}
+                                className={`p-3 text-left font-bold border-2 transition-all ${formData.severity === s ? 'bg-destructive text-primary-foreground border-destructive' : 'bg-background border-border hover:border-primary'}`}
                             >
                                 {s}
                             </button>
@@ -171,7 +171,7 @@ export function RiskPromotion() {
                             <button 
                                 key={t}
                                 onClick={() => setFormData(p => ({ ...p, trajectory: t }))}
-                                className={`p-3 text-left font-bold border-2 transition-all ${formData.trajectory === t ? 'bg-primary text-white border-primary' : 'bg-background border-border hover:border-primary'}`}
+                                className={`p-3 text-left font-bold border-2 transition-all ${formData.trajectory === t ? 'bg-primary text-primary-foreground border-primary' : 'bg-background border-border hover:border-primary'}`}
                             >
                                 {t}
                             </button>

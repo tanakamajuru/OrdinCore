@@ -36,15 +36,15 @@ export function ActionEffectivenessPanels() {
             <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-primary">Organisational Effectiveness (7D)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-white border-2 border-success/20">
+            <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
               <span className="font-bold text-success uppercase text-xs">Effective Actions</span>
               <span className="text-2xl font-black">{data.org_summary?.effective || 0}</span>
             </div>
-            <div className="flex justify-between items-center p-3 bg-white border-2 border-warning/20">
+            <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
               <span className="font-bold text-warning uppercase text-xs">Neutral Outcomes</span>
               <span className="text-2xl font-black">{data.org_summary?.neutral || 0}</span>
             </div>
-            <div className="flex justify-between items-center p-3 bg-white border-2 border-destructive/20">
+            <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
               <span className="font-bold text-destructive uppercase text-xs">Ineffective Actions</span>
               <span className="text-2xl font-black">{data.org_summary?.ineffective || 0}</span>
             </div>

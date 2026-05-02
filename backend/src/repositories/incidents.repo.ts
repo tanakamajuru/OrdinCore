@@ -45,7 +45,7 @@ export const incidentsRepo = {
 
       // Fetch linked escalations
       const escResult = await query(
-        `SELECT e.id, e.reason, e.status, e.severity 
+        `SELECT e.id, e.reason, e.status, e.priority 
          FROM escalations e 
          JOIN incident_escalations ie ON ie.escalation_id = e.id 
          WHERE ie.incident_id = $1`,
