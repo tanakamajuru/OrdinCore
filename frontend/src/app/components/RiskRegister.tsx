@@ -463,7 +463,7 @@ export function RiskRegister() {
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.setAttribute("href", url);
-    link.setAttribute("download", \`Risk_Register_\${new Date().toISOString().split('T')[0]}.xls\`);
+    link.setAttribute("download", `Risk_Register_${new Date().toISOString().split('T')[0]}.xls`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
