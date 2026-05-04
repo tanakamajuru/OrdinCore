@@ -33,6 +33,8 @@ import thresholdEventsRoutes from './routes/thresholdEvents.routes';
 import clustersRoutes from './routes/clusters.routes';
 import riGovernanceRoutes from './routes/riGovernance.routes';
 import directorGovernanceRoutes from './routes/directorGovernance.routes';
+import actionsRoutes from './routes/actions.routes';
+
 
 
 
@@ -104,6 +106,8 @@ app.get('/swagger.json', (_, res) => {
 const API = '/api/v1';
 
 app.use(`${API}/auth`, authRoutes);
+app.use(`${API}/actions`, actionsRoutes);
+
 app.use(`${API}/companies`, companiesRoutes);
 app.use(`${API}/users`, usersRoutes);
 app.use(`${API}/houses`, housesRoutes);

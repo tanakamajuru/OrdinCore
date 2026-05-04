@@ -66,7 +66,7 @@ export function PulseDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Pulse record not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Pulse record not found</h2>
           <button
             onClick={() => navigate("/dashboard")}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -93,7 +93,7 @@ export function PulseDetail() {
         <div className="mb-6 flex justify-between items-start">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-3xl font-semibold text-foreground">Governance Pulse Review</h1>
+              <h1 className="text-3xl  text-foreground">Governance Pulse Review</h1>
               <span className="px-3 py-1 bg-primary text-primary-foreground flex items-center gap-2">
                 <Shield className="w-4 h-4" />
                 {pulse.status}
@@ -105,8 +105,8 @@ export function PulseDetail() {
           </div>
           <div className="text-right">
             <div className="bg-muted border-2 border-border p-4 flex flex-col gap-1 shadow-sm">
-                <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider">Submitted By</span>
-                <span className="text-foreground font-bold flex items-center gap-2">
+                <span className="text-xs text-muted-foreground  uppercase tracking-wider">Submitted By</span>
+                <span className="text-foreground  flex items-center gap-2">
                     <User className="w-4 h-4" />
                     {pulse.completed_by_name || 'Team Leader'}
                 </span>
@@ -118,36 +118,36 @@ export function PulseDetail() {
             <div className="bg-card border-2 border-border p-4 flex items-center gap-4">
                 <Calendar className="w-8 h-8 text-primary" />
                 <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase">Due Date</h3>
-                    <p className="text-lg font-bold text-foreground">{new Date(pulse.due_date).toLocaleDateString('en-GB')}</p>
+                    <h3 className="text-xs  text-muted-foreground uppercase">Due Date</h3>
+                    <p className="text-lg  text-foreground">{new Date(pulse.due_date).toLocaleDateString('en-GB')}</p>
                 </div>
             </div>
             <div className="bg-card border-2 border-border p-4 flex items-center gap-4">
                 <CheckCircle className="w-8 h-8 text-success" />
                 <div>
-                    <h3 className="text-xs font-bold text-muted-foreground uppercase">Compliance Status</h3>
-                    <p className="text-lg font-bold text-foreground">Audit Verified</p>
+                    <h3 className="text-xs  text-muted-foreground uppercase">Compliance Status</h3>
+                    <p className="text-lg  text-foreground">Audit Verified</p>
                 </div>
             </div>
         </div>
 
         <div className="space-y-4 pb-20">
-          <h2 className="text-xl font-bold text-foreground border-b-2 border-border pb-2 mb-4">Submission Details</h2>
+          <h2 className="text-xl  text-foreground border-b-2 border-border pb-2 mb-4">Submission Details</h2>
           {pulse.answers && pulse.answers.length > 0 ? (
             pulse.answers.map((answer, idx) => (
               <div key={answer.question_id || idx} className={`p-6 border-2 ${answer.flagged ? 'border-destructive bg-destructive/5' : 'border-border bg-card shadow-sm'}`}>
                 <div className="flex justify-between items-start mb-2">
-                  <h3 className="font-bold text-foreground">{idx + 1}. {answer.question_text || 'Question'}</h3>
-                  {answer.flagged && <span className="text-xs bg-destructive text-destructive-foreground px-2 py-1 font-bold">FLAGGED</span>}
+                  <h3 className=" text-foreground">{idx + 1}. {answer.question_text || 'Question'}</h3>
+                  {answer.flagged && <span className="text-xs bg-destructive text-destructive-foreground px-2 py-1 ">FLAGGED</span>}
                 </div>
                 <div className="p-3 bg-muted border-2 border-dashed border-border">
-                    <p className="text-foreground font-medium">{answer.answer || 'No answer provided'}</p>
+                    <p className="text-foreground ">{answer.answer || 'No answer provided'}</p>
                 </div>
               </div>
             ))
           ) : (
             <div className="text-center py-12 border-2 border-dashed border-border">
-              <p className="text-muted-foreground italic">No answers found for this pulse record.</p>
+              <p className="text-muted-foreground ">No answers found for this pulse record.</p>
             </div>
           )}
         </div>

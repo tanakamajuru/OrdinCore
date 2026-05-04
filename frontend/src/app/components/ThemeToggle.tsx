@@ -3,16 +3,20 @@ import { useEffect, useState } from "react";
 
 export function ThemeToggle() {
   const [mounted, setMounted] = useState(false);
-  const [theme, setTheme] = useState("light");
+  const [theme, setTheme] = useState(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("theme") || "light";
+    }
+    return "light";
+  });
 
   useEffect(() => {
     setMounted(true);
-    const savedTheme = localStorage.getItem("theme") || "light";
-    setTheme(savedTheme);
   }, []);
 
   useEffect(() => {
     if (!mounted) return;
+    
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
     } else {
@@ -21,11 +25,17 @@ export function ThemeToggle() {
     localStorage.setItem("theme", theme);
   }, [theme, mounted]);
 
+  const toggleTheme = () => {
+    setTheme(prev => prev === "light" ? "dark" : "light");
+  };
+
+  // Prevent hydration mismatch or non-responsive initial render
   if (!mounted) {
     return (
       <button
-        className="p-2 rounded-full hover:bg-muted text-foreground transition-colors"
-        title="Toggle Theme"
+        type="button"
+        className="p-2 rounded-full hover:bg-muted text-foreground transition-colors opacity-0"
+        aria-hidden="true"
       >
         <Moon className="w-5 h-5" />
       </button>
@@ -34,9 +44,10 @@ export function ThemeToggle() {
 
   return (
     <button
-      onClick={() => setTheme(theme === "light" ? "dark" : "light")}
+      type="button"
+      onClick={toggleTheme}
       className="p-2 rounded-full hover:bg-muted text-foreground transition-colors"
-      title="Toggle Theme"
+      title={theme === "light" ? "Switch to Dark Mode" : "Switch to Light Mode"}
     >
       {theme === "light" ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
     </button>

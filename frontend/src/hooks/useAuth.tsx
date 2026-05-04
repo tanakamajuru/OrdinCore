@@ -12,7 +12,11 @@ interface User {
   assigned_house_id?: string;
   assigned_house_name?: string;
   pulse_days?: string[];
-  profile_picture?: string;
+  profile?: {
+    avatar_url?: string;
+    job_title?: string;
+    phone?: string;
+  };
   isActive?: boolean;
 }
 

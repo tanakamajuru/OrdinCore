@@ -20,6 +20,7 @@ export interface CreateRiskDto {
   control_effectiveness?: string;
   next_review_date?: Date;
   closure_reason?: string;
+  linked_person?: string;
 }
 
 export const risksRepo = {
@@ -85,12 +86,12 @@ export const risksRepo = {
       `INSERT INTO risks (
         id, company_id, house_id, category_id, title, description, severity, status, 
         likelihood, impact, assigned_to, created_by, review_due_date, metadata,
-        source_cluster_id, trajectory, control_effectiveness, next_review_date
-      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18) RETURNING *`,
+        source_cluster_id, trajectory, control_effectiveness, next_review_date, linked_person
+      ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19) RETURNING *`,
       [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description || null,
        dto.severity || 'Medium', dto.status || 'Open', dto.likelihood || null, dto.impact || null,
        dto.assigned_to || null, dto.created_by, dto.review_due_date || null, JSON.stringify(dto.metadata || {}),
-       dto.source_cluster_id || null, dto.trajectory || 'Stable', dto.control_effectiveness || 'Partially', dto.next_review_date || null]
+       dto.source_cluster_id || null, dto.trajectory || 'Stable', dto.control_effectiveness || 'Partially', dto.next_review_date || null, dto.linked_person || null]
     );
     return result.rows[0];
   },
@@ -99,7 +100,7 @@ export const risksRepo = {
     const allowed = [
       'title', 'description', 'severity', 'status', 'likelihood', 'impact', 
       'assigned_to', 'category_id', 'review_due_date', 'resolved_at',
-      'trajectory', 'control_effectiveness', 'next_review_date', 'closure_reason'
+      'trajectory', 'control_effectiveness', 'next_review_date', 'closure_reason', 'linked_person'
     ];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
@@ -168,6 +169,10 @@ export const risksRepo = {
       conditions.push(`ra.status = $${idx++}`);
       params.push(filters.status);
     }
+    if (filters.pending_review === 'true') {
+      conditions.push(`ra.rm_decision IS NULL`);
+    }
+
 
     const where = conditions.join(' AND ');
     const result = await query(

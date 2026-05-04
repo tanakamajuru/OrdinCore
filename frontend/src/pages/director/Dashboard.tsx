@@ -86,7 +86,7 @@ const DirectorDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Director Dashboard</h1>
+        <h1 className="text-3xl  text-foreground">Director Dashboard</h1>
         <p className="text-muted-foreground mt-2">Welcome back, {user?.name}</p>
         <p className="text-sm text-muted-foreground mt-1">Strategic oversight for the organization</p>
       </div>
@@ -94,26 +94,26 @@ const DirectorDashboard: React.FC = () => {
       {/* Strategic Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Houses</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">{houses.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Total Houses</h3>
+          <p className="text-2xl  text-foreground mt-2">{houses.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Across organization</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Occupancy Rate</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">{occupancyRate.toFixed(1)}%</p>
+          <h3 className="text-sm  text-muted-foreground">Occupancy Rate</h3>
+          <p className="text-2xl  text-foreground mt-2">{occupancyRate.toFixed(1)}%</p>
           <p className="text-xs text-muted-foreground mt-1">{totalOccupancy}/{totalCapacity} beds</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Critical Risks</h3>
-          <p className="text-2xl font-bold text-red-600 mt-2">{criticalRisks.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Critical Risks</h3>
+          <p className="text-2xl  text-red-600 mt-2">{criticalRisks.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Require immediate attention</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">High Severity Incidents</h3>
-          <p className="text-2xl font-bold text-orange-600 mt-2">{highSeverityIncidents.length}</p>
+          <h3 className="text-sm  text-muted-foreground">High Severity Incidents</h3>
+          <p className="text-2xl  text-orange-600 mt-2">{highSeverityIncidents.length}</p>
           <p className="text-xs text-muted-foreground mt-1">Last 30 days</p>
         </div>
       </div>
@@ -121,7 +121,7 @@ const DirectorDashboard: React.FC = () => {
       {/* Risk Analysis */}
       <div className="bg-card shadow rounded-lg mb-8">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-          <h2 className="text-lg font-medium text-foreground">Risk Analysis</h2>
+          <h2 className="text-lg  text-foreground">Risk Analysis</h2>
           <button className="text-blue-600 hover:text-blue-900 text-sm">
             Full Report
           </button>
@@ -130,17 +130,17 @@ const DirectorDashboard: React.FC = () => {
         <div className="p-6">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
             <div className="text-center">
-              <div className="text-3xl font-bold text-red-600">{criticalRisks.length}</div>
+              <div className="text-3xl  text-red-600">{criticalRisks.length}</div>
               <div className="text-sm text-muted-foreground">Critical</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-orange-600">
+              <div className="text-3xl  text-orange-600">
                 {risks.filter(r => r.severity === 'High').length}
               </div>
               <div className="text-sm text-muted-foreground">High</div>
             </div>
             <div className="text-center">
-              <div className="text-3xl font-bold text-yellow-600">
+              <div className="text-3xl  text-yellow-600">
                 {risks.filter(r => r.severity === 'Medium').length}
               </div>
               <div className="text-sm text-muted-foreground">Medium</div>
@@ -149,14 +149,14 @@ const DirectorDashboard: React.FC = () => {
           
           {/* Top Critical Risks */}
           <div>
-            <h3 className="text-md font-medium text-foreground mb-3">Top Critical Risks</h3>
+            <h3 className="text-md  text-foreground mb-3">Top Critical Risks</h3>
             <div className="space-y-3">
               {criticalRisks.slice(0, 3).map((risk) => {
                 const house = houses.find(h => h.id === risk.houseId);
                 return (
                   <div key={risk.id} className="flex items-center justify-between p-3 bg-destructive/10 border border-destructive/20 rounded">
                     <div>
-                      <h4 className="font-medium text-red-800">{risk.title}</h4>
+                      <h4 className=" text-red-800">{risk.title}</h4>
                       <p className="text-sm text-red-600">
                         {house?.name || 'Unknown House'} • {risk.status}
                       </p>
@@ -181,7 +181,7 @@ const DirectorDashboard: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
         {/* Panel 3: 7-Day Signal Trend */}
         <div className="bg-card shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-foreground mb-4">7-Day Signal Trend</h2>
+          <h2 className="text-lg  text-foreground mb-4">7-Day Signal Trend</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={trendData}>
@@ -198,7 +198,7 @@ const DirectorDashboard: React.FC = () => {
 
         {/* Panel 5: Domain Weakness Analysis */}
         <div className="bg-card shadow rounded-lg p-6">
-          <h2 className="text-lg font-medium text-foreground mb-4">Domain Weakness Analysis</h2>
+          <h2 className="text-lg  text-foreground mb-4">Domain Weakness Analysis</h2>
           <div className="h-64">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={domainData} layout="vertical">
@@ -217,7 +217,7 @@ const DirectorDashboard: React.FC = () => {
         {/* House Performance */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-medium text-foreground">House Performance</h2>
+            <h2 className="text-lg  text-foreground">House Performance</h2>
           </div>
           
           <div className="p-6 space-y-3">
@@ -229,7 +229,7 @@ const DirectorDashboard: React.FC = () => {
               return (
                 <div key={house.id} className="flex items-center justify-between p-3 bg-muted rounded">
                   <div>
-                    <h4 className="font-medium text-foreground">{house.name}</h4>
+                    <h4 className=" text-foreground">{house.name}</h4>
                     <p className="text-sm text-muted-foreground">
                       {houseRisks.length} risks • {houseIncidents.length} incidents
                     </p>
@@ -259,7 +259,7 @@ const DirectorDashboard: React.FC = () => {
         {/* Recent Incidents */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-medium text-foreground">Recent High Severity Incidents</h2>
+            <h2 className="text-lg  text-foreground">Recent High Severity Incidents</h2>
           </div>
           
           <div className="p-6 space-y-4">
@@ -268,7 +268,7 @@ const DirectorDashboard: React.FC = () => {
               return (
                 <div key={incident.id} className="flex items-center justify-between p-3 bg-muted rounded">
                   <div>
-                    <h4 className="font-medium text-foreground">
+                    <h4 className=" text-foreground">
                       {incident.description.substring(0, 60)}...
                     </h4>
                     <p className="text-sm text-muted-foreground">
@@ -296,7 +296,7 @@ const DirectorDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-foreground mb-4">Strategic Actions</h2>
+        <h2 className="text-lg  text-foreground mb-4">Strategic Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Generate Strategic Reports

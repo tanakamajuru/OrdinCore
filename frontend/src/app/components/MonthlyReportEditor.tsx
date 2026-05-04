@@ -58,19 +58,19 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <button onClick={onClose} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors font-bold uppercase text-xs">
+        <button onClick={onClose} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors  uppercase text-xs">
           <ArrowLeft className="w-4 h-4" /> Back to Reports
         </button>
         <div className="flex items-center gap-2">
-            <span className="text-[10px] font-black uppercase bg-primary/10 text-primary px-2 py-1 border border-primary/20">Draft Generated: {new Date(draft.generated_at).toLocaleDateString()}</span>
+            <span className="text-[10px]  uppercase bg-primary/10 text-primary px-2 py-1 border border-primary/20">Draft Generated: {new Date(draft.generated_at).toLocaleDateString()}</span>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <div className="lg:col-span-2 space-y-6">
-            <Card className="border-4 border-border rounded-none shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+            <Card className="border-4 border-border rounded-none ">
                 <CardHeader className="bg-primary text-primary-foreground py-4">
-                    <CardTitle className="text-2xl font-black uppercase italic tracking-tighter flex items-center gap-3">
+                    <CardTitle className="text-2xl  uppercase  tracking-tighter flex items-center gap-3">
                         <FileText className="w-6 h-6" />
                         Monthly Board Report - Executive Finalisation
                     </CardTitle>
@@ -78,7 +78,7 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
                 <CardContent className="pt-6">
                     <div className="space-y-6">
                         <div>
-                            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Auto-Generated Governance Narrative (Editable)</label>
+                            <label className="block text-[10px]  uppercase text-muted-foreground mb-2 tracking-widest">Auto-Generated Governance Narrative (Editable)</label>
                             <Textarea 
                                 value={finalNarrative}
                                 onChange={(e) => setFinalNarrative(e.target.value)}
@@ -87,11 +87,11 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
                         </div>
                         
                         <div className="flex justify-end gap-4">
-                            <Button variant="outline" onClick={onClose} className="border-2 border-border font-bold uppercase rounded-none">Discard Changes</Button>
+                            <Button variant="outline" onClick={onClose} className="border-2 border-border  uppercase rounded-none">Discard Changes</Button>
                             <Button 
                                 onClick={handleFinalise}
                                 disabled={isFinalising}
-                                className="bg-primary text-primary-foreground border-2 border-border shadow-[4px_4px_0px_rgba(0,0,0,1)] hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all font-black uppercase italic"
+                                className="bg-primary text-primary-foreground border-2 border-border  hover:translate-x-1 hover:translate-y-1 hover:shadow-none transition-all  uppercase "
                             >
                                 {isFinalising ? <Loader2 className="animate-spin w-4 h-4 mr-2" /> : <CheckCircle2 className="w-4 h-4 mr-2" />}
                                 Finalise & Archive Report
@@ -105,7 +105,7 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
         <div className="space-y-6">
             <Card className="border-2 border-border rounded-none bg-primary/5">
                 <CardHeader>
-                    <CardTitle className="text-sm font-black uppercase tracking-widest text-primary">Doctrine Checklist</CardTitle>
+                    <CardTitle className="text-sm  uppercase tracking-widest text-primary">Doctrine Checklist</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                     {[
@@ -118,14 +118,14 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
                             <div className="w-5 h-5 border-2 border-border flex items-center justify-center bg-card">
                                 <div className="w-2 h-2 bg-primary" />
                             </div>
-                            <span className="text-xs font-bold uppercase">{item}</span>
+                            <span className="text-xs  uppercase">{item}</span>
                         </div>
                     ))}
                 </CardContent>
             </Card>
 
             <div className="p-6 border-2 border-dashed border-border bg-card">
-                <h3 className="font-black uppercase italic text-sm mb-2">Layer 4 Accountability</h3>
+                <h3 className=" uppercase  text-sm mb-2">Layer 4 Accountability</h3>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                     By finalising this report, you are confirming that executive oversight has been performed across all services for the period. This record is immutable once archived.
                 </p>

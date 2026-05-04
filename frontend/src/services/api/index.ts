@@ -285,6 +285,41 @@ class ApiClient {
     });
   }
 
+  async getRisksActions(filters: Record<string, string> = {}): Promise<ApiResponse<any[]>> {
+    const query = new URLSearchParams(filters).toString();
+    return this.request<any[]>(`/risks/actions${query ? `?${query}` : ''}`);
+  }
+
+
+  // ─── Action endpoints ──────────────────────────────────────────────────────
+  async completeAction(id: string, data: { completion_note?: string; completion_outcome: string; completion_rationale: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/actions/${id}/complete`, {
+      method: 'PATCH',
+      body: JSON.stringify(data),
+    });
+  }
+
+  async rmReviewAction(id: string, data: { rm_decision: string; rm_comment?: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/actions/${id}/rm-review`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
+  // ─── Weekly Review endpoints ────────────────────────────────────────────────
+  async finaliseWeeklyReview(id: string): Promise<ApiResponse<any>> {
+    return this.request<any>(`/weekly-reviews/${id}/finalise`, {
+      method: 'POST',
+    });
+  }
+
+  async validateWeeklyReview(id: string, data: { validation_status: string; validation_comment: string }): Promise<ApiResponse<any>> {
+    return this.request<any>(`/weekly-reviews/${id}/validate`, {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  }
+
   // ─── Incident endpoints ──────────────────────────────────────────────────
   async getIncidents(page = 1, limit = 20): Promise<ApiResponse<Incident[]>> {
     return this.request<Incident[]>(`/incidents?page=${page}&limit=${limit}`);

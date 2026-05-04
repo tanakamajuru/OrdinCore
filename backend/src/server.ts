@@ -31,20 +31,30 @@ const httpServer = http.createServer(app);
 initSocketServer(httpServer);
 
 // ─── Start BullMQ Workers ────────────────────────────────────────────────────
-const reportWorker = startReportWorker();
-const analyticsWorker = startAnalyticsWorker();
-const notificationWorker = startNotificationWorker();
-const patternWorker = startPatternWorker();
-const dailyGovWorker = startDailyGovernanceWorker();
+logger.info('Initializing Background Worker Engines...');
+const startSafeWorker = (name: string, starter: Function) => {
+  try {
+    return starter();
+  } catch (err) {
+    logger.warn(`Failed to start ${name} worker. It will retry automatically when Redis is available.`);
+    return { close: () => Promise.resolve(), stop: () => Promise.resolve() };
+  }
+};
+
+const reportWorker = startSafeWorker('Report', startReportWorker);
+const analyticsWorker = startSafeWorker('Analytics', startAnalyticsWorker);
+const notificationWorker = startSafeWorker('Notification', startNotificationWorker);
+const patternWorker = startSafeWorker('Pattern', startPatternWorker);
+const dailyGovWorker = startSafeWorker('DailyGov', startDailyGovernanceWorker);
 scheduleDailyGovernanceCheck();
-const effortWorker = startActionEffectivenessPromptWorker();
-const safeguardingWorker = startSafeguardingEscalationWorker();
-const effectivenessReminderWorker = startEffectivenessReminderWorker();
-const recurrenceWatchWorker = startRecurrenceWatchWorker();
-const noSignalPromptWorker = startNoSignalPromptWorker();
-const actionEffectivenessWorker = startActionEffectivenessWorker();
-const riAssuranceWorker = startRiAssuranceWorker();
-const directorGovernanceWorker = startDirectorGovernanceWorker();
+const effortWorker = startSafeWorker('Effort', startActionEffectivenessPromptWorker);
+const safeguardingWorker = startSafeWorker('Safeguarding', startSafeguardingEscalationWorker);
+const effectivenessReminderWorker = startSafeWorker('Effectiveness', startEffectivenessReminderWorker);
+const recurrenceWatchWorker = startSafeWorker('Recurrence', startRecurrenceWatchWorker);
+const noSignalPromptWorker = startSafeWorker('NoSignal', startNoSignalPromptWorker);
+const actionEffectivenessWorker = startSafeWorker('ActionEffectiveness', startActionEffectivenessWorker);
+const riAssuranceWorker = startSafeWorker('RIAssurance', startRiAssuranceWorker);
+const directorGovernanceWorker = startSafeWorker('DirectorGov', startDirectorGovernanceWorker);
 
 
 // Simple schedule triggers for daily jobs

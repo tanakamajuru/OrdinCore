@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Plus, TrendingUp, TrendingDown, ArrowRightCircle } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
+import { ActionCompletionModal } from "@/components/ActionCompletionModal";
+
 
 interface RiskDetail {
   id: string;
@@ -87,6 +89,8 @@ export function RiskDetail() {
   const [showEffectivenessAction, setShowEffectivenessAction] = useState<string | null>(null);
   const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Ineffective">("Effective");
   const [isRating, setIsRating] = useState(false);
+  const [showCompletionModal, setShowCompletionModal] = useState<{ id: string; title: string } | null>(null);
+
 
   const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
@@ -180,24 +184,11 @@ export function RiskDetail() {
       setShowAddAction(false);
       setNewAction({ action: "", status: "Pending", date: "" });
       
-      // Reload actions and timeline
       if (id) {
         loadRiskDetails(id);
       }
     } catch (error: any) {
-      console.log('Actions endpoint not available - simulating action addition');
-      // Simulate adding an action locally when endpoint is not available
-      const newActionItem = {
-        id: Date.now().toString(),
-        description: newAction.action,
-        status: newAction.status,
-        created_at: new Date().toISOString()
-      };
-      setActions(prev => [...prev, newActionItem]);
-      
-      toast.success('Action added successfully (local simulation)');
-      setShowAddAction(false);
-      setNewAction({ action: "", status: "Pending", date: "" });
+      toast.error(error.response?.data?.message || 'Failed to add action');
     } finally {
       setIsSubmitting(false);
     }
@@ -225,19 +216,7 @@ export function RiskDetail() {
         loadRiskDetails(id);
       }
     } catch (error: any) {
-      console.log('Event endpoint not available - simulating event addition');
-      const newTimelineItem = {
-        id: Date.now().toString(),
-        event_type: newEvent.event_type.toLowerCase().replace(' ', '_'),
-        description: newEvent.description,
-        created_at: new Date().toISOString(),
-        created_by_name: JSON.parse(localStorage.getItem('user') || '{}').name || 'Current User'
-      };
-      setTimeline(prev => [newTimelineItem, ...prev]);
-      
-      toast.success('Event added successfully (local simulation)');
-      setShowAddEvent(false);
-      setNewEvent({ event_type: "updated", description: "" });
+      toast.error(error.response?.data?.message || 'Failed to add event');
     } finally {
       setIsSubmittingEvent(false);
     }
@@ -304,7 +283,7 @@ export function RiskDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Risk not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Risk not found</h2>
           <button
             onClick={() => navigate("/risk-register")}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -330,9 +309,9 @@ export function RiskDetail() {
 
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl font-black text-primary italic uppercase tracking-tighter">{risk.title}</h1>
+            <h1 className="text-3xl  text-primary  uppercase tracking-tighter">{risk.title}</h1>
             <span
-              className={`px-3 py-1 font-bold ${
+              className={`px-3 py-1  ${
                 risk.severity === "High" || risk.severity === "Critical"
                   ? "bg-destructive text-primary-foreground"
                   : "border-2 border-primary"
@@ -340,17 +319,17 @@ export function RiskDetail() {
             >
               {risk.severity}
             </span>
-            <div className="flex items-center gap-2 px-3 py-1 border-2 border-border font-bold">
+            <div className="flex items-center gap-2 px-3 py-1 border-2 border-border ">
                  {risk.trajectory === 'Improving' ? <TrendingUp className="text-success" /> : 
                   risk.trajectory === 'Deteriorating' || risk.trajectory === 'Critical' ? <TrendingDown className="text-destructive animate-pulse" /> : 
                   <ArrowRightCircle className="text-muted-foreground" />}
                  {risk.trajectory}
             </div>
-            <span className="px-3 py-1 bg-primary text-primary-foreground font-black">
+            <span className="px-3 py-1 bg-primary text-primary-foreground ">
               SCORE: {risk.risk_score}
             </span>
           </div>
-          <p className="text-muted-foreground font-medium uppercase tracking-widest text-sm">
+          <p className="text-muted-foreground  uppercase tracking-widest text-sm">
             {risk.house_name} • Registered {new Date(risk.created_at).toLocaleDateString()} by {risk.created_by_name}
           </p>
         </div>
@@ -359,21 +338,21 @@ export function RiskDetail() {
           {/* Description & Evidence */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-card border-2 border-border p-6 shadow-sm">
-                <h2 className="text-xs font-black uppercase text-muted-foreground mb-4 tracking-widest">Governance Description</h2>
-                <p className="text-lg font-medium leading-relaxed">{risk.description}</p>
+                <h2 className="text-xs  uppercase text-muted-foreground mb-4 tracking-widest">Governance Description</h2>
+                <p className="text-lg  leading-relaxed">{risk.description}</p>
             </div>
             <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
-                <h2 className="text-xs font-black uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
+                <h2 className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
                 {risk.source_cluster_id ? (
                     <div className="space-y-4">
-                        <div className="font-bold text-primary">Source Cluster: {risk.source_cluster_name}</div>
-                        <p className="text-sm text-muted-foreground italic">"Evidence promoted from Signal Cluster via RM Decision Protocol."</p>
-                        <button onClick={() => navigate(`/patterns`)} className="text-xs font-black uppercase text-primary underline underline-offset-4">
+                        <div className=" text-primary">Source Cluster: {risk.source_cluster_name}</div>
+                        <p className="text-sm text-muted-foreground ">"Evidence promoted from Signal Cluster via RM Decision Protocol."</p>
+                        <button onClick={() => navigate(`/patterns`)} className="text-xs  uppercase text-primary underline underline-offset-4">
                             View Source Pattern
                         </button>
                     </div>
                 ) : (
-                    <div className="text-muted-foreground italic text-sm">
+                    <div className="text-muted-foreground  text-sm">
                         Manual entry risk – No automated pattern link available.
                     </div>
                 )}
@@ -383,25 +362,25 @@ export function RiskDetail() {
           {/* Impact & Mitigation */}
           <div className="grid grid-cols-2 gap-6">
             <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Impact</h2>
+              <h2 className="text-xl  mb-3 text-foreground">Impact</h2>
               <p className="text-foreground">{risk.metadata?.impact || 'No impact assessment available'}</p>
             </div>
             <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Mitigation Plan</h2>
+              <h2 className="text-xl  mb-3 text-foreground">Mitigation Plan</h2>
               <p className="text-foreground">{risk.metadata?.mitigation || 'No mitigation plan available'}</p>
             </div>
           </div>
 
           {/* Root Cause */}
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-3 text-foreground">Root Cause Analysis</h2>
+            <h2 className="text-xl  mb-3 text-foreground">Root Cause Analysis</h2>
             <p className="text-foreground">{risk.metadata?.rootCause || 'No root cause analysis available'}</p>
           </div>
 
           {/* Actions */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-foreground">Actions Taken</h2>
+              <h2 className="text-xl  text-foreground">Actions Taken</h2>
               <button
                 onClick={() => setShowAddAction(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -424,9 +403,9 @@ export function RiskDetail() {
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-1">
-                            <p className="font-bold text-lg">{action.title || action.description}</p>
+                            <p className=" text-lg">{action.title || action.description}</p>
                             <span
-                            className={`inline-block px-2 py-0.5 text-[10px] font-black uppercase tracking-widest ${
+                            className={`inline-block px-2 py-0.5 text-[10px]  uppercase tracking-widest ${
                                 action.status === "Complete" || action.status === "Completed"
                                 ? "bg-primary text-primary-foreground"
                                 : "border-2 border-border"
@@ -439,17 +418,17 @@ export function RiskDetail() {
                         
                         <div className="flex flex-wrap gap-2">
                             {action.verified_by_rm && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground text-xs font-bold uppercase italic">
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground text-xs  uppercase ">
                                     RM VERIFIED
                                 </div>
                             )}
                             {action.verified_by_ri && (
-                                <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive text-primary-foreground text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)]">
+                                <div className="flex items-center gap-1.5 px-2 py-1 bg-destructive text-primary-foreground text-xs  uppercase  ">
                                     RI VERIFIED
                                 </div>
                             )}
                             {action.effectiveness && (
-                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs font-bold uppercase italic shadow-[2px_2px_0px_rgba(0,0,0,1)] ${action.effectiveness === 'Effective' ? 'bg-success text-primary-foreground' : 'bg-destructive text-primary-foreground'}`}>
+                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs  uppercase   ${action.effectiveness === 'Effective' ? 'bg-success text-primary-foreground' : 'bg-destructive text-primary-foreground'}`}>
                                     {action.effectiveness}
                                 </div>
                             )}
@@ -457,19 +436,20 @@ export function RiskDetail() {
                       </div>
 
                       <div className="ml-4 text-right flex flex-col items-end gap-2">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground">
+                        <p className="text-[10px]  uppercase text-muted-foreground">
                             {new Date(action.created_at).toLocaleDateString('en-GB')}
                         </p>
                         
                         <div className="flex gap-2">
                             {(action.status !== 'Complete' && action.status !== 'Completed') && (
                                 <button 
-                                    onClick={() => handleUpdateActionStatus(action.id, 'Completed')}
-                                    className="text-[10px] font-black uppercase underline hover:text-primary transition-colors"
+                                    onClick={() => setShowCompletionModal({ id: action.id, title: action.title || action.description })}
+                                    className="text-[10px]  uppercase underline hover:text-primary transition-colors"
                                 >
-                                    Mark Complete
+                                    Complete Action
                                 </button>
                             )}
+
 
                             {/* Verification Button: RM/RI only + Four Eyes */}
                             {(['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && 
@@ -477,7 +457,7 @@ export function RiskDetail() {
                               !((userRole === 'REGISTERED_MANAGER' && action.verified_by_rm) || (['DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && action.verified_by_ri))) && (
                                 <button 
                                     onClick={() => setShowVerifyAction(action.id)}
-                                    className="text-[10px] font-black uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
+                                    className="text-[10px]  uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
                                 >
                                     Verify Action
                                 </button>
@@ -486,7 +466,7 @@ export function RiskDetail() {
                             {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
                                 <button 
                                     onClick={() => setShowEffectivenessAction(action.id)}
-                                    className="text-[10px] font-black uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
+                                    className="text-[10px]  uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
                                 >
                                     Rate Effectiveness
                                 </button>
@@ -503,7 +483,7 @@ export function RiskDetail() {
           {/* Timeline */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-foreground">Timeline</h2>
+              <h2 className="text-xl  text-foreground">Timeline</h2>
               <button
                 onClick={() => setShowAddEvent(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -541,7 +521,7 @@ export function RiskDetail() {
 
           {/* Risk Details */}
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Risk Details</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Risk Details</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Category</p>
@@ -572,11 +552,11 @@ export function RiskDetail() {
       {showAddAction && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
           <div className="bg-card border-2 border-border p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Add New Action</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Add New Action</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-foreground font-medium">Action Description</label>
+                <label className="block mb-2 text-foreground ">Action Description</label>
                 <textarea
                   value={newAction.action}
                   onChange={(e) => setNewAction({...newAction, action: e.target.value})}
@@ -586,7 +566,7 @@ export function RiskDetail() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Status</label>
+                <label className="block mb-2 text-foreground ">Status</label>
                 <select
                   value={newAction.status}
                   onChange={(e) => setNewAction({...newAction, status: e.target.value as any})}
@@ -600,7 +580,7 @@ export function RiskDetail() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Date of Action</label>
+                <label className="block mb-2 text-foreground ">Date of Action</label>
                 <input
                   type="date"
                   value={newAction.date}
@@ -636,11 +616,11 @@ export function RiskDetail() {
       {showAddEvent && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
           <div className="bg-card border-2 border-border p-6 w-full max-w-md">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Add Timeline Event</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Add Timeline Event</h2>
             
             <div className="space-y-4">
               <div>
-                <label className="block mb-2 text-foreground font-medium">Event Type</label>
+                <label className="block mb-2 text-foreground ">Event Type</label>
                 <select
                   value={newEvent.event_type}
                   onChange={(e) => setNewEvent({...newEvent, event_type: e.target.value as any})}
@@ -655,7 +635,7 @@ export function RiskDetail() {
               </div>
 
               <div>
-                <label className="block mb-2 text-foreground font-medium">Description</label>
+                <label className="block mb-2 text-foreground ">Description</label>
                 <textarea
                   value={newEvent.description}
                   onChange={(e) => setNewEvent({...newEvent, description: e.target.value})}
@@ -689,26 +669,26 @@ export function RiskDetail() {
       {/* Verification Modal */}
       {showVerifyAction && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
+          <div className="bg-card border-2 border-border p-8 w-full max-w-lg ">
             <div className="flex items-center gap-3 mb-6">
-                <div className="w-12 h-12 bg-primary flex items-center justify-center text-primary-foreground font-black text-2xl">V</div>
+                <div className="w-12 h-12 bg-primary flex items-center justify-center text-primary-foreground  text-2xl">V</div>
                 <div>
-                    <h2 className="text-2xl font-black uppercase italic tracking-tighter">Independent Verification</h2>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest leading-none">Four-Eyes Governance Protocol</p>
+                    <h2 className="text-2xl  uppercase  tracking-tighter">Independent Verification</h2>
+                    <p className="text-xs  text-muted-foreground uppercase tracking-widest leading-none">Four-Eyes Governance Protocol</p>
                 </div>
             </div>
             
-            <p className="text-sm font-medium mb-6 p-4 border-l-4 border-primary bg-primary/5">
+            <p className="text-sm  mb-6 p-4 border-l-4 border-primary bg-primary/5">
                 I confirm that I have reviewed the evidence for this action and verified it has been implemented correctly in accordance with company policy.
             </p>
 
             <div className="space-y-4">
               <div>
-                <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Verification Notes</label>
+                <label className="block text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Verification Notes</label>
                 <textarea
                   value={verificationNotes}
                   onChange={(e) => setVerificationNotes(e.target.value)}
-                  className="w-full h-32 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-0 text-lg font-medium resize-none"
+                  className="w-full h-32 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-0 text-lg  resize-none"
                   placeholder="Summarize the verification evidence..."
                 />
               </div>
@@ -720,14 +700,14 @@ export function RiskDetail() {
                   setShowVerifyAction(null);
                   setVerificationNotes("");
                 }}
-                className="px-6 py-2 bg-card text-foreground font-black uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
+                className="px-6 py-2 bg-card text-foreground  uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleVerifyAction}
                 disabled={isVerifying || !verificationNotes}
-                className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isVerifying ? 'Signing Off...' : 'Confirm Sign-Off'}
               </button>
@@ -739,16 +719,16 @@ export function RiskDetail() {
       {/* Effectiveness Modal */}
       {showEffectivenessAction && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-8 w-full max-w-lg shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-            <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">Rate Effectiveness</h2>
-            <p className="text-sm font-medium mb-6">
+          <div className="bg-card border-2 border-border p-8 w-full max-w-lg ">
+            <h2 className="text-2xl  uppercase  tracking-tighter mb-4">Rate Effectiveness</h2>
+            <p className="text-sm  mb-6">
                 Did this action effectively mitigate the risk or prevent recurrence?
             </p>
 
             <div className="flex gap-4 mb-8">
                 <button
                     onClick={() => setEffectivenessRating('Effective')}
-                    className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
+                    className={`flex-1 py-3  uppercase tracking-widest border-2 transition-all ${
                         effectivenessRating === 'Effective' ? 'bg-success text-primary-foreground border-success' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
@@ -756,7 +736,7 @@ export function RiskDetail() {
                 </button>
                 <button
                     onClick={() => setEffectivenessRating('Ineffective')}
-                    className={`flex-1 py-3 font-black uppercase tracking-widest border-2 transition-all ${
+                    className={`flex-1 py-3  uppercase tracking-widest border-2 transition-all ${
                         effectivenessRating === 'Ineffective' ? 'bg-destructive text-primary-foreground border-destructive' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
@@ -767,14 +747,14 @@ export function RiskDetail() {
             <div className="flex justify-end gap-3">
               <button
                 onClick={() => setShowEffectivenessAction(null)}
-                className="px-6 py-2 bg-card text-foreground font-black uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
+                className="px-6 py-2 bg-card text-foreground  uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRateEffectiveness}
                 disabled={isRating}
-                className="px-6 py-2 bg-primary text-primary-foreground font-black uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
+                className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}
               </button>
@@ -782,7 +762,16 @@ export function RiskDetail() {
           </div>
         </div>
       )}
+      {showCompletionModal && (
+        <ActionCompletionModal
+          actionId={showCompletionModal.id}
+          actionTitle={showCompletionModal.title}
+          onClose={() => setShowCompletionModal(null)}
+          onSuccess={() => id && loadRiskDetails(id)}
+        />
+      )}
     </div>
   );
+
 }
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line } from "recharts";
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, LabelList } from "recharts";
 import { directorApi } from "@/services/directorApi";
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
@@ -33,20 +33,20 @@ export function ActionEffectivenessPanels() {
         {/* Org Summary Card */}
         <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-primary">Organisational Effectiveness (7D)</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Organisational Effectiveness (7D)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
-              <span className="font-bold text-success uppercase text-xs">Effective Actions</span>
-              <span className="text-2xl font-black">{data.org_summary?.effective || 0}</span>
+              <span className=" text-success uppercase text-xs">Effective Actions</span>
+              <span className="text-2xl ">{data.org_summary?.effective || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
-              <span className="font-bold text-warning uppercase text-xs">Neutral Outcomes</span>
-              <span className="text-2xl font-black">{data.org_summary?.neutral || 0}</span>
+              <span className=" text-warning uppercase text-xs">Neutral Outcomes</span>
+              <span className="text-2xl ">{data.org_summary?.neutral || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
-              <span className="font-bold text-destructive uppercase text-xs">Ineffective Actions</span>
-              <span className="text-2xl font-black">{data.org_summary?.ineffective || 0}</span>
+              <span className=" text-destructive uppercase text-xs">Ineffective Actions</span>
+              <span className="text-2xl ">{data.org_summary?.ineffective || 0}</span>
             </div>
           </CardContent>
         </Card>
@@ -54,18 +54,28 @@ export function ActionEffectivenessPanels() {
         {/* Domain Analysis */}
         <Card className="lg:col-span-2 border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-primary">Effectiveness by Domain</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Effectiveness by Domain</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.domain_analysis || []}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="domain" fontSize={10} fontStyle="italic" fontWeight="bold" />
-                <YAxis fontSize={10} />
-                <Tooltip />
-                <Bar dataKey="effective" fill="hsl(var(--success))" stackId="a" />
-                <Bar dataKey="neutral" fill="hsl(var(--warning))" stackId="a" />
-                <Bar dataKey="ineffective" fill="hsl(var(--destructive))" stackId="a" />
+              <BarChart data={data.domain_analysis || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis dataKey="domain" fontSize={10} fontWeight="bold" tick={{ fill: 'hsl(var(--foreground))' }} />
+                <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
+                <Tooltip 
+                  cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                />
+                <Legend verticalAlign="top" align="right" iconType="circle" />
+                <Bar dataKey="effective" fill="#10B981" stackId="a" name="Effective" radius={[0, 0, 0, 0]}>
+                  <LabelList dataKey="effective" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                </Bar>
+                <Bar dataKey="neutral" fill="#F59E0B" stackId="a" name="Neutral">
+                  <LabelList dataKey="neutral" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                </Bar>
+                <Bar dataKey="ineffective" fill="#EF4444" stackId="a" name="Ineffective">
+                  <LabelList dataKey="ineffective" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -76,27 +86,31 @@ export function ActionEffectivenessPanels() {
         {/* Service Comparison */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-primary">Service Performance Matrix</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Service Performance Matrix</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
               <TableHeader>
-                <TableRow className="bg-muted/50">
-                  <TableHead className="font-bold uppercase text-[10px]">Service Unit</TableHead>
-                  <TableHead className="text-center font-bold uppercase text-[10px]">Effective</TableHead>
-                  <TableHead className="text-center font-bold uppercase text-[10px]">Neutral</TableHead>
-                  <TableHead className="text-center font-bold uppercase text-[10px]">Ineffective</TableHead>
+                <TableRow className="bg-muted/50 border-b-2 border-border">
+                  <TableHead className=" uppercase text-[10px] font-bold">Service Unit</TableHead>
+                  <TableHead className="text-center  uppercase text-[10px] font-bold">Effective</TableHead>
+                  <TableHead className="text-center  uppercase text-[10px] font-bold">Neutral</TableHead>
+                  <TableHead className="text-center  uppercase text-[10px] font-bold">Ineffective</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {(data.service_comparison || []).map((s: any) => (
-                  <TableRow key={s.service_name} className="hover:bg-muted/20">
-                    <TableCell className="font-bold">{s.service_name}</TableCell>
-                    <TableCell className="text-center text-success font-black">{s.effective}</TableCell>
-                    <TableCell className="text-center text-warning font-black">{s.neutral}</TableCell>
-                    <TableCell className="text-center text-destructive font-black">{s.ineffective}</TableCell>
+                {(data.service_comparison || []).length > 0 ? (data.service_comparison || []).map((s: any) => (
+                  <TableRow key={s.service_name} className="hover:bg-muted/20 border-b border-border">
+                    <TableCell className=" font-medium">{s.service_name}</TableCell>
+                    <TableCell className="text-center text-success font-bold">{s.effective}</TableCell>
+                    <TableCell className="text-center text-warning font-bold">{s.neutral}</TableCell>
+                    <TableCell className="text-center text-destructive font-bold">{s.ineffective}</TableCell>
                   </TableRow>
-                ))}
+                )) : (
+                  <TableRow>
+                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">No data available for the current period</TableCell>
+                  </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -105,17 +119,25 @@ export function ActionEffectivenessPanels() {
         {/* Daily Trend */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg font-black uppercase italic tracking-tighter text-primary">Organisational Trajectory</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Organisational Trajectory</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.daily_trend || []}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="day" fontSize={10} />
-                <YAxis fontSize={10} />
-                <Tooltip />
-                <Line type="monotone" dataKey="effective" stroke="hsl(var(--success))" strokeWidth={3} dot={false} />
-                <Line type="monotone" dataKey="ineffective" stroke="hsl(var(--destructive))" strokeWidth={3} dot={false} />
+              <LineChart data={data.daily_trend || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+                <XAxis 
+                  dataKey="day" 
+                  fontSize={10} 
+                  tick={{ fill: 'hsl(var(--foreground))' }}
+                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                />
+                <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
+                <Tooltip 
+                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                />
+                <Legend verticalAlign="top" align="right" iconType="circle" />
+                <Line type="monotone" dataKey="effective" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Effective" />
+                <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Ineffective" />
               </LineChart>
             </ResponsiveContainer>
           </CardContent>

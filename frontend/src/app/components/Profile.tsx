@@ -164,7 +164,7 @@ export function Profile() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-3xl">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-foreground">Profile</h1>
+          <h1 className="text-3xl  text-foreground">Profile</h1>
           <p className="text-muted-foreground mt-1">Your account information and settings</p>
         </div>
 
@@ -176,11 +176,11 @@ export function Profile() {
                   {(tempAvatar || displayUser.profile?.avatar_url) ? (
                     <img src={tempAvatar || displayUser.profile?.avatar_url} alt="Profile" className="w-full h-full object-cover" />
                   ) : (
-                    <div className="text-4xl font-bold text-gray-400">
+                    <div className="text-4xl  text-gray-400">
                        {(displayUser.first_name?.[0] || '') + (displayUser.last_name?.[0] || '')}
                     </div>
                   )}
-                  <label className="absolute inset-0 bg-primary/50 text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-xs font-medium">
+                  <label className="absolute inset-0 bg-primary/50 text-primary-foreground flex items-center justify-center opacity-0 group-hover:opacity-100 cursor-pointer transition-opacity text-xs ">
                     CHANGE
                     <input type="file" className="hidden" accept="image/*" onChange={handleAvatarChange} />
                   </label>
@@ -196,7 +196,7 @@ export function Profile() {
                 )}
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-semibold mb-4 text-foreground">User Information</h2>
+                <h2 className="text-xl  mb-4 text-foreground">User Information</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-sm text-muted-foreground mb-1">Full Name</label>
@@ -226,12 +226,12 @@ export function Profile() {
 
           {houses.length > 0 && (
             <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Assigned Sites</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Assigned Sites</h2>
               <div className="space-y-2">
                 {houses.map((h: any) => (
                   <div key={h.id} className="flex justify-between items-center p-3 border border-border">
                     <div>
-                      <p className="font-medium text-foreground">{h.name}</p>
+                      <p className=" text-foreground">{h.name}</p>
                       <p className="text-sm text-muted-foreground">{h.address}</p>
                     </div>
                     <span className="text-xs bg-primary text-primary-foreground px-2 py-1">Assigned</span>
@@ -242,7 +242,7 @@ export function Profile() {
           )}
 
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Activity</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Activity</h2>
             <div>
               <label className="block text-sm text-muted-foreground mb-1">Last Login</label>
               <div className="px-4 py-2 bg-muted border border-border text-foreground">
@@ -252,12 +252,12 @@ export function Profile() {
           </div>
 
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Permissions</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Permissions</h2>
             <div className="space-y-2">
               {RM_PERMISSIONS.map(perm => (
                 <div key={perm} className="flex items-center justify-between p-3 border border-border">
                   <span className="text-foreground">{perm}</span>
-                  <span className="text-green-600 font-semibold">✓ Granted</span>
+                  <span className="text-green-600 ">✓ Granted</span>
                 </div>
               ))}
             </div>
@@ -265,7 +265,7 @@ export function Profile() {
 
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl font-semibold text-foreground">Account Actions</h2>
+              <h2 className="text-xl  text-foreground">Account Actions</h2>
             </div>
             {!isChangingPassword ? (
               <button

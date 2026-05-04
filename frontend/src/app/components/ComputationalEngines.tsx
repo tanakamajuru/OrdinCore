@@ -40,7 +40,7 @@ export function ComputationalEngines() {
       <div className="p-6 w-full pt-20">
         <div className="flex justify-between items-center mb-8">
           <div>
-            <h1 className="text-3xl font-bold text-primary mb-2">Computational System Engines</h1>
+            <h1 className="text-3xl  text-primary mb-2">Computational System Engines</h1>
             <p className="text-muted-foreground">Monitor and manage the background logic driving organizational strategic oversight</p>
           </div>
           <Button 
@@ -58,11 +58,11 @@ export function ComputationalEngines() {
           {engines.map((engine: any, idx: number) => (
             <Card key={idx} className="border-2 border-border shadow-sm bg-card hover:border-primary/30 transition-colors">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xl font-bold flex items-center gap-2 text-primary">
+                <CardTitle className="text-xl  flex items-center gap-2 text-primary">
                   <Cpu className="w-5 h-5 text-primary" />
                   {engine.name}
                 </CardTitle>
-                <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase shadow-sm ${
+                <span className={`px-2 py-1 rounded text-[10px]  uppercase shadow-sm ${
                   engine.status === 'active' ? 'bg-success text-success-foreground' : 'bg-destructive text-destructive-foreground'
                 }`}>
                   {engine.status}
@@ -75,7 +75,7 @@ export function ComputationalEngines() {
                     <Clock className="w-4 h-4 text-primary/60" />
                     Last execution: {new Date(engine.lastRun).toLocaleString()}
                   </div>
-                  <div className="flex items-center gap-2 text-sm text-success font-medium">
+                  <div className="flex items-center gap-2 text-sm text-success ">
                     <CheckCircle className="w-4 h-4" />
                     Operational integrity verified
                   </div>
@@ -97,15 +97,15 @@ export function ComputationalEngines() {
           <CardContent>
             <div className="grid grid-cols-3 gap-8 text-center">
               <div>
-                <div className="text-3xl font-black text-foreground">100%</div>
+                <div className="text-3xl  text-foreground">100%</div>
                 <div className="text-sm text-muted-foreground">Engine Uptime</div>
               </div>
               <div>
-                <div className="text-3xl font-black text-foreground">~1.2s</div>
+                <div className="text-3xl  text-foreground">~1.2s</div>
                 <div className="text-sm text-muted-foreground">Avg. Reconstruction Latency</div>
               </div>
               <div>
-                <div className="text-3xl font-black text-foreground">2.4k</div>
+                <div className="text-3xl  text-foreground">2.4k</div>
                 <div className="text-sm text-muted-foreground">Events Processed (24h)</div>
               </div>
             </div>

@@ -19,7 +19,9 @@ export function WeeklyReview() {
     step10_risk_analysis: [],
     step13_new_actions: []
   });
-  const [status, setStatus] = useState<"Draft" | "Submitted" | "Locked">("Draft");
+  const [status, setStatus] = useState<"Draft" | "Submitted" | "Locked" | "pending_validation">("Draft");
+  const [validationData, setValidationData] = useState<any>(null);
+
 
   useEffect(() => {
     loadReviewData();
@@ -60,6 +62,12 @@ export function WeeklyReview() {
         setCurrentStep(reviewData.step_reached - 1 || 0);
         setCompletedStep(reviewData.step_reached - 1 || 0);
         setStatus(reviewData.status || 'Draft');
+        setValidationData({
+          validation_status: reviewData.validation_status,
+          validation_comment: reviewData.validation_comment,
+          validation_at: reviewData.validation_at
+        });
+
       } else {
         // Pre-fill Step 1-7 from auto-population
         setFormData((prev: any) => ({
@@ -159,29 +167,60 @@ export function WeeklyReview() {
   const handleSubmitAndLock = async () => {
     setIsSaving(true);
     try {
-        const weekEnding = new Date().toISOString().split('T')[0];
-        await apiClient.post(`/weekly-reviews`, {
-          house_id: formData.step1_services?.[0],
-          week_ending: weekEnding,
-          content: formData,
-          status: 'LOCKED',
-          step_reached: 15
-        });
-        toast.success('Governance Review Locked & Published');
-        navigate('/reports/weekly');
+        const user = JSON.parse(localStorage.getItem('user') || '{}');
+        const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase();
+        
+        if (userRole === 'REGISTERED_MANAGER') {
+          // Use finalise endpoint for RMs
+          await apiClient.post(`/weekly-reviews/${id}/finalise`, {});
+          toast.success('Governance Review finalised and sent for RI validation');
+          setStatus('pending_validation');
+        } else {
+          // Direct lock for senior users or fallback
+          await apiClient.post(`/weekly-reviews`, {
+            house_id: formData.step1_services?.[0],
+            week_ending: new Date().toISOString().split('T')[0],
+            content: formData,
+            status: 'LOCKED',
+            step_reached: 15
+          });
+          toast.success('Governance Review Locked & Published');
+          setStatus('Locked');
+        }
+        navigate('/dashboard');
     } catch (error) {
-      toast.error('Failed to lock review');
+      toast.error('Failed to process review');
     } finally {
       setIsSaving(false);
     }
   };
 
+  const handleValidate = async (vStatus: string) => {
+    const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
+    if (comment === null) return;
+    
+    setIsSaving(true);
+    try {
+      await apiClient.post(`/weekly-reviews/${id}/validate`, {
+        validation_status: vStatus,
+        validation_comment: comment
+      });
+      toast.success(`Review ${vStatus.toLowerCase()} successfully`);
+      loadReviewData();
+    } catch (error) {
+      toast.error('Failed to validate review');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+
   const renderStepContent = () => {
     const sectionClass = "bg-card border border-border rounded-xl p-6 shadow-md";
-    const titleClass = "text-xl font-semibold text-primary mb-6 flex items-center gap-2";
-    const labelClass = "block mb-2 text-sm font-medium text-muted-foreground";
-    const inputClass = "w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg font-medium shadow-sm mb-4";
-    const areaClass = "w-full h-32 px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg font-medium resize-none shadow-sm mb-4";
+    const titleClass = "text-xl  text-primary mb-6 flex items-center gap-2";
+    const labelClass = "block mb-2 text-sm  text-muted-foreground";
+    const inputClass = "w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg  shadow-sm mb-4";
+    const areaClass = "w-full h-32 px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg  resize-none shadow-sm mb-4";
 
     switch(currentStep) {
       case 0: return (
@@ -212,7 +251,7 @@ export function WeeklyReview() {
                  <option key={h.id} value={h.id}>{h.name}</option>
                )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
              </select>
-             <p className="text-[10px] font-bold text-muted-foreground italic">You must complete a separate review for each service under your oversight.</p>
+             <p className="text-[10px]  text-muted-foreground ">You must complete a separate review for each service under your oversight.</p>
           </div>
         </div>
       );
@@ -227,8 +266,8 @@ export function WeeklyReview() {
         <div className={sectionClass}>
           <h2 className={titleClass}><Activity className="w-6 h-6"/> Step 3: Pulse Compliance</h2>
           <label className={labelClass}>Entries Reviewed</label>
-          <div className="text-6xl font-black italic tracking-tighter mb-4">{formData.step3_pulse_count}</div>
-          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Daily governance pulses recorded this week</p>
+          <div className="text-6xl   tracking-tighter mb-4">{formData.step3_pulse_count}</div>
+          <p className="text-xs  text-muted-foreground uppercase tracking-widest">Daily governance pulses recorded this week</p>
         </div>
       );
       case 3: return (
@@ -238,11 +277,11 @@ export function WeeklyReview() {
             {formData.step4_signals?.map((s: any) => (
               <div key={s.id} className="p-4 border border-border bg-muted/20">
                 <div className="flex justify-between items-start mb-2">
-                  <span className="bg-primary text-primary-foreground px-2 py-0.5 text-[10px] font-medium rounded-full">{s.signal_type}</span>
-                  <span className="font-bold text-xs">{new Date(s.entry_date).toLocaleDateString()}</span>
+                  <span className="bg-primary text-primary-foreground px-2 py-0.5 text-[10px]  rounded-full">{s.signal_type}</span>
+                  <span className=" text-xs">{new Date(s.entry_date).toLocaleDateString()}</span>
                 </div>
-                <p className="text-sm font-medium">{s.description}</p>
-                <div className="mt-2 flex gap-4 text-xs font-medium text-muted-foreground">
+                <p className="text-sm ">{s.description}</p>
+                <div className="mt-2 flex gap-4 text-xs  text-muted-foreground">
                   <span>Domain: {s.risk_domain}</span>
                   <span>Severity: {s.severity}</span>
                 </div>
@@ -301,11 +340,11 @@ export function WeeklyReview() {
       case 8: return (
         <div className={sectionClass}>
           <h2 className={titleClass}>Step 9: Affected Risks</h2>
-          <p className="text-sm font-bold text-muted-foreground mb-4 italic">Show existing risks linked to signals this week.</p>
+          <p className="text-sm  text-muted-foreground mb-4 ">Show existing risks linked to signals this week.</p>
           {/* Mocked multi-select list for risks */}
           <div className="space-y-2">
             {formData.step10_risk_analysis?.map((r: any) => (
-               <div key={r.risk_id} className="p-3 bg-primary text-primary-foreground text-sm font-black uppercase italic tracking-widest">
+               <div key={r.risk_id} className="p-3 bg-primary text-primary-foreground text-sm  uppercase  tracking-widest">
                  {r.title}
                </div>
             ))}
@@ -319,15 +358,15 @@ export function WeeklyReview() {
             <table className="w-full border-collapse">
               <thead>
                 <tr className="border-b-2 border-border">
-                  <th className="text-left py-2 text-[10px] font-medium">Risk</th>
-                  <th className="text-left py-2 text-[10px] font-medium">Trajectory</th>
-                  <th className="text-left py-2 text-[10px] font-medium">Controls Effective?</th>
+                  <th className="text-left py-2 text-[10px] ">Risk</th>
+                  <th className="text-left py-2 text-[10px] ">Trajectory</th>
+                  <th className="text-left py-2 text-[10px] ">Controls Effective?</th>
                 </tr>
               </thead>
               <tbody>
                 {formData.step10_risk_analysis?.map((r: any, idx: number) => (
                   <tr key={r.risk_id} className="border-b border-border">
-                    <td className="py-4 font-bold text-sm">{r.title}</td>
+                    <td className="py-4  text-sm">{r.title}</td>
                     <td className="py-4">
                       <select 
                         value={r.trajectory}
@@ -336,7 +375,7 @@ export function WeeklyReview() {
                           newList[idx].trajectory = e.target.value;
                           setFormData({...formData, step10_risk_analysis: newList});
                         }}
-                        className="bg-transparent font-bold text-xs uppercase"
+                        className="bg-transparent  text-xs uppercase"
                       >
                         <option>Improving</option>
                         <option>Stable</option>
@@ -352,7 +391,7 @@ export function WeeklyReview() {
                           newList[idx].controls_effective = e.target.value;
                           setFormData({...formData, step10_risk_analysis: newList});
                         }}
-                        className={`bg-transparent font-bold text-xs uppercase ${r.controls_effective === 'No' ? 'text-destructive' : ''}`}
+                        className={`bg-transparent  text-xs uppercase ${r.controls_effective === 'No' ? 'text-destructive' : ''}`}
                       >
                         <option>Yes</option>
                         <option>Partially</option>
@@ -393,14 +432,39 @@ export function WeeklyReview() {
       case 12: return (
         <div className={sectionClass}>
           <h2 className={titleClass}>Step 13: Action Tracker</h2>
-          <button className="w-full py-4 border border-dashed border-border text-sm font-medium hover:bg-muted mb-6">
+          <button 
+            type="button"
+            onClick={() => {
+              const title = window.prompt("Enter Action Title:");
+              if (!title) return;
+              const owner = window.prompt("Enter Owner/Assignee:");
+              const due = window.prompt("Enter Due Date (e.g. 2026-05-10):");
+              const newAction = { title, owner: owner || 'TBD', due: due || 'TBD' };
+              setFormData({
+                ...formData, 
+                step13_new_actions: [...(formData.step13_new_actions || []), newAction]
+              });
+            }}
+            className="w-full py-4 border border-dashed border-border text-sm  hover:bg-muted mb-6 transition-colors"
+          >
             + Create New Governance Action
           </button>
           <div className="space-y-4">
              {formData.step13_new_actions?.map((a: any, idx: number) => (
-                <div key={idx} className="p-4 border border-border">
-                  <p className="font-bold">{a.title}</p>
-                  <p className="text-[10px] font-medium text-muted-foreground mt-1">Assignee: {a.owner} | Due: {a.due}</p>
+                <div key={idx} className="p-4 border border-border bg-muted/10 relative">
+                  <p className="">{a.title}</p>
+                  <p className="text-[10px]  text-muted-foreground mt-1">Assignee: {a.owner} | Due: {a.due}</p>
+                  <button 
+                    type="button"
+                    onClick={() => {
+                      const newList = [...formData.step13_new_actions];
+                      newList.splice(idx, 1);
+                      setFormData({...formData, step13_new_actions: newList});
+                    }}
+                    className="absolute top-2 right-2 text-destructive hover:text-destructive/80 text-xs "
+                  >
+                    Remove
+                  </button>
                 </div>
              ))}
           </div>
@@ -414,7 +478,7 @@ export function WeeklyReview() {
               <button
                 key={p}
                 onClick={() => setFormData({...formData, step14_overall_position: p})}
-                className={`py-4 px-6 text-left font-black uppercase italic border border-border transition-all ${
+                className={`py-4 px-6 text-left  uppercase  border border-border transition-all ${
                   formData.step14_overall_position === p ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted'
                 }`}
               >
@@ -433,9 +497,49 @@ export function WeeklyReview() {
             onChange={e => setFormData({...formData, step15_narrative: e.target.value})}
             className={`${areaClass} h-80 font-serif leading-relaxed text-base`}
           />
-          <p className="text-[10px] font-bold text-muted-foreground italic">This narrative will be pushed to the Director and NI Dashboards upon locking.</p>
+          <p className="text-[10px]  text-muted-foreground ">This narrative will be pushed to the Director and NI Dashboards upon locking.</p>
+          
+          {status === 'pending_validation' && (
+            <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
+              <h3 className="text-blue-800 font-bold mb-2 flex items-center gap-2">
+                <Shield className="w-5 h-5"/> Oversight Validation Required
+              </h3>
+              <p className="text-sm text-blue-700 mb-4">
+                This review has been finalised by the RM. Please challenge or approve for operational locking.
+              </p>
+              <div className="flex gap-4">
+                <button 
+                  onClick={() => handleValidate('Approved')}
+                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors"
+                >
+                  Approve & Lock
+                </button>
+                <button 
+                  onClick={() => handleValidate('Challenged')}
+                  className="flex-1 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors"
+                >
+                  Challenge / Evidence Req.
+                </button>
+              </div>
+            </div>
+          )}
+
+          {validationData?.validation_status && (
+            <div className={`mt-8 p-6 rounded-xl border ${
+              validationData.validation_status === 'Approved' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
+            }`}>
+              <h3 className={`font-bold mb-2 ${
+                validationData.validation_status === 'Approved' ? 'text-green-800' : 'text-orange-800'
+              }`}>
+                Oversight Decision: {validationData.validation_status}
+              </h3>
+              <p className="text-sm text-foreground/80 italic mb-1">"{validationData.validation_comment}"</p>
+              <p className="text-[10px] text-muted-foreground">Decided on {new Date(validationData.validation_at).toLocaleString()}</p>
+            </div>
+          )}
         </div>
       );
+
       default: return null;
     }
   };
@@ -443,7 +547,7 @@ export function WeeklyReview() {
   if (isLoading) return (
     <div className="min-h-screen bg-background flex items-center justify-center">
       <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-      <span className="font-medium italic">Syncing Doctrine Logic...</span>
+      <span className=" ">Syncing Doctrine Logic...</span>
     </div>
   );
 
@@ -454,12 +558,12 @@ export function WeeklyReview() {
         <div className="mb-12 border-b-4 border-border pb-8">
           <div className="flex justify-between items-end">
             <div>
-              <h1 className="text-4xl font-bold text-primary">Governance Review</h1>
-              <p className="text-sm font-medium text-muted-foreground mt-2">RM Sequential Oversight | Phase {currentStep + 1} of 15</p>
+              <h1 className="text-4xl  text-primary">Governance Review</h1>
+              <p className="text-sm  text-muted-foreground mt-2">RM Sequential Oversight | Phase {currentStep + 1} of 15</p>
             </div>
             <div className="text-right">
-               <span className="block text-[10px] font-black uppercase text-muted-foreground">Status</span>
-               <span className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs font-black uppercase italic tracking-widest">{status}</span>
+               <span className="block text-[10px]  uppercase text-muted-foreground">Status</span>
+               <span className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs  uppercase  tracking-widest">{status}</span>
             </div>
           </div>
         </div>
@@ -474,7 +578,7 @@ export function WeeklyReview() {
           <button
             onClick={handlePrevStep}
             disabled={currentStep === 0 || isSaving}
-            className="py-4 px-8 bg-card text-foreground border border-border hover:bg-muted transition-colors font-medium rounded-md disabled:opacity-50"
+            className="py-4 px-8 bg-card text-foreground border border-border hover:bg-muted transition-colors  rounded-md disabled:opacity-50"
           >
             Previous
           </button>
@@ -483,7 +587,7 @@ export function WeeklyReview() {
             <button
               onClick={handleNextStep}
               disabled={isSaving || status === 'Locked'}
-              className="py-4 px-10 bg-primary text-primary-foreground hover:bg-primary transition-all rounded-md font-medium disabled:opacity-50"
+              className="py-4 px-10 bg-primary text-primary-foreground hover:bg-primary transition-all rounded-md  disabled:opacity-50"
             >
               {isSaving ? 'Synching...' : 'Validate & Proceed'}
             </button>
@@ -491,7 +595,7 @@ export function WeeklyReview() {
             <button
               onClick={handleSubmitAndLock}
               disabled={isSaving || status === 'Locked'}
-              className="py-4 px-10 bg-destructive text-primary-foreground hover:bg-primary transition-all rounded-md font-medium disabled:opacity-50"
+              className="py-4 px-10 bg-destructive text-primary-foreground hover:bg-primary transition-all rounded-md  disabled:opacity-50"
             >
               {isSaving ? 'Locking...' : 'LOCK & PUBLISH GOVERNANCE'}
             </button>

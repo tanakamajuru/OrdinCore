@@ -67,35 +67,6 @@ export function GovernanceTimeline() {
     
     if (incidentId) {
       loadTimelineData(incidentId);
-      
-      // Add a timeout fallback to prevent infinite loading
-      timeoutRef.current = setTimeout(() => {
-        if (!eventsLoadedRef.current && events.length === 0) {
-          console.log('Timeline loading timeout - no events loaded, showing fallback');
-          setIsLoading(false);
-          // Show a mock timeline as fallback
-          if (incidentId) {
-            const mockEvents: TimelineEvent[] = [
-              {
-                id: 'mock-1',
-                timestamp: new Date().toISOString(),
-                sourceType: 'incident',
-                sourceId: incidentId,
-                label: 'Timeline Data Unavailable',
-                detail: 'Unable to load governance timeline data. The incident details may still be available.',
-                actor: 'System',
-                actorRole: 'System',
-                gapFlag: false
-              }
-            ];
-            setEvents(mockEvents);
-          }
-        }
-      }, 15000); // 15 second timeout
-      
-      return () => {
-        if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      };
     } else {
       console.log('No incidentId provided');
       setIsLoading(false);
@@ -235,7 +206,7 @@ export function GovernanceTimeline() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Incident not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Incident not found</h2>
           <button
             onClick={() => navigate('/incidents')}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -262,7 +233,7 @@ export function GovernanceTimeline() {
             Back to Incidents
           </Button>
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Governance Timeline</h1>
+            <h1 className="text-3xl  text-foreground">Governance Timeline</h1>
             <p className="text-muted-foreground">Chronological oversight trail for {incident.title}</p>
           </div>
         </div>
@@ -275,35 +246,35 @@ export function GovernanceTimeline() {
                 <MapPin className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-muted-foreground">Service</div>
-                  <div className="font-medium">{incident.house_name}</div>
+                  <div className="">{incident.house_name}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-muted-foreground">Incident Date</div>
-                  <div className="font-medium">{incident.occurred_at ? new Date(incident.occurred_at).toLocaleDateString('en-GB') : 'N/A'}</div>
+                  <div className="">{incident.occurred_at ? new Date(incident.occurred_at).toLocaleDateString('en-GB') : 'N/A'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-muted-foreground">Type</div>
-                  <div className="font-medium">{incident.category_name || 'General'}</div>
+                  <div className="">{incident.category_name || 'General'}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <FileText className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-muted-foreground">Status</div>
-                  <div className="font-medium">{incident.status?.replace('_', ' ').charAt(0).toUpperCase() + incident.status?.replace('_', ' ').slice(1)}</div>
+                  <div className="">{incident.status?.replace('_', ' ').charAt(0).toUpperCase() + incident.status?.replace('_', ' ').slice(1)}</div>
                 </div>
               </div>
               <div className="flex items-center gap-2">
                 <Clock className="w-4 h-4 text-muted-foreground" />
                 <div>
                   <div className="text-sm text-muted-foreground">Response Time</div>
-                  <div className="font-medium">{events.length > 0 ? 'Timeline Available' : 'N/A'}</div>
+                  <div className="">{events.length > 0 ? 'Timeline Available' : 'N/A'}</div>
                 </div>
               </div>
             </div>
@@ -336,7 +307,7 @@ export function GovernanceTimeline() {
                       <div className="flex-1 pb-6">
                         <div className="flex items-start justify-between mb-2">
                           <div>
-                            <h4 className="font-bold text-foreground">{event.label}</h4>
+                            <h4 className=" text-foreground">{event.label}</h4>
                             <p className="text-sm text-muted-foreground mt-1">{event.detail}</p>
                           </div>
                           {event.gapFlag && (
@@ -352,13 +323,13 @@ export function GovernanceTimeline() {
                           <span>by {event.actor}</span>
                           <span>({event.actorRole})</span>
                           {event.intervalToNext && (
-                            <span className="text-foreground font-medium">→ {event.intervalToNext} days</span>
+                            <span className="text-foreground ">→ {event.intervalToNext} days</span>
                           )}
                         </div>
 
                         {event.gapFlag && (
                           <div className="mt-2 p-2 bg-muted border border-border rounded text-sm text-foreground">
-                            <strong>Gap detected:</strong> Extended period between oversight activities
+                            Gap detected: Extended period between oversight activities
                           </div>
                         )}
                       </div>
@@ -380,30 +351,30 @@ export function GovernanceTimeline() {
                 <div className="space-y-3">
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Risk recognition</span>
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="text-sm  text-foreground">
                       {events.filter(e => e.sourceType === 'risk').length > 0 ? 'Early signal recorded' : 'No prior signals'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Escalation discipline</span>
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="text-sm  text-foreground">
                       {events.filter(e => e.sourceType === 'escalation').length > 0 ? 'Escalations present' : 'No escalations'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Leadership review</span>
-                    <span className="text-sm font-medium text-foreground">
+                    <span className="text-sm  text-foreground">
                       {events.filter(e => e.sourceType === 'pulse').length > 0 ? 'Governance activities recorded' : 'No governance activities'}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-sm text-muted-foreground">Documentation</span>
-                    <span className="text-sm font-medium text-foreground">{events.length > 0 ? 'Complete' : 'Limited'}</span>
+                    <span className="text-sm  text-foreground">{events.length > 0 ? 'Complete' : 'Limited'}</span>
                   </div>
                 </div>
 
                 <div className="mt-4 p-3 bg-muted rounded border border-border">
-                  <div className="text-sm font-medium text-foreground mb-1">Governance Interpretation</div>
+                  <div className="text-sm  text-foreground mb-1">Governance Interpretation</div>
                   <div className="text-sm text-muted-foreground">
                     {events.length > 1 ? 
                       `Leadership oversight present with ${events.length - 1} pre-incident activities.` : 
@@ -426,7 +397,7 @@ export function GovernanceTimeline() {
                   {events.length > 1 ? (
                     events.slice(0, -1).map((event, index) => (
                       <div key={index} className="flex justify-between items-center p-2 bg-muted rounded border">
-                        <span className="text-sm font-medium">{event.label}</span>
+                        <span className="text-sm ">{event.label}</span>
                         <span className={`text-sm px-2 py-1 rounded ${getSourceColor(event.sourceType)}`}>
                           {event.sourceType.charAt(0).toUpperCase() + event.sourceType.slice(1)}
                         </span>
@@ -441,7 +412,7 @@ export function GovernanceTimeline() {
                 
                 {events.length > 1 && (
                   <div className="mt-4 p-2 bg-muted border border-border rounded text-sm text-foreground">
-                    <strong>Pattern detected:</strong> {events.length - 1} governance activities prior to incident
+                    Pattern detected: {events.length - 1} governance activities prior to incident
                   </div>
                 )}
               </CardContent>

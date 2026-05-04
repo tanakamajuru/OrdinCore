@@ -62,7 +62,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Responsible Individual Dashboard</h1>
+        <h1 className="text-3xl  text-foreground">Responsible Individual Dashboard</h1>
         <p className="text-muted-foreground mt-2">Welcome back, {user?.name}</p>
         <p className="text-sm text-muted-foreground mt-1">Cross-site oversight for {assignedHouses.length} houses</p>
       </div>
@@ -70,32 +70,32 @@ const ResponsibleIndividualDashboard: React.FC = () => {
       {/* Cross-Site Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Assigned Houses</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">{assignedHouses.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Assigned Houses</h3>
+          <p className="text-2xl  text-foreground mt-2">{assignedHouses.length}</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Open Escalations</h3>
-          <p className="text-2xl font-bold text-red-600 mt-2">{escalations.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Open Escalations</h3>
+          <p className="text-2xl  text-red-600 mt-2">{escalations.length}</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">High Priority Risks</h3>
-          <p className="text-2xl font-bold text-orange-600 mt-2">
+          <h3 className="text-sm  text-muted-foreground">High Priority Risks</h3>
+          <p className="text-2xl  text-orange-600 mt-2">
             {risks.filter(r => r.severity === 'High' || r.severity === 'Critical').length}
           </p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Risks</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">{risks.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Total Risks</h3>
+          <p className="text-2xl  text-foreground mt-2">{risks.length}</p>
         </div>
       </div>
 
       {/* Open Escalations */}
       <div className="bg-card shadow rounded-lg mb-8">
         <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-          <h2 className="text-lg font-medium text-foreground">Open Escalations</h2>
+          <h2 className="text-lg  text-foreground">Open Escalations</h2>
           <button className="text-blue-600 hover:text-blue-900 text-sm">
             View All
           </button>
@@ -105,7 +105,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
           {escalations.map((escalation) => (
             <div key={escalation.id} className="flex items-center justify-between p-4 bg-destructive/10 border border-destructive/20 rounded">
               <div className="flex-1">
-                <h4 className="font-medium text-red-800">Escalation ID: {escalation.id.substring(0, 8)}</h4>
+                <h4 className=" text-red-800">Escalation ID: {escalation.id.substring(0, 8)}</h4>
                 <p className="text-sm text-red-600 mt-1">
                   Risk ID: {escalation.riskId.substring(0, 8)} • Status: {escalation.status}
                 </p>
@@ -136,7 +136,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
         {/* Assigned Houses */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-medium text-foreground">Assigned Houses</h2>
+            <h2 className="text-lg  text-foreground">Assigned Houses</h2>
           </div>
           
           <div className="p-6 space-y-3">
@@ -147,7 +147,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
               return (
                 <div key={house.id} className="flex items-center justify-between p-3 bg-muted rounded">
                   <div>
-                    <h4 className="font-medium text-foreground">{house.name}</h4>
+                    <h4 className=" text-foreground">{house.name}</h4>
                     <p className="text-sm text-muted-foreground">
                       {houseRisks.length} risks • {criticalRisks.length} critical
                     </p>
@@ -170,7 +170,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
         {/* High Priority Risks */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border">
-            <h2 className="text-lg font-medium text-foreground">High Priority Risks</h2>
+            <h2 className="text-lg  text-foreground">High Priority Risks</h2>
           </div>
           
           <div className="p-6 space-y-4">
@@ -183,7 +183,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
                 return (
                   <div key={risk.id} className="flex items-center justify-between p-3 bg-muted rounded">
                     <div>
-                      <h4 className="font-medium text-foreground">{risk.title}</h4>
+                      <h4 className=" text-foreground">{risk.title}</h4>
                       <p className="text-sm text-muted-foreground">
                         {house?.name || 'Unknown House'} • {risk.severity}
                       </p>
@@ -209,7 +209,7 @@ const ResponsibleIndividualDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
+        <h2 className="text-lg  text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Review Escalations

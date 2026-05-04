@@ -27,7 +27,7 @@ export default function CreateOrgModal({
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-bold text-foreground">Create Organisation</h3>
+            <h3 className="text-lg  text-foreground">Create Organisation</h3>
             <p className="text-sm text-muted-foreground">Add a new company to the OrdinCore platform</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-muted-foreground text-2xl leading-none">&times;</button>
@@ -40,7 +40,7 @@ export default function CreateOrgModal({
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Organisation Name *</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Organisation Name *</label>
             <input
               type="text"
               required
@@ -51,7 +51,7 @@ export default function CreateOrgModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Contact Email *</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Contact Email *</label>
             <input
               type="email"
               required
@@ -62,7 +62,7 @@ export default function CreateOrgModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Plan</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Plan</label>
             <select
               value={newOrg.plan}
               onChange={(e) => setNewOrg({ ...newOrg, plan: e.target.value })}
@@ -77,14 +77,14 @@ export default function CreateOrgModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+              className="flex-1 py-2.5 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded hover:bg-[#008394] transition-colors text-sm font-medium disabled:opacity-50"
+              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded hover:bg-[#008394] transition-colors text-sm  disabled:opacity-50"
             >
               {isSubmitting ? "Creating..." : "Create Organisation"}
             </button>

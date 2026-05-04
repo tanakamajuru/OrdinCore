@@ -1,6 +1,7 @@
 import { startPatternWorker } from './workers/pattern.worker';
 import { startAnalyticsWorker } from './workers/analytics.worker';
 import { startReportWorker } from './workers/report.worker';
+import { startActionPatternWorker } from './workers/actionPattern.worker';
 import logger from './utils/logger';
 
 async function main() {
@@ -9,6 +10,7 @@ async function main() {
   startPatternWorker();
   startAnalyticsWorker();
   startReportWorker();
+  startActionPatternWorker();
   
   logger.info('Workers are running and listening for jobs in Redis.');
 }

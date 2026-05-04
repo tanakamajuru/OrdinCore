@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router";
 import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, Eye } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -12,6 +13,7 @@ interface RiskPattern {
   patternType: string;
   description: string;
   affectedHouses: string[];
+  houseIds: string[];
   severity: "low" | "medium" | "high";
   firstDetected: string;
   lastDetected: string;
@@ -21,6 +23,7 @@ interface RiskPattern {
 }
 
 export function CrossHousePatternDetection() {
+  const navigate = useNavigate();
   const [patterns, setPatterns] = useState<RiskPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPattern, setSelectedPattern] = useState<RiskPattern | null>(null);
@@ -42,6 +45,7 @@ export function CrossHousePatternDetection() {
         patternType: c.risk_domain,
         description: c.cluster_label,
         affectedHouses: [c.house_name], // Backend returns one house per cluster for now, but we can aggregate if needed
+        houseIds: [c.house_id],
         severity: c.trajectory === 'Critical' ? 'high' : c.trajectory === 'Deteriorating' ? 'high' : 'medium',
         firstDetected: c.first_signal_date,
         lastDetected: c.last_signal_date,
@@ -96,6 +100,26 @@ export function CrossHousePatternDetection() {
     return []; // Future implementation: fetch signals for cluster
   };
 
+  const handleViewAnalysis = (pattern: RiskPattern) => {
+    toast.info(`Opening detailed analysis for ${pattern.description}`);
+    // Navigate to incidents with domain filter if possible, or just keep them here for now
+    navigate("/incidents");
+  };
+
+  const handleAddToReview = async (pattern: RiskPattern) => {
+    try {
+      await apiClient.post('/director-governance/interventions', {
+        service_id: pattern.houseIds[0], // Using first house as primary target
+        intervention_type: 'Strategic Review',
+        message: `Governance Pattern Detected: ${pattern.description}`,
+        priority: pattern.severity === 'high' ? 'Critical' : 'High'
+      });
+      toast.success("Pattern added to Governance Review queue");
+    } catch (err) {
+      toast.error("Failed to add pattern to review");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -110,7 +134,7 @@ export function CrossHousePatternDetection() {
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Cross-House Pattern Detection</h1>
+          <h1 className="text-3xl  text-foreground mb-2">Cross-House Pattern Detection</h1>
           <p className="text-muted-foreground">Identify and analyze recurring risk patterns across all services</p>
         </div>
 
@@ -170,11 +194,11 @@ export function CrossHousePatternDetection() {
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-2">
-                            <h3 className="font-bold text-foreground">{pattern.patternType}</h3>
-                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(pattern.severity)}`}>
+                            <h3 className=" text-foreground">{pattern.patternType}</h3>
+                            <span className={`px-2 py-1 rounded text-xs  border ${getSeverityColor(pattern.severity)}`}>
                               {pattern.severity.toUpperCase()}
                             </span>
-                            <span className={`text-sm font-medium ${getTrendColor(pattern.trend)}`}>
+                            <span className={`text-sm  ${getTrendColor(pattern.trend)}`}>
                               {getTrendIcon(pattern.trend)} {pattern.trend}
                             </span>
                           </div>
@@ -229,7 +253,7 @@ export function CrossHousePatternDetection() {
                     <div className="space-y-4">
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Pattern Type</div>
-                        <div className="font-bold text-foreground">{selectedPattern.patternType}</div>
+                        <div className=" text-foreground">{selectedPattern.patternType}</div>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Description</div>
@@ -237,13 +261,13 @@ export function CrossHousePatternDetection() {
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Severity</div>
-                        <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(selectedPattern.severity)}`}>
+                        <span className={`px-2 py-1 rounded text-xs  border ${getSeverityColor(selectedPattern.severity)}`}>
                           {selectedPattern.severity.toUpperCase()}
                         </span>
                       </div>
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Trend</div>
-                        <div className={`font-medium ${getTrendColor(selectedPattern.trend)}`}>
+                        <div className={` ${getTrendColor(selectedPattern.trend)}`}>
                           {getTrendIcon(selectedPattern.trend)} {selectedPattern.trend}
                         </div>
                       </div>
@@ -272,10 +296,10 @@ export function CrossHousePatternDetection() {
                         <div key={index} className="p-3 bg-muted rounded border">
                           <div className="flex justify-between items-start mb-2">
                             <div>
-                              <div className="font-medium text-foreground text-sm">{signal.houseName}</div>
+                              <div className=" text-foreground text-sm">{signal.houseName}</div>
                               <div className="text-sm text-muted-foreground">{signal.signal}</div>
                             </div>
-                            <span className={`px-2 py-1 rounded text-xs font-medium border ${getSeverityColor(signal.severity)}`}>
+                            <span className={`px-2 py-1 rounded text-xs  border ${getSeverityColor(signal.severity)}`}>
                               {signal.severity}
                             </span>
                           </div>
@@ -298,7 +322,7 @@ export function CrossHousePatternDetection() {
                   <CardContent className="p-6">
                     <div className="space-y-3">
                       <div className="p-3 bg-orange-50 border border-orange-200 rounded">
-                        <div className="font-medium text-orange-900 mb-1">Immediate Action Required</div>
+                        <div className=" text-orange-900 mb-1">Immediate Action Required</div>
                         <div className="text-sm text-orange-800">
                           {selectedPattern.severity === "high" && 
                             "Schedule organizational review due to high severity pattern"
@@ -312,11 +336,18 @@ export function CrossHousePatternDetection() {
                         </div>
                       </div>
                       
-                      <Button className="w-full bg-primary text-primary-foreground hover:bg-[#008394]">
+                      <Button 
+                        onClick={() => handleViewAnalysis(selectedPattern)}
+                        className="w-full bg-primary text-primary-foreground hover:bg-[#008394]"
+                      >
                         <Eye className="w-4 h-4 mr-2" />
                         View Full Analysis
                       </Button>
-                      <Button variant="outline" className="w-full border-border hover:bg-primary hover:text-primary-foreground">
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleAddToReview(selectedPattern)}
+                        className="w-full border-border hover:bg-primary hover:text-primary-foreground"
+                      >
                         Add to Governance Review
                       </Button>
                     </div>

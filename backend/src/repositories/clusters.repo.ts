@@ -2,13 +2,14 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export const clustersRepo = {
-    async findActiveCluster(company_id: string, house_id: string, risk_domain: string) {
+    async findActiveCluster(company_id: string, house_id: string, risk_domain: string, linked_person?: string) {
         const result = await query(
             `SELECT * FROM signal_clusters 
              WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3 
+             AND (linked_person = $4 OR (linked_person IS NULL AND $4 IS NULL))
              AND cluster_status IN ('Emerging', 'Confirmed', 'Escalated') 
              ORDER BY last_signal_date DESC LIMIT 1`,
-            [company_id, house_id, risk_domain]
+            [company_id, house_id, risk_domain, linked_person || null]
         );
         return result.rows[0];
     },
@@ -17,13 +18,13 @@ export const clustersRepo = {
         const id = uuidv4();
         const result = await query(
             `INSERT INTO signal_clusters (
-                id, company_id, house_id, risk_domain, cluster_label, 
+                id, company_id, house_id, risk_domain, linked_person, cluster_label, 
                 cluster_status, signal_count, first_signal_date, last_signal_date, trajectory
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *`,
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) RETURNING *`,
             [
-                id, data.company_id, data.house_id, data.risk_domain, data.cluster_label,
+                id, data.company_id, data.house_id, data.risk_domain, data.linked_person || null, data.cluster_label,
                 data.cluster_status || 'Emerging', data.signal_count || 1, 
-                data.first_signal_date, data.last_signal_date, data.trajectory || 'Stable'
+                data.first_signal_date || new Date(), data.last_signal_date || new Date(), data.trajectory || 'Stable'
             ]
         );
         return result.rows[0];

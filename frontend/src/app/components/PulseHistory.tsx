@@ -78,7 +78,7 @@ export function PulseHistory() {
       <div className="p-6 w-full pt-20 max-w-6xl mx-auto">
         <button
           onClick={() => navigate("/dashboard")}
-          className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline font-bold"
+          className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline "
         >
           <ArrowLeft className="w-4 h-4" />
           Back to Dashboard
@@ -86,8 +86,8 @@ export function PulseHistory() {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl font-black text-primary tracking-tighter uppercase italic">Pulse History</h1>
-            <p className="text-muted-foreground font-medium">
+            <h1 className="text-4xl  text-primary tracking-tighter uppercase ">Pulse History</h1>
+            <p className="text-muted-foreground ">
               {(user?.role?.toUpperCase() === 'TEAM_LEADER' || user?.role?.toUpperCase() === 'TL') 
                 ? "All governance signals you have submitted" 
                 : "All governance signals for your organisation"}
@@ -102,7 +102,7 @@ export function PulseHistory() {
                 placeholder="Search history..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all font-bold"
+                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all "
               />
             </div>
             <div className="relative flex-1 sm:w-48">
@@ -111,7 +111,7 @@ export function PulseHistory() {
                 type="date"
                 value={searchDate}
                 onChange={(e) => setSearchDate(e.target.value)}
-                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all font-bold appearance-none"
+                className="w-full pl-10 pr-4 py-2 bg-card border-2 border-border focus:border-primary outline-none transition-all  appearance-none"
               />
               {searchDate && (
                 <button 
@@ -135,12 +135,12 @@ export function PulseHistory() {
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-muted/50 border-b-2 border-border">
-                    <th className="p-4 font-black uppercase text-xs tracking-widest">Date / Time</th>
-                    <th className="p-4 font-black uppercase text-xs tracking-widest">House</th>
-                    <th className="p-4 font-black uppercase text-xs tracking-widest">Type</th>
-                    <th className="p-4 font-black uppercase text-xs tracking-widest">Severity</th>
-                    <th className="p-4 font-black uppercase text-xs tracking-widest">Status</th>
-                    <th className="p-4 font-black uppercase text-xs tracking-widest text-right">Action</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Date / Time</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">House</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Type</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Severity</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Status</th>
+                    <th className="p-4  uppercase text-xs tracking-widest text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -148,25 +148,25 @@ export function PulseHistory() {
                     <tr key={pulse.id} className="border-b border-border hover:bg-muted/30 transition-colors group">
                       <td className="p-4">
                         <div className="flex flex-col">
-                          <span className="font-bold text-foreground">{formatDate(pulse.entry_date)}</span>
-                          <span className="text-xs text-muted-foreground font-medium">{pulse.entry_time.slice(0, 5)}</span>
+                          <span className=" text-foreground">{formatDate(pulse.entry_date)}</span>
+                          <span className="text-xs text-muted-foreground ">{pulse.entry_time.slice(0, 5)}</span>
                         </div>
                       </td>
-                      <td className="p-4 font-bold text-foreground">{pulse.house_name}</td>
+                      <td className="p-4  text-foreground">{pulse.house_name}</td>
                       <td className="p-4">
-                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs font-black uppercase tracking-tighter">
+                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs  uppercase tracking-tighter">
                           {pulse.signal_type}
                         </span>
                       </td>
                       <td className="p-4">
-                        <span className={`font-bold ${
+                        <span className={` ${
                           pulse.severity === 'High' || pulse.severity === 'Critical' ? 'text-destructive' : 'text-foreground'
                         }`}>
                           {pulse.severity}
                         </span>
                       </td>
                       <td className="p-4">
-                        <span className="text-xs font-bold text-muted-foreground uppercase">{pulse.review_status}</span>
+                        <span className="text-xs  text-muted-foreground uppercase">{pulse.review_status}</span>
                       </td>
                       <td className="p-4 text-right">
                         <button
@@ -186,7 +186,7 @@ export function PulseHistory() {
         ) : (
           <div className="text-center py-20 bg-card border-2 border-dashed border-border">
             <AlertCircle className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-            <p className="text-muted-foreground font-bold italic">No pulse records found matching your search.</p>
+            <p className="text-muted-foreground  ">No pulse records found matching your search.</p>
           </div>
         )}
       </div>

@@ -80,7 +80,11 @@ export class AnalyticsService {
           COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.status::text) != 'closed') AS open_risks,
           COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.severity::text) = 'critical') AS critical_risks,
           COUNT(DISTINCT i.id) FILTER (WHERE LOWER(i.status::text) NOT IN ('resolved','closed')) AS open_incidents,
-          0 AS avg_compliance_score,
+          (
+            SELECT COALESCE(COUNT(*) FILTER (WHERE gp.review_status != 'New') * 100.0 / NULLIF(COUNT(*), 0), 0)
+            FROM governance_pulses gp
+            WHERE gp.house_id = h.id AND gp.created_at >= NOW() - INTERVAL '30 days'
+          ) AS avg_compliance_score,
           COUNT(DISTINCT e.id) FILTER (WHERE LOWER(e.status::text) = 'pending') AS pending_escalations
          FROM houses h
          LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
@@ -176,7 +180,14 @@ export class AnalyticsService {
         query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE LOWER(status::text) = 'open') AS open, COUNT(*) FILTER (WHERE LOWER(severity::text) = 'critical') AS critical FROM risks WHERE company_id = $1`, [company_id]),
         query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE LOWER(status::text) = 'open') AS open FROM incidents WHERE company_id = $1`, [company_id]),
         query(`SELECT COUNT(*) AS total FROM houses WHERE company_id = $1 AND is_active = true`, [company_id]),
-        query(`SELECT 0 AS avg_compliance`, []),
+        query(`
+          SELECT ROUND(COALESCE(
+            100.0 * COUNT(*) FILTER (WHERE completed = true) / NULLIF(COUNT(*), 0), 
+            0
+          ), 1) AS avg_compliance 
+          FROM daily_governance_log 
+          WHERE review_date >= NOW() - INTERVAL '30 days'
+        `, []),
         query(`SELECT COUNT(*) FILTER (WHERE LOWER(status::text) = 'pending') AS pending FROM escalations WHERE company_id = $1`, [company_id]),
       ]);
 

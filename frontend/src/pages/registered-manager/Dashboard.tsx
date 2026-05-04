@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
 import { House, Risk, Incident, GovernancePulse } from '@/types';
 import { apiClient } from '@/services/api';
+import { ActionReviewPanel } from '@/components/ActionReviewPanel';
 
 const RegisteredManagerDashboard: React.FC = () => {
   const { user } = useAuth();
@@ -72,7 +73,7 @@ const RegisteredManagerDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Manager Dashboard</h1>
+        <h1 className="text-3xl  text-foreground">Manager Dashboard</h1>
         <p className="text-muted-foreground mt-2">
           Welcome back, {user?.name} 
           {house && ` - ${house.name}`}
@@ -82,27 +83,27 @@ const RegisteredManagerDashboard: React.FC = () => {
       {/* House Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Active Risks</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <h3 className="text-sm  text-muted-foreground">Active Risks</h3>
+          <p className="text-2xl  text-foreground mt-2">
             {risks.filter(r => r.status === 'Open').length}
           </p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Open Incidents</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">
+          <h3 className="text-sm  text-muted-foreground">Open Incidents</h3>
+          <p className="text-2xl  text-foreground mt-2">
             {incidents.filter(i => i.status === 'Open').length}
           </p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Pending Pulses</h3>
-          <p className="text-2xl font-bold text-yellow-600 mt-2">{pendingPulses.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Pending Pulses</h3>
+          <p className="text-2xl  text-yellow-600 mt-2">{pendingPulses.length}</p>
         </div>
         
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Critical Issues</h3>
-          <p className="text-2xl font-bold text-red-600 mt-2">
+          <h3 className="text-sm  text-muted-foreground">Critical Issues</h3>
+          <p className="text-2xl  text-red-600 mt-2">
             {risks.filter(r => r.severity === 'Critical').length + 
              incidents.filter(i => i.severity === 'Critical').length}
           </p>
@@ -113,7 +114,7 @@ const RegisteredManagerDashboard: React.FC = () => {
         {/* Recent Risks */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-            <h2 className="text-lg font-medium text-foreground">Recent Risks</h2>
+            <h2 className="text-lg  text-foreground">Recent Risks</h2>
             <button className="text-blue-600 hover:text-blue-900 text-sm">
               View All
             </button>
@@ -123,7 +124,7 @@ const RegisteredManagerDashboard: React.FC = () => {
             {risks.slice(0, 5).map((risk) => (
               <div key={risk.id} className="flex items-center justify-between p-3 bg-muted rounded">
                 <div>
-                  <h4 className="font-medium text-foreground">{risk.title}</h4>
+                  <h4 className=" text-foreground">{risk.title}</h4>
                   <p className="text-sm text-muted-foreground">{risk.severity} • {risk.status}</p>
                 </div>
                 <span className={`px-2 py-1 text-xs rounded-full ${
@@ -148,7 +149,7 @@ const RegisteredManagerDashboard: React.FC = () => {
         {/* Recent Incidents */}
         <div className="bg-card shadow rounded-lg">
           <div className="px-6 py-4 border-b border-border flex justify-between items-center">
-            <h2 className="text-lg font-medium text-foreground">Recent Incidents</h2>
+            <h2 className="text-lg  text-foreground">Recent Incidents</h2>
             <button className="text-blue-600 hover:text-blue-900 text-sm">
               View All
             </button>
@@ -158,7 +159,7 @@ const RegisteredManagerDashboard: React.FC = () => {
             {incidents.slice(0, 5).map((incident) => (
               <div key={incident.id} className="flex items-center justify-between p-3 bg-muted rounded">
                 <div>
-                  <h4 className="font-medium text-foreground">
+                  <h4 className=" text-foreground">
                     {incident.description.substring(0, 50)}...
                   </h4>
                   <p className="text-sm text-muted-foreground">{incident.severity} • {incident.status}</p>
@@ -183,9 +184,13 @@ const RegisteredManagerDashboard: React.FC = () => {
         </div>
       </div>
 
+      <div className="mt-8">
+        <ActionReviewPanel />
+      </div>
+
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
+        <h2 className="text-lg  text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Create Risk
@@ -205,7 +210,7 @@ const RegisteredManagerDashboard: React.FC = () => {
       {/* Pending Governance Pulses */}
       {pendingPulses.length > 0 && (
         <div className="mt-8 bg-yellow-50 border border-yellow-200 rounded-lg p-6">
-          <h3 className="text-lg font-medium text-yellow-800 mb-4">
+          <h3 className="text-lg  text-yellow-800 mb-4">
             Pending Governance Pulses
           </h3>
           <div className="space-y-3">

@@ -14,6 +14,16 @@ export interface CreateIncidentDto {
   immediate_action?: string;
   created_by: string;
   assigned_to?: string;
+  la_referral?: string;
+  cqc_notification?: string;
+  police_reference?: string;
+  other_references?: string;
+  is_foreseeable?: string;
+  risk_factors?: string;
+  preventive_measures?: string;
+  leadership_commentary?: string;
+  linked_risks?: string[];
+  linked_escalations?: string[];
 }
 
 export const incidentsRepo = {
@@ -35,7 +45,7 @@ export const incidentsRepo = {
     if (incident) {
       // Fetch linked risks
       const risksResult = await query(
-        `SELECT r.id, r.title, r.severity, r.status 
+        `SELECT r.id, r.title, r.severity, r.status, r.risk_domain 
          FROM risks r 
          JOIN incident_risks ir ON ir.risk_id = r.id 
          WHERE ir.incident_id = $1`,
@@ -116,12 +126,21 @@ export const incidentsRepo = {
   }) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO incidents (id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, immediate_action, created_by, assigned_to, persons_involved, follow_up_required)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15) RETURNING *`,
-      [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
-       dto.severity || 'Medium', dto.status || 'Open', dto.occurred_at, dto.location || null,
-       dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
-       JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false]
+      `INSERT INTO incidents (
+        id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, 
+        immediate_action, created_by, assigned_to, persons_involved, follow_up_required,
+        la_referral, cqc_notification, police_reference, other_references, is_foreseeable,
+        risk_factors, preventive_measures, leadership_commentary
+      )
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
+      [
+        id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
+        dto.severity || 'moderate', dto.status || 'open', dto.occurred_at, dto.location || null,
+        dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
+        JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false,
+        dto.la_referral || null, dto.cqc_notification || null, dto.police_reference || null, dto.other_references || null,
+        dto.is_foreseeable || null, dto.risk_factors || null, dto.preventive_measures || null, dto.leadership_commentary || null
+      ]
     );
 
     const incident = result.rows[0];
@@ -150,7 +169,12 @@ export const incidentsRepo = {
   },
 
   async update(id: string, company_id: string, data: Partial<CreateIncidentDto> & { status?: string; resolved_at?: Date }) {
-    const allowed = ['title', 'description', 'severity', 'status', 'occurred_at', 'location', 'immediate_action', 'assigned_to', 'resolved_at', 'follow_up_required'];
+    const allowed = [
+      'title', 'description', 'severity', 'status', 'occurred_at', 'location', 'immediate_action', 
+      'assigned_to', 'resolved_at', 'follow_up_required',
+      'la_referral', 'cqc_notification', 'police_reference', 'other_references',
+      'is_foreseeable', 'risk_factors', 'preventive_measures', 'leadership_commentary'
+    ];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in data) filteredData[key] = (data as Record<string, unknown>)[key];
@@ -269,23 +293,29 @@ export const incidentsRepo = {
 
     // 1. Get related risk events
     try {
+      const linkedRiskIds = incident.linked_risks?.map((r: any) => r.id) || [];
+      const riskIdsFilter = linkedRiskIds.length > 0 ? `OR r.id = ANY($4::uuid[])` : '';
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
+      if (linkedRiskIds.length > 0) params.push(linkedRiskIds);
+
       const riskResult = await query(
         `SELECT 
           'risk' as source_type,
           r.id as source_id,
-          'Risk Signal' as label,
+          'Risk Logged' as label,
           r.title as detail,
           (SELECT first_name || ' ' || last_name FROM users WHERE id = r.created_by) as actor,
           'Risk Manager' as actor_role,
           r.created_at as timestamp,
           false as gap_flag
         FROM risks r
-        WHERE r.company_id = $1 
+        WHERE (r.company_id = $1 
           AND r.house_id = $2
           AND r.created_at >= $3::timestamp - INTERVAL '30 days'
-          AND r.created_at <= $3::timestamp
+          AND r.created_at <= $3::timestamp)
+          ${riskIdsFilter}
         ORDER BY r.created_at ASC`,
-        [company_id, incident.house_id, incident.occurred_at]
+        params
       );
       timelineEvents.push(...riskResult.rows);
     } catch (err) {
@@ -294,52 +324,89 @@ export const incidentsRepo = {
 
     // 2. Get related escalation events
     try {
+      const linkedEscIds = incident.linked_escalations?.map((e: any) => e.id) || [];
+      const escIdsFilter = linkedEscIds.length > 0 ? `OR e.id = ANY($4::uuid[])` : '';
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
+      if (linkedEscIds.length > 0) params.push(linkedEscIds);
+
       const escalationResult = await query(
         `SELECT 
           'escalation' as source_type,
           e.id as source_id,
-          'Escalation' as label,
+          'Escalation Raised' as label,
           e.reason as detail,
-          (SELECT first_name || ' ' || last_name FROM users WHERE id = e.created_by) as actor,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = e.escalated_by) as actor,
           'Manager' as actor_role,
           e.created_at as timestamp,
           false as gap_flag
         FROM escalations e
-        WHERE e.company_id = $1 
+        WHERE (e.company_id = $1 
           AND e.house_id = $2
           AND e.created_at >= $3::timestamp - INTERVAL '30 days'
-          AND e.created_at <= $3::timestamp
+          AND e.created_at <= $3::timestamp)
+          ${escIdsFilter}
         ORDER BY e.created_at ASC`,
-        [company_id, incident.house_id, incident.occurred_at]
+        params
       );
       timelineEvents.push(...escalationResult.rows);
     } catch (err) {
       console.log('Escalations table query failed:', err);
     }
 
-    // 3. Get related governance pulse events
+    // 3. Get related governance pulse events (Signals)
     try {
+      const domains = incident.linked_risks?.map((r: any) => r.risk_domain).filter(Boolean) || [];
+      const domainFilter = domains.length > 0 ? `AND p.risk_domain && $4` : '';
+      const params: any[] = [company_id, incident.house_id, incident.occurred_at];
+      if (domains.length > 0) params.push(domains);
+      
       const pulseResult = await query(
         `SELECT 
           'pulse' as source_type,
           p.id as source_id,
-          'Governance Pulse' as label,
-          'Regular governance review' as detail,
+          'Signal Captured' as label,
+          p.description || ' (' || array_to_string(p.risk_domain, ', ') || ')' as detail,
           (SELECT first_name || ' ' || last_name FROM users WHERE id = p.created_by) as actor,
-          'Registered Manager' as actor_role,
-          p.created_at as timestamp,
+          'Staff' as actor_role,
+          p.entry_date as timestamp,
           false as gap_flag
         FROM governance_pulses p
         WHERE p.company_id = $1 
           AND p.house_id = $2
-          AND p.created_at >= $3::timestamp - INTERVAL '30 days'
-          AND p.created_at <= $3::timestamp
-        ORDER BY p.created_at ASC`,
-        [company_id, incident.house_id, incident.occurred_at]
+          AND p.entry_date >= $3::date - INTERVAL '30 days'
+          AND p.entry_date <= $3::date
+          ${domainFilter}
+        ORDER BY p.entry_date ASC`,
+        params
       );
       timelineEvents.push(...pulseResult.rows);
     } catch (err) {
       console.log('Governance pulses table query failed:', err);
+    }
+
+    // 3.5. Get related weekly reviews
+    try {
+      const reviewResult = await query(
+        `SELECT 
+          'weekly-review' as source_type,
+          wr.id as source_id,
+          'Weekly Governance Review' as label,
+          'Status: ' || wr.overall_position as detail,
+          (SELECT first_name || ' ' || last_name FROM users WHERE id = wr.created_by) as actor,
+          'Registered Manager' as actor_role,
+          wr.week_ending as timestamp,
+          false as gap_flag
+        FROM weekly_reviews wr
+        WHERE wr.company_id = $1 
+          AND wr.house_id = $2
+          AND wr.week_ending >= $3::date - INTERVAL '30 days'
+          AND wr.week_ending <= $3::date
+        ORDER BY wr.week_ending ASC`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      timelineEvents.push(...reviewResult.rows);
+    } catch (err) {
+      console.log('Weekly reviews query failed:', err);
     }
     
     // Sort events by timestamp
@@ -383,7 +450,7 @@ export const incidentsRepo = {
          JOIN houses h ON h.id = r.house_id
          WHERE r.company_id = $1 
            AND r.house_id != $2
-           AND r.created_at >= $3::timestamp - INTERVAL '14 days'
+           AND r.created_at >= $3::timestamp - INTERVAL '30 days'
            AND r.created_at <= $3::timestamp
            AND (LOWER(r.title) LIKE '%medication%' OR LOWER(r.title) LIKE '%behavior%' OR LOWER(r.title) LIKE '%staffing%')
          LIMIT 3`,

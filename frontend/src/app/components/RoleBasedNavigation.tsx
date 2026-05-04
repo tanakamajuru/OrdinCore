@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { apiClient } from "@/services/api";
@@ -35,6 +35,7 @@ export function RoleBasedNavigation() {
       case 'REGISTERED_MANAGER':
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
+          { path: "/oversight-board", label: "Oversight Board", icon: Shield },
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -112,8 +113,10 @@ export function RoleBasedNavigation() {
   }, [userRole]);
 
   const handleLogout = () => {
-    logout();
-    navigate('/login');
+    if (window.confirm("Are you sure you want to logout? Any unsaved changes may be lost.")) {
+      logout();
+      navigate('/login');
+    }
   };
 
 
@@ -122,7 +125,7 @@ export function RoleBasedNavigation() {
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8 flex-1 min-w-0">
-            <div className="text-xl font-bold text-primary flex-shrink-0">OrdinCore</div>
+            <div className="text-xl  text-primary flex-shrink-0">OrdinCore</div>
             <div className="hidden md:flex space-x-1 overflow-x-auto no-scrollbar">
               {navItems.map((item) => {
                 const Icon = item.icon;
@@ -141,7 +144,7 @@ export function RoleBasedNavigation() {
                     <Icon className="w-4 h-4" />
                     {item.label}
                     {hasNotification && (
-                      <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px] font-bold w-4 h-4 rounded-full flex items-center justify-center">
+                      <span className="absolute -top-1 -right-1 bg-destructive text-destructive-foreground text-[10px]  w-4 h-4 rounded-full flex items-center justify-center">
                         {pendingEscalations > 9 ? '9+' : pendingEscalations}
                       </span>
                     )}
@@ -155,8 +158,8 @@ export function RoleBasedNavigation() {
             <ThemeToggle />
             <div className="flex items-center gap-3 pr-4 border-r-2 border-border">
               <div className="flex flex-col items-end hidden sm:flex">
-                <span className="text-sm font-bold text-foreground leading-none">{displayName}</span>
-                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 font-medium">{getRoleLabel()}</span>
+                <span className="text-sm  text-foreground leading-none">{displayName}</span>
+                <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 ">{getRoleLabel()}</span>
               </div>
               <button 
                 type="button"

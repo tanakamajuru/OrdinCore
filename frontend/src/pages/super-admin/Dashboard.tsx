@@ -45,32 +45,32 @@ const SuperAdminDashboard: React.FC = () => {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground">Super Admin Dashboard</h1>
+        <h1 className="text-3xl  text-foreground">Super Admin Dashboard</h1>
         <p className="text-muted-foreground mt-2">Welcome back, {user?.name}</p>
       </div>
 
       {/* Platform Statistics */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
         <div className="bg-card p-6 rounded-lg shadow">
-          <h3 className="text-sm font-medium text-muted-foreground">Total Companies</h3>
-          <p className="text-2xl font-bold text-foreground mt-2">{companies.length}</p>
+          <h3 className="text-sm  text-muted-foreground">Total Companies</h3>
+          <p className="text-2xl  text-foreground mt-2">{companies.length}</p>
         </div>
         
         {stats && (
           <>
             <div className="bg-card p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-muted-foreground">Total Risks</h3>
-              <p className="text-2xl font-bold text-foreground mt-2">{stats.totalRisks}</p>
+              <h3 className="text-sm  text-muted-foreground">Total Risks</h3>
+              <p className="text-2xl  text-foreground mt-2">{stats.totalRisks}</p>
             </div>
             
             <div className="bg-card p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-muted-foreground">Open Incidents</h3>
-              <p className="text-2xl font-bold text-foreground mt-2">{stats.openIncidents}</p>
+              <h3 className="text-sm  text-muted-foreground">Open Incidents</h3>
+              <p className="text-2xl  text-foreground mt-2">{stats.openIncidents}</p>
             </div>
             
             <div className="bg-card p-6 rounded-lg shadow">
-              <h3 className="text-sm font-medium text-muted-foreground">Open Escalations</h3>
-              <p className="text-2xl font-bold text-foreground mt-2">{stats.openEscalations}</p>
+              <h3 className="text-sm  text-muted-foreground">Open Escalations</h3>
+              <p className="text-2xl  text-foreground mt-2">{stats.openEscalations}</p>
             </div>
           </>
         )}
@@ -79,23 +79,23 @@ const SuperAdminDashboard: React.FC = () => {
       {/* Companies Table */}
       <div className="bg-card shadow rounded-lg">
         <div className="px-6 py-4 border-b border-border">
-          <h2 className="text-lg font-medium text-foreground">Companies</h2>
+          <h2 className="text-lg  text-foreground">Companies</h2>
         </div>
         
         <div className="overflow-x-auto">
           <table className="min-w-full divide-y divide-gray-200">
             <thead className="bg-muted">
               <tr>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs  text-muted-foreground uppercase tracking-wider">
                   Name
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs  text-muted-foreground uppercase tracking-wider">
                   Contact Email
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs  text-muted-foreground uppercase tracking-wider">
                   Created
                 </th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                <th className="px-6 py-3 text-left text-xs  text-muted-foreground uppercase tracking-wider">
                   Actions
                 </th>
               </tr>
@@ -103,7 +103,7 @@ const SuperAdminDashboard: React.FC = () => {
             <tbody className="bg-card divide-y divide-gray-200">
               {companies.map((company) => (
                 <tr key={company.id}>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-foreground">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm  text-foreground">
                     {company.name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
@@ -112,7 +112,7 @@ const SuperAdminDashboard: React.FC = () => {
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-muted-foreground">
                     {new Date(company.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm ">
                     <button className="text-indigo-600 hover:text-indigo-900 mr-3">
                       View
                     </button>
@@ -138,7 +138,7 @@ const SuperAdminDashboard: React.FC = () => {
 
       {/* Quick Actions */}
       <div className="mt-8">
-        <h2 className="text-lg font-medium text-foreground mb-4">Quick Actions</h2>
+        <h2 className="text-lg  text-foreground mb-4">Quick Actions</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <button className="bg-blue-600 text-primary-foreground px-4 py-2 rounded hover:bg-blue-700">
             Create New Company

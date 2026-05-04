@@ -6,6 +6,7 @@ import { eventBus, EVENTS } from '../events/eventBus';
 import fs from 'fs';
 import path from 'path';
 import PDFDocument from 'pdfkit';
+import { drawReportHeader } from '../utils/pdfHelper';
 
 // Define layout structures for PDF rendering
 type ReportSection = {
@@ -60,35 +61,69 @@ function drawTable(doc: typeof PDFDocument, table: { headers: string[], rows: st
   return currentY;
 }
 
+function buildFilterClause(parameters: Record<string, any>, prefix: string = ''): { clause: string, values: any[] } {
+  let clause = '';
+  const values: any[] = [];
+  let paramIndex = 2; // Assuming $1 is always company_id
+
+  if (parameters.date_from) {
+    clause += ` AND ${prefix}created_at >= $${paramIndex++}`;
+    values.push(parameters.date_from);
+  }
+  if (parameters.date_to) {
+    clause += ` AND ${prefix}created_at <= $${paramIndex++}`;
+    values.push(parameters.date_to);
+  }
+  if (parameters.severity && Array.isArray(parameters.severity) && parameters.severity.length > 0) {
+    clause += ` AND LOWER(${prefix}severity::text) = ANY($${paramIndex++}::text[])`;
+    values.push(parameters.severity.map((s: string) => s.toLowerCase()));
+  }
+  if (parameters.status && Array.isArray(parameters.status) && parameters.status.length > 0 && !parameters.status.includes('all')) {
+    clause += ` AND LOWER(${prefix}status::text) = ANY($${paramIndex++}::text[])`;
+    values.push(parameters.status.map((s: string) => s.toLowerCase()));
+  }
+  if (parameters.houses && Array.isArray(parameters.houses) && parameters.houses.length > 0) {
+    clause += ` AND ${prefix}house_id = ANY($${paramIndex++}::uuid[])`;
+    values.push(parameters.houses);
+  } else if (parameters.house_id) {
+    clause += ` AND ${prefix}house_id = $${paramIndex++}`;
+    values.push(parameters.house_id);
+  }
+
+  return { clause, values };
+}
+
 // -------------------------------------------------------------
 // Data Fetchers for each Report Type
 // -------------------------------------------------------------
 
 async function generateRiskSummary(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
-  const house_id = parameters?.house_id as string | undefined;
+  const { clause, values } = buildFilterClause(parameters);
   
   // 1. Overview
   const overview = await query(
-    `SELECT severity, status, COUNT(*) as count FROM risks WHERE company_id = $1 ${house_id ? 'AND house_id = $2' : ''} GROUP BY severity, status`,
-    house_id ? [company_id, house_id] : [company_id]
+    `SELECT severity, status, COUNT(*) as count FROM risks WHERE company_id = $1 ${clause} GROUP BY severity, status`,
+    [company_id, ...values]
   );
   const overviewList = overview.rows.map(r => `${r.severity.toUpperCase()} (${r.status}): ${r.count}`);
 
   // 2. Active Risks Table
   const activeRisks = await query(
-    `SELECT r.title, r.severity, h.name as house_name, r.status 
+    `SELECT r.title, r.severity, r.trajectory, h.name as house_name, r.status,
+            (SELECT COUNT(*) FROM risk_signal_links WHERE risk_id = r.id) as signal_count
      FROM risks r LEFT JOIN houses h ON r.house_id = h.id 
-     WHERE r.company_id = $1 AND r.status != 'closed' AND r.status != 'resolved' ${house_id ? 'AND r.house_id = $2' : ''} LIMIT 50`,
-    house_id ? [company_id, house_id] : [company_id]
+     WHERE r.company_id = $1 AND r.status != 'closed' AND r.status != 'resolved' ${clause.replace(/created_at/g, 'r.created_at').replace(/house_id/g, 'r.house_id').replace(/severity/g, 'r.severity').replace(/status/g, 'r.status')} LIMIT 50`,
+    [company_id, ...values]
   );
 
   // 3. Recently Closed Risks
+  const { clause: houseClause, values: houseValues } = buildFilterClause({ houses: parameters.houses, house_id: parameters.house_id });
   const closedRisks = await query(
     `SELECT r.title, r.severity, r.updated_at 
      FROM risks r 
-     WHERE r.company_id = $1 AND r.status IN ('closed', 'resolved') ${house_id ? 'AND r.house_id = $2' : ''}
+     WHERE r.company_id = $1 AND r.status IN ('closed', 'resolved') ${houseClause.replace(/house_id/g, 'r.house_id')}
      ORDER BY r.updated_at DESC LIMIT 20`,
-    house_id ? [company_id, house_id] : [company_id]
+    [company_id, ...houseValues]
   );
 
   return {
@@ -99,8 +134,15 @@ async function generateRiskSummary(company_id: string, parameters: Record<string
       { 
         title: "2. Active Risks by House", 
         table: {
-          headers: ["House", "Risk", "Severity", "Status"],
-          rows: activeRisks.rows.map(r => [r.house_name || 'N/A', r.title, r.severity, r.status])
+          headers: ["House", "Risk", "Severity", "Trajectory", "Evid. Count", "Status"],
+          rows: activeRisks.rows.map(r => [
+            r.house_name || 'N/A', 
+            r.title, 
+            r.severity, 
+            r.trajectory || 'Stable', 
+            r.signal_count.toString(),
+            r.status
+          ])
         }
       },
       {
@@ -115,38 +157,47 @@ async function generateRiskSummary(company_id: string, parameters: Record<string
 }
 
 async function generateOrganizationalMonthly(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
-  const [risks, incidents, escalations] = await Promise.all([
-    query(`SELECT severity, status, COUNT(*) as count FROM risks WHERE company_id = $1 GROUP BY severity, status`, [company_id]),
-    query(`SELECT severity, status, COUNT(*) as count FROM incidents WHERE company_id = $1 GROUP BY severity, status`, [company_id]),
-    query(`SELECT priority, status, COUNT(*) as count FROM escalations WHERE company_id = $1 GROUP BY priority, status`, [company_id])
+  const { clause, values } = buildFilterClause(parameters);
+  
+  const [risks, incidents, escalations, positions] = await Promise.all([
+    query(`SELECT severity, status, COUNT(*) as count FROM risks WHERE company_id = $1 ${clause} GROUP BY severity, status`, [company_id, ...values]),
+    query(`SELECT severity, status, COUNT(*) as count FROM incidents WHERE company_id = $1 ${clause} GROUP BY severity, status`, [company_id, ...values]),
+    query(`SELECT priority, status, COUNT(*) as count FROM escalations WHERE company_id = $1 ${clause.replace(/house_id/g, 'service_unit_id')} GROUP BY priority, status`, [company_id, ...values]),
+    query(`SELECT overall_position, COUNT(*) as count FROM (
+             SELECT DISTINCT ON (house_id) overall_position FROM weekly_reviews 
+             WHERE company_id = $1 AND status = 'LOCKED' ${clause} ORDER BY house_id, week_ending DESC
+           ) sub GROUP BY overall_position`, [company_id, ...values])
   ]);
 
   const observations = parameters?.leadership_observations as string || "No observations provided.";
   const plan = parameters?.forward_plan as string || "No forward plan recorded.";
+
+  const positionList = positions.rows.map(p => `${p.overall_position || 'Not Reviewed'}: ${p.count}`);
 
   return {
     title: "Monthly Board Report (Strategic)",
     summary: "Executive strategic narrative, trends, and risk posture for board meetings.",
     sections: [
       { title: "1. Executive Summary", content: "Monthly overview of cross-site governance health and posture." },
-      { title: "2. Risk Posture", list: risks.rows.map(r => `${r.severity?.toUpperCase()} (${r.status}): ${r.count}`) },
-      { title: "3. Incident Trends", list: incidents.rows.map(r => `${r.severity?.toUpperCase()} (${r.status}): ${r.count}`) },
-      { title: "4. Escalation Discipline", list: escalations.rows.map(r => `${r.priority?.toUpperCase()} (${r.status}): ${r.count}`) },
-      { title: "5. Leadership Observations", content: observations },
-      { title: "6. Actions & Forward Plan", content: plan }
+      { title: "2. Service Positions", list: positionList.length > 0 ? positionList : ["⚠️ No weekly reviews finalised for this period."] },
+      { title: "3. Risk Posture", list: risks.rows.map(r => `${r.severity?.toUpperCase()} (${r.status}): ${r.count}`) },
+      { title: "4. Incident Trends", list: incidents.rows.map(r => `${r.severity?.toUpperCase()} (${r.status}): ${r.count}`) },
+      { title: "5. Escalation Discipline", list: escalations.rows.map(r => `${r.priority?.toUpperCase()} (${r.status}): ${r.count}`) },
+      { title: "6. Leadership Observations", content: observations },
+      { title: "7. Actions & Forward Plan", content: plan }
     ]
   };
 }
 
 async function generateEscalationReport(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
-  const house_id = parameters?.house_id as string | undefined;
+  const { clause, values } = buildFilterClause(parameters, 'e.');
 
   const escRes = await query(
-    `SELECT e.title, e.priority, e.status, h.name as house_name, e.created_at
+    `SELECT e.reason as title, e.priority, e.status, h.name as house_name, e.created_at
      FROM escalations e LEFT JOIN houses h ON e.house_id = h.id
-     WHERE e.company_id = $1 ${house_id ? 'AND e.house_id = $2' : ''}
+     WHERE e.company_id = $1 ${clause}
      ORDER BY e.created_at DESC LIMIT 50`,
-    house_id ? [company_id, house_id] : [company_id]
+    [company_id, ...values]
   );
 
   return {
@@ -165,12 +216,14 @@ async function generateEscalationReport(company_id: string, parameters: Record<s
 }
 
 async function generateSafeguardingReport(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const { clause, values } = buildFilterClause(parameters, 'i.');
+
   const incRes = await query(
     `SELECT i.title, i.status, h.name as house_name, i.created_at
      FROM incidents i LEFT JOIN houses h ON i.house_id = h.id
-     WHERE i.company_id = $1 AND i.severity IN ('critical', 'serious')
+     WHERE i.company_id = $1 AND i.severity IN ('critical', 'serious') ${clause}
      ORDER BY i.created_at DESC`,
-    [company_id]
+    [company_id, ...values]
   );
 
   return {
@@ -189,8 +242,9 @@ async function generateSafeguardingReport(company_id: string, parameters: Record
 }
 
 async function generateIncidentReport(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const { clause, values } = buildFilterClause(parameters);
   const [inc] = await Promise.all([
-    query(`SELECT severity, COUNT(*) as count FROM incidents WHERE company_id = $1 GROUP BY severity`, [company_id])
+    query(`SELECT severity, COUNT(*) as count FROM incidents WHERE company_id = $1 ${clause} GROUP BY severity`, [company_id, ...values])
   ]);
   
   return {
@@ -203,12 +257,12 @@ async function generateIncidentReport(company_id: string, parameters: Record<str
 }
 
 async function generateWeeklySummary(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
-  const house_id = parameters?.house_id as string | undefined;
+  const { clause, values } = buildFilterClause(parameters);
   
   const pulses = await query(
     `SELECT status, COUNT(*) as count FROM governance_pulses 
-     WHERE company_id = $1 ${house_id ? 'AND house_id = $2' : ''} GROUP BY status`,
-    house_id ? [company_id, house_id] : [company_id]
+     WHERE company_id = $1 ${clause} GROUP BY status`,
+    [company_id, ...values]
   );
 
   return {
@@ -221,6 +275,8 @@ async function generateWeeklySummary(company_id: string, parameters: Record<stri
 }
 
 async function generateCrossSiteSummary(company_id: string, parameters: Record<string, any>): Promise<ReportData> {
+  const { clause, values } = buildFilterClause(parameters, 'h.');
+  
   const result = await query(
     `SELECT 
       h.name AS house_name,
@@ -237,10 +293,10 @@ async function generateCrossSiteSummary(company_id: string, parameters: Record<s
      LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
      LEFT JOIN incidents i ON i.house_id = h.id AND i.company_id = $1
      LEFT JOIN governance_pulses gp ON gp.house_id = h.id AND gp.company_id = $1
-     WHERE h.company_id = $1 AND h.status = 'active'
+     WHERE h.company_id = $1 AND h.status = 'active' ${clause.replace(/house_id/g, 'id')}
      GROUP BY h.id, h.name
      ORDER BY avg_compliance DESC`,
-    [company_id]
+    [company_id, ...values]
   );
 
   return {
@@ -306,6 +362,16 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
     [risk_id]
   );
 
+  // 4. Linked Incidents
+  const linkedIncidents = await query(
+    `SELECT i.title, i.severity, i.status, i.occurred_at
+     FROM incident_risks ir
+     JOIN incidents i ON ir.incident_id = i.id
+     WHERE ir.risk_id = $1
+     ORDER BY i.occurred_at DESC`,
+    [risk_id]
+  );
+
   return {
     title: `CQC Evidence Pack: ${risk.title}`,
     summary: `Comprehensive audit trail for risk registered in ${risk.house_name}. This document proves proactive identification, trajectory tracking, and independent verification of mitigations.`,
@@ -318,15 +384,17 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
             ["House", risk.house_name],
             ["Registered By", risk.created_by_name],
             ["Current Severity", risk.severity],
-            ["Current Trajectory", risk.trajectory],
+            ["Current Trajectory", risk.trajectory || 'Stable'],
             ["Status", risk.status],
-            ["Risk Score", risk.risk_score.toString()]
+            ["Risk Score", (risk.risk_score || 0).toString()]
           ]
         }
       },
       {
         title: "2. Evidence Lineage (Signals)",
-        content: "The following observations directly informed the registration of this risk.",
+        content: signals.rows.length > 0 
+          ? "The following observations directly informed the registration of this risk."
+          : "⚠️ Risk created without cluster or linked signals – evidence lineage missing.",
         table: {
           headers: ["Date", "Type", "Description", "Severity"],
           rows: signals.rows.map(s => [new Date(s.entry_date).toLocaleDateString(), s.signal_type, s.description, s.severity])
@@ -343,6 +411,19 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
             a.completed_at ? new Date(a.completed_at).toLocaleDateString() : "Pending",
             [a.verifier_rm_name, a.verifier_ri_name].filter(Boolean).join(" & ") || "Unverified",
             a.verification_notes || "N/A"
+          ])
+        }
+      },
+      {
+        title: "4. Resultant Incidents",
+        content: "Serious incidents occurring despite mitigation efforts.",
+        table: {
+          headers: ["Date", "Incident", "Severity", "Status"],
+          rows: linkedIncidents.rows.map(i => [
+            new Date(i.occurred_at).toLocaleDateString(),
+            i.title,
+            i.severity,
+            i.status
           ])
         }
       }
@@ -366,7 +447,21 @@ async function generateWeeklyNarrativeReport(company_id: string, parameters: Rec
     [house_id, week_ending, company_id]
   );
 
-  if (reviewRes.rows.length === 0) throw new Error("Weekly review not found for the specified period");
+  if (reviewRes.rows.length === 0) {
+    // Try to get house name at least
+    const houseRes = await query(`SELECT name FROM houses WHERE id = $1`, [house_id]);
+    const houseName = houseRes.rows[0]?.name || house_id;
+
+    return {
+      title: `Weekly Governance Narrative: ${houseName}`,
+      summary: `⚠️ Governance gap – no weekly review was finalised for this house for the week ending ${new Date(week_ending).toLocaleDateString()}.`,
+      sections: [{ 
+        title: "Audit Result", 
+        content: "Continuous oversight not evidenced. No qualitative leadership narrative recorded for this period." 
+      }]
+    };
+  }
+  
   const review = reviewRes.rows[0];
   const content = typeof review.content === 'string' ? JSON.parse(review.content) : review.content;
 
@@ -466,17 +561,20 @@ export function startReportWorker() {
       const filePath = path.join(publicPath, fileName);
       const fileUrl = `/reports/${fileName}`;
 
-      const doc = new PDFDocument({ margin: 50 });
+      const doc = new PDFDocument({ 
+        size: 'A4', 
+        margins: { top: 71, bottom: 57, left: 57, right: 57 } 
+      });
       const writeStream = fs.createWriteStream(filePath);
       doc.pipe(writeStream);
 
-      // PDF Title & Header
-      doc.fontSize(22).font('Helvetica-Bold').text(reportData.title, { align: 'center' });
-      doc.moveDown(0.5);
-      doc.fontSize(10).font('Helvetica').fillColor('gray').text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
-      doc.text(`Reference ID: ${report_id}`, { align: 'center' });
+      // PDF Title & Header with Logo
+      drawReportHeader(doc as any, reportData.title);
+      
+      doc.fontSize(10).font('Helvetica').fillColor('gray').text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+      doc.text(`Reference ID: ${report_id}`, { align: 'right' });
       doc.fillColor('black');
-      doc.moveDown(2);
+      doc.moveDown(1);
 
       if (reportData.summary) {
         doc.fontSize(12).font('Helvetica-Oblique').fillColor('black').text(reportData.summary);

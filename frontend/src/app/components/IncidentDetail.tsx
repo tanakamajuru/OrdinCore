@@ -24,6 +24,16 @@ interface IncidentDetail {
   persons_involved: string[];
   follow_up_required: boolean;
   updated_at: string;
+  linked_risks?: any[];
+  linked_escalations?: any[];
+  la_referral?: string;
+  cqc_notification?: string;
+  police_reference?: string;
+  other_references?: string;
+  is_foreseeable?: string;
+  risk_factors?: string;
+  preventive_measures?: string;
+  leadership_commentary?: string;
 }
 
 interface TimelineEvent {
@@ -68,26 +78,7 @@ export function IncidentDetail() {
         const timelineList = timelineData.timeline || timelineData.items || (Array.isArray(timelineData) ? timelineData : []);
         setTimeline(timelineList);
       } catch (err) {
-        console.log('Timeline endpoint not available - creating basic timeline');
-        // Create basic timeline from incident data
-        if (incidentData) {
-          setTimeline([
-            {
-              id: '1',
-              event_type: 'created',
-              description: 'Incident reported and logged',
-              created_at: incidentData.created_at,
-              created_by_name: incidentData.created_by_name || 'Unknown'
-            },
-            {
-              id: '2',
-              event_type: 'updated',
-              description: 'Incident details updated',
-              created_at: incidentData.updated_at,
-              created_by_name: incidentData.created_by_name || 'Unknown'
-            }
-          ]);
-        }
+        setTimeline([]);
       }
       
     } catch (error) {
@@ -148,7 +139,7 @@ export function IncidentDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Incident not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Incident not found</h2>
           <button
             onClick={() => navigate("/incidents")}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -174,7 +165,7 @@ export function IncidentDetail() {
 
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl font-semibold text-foreground">{incident.title}</h1>
+            <h1 className="text-3xl  text-foreground">{incident.title}</h1>
             <span
               className={`px-3 py-1 ${getSeverityColor(incident.severity)}`}
             >
@@ -193,18 +184,18 @@ export function IncidentDetail() {
         {['REGISTERED_MANAGER', 'RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && incident.status !== 'closed' && (
           <div className="bg-primary/5 border-2 border-primary/20 p-6 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
             <div>
-              <h3 className="text-lg font-bold text-primary flex items-center gap-2">
+              <h3 className="text-lg  text-primary flex items-center gap-2">
                 <Shield className="w-5 h-5" />
                 Governance Moderation
               </h3>
-              <p className="text-sm text-muted-foreground italic">Update the incident status following investigation</p>
+              <p className="text-sm text-muted-foreground ">Update the incident status following investigation</p>
             </div>
             <div className="flex gap-3">
               {incident.status === 'Open' && (
                 <Button 
                   onClick={() => updateStatus('In Progress')}
                   disabled={isUpdating}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 font-bold shadow-sm"
+                  className="bg-primary text-primary-foreground hover:bg-primary/90  shadow-sm"
                 >
                   {isUpdating ? 'Updating...' : 'Start Investigation'}
                 </Button>
@@ -214,7 +205,7 @@ export function IncidentDetail() {
                   onClick={() => updateStatus('Resolved')}
                   disabled={isUpdating}
                   variant="outline"
-                  className="border-success text-success hover:bg-success/10 font-bold"
+                  className="border-success text-success hover:bg-success/10 "
                 >
                   {isUpdating ? 'Updating...' : 'Mark as Resolved'}
                 </Button>
@@ -224,7 +215,7 @@ export function IncidentDetail() {
                   onClick={() => updateStatus('Closed')}
                   disabled={isUpdating}
                   variant="destructive"
-                  className="font-bold shadow-md"
+                  className=" shadow-md"
                 >
                   {isUpdating ? 'Updating...' : 'Close & Archive Case'}
                 </Button>
@@ -247,7 +238,7 @@ export function IncidentDetail() {
                     }
                   }}
                   disabled={isUpdating}
-                  className="bg-primary text-primary-foreground hover:bg-success hover:text-primary-foreground font-bold"
+                  className="bg-primary text-primary-foreground hover:bg-success hover:text-primary-foreground "
                 >
                   {isUpdating ? 'Acknowledging...' : 'Acknowledge Sign-Off'}
                 </Button>
@@ -259,7 +250,7 @@ export function IncidentDetail() {
         <div className="space-y-6">
           {/* Description */}
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-3 text-foreground">Incident Description</h2>
+            <h2 className="text-xl  mb-3 text-foreground">Incident Description</h2>
             <p className="text-foreground">{incident.description}</p>
           </div>
 
@@ -268,7 +259,7 @@ export function IncidentDetail() {
             <div className="bg-card border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-2">
                 <MapPin className="w-4 h-4 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">Location</h3>
+                <h3 className=" text-foreground">Location</h3>
               </div>
               <p className="text-foreground">{incident.location || 'Not specified'}</p>
             </div>
@@ -276,7 +267,7 @@ export function IncidentDetail() {
             <div className="bg-card border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-2">
                 <AlertTriangle className="w-4 h-4 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">Category</h3>
+                <h3 className=" text-foreground">Category</h3>
               </div>
               <p className="text-foreground">{incident.category_name || 'General'}</p>
             </div>
@@ -284,7 +275,7 @@ export function IncidentDetail() {
             <div className="bg-card border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-2">
                 <Calendar className="w-4 h-4 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">Date & Time</h3>
+                <h3 className=" text-foreground">Date & Time</h3>
               </div>
               <p className="text-foreground">
                 {incident.occurred_at ? new Date(incident.occurred_at).toLocaleString('en-GB') : 'N/A'}
@@ -294,7 +285,7 @@ export function IncidentDetail() {
             <div className="bg-card border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-2">
                 <User className="w-4 h-4 text-muted-foreground" />
-                <h3 className="font-semibold text-foreground">Persons Involved</h3>
+                <h3 className=" text-foreground">Persons Involved</h3>
               </div>
               <p className="text-foreground">
                 {incident.persons_involved?.length > 0 ? incident.persons_involved.join(', ') : 'None specified'}
@@ -305,24 +296,138 @@ export function IncidentDetail() {
           {/* Immediate Actions */}
           {incident.immediate_action && (
             <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Immediate Actions Taken</h2>
+              <h2 className="text-xl  mb-3 text-foreground">Immediate Actions Taken</h2>
               <p className="text-foreground">{incident.immediate_action}</p>
             </div>
           )}
 
-          {/* Follow-up Required */}
-          {incident.follow_up_required && (
-            <div className="bg-yellow-50 border-2 border-yellow-300 p-6">
-              <h2 className="text-xl font-semibold mb-3 text-foreground">Follow-up Required</h2>
-              <p className="text-foreground">This incident requires follow-up actions and monitoring.</p>
+          {/* Linked Risks & Escalations */}
+          {(incident.linked_risks?.length > 0 || incident.linked_escalations?.length > 0) && (
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="bg-card border-2 border-border p-6">
+                <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">
+                  < Shield className="w-5 h-5 text-primary" />
+                  Linked Risks
+                </h2>
+                <div className="space-y-3">
+                  {incident.linked_risks?.map((risk: any) => (
+                    <div 
+                      key={risk.id} 
+                      className="p-3 bg-muted/50 border border-border rounded hover:border-primary/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/risks/${risk.id}`)}
+                    >
+                      <p className="font-bold text-foreground text-sm">{risk.title}</p>
+                      <p className="text-xs text-muted-foreground mt-1">{risk.severity} • {risk.status}</p>
+                    </div>
+                  ))}
+                  {(!incident.linked_risks || incident.linked_risks.length === 0) && (
+                    <p className="text-sm text-muted-foreground italic">No risks linked to this incident.</p>
+                  )}
+                </div>
+              </div>
+
+              <div className="bg-card border-2 border-border p-6">
+                <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">
+                  <AlertTriangle className="w-5 h-5 text-warning" />
+                  Linked Escalations
+                </h2>
+                <div className="space-y-3">
+                  {incident.linked_escalations?.map((esc: any) => (
+                    <div 
+                      key={esc.id} 
+                      className="p-3 bg-muted/50 border border-border rounded hover:border-warning/50 cursor-pointer transition-colors"
+                      onClick={() => navigate(`/escalations/${esc.id}`)}
+                    >
+                      <p className="font-bold text-foreground text-sm">{esc.reason || 'Formal Escalation'}</p>
+                      <p className="text-xs text-muted-foreground mt-1">Level: {esc.level} • {esc.status}</p>
+                    </div>
+                  ))}
+                  {(!incident.linked_escalations || incident.linked_escalations.length === 0) && (
+                    <p className="text-sm text-muted-foreground italic">No escalations linked to this incident.</p>
+                  )}
+                </div>
+              </div>
             </div>
           )}
+
+          {/* External References & Leadership Assessment */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {(incident.la_referral || incident.cqc_notification || incident.police_reference || incident.other_references) && (
+              <div className="bg-card border-2 border-border p-6">
+                <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">
+                  <Clock className="w-5 h-5 text-muted-foreground" />
+                  External References
+                </h2>
+                <div className="space-y-4">
+                  {incident.la_referral && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">LA Referral</p>
+                      <p className="text-sm font-medium">{incident.la_referral}</p>
+                    </div>
+                  )}
+                  {incident.cqc_notification && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">CQC Notification</p>
+                      <p className="text-sm font-medium">{incident.cqc_notification}</p>
+                    </div>
+                  )}
+                  {incident.police_reference && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Police Reference</p>
+                      <p className="text-sm font-medium">{incident.police_reference}</p>
+                    </div>
+                  )}
+                  {incident.other_references && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Other References</p>
+                      <p className="text-sm font-medium">{incident.other_references}</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {(incident.is_foreseeable || incident.risk_factors || incident.preventive_measures || incident.leadership_commentary) && (
+              <div className="bg-card border-2 border-border p-6">
+                <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">
+                  <Shield className="w-5 h-5 text-primary" />
+                  Leadership Assessment
+                </h2>
+                <div className="space-y-4">
+                  {incident.is_foreseeable && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Foreseeable?</p>
+                      <p className="text-sm font-medium capitalize">{incident.is_foreseeable}</p>
+                    </div>
+                  )}
+                  {incident.risk_factors && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Contributing Factors</p>
+                      <p className="text-sm">{incident.risk_factors}</p>
+                    </div>
+                  )}
+                  {incident.preventive_measures && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Preventive Measures</p>
+                      <p className="text-sm">{incident.preventive_measures}</p>
+                    </div>
+                  )}
+                  {incident.leadership_commentary && (
+                    <div>
+                      <p className="text-xs text-muted-foreground uppercase font-semibold">Leadership Commentary</p>
+                      <p className="text-sm italic">"{incident.leadership_commentary}"</p>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Timeline */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <Clock className="w-5 h-5" />
-              <h2 className="text-xl font-semibold text-foreground">Incident Timeline</h2>
+              <h2 className="text-xl  text-foreground">Incident Timeline</h2>
             </div>
             <div className="space-y-4">
               {timeline.length === 0 ? (
@@ -353,7 +458,7 @@ export function IncidentDetail() {
 
           {/* Incident Metadata */}
           <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl font-semibold mb-4 text-foreground">Incident Information</h2>
+            <h2 className="text-xl  mb-4 text-foreground">Incident Information</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Incident ID</p>

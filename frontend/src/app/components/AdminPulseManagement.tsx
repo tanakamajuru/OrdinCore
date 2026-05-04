@@ -273,14 +273,14 @@ const AdminPulseManagement: React.FC = () => {
             <TableCell className="font-mono">{pulse.pulse_id}</TableCell>
             <TableCell>
               <div>
-                <div className="font-medium">{pulse.house_name}</div>
+                <div className="">{pulse.house_name}</div>
                 <div className="text-sm text-muted-foreground">{pulse.house_code}</div>
               </div>
             </TableCell>
             <TableCell>{new Date(pulse.pulse_date).toLocaleDateString()}</TableCell>
             <TableCell>
               <div>
-                <div className="font-medium">{pulse.submitted_by_name}</div>
+                <div className="">{pulse.submitted_by_name}</div>
                 <div className="text-sm text-muted-foreground">{pulse.submitted_by_email}</div>
               </div>
             </TableCell>

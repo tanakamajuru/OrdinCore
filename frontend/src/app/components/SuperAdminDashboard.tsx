@@ -226,7 +226,7 @@ export default function SuperAdminDashboard() {
       return (
         <div className="text-center py-16 text-gray-400">
           <Building2 className="w-12 h-12 mx-auto mb-3 opacity-30" />
-          <p className="text-lg font-medium">No organisations yet</p>
+          <p className="text-lg ">No organisations yet</p>
           <p className="text-sm">Create the first organisation to get started</p>
           <button
             onClick={() => setShowCreateOrg(true)}
@@ -242,11 +242,11 @@ export default function SuperAdminDashboard() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-muted border-b border-gray-100">
-              <th className="text-left py-3 px-6 font-semibold text-muted-foreground">Organisation</th>
-              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Plan</th>
-              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Status</th>
-              <th className="text-left py-3 px-4 font-semibold text-muted-foreground">Created</th>
-              <th className="text-right py-3 px-6 font-semibold text-muted-foreground">Actions</th>
+              <th className="text-left py-3 px-6  text-muted-foreground">Organisation</th>
+              <th className="text-left py-3 px-4  text-muted-foreground">Plan</th>
+              <th className="text-left py-3 px-4  text-muted-foreground">Status</th>
+              <th className="text-left py-3 px-4  text-muted-foreground">Created</th>
+              <th className="text-right py-3 px-6  text-muted-foreground">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50">
@@ -258,7 +258,7 @@ export default function SuperAdminDashboard() {
                       <Building2 className="w-4 h-4 text-primary-foreground" />
                     </div>
                     <div>
-                      <p className="font-semibold text-foreground">{company.name}</p>
+                      <p className=" text-foreground">{company.name}</p>
                       <p className="text-xs text-gray-400">{company.id.slice(0, 8)}...</p>
                     </div>
                   </div>
@@ -267,7 +267,7 @@ export default function SuperAdminDashboard() {
                   <span className="capitalize text-muted-foreground">{company.plan || 'professional'}</span>
                 </td>
                 <td className="py-4 px-4">
-                  <span className={`px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(company.status)}`}>
+                  <span className={`px-2 py-1 rounded-full text-xs  capitalize ${statusColor(company.status)}`}>
                     {company.status}
                   </span>
                 </td>
@@ -369,7 +369,7 @@ export default function SuperAdminDashboard() {
         <div className={`w-10 h-10 rounded-lg ${stat.color} flex items-center justify-center mb-3`}>
           <stat.icon className="w-5 h-5" />
         </div>
-        <p className="text-2xl font-bold text-foreground">{stat.value}</p>
+        <p className="text-2xl  text-foreground">{stat.value}</p>
         <p className="text-sm text-muted-foreground mt-1">{stat.label}</p>
       </div>
     ));
@@ -383,8 +383,8 @@ export default function SuperAdminDashboard() {
         <div className="flex items-center gap-3">
           <Shield className="w-7 h-7 text-primary-foreground" />
           <div>
-            <span className="text-xl font-bold tracking-tight">OrdinCore</span>
-            <span className="ml-3 text-xs bg-card text-foreground px-2 py-0.5 rounded font-semibold">PLATFORM ADMIN</span>
+            <span className="text-xl  tracking-tight">OrdinCore</span>
+            <span className="ml-3 text-xs bg-card text-foreground px-2 py-0.5 rounded ">PLATFORM ADMIN</span>
           </div>
         </div>
         <div className="flex items-center gap-4">
@@ -412,7 +412,7 @@ export default function SuperAdminDashboard() {
         {/* Header */}
         <div className="mb-8 flex items-center justify-between relative z-10">
           <div>
-            <h1 className="text-3xl font-bold text-foreground">Platform Dashboard</h1>
+            <h1 className="text-3xl  text-foreground">Platform Dashboard</h1>
             <p className="text-muted-foreground mt-1">Manage all organisations on the OrdinCore platform</p>
           </div>
           <div className="flex gap-3">
@@ -425,7 +425,7 @@ export default function SuperAdminDashboard() {
                 setFormError("");
                 setFormSuccess("");
               }}
-              className="flex items-center gap-2 px-4 py-2 bg-card border-2 border-border text-foreground font-medium hover:bg-muted transition-colors cursor-pointer relative z-20"
+              className="flex items-center gap-2 px-4 py-2 bg-card border-2 border-border text-foreground  hover:bg-muted transition-colors cursor-pointer relative z-20"
             >
               <UserPlus className="w-4 h-4" />
               Create Company Admin
@@ -439,7 +439,7 @@ export default function SuperAdminDashboard() {
                 setFormError("");
                 setFormSuccess("");
               }}
-              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground font-medium hover:bg-[#008394] transition-colors cursor-pointer relative z-20"
+              className="flex items-center gap-2 px-5 py-2 bg-primary text-primary-foreground  hover:bg-[#008394] transition-colors cursor-pointer relative z-20"
             >
               <Plus className="w-4 h-4" />
               Create Organisation
@@ -457,7 +457,7 @@ export default function SuperAdminDashboard() {
         <div className="bg-card border border-border rounded-xl shadow-sm">
           <div className="flex items-center justify-between p-6 border-b border-gray-100">
             <div>
-              <h2 className="text-xl font-bold text-foreground flex items-center gap-2">
+              <h2 className="text-xl  text-foreground flex items-center gap-2">
                 <Globe className="w-5 h-5" />
                 Organisations
               </h2>
@@ -513,20 +513,20 @@ export default function SuperAdminDashboard() {
             <div className="w-12 h-12 bg-yellow-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <AlertCircle className="w-6 h-6 text-yellow-600" />
             </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">Suspend Organisation?</h3>
+            <h3 className="text-lg  text-foreground mb-2">Suspend Organisation?</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to suspend <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will immediately prevent all their users from logging in.
+              Are you sure you want to suspend <span className=" text-foreground">{selectedCompany?.name}</span>? This will immediately prevent all their users from logging in.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowSuspendModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
               >
                 Cancel
               </button>
               <button
                 onClick={handleSuspendOrg}
-                className="flex-1 py-2 bg-yellow-600 text-primary-foreground rounded hover:bg-yellow-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-yellow-600 text-primary-foreground rounded hover:bg-yellow-700 transition-colors text-sm "
               >
                 Suspend
               </button>
@@ -542,20 +542,20 @@ export default function SuperAdminDashboard() {
             <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Trash2 className="w-6 h-6 text-red-600" />
             </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">Archive Organisation?</h3>
+            <h3 className="text-lg  text-foreground mb-2">Archive Organisation?</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to archive <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This organisation will be removed from active lists.
+              Are you sure you want to archive <span className=" text-foreground">{selectedCompany?.name}</span>? This organisation will be removed from active lists.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowArchiveModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
               >
                 Cancel
               </button>
               <button
                 onClick={handleArchiveOrg}
-                className="flex-1 py-2 bg-red-600 text-primary-foreground rounded hover:bg-red-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-red-600 text-primary-foreground rounded hover:bg-red-700 transition-colors text-sm "
               >
                 Archive
               </button>
@@ -570,20 +570,20 @@ export default function SuperAdminDashboard() {
             <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <CheckCircle className="w-6 h-6 text-green-600" />
             </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">Unsuspend Organisation?</h3>
+            <h3 className="text-lg  text-foreground mb-2">Unsuspend Organisation?</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to unsuspend <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will allow all their users to log in again.
+              Are you sure you want to unsuspend <span className=" text-foreground">{selectedCompany?.name}</span>? This will allow all their users to log in again.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowUnsuspendModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
               >
                 Cancel
               </button>
               <button
                 onClick={handleUnsuspendOrg}
-                className="flex-1 py-2 bg-green-600 text-primary-foreground rounded hover:bg-green-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-green-600 text-primary-foreground rounded hover:bg-green-700 transition-colors text-sm "
               >
                 Unsuspend
               </button>
@@ -599,20 +599,20 @@ export default function SuperAdminDashboard() {
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <RefreshCw className="w-6 h-6 text-blue-600" />
             </div>
-            <h3 className="text-lg font-bold text-foreground mb-2">Unarchive Organisation?</h3>
+            <h3 className="text-lg  text-foreground mb-2">Unarchive Organisation?</h3>
             <p className="text-sm text-muted-foreground mb-6">
-              Are you sure you want to unarchive <span className="font-semibold text-foreground">{selectedCompany?.name}</span>? This will move the organisation back to the active list.
+              Are you sure you want to unarchive <span className=" text-foreground">{selectedCompany?.name}</span>? This will move the organisation back to the active list.
             </p>
             <div className="flex gap-3">
               <button
                 onClick={() => { setShowUnarchiveModal(false); setSelectedCompany(null); }}
-                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+                className="flex-1 py-2 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
               >
                 Cancel
               </button>
               <button
                 onClick={handleUnarchiveOrg}
-                className="flex-1 py-2 bg-blue-600 text-primary-foreground rounded hover:bg-blue-700 transition-colors text-sm font-medium"
+                className="flex-1 py-2 bg-blue-600 text-primary-foreground rounded hover:bg-blue-700 transition-colors text-sm "
               >
                 Unarchive
               </button>

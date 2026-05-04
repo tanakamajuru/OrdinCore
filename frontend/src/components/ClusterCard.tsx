@@ -44,7 +44,7 @@ export const ClusterCard: React.FC<ClusterCardProps> = ({ cluster, onClick }) =>
 
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="caption" sx={{ color: 'text.secondary', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            Status: <strong>{cluster.cluster_status}</strong>
+            Status: {cluster.cluster_status}
           </Typography>
           {cluster.linked_risk_id && (
             <Chip label="Risk Linked" size="small" color="success" variant="filled" sx={{ height: 20, fontSize: '0.65rem' }} />

@@ -66,20 +66,20 @@ export function ControlFailurePanel() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <div className="flex items-center gap-2">
           <ShieldAlert className="w-6 h-6 text-destructive" />
-          <CardTitle className="text-xl font-black uppercase italic tracking-tighter text-destructive">Active Control Failures Detected</CardTitle>
+          <CardTitle className="text-xl  uppercase  tracking-tighter text-destructive">Active Control Failures Detected</CardTitle>
         </div>
-        <span className="bg-destructive text-primary-foreground px-2 py-0.5 text-[10px] font-black uppercase animate-pulse">Action Required</span>
+        <span className="bg-destructive text-primary-foreground px-2 py-0.5 text-[10px]  uppercase animate-pulse">Action Required</span>
       </CardHeader>
       <CardContent className="space-y-4 pt-4">
         {failures.map((failure) => (
           <div key={failure.id} className="bg-card border-2 border-destructive/20 p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 group hover:border-destructive/40 transition-all">
             <div className="flex-1">
               <div className="flex items-center gap-2 mb-1">
-                <span className="text-xs font-black uppercase bg-destructive/10 text-destructive px-1.5 py-0.5">{failure.failure_type.replace('_', ' ')}</span>
-                <p className="font-black text-primary uppercase italic tracking-tighter">{failure.service_name}</p>
+                <span className="text-xs  uppercase bg-destructive/10 text-destructive px-1.5 py-0.5">{failure.failure_type.replace('_', ' ')}</span>
+                <p className=" text-primary uppercase  tracking-tighter">{failure.service_name}</p>
               </div>
-              <p className="text-sm font-bold text-foreground mb-1">{failure.threshold_trigger}</p>
-              <div className="flex items-center gap-4 text-[10px] font-bold text-muted-foreground uppercase">
+              <p className="text-sm  text-foreground mb-1">{failure.threshold_trigger}</p>
+              <div className="flex items-center gap-4 text-[10px]  text-muted-foreground uppercase">
                 <span>Detected: {new Date(failure.detected_at).toLocaleString()}</span>
                 {failure.risk_title && <span>Target Risk: {failure.risk_title}</span>}
               </div>
@@ -88,7 +88,7 @@ export function ControlFailurePanel() {
               <Button 
                 variant="outline" 
                 size="sm" 
-                className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-primary/5 font-bold uppercase text-[10px]"
+                className="flex-1 md:flex-none border-2 border-primary text-primary hover:bg-primary/5  uppercase text-[10px]"
                 onClick={() => handleAlertRM(failure)}
               >
                 <Bell className="w-3 h-3 mr-1" />
@@ -97,7 +97,7 @@ export function ControlFailurePanel() {
               <Button 
                 variant="default" 
                 size="sm" 
-                className="flex-1 md:flex-none bg-destructive text-primary-foreground hover:bg-destructive/90 font-bold uppercase text-[10px]"
+                className="flex-1 md:flex-none bg-destructive text-primary-foreground hover:bg-destructive/90  uppercase text-[10px]"
                 onClick={() => setResolvingId(failure.id)}
               >
                 <CheckCircle className="w-3 h-3 mr-1" />
@@ -111,10 +111,10 @@ export function ControlFailurePanel() {
       <Dialog open={!!resolvingId} onOpenChange={(open) => !open && setResolvingId(null)}>
         <DialogContent className="border-4 border-border rounded-none">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">Resolve Control Failure</DialogTitle>
+            <DialogTitle className="text-2xl  uppercase  tracking-tighter">Resolve Control Failure</DialogTitle>
           </DialogHeader>
           <div className="py-4">
-            <label className="block text-[10px] font-black uppercase text-muted-foreground mb-2 tracking-widest">Resolution Note / Strategic Intervention</label>
+            <label className="block text-[10px]  uppercase text-muted-foreground mb-2 tracking-widest">Resolution Note / Strategic Intervention</label>
             <Textarea 
               placeholder="Detail the intervention taken to address this repeated control failure..."
               value={resolutionNote}
@@ -123,11 +123,11 @@ export function ControlFailurePanel() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setResolvingId(null)} className="border-2 border-border font-bold uppercase">Cancel</Button>
+            <Button variant="outline" onClick={() => setResolvingId(null)} className="border-2 border-border  uppercase">Cancel</Button>
             <Button 
               onClick={handleResolve} 
               disabled={isResolving}
-              className="bg-primary text-primary-foreground hover:bg-[#008394] font-bold uppercase"
+              className="bg-primary text-primary-foreground hover:bg-[#008394]  uppercase"
             >
               {isResolving ? <Loader2 className="animate-spin w-4 h-4" /> : "Confirm Resolution"}
             </Button>

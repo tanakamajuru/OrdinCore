@@ -13,7 +13,9 @@ import {
   ArrowRight,
   ArrowLeft,
   Save,
-  Check
+  Check,
+  Paperclip,
+  Upload
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -38,8 +40,8 @@ const FieldWrapper = ({ step, title, icon: Icon, children, currentStep, nextStep
           <Icon size={24} />
         </div>
         <div>
-          <span className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Step {step} of 11</span>
-          <h2 className="text-2xl font-bold text-foreground">{title}</h2>
+          <span className="text-xs  uppercase tracking-wider text-muted-foreground">Step {step} of 13</span>
+          <h2 className="text-2xl  text-foreground">{title}</h2>
         </div>
       </div>
       <div className="bg-card border-2 border-border p-8 shadow-xl">
@@ -49,26 +51,26 @@ const FieldWrapper = ({ step, title, icon: Icon, children, currentStep, nextStep
             {step > 1 && (
               <button 
                   onClick={prevStep}
-                  className="flex items-center gap-2 px-6 py-3 bg-muted text-muted-foreground hover:bg-muted/80 transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-3 bg-muted text-muted-foreground hover:bg-muted/80 transition-all "
               >
                 <ArrowLeft size={20} /> Previous
               </button>
             )}
           </div>
           <div>
-            {step < 11 ? (
+            {step < 13 ? (
                <button 
                   onClick={nextStep}
                   disabled={!validateStep(step)}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all font-bold"
+                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all "
                >
                  Next <ArrowRight size={20} />
                </button>
             ) : (
               <button 
                   onClick={handleSubmit}
-                  disabled={isSubmitting || !validateStep(11)}
-                  className="flex items-center gap-2 px-8 py-3 bg-success text-primary-foreground hover:bg-success/90 disabled:opacity-50 transition-all font-bold"
+                  disabled={isSubmitting || !validateStep(13)}
+                  className="flex items-center gap-2 px-8 py-3 bg-success text-primary-foreground hover:bg-success/90 disabled:opacity-50 transition-all "
               >
                 {isSubmitting ? 'Submitting...' : 'Submit Signal'} <Save size={20} />
               </button>
@@ -97,6 +99,7 @@ export function SignalCaptureForm() {
     has_happened_before: '' as HappenedBeforeType,
     pattern_concern: '' as PatternConcernType,
     escalation_required: '' as EscalationType,
+    related_person: '',
     evidence_url: ''
   });
 
@@ -138,7 +141,7 @@ export function SignalCaptureForm() {
 
   const nextStep = () => {
     if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 11));
+      setCurrentStep(prev => Math.min(prev + 1, 13));
     }
   };
 
@@ -150,15 +153,17 @@ export function SignalCaptureForm() {
     switch (step) {
       case 1: return !!formData.entry_date;
       case 2: return !!formData.entry_time;
-      case 3: return !!formData.house_id;
-      case 4: return !!formData.signal_type;
-      case 5: return formData.risk_domain.length > 0;
-      case 6: return formData.description.length > 10;
-      case 7: return true; // immediate_action optional? Spec says 'description' NOT NULL, others silent.
-      case 8: return !!formData.severity;
-      case 9: return !!formData.has_happened_before;
-      case 10: return !!formData.pattern_concern;
-      case 11: return !!formData.escalation_required;
+      case 3: return true; // Related Person is optional
+      case 4: return !!formData.house_id;
+      case 5: return !!formData.signal_type;
+      case 6: return formData.risk_domain.length > 0;
+      case 7: return formData.description.length > 10;
+      case 8: return true; 
+      case 9: return !!formData.severity;
+      case 10: return !!formData.has_happened_before;
+      case 11: return !!formData.pattern_concern;
+      case 12: return !!formData.escalation_required;
+      case 13: return true; // Evidence is optional
       default: return true;
     }
   };
@@ -187,7 +192,7 @@ export function SignalCaptureForm() {
         <div className="w-full bg-muted h-2 mb-12 flex">
            <div 
              className="bg-primary h-full transition-all duration-700" 
-             style={{ width: `${(currentStep / 11) * 100}%` }} 
+             style={{ width: `${(currentStep / 13) * 100}%` }} 
            />
         </div>
 
@@ -211,8 +216,19 @@ export function SignalCaptureForm() {
           />
         </FieldWrapper>
 
-        {/* Step 3: House */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={3} title="Service House" icon={Layers}>
+        {/* Step 3: Related Person */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={3} title="Related Person (Optional)" icon={User}>
+          <input 
+            type="text" 
+            value={formData.related_person} 
+            onChange={e => handleFieldChange('related_person', e.target.value)}
+            placeholder="Name of person involved (if applicable)"
+            className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none"
+          />
+        </FieldWrapper>
+
+        {/* Step 4: House */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={4} title="Service House" icon={Layers}>
           <select 
             value={formData.house_id} 
             onChange={e => handleFieldChange('house_id', e.target.value)}
@@ -224,14 +240,14 @@ export function SignalCaptureForm() {
           </select>
         </FieldWrapper>
 
-        {/* Step 4: Signal Type */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={4} title="What did you observe?" icon={Zap}>
+        {/* Step 5: Signal Type */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={5} title="What type of signal is this?" icon={Zap}>
           <div className="grid grid-cols-2 gap-4">
             {['Incident', 'Concern', 'Observation', 'Safeguarding', 'Medication', 'Staffing', 'Environment', 'Positive'].map(type => (
               <button
                 key={type}
                 onClick={() => handleFieldChange('signal_type', type)}
-                className={`p-4 border-2 transition-all font-bold ${formData.signal_type === type ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
+                className={`p-4 border-2 transition-all  ${formData.signal_type === type ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
               >
                 {type}
               </button>
@@ -239,14 +255,14 @@ export function SignalCaptureForm() {
           </div>
         </FieldWrapper>
 
-        {/* Step 5: Risk Domains */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={5} title="Which risk domains apply?" icon={ShieldAlert}>
+        {/* Step 6: Risk Domains */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={6} title="Which domain(s) does this affect?" icon={ShieldAlert}>
           <div className="grid grid-cols-2 gap-4">
             {DOMAINS.map(domain => (
               <button
                 key={domain}
                 onClick={() => toggleDomain(domain)}
-                className={`p-4 border-2 transition-all font-bold ${formData.risk_domain.includes(domain) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
+                className={`p-4 border-2 transition-all  ${formData.risk_domain.includes(domain) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
               >
                 {domain}
               </button>
@@ -254,8 +270,8 @@ export function SignalCaptureForm() {
           </div>
         </FieldWrapper>
 
-        {/* Step 6: Description */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={6} title="Describe the observation" icon={FileText}>
+        {/* Step 7: Description */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={7} title="Describe the observation" icon={FileText}>
           <textarea 
             value={formData.description}
             onChange={e => handleFieldChange('description', e.target.value)}
@@ -265,8 +281,8 @@ export function SignalCaptureForm() {
           <p className="text-xs text-muted-foreground mt-2">Minimum 10 characters required for defensible governance.</p>
         </FieldWrapper>
 
-        {/* Step 7: Immediate Action */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={7} title="Immediate Action Taken" icon={Check}>
+        {/* Step 8: Immediate Action */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={8} title="What immediate action was taken?" icon={Check}>
           <textarea 
             value={formData.immediate_action}
             onChange={e => handleFieldChange('immediate_action', e.target.value)}
@@ -275,14 +291,14 @@ export function SignalCaptureForm() {
           />
         </FieldWrapper>
 
-        {/* Step 8: Severity */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={8} title="Potential Severity" icon={AlertTriangle}>
+        {/* Step 9: Severity */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={9} title="What is the current level of concern?" icon={AlertTriangle}>
           <div className="flex flex-col gap-3">
             {['Low', 'Moderate', 'High', 'Critical'].map(sev => (
               <button
                 key={sev}
                 onClick={() => handleFieldChange('severity', sev)}
-                className={`p-4 border-2 text-left font-bold transition-all ${formData.severity === sev ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
+                className={`p-4 border-2 text-left  transition-all ${formData.severity === sev ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
               >
                 {sev}
               </button>
@@ -290,14 +306,14 @@ export function SignalCaptureForm() {
           </div>
         </FieldWrapper>
 
-        {/* Step 9: Happened Before */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={9} title="Has this happened before?" icon={Clock}>
+        {/* Step 10: Happened Before */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={10} title="Has this happened before?" icon={Clock}>
           <div className="flex gap-4">
             {['Yes', 'No', 'Unsure'].map(val => (
               <button
                 key={val}
                 onClick={() => handleFieldChange('has_happened_before', val)}
-                className={`flex-1 p-4 border-2 font-bold transition-all ${formData.has_happened_before === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
+                className={`flex-1 p-4 border-2  transition-all ${formData.has_happened_before === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
               >
                 {val}
               </button>
@@ -305,14 +321,14 @@ export function SignalCaptureForm() {
           </div>
         </FieldWrapper>
 
-        {/* Step 10: Pattern Concern */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={10} title="Level of Pattern Concern" icon={Layers}>
+        {/* Step 11: Pattern Concern */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={11} title="Does this suggest a pattern? " icon={Layers}>
           <div className="flex flex-col gap-3">
             {['None', 'Possible', 'Clear', 'Escalating'].map(val => (
               <button
                 key={val}
                 onClick={() => handleFieldChange('pattern_concern', val)}
-                className={`p-4 border-2 text-left font-bold transition-all ${formData.pattern_concern === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
+                className={`p-4 border-2 text-left  transition-all ${formData.pattern_concern === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
               >
                 {val}
               </button>
@@ -320,19 +336,40 @@ export function SignalCaptureForm() {
           </div>
         </FieldWrapper>
 
-        {/* Step 11: Escalation */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={11} title="Escalation Required" icon={ShieldAlert}>
+        {/* Step 12: Escalation */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={12} title=" What level of follow-up is required?" icon={ShieldAlert}>
           <div className="flex flex-col gap-3">
             {['None', 'Manager Review', 'Urgent Review', 'Immediate Escalation'].map(val => (
               <button
                 key={val}
                 onClick={() => handleFieldChange('escalation_required', val)}
-                className={`p-4 border-2 text-left font-bold transition-all ${formData.escalation_required === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
+                className={`p-4 border-2 text-left  transition-all ${formData.escalation_required === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
               >
                 {val}
               </button>
             ))}
           </div>
+        </FieldWrapper>
+
+        {/* Step 13: Evidence */}
+        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={13} title="Attach supporting evidence" icon={Paperclip}>
+          <div className="flex flex-col items-center justify-center p-12 border-4 border-dashed border-border rounded-2xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer group">
+            <Upload className="w-16 h-16 text-muted-foreground group-hover:text-primary transition-colors mb-4" />
+            <p className="text-xl  text-foreground mb-2">Click to upload files</p>
+            <p className="text-sm text-muted-foreground ">Video, Image or PDF accepted (Max 50MB)</p>
+            {formData.evidence_url && (
+              <div className="mt-6 p-3 bg-success/20 text-success-foreground rounded-lg flex items-center gap-2 border border-success/30">
+                <CheckCircle size={18} />
+                <span className="">File uploaded successfully</span>
+              </div>
+            )}
+            <input 
+              type="file" 
+              className="hidden" 
+              onChange={() => handleFieldChange('evidence_url', 'https://mock-storage.ordincore.com/evidence-' + Date.now() + '.pdf')}
+            />
+          </div>
+          <p className="text-xs text-muted-foreground mt-4 text-center">Supporting evidence provides stronger defensibility for governance decisions.</p>
         </FieldWrapper>
 
       </div>

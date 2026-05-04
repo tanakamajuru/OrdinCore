@@ -312,7 +312,7 @@ const AdminHouseManagement: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold text-primary">Site Management</h1>
+        <h1 className="text-3xl  text-primary">Site Management</h1>
         <Button onClick={() => { resetForm(); setIsCreateDialogOpen(true); }}>
           <Home className="mr-2 h-4 w-4" /> Add Site
         </Button>
@@ -322,24 +322,24 @@ const AdminHouseManagement: React.FC = () => {
         <div className="grid md:grid-cols-4 gap-6">
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium">Total Sites</span>
+              <span className="text-sm ">Total Sites</span>
               <Building className="w-4 h-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold">{stats.total}</div>
+            <div className="text-2xl ">{stats.total}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium text-success">Active Sites</span>
+              <span className="text-sm  text-success">Active Sites</span>
               <ShieldCheck className="w-4 h-4 text-success" />
             </div>
-            <div className="text-2xl font-bold text-success">{stats.active}</div>
+            <div className="text-2xl  text-success">{stats.active}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex justify-between mb-2">
-              <span className="text-sm font-medium">With Managers</span>
+              <span className="text-sm ">With Managers</span>
               <Users className="w-4 h-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold">{stats.withManager}</div>
+            <div className="text-2xl ">{stats.withManager}</div>
           </div>
         </div>
       )}
@@ -364,19 +364,19 @@ const AdminHouseManagement: React.FC = () => {
           <Table>
             <TableHeader className="bg-muted/50">
               <TableRow>
-                <TableHead className="font-bold">Site Name</TableHead>
-                <TableHead className="font-bold">Reg Number</TableHead>
-                <TableHead className="font-bold">Location</TableHead>
-                <TableHead className="font-bold">Registered Manager</TableHead>
-                <TableHead className="font-bold">Capacity</TableHead>
-                <TableHead className="font-bold">Status</TableHead>
+                <TableHead className="">Site Name</TableHead>
+                <TableHead className="">Reg Number</TableHead>
+                <TableHead className="">Location</TableHead>
+                <TableHead className="">Registered Manager</TableHead>
+                <TableHead className="">Capacity</TableHead>
+                <TableHead className="">Status</TableHead>
                 <TableHead />
               </TableRow>
             </TableHeader>
             <TableBody>
               {houses.map((house) => (
                 <TableRow key={house.id} className="hover:bg-muted/30">
-                  <TableCell className="font-medium">{house.name}</TableCell>
+                  <TableCell className="">{house.name}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">{house.registration_number || '—'}</TableCell>
                   <TableCell>{[house.city, house.postcode].filter(Boolean).join(", ")}</TableCell>
                   <TableCell>

@@ -31,7 +31,7 @@ export default function CreateAdminModal({
       <div className="bg-card rounded-xl shadow-2xl w-full max-w-lg">
         <div className="flex items-center justify-between p-6 border-b border-gray-100">
           <div>
-            <h3 className="text-lg font-bold text-foreground">Create Company Admin</h3>
+            <h3 className="text-lg  text-foreground">Create Company Admin</h3>
             <p className="text-sm text-muted-foreground">
               {selectedCompany ? `Creating admin for ${selectedCompany.name}` : 'Create a new company administrator account'}
             </p>
@@ -47,7 +47,7 @@ export default function CreateAdminModal({
           )}
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">First Name *</label>
+              <label className="block text-sm  text-muted-foreground mb-1">First Name *</label>
               <input
                 type="text"
                 required
@@ -57,7 +57,7 @@ export default function CreateAdminModal({
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-muted-foreground mb-1">Last Name *</label>
+              <label className="block text-sm  text-muted-foreground mb-1">Last Name *</label>
               <input
                 type="text"
                 required
@@ -68,7 +68,7 @@ export default function CreateAdminModal({
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Email *</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Email *</label>
             <input
               type="email"
               required
@@ -79,7 +79,7 @@ export default function CreateAdminModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Password *</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Password *</label>
             <input
               type="password"
               required
@@ -90,7 +90,7 @@ export default function CreateAdminModal({
             />
           </div>
           <div>
-            <label className="block text-sm font-medium text-muted-foreground mb-1">Organisation *</label>
+            <label className="block text-sm  text-muted-foreground mb-1">Organisation *</label>
             <select
               required
               value={newAdmin.company_id}
@@ -107,14 +107,14 @@ export default function CreateAdminModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-2.5 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm font-medium"
+              className="flex-1 py-2.5 border border-border text-muted-foreground rounded hover:bg-muted transition-colors text-sm "
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded hover:bg-[#008394] transition-colors text-sm font-medium disabled:opacity-50"
+              className="flex-1 py-2.5 bg-primary text-primary-foreground rounded hover:bg-[#008394] transition-colors text-sm  disabled:opacity-50"
             >
               {isSubmitting ? "Creating..." : "Create Admin Account"}
             </button>

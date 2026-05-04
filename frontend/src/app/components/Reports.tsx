@@ -240,12 +240,12 @@ export function Reports() {
         ) : (
           <>
             <div className="mb-6">
-              <h1 className="text-3xl font-semibold text-primary">Reports & Analytics</h1>
+              <h1 className="text-3xl  text-primary">Reports & Analytics</h1>
               <p className="text-muted-foreground mt-1">Generate custom governance reports with advanced filtering</p>
             </div>
 
             <div className="bg-card border-2 border-border p-6 mb-6">
-              <h2 className="text-xl font-semibold mb-4 text-foreground">Report Type</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Report Type</h2>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {reportTypes.map((type) => (
                   <button
@@ -253,28 +253,28 @@ export function Reports() {
                     onClick={() => handleFilterChange('reportType', type.value)}
                     className={`p-4 border-2 text-left transition-all ${
                       filters.reportType === type.value
-                        ? "bg-primary text-primary-foreground border-primary shadow-[4px_4px_0px_rgba(0,0,0,1)] -translate-x-1 -translate-y-1"
+                        ? "bg-primary text-primary-foreground border-primary  -translate-x-1 -translate-y-1"
                         : "bg-card text-foreground border-border hover:border-primary/50 shadow-sm"
                     }`}
                   >
-                    <div className="font-black uppercase italic text-xs mb-1 opacity-70">Layer 4 Oversight</div>
-                    <div className="font-bold tracking-tight">{type.label}</div>
+                    <div className=" uppercase  text-xs mb-1 opacity-70">Layer 4 Oversight</div>
+                    <div className=" tracking-tight">{type.label}</div>
                   </button>
                 ))}
               </div>
             </div>
 
             {(filters.reportType === "detailed_evidence_pack" || filters.reportType === "weekly_narrative") && (
-              <div className="bg-card border-2 border-border p-6 mb-6 shadow-[8px_8px_0px_rgba(0,0,0,1)]">
-                <h2 className="text-xl font-black uppercase italic mb-4">Report Context Required</h2>
+              <div className="bg-card border-2 border-border p-6 mb-6 ">
+                <h2 className="text-xl  uppercase  mb-4">Report Context Required</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   {filters.reportType === "detailed_evidence_pack" && (
                     <div>
-                      <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Target Risk Lineage</label>
+                      <label className="block text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Target Risk Lineage</label>
                       <select 
                         value={filters.riskId || ""}
                         onChange={(e) => setFilters({...filters, riskId: e.target.value})}
-                        className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
+                        className="w-full px-4 py-3 bg-card border-2 border-border "
                       >
                         <option value="">Select a Risk...</option>
                         {activeRisks.map(r => <option key={r.id} value={r.id}>{r.title}</option>)}
@@ -284,23 +284,23 @@ export function Reports() {
                   {filters.reportType === "weekly_narrative" && (
                     <>
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Service Unit</label>
+                        <label className="block text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Service Unit</label>
                         <select 
                           value={filters.houseId || ""}
                           onChange={(e) => setFilters({...filters, houseId: e.target.value})}
-                          className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
+                          className="w-full px-4 py-3 bg-card border-2 border-border "
                         >
                           <option value="">Select House...</option>
                           {allHouses.map(h => <option key={h.id} value={h.id}>{h.name}</option>)}
                         </select>
                       </div>
                       <div>
-                        <label className="block text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Week Ending Date</label>
+                        <label className="block text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Week Ending Date</label>
                         <input 
                           type="date"
                           value={filters.weekEnding || ""}
                           onChange={(e) => setFilters({...filters, weekEnding: e.target.value})}
-                          className="w-full px-4 py-3 bg-card border-2 border-border font-bold"
+                          className="w-full px-4 py-3 bg-card border-2 border-border "
                         />
                       </div>
                     </>
@@ -311,27 +311,39 @@ export function Reports() {
 
             <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl font-semibold text-primary">Filters</h2>
+                <h2 className="text-xl  text-primary">Filters</h2>
                 <div className="flex gap-2">
-                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary font-medium">
+                  <button onClick={() => setShowFilters(!showFilters)} className="flex items-center gap-2 px-4 py-2 border-2 border-primary text-primary ">
                     <Filter className="w-4 h-4" /> {showFilters ? "Hide Filters" : "Show Filters"}
                   </button>
-                  {getActiveFiltersCount() > 0 && <button onClick={clearFilters} className="px-4 py-2 border-2 border-border text-foreground font-medium">Clear All</button>}
+                  {getActiveFiltersCount() > 0 && <button onClick={clearFilters} className="px-4 py-2 border-2 border-border text-foreground ">Clear All</button>}
                 </div>
               </div>
               {showFilters && (
                 <div className="space-y-6">
                   <div>
-                    <label className="block mb-2 text-foreground font-semibold">Date Range</label>
+                    <label className="block mb-2 text-foreground ">Date Range</label>
                     <div className="flex gap-4">
                       <input type="date" value={filters.dateRange.start} onChange={(e) => handleFilterChange('dateRange', {...filters.dateRange, start: e.target.value})} className="flex-1 px-4 py-2 border-2 border-border rounded" />
                       <input type="date" value={filters.dateRange.end} onChange={(e) => handleFilterChange('dateRange', {...filters.dateRange, end: e.target.value})} className="flex-1 px-4 py-2 border-2 border-border rounded" />
                     </div>
                   </div>
                   <div>
-                    <label className="block mb-2 text-foreground font-semibold">Severity</label>
+                    <label className="block mb-2 text-foreground ">Severity</label>
                     <div className="flex flex-wrap gap-2">
                       {severities.map(s => <button key={s} onClick={() => handleArrayFilter('severity', s)} className={`px-4 py-2 border-2 ${filters.severity.includes(s) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"}`}>{s}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-foreground ">Services (Houses)</label>
+                    <div className="flex flex-wrap gap-2">
+                      {allHouses.map(h => <button key={h.id} onClick={() => handleArrayFilter('houses', h.id)} className={`px-4 py-2 border-2 ${filters.houses.includes(h.id) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"}`}>{h.name}</button>)}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block mb-2 text-foreground ">Status</label>
+                    <div className="flex flex-wrap gap-2">
+                      {statuses.map(s => <button key={s} onClick={() => handleArrayFilter('status', s.toLowerCase())} className={`px-4 py-2 border-2 ${filters.status.includes(s.toLowerCase()) ? "bg-primary text-primary-foreground border-primary" : "bg-background text-foreground border-border"}`}>{s}</button>)}
                     </div>
                   </div>
                 </div>
@@ -342,23 +354,23 @@ export function Reports() {
               <button
                 onClick={generateReport}
                 disabled={isGenerating}
-                className={`flex items-center gap-2 px-12 py-4 font-bold rounded-lg transition-all shadow-lg ${isGenerating ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}
+                className={`flex items-center gap-2 px-12 py-4  rounded-lg transition-all shadow-lg ${isGenerating ? "bg-muted text-muted-foreground" : "bg-primary text-primary-foreground"}`}
               >
                 <FileDown className="w-5 h-5" /> {isGenerating ? "Generating..." : "Generate Report"}
               </button>
             </div>
 
             <div className="mt-8 bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-bold text-primary mb-6">Recent Reports</h2>
+              <h2 className="text-xl  text-primary mb-6">Recent Reports</h2>
               <div className="space-y-4">
                 {generatedReports.map((report) => (
                   <div key={report.id} className="flex justify-between items-center p-5 bg-background border border-border rounded-lg shadow-sm">
                     <div>
-                      <p className="font-bold text-foreground">{reportTypes.find(t => t.value === report.type)?.label || report.type}</p>
+                      <p className=" text-foreground">{reportTypes.find(t => t.value === report.type)?.label || report.type}</p>
                       <p className="text-sm text-muted-foreground">{new Date(report.created_at).toLocaleString('en-GB')}</p>
                     </div>
                     <div className="flex flex-col items-end gap-2">
-                      <span className={`text-[10px] font-black uppercase px-2 py-1 border ${
+                      <span className={`text-[10px]  uppercase px-2 py-1 border ${
                         report.status === 'completed' ? 'bg-success/10 text-success border-success/20' :
                         report.status === 'failed' ? 'bg-destructive/10 text-destructive border-destructive/20' :
                         'bg-warning/10 text-warning border-warning/20'
@@ -368,12 +380,12 @@ export function Reports() {
                       <button 
                         onClick={() => handleDownload(report.id)} 
                         disabled={report.status !== 'completed'} 
-                        className="px-6 py-2 border-2 rounded font-bold border-primary text-primary hover:bg-primary/5 disabled:opacity-50 disabled:grayscale transition-all"
+                        className="px-6 py-2 border-2 rounded  border-primary text-primary hover:bg-primary/5 disabled:opacity-50 disabled:grayscale transition-all"
                       >
                         Download
                       </button>
                       {report.status === 'failed' && report.error_message && (
-                        <p className="text-[10px] text-destructive font-bold max-w-[200px] text-right truncate" title={report.error_message}>
+                        <p className="text-[10px] text-destructive  max-w-[200px] text-right truncate" title={report.error_message}>
                           Error: {report.error_message}
                         </p>
                       )}

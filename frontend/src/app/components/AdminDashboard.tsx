@@ -247,7 +247,7 @@ const AdminDashboard: React.FC = () => {
           <TableBody>
             {paginatedUsers.map((user) => (
               <TableRow key={user.id}>
-                <TableCell className="font-medium">{user.name}</TableCell>
+                <TableCell className="">{user.name}</TableCell>
                 <TableCell>{user.email}</TableCell>
                 <TableCell>
                   <Badge className={getRoleBadgeColor(user.role)}>
@@ -302,7 +302,7 @@ const AdminDashboard: React.FC = () => {
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+          <h1 className="text-3xl ">Admin Dashboard</h1>
           <p className="text-muted-foreground">Manage users and system settings</p>
         </div>
         <Button
@@ -402,40 +402,40 @@ const AdminDashboard: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-foreground">Total Users</h2>
+              <h2 className="text-sm  text-foreground">Total Users</h2>
               <Users className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.totalUsers}</div>
+            <div className="text-2xl  text-foreground">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">
               Registered in system
             </p>
           </div>
           <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-foreground">Active Users</h2>
+              <h2 className="text-sm  text-foreground">Active Users</h2>
               <Activity className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.activeUsers}</div>
+            <div className="text-2xl  text-foreground">{stats.activeUsers}</div>
             <p className="text-xs text-muted-foreground">
               Currently active
             </p>
           </div>
           <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-foreground">Total Sites</h2>
+              <h2 className="text-sm  text-foreground">Total Sites</h2>
               <Building className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.totalSites ?? (stats as any).totalHouses ?? 0}</div>
+            <div className="text-2xl  text-foreground">{stats.totalSites ?? (stats as any).totalHouses ?? 0}</div>
             <p className="text-xs text-muted-foreground">
               Registered sites
             </p>
           </div>
           <div className="bg-card border-2 border-border p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-foreground">Recent Pulses</h2>
+              <h2 className="text-sm  text-foreground">Recent Pulses</h2>
               <TrendingUp className="h-4 w-4 text-foreground" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.recentPulses}</div>
+            <div className="text-2xl  text-foreground">{stats.recentPulses}</div>
             <p className="text-xs text-muted-foreground">
               Last 30 days
             </p>
@@ -446,7 +446,7 @@ const AdminDashboard: React.FC = () => {
       {/* Users Table */}
       <div className="bg-card border-2 border-border p-6">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold text-foreground mb-2">User Management</h2>
+          <h2 className="text-xl  text-foreground mb-2">User Management</h2>
           <p className="text-muted-foreground">Manage all users in the system. Create, edit, and delete user accounts.</p>
         </div>
         {usersTable}

@@ -235,7 +235,8 @@ export class RisksService {
     const risk = await this.create(company_id, user_id, {
       ...data,
       source_cluster_id: data.cluster_id,
-      status: 'Open'
+      status: 'Open',
+      linked_person: cluster.linked_person
     });
 
     // Update cluster status to 'Escalated' or 'Confirmed'
@@ -250,6 +251,7 @@ export class RisksService {
   async promoteFromCandidate(company_id: string, user_id: string, data: {
     candidate_id: string; title: string; severity: string; trajectory: string;
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
+    reason?: string;
   }) {
     const candidateRes = await query(
       `SELECT id, risk_domain FROM risk_candidates 
@@ -260,16 +262,34 @@ export class RisksService {
 
     const risk = await this.create(company_id, user_id, {
       ...data,
-      status: 'Open'
+      status: 'Open',
+      metadata: { promotion_reason: data.reason },
+      linked_person: candidateRes.rows[0].linked_person
     });
 
     // Update candidate status
     await query('UPDATE risk_candidates SET status = $1, linked_risk_id = $2 WHERE id = $3', 
       ['Promoted', risk.id, data.candidate_id]);
 
-    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}`, user_id);
+    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
     
     return risk;
+  }
+
+  async dismissCandidate(company_id: string, user_id: string, candidate_id: string, reason: string) {
+    const candidateRes = await query(
+      `SELECT id FROM risk_candidates 
+       WHERE id = $1 AND company_id = $2`,
+      [candidate_id, company_id]
+    );
+    if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
+
+    await query(
+      `UPDATE risk_candidates 
+       SET status = 'Dismissed', dismissal_reason = $1
+       WHERE id = $2`,
+      [reason, candidate_id]
+    );
   }
 
   private async checkAutoEscalation(risk: any) {

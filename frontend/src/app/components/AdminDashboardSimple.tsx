@@ -71,7 +71,7 @@ const AdminDashboardSimple: React.FC = () => {
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
-        <h1 className="text-3xl font-bold">Admin Dashboard</h1>
+        <h1 className="text-3xl ">Admin Dashboard</h1>
         <Button
           variant="outline"
           onClick={handleLogout}
@@ -86,44 +86,44 @@ const AdminDashboardSimple: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Total Users</h3>
+            <h3 className="text-sm ">Total Users</h3>
             <Users className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="text-2xl font-bold">{stats.totalUsers}</div>
+            <div className="text-2xl ">{stats.totalUsers}</div>
             <p className="text-xs text-muted-foreground">{stats.activeUsers} active</p>
           </div>
         </div>
 
         <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Total Sites</h3>
+            <h3 className="text-sm ">Total Sites</h3>
             <Building className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="text-2xl font-bold">{stats.totalHouses}</div>
+            <div className="text-2xl ">{stats.totalHouses}</div>
             <p className="text-xs text-muted-foreground">{stats.activeHouses} active</p>
           </div>
         </div>
 
         <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">Occupancy Rate</h3>
+            <h3 className="text-sm ">Occupancy Rate</h3>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="text-2xl font-bold">{stats.occupancyRate}%</div>
+            <div className="text-2xl ">{stats.occupancyRate}%</div>
             <p className="text-xs text-muted-foreground">Across all sites</p>
           </div>
         </div>
 
         <div className="bg-card border-2 border-border p-6">
           <div className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <h3 className="text-sm font-medium">System Health</h3>
+            <h3 className="text-sm ">System Health</h3>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </div>
           <div>
-            <div className="text-2xl font-bold text-green-600">Good</div>
+            <div className="text-2xl  text-green-600">Good</div>
             <p className="text-xs text-muted-foreground">All systems operational</p>
           </div>
         </div>
@@ -133,7 +133,7 @@ const AdminDashboardSimple: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-card border-2 border-border p-6">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">User Management</h3>
+            <h3 className="text-lg ">User Management</h3>
             <p className="text-sm text-muted-foreground">
               Manage user accounts, roles, and permissions
             </p>
@@ -141,11 +141,11 @@ const AdminDashboardSimple: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span>Total Users</span>
-              <span className="font-bold">{stats.totalUsers}</span>
+              <span className="">{stats.totalUsers}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Active Users</span>
-              <span className="font-bold text-green-600">{stats.activeUsers}</span>
+              <span className=" text-green-600">{stats.activeUsers}</span>
             </div>
             <Button onClick={() => navigate('/admin-users')} className="w-full">
               Manage Users
@@ -155,7 +155,7 @@ const AdminDashboardSimple: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6">
           <div className="mb-4">
-            <h3 className="text-lg font-semibold">Site Management</h3>
+            <h3 className="text-lg ">Site Management</h3>
             <p className="text-sm text-muted-foreground">
               Manage care homes and facilities
             </p>
@@ -163,11 +163,11 @@ const AdminDashboardSimple: React.FC = () => {
           <div className="space-y-4">
             <div className="flex justify-between items-center">
               <span>Total Sites</span>
-              <span className="font-bold">{stats.totalHouses}</span>
+              <span className="">{stats.totalHouses}</span>
             </div>
             <div className="flex justify-between items-center">
               <span>Active Sites</span>
-              <span className="font-bold text-green-600">{stats.activeHouses}</span>
+              <span className=" text-green-600">{stats.activeHouses}</span>
             </div>
             <Button onClick={() => navigate('/admin-houses')} className="w-full">
               Manage Sites

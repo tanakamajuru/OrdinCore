@@ -36,13 +36,22 @@ export function IncidentCaseHub() {
   const [userHouseId, setUserHouseId] = useState<string | null>(null);
   const [userHouseName, setUserHouseName] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  
+  const [riskSearchTerm, setRiskSearchTerm] = useState('');
+  const [escalationSearchTerm, setEscalationSearchTerm] = useState('');
 
   const defaultOccurredAt = () => new Date().toISOString().slice(0, 16); // 'YYYY-MM-DDTHH:MM'
 
   // Create incident form state
   const [incidentForm, setIncidentForm] = useState<any>({
-    house_id: '', title: '', description: '', severity: 'Medium', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: ''
+    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '',
+    la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
+    is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
   });
+  
+  // Pagination state
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 10;
 
   const [allHouses, setAllHouses] = useState<any[]>([]);
   const [allRisks, setAllRisks] = useState<any[]>([]);
@@ -103,7 +112,9 @@ export function IncidentCaseHub() {
         status: inc.status || 'Open',
         createdAt: inc.created_at ? new Date(inc.created_at).toLocaleDateString('en-GB') : '',
         createdBy: inc.created_by_name || '',
-        linkedRisks: 0, linkedEscalations: 0, externalRefs: []
+        linkedRisks: (inc.linked_risks && Array.isArray(inc.linked_risks)) ? inc.linked_risks.length : 0,
+        linkedEscalations: (inc.linked_escalations && Array.isArray(inc.linked_escalations)) ? inc.linked_escalations.length : 0,
+        externalRefs: inc.external_refs || []
       }));
       setIncidents(mapped);
     } catch (err) {
@@ -134,10 +145,23 @@ export function IncidentCaseHub() {
         follow_up_required: true,
         linked_risks: incidentForm.linked_risks || [],
         linked_escalations: incidentForm.linked_escalations || [],
+        la_referral: incidentForm.la_referral,
+        cqc_notification: incidentForm.cqc_notification,
+        police_reference: incidentForm.police_reference,
+        other_references: incidentForm.other_references,
+        is_foreseeable: incidentForm.is_foreseeable,
+        risk_factors: incidentForm.risk_factors,
+        preventive_measures: incidentForm.preventive_measures,
+        leadership_commentary: incidentForm.leadership_commentary,
       });
       toast.success('Incident reported successfully');
       setShowCreateModal(false);
-      setIncidentForm({ house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', linked_risks: [], linked_escalations: [] });
+      setIncidentForm({ 
+        house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), 
+        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', linked_risks: [], linked_escalations: [],
+        la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
+        is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
+      });
       loadIncidents();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
     finally { setIsSubmitting(false); }
@@ -159,10 +183,37 @@ export function IncidentCaseHub() {
 
   const getAvailableHouses = () => {
     if (userHouseName) return [{ id: userHouseId || '', name: userHouseName }];
-    return [];
+    return allHouses;
   };
 
+  // Reset page on filter change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, houseFilter, statusFilter]);
+
+  // Reset search terms when modal opens
+  useEffect(() => {
+    if (showCreateModal) {
+      setRiskSearchTerm('');
+      setEscalationSearchTerm('');
+    }
+  }, [showCreateModal]);
+
+  const filteredRisks = allRisks.filter(risk =>
+    risk.title.toLowerCase().includes(riskSearchTerm.toLowerCase())
+  );
+
+  const filteredEscalations = allEscalations.filter(esc => {
+    const label = esc.reason || esc.description || esc.id || '';
+    return label.toLowerCase().includes(escalationSearchTerm.toLowerCase());
+  });
+
   const filteredIncidents = getFilteredIncidents();
+  const totalPages = Math.ceil(filteredIncidents.length / itemsPerPage);
+  const paginatedIncidents = filteredIncidents.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage
+  );
   const canCreateIncident = ['REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL', 'DIRECTOR', 'ADMIN', 'TEAM_LEADER'].includes(userRole);
   const houses = ['All', ...allHouses.map(h => h.name)];
 
@@ -174,9 +225,11 @@ export function IncidentCaseHub() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case "under-review": return "bg-primary text-primary-foreground";
+      case "under_review": return "bg-primary text-primary-foreground";
+      case "resolved": return "bg-success text-success-foreground";
       case "closed": return "bg-muted text-muted-foreground";
       case "archived": return "bg-muted/50 text-muted-foreground";
+      case "open": return "bg-warning text-warning-foreground";
       default: return "bg-muted text-muted-foreground";
     }
   };
@@ -189,7 +242,7 @@ export function IncidentCaseHub() {
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl font-bold text-primary mb-2">Serious Incidents</h1>
+              <h1 className="text-3xl  text-primary mb-2">Serious Incidents</h1>
               <p className="text-muted-foreground">
                 {userRole === 'REGISTERED_MANAGER'
                   ? `Serious incident management for ${userHouseName || 'your house'}`
@@ -274,19 +327,19 @@ export function IncidentCaseHub() {
 
           {/* Incident List */}
           <div className="space-y-4">
-            {filteredIncidents.map((incident) => (
+            {paginatedIncidents.map((incident) => (
               <Card key={incident.id} className="border-2 border-border bg-card shadow-sm hover:shadow-md transition-shadow">
                 <CardContent className="p-6">
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 
-                          className="text-lg font-bold text-primary cursor-pointer hover:underline"
+                          className="text-lg  text-primary cursor-pointer hover:underline"
                           onClick={() => navigate(`/incidents/${incident.id}`)}
                         >
                           {incident.title}
                         </h3>
-                        <span className={`px-2 py-1 rounded text-[10px] font-bold shadow-sm ${getStatusColor(incident.status)}`}>
+                        <span className={`px-2 py-1 rounded text-[10px]  shadow-sm ${getStatusColor(incident.status)}`}>
                           {incident.status.replace('-', ' ').toUpperCase()}
                         </span>
                       </div>
@@ -310,18 +363,18 @@ export function IncidentCaseHub() {
                         </div>
                         <div className="flex items-center gap-2">
                           <Ambulance className="w-4 h-4 text-destructive" />
-                          <span className="text-sm text-foreground font-medium">{incident.linkedRisks} risks, {incident.linkedEscalations} escalations</span>
+                          <span className="text-sm text-foreground ">{incident.linkedRisks} risks, {incident.linkedEscalations} escalations</span>
                         </div>
                       </div>
 
                       {incident.externalRefs.length > 0 && (
-                        <div className="text-sm text-muted-foreground mb-3 italic">
-                          External Refs: <span className="text-foreground font-medium">{incident.externalRefs.join(", ")}</span>
+                        <div className="text-sm text-muted-foreground mb-3 ">
+                          External Refs: <span className="text-foreground ">{incident.externalRefs.join(", ")}</span>
                         </div>
                       )}
 
                       <div className="text-xs text-muted-foreground border-t border-border pt-3">
-                        Created on <span className="font-semibold">{incident.createdAt}</span> by <span className="font-semibold text-primary">{incident.createdBy}</span>
+                        Created on <span className="">{incident.createdAt}</span> by <span className=" text-primary">{incident.createdBy}</span>
                       </div>
                     </div>
 
@@ -342,6 +395,43 @@ export function IncidentCaseHub() {
             ))}
           </div>
 
+          {/* Pagination Controls */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center gap-4 mt-8">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                disabled={currentPage === 1}
+                className="border-border"
+              >
+                Previous
+              </Button>
+              <div className="flex gap-2">
+                {Array.from({ length: totalPages }, (_, i) => i + 1).map(num => (
+                  <Button
+                    key={num}
+                    variant={currentPage === num ? "default" : "outline"}
+                    size="sm"
+                    onClick={() => setCurrentPage(num)}
+                    className={currentPage === num ? "bg-primary text-primary-foreground" : "border-border"}
+                  >
+                    {num}
+                  </Button>
+                ))}
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                disabled={currentPage === totalPages}
+                className="border-border"
+              >
+                Next
+              </Button>
+            </div>
+          )}
+
           {/* Add Incident Button at Bottom */}
           {canCreateIncident && filteredIncidents.length > 0 && (
             <div className="mt-8 text-center">
@@ -360,7 +450,7 @@ export function IncidentCaseHub() {
             <div className="text-center py-12 bg-card border-2 border-dashed border-border rounded-lg shadow-inner">
               <div className="text-muted-foreground mb-6">
                 <Ambulance className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <h3 className="text-xl font-semibold text-primary mb-2">No incidents found</h3>
+                <h3 className="text-xl  text-primary mb-2">No incidents found</h3>
                 <p>
                   {userRole === 'REGISTERED_MANAGER'
                     ? 'There are no incidents for your assigned house.'
@@ -383,7 +473,7 @@ export function IncidentCaseHub() {
             <div className="fixed inset-0 backdrop-blur-sm bg-primary/50 flex items-center justify-center z-50 p-4">
               <div className="bg-card border-2 border-border shadow-2xl rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6 sticky top-0 bg-card pb-4 border-b border-border z-10">
-                  <h2 className="text-2xl font-bold text-primary">Report Serious Incident</h2>
+                  <h2 className="text-2xl  text-primary">Report Serious Incident</h2>
                   <Button
                     variant="ghost"
                     size="sm"
@@ -397,13 +487,13 @@ export function IncidentCaseHub() {
                 <div className="space-y-6">
                   {/* Incident Summary */}
                   <div className="pb-6">
-                    <h3 className="font-semibold text-primary mb-4 flex items-center gap-2">
+                    <h3 className=" text-primary mb-4 flex items-center gap-2">
                       <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">1</span>
                       Incident Summary
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Incident Title *</label>
+                        <label className="block text-sm  text-foreground mb-1">Incident Title *</label>
                         <Input
                           value={incidentForm.title}
                           onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })}
@@ -412,7 +502,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">House/Service *</label>
+                        <label className="block text-sm  text-foreground mb-1">House/Service *</label>
                         <select value={incidentForm.house_id} onChange={(e) => setIncidentForm({ ...incidentForm, house_id: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           {getAvailableHouses().map(house => (
                             <option key={house.id} value={house.id}>
@@ -421,11 +511,11 @@ export function IncidentCaseHub() {
                           ))}
                         </select>
                         {userRole === 'REGISTERED_MANAGER' && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 italic">Only your assigned house is available</p>
+                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Only your assigned house is available</p>
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Incident Date & Time *</label>
+                        <label className="block text-sm  text-foreground mb-1">Incident Date & Time *</label>
                         <Input
                           type="datetime-local"
                           value={incidentForm.occurred_at}
@@ -434,7 +524,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Incident Type *</label>
+                        <label className="block text-sm  text-foreground mb-1">Incident Type *</label>
                         <select onChange={(e) => setIncidentForm({ ...incidentForm, type: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           <option value="">Select type...</option>
                           <option value="safeguarding">Safeguarding</option>
@@ -448,17 +538,17 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Severity Level *</label>
+                        <label className="block text-sm  text-foreground mb-1">Severity Level *</label>
                         <select
                           value={incidentForm.severity}
                           onChange={(e) => setIncidentForm({ ...incidentForm, severity: e.target.value })}
-                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-destructive focus:outline-none text-sm font-bold text-destructive"
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-destructive focus:outline-none text-sm  text-destructive"
                         >
                           <option value="">Select severity...</option>
-                          <option value="Critical">Critical</option>
-                          <option value="High">High</option>
-                          <option value="Medium">Medium</option>
-                          <option value="Low">Low</option>
+                          <option value="critical">Critical</option>
+                          <option value="serious">Serious</option>
+                          <option value="moderate">Moderate</option>
+                          <option value="minor">Minor</option>
                         </select>
                       </div>
                     </div>
@@ -466,13 +556,13 @@ export function IncidentCaseHub() {
 
                   {/* Governance Context */}
                   <div className="pb-6 border-b border-border mb-6">
-                    <h3 className="font-semibold text-primary mb-4 flex items-center gap-2">
+                    <h3 className=" text-primary mb-4 flex items-center gap-2">
                       <span className="w-6 h-6 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-xs">2</span>
                       Governance Context
                     </h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Were warning signals present before this incident? *</label>
+                        <label className="block text-sm  text-foreground mb-1">Were warning signals present before this incident? *</label>
                         <select onChange={(e) => setIncidentForm({ ...incidentForm, warning_signals: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
                           <option value="">Select...</option>
                           <option value="yes">Yes - risks were identified</option>
@@ -481,36 +571,57 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Link to Existing Risk Register Items</label>
+                        <label className="block text-sm  text-foreground mb-1">Link to Existing Risk Register Items</label>
+                        <input
+                          type="text"
+                          placeholder="Search risks..."
+                          value={riskSearchTerm}
+                          onChange={(e) => setRiskSearchTerm(e.target.value)}
+                          className="w-full mb-2 px-3 py-2 border-2 border-border rounded bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
                         <select 
-                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-24" 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-32" 
                           multiple
                           value={incidentForm.linked_risks || []}
                           onChange={(e) => {
                             const values = Array.from(e.target.selectedOptions, option => option.value);
-                            setIncidentForm({ ...incidentForm, linked_risks: values });
+                            setIncidentForm(prev => ({ ...prev, linked_risks: values }));
                           }}
                         >
-                          {allRisks.map(risk => (
-                            <option key={risk.id} value={risk.id}>{risk.id.slice(0,8).toUpperCase()}: {risk.title}</option>
+                          {filteredRisks.map(risk => (
+                            <option key={risk.id} value={risk.id}>
+                              {risk.title || risk.id.slice(0,8).toUpperCase()}
+                            </option>
                           ))}
                         </select>
-                        <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 italic">Select all relevant risk items (hold Ctrl/Cmd to select multiple)</p>
+                        <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Select all relevant risk items (hold Ctrl/Cmd to select multiple)</p>
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-1">Link to Escalations</label>
+                        <label className="block text-sm  text-foreground mb-1">Link to Escalations</label>
+                        <input
+                          type="text"
+                          placeholder="Search escalations..."
+                          value={escalationSearchTerm}
+                          onChange={(e) => setEscalationSearchTerm(e.target.value)}
+                          className="w-full mb-2 px-3 py-2 border-2 border-border rounded bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
                         <select 
-                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-16" 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-32" 
                           multiple
                           value={incidentForm.linked_escalations || []}
                           onChange={(e) => {
                             const values = Array.from(e.target.selectedOptions, option => option.value);
-                            setIncidentForm({ ...incidentForm, linked_escalations: values });
+                            setIncidentForm(prev => ({ ...prev, linked_escalations: values }));
                           }}
                         >
-                          {allEscalations.map(esc => (
-                            <option key={esc.id} value={esc.id}>{esc.id.slice(0,8).toUpperCase()}: {esc.reason || 'Escalation'}</option>
-                          ))}
+                          {filteredEscalations.map(esc => {
+                            const display = esc.reason || esc.description || `Escalation ${esc.id.slice(0,8)}`;
+                            return (
+                              <option key={esc.id} value={esc.id}>
+                                {display}
+                              </option>
+                            );
+                          })}
                         </select>
                       </div>
                     </div>
@@ -518,10 +629,10 @@ export function IncidentCaseHub() {
 
                   {/* Incident Details */}
                   <div className="border-b border-border pb-6">
-                    <h3 className="font-semibold text-foreground mb-4">Incident Details</h3>
+                    <h3 className=" text-foreground mb-4">Incident Details</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Incident Description *</label>
+                        <label className="block text-sm  text-foreground mb-1">Incident Description *</label>
                         <textarea
                           value={incidentForm.description}
                           onChange={(e) => setIncidentForm({ ...incidentForm, description: e.target.value })}
@@ -530,7 +641,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Immediate Actions Taken</label>
+                        <label className="block text-sm  text-foreground mb-1">Immediate Actions Taken</label>
                         <textarea
                           value={incidentForm.immediate_action}
                           onChange={(e) => setIncidentForm({ ...incidentForm, immediate_action: e.target.value })}
@@ -539,7 +650,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">People Involved</label>
+                        <label className="block text-sm  text-foreground mb-1">People Involved</label>
                         <Input
                           value={incidentForm.persons_involved}
                           onChange={(e) => setIncidentForm({ ...incidentForm, persons_involved: e.target.value })}
@@ -548,7 +659,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Place of occurence</label>
+                        <label className="block text-sm  text-foreground mb-1">Place of occurence</label>
                         <Input
                           value={incidentForm.location}
                           onChange={(e) => setIncidentForm({ ...incidentForm, location: e.target.value })}
@@ -561,34 +672,42 @@ export function IncidentCaseHub() {
 
                   {/* External References */}
                   <div className="border-b border-border pb-6">
-                    <h3 className="font-semibold text-foreground mb-4">External References</h3>
+                    <h3 className=" text-foreground mb-4">External References</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Local Authority Referral</label>
+                        <label className="block text-sm  text-foreground mb-1">Local Authority Referral</label>
                         <Input
                           placeholder="LA safeguarding reference number (if applicable)"
                           className="border-border"
+                          value={incidentForm.la_referral}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, la_referral: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">CQC Notification</label>
+                        <label className="block text-sm  text-foreground mb-1">CQC Notification</label>
                         <Input
                           placeholder="CQC notification reference (if applicable)"
                           className="border-border"
+                          value={incidentForm.cqc_notification}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, cqc_notification: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Police Reference</label>
+                        <label className="block text-sm  text-foreground mb-1">Police Reference</label>
                         <Input
                           placeholder="Police reference number (if applicable)"
                           className="border-border"
+                          value={incidentForm.police_reference}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, police_reference: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Other External References</label>
+                        <label className="block text-sm  text-foreground mb-1">Other External References</label>
                         <Input
                           placeholder="Any other external reference numbers"
                           className="border-border"
+                          value={incidentForm.other_references}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, other_references: e.target.value })}
                         />
                       </div>
                     </div>
@@ -596,11 +715,15 @@ export function IncidentCaseHub() {
 
                   {/* Leadership Assessment */}
                   <div className="pb-6">
-                    <h3 className="font-semibold text-foreground mb-4">Leadership Assessment</h3>
+                    <h3 className=" text-foreground mb-4">Leadership Assessment</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Was this incident foreseeable?</label>
-                        <select className="w-full border-2 border-border rounded p-2">
+                        <label className="block text-sm  text-foreground mb-1">Was this incident foreseeable?</label>
+                        <select 
+                          className="w-full border-2 border-border rounded p-2"
+                          value={incidentForm.is_foreseeable}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, is_foreseeable: e.target.value })}
+                        >
                           <option value="">Select...</option>
                           <option value="yes">Yes - risks were known</option>
                           <option value="no">No - unexpected event</option>
@@ -608,24 +731,30 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Related Risk Factors</label>
+                        <label className="block text-sm  text-foreground mb-1">Related Risk Factors</label>
                         <textarea
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Any risk factors that contributed to this incident..."
+                          value={incidentForm.risk_factors}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, risk_factors: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Preventive Measures Needed</label>
+                        <label className="block text-sm  text-foreground mb-1">Preventive Measures Needed</label>
                         <textarea
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Measures needed to prevent similar incidents..."
+                          value={incidentForm.preventive_measures}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, preventive_measures: e.target.value })}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Leadership Commentary</label>
+                        <label className="block text-sm  text-foreground mb-1">Leadership Commentary</label>
                         <textarea
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Leadership perspective on the incident and implications..."
+                          value={incidentForm.leadership_commentary}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, leadership_commentary: e.target.value })}
                         />
                       </div>
                     </div>
@@ -633,10 +762,10 @@ export function IncidentCaseHub() {
 
                   {/* Reporting Information */}
                   <div className="pb-6">
-                    <h3 className="font-semibold text-foreground mb-4">Reporting Information</h3>
+                    <h3 className=" text-foreground mb-4">Reporting Information</h3>
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Your Name *</label>
+                        <label className="block text-sm  text-foreground mb-1">Your Name *</label>
                         <Input
                           placeholder="Your full name"
                           className="border-border bg-muted cursor-not-allowed"
@@ -645,7 +774,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-medium text-foreground mb-1">Your Role *</label>
+                        <label className="block text-sm  text-foreground mb-1">Your Role *</label>
                         <Input
                           placeholder="Your role"
                           className="border-border bg-muted cursor-not-allowed"
@@ -661,14 +790,14 @@ export function IncidentCaseHub() {
                   <Button
                     variant="outline"
                     onClick={() => setShowCreateModal(false)}
-                    className="border-border text-foreground hover:bg-muted flex-1 py-6 rounded-lg font-bold"
+                    className="border-border text-foreground hover:bg-muted flex-1 py-6 rounded-lg "
                   >
                     Discard Changes
                   </Button>
                   <Button
                     onClick={handleCreateIncident}
                     disabled={isSubmitting}
-                    className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 py-6 rounded-lg font-bold shadow-lg disabled:opacity-50"
+                    className="bg-primary text-primary-foreground hover:bg-primary/90 flex-1 py-6 rounded-lg  shadow-lg disabled:opacity-50"
                   >
                     {isSubmitting ? 'Reporting...' : 'Submit Serious Incident'}
                   </Button>

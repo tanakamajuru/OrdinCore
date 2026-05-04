@@ -81,7 +81,8 @@ export class PulseService {
                 pulse_id: pulse.id,
                 company_id,
                 house_id: pulse.house_id,
-                risk_domain: pulse.risk_domain
+                risk_domain: pulse.risk_domain,
+                related_person: pulse.related_person
             });
             logger.info(`Pattern detection job queued for pulse ${pulse.id}`);
         } catch (err) {

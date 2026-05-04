@@ -455,7 +455,7 @@ const AdminUserManagement: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h1 className="text-3xl font-bold text-primary">User Management</h1>
+          <h1 className="text-3xl  text-primary">User Management</h1>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
           <UserPlus className="mr-2 h-4 w-4" />
@@ -468,31 +468,31 @@ const AdminUserManagement: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Total Users</h2>
+              <h2 className="text-sm  text-muted-foreground">Total Users</h2>
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.total}</div>
+            <div className="text-2xl  text-foreground">{stats.total}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Active Users</h2>
+              <h2 className="text-sm  text-muted-foreground">Active Users</h2>
               <Users className="h-4 w-4 text-success" />
             </div>
-            <div className="text-2xl font-bold text-success">{stats.active}</div>
+            <div className="text-2xl  text-success">{stats.active}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Inactive Users</h2>
+              <h2 className="text-sm  text-muted-foreground">Inactive Users</h2>
               <Users className="h-4 w-4 text-destructive" />
             </div>
-            <div className="text-2xl font-bold text-destructive">{stats.inactive}</div>
+            <div className="text-2xl  text-destructive">{stats.inactive}</div>
           </div>
           <div className="bg-card border-2 border-border p-6 shadow-sm">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-medium text-muted-foreground">Assigned to Sites</h2>
+              <h2 className="text-sm  text-muted-foreground">Assigned to Sites</h2>
               <Users className="h-4 w-4 text-primary" />
             </div>
-            <div className="text-2xl font-bold text-foreground">{stats.assignedToHouse}</div>
+            <div className="text-2xl  text-foreground">{stats.assignedToHouse}</div>
           </div>
         </div>
       )}
@@ -500,7 +500,7 @@ const AdminUserManagement: React.FC = () => {
       {/* Filters */}
       <div className="bg-card border-2 border-border p-6 shadow-sm">
         <div className="mb-4">
-          <h2 className="text-xl font-semibold text-primary mb-2">Filters</h2>
+          <h2 className="text-xl  text-primary mb-2">Filters</h2>
         </div>
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
@@ -551,26 +551,26 @@ const AdminUserManagement: React.FC = () => {
       <Card className="border-2 border-border bg-card shadow-sm">
         <div className="p-6">
           <div className="mb-4">
-            <h2 className="text-xl font-semibold text-primary mb-1">Users</h2>
+            <h2 className="text-xl  text-primary mb-1">Users</h2>
             <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
           </div>
           <CardContent className="p-0">
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow className="border-border">
-                  <TableHead className="text-primary font-bold">Name</TableHead>
-                  <TableHead className="text-primary font-bold">Email</TableHead>
-                  <TableHead className="text-primary font-bold">Role</TableHead>
-                  <TableHead className="text-primary font-bold">Assigned Site</TableHead>
-                  <TableHead className="text-primary font-bold">Pulse Days</TableHead>
-                  <TableHead className="text-primary font-bold">Status</TableHead>
-                  <TableHead className="text-primary font-bold">Actions</TableHead>
+                  <TableHead className="text-primary ">Name</TableHead>
+                  <TableHead className="text-primary ">Email</TableHead>
+                  <TableHead className="text-primary ">Role</TableHead>
+                  <TableHead className="text-primary ">Assigned Site</TableHead>
+                  <TableHead className="text-primary ">Pulse Days</TableHead>
+                  <TableHead className="text-primary ">Status</TableHead>
+                  <TableHead className="text-primary ">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {users.map((user) => (
                   <TableRow key={user.id} className="border-border hover:bg-muted/30">
-                    <TableCell className="font-medium text-foreground">{user.name}</TableCell>
+                    <TableCell className=" text-foreground">{user.name}</TableCell>
                     <TableCell className="text-foreground">{user.email}</TableCell>
                     <TableCell>
                       <Badge className={`${getRoleBadgeColor(user.role)} shadow-sm border-none`}>

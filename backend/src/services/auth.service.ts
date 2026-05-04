@@ -50,12 +50,20 @@ export class AuthService {
       }
     }
 
+    const profile = await query('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]);
     const token = this.generateToken(user);
     const refreshToken = this.generateRefreshToken(user);
 
     const { password_hash, ...safeUser } = user;
     void password_hash;
-    return { token, refreshToken, user: safeUser };
+    return { 
+      token, 
+      refreshToken, 
+      user: {
+        ...safeUser,
+        profile: profile.rows[0] || null
+      } 
+    };
   }
 
   async me(userId: string) {

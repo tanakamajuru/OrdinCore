@@ -13,7 +13,7 @@ export class DirectorGovernanceService {
         SELECT 
           h.id as service_id,
           h.name as service_name,
-          COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text) as outcome,
+          COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text, ra.effectiveness::text) as outcome,
           ra.completed_at::date as day,
           r.risk_domain as domain
         FROM risk_actions ra
@@ -21,7 +21,7 @@ export class DirectorGovernanceService {
         JOIN houses h ON h.id = r.house_id
         WHERE h.company_id = $1
         AND ra.completed_at BETWEEN $2 AND $3
-        AND (ra.calculated_outcome IS NOT NULL OR ra.rm_override_outcome IS NOT NULL OR ra.director_override_outcome IS NOT NULL)
+        AND (ra.calculated_outcome IS NOT NULL OR ra.rm_override_outcome IS NOT NULL OR ra.director_override_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
       )
       SELECT 
         (SELECT json_build_object(
@@ -83,7 +83,7 @@ export class DirectorGovernanceService {
       FROM risk_actions ra
       JOIN risks r ON r.id = ra.risk_id
       WHERE r.company_id = $1
-      AND COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text) = 'Ineffective'
+      AND COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text, ra.effectiveness::text) = 'Ineffective'
       AND ra.completed_at >= NOW() - INTERVAL '14 days'
       GROUP BY ra.risk_id, r.house_id
       HAVING COUNT(*) >= 2

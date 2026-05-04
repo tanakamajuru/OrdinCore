@@ -292,18 +292,18 @@ const AdminRiskManagement: React.FC = () => {
             <TableCell className="font-mono">{risk.risk_id}</TableCell>
             <TableCell>
               <div>
-                <div className="font-medium">{risk.house_name}</div>
+                <div className="">{risk.house_name}</div>
                 <div className="text-sm text-muted-foreground">{risk.house_code}</div>
               </div>
             </TableCell>
             <TableCell>
               <div>
-                <div className="font-medium">{risk.performed_by_name}</div>
+                <div className="">{risk.performed_by_name}</div>
                 <div className="text-sm text-muted-foreground">{risk.performed_by_email}</div>
               </div>
             </TableCell>
             <TableCell>
-              <span className={`font-medium ${getActivityTypeColor(risk.activity_type)}`}>
+              <span className={` ${getActivityTypeColor(risk.activity_type)}`}>
                 {risk.activity_type}
               </span>
             </TableCell>

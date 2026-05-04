@@ -141,7 +141,12 @@ export class RisksController {
   async getAllActions(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const filters = { house_id: req.query.house_id, status: req.query.status };
+      const filters = { 
+        house_id: req.query.house_id, 
+        status: req.query.status,
+        pending_review: req.query.pending_review 
+      };
+
       const actions = await risksService.findAllActions(company_id, filters);
       return res.json({ success: true, data: actions, meta: {} });
     } catch (err: unknown) {
@@ -246,6 +251,24 @@ export class RisksController {
       return res.status(201).json({ success: true, data: attachment, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add attachment';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async dismissCandidate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      const { candidate_id, reason } = req.body;
+      
+      if (!candidate_id || !reason) {
+        return res.status(400).json({ success: false, message: 'candidate_id and reason are required' });
+      }
+
+      await risksService.dismissCandidate(company_id, user_id, candidate_id, reason);
+      return res.json({ success: true, message: 'Risk candidate dismissed successfully' });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to dismiss candidate';
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }

@@ -231,7 +231,7 @@ export function ReconstructionReport() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Report data not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Report data not found</h2>
           <button
             onClick={() => navigate('/incidents')}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -259,7 +259,7 @@ export function ReconstructionReport() {
               Back to Timeline
             </Button>
             <div>
-              <h1 className="text-3xl font-bold text-foreground">Governance Reconstruction Report</h1>
+              <h1 className="text-3xl  text-foreground">Governance Reconstruction Report</h1>
               <p className="text-muted-foreground">Official oversight documentation for {incident.id}</p>
             </div>
           </div>
@@ -288,26 +288,26 @@ export function ReconstructionReport() {
         <Card className="border-2 border-border mb-6">
           <CardContent className="p-8">
             <div className="text-center mb-6">
-              <h2 className="text-2xl font-bold text-foreground mb-2">SERIOUS INCIDENT GOVERNANCE REPORT</h2>
+              <h2 className="text-2xl  text-foreground mb-2">SERIOUS INCIDENT GOVERNANCE REPORT</h2>
               <p className="text-muted-foreground">OrdinCore Governance Reconstruction System</p>
             </div>
             
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mt-8">
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Service</div>
-                <div className="font-bold text-foreground">{incident.houseName}</div>
+                <div className=" text-foreground">{incident.houseName}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Incident Type</div>
-                <div className="font-bold text-foreground">{incident.incidentType}</div>
+                <div className=" text-foreground">{incident.incidentType}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Incident Date</div>
-                <div className="font-bold text-foreground">{incident.incidentDate}</div>
+                <div className=" text-foreground">{incident.incidentDate}</div>
               </div>
               <div>
                 <div className="text-sm text-muted-foreground mb-1">Report Status</div>
-                <div className="font-bold text-foreground">{incident.status}</div>
+                <div className=" text-foreground">{incident.status}</div>
               </div>
             </div>
           </CardContent>
@@ -324,25 +324,25 @@ export function ReconstructionReport() {
           <CardContent className="p-6">
             <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
               <div className="text-center p-4 bg-muted rounded border">
-                <div className="text-2xl font-bold text-foreground">{metrics.riskSignalsLogged}</div>
+                <div className="text-2xl  text-foreground">{metrics.riskSignalsLogged}</div>
                 <div className="text-sm text-muted-foreground">Risk Signals Logged</div>
               </div>
               <div className="text-center p-4 bg-muted rounded border">
-                <div className="text-2xl font-bold text-foreground">{metrics.escalationsTriggered}</div>
+                <div className="text-2xl  text-foreground">{metrics.escalationsTriggered}</div>
                 <div className="text-sm text-muted-foreground">Escalations Triggered</div>
               </div>
               <div className="text-center p-4 bg-muted rounded border">
-                <div className="text-2xl font-bold text-foreground">{metrics.leadershipReviews}</div>
+                <div className="text-2xl  text-foreground">{metrics.leadershipReviews}</div>
                 <div className="text-sm text-muted-foreground">Leadership Reviews</div>
               </div>
               <div className="text-center p-4 bg-muted rounded border">
-                <div className="text-2xl font-bold text-foreground">{metrics.lastOversightReviewDays} days</div>
+                <div className="text-2xl  text-foreground">{metrics.lastOversightReviewDays} days</div>
                 <div className="text-sm text-muted-foreground">Last Oversight Before Incident</div>
               </div>
             </div>
 
             <div className="mt-6 p-4 bg-muted border border-border rounded">
-              <div className="font-medium text-foreground mb-2">Key Findings:</div>
+              <div className=" text-foreground mb-2">Key Findings:</div>
               <ul className="text-sm text-foreground space-y-1">
                 {findings.map((finding, i) => (
                   <li key={i}>• {finding}</li>
@@ -378,10 +378,10 @@ export function ReconstructionReport() {
                   <div className="flex-1">
                     <div className="flex justify-between items-start mb-2">
                       <div>
-                        <div className="font-bold text-foreground">{
+                        <div className=" text-foreground">{
                           event.timestamp.includes('T') ? new Date(event.timestamp).toLocaleString('en-GB') : event.timestamp
                         }</div>
-                        <div className="font-medium text-foreground mt-1">{event.label}</div>
+                        <div className=" text-foreground mt-1">{event.label}</div>
                         <div className="text-muted-foreground mt-1">{event.detail}</div>
                       </div>
                       {event.gapFlag && (
@@ -412,11 +412,11 @@ export function ReconstructionReport() {
             <div className="space-y-4">
               <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-foreground">Escalation Response Time</div>
+                  <div className=" text-foreground">Escalation Response Time</div>
                   <div className="text-sm text-muted-foreground">Time between escalation trigger and leadership review</div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-bold ${
+                  <div className={` ${
                     getComplianceStatus("escalationResponse") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.escalationResponseHours} hours
@@ -431,11 +431,11 @@ export function ReconstructionReport() {
 
               <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-foreground">Oversight Frequency</div>
+                  <div className=" text-foreground">Oversight Frequency</div>
                   <div className="text-sm text-muted-foreground">Days between last governance review and incident</div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-bold ${
+                  <div className={` ${
                     getComplianceStatus("oversightFrequency") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.lastOversightReviewDays} days
@@ -450,11 +450,11 @@ export function ReconstructionReport() {
 
               <div className="flex justify-between items-center p-3 bg-muted rounded border">
                 <div>
-                  <div className="font-medium text-foreground">Risk Recognition Timeline</div>
+                  <div className=" text-foreground">Risk Recognition Timeline</div>
                   <div className="text-sm text-muted-foreground">Days from first signal to incident</div>
                 </div>
                 <div className="text-right">
-                  <div className={`font-bold ${
+                  <div className={` ${
                     getComplianceStatus("riskRecognition") === "compliant" ? "text-foreground" : "text-foreground"
                   }`}>
                     {metrics.firstSignalToIncidentDays} days
@@ -480,7 +480,7 @@ export function ReconstructionReport() {
           </CardHeader>
           <CardContent className="p-6">
             <div className="mb-4">
-              <div className="font-medium text-foreground mb-2">Organizational Risk Patterns</div>
+              <div className=" text-foreground mb-2">Organizational Risk Patterns</div>
               <div className="text-sm text-muted-foreground mb-4">
                 Analysis of similar risk signals across all houses during the relevant period
               </div>
@@ -488,11 +488,11 @@ export function ReconstructionReport() {
 
             <div className="space-y-3">
               {patterns.length === 0 ? (
-                <div className="text-sm text-muted-foreground italic">No significant organizational patterns detected in this period.</div>
+                <div className="text-sm text-muted-foreground ">No significant organizational patterns detected in this period.</div>
               ) : patterns.map((pattern, index) => (
                 <div key={index} className="flex justify-between items-center p-3 bg-muted rounded border">
                   <div>
-                    <div className="font-medium text-foreground">{pattern.house}</div>
+                    <div className=" text-foreground">{pattern.house}</div>
                     <div className="text-sm text-muted-foreground">{pattern.signal}</div>
                   </div>
                   <div className="text-sm text-muted-foreground">Detected: {pattern.detected}</div>
@@ -502,7 +502,7 @@ export function ReconstructionReport() {
 
             {patterns.length > 0 && (
               <div className="mt-4 p-3 bg-orange-50 border border-orange-200 rounded">
-                <div className="font-medium text-orange-900 mb-1">Pattern Analysis Result:</div>
+                <div className=" text-orange-900 mb-1">Pattern Analysis Result:</div>
                 <div className="text-sm text-orange-800">
                   Similar risk signals detected across multiple houses indicating potential systemic issues requiring organizational oversight.
                 </div>
@@ -522,10 +522,10 @@ export function ReconstructionReport() {
           <CardContent className="p-6">
             <div className="space-y-6">
               <div>
-                <div className="font-bold text-foreground mb-3">Governance Effectiveness Assessment</div>
+                <div className=" text-foreground mb-3">Governance Effectiveness Assessment</div>
                 <div className="bg-muted border border-border rounded p-4">
                   <div className="text-foreground">
-                    <div className="font-medium mb-2">✓ OVERSIGHT PRESENT</div>
+                    <div className=" mb-2">✓ OVERSIGHT PRESENT</div>
                     <div className="text-sm space-y-1">
                       <div>• Risk signals were identified and documented prior to incident</div>
                       <div>• Escalation protocols were followed appropriately</div>
@@ -537,7 +537,7 @@ export function ReconstructionReport() {
               </div>
 
               <div>
-                <div className="font-bold text-foreground mb-3">Recommendations</div>
+                <div className=" text-foreground mb-3">Recommendations</div>
                 <div className="space-y-2">
                   {recommendations.map((rec, i) => (
                     <div key={i} className="flex gap-2">
@@ -549,7 +549,7 @@ export function ReconstructionReport() {
               </div>
 
               <div>
-                <div className="font-bold text-foreground mb-3">Report Certification</div>
+                <div className=" text-foreground mb-3">Report Certification</div>
                 <div className="bg-muted border border-border rounded p-4">
                   <div className="text-sm text-muted-foreground space-y-2">
                     <div>This report was automatically generated by OrdinCore Governance Reconstruction System</div>

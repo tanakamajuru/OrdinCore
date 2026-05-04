@@ -178,7 +178,7 @@ export function RiskRegister() {
       case "Pulse":
         return <span className="px-2 py-1 bg-muted border border-border text-xs text-foreground">Pulse</span>;
       case "Cluster":
-        return <span className="px-2 py-1 bg-primary/10 border border-primary/50 text-xs text-primary font-bold">Signal Cluster</span>;
+        return <span className="px-2 py-1 bg-primary/10 border border-primary/50 text-xs text-primary ">Signal Cluster</span>;
       case "Out-of-Cycle":
         return <span className="px-2 py-1 bg-primary text-primary-foreground text-xs">Out-of-Cycle</span>;
       case "Manual":
@@ -219,17 +219,17 @@ export function RiskRegister() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-primary text-primary-foreground text-sm whitespace-nowrap">
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">House</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Description</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Category</th>
-              <th className="border-b border-border px-4 py-3 text-center font-semibold">Score</th>
-              <th className="border-b border-border px-4 py-3 text-center font-semibold">Trend</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Severity</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Date Identified</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Source</th>
-              <th className="border-b border-border px-4 py-3 text-center font-semibold">Escalated</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Status</th>
-              <th className="border-b border-border px-4 py-3 text-left font-semibold">Review Date</th>
+              <th className="border-b border-border px-4 py-3 text-left ">House</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Description</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Category</th>
+              <th className="border-b border-border px-4 py-3 text-center ">Score</th>
+              <th className="border-b border-border px-4 py-3 text-center ">Trend</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Severity</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Date Identified</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Source</th>
+              <th className="border-b border-border px-4 py-3 text-center ">Escalated</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Status</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Review Date</th>
             </tr>
           </thead>
           <tbody>
@@ -243,19 +243,19 @@ export function RiskRegister() {
               >
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.house}</td>
                 <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
-                    <div className="font-bold">{risk.description}</div>
-                    {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase font-black">Pattern: {risk.sourceClusterName}</div>}
+                    <div className="">{risk.description}</div>
+                    {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase ">Pattern: {risk.sourceClusterName}</div>}
                 </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.category}</td>
                 <td className="border-b border-border px-4 py-4 text-center">
-                    <span className="font-black text-lg">{risk.riskScore}</span>
+                    <span className=" text-lg">{risk.riskScore}</span>
                 </td>
                 <td className="border-b border-border px-4 py-4 text-center">
                     <div className="flex justify-center">{getTrajectoryIcon(risk.trajectory)}</div>
                 </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">
                   <span
-                    className={`inline-block px-2 py-1 text-xs font-medium ${
+                    className={`inline-block px-2 py-1 text-xs  ${
                       risk.severity === "High" || risk.severity === "Critical"
                         ? "bg-destructive text-destructive-foreground"
                         : risk.severity === "Medium"
@@ -270,7 +270,7 @@ export function RiskRegister() {
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">{getSourceBadge(risk.source)}</td>
                 <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm truncate" title={risk.mitigation}>{risk.mitigation}</td>
                 <td className="border-b border-border px-4 py-4 text-center whitespace-nowrap">
-                  <span className={`inline-block px-2 py-1 text-xs font-medium ${
+                  <span className={`inline-block px-2 py-1 text-xs  ${
                     risk.escalated ? "bg-destructive text-destructive-foreground" : "text-muted-foreground"
                   }`}>
                     {risk.escalated ? "Yes" : "-"}
@@ -278,7 +278,7 @@ export function RiskRegister() {
                 </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">
                   <span
-                    className={`inline-block px-2 py-1 text-xs font-medium border border-border ${
+                    className={`inline-block px-2 py-1 text-xs  border border-border ${
                       risk.status === "Open"
                         ? "text-primary"
                         : risk.status === "In Progress" || risk.status === "Under Review"
@@ -291,7 +291,7 @@ export function RiskRegister() {
                     {risk.status}
                   </span>
                 </td>
-                <td className="border-b border-border px-4 py-4 whitespace-nowrap text-muted-foreground font-medium">{risk.reviewDate}</td>
+                <td className="border-b border-border px-4 py-4 whitespace-nowrap text-muted-foreground ">{risk.reviewDate}</td>
               </tr>
             ))}
           </tbody>
@@ -459,14 +459,15 @@ export function RiskRegister() {
       </html>
     `;
 
-    const blob = new Blob([tableHtml], { type: 'application/vnd.ms-excel' });
+    const blob = new Blob(['\ufeff', tableHtml], { type: 'application/vnd.ms-excel;charset=utf-8' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.setAttribute("href", url);
-    link.setAttribute("download", `Risk_Register_${new Date().toISOString().split('T')[0]}.xls`);
+    link.href = url;
+    link.download = `Risk_Register_${new Date().toISOString().split('T')[0]}.xls`;
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -475,7 +476,7 @@ export function RiskRegister() {
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-semibold text-primary">Risk Register</h1>
+            <h1 className="text-3xl  text-primary">Risk Register</h1>
             <p className="text-muted-foreground mt-1">Live register of all identified risks</p>
             <div className="mt-2 flex gap-2">
               <span className="text-xs text-muted-foreground">Pulse-originated risks are created through Governance Pulse rhythm</span>
@@ -486,7 +487,7 @@ export function RiskRegister() {
           <div className="flex gap-3">
             <button 
               onClick={handleExportExcel}
-              className="flex items-center gap-2 bg-card text-foreground border-2 border-border px-4 py-2 hover:bg-muted transition-colors font-medium text-sm"
+              className="flex items-center gap-2 bg-card text-foreground border-2 border-border px-4 py-2 hover:bg-muted transition-colors  text-sm"
             >
               <Download className="w-4 h-4" />
               Export to Excel
@@ -499,7 +500,7 @@ export function RiskRegister() {
         <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block mb-2 text-foreground font-medium">Filter by House</label>
+              <label className="block mb-2 text-foreground ">Filter by House</label>
               <div className="relative">
                 <select
                   value={houseFilter}
@@ -517,7 +518,7 @@ export function RiskRegister() {
             </div>
 
             <div className="flex-1">
-              <label className="block mb-2 text-foreground font-medium">Filter by Severity</label>
+              <label className="block mb-2 text-foreground ">Filter by Severity</label>
               <div className="relative">
                 <select
                   value={severityFilter}
@@ -535,7 +536,7 @@ export function RiskRegister() {
             </div>
 
             <div className="flex-1">
-              <label className="block mb-2 text-foreground font-medium">Filter by Status</label>
+              <label className="block mb-2 text-foreground ">Filter by Status</label>
               <div className="relative">
                 <select
                   value={statusFilter}
@@ -562,11 +563,11 @@ export function RiskRegister() {
       {showAddRisk && (
         <div className="fixed inset-0 backdrop-blur-sm bg-background/80 flex items-center justify-center z-50">
           <div className="bg-card border-2 border-border p-6 w-full max-w-2xl max-h-screen overflow-y-auto shadow-xl">
-            <h2 className="text-xl font-semibold mb-4 text-primary">Add New Risk</h2>
+            <h2 className="text-xl  mb-4 text-primary">Add New Risk</h2>
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-foreground font-medium">House</label>
+                <label className="block mb-2 text-foreground ">House</label>
                 <select
                   value={newRisk.house}
                   onChange={(e) => setNewRisk({...newRisk, house: e.target.value})}
@@ -585,7 +586,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Risk Title</label>
+                <label className="block mb-2 text-foreground ">Risk Title</label>
                 <input
                   type="text"
                   value={newRisk.title || ""}
@@ -595,7 +596,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Reported By</label>
+                <label className="block mb-2 text-foreground ">Reported By</label>
                 <input
                   type="text"
                   value={newRisk.createdBy || ""}
@@ -605,7 +606,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Category</label>
+                <label className="block mb-2 text-foreground ">Category</label>
                 <select
                   value={newRisk.category}
                   onChange={(e) => setNewRisk({...newRisk, category: e.target.value})}
@@ -621,7 +622,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Severity</label>
+                <label className="block mb-2 text-foreground ">Severity</label>
                 <select
                   value={newRisk.severity}
                   onChange={(e) => setNewRisk({...newRisk, severity: e.target.value as any})}
@@ -635,7 +636,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Date Identified</label>
+                <label className="block mb-2 text-foreground ">Date Identified</label>
                 <input
                   type="date"
                   value={newRisk.dateIdentified}
@@ -646,7 +647,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Description</label>
+              <label className="block mb-2 text-foreground ">Description</label>
               <textarea
                 value={newRisk.description}
                 onChange={(e) => setNewRisk({...newRisk, description: e.target.value})}
@@ -656,7 +657,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Impact</label>
+              <label className="block mb-2 text-foreground ">Impact</label>
               <textarea
                 value={newRisk.impact || ""}
                 onChange={(e) => setNewRisk({...newRisk, impact: e.target.value})}
@@ -666,7 +667,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Mitigation Plan</label>
+              <label className="block mb-2 text-foreground ">Mitigation Plan</label>
               <textarea
                 value={newRisk.mitigation}
                 onChange={(e) => setNewRisk({...newRisk, mitigation: e.target.value})}
@@ -676,7 +677,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Root Cause Analysis</label>
+              <label className="block mb-2 text-foreground ">Root Cause Analysis</label>
               <textarea
                 value={newRisk.rootCause || ""}
                 onChange={(e) => setNewRisk({...newRisk, rootCause: e.target.value})}
@@ -710,7 +711,7 @@ export function RiskRegister() {
           <div className="bg-card border-2 border-border p-6 w-full max-w-2xl max-h-screen overflow-y-auto">
             <div className="flex items-center gap-3 mb-4">
               <AlertTriangle className="w-6 h-6 text-foreground" />
-              <h2 className="text-xl font-semibold text-foreground">Create Out-of-Cycle Risk</h2>
+              <h2 className="text-xl  text-foreground">Create Out-of-Cycle Risk</h2>
             </div>
             
             <div className="bg-muted border-2 border-border p-4 mb-4">
@@ -722,7 +723,7 @@ export function RiskRegister() {
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-foreground font-medium">House</label>
+                <label className="block mb-2 text-foreground ">House</label>
                 <select
                   value={outOfCycleRisk.house}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, house: e.target.value})}
@@ -741,7 +742,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Category</label>
+                <label className="block mb-2 text-foreground ">Category</label>
                 <select
                   value={outOfCycleRisk.category}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, category: e.target.value})}
@@ -757,7 +758,7 @@ export function RiskRegister() {
               </div>
               
               <div>
-                <label className="block mb-2 text-foreground font-medium">Severity</label>
+                <label className="block mb-2 text-foreground ">Severity</label>
                 <select
                   value={outOfCycleRisk.severity}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, severity: e.target.value})}
@@ -772,7 +773,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Risk Description</label>
+              <label className="block mb-2 text-foreground ">Risk Description</label>
               <textarea
                 value={outOfCycleRisk.description}
                 onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, description: e.target.value})}
@@ -782,7 +783,7 @@ export function RiskRegister() {
             </div>
             
             <div className="mb-4">
-              <label className="block mb-2 text-foreground font-medium">Reason for Out-of-Cycle Creation</label>
+              <label className="block mb-2 text-foreground ">Reason for Out-of-Cycle Creation</label>
               <textarea
                 value={outOfCycleRisk.reason}
                 onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, reason: e.target.value})}
@@ -799,7 +800,7 @@ export function RiskRegister() {
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, requiresImmediateReview: e.target.checked})}
                   className="w-4 h-4 border-2 border-border"
                 />
-                <span className="text-foreground font-medium">Requires immediate review at next Pulse</span>
+                <span className="text-foreground ">Requires immediate review at next Pulse</span>
               </label>
             </div>
             

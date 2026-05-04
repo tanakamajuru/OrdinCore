@@ -78,7 +78,7 @@ export function MonthlyReport() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-foreground mb-2">Organizational Monthly Report</h1>
+          <h1 className="text-3xl  text-foreground mb-2">Organizational Monthly Report</h1>
           <p className="text-muted-foreground">Generate high-level strategic summaries for stakeholders and directors</p>
         </div>
 
@@ -91,14 +91,14 @@ export function MonthlyReport() {
               <CardContent>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Target Month</label>
+                    <label className="block text-sm  text-muted-foreground mb-1">Target Month</label>
                     <select className="w-full border-2 border-border p-2 bg-card">
                       <option>{new Date().toLocaleString('default', { month: 'long', year: 'numeric' })}</option>
                       <option>Previous Month</option>
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-muted-foreground mb-1">Included Sections</label>
+                    <label className="block text-sm  text-muted-foreground mb-1">Included Sections</label>
                     <div className="space-y-2">
                        <div className="flex items-center gap-2">
                          <input type="checkbox" checked readOnly className="accent-black" />
@@ -116,7 +116,7 @@ export function MonthlyReport() {
                   </div>
                   <Button 
                     onClick={generateReport} 
-                    className="w-full bg-primary text-primary-foreground hover:bg-[#008394] h-12 text-lg font-bold"
+                    className="w-full bg-primary text-primary-foreground hover:bg-[#008394] h-12 text-lg "
                     disabled={isGenerating}
                   >
                     {isGenerating ? "Generating..." : "Generate Strategic PDF Report"}
@@ -131,7 +131,7 @@ export function MonthlyReport() {
                   <div className="flex items-center gap-3">
                     <CheckCircle className="text-green-600 w-8 h-8" />
                     <div>
-                      <p className="font-bold text-foreground">Report Generation Queued</p>
+                      <p className=" text-foreground">Report Generation Queued</p>
                       <p className="text-sm text-muted-foreground">ID: {lastReport.id?.substring(0, 8) || 'Pending'}</p>
                     </div>
                   </div>
@@ -158,7 +158,7 @@ export function MonthlyReport() {
                   <div key={report.id} className="flex items-center justify-between p-3 border-b border-gray-100 last:border-0">
                     <div className="flex items-center gap-2">
                       <FileText className="w-4 h-4 text-gray-400" />
-                      <div className="text-sm font-medium text-foreground truncate max-w-[150px]">{report.name}</div>
+                      <div className="text-sm  text-foreground truncate max-w-[150px]">{report.name}</div>
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-[10px] px-1.5 py-0.5 rounded ${

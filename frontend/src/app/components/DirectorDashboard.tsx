@@ -140,34 +140,34 @@ export function DirectorDashboard() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl font-semibold text-primary">Strategic Dashboard</h1>
+          <h1 className="text-3xl  text-primary">Strategic Dashboard</h1>
           <p className="text-muted-foreground mt-1">High-level strategic visibility across the organisation</p>
         </div>
 
         {/* P1: Statutory Escalation View - Unacknowledged Serious Incidents */}
         {unacknowledgedIncidents.length > 0 && (
-          <div className="mb-6 bg-destructive/10 border-4 border-destructive p-6 shadow-[8px_8px_0px_rgba(239,68,68,0.2)]">
+          <div className="mb-6 bg-destructive/10 border-4 border-destructive p-6 ">
             <div className="flex items-center justify-between mb-4">
               <div className="flex items-center gap-3">
                 <Shield className="w-8 h-8 text-destructive" />
-                <h2 className="text-2xl font-black uppercase italic tracking-tighter text-destructive">Statutory Escalation: Unacknowledged Incidents</h2>
+                <h2 className="text-2xl  uppercase  tracking-tighter text-destructive">Statutory Escalation: Unacknowledged Incidents</h2>
               </div>
-              <span className="bg-destructive text-primary-foreground px-3 py-1 font-black uppercase text-sm animate-pulse">Critical Governance Breach</span>
+              <span className="bg-destructive text-primary-foreground px-3 py-1  uppercase text-sm animate-pulse">Critical Governance Breach</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {unacknowledgedIncidents.map((incident: any) => (
                 <div key={incident.id} className="bg-card border-2 border-destructive p-4 group hover:shadow-md transition-all">
                   <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px] font-black uppercase bg-destructive text-primary-foreground px-2 py-0.5">{incident.severity}</span>
-                    <span className="flex items-center gap-1 text-[10px] font-bold text-destructive">
+                    <span className="text-[10px]  uppercase bg-destructive text-primary-foreground px-2 py-0.5">{incident.severity}</span>
+                    <span className="flex items-center gap-1 text-[10px]  text-destructive">
                       <Clock className="w-3 h-3" />
                       {Math.round(incident.age_hours)}H UNACKNOWLEDGED
                     </span>
                   </div>
-                  <h3 className="font-black text-primary uppercase italic tracking-tighter mb-1">{incident.title}</h3>
-                  <p className="text-xs font-bold text-muted-foreground mb-3">{incident.house_name}</p>
+                  <h3 className=" text-primary uppercase  tracking-tighter mb-1">{incident.title}</h3>
+                  <p className="text-xs  text-muted-foreground mb-3">{incident.house_name}</p>
                   <Button 
-                    className="w-full bg-destructive text-primary-foreground hover:bg-destructive/90 font-bold uppercase text-xs rounded-none"
+                    className="w-full bg-destructive text-primary-foreground hover:bg-destructive/90  uppercase text-xs rounded-none"
                     onClick={() => navigate(`/incidents/${incident.id}`)}
                   >
                     Direct Intervention
@@ -189,17 +189,17 @@ export function DirectorDashboard() {
         <div className="mb-6 bg-warning/5 border-2 border-warning/20 p-6 shadow-sm">
           <div className="flex items-center gap-3 mb-4">
             <Shield className="w-6 h-6 text-warning" />
-            <h2 className="text-xl font-black uppercase italic tracking-tighter text-primary">Governance Oversight: RM Reviews</h2>
+            <h2 className="text-xl  uppercase  tracking-tighter text-primary">Governance Oversight: RM Reviews</h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {sitePerformance.filter(s => (s.compliance_score || 0) < 100).map((site: any) => (
               <div key={site.house_id} className="bg-card border-2 border-border p-4 flex justify-between items-center group hover:border-warning/50 transition-all">
                 <div>
-                  <p className="font-black text-foreground uppercase italic tracking-tighter">{site.house_name}</p>
-                  <p className="text-xs font-bold text-muted-foreground uppercase">Last Review: {site.last_review_date ? new Date(site.last_review_date).toLocaleDateString() : 'NEVER'}</p>
+                  <p className=" text-foreground uppercase  tracking-tighter">{site.house_name}</p>
+                  <p className="text-xs  text-muted-foreground uppercase">Last Review: {site.last_review_date ? new Date(site.last_review_date).toLocaleDateString() : 'NEVER'}</p>
                 </div>
                 <div className="text-right">
-                   <span className={`text-[10px] font-black uppercase px-2 py-1 ${
+                   <span className={`text-[10px]  uppercase px-2 py-1 ${
                      !site.last_review_date || new Date(site.last_review_date) < new Date(Date.now() - 48*60*60*1000) 
                        ? 'bg-destructive text-destructive-foreground' 
                        : 'bg-warning text-warning-foreground'
@@ -210,7 +210,7 @@ export function DirectorDashboard() {
               </div>
             ))}
             {sitePerformance.filter(s => (s.compliance_score || 0) < 100).length === 0 && (
-              <div className="col-span-3 text-center py-6 text-muted-foreground border border-dashed border-border font-bold italic uppercase tracking-widest text-sm opacity-50">
+              <div className="col-span-3 text-center py-6 text-muted-foreground border border-dashed border-border   uppercase tracking-widest text-sm opacity-50">
                 All services have completed daily oversight reviews.
               </div>
             )}
@@ -224,12 +224,12 @@ export function DirectorDashboard() {
           <div className="space-y-6">
             {/* Organizational Snapshot */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Organizational Overview</h2>
+              <h2 className="text-xl  mb-4 text-primary">Organizational Overview</h2>
               <div className="space-y-3">
                 {organizationalSnapshot.map((item: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
                     <span className="text-foreground">{item.label}</span>
-                    <span className="font-semibold text-foreground">{item.value}</span>
+                    <span className=" text-foreground">{item.value}</span>
                   </div>
                 ))}
               </div>
@@ -237,12 +237,12 @@ export function DirectorDashboard() {
 
             {/* Risk Categories */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Risk Categories</h2>
+              <h2 className="text-xl  mb-4 text-primary">Risk Categories</h2>
               <div className="space-y-3">
                 {riskCategories.length > 0 ? riskCategories.map((category: any, idx: number) => (
                   <div key={idx} className="flex justify-between items-center">
                     <div>
-                      <p className="font-medium text-foreground">{category.category}</p>
+                      <p className=" text-foreground">{category.category}</p>
                       <p className="text-sm text-muted-foreground">{category.count} active risks</p>
                     </div>
                     <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export function DirectorDashboard() {
                         category.trend === "down" ? "bg-success" :
                         "bg-warning"
                       }`}></span>
-                      <span className="text-sm text-muted-foreground capitalize font-medium">{category.trend}</span>
+                      <span className="text-sm text-muted-foreground capitalize ">{category.trend}</span>
                     </div>
                   </div>
                 )) : (
@@ -262,14 +262,14 @@ export function DirectorDashboard() {
 
             {/* Strategic Insights */}
             {/* <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Strategic Insights</h2>
+              <h2 className="text-xl  mb-4 text-primary">Strategic Insights</h2>
               <div className="space-y-3">
                 {strategicInsights.length > 0 ? (
                   strategicInsights.map((insight: any, idx: number) => (
                     <div key={idx} className="border-b border-border pb-3 last:border-b-0">
                       <div className="flex justify-between items-start">
                         <div>
-                          <p className="font-medium text-foreground">{insight.type}</p>
+                          <p className=" text-foreground">{insight.type}</p>
                           <p className="text-sm text-muted-foreground">{insight.detail}</p>
                         </div>
                         <span className={`text-sm px-2 py-1 shadow-sm ${
@@ -292,19 +292,19 @@ export function DirectorDashboard() {
           <div className="space-y-6">
             {/* Site Performance */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Site Performance</h2>
+              <h2 className="text-xl  mb-4 text-primary">Site Performance</h2>
               <div className="space-y-3">
                 {sitePerformance.length > 0 ? sitePerformance.map((site: any, idx: number) => (
                   <div key={idx} className="border-b border-border pb-3 last:border-b-0">
                     <div className="flex justify-between items-center">
                       <div>
-                        <p className="font-medium text-foreground">{site.house_name || 'Service Site'}</p>
+                        <p className=" text-foreground">{site.house_name || 'Service Site'}</p>
                         <p className="text-sm text-muted-foreground font-mono">
-                          Risks: <span className="text-foreground font-semibold">{site.risks_count}</span> | Incidents: <span className="text-foreground font-semibold">{site.incidents_count}</span>
+                          Risks: <span className="text-foreground ">{site.risks_count}</span> | Incidents: <span className="text-foreground ">{site.incidents_count}</span>
                         </p>
                       </div>
                       <div className="text-right">
-                        <span className={`text-lg font-bold ${
+                        <span className={`text-lg  ${
                           site.compliance_score > 90 ? "text-success" :
                           site.compliance_score > 70 ? "text-warning" :
                           "text-destructive"
@@ -323,7 +323,7 @@ export function DirectorDashboard() {
 
             {/* Quick Actions */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl font-semibold mb-4 text-primary">Strategic Actions</h2>
+              <h2 className="text-xl  mb-4 text-primary">Strategic Actions</h2>
               <div className="space-y-3">
                 <button
                   onClick={() => navigate("/incidents")}

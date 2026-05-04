@@ -145,7 +145,7 @@ export class GovernanceController {
     try {
       const company_id = req.user!.company_id!;
       const filters = { house_id: req.query.house_id as string, status: req.query.status as string };
-      const clusters = await governanceService.getClusters(company_id, filters);
+      const clusters = await governanceService.getClusters(company_id, filters, req.user!.role);
       return res.json({ success: true, data: clusters });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch clusters';
@@ -156,9 +156,11 @@ export class GovernanceController {
   async getRiskCandidates(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 5;
       const filters = { house_id: req.query.house_id as string, status: req.query.status as string, id: req.query.id as string };
-      const candidates = await governanceService.getRiskCandidates(company_id, filters);
-      return res.json({ success: true, data: candidates });
+      const result = await governanceService.getRiskCandidates(company_id, filters, page, limit, req.user!.role);
+      return res.json({ success: true, data: result.candidates, meta: { total: result.total, page, limit } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch risk candidates';
       return res.status(500).json({ success: false, message });

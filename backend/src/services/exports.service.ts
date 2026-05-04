@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { exportsRepo } from '../repositories/exports.repo';
 import { riGovernanceService } from './riGovernance.service';
 import PDFDocument from 'pdfkit';
+import { drawReportHeader } from '../utils/pdfHelper';
 
 export class ExportsService {
   async exportRisks(company_id: string, format: string) {
@@ -38,11 +39,10 @@ export class ExportsService {
     const buffers: any[] = [];
     doc.on('data', buffers.push.bind(buffers));
     
-    // Header
-    doc.fontSize(25).text(`FORENSIC EVIDENCE PACK: ${houseName.toUpperCase()}`, { align: 'center' });
-    doc.fontSize(10).text(`Generated: ${new Date().toLocaleString()}`, { align: 'center' });
-    doc.moveDown();
-    doc.rect(50, doc.y, 500, 2).fill('#000000');
+    // Header with Logo
+    drawReportHeader(doc as any, `FORENSIC EVIDENCE PACK: ${houseName}`);
+    doc.fontSize(10).fillColor('gray').text(`Generated: ${new Date().toLocaleString()}`, { align: 'right' });
+    doc.fillColor('black');
     doc.moveDown();
 
     // 1. Signals

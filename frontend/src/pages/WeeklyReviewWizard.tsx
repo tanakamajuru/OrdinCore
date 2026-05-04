@@ -36,10 +36,10 @@ export const WeeklyReviewWizard: React.FC = () => {
 
   const renderStepContent = (step: number) => {
     switch (step) {
-      case 0: return <Typography><strong>Step 1: Scope of Review</strong><br/>Confirming houses and reporting week boundaries.</Typography>;
-      case 1: return <Typography><strong>Step 2: Pulse Validation</strong><br/>Reviewing all 15 clinical signals submitted this week.</Typography>;
-      case 5: return <Typography><strong>Step 6: Clinical Interpretation</strong><br/>RM's professional assessment of the data trends.</Typography>;
-      case 12: return <Typography><strong>Step 13: Final Sign-off</strong><br/>Locking the record for Director/CQC audit.</Typography>;
+      case 0: return <Typography>Step 1: Scope of Review<br/>Confirming houses and reporting week boundaries.</Typography>;
+      case 1: return <Typography>Step 2: Pulse Validation<br/>Reviewing all 15 clinical signals submitted this week.</Typography>;
+      case 5: return <Typography>Step 6: Clinical Interpretation<br/>RM's professional assessment of the data trends.</Typography>;
+      case 12: return <Typography>Step 13: Final Sign-off<br/>Locking the record for Director/CQC audit.</Typography>;
       default: return <Typography>Step {step + 1} Content placeholder for {activeStep} logic components.</Typography>;
     }
   };

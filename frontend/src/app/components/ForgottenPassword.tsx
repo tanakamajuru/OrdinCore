@@ -61,7 +61,7 @@ export function ForgottenPassword() {
                 <p className="text-sm text-muted-foreground text-center">
                   Your password has been successfully reset!
                 </p>
-                <p className="text-foreground font-medium text-center mt-2"> Temporary password: Default123!</p>
+                <p className="text-foreground  text-center mt-2"> Temporary password: Default123!</p>
               </div>
 
               <div className="text-sm text-muted-foreground text-center mb-6">
@@ -90,7 +90,7 @@ export function ForgottenPassword() {
           <CardHeader>
             <button
               onClick={() => navigate("/login")}
-              className="flex w-fit items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-2 text-sm font-medium"
+              className="flex w-fit items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-2 text-sm "
             >
               <ArrowLeft className="w-4 h-4" />
               Back to Login
@@ -101,13 +101,13 @@ export function ForgottenPassword() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               {error && (
-                <div className="text-destructive text-sm italic text-center bg-destructive/10 border border-destructive/20 p-3 rounded-md">
+                <div className="text-destructive text-sm  text-center bg-destructive/10 border border-destructive/20 p-3 rounded-md">
                   {error}
                 </div>
               )}
 
               <div className="space-y-2">
-                <label htmlFor="email" className="block text-foreground font-medium text-sm">
+                <label htmlFor="email" className="block text-foreground  text-sm">
                   Email Address
                 </label>
                 <Input
@@ -133,7 +133,7 @@ export function ForgottenPassword() {
                   <button
                     type="button"
                     onClick={() => navigate("/login")}
-                    className="text-primary hover:text-primary/80 transition-colors underline font-medium"
+                    className="text-primary hover:text-primary/80 transition-colors underline "
                   >
                     Sign In
                   </button>

@@ -13,7 +13,7 @@ export const startPatternWorker = () => {
         // Handle multiple domains if risk_domain is an array
         const domains = Array.isArray(risk_domain) ? risk_domain : [risk_domain];
         for (const domain of domains) {
-            await evaluateRules(company_id, house_id, domain, pulse_id);
+            await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person);
         }
     }, { connection: redisConnection });
 
@@ -28,8 +28,9 @@ export const startPatternWorker = () => {
     return worker;
 };
 
-async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string) {
+async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string, related_person: string | null = null) {
     // [ORDI CORE DOCTRINE] 21-day rolling window for signal memory and reactivation
+    // Filter by domain and related_person to ensure targeted clustering
     const history21dRes = await query(
         `SELECT gp.*, rsl.cluster_id 
          FROM governance_pulses gp
@@ -37,28 +38,34 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          WHERE gp.company_id = $1 AND gp.house_id = $2 
          AND gp.entry_date >= CURRENT_DATE - INTERVAL '21 days'
          AND $3 = ANY(gp.risk_domain)
+         AND (related_person = $4 OR (related_person IS NULL AND $4 IS NULL))
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
-        [company_id, house_id, domain]
+        [company_id, house_id, domain, related_person]
     );
     const recentSignals = history21dRes.rows;
     if (recentSignals.length === 0) return;
 
-    // Find active cluster or create one
+    // Find active cluster or create one for this specific person (or general if null)
     let clusterRes = await query(
         `SELECT * FROM signal_clusters 
          WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3 
+         AND (linked_person = $4 OR (linked_person IS NULL AND $4 IS NULL))
          AND cluster_status IN ('Emerging', 'Escalated', 'Confirmed')`,
-        [company_id, house_id, domain]
+        [company_id, house_id, domain, related_person]
     );
 
     let cluster_id;
     if (clusterRes.rows.length > 0) {
         cluster_id = clusterRes.rows[0].id;
     } else {
+        const clusterLabel = related_person 
+            ? `${domain} Pattern for ${related_person} – ${house_id}`
+            : `${domain} Signal Cluster – ${house_id}`;
+
         const newClusterRes = await query(
-            `INSERT INTO signal_clusters (company_id, house_id, risk_domain, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
-             VALUES ($1, $2, $3, $4, 'Emerging', 0, NOW(), NOW(), 'Stable') RETURNING id`,
-            [company_id, house_id, domain, `${domain} Signal Cluster – ${house_id}`]
+            `INSERT INTO signal_clusters (company_id, house_id, risk_domain, linked_person, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
+             VALUES ($1, $2, $3, $4, $5, 'Emerging', 0, NOW(), NOW(), 'Stable') RETURNING id`,
+            [company_id, house_id, domain, related_person, clusterLabel]
         );
         cluster_id = newClusterRes.rows[0].id;
     }
@@ -92,9 +99,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     if (signals7d.length >= 3) {
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Pattern Emerging', output_type: 'Signal Flag', description: '≥3 same-domain signals in 7 days' });
         await query(
-            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
-             VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id)]
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6) 
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
         );
     }
 
@@ -104,9 +112,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         cluster_status = 'Escalated';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 2, rule_name: 'Risk Review Required', output_type: 'Risk Review Required', description: '≥5 in 10 days OR ≥2 escalating entries' });
         await query(
-            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
-             VALUES ($1, $2, $3, $4, 'Risk Review Required', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, signals10d.map(s => s.id)]
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Risk Review Required', $5, $6) 
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, signals10d.map(s => s.id), related_person]
         );
     }
 
@@ -117,9 +126,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         cluster_status = 'Escalated';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 3, rule_name: 'Immediate Risk', output_type: 'Immediate Alert', description: 'Critical/High severity threshold met in 48h' });
         await query(
-            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
-             VALUES ($1, $2, $3, $4, 'Immediate Risk', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id)]
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Immediate Risk', $5, $6) 
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id), related_person]
         );
     }
 
@@ -131,9 +141,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         trajectory = 'Deteriorating';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 4, rule_name: 'Deteriorating Trajectory', output_type: 'Signal Flag', description: 'Severity progression Low→Moderate→High within 7 days' });
         await query(
-            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
-             VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id)]
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5, $6) 
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
         );
     }
 
@@ -159,14 +170,15 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         }
     }
 
-    // 5. Control Failure (recurrence): Same domain reappears within 14 days of risk closure
+    // 5. Control Failure (recurrence): Same domain reappears within 14 days of risk closure for the SAME PERSON
     const recentClosedRisks = await query(
         `SELECT id, resolved_at FROM risks 
          WHERE house_id = $1 AND company_id = $2 AND status = 'Closed'
          AND category_id IN (SELECT id FROM risk_categories WHERE name = $3)
          AND resolved_at >= CURRENT_DATE - INTERVAL '14 days'
+         AND (linked_person = $4 OR (linked_person IS NULL AND $4 IS NULL))
          LIMIT 1`,
-        [house_id, company_id, domain]
+        [house_id, company_id, domain, related_person]
     );
 
     if (recentClosedRisks.rows.length > 0) {
@@ -174,12 +186,13 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
             company_id, house_id, pulse_id, cluster_id, 
             rule_number: 5, rule_name: 'Control Failure (Recurrence)', 
             output_type: 'Immediate Risk', 
-            description: `Domain ${domain} reappeared within 14 days of risk closure (${recentClosedRisks.rows[0].id})` 
+            description: `Domain ${domain} reappeared within 14 days of risk closure (${recentClosedRisks.rows[0].id})${related_person ? ' for ' + related_person : ''}` 
         });
         await query(
-            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals)
-             VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5) ON CONFLICT DO NOTHING`,
-            [company_id, house_id, cluster_id, domain, [pulse_id]]
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5, $6) 
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, [pulse_id], related_person]
         );
     }
 

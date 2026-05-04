@@ -156,11 +156,11 @@ const EngineDashboardComponent: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Engines</CardTitle>
+            <CardTitle className="text-sm ">Total Engines</CardTitle>
             <Settings className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{dashboard.overview.totalEngines}</div>
+            <div className="text-2xl ">{dashboard.overview.totalEngines}</div>
             <p className="text-xs text-muted-foreground">
               Computational engines
             </p>
@@ -169,11 +169,11 @@ const EngineDashboardComponent: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Active Engines</CardTitle>
+            <CardTitle className="text-sm ">Active Engines</CardTitle>
             <Zap className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-green-600">{dashboard.overview.activeEngines}</div>
+            <div className="text-2xl  text-green-600">{dashboard.overview.activeEngines}</div>
             <p className="text-xs text-muted-foreground">
               Currently running
             </p>
@@ -182,11 +182,11 @@ const EngineDashboardComponent: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Failed Engines</CardTitle>
+            <CardTitle className="text-sm ">Failed Engines</CardTitle>
             <AlertCircle className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold text-red-600">{dashboard.overview.failedEngines}</div>
+            <div className="text-2xl  text-red-600">{dashboard.overview.failedEngines}</div>
             <p className="text-xs text-muted-foreground">
               Need attention
             </p>
@@ -195,11 +195,11 @@ const EngineDashboardComponent: React.FC = () => {
 
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">System Uptime</CardTitle>
+            <CardTitle className="text-sm ">System Uptime</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{formatUptime(dashboard.overview.uptime)}</div>
+            <div className="text-2xl ">{formatUptime(dashboard.overview.uptime)}</div>
             <p className="text-xs text-muted-foreground">
               Continuous operation
             </p>
@@ -268,7 +268,7 @@ const EngineDashboardComponent: React.FC = () => {
                     
                     {engine.error && (
                       <div className="text-sm text-red-600">
-                        <span className="font-medium">Error: </span>
+                        <span className="">Error: </span>
                         {engine.error}
                       </div>
                     )}
@@ -356,7 +356,7 @@ const EngineDashboardComponent: React.FC = () => {
                       <div className="flex items-center space-x-3">
                         {getStatusIcon(execution.success ? 'completed' : 'failed')}
                         <div>
-                          <div className="text-sm font-medium">{execution.engine}</div>
+                          <div className="text-sm ">{execution.engine}</div>
                           <div className="text-xs text-muted-foreground">
                             {new Date(execution.startTime).toLocaleString()}
                           </div>
@@ -389,14 +389,14 @@ const EngineDashboardComponent: React.FC = () => {
                     <div className="flex items-center space-x-4">
                       {getStatusIcon(execution.success ? 'completed' : 'failed')}
                       <div>
-                        <div className="font-medium">{execution.engine}</div>
+                        <div className="">{execution.engine}</div>
                         <div className="text-sm text-muted-foreground">
                           {new Date(execution.startTime).toLocaleString()} - {new Date(execution.endTime).toLocaleString()}
                         </div>
                       </div>
                     </div>
                     <div className="text-right">
-                      <div className="text-sm font-medium">{formatDuration(execution.duration)}</div>
+                      <div className="text-sm ">{formatDuration(execution.duration)}</div>
                       <Badge variant={execution.success ? 'default' : 'destructive'}>
                         {execution.success ? 'Success' : 'Failed'}
                       </Badge>
@@ -423,7 +423,7 @@ const EngineDashboardComponent: React.FC = () => {
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div>
-                <h4 className="font-medium mb-2">Performance</h4>
+                <h4 className=" mb-2">Performance</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Success Rate:</span>
@@ -441,7 +441,7 @@ const EngineDashboardComponent: React.FC = () => {
               </div>
               
               <div>
-                <h4 className="font-medium mb-2">Schedule</h4>
+                <h4 className=" mb-2">Schedule</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span>Frequency:</span>
@@ -461,7 +461,7 @@ const EngineDashboardComponent: React.FC = () => {
               </div>
               
               <div>
-                <h4 className="font-medium mb-2">Recent Activity</h4>
+                <h4 className=" mb-2">Recent Activity</h4>
                 <div className="space-y-2 text-sm max-h-32 overflow-y-auto">
                   {engineMetrics.executions.slice(0, 5).map((exec, index) => (
                     <div key={index} className="flex justify-between">
@@ -477,7 +477,7 @@ const EngineDashboardComponent: React.FC = () => {
             
             {engineMetrics.lastError && (
               <div className="mt-4 p-3 bg-destructive/10 border border-destructive/20 rounded">
-                <h4 className="font-medium text-red-800 mb-1">Last Error</h4>
+                <h4 className=" text-red-800 mb-1">Last Error</h4>
                 <p className="text-sm text-red-600">{engineMetrics.lastError}</p>
               </div>
             )}

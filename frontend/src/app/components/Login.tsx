@@ -98,11 +98,11 @@ export function Login() {
 
             <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
               {error && (
-                <div className="text-destructive text-sm italic text-center">{error}</div>
+                <div className="text-destructive text-sm  text-center">{error}</div>
               )}
 
               <div>
-                <label htmlFor="email" className="block mb-2 text-foreground font-medium">
+                <label htmlFor="email" className="block mb-2 text-foreground ">
                   Email
                 </label>
                 <input
@@ -118,7 +118,7 @@ export function Login() {
               </div>
 
               <div>
-                <label htmlFor="password" className="block mb-2 text-foreground font-medium">
+                <label htmlFor="password" className="block mb-2 text-foreground ">
                   Password
                 </label>
                 <PasswordInput
@@ -131,7 +131,7 @@ export function Login() {
 
               <button
                 type="submit"
-                className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors  disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 {isLoading ? "Logging in..." : "Login"}

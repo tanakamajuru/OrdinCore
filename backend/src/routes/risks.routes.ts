@@ -82,6 +82,7 @@ router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTER
  *         description: Success
  */
 router.post('/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), risksController.promote.bind(risksController));
+router.post('/dismiss', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), risksController.dismissCandidate.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks:

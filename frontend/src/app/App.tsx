@@ -34,6 +34,8 @@ import AdminSettings from "./components/AdminSettings";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { ComputationalEngines } from "./components/ComputationalEngines";
 import { PulseHistory } from "./components/PulseHistory";
+import { RegisteredManagerOversightBoard } from "./components/RegisteredManagerOversightBoard";
+import { MyActions } from "./components/MyActions";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -132,6 +134,16 @@ export default function App() {
           <Route path="/pulse-history" element={
             <ProtectedRoute>
               <PulseHistory />
+            </ProtectedRoute>
+          } />
+          <Route path="/my-actions" element={
+            <ProtectedRoute>
+              <MyActions />
+            </ProtectedRoute>
+          } />
+          <Route path="/oversight-board" element={
+            <ProtectedRoute>
+              <RegisteredManagerOversightBoard />
             </ProtectedRoute>
           } />
           <Route path="/governance-dashboard" element={

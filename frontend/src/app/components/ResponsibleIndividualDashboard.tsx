@@ -59,7 +59,7 @@ export function ResponsibleIndividualDashboard() {
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto mb-4"></div>
-          <p className="text-xs font-black uppercase tracking-widest text-muted-foreground">Loading Assurance Telemetry...</p>
+          <p className="text-xs  uppercase tracking-widest text-muted-foreground">Loading Assurance Telemetry...</p>
         </div>
       </div>
     );
@@ -75,15 +75,15 @@ export function ResponsibleIndividualDashboard() {
           <div>
             <div className="flex items-center gap-3 mb-1">
               <ShieldAlert className="w-8 h-8 text-primary" />
-              <h1 className="text-4xl font-black uppercase tracking-tighter italic">Responsible Individual</h1>
+              <h1 className="text-4xl  uppercase tracking-tighter ">Responsible Individual</h1>
             </div>
-            <p className="text-sm font-bold text-muted-foreground uppercase tracking-widest">Statutory Assurance & Governance Integrity Dashboard</p>
+            <p className="text-sm  text-muted-foreground uppercase tracking-widest">Statutory Assurance & Governance Integrity Dashboard</p>
           </div>
           <div className="text-right">
-            <p className="text-[10px] font-black uppercase text-muted-foreground mb-1 tracking-widest">Last 7 Days Compliance</p>
+            <p className="text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Last 7 Days Compliance</p>
             <div className="flex gap-2">
-                <span className="bg-success/10 text-success text-[10px] font-black px-2 py-1 border border-success/20 uppercase tracking-tighter">98.4% System Health</span>
-                <span className="bg-primary text-primary-foreground text-[10px] font-black px-2 py-1 uppercase tracking-tighter">Inspection Ready</span>
+                <span className="bg-success/10 text-success text-[10px]  px-2 py-1 border border-success/20 uppercase tracking-tighter">98.4% System Health</span>
+                <span className="bg-primary text-primary-foreground text-[10px]  px-2 py-1 uppercase tracking-tighter">Inspection Ready</span>
             </div>
           </div>
         </div>
@@ -92,14 +92,14 @@ export function ResponsibleIndividualDashboard() {
         <div className="grid grid-cols-2 gap-8">
           
           {/* QUADRANT A: Governance Compliance Heatmap */}
-          <Card className="border-4 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+          <Card className="border-4 border-border  rounded-none bg-card">
             <CardHeader className="border-b-2 border-border bg-muted/30">
               <CardTitle className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                     <LayoutGrid className="w-6 h-6 text-primary" />
-                    <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant A: Governance Heatmap</span>
+                    <span className="text-xl  uppercase tracking-tighter ">Quadrant A: Governance Heatmap</span>
                 </div>
-                <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Process Adherence</span>
+                <span className="text-[10px]  text-muted-foreground uppercase tracking-widest">Process Adherence</span>
               </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -107,14 +107,14 @@ export function ResponsibleIndividualDashboard() {
                 <table className="w-full border-collapse">
                   <thead>
                     <tr className="border-b-2 border-border">
-                      <th className="py-2 text-left text-[10px] font-black uppercase tracking-widest text-muted-foreground">Service Name</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-7</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-6</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-5</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-4</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-3</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-2</th>
-                      <th className="py-2 text-center text-[10px] font-black uppercase tracking-widest text-muted-foreground">D-1</th>
+                      <th className="py-2 text-left text-[10px]  uppercase tracking-widest text-muted-foreground">Service Name</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-7</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-6</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-5</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-4</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-3</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-2</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-1</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -128,11 +128,11 @@ export function ResponsibleIndividualDashboard() {
                         return acc;
                     }, []).map((site: any) => (
                       <tr key={site.house_id} className="group hover:bg-muted/50 transition-colors">
-                        <td className="py-3 font-black text-sm uppercase tracking-tighter">{site.house_name}</td>
+                        <td className="py-3  text-sm uppercase tracking-tighter">{site.house_name}</td>
                         {site.days.map((day: any, idx: number) => (
                           <td key={idx} className="py-3 text-center">
                             <div className={`w-3 h-3 mx-auto rounded-none border border-border ${
-                                day.daily_status === 'completed' ? 'bg-success' : 'bg-destructive shadow-[2px_2px_0px_0px_rgba(0,0,0,1)]'
+                                day.daily_status === 'completed' ? 'bg-success' : 'bg-destructive '
                             }`} />
                           </td>
                         ))}
@@ -145,14 +145,14 @@ export function ResponsibleIndividualDashboard() {
           </Card>
 
           {/* QUADRANT B: Overall Service Position (OSP) Ladder */}
-          <Card className="border-4 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+          <Card className="border-4 border-border  rounded-none bg-card">
             <CardHeader className="border-b-2 border-border bg-muted/30">
                 <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <Activity className="w-6 h-6 text-primary" />
-                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant B: OSP Ladder</span>
+                        <span className="text-xl  uppercase tracking-tighter ">Quadrant B: OSP Ladder</span>
                     </div>
-                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Site Ranking</span>
+                    <span className="text-[10px]  text-muted-foreground uppercase tracking-widest">Site Ranking</span>
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -161,23 +161,23 @@ export function ResponsibleIndividualDashboard() {
                   <div 
                     key={site.house_id}
                     onClick={() => navigate(`/ri-governance/houses/${site.house_id}/evidence-pack`)}
-                    className="group border-2 border-border p-4 flex justify-between items-center hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer shadow-[4px_4px_0px_0px_rgba(0,0,0,1)] hover:shadow-none translate-x-[-2px] translate-y-[-2px] hover:translate-x-0 hover:translate-y-0"
+                    className="group border-2 border-border p-4 flex justify-between items-center hover:bg-primary hover:text-primary-foreground transition-all cursor-pointer  hover:shadow-none translate-x-[-2px] translate-y-[-2px] hover:translate-x-0 hover:translate-y-0"
                   >
                     <div>
-                      <h3 className="text-lg font-black uppercase tracking-tighter italic">{site.house_name}</h3>
+                      <h3 className="text-lg  uppercase tracking-tighter ">{site.house_name}</h3>
                       <div className="flex gap-2 items-center mt-1">
-                        <span className={`text-[10px] font-black px-2 py-0.5 uppercase border border-current ${
+                        <span className={`text-[10px]  px-2 py-0.5 uppercase border border-current ${
                             site.overall_position === 'Stable' ? 'text-success' : 
                             site.overall_position === 'Watch' ? 'text-warning' : 'text-destructive'
                         }`}>
                             {site.overall_position || 'No Review'}
                         </span>
-                        <span className="text-[10px] font-bold text-muted-foreground">Rank: {site.position_rank}</span>
+                        <span className="text-[10px]  text-muted-foreground">Rank: {site.position_rank}</span>
                       </div>
                     </div>
                     <div className="flex flex-col items-end">
                         <ArrowUpRight className="w-5 h-5 text-success group-hover:text-success-foreground" />
-                        <span className="text-[10px] font-black uppercase mt-1">Evidence Pack</span>
+                        <span className="text-[10px]  uppercase mt-1">Evidence Pack</span>
                     </div>
                   </div>
                 ))}
@@ -186,14 +186,14 @@ export function ResponsibleIndividualDashboard() {
           </Card>
 
           {/* QUADRANT C: Action Effectiveness Trends */}
-          <Card className="border-4 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card">
+          <Card className="border-4 border-border  rounded-none bg-card">
             <CardHeader className="border-b-2 border-border bg-muted/30">
                 <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                         <BarChart3 className="w-6 h-6 text-primary" />
-                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant C: Effectiveness Trends</span>
+                        <span className="text-xl  uppercase tracking-tighter ">Quadrant C: Effectiveness Trends</span>
                     </div>
-                    <span className="text-[10px] font-black text-muted-foreground uppercase tracking-widest">Domain Analysis</span>
+                    <span className="text-[10px]  text-muted-foreground uppercase tracking-widest">Domain Analysis</span>
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-6">
@@ -206,21 +206,21 @@ export function ResponsibleIndividualDashboard() {
 
                   return (
                     <div key={domain.category_id}>
-                      <div className="flex justify-between text-[10px] font-black uppercase mb-2 tracking-widest">
+                      <div className="flex justify-between text-[10px]  uppercase mb-2 tracking-widest">
                         <span>{domain.domain}</span>
                         <span className="text-muted-foreground">{total} MEASUREMENTS</span>
                       </div>
-                      <div className="w-full h-8 flex border-2 border-border shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
-                        <div style={{ width: `${effectivePct}%` }} className="bg-success h-full flex items-center justify-center text-[10px] font-black text-primary-foreground">{effectivePct > 10 && 'EFF'}</div>
-                        <div style={{ width: `${neutralPct}%` }} className="bg-muted h-full flex items-center justify-center text-[10px] font-black text-muted-foreground">{neutralPct > 10 && 'NEU'}</div>
-                        <div style={{ width: `${ineffectivePct}%` }} className="bg-destructive h-full flex items-center justify-center text-[10px] font-black text-primary-foreground">{ineffectivePct > 10 && 'INE'}</div>
+                      <div className="w-full h-8 flex border-2 border-border ">
+                        <div style={{ width: `${effectivePct}%` }} className="bg-success h-full flex items-center justify-center text-[10px]  text-primary-foreground">{effectivePct > 10 && 'EFF'}</div>
+                        <div style={{ width: `${neutralPct}%` }} className="bg-muted h-full flex items-center justify-center text-[10px]  text-muted-foreground">{neutralPct > 10 && 'NEU'}</div>
+                        <div style={{ width: `${ineffectivePct}%` }} className="bg-destructive h-full flex items-center justify-center text-[10px]  text-primary-foreground">{ineffectivePct > 10 && 'INE'}</div>
                       </div>
                     </div>
                   );
                 })}
                 {(!data?.effectiveness || data.effectiveness.length === 0) && (
                     <div className="text-center py-10 border-2 border-dashed border-border">
-                        <p className="text-[10px] font-black uppercase text-muted-foreground">Insufficient effectiveness data collected</p>
+                        <p className="text-[10px]  uppercase text-muted-foreground">Insufficient effectiveness data collected</p>
                     </div>
                 )}
               </div>
@@ -228,14 +228,14 @@ export function ResponsibleIndividualDashboard() {
           </Card>
 
           {/* QUADRANT D: Serious Incidents & Statutory Sign-Off */}
-          <Card className="border-4 border-border shadow-[8px_8px_0px_0px_rgba(0,0,0,1)] rounded-none bg-card overflow-hidden">
+          <Card className="border-4 border-border  rounded-none bg-card overflow-hidden">
             <CardHeader className="border-b-2 border-border bg-destructive/10">
                 <CardTitle className="flex items-center justify-between">
                     <div className="flex items-center gap-3 text-destructive">
                         <AlertCircle className="w-6 h-6" />
-                        <span className="text-xl font-black uppercase tracking-tighter italic">Quadrant D: Serious Incidents</span>
+                        <span className="text-xl  uppercase tracking-tighter ">Quadrant D: Serious Incidents</span>
                     </div>
-                    <span className="bg-destructive text-primary-foreground text-[10px] font-black px-2 py-0.5 uppercase tracking-widest animate-pulse">Statutory Sign-Off Required</span>
+                    <span className="bg-destructive text-primary-foreground text-[10px]  px-2 py-0.5 uppercase tracking-widest animate-pulse">Statutory Sign-Off Required</span>
                 </CardTitle>
             </CardHeader>
             <CardContent className="p-0">
@@ -245,31 +245,31 @@ export function ResponsibleIndividualDashboard() {
                     <div className="flex justify-between items-start mb-4">
                       <div className="max-w-[70%]">
                         <div className="flex items-center gap-2 mb-1">
-                            <span className="bg-primary text-primary-foreground text-[10px] font-black px-2 py-0.5 uppercase">{incident.house_name}</span>
-                            <span className="text-[10px] font-black uppercase text-destructive tracking-widest">{incident.severity}</span>
+                            <span className="bg-primary text-primary-foreground text-[10px]  px-2 py-0.5 uppercase">{incident.house_name}</span>
+                            <span className="text-[10px]  uppercase text-destructive tracking-widest">{incident.severity}</span>
                         </div>
-                        <h4 className="text-lg font-black leading-tight uppercase tracking-tighter italic">{incident.title}</h4>
+                        <h4 className="text-lg  leading-tight uppercase tracking-tighter ">{incident.title}</h4>
                         <p className="text-xs text-muted-foreground mt-2 line-clamp-2">{incident.description}</p>
                       </div>
                       <div className="text-right">
-                        <div className="flex items-center gap-1 text-[10px] font-black uppercase text-muted-foreground mb-1">
+                        <div className="flex items-center gap-1 text-[10px]  uppercase text-muted-foreground mb-1">
                             <Clock className="w-3 h-3" />
                             {new Date(incident.occurred_at).toLocaleDateString('en-GB')}
                         </div>
-                        <span className="text-[9px] font-bold uppercase block text-muted-foreground tracking-tighter">ID: {incident.id.split('-')[0]}...</span>
+                        <span className="text-[9px]  uppercase block text-muted-foreground tracking-tighter">ID: {incident.id.split('-')[0]}...</span>
                       </div>
                     </div>
                     <div className="flex gap-3">
                         <button 
                             onClick={() => handleAcknowledge(incident.id)}
-                            className="flex-1 bg-primary text-primary-foreground py-3 px-4 text-xs font-black uppercase tracking-widest hover:bg-success hover:text-primary-foreground transition-all flex items-center justify-center gap-2"
+                            className="flex-1 bg-primary text-primary-foreground py-3 px-4 text-xs  uppercase tracking-widest hover:bg-success hover:text-primary-foreground transition-all flex items-center justify-center gap-2"
                         >
                             <UserCheck className="w-4 h-4" />
                             Acknowledge Sign-Off
                         </button>
                         <button 
                             onClick={() => navigate(`/incidents/${incident.id}`)}
-                            className="bg-card border-2 border-border py-3 px-6 text-xs font-black uppercase tracking-widest hover:bg-muted transition-all"
+                            className="bg-card border-2 border-border py-3 px-6 text-xs  uppercase tracking-widest hover:bg-muted transition-all"
                         >
                             Forensics
                         </button>
@@ -278,7 +278,7 @@ export function ResponsibleIndividualDashboard() {
                 )) : (
                   <div className="p-12 text-center">
                     <CheckCircle2 className="w-12 h-12 text-success mx-auto mb-4" />
-                    <p className="text-[10px] font-black uppercase text-muted-foreground tracking-widest">No outstanding statutory sign-offs</p>
+                    <p className="text-[10px]  uppercase text-muted-foreground tracking-widest">No outstanding statutory sign-offs</p>
                   </div>
                 )}
               </div>
@@ -289,25 +289,25 @@ export function ResponsibleIndividualDashboard() {
 
         {/* Footer Quick Actions */}
         <div className="mt-12 grid grid-cols-4 gap-6">
-            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left ">
                 <FileText className="w-6 h-6 mb-3" />
-                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-primary-foreground">Generate Quarterly Report</span>
-                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Board Ready Narrative</span>
+                <span className="block text-sm  uppercase tracking-tighter  text-primary group-hover:text-primary-foreground">Generate Quarterly Report</span>
+                <span className="text-[10px]  uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Board Ready Narrative</span>
             </button>
-            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left ">
                 <Activity className="w-6 h-6 mb-3" />
-                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-primary-foreground">Leadership Stability</span>
-                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deputy Cover Density: 12%</span>
+                <span className="block text-sm  uppercase tracking-tighter  text-primary group-hover:text-primary-foreground">Leadership Stability</span>
+                <span className="text-[10px]  uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deputy Cover Density: 12%</span>
             </button>
-            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left ">
                 <AlertCircle className="w-6 h-6 mb-3" />
-                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-primary-foreground">Regulatory Alerts</span>
-                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">3 Statutory Tasks Pending</span>
+                <span className="block text-sm  uppercase tracking-tighter  text-primary group-hover:text-primary-foreground">Regulatory Alerts</span>
+                <span className="text-[10px]  uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">3 Statutory Tasks Pending</span>
             </button>
-            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left shadow-[4px_4px_0px_0px_rgba(0,0,0,1)]">
+            <button className="bg-muted border-2 border-border p-6 hover:bg-primary hover:text-primary-foreground transition-all text-left ">
                 <BarChart3 className="w-6 h-6 mb-3" />
-                <span className="block text-sm font-black uppercase tracking-tighter italic text-primary group-hover:text-primary-foreground">Company Telemetry</span>
-                <span className="text-[10px] font-bold uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deep Trend Analysis</span>
+                <span className="block text-sm  uppercase tracking-tighter  text-primary group-hover:text-primary-foreground">Company Telemetry</span>
+                <span className="text-[10px]  uppercase text-muted-foreground block mt-1 tracking-widest tracking-widest">Deep Trend Analysis</span>
             </button>
         </div>
       </div>

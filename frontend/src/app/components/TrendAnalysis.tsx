@@ -49,7 +49,7 @@ export function TrendAnalysis() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold text-primary mb-2 flex items-center gap-3">
+          <h1 className="text-3xl  text-primary mb-2 flex items-center gap-3">
             <TrendingUp className="w-8 h-8 text-primary" />
             Trend Analysis
           </h1>
@@ -62,7 +62,7 @@ export function TrendAnalysis() {
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
-              className={`px-6 py-2 text-sm font-bold uppercase transition-colors shadow-sm ${
+              className={`px-6 py-2 text-sm  uppercase transition-colors shadow-sm ${
                 activeTab === tab ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-primary hover:bg-muted"
               }`}
             >
@@ -77,12 +77,12 @@ export function TrendAnalysis() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <Card className="border-2 border-border shadow-sm bg-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold text-muted-foreground uppercase">30-Day Risk Volume</CardTitle>
+                  <CardTitle className="text-sm  text-muted-foreground uppercase">30-Day Risk Volume</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-foreground">{compliance?.overall?.total || 0}</span>
-                    <span className="text-success flex items-center text-sm font-bold">
+                    <span className="text-4xl  text-foreground">{compliance?.overall?.total || 0}</span>
+                    <span className="text-success flex items-center text-sm ">
                       <ArrowDownRight className="w-4 h-4" /> 12%
                     </span>
                   </div>
@@ -91,12 +91,12 @@ export function TrendAnalysis() {
               </Card>
               <Card className="border-2 border-border shadow-sm bg-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold text-muted-foreground uppercase">Avg Compliance Score</CardTitle>
+                  <CardTitle className="text-sm  text-muted-foreground uppercase">Avg Compliance Score</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-foreground">{compliance?.overall?.avg_compliance || 0}%</span>
-                    <span className="text-destructive flex items-center text-sm font-bold">
+                    <span className="text-4xl  text-foreground">{compliance?.overall?.avg_compliance || 0}%</span>
+                    <span className="text-destructive flex items-center text-sm ">
                       <ArrowUpRight className="w-4 h-4" /> 2.4%
                     </span>
                   </div>
@@ -105,12 +105,12 @@ export function TrendAnalysis() {
               </Card>
               <Card className="border-2 border-border shadow-sm bg-card">
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm font-bold text-muted-foreground uppercase">Resolved Escalations</CardTitle>
+                  <CardTitle className="text-sm  text-muted-foreground uppercase">Resolved Escalations</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-2">
-                    <span className="text-4xl font-black text-foreground">{compliance?.overall?.completed || 0}</span>
-                    <span className="text-muted-foreground text-sm font-medium">/ {compliance?.overall?.total || 0}</span>
+                    <span className="text-4xl  text-foreground">{compliance?.overall?.completed || 0}</span>
+                    <span className="text-muted-foreground text-sm ">/ {compliance?.overall?.total || 0}</span>
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">Total pulses completed</p>
                 </CardContent>
@@ -130,8 +130,8 @@ export function TrendAnalysis() {
                   {trends?.by_status?.map((status: any) => (
                     <div key={status.status}>
                       <div className="flex justify-between text-sm mb-1">
-                        <span className="capitalize font-medium text-foreground">{status.status.replace('_', ' ')}</span>
-                        <span className="font-bold text-foreground">{status.count}</span>
+                        <span className="capitalize  text-foreground">{status.status.replace('_', ' ')}</span>
+                        <span className=" text-foreground">{status.count}</span>
                       </div>
                       <div className="w-full h-4 bg-muted border border-border rounded-full overflow-hidden">
                         <div 
@@ -159,7 +159,7 @@ export function TrendAnalysis() {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className="text-left text-xs font-bold uppercase text-muted-foreground border-b border-border bg-muted/50">
+                    <tr className="text-left text-xs  uppercase text-muted-foreground border-b border-border bg-muted/50">
                       <th className="py-3 px-4">Site Name</th>
                       <th className="py-3 px-2 text-center">Open Risks</th>
                       <th className="py-3 px-2 text-center">Critical</th>
@@ -171,17 +171,17 @@ export function TrendAnalysis() {
                   <tbody className="divide-y divide-border">
                     {performance.map((site) => (
                       <tr key={site.house_id} className="text-sm hover:bg-muted/50 transition-colors">
-                        <td className="py-4 px-4 font-bold flex items-center gap-2 text-foreground">
+                        <td className="py-4 px-4  flex items-center gap-2 text-foreground">
                           <MapPin className="w-4 h-4 text-muted-foreground" />
                           {site.house_name}
                         </td>
                         <td className="py-4 px-2 text-center text-foreground">{site.open_risks}</td>
                         <td className="py-4 px-2 text-center">
-                          <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${site.critical_risks > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
+                          <span className={`px-2 py-0.5 rounded-full text-xs  ${site.critical_risks > 0 ? 'bg-destructive/10 text-destructive' : 'bg-muted text-muted-foreground'}`}>
                             {site.critical_risks}
                           </span>
                         </td>
-                        <td className="py-4 px-2 text-center font-medium text-foreground">{site.open_incidents}</td>
+                        <td className="py-4 px-2 text-center  text-foreground">{site.open_incidents}</td>
                         <td className="py-4 px-2 text-center">
                           <div className="flex items-center justify-center gap-2">
                             <div className="w-16 h-2 bg-muted rounded-full overflow-hidden border border-border">
@@ -190,11 +190,11 @@ export function TrendAnalysis() {
                                 style={{ width: `${site.avg_compliance_score}%` }}
                               ></div>
                             </div>
-                            <span className="text-xs font-bold text-foreground">{Math.round(site.avg_compliance_score)}%</span>
+                            <span className="text-xs  text-foreground">{Math.round(site.avg_compliance_score)}%</span>
                           </div>
                         </td>
                         <td className="py-4 px-4 text-right">
-                          <span className={`font-bold ${site.pending_escalations > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
+                          <span className={` ${site.pending_escalations > 0 ? 'text-destructive' : 'text-muted-foreground'}`}>
                             {site.pending_escalations}
                           </span>
                         </td>
@@ -221,7 +221,7 @@ export function TrendAnalysis() {
                   {compliance?.by_house?.map((house: any) => (
                     <div key={house.house_id}>
                       <div className="flex justify-between text-sm mb-2">
-                        <span className="font-bold text-foreground">{house.house_name}</span>
+                        <span className=" text-foreground">{house.house_name}</span>
                         <span className="text-muted-foreground">{house.completed_pulses} / {house.total_pulses} Pulses</span>
                       </div>
                       <div className="flex items-center gap-4">
@@ -231,7 +231,7 @@ export function TrendAnalysis() {
                             style={{ width: `${house.completion_rate}%` }}
                           ></div>
                         </div>
-                        <span className="text-sm font-black w-12 text-right text-primary">{Math.round(house.completion_rate)}%</span>
+                        <span className="text-sm  w-12 text-right text-primary">{Math.round(house.completion_rate)}%</span>
                       </div>
                     </div>
                   ))}
@@ -270,19 +270,19 @@ export function TrendAnalysis() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-4xl font-black text-primary">{compliance?.overall?.avg_compliance || 0}%</span>
-                      <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Avg Score</span>
+                      <span className="text-4xl  text-primary">{compliance?.overall?.avg_compliance || 0}%</span>
+                      <span className="text-xs  text-muted-foreground uppercase tracking-wider">Avg Score</span>
                     </div>
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-4 text-center">
                   <div className="bg-muted/50 p-4 border border-border rounded-lg shadow-sm">
-                    <p className="text-2xl font-black text-foreground">{compliance?.overall?.completed || 0}</p>
-                    <p className="text-xs font-bold text-muted-foreground uppercase">Completed</p>
+                    <p className="text-2xl  text-foreground">{compliance?.overall?.completed || 0}</p>
+                    <p className="text-xs  text-muted-foreground uppercase">Completed</p>
                   </div>
                   <div className="bg-destructive/5 p-4 border border-destructive/20 rounded-lg shadow-sm">
-                    <p className="text-2xl font-black text-destructive">{compliance?.overall?.overdue || 0}</p>
-                    <p className="text-xs font-bold text-destructive/70 uppercase">Overdue</p>
+                    <p className="text-2xl  text-destructive">{compliance?.overall?.overdue || 0}</p>
+                    <p className="text-xs  text-destructive/70 uppercase">Overdue</p>
                   </div>
                 </div>
               </CardContent>

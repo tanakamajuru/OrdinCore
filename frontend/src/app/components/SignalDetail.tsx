@@ -74,7 +74,7 @@ export function SignalDetail() {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="text-center">
-          <h2 className="text-xl font-semibold text-foreground mb-4">Signal record not found</h2>
+          <h2 className="text-xl  text-foreground mb-4">Signal record not found</h2>
           <button
             onClick={() => navigate("/dashboard")}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
@@ -92,7 +92,7 @@ export function SignalDetail() {
       <div className="p-6 w-full pt-20 max-w-4xl mx-auto">
         <button
           onClick={() => navigate(-1)}
-          className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline font-bold"
+          className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline "
         >
           <ArrowLeft className="w-4 h-4" />
           Back
@@ -101,21 +101,21 @@ export function SignalDetail() {
         <div className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-3xl font-black text-primary tracking-tighter uppercase italic">Signal Details</h1>
-              <span className={`px-3 py-1 text-sm font-bold flex items-center gap-2 ${
+              <h1 className="text-3xl  text-primary tracking-tighter uppercase ">Signal Details</h1>
+              <span className={`px-3 py-1 text-sm  flex items-center gap-2 ${
                 signal.review_status === 'New' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               }`}>
                 <AlertCircle className="w-4 h-4" />
                 {signal.review_status}
               </span>
             </div>
-            <p className="text-muted-foreground font-medium">
+            <p className="text-muted-foreground ">
               {signal.house_name} • Logged on {formatDate(signal.entry_date)} at {signal.entry_time.slice(0, 5)}
             </p>
           </div>
           <div className="bg-card border-2 border-border p-4 shadow-sm w-full md:w-auto">
-              <span className="text-xs text-muted-foreground font-bold uppercase tracking-wider block mb-1">Submitted By</span>
-              <span className="text-foreground font-bold flex items-center gap-2">
+              <span className="text-xs text-muted-foreground  uppercase tracking-wider block mb-1">Submitted By</span>
+              <span className="text-foreground  flex items-center gap-2">
                   <User className="w-4 h-4" />
                   {signal.creator_name || 'Team Leader'}
               </span>
@@ -124,28 +124,28 @@ export function SignalDetail() {
 
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-1">Signal Type</h3>
-                <p className="text-lg font-bold text-foreground">{signal.signal_type}</p>
+                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Signal Type</h3>
+                <p className="text-lg  text-foreground">{signal.signal_type}</p>
             </div>
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-1">Severity</h3>
-                <p className={`text-lg font-bold ${signal.severity === 'High' || signal.severity === 'Critical' ? 'text-destructive' : 'text-foreground'}`}>
+                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Severity</h3>
+                <p className={`text-lg  ${signal.severity === 'High' || signal.severity === 'Critical' ? 'text-destructive' : 'text-foreground'}`}>
                     {signal.severity}
                 </p>
             </div>
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-1">Escalation</h3>
-                <p className="text-lg font-bold text-foreground">{signal.escalation_required || 'None'}</p>
+                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Escalation</h3>
+                <p className="text-lg  text-foreground">{signal.escalation_required || 'None'}</p>
             </div>
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs font-bold text-muted-foreground uppercase mb-1">Related Person</h3>
-                <p className="text-lg font-bold text-foreground">{signal.related_person || 'N/A'}</p>
+                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Related Person</h3>
+                <p className="text-lg  text-foreground">{signal.related_person || 'N/A'}</p>
             </div>
         </div>
 
         <div className="space-y-6 pb-20">
             <div className="bg-card border-2 border-border p-6">
-                <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+                <h2 className="text-xl  flex items-center gap-2 mb-4">
                     <Shield className="w-5 h-5 text-primary" />
                     Observation Details
                 </h2>
@@ -156,7 +156,7 @@ export function SignalDetail() {
 
             {signal.immediate_action && (
                 <div className="bg-card border-2 border-border p-6">
-                    <h2 className="text-xl font-bold flex items-center gap-2 mb-4">
+                    <h2 className="text-xl  flex items-center gap-2 mb-4">
                         <AlertTriangle className="w-5 h-5 text-warning" />
                         Immediate Action Taken
                     </h2>
@@ -166,16 +166,16 @@ export function SignalDetail() {
 
             <div className="bg-card border-2 border-border p-6 flex justify-between">
                <div>
-                  <h3 className="text-sm font-bold text-muted-foreground uppercase">Pattern Concern</h3>
-                  <p className="text-lg font-bold">{signal.pattern_concern}</p>
+                  <h3 className="text-sm  text-muted-foreground uppercase">Pattern Concern</h3>
+                  <p className="text-lg ">{signal.pattern_concern}</p>
                </div>
                <div>
-                  <h3 className="text-sm font-bold text-muted-foreground uppercase">Happened Before</h3>
-                  <p className="text-lg font-bold">{signal.has_happened_before}</p>
+                  <h3 className="text-sm  text-muted-foreground uppercase">Happened Before</h3>
+                  <p className="text-lg ">{signal.has_happened_before}</p>
                </div>
                <div>
-                  <h3 className="text-sm font-bold text-muted-foreground uppercase">Risk Domains</h3>
-                  <p className="text-lg font-bold">{Array.isArray(signal.risk_domain) ? signal.risk_domain.join(', ') : signal.risk_domain}</p>
+                  <h3 className="text-sm  text-muted-foreground uppercase">Risk Domains</h3>
+                  <p className="text-lg ">{Array.isArray(signal.risk_domain) ? signal.risk_domain.join(', ') : signal.risk_domain}</p>
                </div>
             </div>
             
@@ -191,7 +191,7 @@ export function SignalDetail() {
                                 toast.error('Failed to update status');
                             }
                         }}
-                        className="bg-primary text-primary-foreground px-6 py-3 font-bold hover:bg-primary/90 transition-colors"
+                        className="bg-primary text-primary-foreground px-6 py-3  hover:bg-primary/90 transition-colors"
                     >
                         Mark as Reviewed
                     </button>

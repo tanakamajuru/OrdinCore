@@ -229,6 +229,92 @@ export class WeeklyReviewsService {
     );
     return result.rows[0];
   }
+
+  async finalise(id: string, company_id: string, user_id: string) {
+    const existing = await this.findById(id, company_id);
+    if (!existing) throw new Error('Review not found');
+
+    // 1. Update status to awaiting validation
+    const result = await query(
+      `UPDATE weekly_reviews 
+       SET status = 'pending_validation', 
+           validation_status = 'Pending',
+           rm_finalised_at = NOW(), 
+           updated_at = NOW() 
+       WHERE id = $1 AND company_id = $2 
+       RETURNING *`,
+      [id, company_id]
+    );
+
+    // 2. Notify RI and Directors
+    const houseRes = await query('SELECT name FROM houses WHERE id = $1', [existing.house_id]);
+    const houseName = houseRes.rows[0]?.name || 'Service';
+
+    const seniorUsers = await query(
+      "SELECT id FROM users WHERE company_id = $1 AND role IN ('DIRECTOR', 'ADMIN', 'SUPER_ADMIN')",
+      [company_id]
+    );
+
+    const { notificationsService } = require('./notifications.service');
+    for (const user of seniorUsers.rows) {
+      await notificationsService.create({
+        company_id,
+        user_id: user.id,
+        type: 'weekly_review_ready',
+        title: 'Weekly Review Ready',
+        body: `Weekly review for ${houseName} (W/E ${existing.week_ending}) is ready for validation.`,
+        link: `/weekly-reviews/${id}`,
+        metadata: { review_id: id, house_id: existing.house_id }
+      });
+    }
+
+    return result.rows[0];
+  }
+
+  async validate(id: string, company_id: string, user_id: string, data: { validation_status: string; validation_comment: string }) {
+    const existing = await this.findById(id, company_id);
+    if (!existing) throw new Error('Review not found');
+
+    const { validation_status, validation_comment } = data;
+    const allowed = ['Approved', 'Challenged', 'Reopened'];
+    if (!allowed.includes(validation_status)) throw new Error('Invalid validation status');
+
+    let status = existing.status;
+    if (validation_status === 'Approved') {
+      status = 'LOCKED';
+    } else if (validation_status === 'Challenged') {
+      status = 'draft'; // Allow RM to edit again
+    } else if (validation_status === 'Reopened') {
+      status = 'draft';
+    }
+
+    const result = await query(
+      `UPDATE weekly_reviews 
+       SET status = $1, 
+           validation_status = $2, 
+           validation_comment = $3, 
+           validation_by = $4, 
+           validation_at = NOW(), 
+           updated_at = NOW() 
+       WHERE id = $5 AND company_id = $6 
+       RETURNING *`,
+      [status, validation_status, validation_comment, user_id, id, company_id]
+    );
+
+    // Notify RM
+    const { notificationsService } = require('./notifications.service');
+    await notificationsService.create({
+      company_id,
+      user_id: existing.created_by,
+      type: 'weekly_review_validated',
+      title: `Weekly Review ${validation_status}`,
+      body: `Your weekly review was ${validation_status.toLowerCase()}: ${validation_comment}`,
+      link: `/weekly-reviews/${id}`,
+      metadata: { review_id: id, status: validation_status }
+    });
+
+    return result.rows[0];
+  }
 }
 
 export const weeklyReviewsService = new WeeklyReviewsService();

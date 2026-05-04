@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, LabelList } from "recharts";
 import { dashboardApi } from "@/services/dashboardApi";
 import { toast } from "sonner";
 
@@ -78,13 +78,13 @@ export function Trends() {
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-semibold text-primary">Trends & Strategic Telemetry</h1>
+            <h1 className="text-3xl  text-primary">Trends & Strategic Telemetry</h1>
             <p className="text-muted-foreground mt-1">6-Week Rolling Analysis across the organization</p>
           </div>
           <button
             onClick={handleGenerateReport}
             disabled={isGeneratingReport}
-            className="px-6 py-3 bg-primary text-primary-foreground font-bold uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg rounded-md disabled:opacity-50 active:scale-95"
+            className="px-6 py-3 bg-primary text-primary-foreground  uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg rounded-md disabled:opacity-50 active:scale-95"
           >
             {isGeneratingReport ? "Generating..." : "Generate Monthly Board Report"}
           </button>
@@ -93,7 +93,7 @@ export function Trends() {
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
           {/* Risk Trajectory */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+            <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-primary rounded-full"></span>
               Cross-House Risk Trajectory
             </h2>
@@ -111,6 +111,7 @@ export function Trends() {
                     boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                   }}
                 />
+                <Legend verticalAlign="top" align="right" iconType="circle" />
                 {riskHouseNames.map((house, idx) => (
                   <Line 
                     key={house} 
@@ -120,6 +121,7 @@ export function Trends() {
                     strokeWidth={3} 
                     dot={{ fill: chartColors[idx % chartColors.length], r: 4 }} 
                     activeDot={{ r: 6, strokeWidth: 0 }}
+                    name={house}
                   />
                 ))}
               </LineChart>
@@ -128,7 +130,7 @@ export function Trends() {
 
           {/* Incident Trajectory */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+            <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-destructive rounded-full"></span>
               Cross-House Incident Trajectory
             </h2>
@@ -145,6 +147,7 @@ export function Trends() {
                     borderRadius: "0.5rem",
                   }}
                 />
+                <Legend verticalAlign="top" align="right" iconType="circle" />
                 {incidentHouseNames.map((house, idx) => (
                   <Line 
                     key={house} 
@@ -153,6 +156,7 @@ export function Trends() {
                     stroke={chartColors[(idx + 2) % chartColors.length]} 
                     strokeWidth={3} 
                     dot={{ fill: chartColors[(idx + 2) % chartColors.length], r: 4 }} 
+                    name={house}
                   />
                 ))}
               </LineChart>
@@ -161,7 +165,7 @@ export function Trends() {
 
           {/* Safeguarding Volume */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+            <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-amber-500 rounded-full"></span>
               Safeguarding Volume (6-Week View)
             </h2>
@@ -171,28 +175,33 @@ export function Trends() {
                 <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
-                <Bar dataKey="incidents" fill="hsl(var(--primary))" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="incidents" radius={[4, 4, 0, 0]} barSize={40}>
+                  {(safeguardingData?.trends || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                  ))}
+                  <LabelList dataKey="incidents" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-6 grid grid-cols-3 gap-4">
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Weekly Avg</p>
-                <p className="text-xl font-bold text-foreground">{safeguardingData?.average || 0}</p>
+                <p className="text-[10px] uppercase  text-muted-foreground mb-1">Weekly Avg</p>
+                <p className="text-xl  text-foreground">{safeguardingData?.average || 0}</p>
               </div>
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">6-Week Total</p>
-                <p className="text-xl font-bold text-foreground">{safeguardingData?.total || 0}</p>
+                <p className="text-[10px] uppercase  text-muted-foreground mb-1">6-Week Total</p>
+                <p className="text-xl  text-foreground">{safeguardingData?.total || 0}</p>
               </div>
               <div className="p-3 bg-primary/10 rounded border-2 border-primary/20">
-                <p className="text-[10px] uppercase font-bold text-primary mb-1">Current</p>
-                <p className="text-xl font-bold text-primary">{safeguardingData?.currentWeek || 0}</p>
+                <p className="text-[10px] uppercase  text-primary mb-1">Current</p>
+                <p className="text-xl  text-primary">{safeguardingData?.currentWeek || 0}</p>
               </div>
             </div>
           </div>
 
           {/* Escalation Velocity */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
-            <h2 className="text-xl font-semibold mb-6 text-foreground flex items-center gap-2">
+            <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-secondary rounded-full"></span>
               Escalation Velocity
             </h2>
@@ -202,30 +211,35 @@ export function Trends() {
                 <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                 <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
-                <Bar dataKey="count" fill="hsl(var(--secondary))" radius={[4, 4, 0, 0]} barSize={40} />
+                <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
+                  {(escalationData?.trends || []).map((entry: any, index: number) => (
+                    <Cell key={`cell-${index}`} fill={chartColors[(index + 4) % chartColors.length]} />
+                  ))}
+                  <LabelList dataKey="count" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
             <div className="mt-6 grid grid-cols-3 gap-4">
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">Weekly Avg</p>
-                <p className="text-xl font-bold text-foreground">{escalationData?.average || 0}</p>
+                <p className="text-[10px] uppercase  text-muted-foreground mb-1">Weekly Avg</p>
+                <p className="text-xl  text-foreground">{escalationData?.average || 0}</p>
               </div>
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
-                <p className="text-[10px] uppercase font-bold text-muted-foreground mb-1">6-Week Total</p>
-                <p className="text-xl font-bold text-foreground">{escalationData?.total || 0}</p>
+                <p className="text-[10px] uppercase  text-muted-foreground mb-1">6-Week Total</p>
+                <p className="text-xl  text-foreground">{escalationData?.total || 0}</p>
               </div>
               <div className="p-3 bg-secondary/10 rounded border-2 border-secondary/20">
-                <p className="text-[10px] uppercase font-bold text-secondary mb-1">Current</p>
-                <p className="text-xl font-bold text-secondary">{escalationData?.currentWeek || 0}</p>
+                <p className="text-[10px] uppercase  text-secondary mb-1">Current</p>
+                <p className="text-xl  text-secondary">{escalationData?.currentWeek || 0}</p>
               </div>
             </div>
           </div>
         </div>
 
         <div className="mt-6 p-4 bg-primary/5 border-2 border-primary/10 rounded-lg flex items-start gap-3">
-          <div className="w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5">!</div>
+          <div className="w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px]  mt-0.5">!</div>
           <p className="text-xs text-muted-foreground">
-            <strong>Strategic Telemetry Note:</strong> Data is synchronized across all active sites. Trajectory lines show the cumulative volume of "Critical" or "High" markers. No predictive outcomes are implied without secondary qualitative review.
+            Strategic Telemetry Note: Data is synchronized across all active sites. Trajectory lines show the cumulative volume of "Critical" or "High" markers. No predictive outcomes are implied without secondary qualitative review.
           </p>
         </div>
       </div>

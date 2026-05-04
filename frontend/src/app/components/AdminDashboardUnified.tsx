@@ -165,7 +165,7 @@ const AdminDashboardUnified: React.FC = () => {
       {/* Quick Actions */}
       <div className="bg-card border-2 border-border p-6 shadow-sm">
         <div className="mb-6">
-          <h3 className="text-xl font-bold text-primary">Quick Actions</h3>
+          <h3 className="text-xl  text-primary">Quick Actions</h3>
           <p className="text-sm text-muted-foreground">
             Access key administrative functions and manage system resources
           </p>
@@ -181,9 +181,9 @@ const AdminDashboardUnified: React.FC = () => {
                   <div className="p-3 bg-muted rounded-full group-hover:bg-primary/5 transition-colors">
                     {action.icon}
                   </div>
-                  <h3 className="font-bold text-foreground text-lg">{action.title}</h3>
+                  <h3 className=" text-foreground text-lg">{action.title}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{action.description}</p>
-                  <div className="text-sm font-bold text-primary">{action.stats}</div>
+                  <div className="text-sm  text-primary">{action.stats}</div>
                   <Button variant="outline" className="w-full border-primary text-primary hover:bg-primary/5">
                     Manage
                   </Button>
@@ -197,19 +197,19 @@ const AdminDashboardUnified: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-primary">System Status</h3>
+            <h3 className="text-lg  text-primary">System Status</h3>
           </div>
           <div className="space-y-4">
             <div className="flex justify-between items-center py-2 border-b border-border">
-              <span className="text-foreground font-medium">API Health</span>
+              <span className="text-foreground ">API Health</span>
               {getStatusBadge('good')}
             </div>
             <div className="flex justify-between items-center py-2 border-b border-border">
-              <span className="text-foreground font-medium">Database</span>
+              <span className="text-foreground ">Database</span>
               {getStatusBadge('active')}
             </div>
             <div className="flex justify-between items-center py-2">
-              <span className="text-foreground font-medium">Last Sync</span>
+              <span className="text-foreground ">Last Sync</span>
               <span className="text-sm text-muted-foreground">2 mins ago</span>
             </div>
           </div>
@@ -217,20 +217,20 @@ const AdminDashboardUnified: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4 flex items-center justify-between">
-            <h3 className="text-lg font-bold text-primary">Recent Activity</h3>
+            <h3 className="text-lg  text-primary">Recent Activity</h3>
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
           </div>
           <div className="space-y-3">
             {recentActivity.length === 0 ? (
-              <p className="text-muted-foreground text-sm italic">No recent activity detected</p>
+              <p className="text-muted-foreground text-sm ">No recent activity detected</p>
             ) : (
               recentActivity.map((activity, index) => (
                 <div key={index} className="flex justify-between items-start py-3 border-b border-border last:border-0 hover:bg-muted/30 transition-colors px-2 rounded -mx-2">
                   <div>
-                    <p className="font-medium text-foreground text-sm">{activity.description}</p>
+                    <p className=" text-foreground text-sm">{activity.description}</p>
                     <p className="text-xs text-muted-foreground">{activity.timestamp}</p>
                   </div>
-                  <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-muted ${getStatusColor(activity.type)}`}>
+                  <span className={`text-[10px]  uppercase tracking-wider px-2 py-0.5 rounded bg-muted ${getStatusColor(activity.type)}`}>
                     {activity.type}
                   </span>
                 </div>
@@ -241,7 +241,7 @@ const AdminDashboardUnified: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4">
-            <h3 className="text-lg font-bold text-primary">System Control</h3>
+            <h3 className="text-lg  text-primary">System Control</h3>
           </div>
           <div className="space-y-3">
             <Button 
