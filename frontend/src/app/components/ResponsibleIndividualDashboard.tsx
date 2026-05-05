@@ -108,13 +108,14 @@ export function ResponsibleIndividualDashboard() {
                   <thead>
                     <tr className="border-b-2 border-border">
                       <th className="py-2 text-left text-[10px]  uppercase tracking-widest text-muted-foreground">Service Name</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-7</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-6</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-5</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-4</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-3</th>
-                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-2</th>
                       <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-1</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-2</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-3</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-4</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-5</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-6</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground">D-7</th>
+                      <th className="py-2 text-center text-[10px]  uppercase tracking-widest text-muted-foreground border-l-2 border-border pl-2">Weekly Status</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -136,6 +137,11 @@ export function ResponsibleIndividualDashboard() {
                             }`} />
                           </td>
                         ))}
+                        <td className="py-3 text-center border-l-2 border-border">
+                            <div className={`w-3 h-3 mx-auto rounded-none border border-border ${
+                                site.days[0]?.weekly_completed_this_week ? 'bg-success' : 'bg-muted'
+                            }`} title={site.days[0]?.weekly_completed_this_week ? 'Weekly Review Completed' : 'Weekly Review Pending'} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>

@@ -5,6 +5,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { apiClient } from "@/services/api";
 import { ThemeToggle } from "./ThemeToggle";
+import logo from "./images/logo.png";
 
 export function RoleBasedNavigation() {
   const location = useLocation();
@@ -124,7 +125,8 @@ export function RoleBasedNavigation() {
     <nav className="bg-card border-b-2 border-border fixed top-0 left-0 right-0 z-50">
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
-          <div className="flex items-center space-x-8 flex-1 min-w-0">
+          <div className="flex items-center space-x-6 flex-1 min-w-0">
+            <img src={logo} alt="Logo" className="h-20 w-auto" />
             <div className="text-xl  text-primary flex-shrink-0">OrdinCore</div>
             <div className="hidden md:flex space-x-1 overflow-x-auto no-scrollbar">
               {navItems.map((item) => {

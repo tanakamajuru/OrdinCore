@@ -20,6 +20,7 @@ export interface PulseDto {
 
 export const pulsesRepo = {
     async create(company_id: string, user_id: string, dto: PulseDto) {
+        console.log('[DEBUG] pulsesRepo.create - company_id:', company_id, 'user_id:', user_id, 'dto:', JSON.stringify(dto, null, 2));
         const id = uuidv4();
         const result = await query(
             `INSERT INTO governance_pulses (

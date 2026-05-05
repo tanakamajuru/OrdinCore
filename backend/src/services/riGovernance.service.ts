@@ -31,7 +31,7 @@ export class RiGovernanceService {
     const heatmap = await query(
       `SELECT house_id, house_name, review_date, daily_status, weekly_completed_this_week
        FROM service_governance_compliance_mv
-       WHERE company_id = $1
+       WHERE company_id = $1 AND review_date >= CURRENT_DATE - 6
        ORDER BY house_name, review_date DESC`,
       [company_id]
     );

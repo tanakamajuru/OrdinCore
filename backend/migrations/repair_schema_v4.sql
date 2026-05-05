@@ -4,6 +4,11 @@
 DO $$ 
 BEGIN
     -- 1. Rename table back if it was renamed by V3
+    -- First drop the view created by V3
+    IF EXISTS (SELECT 1 FROM information_schema.views WHERE table_name = 'action_effectiveness') THEN
+        DROP VIEW action_effectiveness;
+    END IF;
+
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness_metrics') THEN
         ALTER TABLE action_effectiveness_metrics RENAME TO action_effectiveness;
     END IF;

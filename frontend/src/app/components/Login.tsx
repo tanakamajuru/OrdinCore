@@ -93,7 +93,7 @@ export function Login() {
         <div className="w-full max-w-md">
           <div className="bg-card border-2 border-border p-8 shadow-md">
             <div className="text-center mb-2 flex flex-col items-center">
-              <img src={logo} alt="Logo" className="w-48 h-48 mb-1 mx-auto" />
+              <img src={logo} alt="Logo" className="w-55 h-55 mb-1 mx-auto" />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">

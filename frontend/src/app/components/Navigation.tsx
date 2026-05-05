@@ -1,6 +1,7 @@
 import { useLocation, useNavigate } from "react-router";
 import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown, Shield, Network, Building, Settings } from "lucide-react";
 import { Button } from "./ui/button";
+import logo from "./images/logo.png";
 import { useEffect, useState } from "react";
 
 export function Navigation() {
@@ -33,6 +34,7 @@ export function Navigation() {
     { path: "/incidents", label: "Incidents", icon: Shield },
     { path: "/patterns", label: "Patterns", icon: Network },
     { path: "/trends", label: "Trends", icon: TrendingUp },
+
     { path: "/reports", label: "Reports", icon: FileDown },
   ];
 
@@ -47,6 +49,7 @@ export function Navigation() {
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
+            <img src={logo} alt="Logo" className="h-10 w-auto" />
             <div className="text-xl  text-primary">OrdinCore</div>
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => {
