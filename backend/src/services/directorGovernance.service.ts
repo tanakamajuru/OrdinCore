@@ -130,7 +130,7 @@ export class DirectorGovernanceService {
       AND EXISTS (
         SELECT 1 FROM governance_pulses gp
         WHERE gp.house_id = r.house_id
-        AND gp.risk_domain = r.risk_domain
+        AND r.risk_domain = ANY(gp.risk_domain)
         AND gp.entry_date > r.closed_at::date
       )
     `;

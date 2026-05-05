@@ -8,7 +8,9 @@ export class RisksService {
     house_id: string; title: string; description?: string; severity?: string; category_id?: string;
     likelihood?: number; impact?: number; assigned_to?: string; review_due_date?: Date;
     source_cluster_id?: string; status?: string; trajectory?: string;
+    risk_domain?: string;
     metadata?: any;
+    linked_person?: string;
   }) {
     const risk = await risksRepo.create({ company_id, created_by, ...data });
     await risksRepo.addEvent(risk.id, company_id, 'created', 'Risk created', created_by);
@@ -225,7 +227,7 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
   }) {
     const clusterRes = await query(
-      `SELECT id, signal_count, first_signal_date, last_signal_date FROM signal_clusters 
+      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person FROM signal_clusters 
        WHERE id = $1 AND company_id = $2`,
       [data.cluster_id, company_id]
     );
@@ -236,6 +238,7 @@ export class RisksService {
       ...data,
       source_cluster_id: data.cluster_id,
       status: 'Open',
+      risk_domain: cluster.risk_domain,
       linked_person: cluster.linked_person
     });
 
@@ -254,7 +257,7 @@ export class RisksService {
     reason?: string;
   }) {
     const candidateRes = await query(
-      `SELECT id, risk_domain FROM risk_candidates 
+      `SELECT id, risk_domain, linked_person FROM risk_candidates 
        WHERE id = $1 AND company_id = $2`,
       [data.candidate_id, company_id]
     );
@@ -263,6 +266,7 @@ export class RisksService {
     const risk = await this.create(company_id, user_id, {
       ...data,
       status: 'Open',
+      risk_domain: candidateRes.rows[0].risk_domain,
       metadata: { promotion_reason: data.reason },
       linked_person: candidateRes.rows[0].linked_person
     });
