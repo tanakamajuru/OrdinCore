@@ -70,6 +70,7 @@ export function RiskDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAction, setNewAction] = useState({
+    title: "",
     action: "",
     status: "Pending" as "Pending" | "In Progress" | "Complete" | "Ongoing",
     date: ""
@@ -167,6 +168,10 @@ export function RiskDetail() {
   };
 
   const handleAddAction = async () => {
+    if (!newAction.title) {
+      toast.error('Please enter an action title');
+      return;
+    }
     if (!newAction.action) {
       toast.error('Please enter an action description');
       return;
@@ -175,6 +180,7 @@ export function RiskDetail() {
     setIsSubmitting(true);
     try {
       await apiClient.post(`/risks/${id}/action`, {
+        title: newAction.title,
         description: newAction.action,
         status: newAction.status,
         action_date: newAction.date || new Date().toISOString().split('T')[0]
@@ -182,7 +188,7 @@ export function RiskDetail() {
       
       toast.success('Action added successfully');
       setShowAddAction(false);
-      setNewAction({ action: "", status: "Pending", date: "" });
+      setNewAction({ title: "", action: "", status: "Pending", date: "" });
       
       if (id) {
         loadRiskDetails(id);
@@ -556,6 +562,17 @@ export function RiskDetail() {
             
             <div className="space-y-4">
               <div>
+                <label className="block mb-2 text-foreground ">Action Title</label>
+                <input
+                  type="text"
+                  value={newAction.title}
+                  onChange={(e) => setNewAction({...newAction, title: e.target.value})}
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  placeholder="e.g. Update Care Plan"
+                />
+              </div>
+
+              <div>
                 <label className="block mb-2 text-foreground ">Action Description</label>
                 <textarea
                   value={newAction.action}
@@ -594,7 +611,7 @@ export function RiskDetail() {
               <button
                 onClick={() => {
                   setShowAddAction(false);
-                  setNewAction({ action: "", status: "Pending", date: "" });
+                  setNewAction({ title: "", action: "", status: "Pending", date: "" });
                 }}
                 className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >

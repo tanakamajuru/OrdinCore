@@ -235,8 +235,7 @@ export function RiskPromotion() {
                 <select 
                     value={formData.category_id}
                     onChange={e => setFormData(p => ({ ...p, category_id: e.target.value }))}
-                    disabled={!!candidateId || !!clusterId}
-                    className={`w-full bg-input-background border-b-2 border-primary p-3  focus:outline-none mb-6 ${ (!!candidateId || !!clusterId) ? 'opacity-80 cursor-not-allowed' : '' }`}
+                    className="w-full bg-input-background border-b-2 border-primary p-3  focus:outline-none mb-6"
                 >
                     <option value="">Select Category</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
