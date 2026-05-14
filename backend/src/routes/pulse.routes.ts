@@ -62,4 +62,7 @@ router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_
  */
 router.post('/:id/link-risk', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), pulseController.linkToRisk.bind(pulseController));
 
+// Alias for singular /pulse to reuse existing /pulses logic
+router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));
+
 export default router;
