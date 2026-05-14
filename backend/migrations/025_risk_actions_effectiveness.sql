@@ -4,9 +4,12 @@
 -- 1. Create effectiveness enum
 DO $$ 
 BEGIN
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'action_effectiveness') THEN
+    -- 5. Action Effectiveness Enum
+    BEGIN
         CREATE TYPE action_effectiveness AS ENUM ('Effective', 'Neutral', 'Ineffective');
-    END IF;
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
 END $$;
 
 -- 2. Add columns to risk_actions

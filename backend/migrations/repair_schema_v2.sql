@@ -24,9 +24,11 @@ BEGIN
     END IF;
 
     -- 5. Action Effectiveness Enum (Use a unique name to avoid conflict with table name)
-    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'effectiveness_outcome') THEN
+    BEGIN
         CREATE TYPE effectiveness_outcome AS ENUM ('Effective', 'Neutral', 'Ineffective');
-    END IF;
+    EXCEPTION
+        WHEN duplicate_object THEN NULL;
+    END;
 
     -- 6. Risk_actions columns (Use the new enum name or just varchar if needed)
     IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'risk_actions' AND column_name = 'effectiveness') THEN
