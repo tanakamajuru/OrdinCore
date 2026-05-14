@@ -9,7 +9,7 @@ export interface JwtPayload {
   role: string;
   email: string;
   assigned_house_id?: string | null; // Legacy
-  house_ids?: string[];
+  assigned_house_ids?: string[];
   iat?: number;
   exp?: number;
 }
@@ -69,7 +69,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       company_id: user.company_id,
       role: user.role,
       email: user.email,
-      house_ids: finalHouseIds,
+      assigned_house_ids: finalHouseIds,
       assigned_house_id: finalHouseIds.length > 0 ? finalHouseIds[0] : null,
     };
 

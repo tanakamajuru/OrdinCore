@@ -29,7 +29,7 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
   }
 
   // RM and TL are restricted to their OWN_SERVICE (assigned_house)
-  const userHouseIds = req.user.house_ids || [];
+  const userHouseIds = req.user.assigned_house_ids || [];
   
   if (userHouseIds.length === 0) {
     // If it's a GET request, we allow it to proceed but it will likely return empty results
