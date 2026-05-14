@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useLocation } from "react-router";
 import { Plus, Search, Calendar, MapPin, AlertTriangle, Filter, X, Ambulance } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
@@ -28,6 +28,7 @@ interface IncidentCase {
 export function IncidentCaseHub() {
   const navigate = useNavigate();
   const [incidents, setIncidents] = useState<IncidentCase[]>([]);
+  const location = useLocation();
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [showCreateModal, setShowCreateModal] = useState(false);
@@ -64,6 +65,27 @@ export function IncidentCaseHub() {
   const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User';
 
   useEffect(() => { loadIncidents(); }, []);
+
+  useEffect(() => {
+    if (location.state?.fromSignal) {
+      const { title, description, severity, houseId } = location.state;
+      setIncidentForm((prev: any) => ({
+        ...prev,
+        title: location.state.title || prev.title,
+        description: location.state.description || prev.description,
+        immediate_action: location.state.immediate_action || prev.immediate_action,
+        severity: location.state.severity || prev.severity,
+        type: location.state.signalType || prev.type,
+        house_id: location.state.houseId || location.state.house_id || prev.house_id,
+        occurred_at: defaultOccurredAt()
+      }));
+      setShowCreateModal(true);
+      toast.info('Pre-filling incident from signal details');
+      
+      // Clear state so it doesn't reopen on refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   const loadIncidents = async () => {
     try {
@@ -127,7 +149,7 @@ export function IncidentCaseHub() {
     if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
       toast.error('Please fill in title, description and date'); return;
     }
-    const targetHouseId = (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') ? userHouseId : incidentForm.house_id;
+    const targetHouseId = (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') ? (userHouseId || incidentForm.house_id) : incidentForm.house_id;
     if (!targetHouseId) { toast.error('Please select a house'); return; }
     if (!incidentForm.occurred_at) { toast.error('Please select a date'); return; }
 
@@ -493,8 +515,9 @@ export function IncidentCaseHub() {
                     </h3>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Incident Title *</label>
+                        <label htmlFor="incident-title" className="block text-sm  text-foreground mb-1">Incident Title *</label>
                         <Input
+                          id="incident-title"
                           value={incidentForm.title}
                           onChange={(e) => setIncidentForm({ ...incidentForm, title: e.target.value })}
                           className="border-border bg-background focus:ring-primary rounded-lg"
@@ -502,8 +525,13 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">House/Service *</label>
-                        <select value={incidentForm.house_id} onChange={(e) => setIncidentForm({ ...incidentForm, house_id: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <label htmlFor="incident-house" className="block text-sm  text-foreground mb-1">House/Service *</label>
+                        <select 
+                          id="incident-house"
+                          value={incidentForm.house_id} 
+                          onChange={(e) => setIncidentForm({ ...incidentForm, house_id: e.target.value })} 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+                        >
                           {getAvailableHouses().map(house => (
                             <option key={house.id} value={house.id}>
                               {house.name}
@@ -515,8 +543,9 @@ export function IncidentCaseHub() {
                         )}
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Incident Date & Time *</label>
+                        <label htmlFor="incident-date" className="block text-sm  text-foreground mb-1">Incident Date & Time *</label>
                         <Input
+                          id="incident-date"
                           type="datetime-local"
                           value={incidentForm.occurred_at}
                           onChange={(e) => setIncidentForm({ ...incidentForm, occurred_at: e.target.value })}
@@ -524,8 +553,13 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Incident Type *</label>
-                        <select onChange={(e) => setIncidentForm({ ...incidentForm, type: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <label htmlFor="incident-type" className="block text-sm  text-foreground mb-1">Incident Type *</label>
+                        <select 
+                          id="incident-type"
+                          value={incidentForm.type}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, type: e.target.value })} 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+                        >
                           <option value="">Select type...</option>
                           <option value="safeguarding">Safeguarding</option>
                           <option value="medication">Medication Error</option>
@@ -538,17 +572,18 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Severity Level *</label>
+                        <label htmlFor="severity-level" className="block text-sm  text-foreground mb-1">Severity Level *</label>
                         <select
+                          id="severity-level"
                           value={incidentForm.severity}
                           onChange={(e) => setIncidentForm({ ...incidentForm, severity: e.target.value })}
                           className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-destructive focus:outline-none text-sm  text-destructive"
                         >
                           <option value="">Select severity...</option>
-                          <option value="critical">Critical</option>
-                          <option value="serious">Serious</option>
-                          <option value="moderate">Moderate</option>
-                          <option value="minor">Minor</option>
+                          <option value="Critical">Critical</option>
+                          <option value="High">Serious</option>
+                          <option value="Moderate">Moderate</option>
+                          <option value="Low">Minor</option>
                         </select>
                       </div>
                     </div>
@@ -562,8 +597,12 @@ export function IncidentCaseHub() {
                     </h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Were warning signals present before this incident? *</label>
-                        <select onChange={(e) => setIncidentForm({ ...incidentForm, warning_signals: e.target.value })} className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm">
+                        <label htmlFor="warning-signals" className="block text-sm  text-foreground mb-1">Were warning signals present before this incident? *</label>
+                        <select 
+                          id="warning-signals"
+                          onChange={(e) => setIncidentForm({ ...incidentForm, warning_signals: e.target.value })} 
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm"
+                        >
                           <option value="">Select...</option>
                           <option value="yes">Yes - risks were identified</option>
                           <option value="no">No - incident was unexpected</option>
@@ -571,8 +610,9 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Link to Existing Risk Register Items</label>
+                        <label htmlFor="risk-link" className="block text-sm  text-foreground mb-1">Link to Existing Risk Register Items</label>
                         <input
+                          id="risk-link"
                           type="text"
                           placeholder="Search risks..."
                           value={riskSearchTerm}
@@ -597,8 +637,9 @@ export function IncidentCaseHub() {
                         <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Select all relevant risk items (hold Ctrl/Cmd to select multiple)</p>
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Link to Escalations</label>
+                        <label htmlFor="escalation-link" className="block text-sm  text-foreground mb-1">Link to Escalations</label>
                         <input
+                          id="escalation-link"
                           type="text"
                           placeholder="Search escalations..."
                           value={escalationSearchTerm}
@@ -632,8 +673,9 @@ export function IncidentCaseHub() {
                     <h3 className=" text-foreground mb-4">Incident Details</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Incident Description *</label>
+                        <label htmlFor="incident-description" className="block text-sm  text-foreground mb-1">Incident Description *</label>
                         <textarea
+                          id="incident-description"
                           value={incidentForm.description}
                           onChange={(e) => setIncidentForm({ ...incidentForm, description: e.target.value })}
                           className="w-full border-2 border-border rounded p-2 h-24 resize-none"
@@ -641,8 +683,9 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Immediate Actions Taken</label>
+                        <label htmlFor="immediate-actions" className="block text-sm  text-foreground mb-1">Immediate Actions Taken</label>
                         <textarea
+                          id="immediate-actions"
                           value={incidentForm.immediate_action}
                           onChange={(e) => setIncidentForm({ ...incidentForm, immediate_action: e.target.value })}
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
@@ -718,8 +761,9 @@ export function IncidentCaseHub() {
                     <h3 className=" text-foreground mb-4">Leadership Assessment</h3>
                     <div className="space-y-4">
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Was this incident foreseeable?</label>
+                        <label htmlFor="is-foreseeable" className="block text-sm  text-foreground mb-1">Was this incident foreseeable?</label>
                         <select 
+                          id="is-foreseeable"
                           className="w-full border-2 border-border rounded p-2"
                           value={incidentForm.is_foreseeable}
                           onChange={(e) => setIncidentForm({ ...incidentForm, is_foreseeable: e.target.value })}
@@ -731,8 +775,9 @@ export function IncidentCaseHub() {
                         </select>
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Related Risk Factors</label>
+                        <label htmlFor="risk-factors" className="block text-sm  text-foreground mb-1">Related Risk Factors</label>
                         <textarea
+                          id="risk-factors"
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Any risk factors that contributed to this incident..."
                           value={incidentForm.risk_factors}
@@ -740,8 +785,9 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Preventive Measures Needed</label>
+                        <label htmlFor="preventive-measures" className="block text-sm  text-foreground mb-1">Preventive Measures Needed</label>
                         <textarea
+                          id="preventive-measures"
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Measures needed to prevent similar incidents..."
                           value={incidentForm.preventive_measures}
@@ -749,8 +795,9 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">Leadership Commentary</label>
+                        <label htmlFor="leadership-commentary" className="block text-sm  text-foreground mb-1">Leadership Commentary</label>
                         <textarea
+                          id="leadership-commentary"
                           className="w-full border-2 border-border rounded p-2 h-20 resize-none"
                           placeholder="Leadership perspective on the incident and implications..."
                           value={incidentForm.leadership_commentary}

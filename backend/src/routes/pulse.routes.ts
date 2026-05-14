@@ -41,7 +41,7 @@ router.get('/dashboard', requireAuth, requireTenant, requireRole('REGISTERED_MAN
  *     tags: [Pulses]
  *     summary: Get single pulse detail
  */
-router.get('/:id', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'), pulseController.getPulseById.bind(pulseController));
+router.get('/:id', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'), pulseController.getPulseById.bind(pulseController));
 
 /**
  * @openapi

@@ -3244,3 +3244,775 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\directorGovernance.worker.ts:16:21)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-13 13:00:01 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-13 13:00:02 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-13 13:00:02 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-13 13:14:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-13 13:18:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-13 13:19:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-13 13:20:27 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 09:47:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-14 09:47:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-14 09:47:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-14 10:01:27 [error]: error: invalid input value for enum pattern_concern: "Clear Repeat"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:25:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-05-14 10:26:47 [error]: error: invalid input value for enum pattern_concern: "Clear Repeat"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:25:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-05-14 10:29:33 [error]: error: invalid input value for enum pattern_concern: "Clear Repeat"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:25:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-05-14 10:31:51 [error]: error: invalid input value for enum pattern_concern: "Clear Repeat"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:25:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-05-14 10:34:30 [error]: error: null value in column "house_id" of relation "governance_pulses" violates not-null constraint
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:25:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-05-14 10:35:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:35:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:35:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:37:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:37:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:37:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:38:11 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:38:11 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:38:11 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:39:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:39:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:39:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:40:31 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:40:31 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:40:32 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:41:33 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:41:33 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:41:33 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:42:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:42:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:42:29 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:43:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:43:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:43:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:04 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:04 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:04 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:09 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:55 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:55 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:44:55 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:45:00 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:45:30 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:45:30 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:45:30 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 10:45:34 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:08:53 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:08:53 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:08:53 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:08:58 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:09:42 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:09:42 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:09:42 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:09:46 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:11:34 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:11:34 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:11:35 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:11:39 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:12:32 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:12:32 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:12:32 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:12:38 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:15:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:15:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:15:07 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:15:13 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:16:54 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:16:54 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:16:55 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:17:00 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:18:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:18:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:18:14 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:18:18 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:20:23 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:20:23 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:20:23 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:20:28 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:25:06 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:25:06 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:25:06 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:25:10 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:27:57 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:27:57 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:27:57 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 11:28:01 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:04:40 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:04:40 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:04:40 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:04:44 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:05:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:05:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:05:20 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:05:26 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:06:45 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:06:45 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:06:46 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-14 16:06:51 [error]: error: invalid input value for enum threshold_output_type: "Immediate Alert"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\thresholdEvents.repo.ts:15:17)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:127:9)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)

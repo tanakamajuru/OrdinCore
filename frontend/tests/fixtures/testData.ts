@@ -69,41 +69,41 @@ export const SAMPLE_SIGNALS = {
   BEHAVIOUR_INCIDENT: {
     entry_date: '2026-04-30',
     entry_time: '14:30',
-    service_id: TEST_SERVICES.ROSE_HOUSE.id,
+    house_id: TEST_SERVICES.ROSE_HOUSE.id,
     signal_type: 'Incident',
     risk_domain: ['Behaviour'],
     description: 'Resident A shouted and refused medication',
     immediate_action: 'Staff calmed resident; medication offered later',
     severity: 'Moderate',
     has_happened_before: 'Yes',
-    pattern_concern: 'Clear Repeat',
+    pattern_concern: 'Clear',
     escalation_required: 'Manager Review'
   },
   MEDICATION_ERROR: {
     entry_date: '2026-04-30',
     entry_time: '09:15',
-    service_id: TEST_SERVICES.ROSE_HOUSE.id,
-    signal_type: 'Medication Error',
+    house_id: TEST_SERVICES.ROSE_HOUSE.id,
+    signal_type: 'Medication',
     risk_domain: ['Medication'],
     description: 'Wrong dosage administered to Resident B',
     immediate_action: 'Doctor notified, resident monitored',
     severity: 'High',
     has_happened_before: 'No',
-    pattern_concern: 'Isolated',
-    escalation_required: 'Director Review'
+    pattern_concern: 'Possible',
+    escalation_required: 'Urgent Review'
   },
   SAFEGUARDING_CONCERN: {
     entry_date: '2026-04-30',
     entry_time: '16:45',
-    service_id: TEST_SERVICES.LAKE_VIEW.id,
+    house_id: TEST_SERVICES.LAKE_VIEW.id,
     signal_type: 'Safeguarding',
     risk_domain: ['Safeguarding'],
     description: 'Unexplained bruise observed on Resident C',
     immediate_action: 'Safeguarding lead notified, incident logged',
     severity: 'Critical',
     has_happened_before: 'No',
-    pattern_concern: 'Isolated',
-    escalation_required: 'Immediate RI Review'
+    pattern_concern: 'Escalating',
+    escalation_required: 'Immediate Escalation'
   }
 };
 
@@ -140,7 +140,7 @@ export const SAMPLE_RISKS = {
     description: 'Pattern of aggressive behaviour requiring intervention',
     risk_domain: 'Behaviour',
     severity: 'High',
-    service_id: TEST_SERVICES.ROSE_HOUSE.id,
+    house_id: TEST_SERVICES.ROSE_HOUSE.id,
     status: 'Active'
   },
   MEDICATION_SAFETY: {
@@ -148,7 +148,7 @@ export const SAMPLE_RISKS = {
     description: 'Systematic issues in medication administration',
     risk_domain: 'Medication',
     severity: 'Critical',
-    service_id: TEST_SERVICES.ROSE_HOUSE.id,
+    house_id: TEST_SERVICES.ROSE_HOUSE.id,
     status: 'Active'
   }
 };
@@ -156,23 +156,23 @@ export const SAMPLE_RISKS = {
 export const SAMPLE_INCIDENTS = {
   CRITICAL_BEHAVIOUR: {
     house_id: TEST_SERVICES.ROSE_HOUSE.id,
-    incident_title: 'Physical aggression - Resident A',
+    title: 'Physical aggression - Resident A',
     severity: 'Critical',
-    incident_type: 'Behaviour',
+    type: 'Behaviour',
     occurred_at: '2026-04-29T09:00:00Z',
-    initial_summary: 'Resident A physically aggressive towards staff member',
-    persons_involved: ['Resident A', 'Staff Member'],
-    immediate_actions: ['Staff safety ensured', 'Resident calmed', 'Management notified']
+    description: 'Resident A physically aggressive towards staff member',
+    persons_involved: 'Resident A, Staff Member',
+    immediate_action: 'Staff safety ensured, Resident calmed, Management notified'
   },
   SAFEGUARDING_BRUISING: {
     house_id: TEST_SERVICES.LAKE_VIEW.id,
-    incident_title: 'Unexplained bruising - Resident C',
+    title: 'Unexplained bruising - Resident C',
     severity: 'Critical',
-    incident_type: 'Safeguarding',
+    type: 'Safeguarding',
     occurred_at: '2026-04-28T14:30:00Z',
-    initial_summary: 'Multiple unexplained bruises found during routine care',
-    persons_involved: ['Resident C'],
-    immediate_actions: ['Safeguarding lead notified', 'Family informed', 'CQC referral made']
+    description: 'Multiple unexplained bruises found during routine care',
+    persons_involved: 'Resident C',
+    immediate_action: 'Safeguarding lead notified, Family informed, CQC referral made'
   }
 };
 

@@ -37,7 +37,7 @@ export function CrossHousePatternDetection() {
   const loadPatterns = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/clusters');
+      const res = await apiClient.get('/governance/clusters');
       const data = (res as any).data || [];
       
       const formatted: RiskPattern[] = data.map((c: any) => ({

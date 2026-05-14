@@ -159,7 +159,7 @@ export function DailyOversightBoard() {
                       <div className="text-xs text-muted-foreground uppercase  mt-1">{c.risk_domain} • {c.signal_count} Signals</div>
                     </div>
                     <button 
-                      onClick={() => navigate(`/risks/promote?cluster_id=${c.id}`)}
+                      onClick={() => navigate(`/risks/promote`, { state: { cluster_id: c.id } })}
                       className="bg-primary text-primary-foreground px-4 py-2  text-sm hover:translate-x-1 transition-transform"
                     >
                       Promote to Risk

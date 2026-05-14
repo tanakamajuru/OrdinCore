@@ -31,12 +31,14 @@ export const incidentsRepo = {
     const params: unknown[] = [id];
     let sql = `SELECT i.*, ic.name AS category_name, h.name AS house_name,
         u1.first_name || ' ' || u1.last_name AS created_by_name,
-        u2.first_name || ' ' || u2.last_name AS assigned_to_name
+        u2.first_name || ' ' || u2.last_name AS assigned_to_name,
+        (ra.id IS NOT NULL) AS ri_acknowledged
       FROM incidents i
       LEFT JOIN incident_categories ic ON ic.id = i.category_id
       LEFT JOIN houses h ON h.id = i.house_id
       LEFT JOIN users u1 ON u1.id = i.created_by
       LEFT JOIN users u2 ON u2.id = i.assigned_to
+      LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
       WHERE i.id = $1`;
     if (company_id) { sql += ' AND i.company_id = $2'; params.push(company_id); }
     const result = await query(sql, params);
@@ -87,11 +89,13 @@ export const incidentsRepo = {
     const where = conditions.join(' AND ');
     const result = await query(
       `SELECT i.*, ic.name AS category_name, h.name AS house_name,
-              u.first_name || ' ' || u.last_name AS created_by_name
+              u.first_name || ' ' || u.last_name AS created_by_name,
+              (ra.id IS NOT NULL) AS ri_acknowledged
        FROM incidents i
        LEFT JOIN incident_categories ic ON ic.id = i.category_id
        LEFT JOIN houses h ON h.id = i.house_id
        LEFT JOIN users u ON u.id = i.created_by
+       LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
        WHERE ${where}
        ORDER BY i.occurred_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
@@ -135,7 +139,7 @@ export const incidentsRepo = {
       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
       [
         id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
-        dto.severity || 'moderate', dto.status || 'open', dto.occurred_at, dto.location || null,
+        dto.severity || 'Moderate', dto.status || 'Open', dto.occurred_at, dto.location || null,
         dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
         JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false,
         dto.la_referral || null, dto.cqc_notification || null, dto.police_reference || null, dto.other_references || null,

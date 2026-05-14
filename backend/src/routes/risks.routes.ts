@@ -375,7 +375,7 @@ router.get('/metrics/summary', requireAuth, requireTenant, risksController.getMe
 router.patch('/bulk/reassign', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), risksController.bulkReassign.bind(risksController));
 
 // Effectiveness tracking
-router.patch('/:id/effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionEffectivenessController.rateEffectiveness.bind(actionEffectivenessController));
+router.post('/:id/actions/:actionId/effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionEffectivenessController.rateEffectiveness.bind(actionEffectivenessController));
 router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionEffectivenessController.getPending.bind(actionEffectivenessController));
 
 export default router;

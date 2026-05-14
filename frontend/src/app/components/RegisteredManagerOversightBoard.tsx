@@ -306,7 +306,7 @@ export function RegisteredManagerOversightBoard() {
                             <div className="bg-primary h-full" style={{ width: `${Math.min(c.signal_count * 20, 100)}%` }}></div>
                         </div>
                         <button 
-                            onClick={() => navigate(`/risks/promote?cluster_id=${c.id}`)}
+                            onClick={() => navigate(`/risks/promote`, { state: { cluster_id: c.id } })}
                             className="w-full py-3 border-2 border-border  uppercase tracking-widest hover:bg-primary hover:text-primary-foreground transition-all"
                         >
                             Analyse Cluster
@@ -346,7 +346,7 @@ export function RegisteredManagerOversightBoard() {
                   riskCandidates.map(rc => (
                     <div 
                       key={rc.id} 
-                      onClick={() => navigate(`/risks/promote?candidate_id=${rc.id}`)}
+                      onClick={() => navigate(`/risks/promote`, { state: { candidate_id: rc.id } })}
                       className={`p-6 border-4 border-border cursor-pointer transition-colors ${candidateFilter === 'Dismissed' ? 'bg-muted/30 grayscale' : 'bg-destructive/5 hover:bg-destructive/10'}`}
                     >
                       <div className="flex justify-between items-start">

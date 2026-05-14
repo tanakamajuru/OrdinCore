@@ -93,7 +93,7 @@ const AdminRiskManagement: React.FC = () => {
         ...(houseFilter && houseFilter !== 'all' && { houseId: houseFilter })
       });
 
-      const response = await fetch(`/api/admin/risks?${params}`, {
+      const response = await fetch(`/api/v1/admin/risks?${params}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
 

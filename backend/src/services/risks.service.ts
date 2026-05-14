@@ -353,26 +353,29 @@ export class RisksService {
       [risk_id, company_id]
     );
 
-    if (ratings.rows.length < 2) return;
+    if (ratings.rows.length < 1) return;
 
     const r1 = ratings.rows[0].effectiveness;
-    const r2 = ratings.rows[1].effectiveness;
+    const r2 = ratings.rows[1]?.effectiveness; // Optional second rating
 
     let newTrajectory: string | null = null;
     let governanceNote: string | null = null;
 
-    if (r1 === 'Effective' && r2 === 'Effective') {
+    if (r1 === 'Effective') {
       newTrajectory = 'Improving';
-    } else if (r1 === 'Ineffective' && r2 === 'Ineffective') {
+    } else if (r1 === 'Ineffective') {
       newTrajectory = 'Deteriorating';
-      governanceNote = 'Critical Governance Concern: Two consecutive ineffective control actions detected.';
+      if (r2 === 'Ineffective') {
+        governanceNote = 'Critical Governance Concern: Two consecutive ineffective control actions detected.';
+      }
     }
 
     if (newTrajectory) {
       await risksRepo.update(risk_id, company_id, { trajectory: newTrajectory });
+      const risk = await risksRepo.findById(risk_id, company_id);
       await risksRepo.addEvent(risk_id, company_id, 'trajectory_auto_update', 
         `Trajectory automatically updated to ${newTrajectory} based on action effectiveness.${governanceNote ? ' ' + governanceNote : ''}`, 
-        'SYSTEM');
+        risk.created_by);
       
       if (governanceNote) {
         await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, { risk_id, company_id, note: governanceNote });

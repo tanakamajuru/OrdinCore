@@ -93,7 +93,7 @@ const AdminDashboard: React.FC = () => {
 
   const handleCreateUser = async () => {
     try {
-      const response = await fetch('/api/admin/users', {
+      const response = await fetch('/api/v1/admin/users', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -120,7 +120,7 @@ const AdminDashboard: React.FC = () => {
     if (!editingUser) return;
 
     try {
-      const response = await fetch(`/api/admin/users/${editingUser.id}`, {
+      const response = await fetch(`/api/v1/admin/users/${editingUser.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
@@ -153,7 +153,7 @@ const AdminDashboard: React.FC = () => {
     if (!confirm('Are you sure you want to delete this user?')) return;
 
     try {
-      const response = await fetch(`/api/admin/users/${userId}`, {
+      const response = await fetch(`/api/v1/admin/users/${userId}`, {
         method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${localStorage.getItem('token')}`

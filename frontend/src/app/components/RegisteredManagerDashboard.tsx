@@ -100,7 +100,7 @@ export function RegisteredManagerDashboard() {
                 riskCandidates.map(rc => (
                   <div 
                     key={rc.id} 
-                    onClick={() => navigate(`/risks/promote?candidate_id=${rc.id}`)}
+                    onClick={() => navigate(`/risks/promote`, { state: { candidate_id: rc.id } })}
                     className="p-4 border-2 border-border bg-destructive/5 cursor-pointer hover:bg-destructive/10 transition-colors"
                   >
                     <div className="flex justify-between items-start mb-2">

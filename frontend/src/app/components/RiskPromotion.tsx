@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate, useSearchParams } from "react-router";
+import { useNavigate, useSearchParams, useLocation } from "react-router";
 import { 
   ShieldAlert, 
   TrendingUp, 
@@ -21,9 +21,12 @@ const TRAJECTORIES = ['Improving', 'Stable', 'Deteriorating', 'Critical'];
 
 export function RiskPromotion() {
   const navigate = useNavigate();
+  const location = useLocation();
   const [searchParams] = useSearchParams();
-  const candidateId = searchParams.get('candidate_id');
-  const clusterId = searchParams.get('cluster_id');
+  
+  // Try to get from state first, fallback to searchParams
+  const candidateId = location.state?.candidate_id || searchParams.get('candidate_id');
+  const clusterId = location.state?.cluster_id || searchParams.get('cluster_id');
   const { user } = useAuth();
   
   const [isLoading, setIsLoading] = useState(true);
@@ -117,6 +120,7 @@ export function RiskPromotion() {
     try {
       await apiClient.post('/risks/promote', {
           ...formData,
+          risk_title: formData.title, // Map title to risk_title just in case, though backend expects title
           candidate_id: candidateId,
           cluster_id: clusterId,
           house_id: sourceData.house_id

@@ -99,7 +99,7 @@ const AdminPulseManagement: React.FC = () => {
         ...(houseFilter && houseFilter !== 'all' && { houseId: houseFilter })
       });
 
-      const response = await fetch(`/api/admin/pulses?${params}`, {
+      const response = await fetch(`/api/v1/admin/pulses?${params}`, {
         headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
       });
 
@@ -152,7 +152,7 @@ const AdminPulseManagement: React.FC = () => {
     if (!selectedPulse) return;
 
     try {
-      const response = await fetch(`/api/admin/pulses/${selectedPulse.id}`, {
+      const response = await fetch(`/api/v1/admin/pulses/${selectedPulse.id}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
