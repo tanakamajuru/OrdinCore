@@ -22,7 +22,7 @@ export class RiGovernanceService {
          WHERE house_id = h.id 
          ORDER BY week_ending DESC LIMIT 1
        ) wr ON true
-       WHERE h.company_id = $1 AND h.is_active = true
+       WHERE h.company_id = $1 AND h.status != 'closed'
        ORDER BY position_rank DESC, h.name ASC`,
       [company_id]
     );
@@ -66,7 +66,7 @@ export class RiGovernanceService {
     const deputyCover = await query(
       `SELECT id as house_id, name as house_name, deputy_cover_total_seconds
        FROM houses
-       WHERE company_id = $1 AND is_active = true`,
+       WHERE company_id = $1 AND status != 'closed'`,
       [company_id]
     );
 

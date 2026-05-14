@@ -90,7 +90,7 @@ export class AnalyticsService {
          LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
          LEFT JOIN incidents i ON i.house_id = h.id AND i.company_id = $1
          LEFT JOIN escalations e ON e.house_id = h.id AND e.company_id = $1
-         WHERE h.company_id = $1 AND h.is_active = true
+         WHERE h.company_id = $1 AND h.status != 'closed'
          GROUP BY h.id, h.name
          ORDER BY open_risks DESC`,
         [company_id]
@@ -179,7 +179,7 @@ export class AnalyticsService {
       const [risks, incidents, houses, governance, escalations] = await Promise.all([
         query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE LOWER(status::text) = 'open') AS open, COUNT(*) FILTER (WHERE LOWER(severity::text) = 'critical') AS critical FROM risks WHERE company_id = $1`, [company_id]),
         query(`SELECT COUNT(*) AS total, COUNT(*) FILTER (WHERE LOWER(status::text) = 'open') AS open FROM incidents WHERE company_id = $1`, [company_id]),
-        query(`SELECT COUNT(*) AS total FROM houses WHERE company_id = $1 AND is_active = true`, [company_id]),
+        query(`SELECT COUNT(*) AS total FROM houses WHERE company_id = $1 AND status != 'closed'`, [company_id]),
         query(`
           SELECT ROUND(COALESCE(
             100.0 * COUNT(*) FILTER (WHERE completed = true) / NULLIF(COUNT(*), 0), 
@@ -338,7 +338,7 @@ export class AnalyticsService {
          LEFT JOIN governance_pulses gp ON gp.house_id = h.id AND gp.review_status != 'New'
          LEFT JOIN signal_clusters sc ON sc.house_id = h.id AND LOWER(sc.cluster_status::text) != 'closed'
          LEFT JOIN risks r ON r.house_id = h.id
-         WHERE h.company_id = $1 AND h.is_active = true
+         WHERE h.company_id = $1 AND h.status != 'closed'
          GROUP BY h.id, h.name
          ORDER BY stability_score DESC`,
         [company_id]

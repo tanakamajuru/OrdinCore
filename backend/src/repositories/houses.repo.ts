@@ -39,8 +39,13 @@ export const housesRepo = {
     }
 
     if (filters.is_active !== undefined) {
-      conditions.push(`h.is_active = $${idx++}`);
-      params.push(filters.is_active === 'true' || filters.is_active === true);
+      if (filters.is_active === 'true' || filters.is_active === true) {
+        conditions.push(`h.status = $${idx++}`);
+        params.push('active');
+      } else {
+        conditions.push(`h.status != $${idx++}`);
+        params.push('active');
+      }
     }
 
     const where = conditions.join(' AND ');
@@ -68,8 +73,13 @@ export const housesRepo = {
     }
 
     if (filters.is_active !== undefined) {
-      conditions.push(`is_active = $${idx++}`);
-      params.push(filters.is_active === 'true' || filters.is_active === true);
+      if (filters.is_active === 'true' || filters.is_active === true) {
+        conditions.push(`status = $${idx++}`);
+        params.push('active');
+      } else {
+        conditions.push(`status != $${idx++}`);
+        params.push('active');
+      }
     }
 
     const where = conditions.join(' AND ');

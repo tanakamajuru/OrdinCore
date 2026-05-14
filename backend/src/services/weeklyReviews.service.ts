@@ -169,7 +169,7 @@ export class WeeklyReviewsService {
     );
 
     // [GOVERNANCE] Senior roles need a list of available houses to switch context
-    const housesRes = await query('SELECT id, name FROM houses WHERE company_id = $1 AND is_active = true', [company_id]);
+    const housesRes = await query("SELECT id, name FROM houses WHERE company_id = $1 AND status != 'closed'", [company_id]);
 
     // Fetch service users (residents) from pulses to populate the dropdown
     const serviceUsersRes = await query(
