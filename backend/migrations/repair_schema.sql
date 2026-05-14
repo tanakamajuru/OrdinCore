@@ -34,12 +34,14 @@ BEGIN
     END IF;
 
     -- 7. action_effectiveness columns
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_before_count') THEN
-        ALTER TABLE action_effectiveness ADD COLUMN signals_before_count INTEGER DEFAULT 0;
-    END IF;
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_before_count') THEN
+            ALTER TABLE action_effectiveness ADD COLUMN signals_before_count INTEGER DEFAULT 0;
+        END IF;
 
-    IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_after_count') THEN
-        ALTER TABLE action_effectiveness ADD COLUMN signals_after_count INTEGER DEFAULT 0;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_after_count') THEN
+            ALTER TABLE action_effectiveness ADD COLUMN signals_after_count INTEGER DEFAULT 0;
+        END IF;
     END IF;
 
 END $$;

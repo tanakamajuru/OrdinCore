@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS daily_governance_log (
 -- 2. Action Effectiveness Tracker
 CREATE TABLE IF NOT EXISTS action_effectiveness (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    action_id UUID NOT NULL REFERENCES actions(id) ON DELETE CASCADE,
+    action_id UUID NOT NULL REFERENCES risk_actions(id) ON DELETE CASCADE,
     risk_id UUID REFERENCES risks(id) ON DELETE SET NULL,
     company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
     house_id UUID NOT NULL REFERENCES houses(id) ON DELETE CASCADE,

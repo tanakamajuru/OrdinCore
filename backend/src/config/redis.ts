@@ -18,7 +18,7 @@ redis.on('connect', () => {
   console.log('🔴 OrdinCore: Connected to Redis (Worker Engine Active)');
 });
 
-redis.on('error', (err) => {
+redis.on('error', (err: any) => {
   // Only log full error if it's not a connection refusal to reduce terminal spam
   if (err.code === 'ECONNREFUSED') {
     if (process.env.NODE_ENV === 'development') {
