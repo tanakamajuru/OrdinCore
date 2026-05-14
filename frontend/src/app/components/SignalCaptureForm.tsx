@@ -111,10 +111,17 @@ export function SignalCaptureForm() {
 
   const loadHouses = async () => {
     try {
-      // RMs and TLs should only see their assigned houses if possible
       const housesRes = await apiClient.get('/houses?limit=100');
       const hData = (housesRes as any).data || (housesRes as any) || [];
-      const housesList = Array.isArray(hData) ? hData : [];
+      let housesList = Array.isArray(hData) ? hData : [];
+      
+      const role = (user?.role || '').toUpperCase().replace('-', '_');
+      if (['TEAM_LEADER', 'TL', 'REGISTERED_MANAGER', 'RM'].includes(role)) {
+        const assignedIds = user?.assigned_house_ids || (user?.assigned_house_id ? [user.assigned_house_id] : []);
+        if (assignedIds.length > 0 && !assignedIds.includes('all')) {
+          housesList = housesList.filter((h: any) => assignedIds.includes(h.id));
+        }
+      }
       
       setHouses(housesList);
       if (housesList.length > 0) {

@@ -162,7 +162,7 @@ async function generateOrganizationalMonthly(company_id: string, parameters: Rec
   const [risks, incidents, escalations, positions] = await Promise.all([
     query(`SELECT severity, status, COUNT(*) as count FROM risks WHERE company_id = $1 ${clause} GROUP BY severity, status`, [company_id, ...values]),
     query(`SELECT severity, status, COUNT(*) as count FROM incidents WHERE company_id = $1 ${clause} GROUP BY severity, status`, [company_id, ...values]),
-    query(`SELECT priority, status, COUNT(*) as count FROM escalations WHERE company_id = $1 ${clause.replace(/house_id/g, 'service_unit_id')} GROUP BY priority, status`, [company_id, ...values]),
+    query(`SELECT priority, status, COUNT(*) as count FROM escalations WHERE company_id = $1 ${clause} GROUP BY priority, status`, [company_id, ...values]),
     query(`SELECT overall_position, COUNT(*) as count FROM (
              SELECT DISTINCT ON (house_id) overall_position FROM weekly_reviews 
              WHERE company_id = $1 AND status = 'LOCKED' ${clause} ORDER BY house_id, week_ending DESC

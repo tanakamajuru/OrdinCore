@@ -405,17 +405,32 @@ const AdminUserManagement: React.FC = () => {
     });
   };
 
-  const openEditDialog = (user: User) => {
+  const openEditDialog = async (user: User) => {
     setSelectedUser(user);
     const formattedRole = user.role.toUpperCase().replace(/-/g, '_');
+    
+    // Fetch actual house assignments
+    let assignedHouseIds: string[] = [];
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${user.id}/houses`, {
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
+      });
+      if (response.ok) {
+        const data = await response.json();
+        assignedHouseIds = (data.data || []).map((h: any) => h.id);
+      }
+    } catch (error) {
+      console.error('Failed to fetch user houses:', error);
+    }
+
     setFormData({
       email: user.email,
       name: user.name,
       password: '',
       role: formattedRole,
       organization: user.organization || '',
-      assignedHouse: user.assigned_house_id || '',
-      assignedHouses: user.assigned_house_id === 'all' ? houses.map(h => h.id) : (user.assigned_house_id ? [user.assigned_house_id] : []),
+      assignedHouse: assignedHouseIds[0] || '',
+      assignedHouses: assignedHouseIds,
       pulseDays: Array.isArray(user.pulse_days) ? user.pulse_days : 
                  (typeof user.pulse_days === 'string' ? JSON.parse(user.pulse_days) : []),
       isActive: user.is_active
@@ -730,7 +745,7 @@ const AdminUserManagement: React.FC = () => {
               </Select>
             </div>
             
-            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
               <>
                 <div className="grid gap-2">
                   <Label>Assigned Sites</Label>
@@ -831,7 +846,7 @@ const AdminUserManagement: React.FC = () => {
                 <Switch checked={formData.isActive} onCheckedChange={(val) => setFormData({...formData, isActive: val})} />
             </div>
 
-            {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(formData.role) && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
               <div className="grid gap-2">
                 <Label>Assigned Sites</Label>
                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded">

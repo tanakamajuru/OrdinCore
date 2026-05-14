@@ -171,10 +171,20 @@ export class WeeklyReviewsService {
     // [GOVERNANCE] Senior roles need a list of available houses to switch context
     const housesRes = await query('SELECT id, name FROM houses WHERE company_id = $1 AND is_active = true', [company_id]);
 
+    // Fetch service users (residents) from pulses to populate the dropdown
+    const serviceUsersRes = await query(
+      `SELECT DISTINCT related_person as name 
+       FROM governance_pulses 
+       WHERE house_id = $1 AND company_id = $2 AND related_person IS NOT NULL AND related_person != ''
+       ORDER BY related_person`,
+      [house_id, company_id]
+    );
+
     return {
       house_id,
       house_name: house.name,
       available_houses: housesRes.rows,
+      service_users: serviceUsersRes.rows,
       week_range: { start: startStr, end: endStr },
       auto_population: {
         pulse_count: signals.length,

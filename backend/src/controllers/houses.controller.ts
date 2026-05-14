@@ -23,6 +23,18 @@ export class HousesController {
         is_active: req.query.is_active as string,
       };
       const result = await housesService.findAll(company_id, filters, page, limit);
+      
+      // Filter for TL/RM roles
+      const role = (req.user!.role || '').toUpperCase().replace('-', '_');
+      if (['TEAM_LEADER', 'TL', 'REGISTERED_MANAGER', 'RM'].includes(role)) {
+        const assignedIds = req.user!.assigned_house_ids || (req.user!.assigned_house_id ? [req.user!.assigned_house_id] : []);
+        if (assignedIds.length > 0 && !assignedIds.includes('all')) {
+          result.houses = result.houses.filter((h: any) => assignedIds.includes(h.id));
+          result.total = result.houses.length;
+          result.pages = Math.ceil(result.total / limit);
+        }
+      }
+
       return res.json({ success: true, data: result.houses, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch houses';

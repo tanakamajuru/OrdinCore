@@ -89,7 +89,7 @@ export class AnalyticsService {
          FROM houses h
          LEFT JOIN risks r ON r.house_id = h.id AND r.company_id = $1
          LEFT JOIN incidents i ON i.house_id = h.id AND i.company_id = $1
-         LEFT JOIN escalations e ON e.service_unit_id = h.id AND e.company_id = $1
+         LEFT JOIN escalations e ON e.house_id = h.id AND e.company_id = $1
          WHERE h.company_id = $1 AND h.is_active = true
          GROUP BY h.id, h.name
          ORDER BY open_risks DESC`,

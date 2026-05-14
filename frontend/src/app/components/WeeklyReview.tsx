@@ -226,33 +226,49 @@ export function WeeklyReview() {
       case 0: return (
         <div className={sectionClass}>
           <h2 className={titleClass}><Shield className="w-6 h-6"/> Step 1: Service Scope</h2>
-          <label className={labelClass}>Select Service for Review</label>
-          <div className="flex flex-col gap-4 mb-4">
-             <select 
-               value={formData.step1_services?.[0] || ''} 
-               onChange={async (e) => {
-                 const newId = e.target.value;
-                 setFormData({...formData, step1_services: [newId]});
-                 // Re-load preview data for the selected house
-                 try {
-                   setIsLoading(true);
-                   const weekEnding = new Date().toISOString().split('T')[0];
-                   const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${newId}&week_ending=${weekEnding}`);
-                   setPreviewData(previewRes.data?.data || {});
-                 } catch (err) {
-                   toast.error("Failed to load data for this service");
-                 } finally {
-                   setIsLoading(false);
-                 }
-               }}
-               className={inputClass}
-             >
-               {previewData?.available_houses?.map((h: any) => (
-                 <option key={h.id} value={h.id}>{h.name}</option>
-               )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
-             </select>
-             <p className="text-[10px]  text-muted-foreground ">You must complete a separate review for each service under your oversight.</p>
-          </div>
+           <div className="flex flex-col gap-4 mb-4">
+              <label className={labelClass}>Select Service for Review</label>
+              <select 
+                value={formData.step1_services?.[0] || ''} 
+                onChange={async (e) => {
+                  const newId = e.target.value;
+                  setFormData({...formData, step1_services: [newId]});
+                  // Re-load preview data for the selected house
+                  try {
+                    setIsLoading(true);
+                    const weekEnding = new Date().toISOString().split('T')[0];
+                    const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${newId}&week_ending=${weekEnding}`);
+                    setPreviewData(previewRes.data?.data || {});
+                  } catch (err) {
+                    toast.error("Failed to load data for this service");
+                  } finally {
+                    setIsLoading(false);
+                  }
+                }}
+                className={inputClass}
+              >
+                {previewData?.available_houses?.map((h: any) => (
+                  <option key={h.id} value={h.id}>{h.name}</option>
+                )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
+              </select>
+           </div>
+
+           <div className="flex flex-col gap-4 mb-4">
+              <label className={labelClass}>Select Service User (Optional)</label>
+              <select 
+                value={formData.service_user_name || ''} 
+                onChange={(e) => setFormData({...formData, service_user_name: e.target.value})}
+                className={inputClass}
+              >
+                <option value="">General House Review (All Users)</option>
+                {previewData?.service_users?.map((u: any) => (
+                  <option key={u.name} value={u.name}>{u.name}</option>
+                ))}
+              </select>
+              <p className="text-[10px]  text-muted-foreground ">If this review focuses on a specific individual, select them here.</p>
+           </div>
+           
+           <p className="text-[10px]  text-muted-foreground ">You must complete a separate review for each service under your oversight.</p>
         </div>
       );
       case 1: return (

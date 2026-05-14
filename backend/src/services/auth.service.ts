@@ -77,6 +77,7 @@ export class AuthService {
     }
 
     const profile = await query('SELECT * FROM user_profiles WHERE user_id = $1', [userId]);
+    const assignedHouses = await usersRepo.getHouses(userId);
     const { password_hash, ...safeUser } = user;
     void password_hash;
     return { 
@@ -84,7 +85,8 @@ export class AuthService {
       company_name, 
       profile: profile.rows[0] || null,
       assigned_house_id: user.assigned_house_id,
-      assigned_house_name: user.assigned_house_name
+      assigned_house_name: user.assigned_house_name,
+      assigned_house_ids: assignedHouses.map(h => h.id)
     };
   }
 

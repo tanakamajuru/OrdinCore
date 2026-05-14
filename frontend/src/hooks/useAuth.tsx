@@ -10,6 +10,7 @@ interface User {
   role: 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'RESPONSIBLE_INDIVIDUAL' | 'REGISTERED_MANAGER' | 'TEAM_LEADER' | 'super-admin' | 'admin' | 'director' | 'responsible-individual' | 'registered-manager' | 'team-leader';
   company_id?: string;
   assigned_house_id?: string;
+  assigned_house_ids?: string[];
   assigned_house_name?: string;
   pulse_days?: string[];
   profile?: {

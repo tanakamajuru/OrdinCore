@@ -40,6 +40,7 @@ export function RoleBasedNavigation() {
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
 
