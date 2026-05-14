@@ -70,7 +70,7 @@ export class RisksController {
       // Enforce house scope restriction for service-level roles
       const userRole = req.user!.role?.toUpperCase() || '';
       if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(userRole)) {
-        const userHouseIds = req.user!.house_ids || [];
+        const userHouseIds = req.user!.assigned_house_ids || [];
         if (!userHouseIds.includes(risk.house_id)) {
           return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
         }

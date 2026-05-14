@@ -82,7 +82,7 @@ export class PulseController {
     async getDashboardFeed(req: Request, res: Response) {
         try {
             const company_id = requireCompany(req);
-            const houseIds = req.user!.house_ids ?? [];
+            const houseIds = req.user!.assigned_house_ids || [];
             if (req.query.house_id) {
                 houseIds.push(req.query.house_id as string);
             }
