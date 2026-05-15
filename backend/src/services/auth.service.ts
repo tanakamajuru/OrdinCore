@@ -51,6 +51,7 @@ export class AuthService {
     }
 
     const profile = await query('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]);
+    const assignedHouses = await usersRepo.getHouses(user.id);
     const token = this.generateToken(user);
     const refreshToken = this.generateRefreshToken(user);
 
@@ -61,7 +62,9 @@ export class AuthService {
       refreshToken, 
       user: {
         ...safeUser,
-        profile: profile.rows[0] || null
+        profile: profile.rows[0] || null,
+        assigned_house_ids: assignedHouses.map(h => h.id),
+        assigned_house_id: assignedHouses.length > 0 ? assignedHouses[0].id : (user.assigned_house_id || null)
       } 
     };
   }

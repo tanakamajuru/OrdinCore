@@ -38,16 +38,27 @@ export function WeeklyReview() {
       const hData = hRes.data?.data || hRes.data || [];
       const housesList = Array.isArray(hData) ? hData : (hData.items || []);
       
-      const isValidHouse = houseId && houseId !== '1' && houseId !== 'all' && houseId !== 'undefined' && housesList.some((h: any) => h.id === houseId);
+      const isValidHouse = houseId && 
+                           houseId !== '1' && 
+                           houseId !== 'all' && 
+                           houseId !== 'undefined' && 
+                           houseId !== 'null' &&
+                           housesList.some((h: any) => h.id === houseId);
       
       if (!isValidHouse) {
         if (housesList.length > 0) {
           houseId = housesList[0].id;
         } else {
-          toast.error("No services found in your company context.");
+          toast.error("No services found in your company context. Please contact your administrator.");
           setIsLoading(false);
           return;
         }
+      }
+
+      if (!houseId) {
+        toast.error("No service selected for review.");
+        setIsLoading(false);
+        return;
       }
       
       const weekEnding = new Date().toISOString().split('T')[0];
