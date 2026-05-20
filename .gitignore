@@ -12,3 +12,5 @@ backend/public/reports/*.pdf
 !walkthrough.md
 scratch/
 backend/scratch/
+landing-page/dist/
+landing-page/.env
