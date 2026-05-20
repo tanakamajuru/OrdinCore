@@ -86,6 +86,39 @@ export class HousesService {
     const result = await query(`SELECT * FROM governance_pulses WHERE house_id = $1 AND company_id = $2`, [id, company_id]);
     return result.rows;
   }
+
+  async getServiceUsers(id: string, company_id: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(
+      `SELECT * FROM service_users WHERE house_id = $1 AND is_active = true ORDER BY display_name`, 
+      [id]
+    );
+    return result.rows;
+  }
+
+  async addServiceUser(id: string, company_id: string, data: { first_name: string; last_name: string }) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(
+      `INSERT INTO service_users (house_id, first_name, last_name) VALUES ($1, $2, $3) RETURNING *`, 
+      [id, data.first_name, data.last_name]
+    );
+    return result.rows[0];
+  }
+
+  async validatePatient(id: string, company_id: string, name: string) {
+    const house = await housesRepo.findById(id, company_id);
+    if (!house) throw new Error('House not found');
+    const { query } = await import('../config/database');
+    const result = await query(
+      `SELECT id FROM service_users WHERE house_id = $1 AND display_name = $2 AND is_active = true LIMIT 1`, 
+      [id, name]
+    );
+    return result.rows.length > 0;
+  }
 }
 
 export const housesService = new HousesService();

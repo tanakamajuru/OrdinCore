@@ -149,7 +149,10 @@ export class WeeklyReviewsService {
        HAVING COUNT(*) >= 2`,
       [house_id, company_id, startStr, endStr]
     );
-    const repeats = clustersRes.rows.map(r => `${r.risk_domain} (${r.count} signals, ${r.concerns.join('/')})`).join('; ');
+    const repeats = clustersRes.rows.map(r => {
+      const concernsList = Array.isArray(r.concerns) ? r.concerns.join('/') : (r.concerns || '');
+      return `${r.risk_domain} (${r.count} signals, ${concernsList})`;
+    }).join('; ');
 
     // Step 6: Worsening (Escalating or Severity Increase)
     const worsening = signals.filter(s => s.pattern_concern === 'Escalating' || s.severity === 'Critical' || s.severity === 'High')
@@ -173,11 +176,8 @@ export class WeeklyReviewsService {
 
     // Fetch service users (residents) from pulses to populate the dropdown
     const serviceUsersRes = await query(
-      `SELECT DISTINCT related_person as name 
-       FROM governance_pulses 
-       WHERE house_id = $1 AND company_id = $2 AND related_person IS NOT NULL AND related_person != ''
-       ORDER BY related_person`,
-      [house_id, company_id]
+      `SELECT display_name as name FROM service_users WHERE house_id = $1 AND is_active = true ORDER BY display_name`, 
+      [house_id]
     );
 
     return {

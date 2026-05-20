@@ -22,6 +22,37 @@ export function WeeklyReview() {
   const [status, setStatus] = useState<"Draft" | "Submitted" | "Locked" | "pending_validation">("Draft");
   const [validationData, setValidationData] = useState<any>(null);
 
+  const [houseSearchTerm, setHouseSearchTerm] = useState('');
+  const [patientValid, setPatientValid] = useState(true);
+  const [patientValidationMessage, setPatientValidationMessage] = useState('');
+
+  // Validate patient name when house or name changes
+  useEffect(() => {
+    const houseId = formData.step1_services?.[0];
+    const patientName = formData.service_user_name;
+    
+    if (!houseId || !patientName || !patientName.trim()) {
+      setPatientValid(true);
+      setPatientValidationMessage('');
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/houses/${houseId}/validate-patient`, {
+          params: { name: patientName.trim() }
+        });
+        const exists = res.data?.data?.exists;
+        setPatientValid(exists);
+        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
+      } catch (err) {
+        setPatientValid(false);
+        setPatientValidationMessage('Validation error. Please try again.');
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounce);
+  }, [formData.step1_services?.[0], formData.service_user_name]);
 
   useEffect(() => {
     loadReviewData();
@@ -238,6 +269,14 @@ export function WeeklyReview() {
         <div className={sectionClass}>
           <h2 className={titleClass}><Shield className="w-6 h-6"/> Step 1: Service Scope</h2>
            <div className="flex flex-col gap-4 mb-4">
+              <label className={labelClass}>Search Service</label>
+              <input
+                type="text"
+                placeholder="Type to filter services..."
+                value={houseSearchTerm}
+                onChange={(e) => setHouseSearchTerm(e.target.value)}
+                className={inputClass}
+              />
               <label className={labelClass}>Select Service for Review</label>
               <select 
                 value={formData.step1_services?.[0] || ''} 
@@ -258,25 +297,27 @@ export function WeeklyReview() {
                 }}
                 className={inputClass}
               >
-                {previewData?.available_houses?.map((h: any) => (
+                {previewData?.available_houses?.filter((h: any) => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase())).map((h: any) => (
                   <option key={h.id} value={h.id}>{h.name}</option>
                 )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
               </select>
            </div>
 
            <div className="flex flex-col gap-4 mb-4">
-              <label className={labelClass}>Select Service User (Optional)</label>
-              <select 
+              <label className={labelClass}>Related Person (Optional)</label>
+              <input 
+                type="text" 
+                placeholder="First initial + Surname (e.g., T Muller)"
                 value={formData.service_user_name || ''} 
                 onChange={(e) => setFormData({...formData, service_user_name: e.target.value})}
-                className={inputClass}
-              >
-                <option value="">General House Review (All Users)</option>
-                {previewData?.service_users?.map((u: any) => (
-                  <option key={u.name} value={u.name}>{u.name}</option>
-                ))}
-              </select>
-              <p className="text-[10px]  text-muted-foreground ">If this review focuses on a specific individual, select them here.</p>
+                className={`${inputClass} ${patientValidationMessage ? 'border-destructive' : ''}`}
+              />
+              {patientValidationMessage && (
+                <p className="text-sm text-destructive mt-1 font-bold">{patientValidationMessage}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground">
+                Use the format: first letter of first name, space, full surname. This ensures consistent pattern detection. If this review focuses on a specific individual, enter them here.
+              </p>
            </div>
            
            <p className="text-[10px]  text-muted-foreground ">You must complete a separate review for each service under your oversight.</p>
@@ -613,7 +654,7 @@ export function WeeklyReview() {
           {currentStep < 14 ? (
             <button
               onClick={handleNextStep}
-              disabled={isSaving || status === 'Locked'}
+              disabled={isSaving || status === 'Locked' || !patientValid}
               className="py-4 px-10 bg-primary text-primary-foreground hover:bg-primary transition-all rounded-md  disabled:opacity-50"
             >
               {isSaving ? 'Synching...' : 'Validate & Proceed'}

@@ -160,6 +160,10 @@ router.post('/:id/staff', requireAuth, requireTenant, requireRole('SUPER_ADMIN',
  */
 router.delete('/:id/staff/:userId', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), housesController.removeStaff.bind(housesController));
 
+router.get('/:id/service-users', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), housesController.getServiceUsers.bind(housesController));
+router.post('/:id/service-users', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), housesController.addServiceUser.bind(housesController));
+router.get('/:id/validate-patient', requireAuth, requireTenant, housesController.validatePatient.bind(housesController));
+
 /**
  * @openapi
  * /api/v1/houses/{id}/settings:

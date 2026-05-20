@@ -31,6 +31,9 @@ export function GovernancePulse() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [houseSearchTerm, setHouseSearchTerm] = useState('');
+  const [patientValid, setPatientValid] = useState(true);
+  const [patientValidationMessage, setPatientValidationMessage] = useState('');
 
   // Form State - 12 Field Sequence
   const [formData, setFormData] = useState({
@@ -73,6 +76,33 @@ export function GovernancePulse() {
     }
   };
 
+  useEffect(() => {
+    const houseId = formData.house_id;
+    const patientName = formData.related_person;
+    
+    if (!houseId || !patientName || !patientName.trim()) {
+      setPatientValid(true);
+      setPatientValidationMessage('');
+      return;
+    }
+
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/houses/${houseId}/validate-patient`, {
+          params: { name: patientName.trim() }
+        });
+        const exists = res.data?.data?.exists;
+        setPatientValid(exists);
+        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
+      } catch (err) {
+        setPatientValid(false);
+        setPatientValidationMessage('Validation error. Please try again.');
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounce);
+  }, [formData.house_id, formData.related_person]);
+
   const handleDomainToggle = (domain: string) => {
     setFormData(prev => ({
       ...prev,
@@ -96,6 +126,7 @@ export function GovernancePulse() {
     
     // Validation
     if (!formData.house_id) return toast.error("Please select a service/house");
+    if (!patientValid && formData.related_person) return toast.error("Please provide a valid related person name");
     if (!formData.description.trim()) return toast.error("Description is mandatory (Field 6)");
     if (!formData.immediate_action.trim()) return toast.error("Immediate Action Taken is mandatory (Field 7)");
     if (formData.risk_domain.length === 0) return toast.error("Select at least one Risk Domain (Field 5)");
@@ -178,27 +209,40 @@ export function GovernancePulse() {
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">
                 <MapPin className="w-4 h-4" /> 2. Service / House
               </label>
+              <input
+                type="text"
+                placeholder="Type to filter services..."
+                value={houseSearchTerm}
+                onChange={(e) => setHouseSearchTerm(e.target.value)}
+                className="w-full bg-card border-2 border-border p-3 mb-2 focus:border-primary outline-none"
+              />
               <select 
                 value={formData.house_id}
                 onChange={e => setFormData(prev => ({ ...prev, house_id: e.target.value }))}
                 className="w-full bg-card border-2 border-border p-3  focus:border-primary outline-none appearance-none"
               >
                 <option value="">Select Service...</option>
-                {sites.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                {sites.filter(s => s.name.toLowerCase().includes(houseSearchTerm.toLowerCase())).map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
               </select>
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">
-                <User className="w-4 h-4" /> 3. Related Person (Initials/ID)
+              <label className="flex items-center gap-2 text-xs uppercase tracking-widest text-muted-foreground">
+                <User className="w-4 h-4" /> 3. Related Person (Optional)
               </label>
               <input 
                 type="text" 
-                placeholder="e.g. JD or ID-402"
+                placeholder="First initial + Surname (e.g., T Muller)"
                 value={formData.related_person}
                 onChange={e => setFormData(prev => ({ ...prev, related_person: e.target.value }))}
-                className="w-full bg-card border-2 border-border p-3  focus:border-primary outline-none"
+                className={`w-full bg-card border-2 border-border p-3 focus:border-primary outline-none ${patientValidationMessage ? 'border-destructive' : ''}`}
               />
+              {patientValidationMessage && (
+                <p className="text-sm text-destructive font-bold mt-1">{patientValidationMessage}</p>
+              )}
+              <p className="text-[10px] text-muted-foreground mt-1">
+                Use the format: first letter of first name, space, full surname. This ensures consistent pattern detection.
+              </p>
             </div>
           </div>
 
@@ -362,7 +406,7 @@ export function GovernancePulse() {
             </button>
             <button 
               type="submit" 
-              disabled={isSubmitting}
+              disabled={isSubmitting || !patientValid}
               className="px-12 py-4 bg-primary text-primary-foreground  uppercase  tracking-widest hover:bg-primary/90 transition-all shadow-xl flex items-center gap-3 disabled:opacity-50"
             >
               {isSubmitting ? <RotateCcw className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

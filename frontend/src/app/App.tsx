@@ -36,6 +36,7 @@ import { ComputationalEngines } from "./components/ComputationalEngines";
 import { PulseHistory } from "./components/PulseHistory";
 import { RegisteredManagerOversightBoard } from "./components/RegisteredManagerOversightBoard";
 import { MyActions } from "./components/MyActions";
+import { AdminServiceUsers } from "./admin/ServiceUsers";
 
 // Protected Route Component
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
@@ -124,6 +125,11 @@ export default function App() {
           <Route path="/admin-settings" element={
             <ProtectedRoute>
               <AdminSettings />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/service-users" element={
+            <ProtectedRoute>
+              <AdminServiceUsers />
             </ProtectedRoute>
           } />
           <Route path="/governance-pulse" element={

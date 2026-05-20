@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, FileDown, BarChart3, Eye, Ambulance, Settings, Shield } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, Users, FileDown, BarChart3, Eye, Ambulance, Settings, Shield } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { apiClient } from "@/services/api";
@@ -30,6 +30,7 @@ export function RoleBasedNavigation() {
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/admin/service-users", label: "Service Users", icon: Users },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
 

@@ -38,7 +38,9 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          WHERE gp.company_id = $1 AND gp.house_id = $2 
          AND gp.entry_date >= CURRENT_DATE - INTERVAL '21 days'
          AND $3 = ANY(gp.risk_domain)
-         AND (related_person = $4 OR (related_person IS NULL AND $4 IS NULL))
+         AND (gp.related_person = $4 OR (gp.related_person IS NULL AND $4 IS NULL))
+         AND gp.pattern_concern IN ('Clear', 'Escalating')
+         AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
         [company_id, house_id, domain, related_person]
     );
@@ -207,4 +209,13 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 function compareSeverity(a: string, b: string): number {
     const levels: Record<string, number> = { 'Low': 1, 'Moderate': 2, 'High': 3, 'Critical': 4 };
     return (levels[a] || 1) - (levels[b] || 1);
+}
+
+if (process.env.RUN_ONCE === 'true') {
+    logger.info('Starting pattern worker in RUN_ONCE mode (this will listen to jobs until manually stopped)...');
+    startPatternWorker();
+    setTimeout(() => {
+        logger.info('Exiting pattern worker after 3 seconds for RUN_ONCE...');
+        process.exit(0);
+    }, 3000);
 }

@@ -109,6 +109,44 @@ export class HousesController {
     }
   }
 
+  async getServiceUsers(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const users = await housesService.getServiceUsers(req.params.id, company_id);
+      return res.json({ success: true, data: users, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch service users';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async addServiceUser(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user = await housesService.addServiceUser(req.params.id, company_id, req.body);
+      return res.status(201).json({ success: true, data: user, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add service user';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  async validatePatient(req: Request, res: Response) {
+    try {
+      const name = req.query.name;
+      if (!name || typeof name !== 'string') {
+        return res.status(400).json({ success: false, message: 'Patient name required', errors: [] });
+      }
+      
+      const company_id = req.user!.company_id!;
+      const exists = await housesService.validatePatient(req.params.id, company_id, name);
+      return res.json({ success: true, data: { exists }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to validate patient';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async getSettings(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

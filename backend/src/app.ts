@@ -34,6 +34,7 @@ import clustersRoutes from './routes/clusters.routes';
 import riGovernanceRoutes from './routes/riGovernance.routes';
 import directorGovernanceRoutes from './routes/directorGovernance.routes';
 import actionsRoutes from './routes/actions.routes';
+import serviceUsersRoutes from './routes/serviceUsers.routes';
 
 
 
@@ -130,6 +131,7 @@ app.use(`${API}/threshold-events`, thresholdEventsRoutes);
 app.use(`${API}/clusters`, clustersRoutes);
 app.use(`${API}/ri-governance`, riGovernanceRoutes);
 app.use(`${API}/director-governance`, directorGovernanceRoutes);
+app.use(`${API}/service-users`, serviceUsersRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
