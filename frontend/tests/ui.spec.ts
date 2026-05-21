@@ -5,7 +5,7 @@ test.describe('Frontend UI Tests', () => {
     await page.goto('/');
     
     // Check if the page loads without errors
-    await expect(page).toHaveTitle(/OrdinCore/);
+    await expect(page).toHaveTitle(/Ordin\s*Core/);
     
     // Check for common elements (adjust based on your actual app)
     await expect(page.locator('body')).toBeVisible();

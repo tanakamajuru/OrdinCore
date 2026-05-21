@@ -1,4 +1,32 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { HashRouter, Routes, Route, Link, useLocation } from "react-router-dom";
+import useWeb3Forms from "@web3forms/react";
+import logoImg from "./assets/logo.png";
+
+import {
+  PlatformOverview,
+  PlatformSignals,
+  PlatformRiskTrajectory,
+  PlatformEscalations,
+  PlatformWeeklyReview,
+  PlatformReports,
+  PlatformSecurity,
+  WhyOrdinCore,
+  ProviderSupportedLiving,
+  ProviderMentalHealth,
+  ProviderResidentialCare,
+  ProviderDomiciliaryCare,
+  ProviderCaseStudies,
+  ResourceBlog,
+  ResourceGuides,
+  ResourceWebinars,
+  ResourceHelp,
+  ResourceApiDocs,
+  AboutMission,
+  AboutTeam,
+  AboutContact,
+  AboutPilot
+} from "./pages/ContentPages";
 
 /* ─── Redirection Configuration ────────────────────────── */
 const APP_LOGIN_URL = import.meta.env.VITE_LOGIN_URL || "https://work.ordincore.co.uk/login";
@@ -35,87 +63,6 @@ const Icon: React.FC<IconProps> = ({ name }) => {
     </svg>
   );
 };
-
-/* ─── Mini sparkline ───────────────────────────────────── */
-interface SparklineProps {
-  color?: string;
-}
-
-const Sparkline: React.FC<SparklineProps> = ({ color = "var(--oc-sky)" }) => {
-  const pts = "0,28 8,22 16,24 24,16 32,18 40,10 48,14 56,8 64,12 72,6 80,10 88,4 96,8";
-  const id = color.replace(/[^a-zA-Z0-9]/g, "");
-  return (
-    <svg className="oc-sparkline" viewBox="0 0 96 36" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id={`sg-${id}`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor={color} stopOpacity=".25"/>
-          <stop offset="100%" stopColor={color} stopOpacity="0"/>
-        </linearGradient>
-      </defs>
-      <path d={`M${pts} L96,36 L0,36 Z`} fill={`url(#sg-${id})`}/>
-      <polyline points={pts} fill="none" stroke={color} strokeWidth="1.5"/>
-    </svg>
-  );
-};
-
-/* ─── Dashboard mockup ─────────────────────────────────── */
-const DashboardMockup: React.FC = () => (
-  <div className="oc-dashboard">
-    <div className="oc-db-header">
-      <div className="oc-db-logo">ORDIN<br/>CORE</div>
-      <div style={{flex:1}}/>
-      <div className="oc-db-tab oc-db-tab-active">Overview</div>
-      <div className="oc-db-tab">All Services ▾</div>
-      <div className="oc-db-tab">12–18 May 2026</div>
-    </div>
-    <div className="oc-db-body">
-      <div className="oc-db-sidebar">
-        {["Overview","Governance Signals","Risk Trajectory","Escalations","Actions","Reviews","Reports","Settings"].map((l,i)=>(
-          <div key={l} className={`oc-db-slink${i===0?" active":""}`}>
-            <span style={{marginRight: 6}}>{["⊞","◉","↗","⚡","✓","📋","📊","⚙"][i]}</span>
-            {l}
-          </div>
-        ))}
-      </div>
-      <div className="oc-db-main">
-        <div className="oc-db-stats">
-          {[
-            ["Governance Signals","128","↑18% vs last week"],
-            ["Escalations","23","5 vs last week"],
-            ["Overdue Actions","7","Requires attention"],
-            ["Review Rate","92%","↑8% vs last month"]
-          ].map(([l,v,d])=>(
-            <div key={l} className="oc-db-stat">
-              <div className="oc-db-stat-label">{l}</div>
-              <div className="oc-db-stat-val">{v}</div>
-              <div className="oc-db-stat-delta">{d}</div>
-            </div>
-          ))}
-        </div>
-        <div className="oc-db-charts">
-          <div className="oc-db-chart">
-            <div className="oc-db-chart-title">Risk Trajectory Overview</div>
-            <Sparkline color="var(--oc-sky)"/>
-          </div>
-          <div className="oc-db-chart">
-            <div className="oc-db-chart-title">Top Risk Areas</div>
-            {[
-              ["Staffing & Supervision","high"],
-              ["Medication Mgmt","stable"],
-              ["Safeguarding","high"],
-              ["Environment","imp"]
-            ].map(([label,type])=>(
-              <div key={label} className="oc-risk-row">
-                <span style={{flex:1,fontSize:9}}>{label}</span>
-                <span className={`oc-risk-badge risk-${type}`}>{type==="imp"?"Improving":type==="stable"?"Stable":"Rising"}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    </div>
-  </div>
-);
 
 /* ─── Static Data ──────────────────────────────────────── */
 const PAIN_POINTS = [
@@ -166,62 +113,62 @@ const PILOT_ITEMS = [
   { icon:"🗺", label:"Shape the future roadmap" },
 ];
 
-const FOOTER_COLS = {
-  "Platform":       ["Overview","Features","Security"],
-  "Why Ordin Core": ["Our Approach","Governance Model","For Providers"],
-  "Resources":      ["Blog","Guides","Events"],
-  "Company":        ["About","Contact"],
-};
+const FOOTER_COLUMNS = [
+  {
+    title: "Platform",
+    links: [
+      { label: "Overview", to: "/platform/overview" },
+      { label: "Governance Signals", to: "/platform/signals" },
+      { label: "Weekly Reviews", to: "/platform/weekly-review" },
+      { label: "Security & Compliance", to: "/platform/security" },
+    ]
+  },
+  {
+    title: "Why Ordin Core",
+    links: [
+      { label: "Our Approach", to: "/why-ordin-core" },
+      { label: "Doctrine Advantage", to: "/why-ordin-core" },
+      { label: "Supported Living", to: "/for-providers/supported-living" },
+      { label: "Mental Health Services", to: "/for-providers/mental-health" },
+    ]
+  },
+  {
+    title: "Resources",
+    links: [
+      { label: "Blog", to: "/resources/blog" },
+      { label: "Guides", to: "/resources/guides" },
+      { label: "Webinars", to: "/resources/webinars" },
+      { label: "Help Center", to: "/resources/help" },
+    ]
+  },
+  {
+    title: "Company",
+    links: [
+      { label: "Our Mission", to: "/about/mission" },
+      { label: "Leadership Team", to: "/about/team" },
+      { label: "Contact Us", to: "/about/contact" },
+      { label: "Pilot Programme", to: "/about/pilot" },
+    ]
+  }
+];
 
-/* ─── App Component ────────────────────────────────────── */
-export default function App() {
-  const [email, setEmail] = useState("");
-  const [subscribed, setSubscribed] = useState(false);
+/* ─── Scroll To Top Component ──────────────────────────── */
+function ScrollToTop() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    window.scrollTo(0, 0);
+  }, [pathname]);
+  return null;
+}
 
-  const handleSubscribe = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (email.trim()) {
-      setSubscribed(true);
-      setEmail("");
-      setTimeout(() => setSubscribed(false), 4000);
-    }
-  };
+/* ─── Homepage Component ───────────────────────────────── */
+interface HomeViewProps {
+  handleRedirect: () => void;
+}
 
-  const handleRedirect = () => {
-    window.location.href = APP_LOGIN_URL;
-  };
-
+const HomeView: React.FC<HomeViewProps> = ({ handleRedirect }) => {
   return (
-    <div className="oc-page">
-
-      {/* ── NAV ── */}
-      <nav className="oc-nav">
-        <div className="oc-nav-inner">
-          <a className="oc-logo" onClick={handleRedirect}>
-            <div className="oc-logo-box">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-              </svg>
-            </div>
-            <div>
-              <div className="oc-logo-text">ORDIN CORE</div>
-              <div className="oc-logo-sub">Governance Platform</div>
-            </div>
-          </a>
-          <div className="oc-nav-links">
-            {["Platform","Why Ordin Core","For Providers","Resources","About"].map(l=>(
-              <button key={l} className="oc-nav-link" onClick={handleRedirect}>
-                {l}{["Platform","Resources"].includes(l)?" ▾":""}
-              </button>
-            ))}
-          </div>
-          <div style={{display:"flex",gap:8,flexShrink:0}}>
-            <button className="oc-btn-outline" onClick={handleRedirect}>Book a Demo</button>
-            <button className="oc-btn-primary" onClick={handleRedirect}>Join Pilot Programme</button>
-          </div>
-        </div>
-      </nav>
-
+    <>
       {/* ── HERO ── */}
       <div className="oc-hero">
         <div>
@@ -242,7 +189,17 @@ export default function App() {
             Built for supported living, mental health, and multi-site care environments.
           </div>
         </div>
-        <DashboardMockup/>
+        <div className="oc-screenshot-frame">
+          <div className="oc-screenshot-header">
+            <div className="oc-dots">
+              <span className="oc-dot oc-red" />
+              <span className="oc-dot oc-yellow" />
+              <span className="oc-dot oc-green" />
+            </div>
+            <div className="oc-address-bar">work.ordincore.co.uk</div>
+          </div>
+          <img src="/screenshot.jpg" className="oc-screenshot-img" alt="Ordin Core System Dashboard" />
+        </div>
       </div>
 
       {/* ── BADGE STRIP ── */}
@@ -454,33 +411,229 @@ export default function App() {
           ))}
         </div>
       </div>
+    </>
+  );
+};
+
+/* ─── AppContent Layout Component ──────────────────────── */
+function AppContent() {
+  const [email, setEmail] = useState("");
+  const [formStatus, setFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [theme, setTheme] = useState(() => localStorage.getItem("theme") || "dark");
+  const [platformOpen, setPlatformOpen] = useState(false);
+  const [providersOpen, setProvidersOpen] = useState(false);
+  const [resourcesOpen, setResourcesOpen] = useState(false);
+  const [aboutOpen, setAboutOpen] = useState(false);
+
+  useEffect(() => {
+    if (theme === "dark") {
+      document.documentElement.classList.add("dark");
+    } else {
+      document.documentElement.classList.remove("dark");
+    }
+    localStorage.setItem("theme", theme);
+  }, [theme]);
+
+  const accessKey = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY || "YOUR_WEB3FORMS_ACCESS_KEY_HERE";
+
+  const { submit } = useWeb3Forms({
+    access_key: accessKey,
+    onSuccess: () => {
+      setFormStatus("success");
+      setEmail("");
+      setTimeout(() => setFormStatus("idle"), 4000);
+    },
+    onError: () => {
+      setFormStatus("error");
+      setTimeout(() => setFormStatus("idle"), 4000);
+    },
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email) return;
+    setFormStatus("loading");
+    submit({
+      email,
+      from_name: "Ordin Core Landing Page",
+      subject: "New Newsletter Subscriber (ttmajuru@gmail.com)",
+    });
+  };
+
+  const handleRedirect = () => {
+    window.location.href = APP_LOGIN_URL;
+  };
+
+  return (
+    <div className="oc-page">
+      {/* ── NAV ── */}
+      <nav className="oc-nav">
+        <div className="oc-nav-inner">
+          <Link to="/" className="oc-logo">
+            <img src={logoImg} alt="Ordin Core Logo" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "contain" }} />
+            <div>
+              <div className="oc-logo-text">ORDIN CORE</div>
+              <div className="oc-logo-sub">Governance Platform</div>
+            </div>
+          </Link>
+          <div className="oc-nav-links">
+            {/* Platform Dropdown */}
+            <div
+              className="oc-dropdown-container"
+              onMouseEnter={() => setPlatformOpen(true)}
+              onMouseLeave={() => setPlatformOpen(false)}
+            >
+              <button className="oc-nav-link">
+                Platform ▾
+              </button>
+              {platformOpen && (
+                <div className="oc-dropdown-menu">
+                  <Link to="/platform/overview" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Overview</Link>
+                  <Link to="/platform/signals" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Governance Signals</Link>
+                  <Link to="/platform/risk-trajectory" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Risk Trajectory</Link>
+                  <Link to="/platform/escalations" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Escalations & Actions</Link>
+                  <Link to="/platform/weekly-review" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Weekly Reviews</Link>
+                  <Link to="/platform/reports" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Reporting & Analytics</Link>
+                  <Link to="/platform/security" className="oc-dropdown-item" onClick={() => setPlatformOpen(false)}>Security & Compliance</Link>
+                </div>
+              )}
+            </div>
+
+            {/* Why Ordin Core Link */}
+            <Link to="/why-ordin-core" className="oc-nav-link">
+              Why Ordin Core
+            </Link>
+
+            {/* For Providers Dropdown */}
+            <div
+              className="oc-dropdown-container"
+              onMouseEnter={() => setProvidersOpen(true)}
+              onMouseLeave={() => setProvidersOpen(false)}
+            >
+              <button className="oc-nav-link">
+                For Providers ▾
+              </button>
+              {providersOpen && (
+                <div className="oc-dropdown-menu">
+                  <Link to="/for-providers/supported-living" className="oc-dropdown-item" onClick={() => setProvidersOpen(false)}>Supported Living</Link>
+                  <Link to="/for-providers/mental-health" className="oc-dropdown-item" onClick={() => setProvidersOpen(false)}>Mental Health Services</Link>
+                  <Link to="/for-providers/residential-care" className="oc-dropdown-item" onClick={() => setProvidersOpen(false)}>Residential Care</Link>
+                  <Link to="/for-providers/domiciliary-care" className="oc-dropdown-item" onClick={() => setProvidersOpen(false)}>Domiciliary Care</Link>
+                  <Link to="/for-providers/case-studies" className="oc-dropdown-item" onClick={() => setProvidersOpen(false)}>Case Studies</Link>
+                </div>
+              )}
+            </div>
+
+            {/* Resources Dropdown */}
+            <div
+              className="oc-dropdown-container"
+              onMouseEnter={() => setResourcesOpen(true)}
+              onMouseLeave={() => setResourcesOpen(false)}
+            >
+              <button className="oc-nav-link">
+                Resources ▾
+              </button>
+              {resourcesOpen && (
+                <div className="oc-dropdown-menu">
+                  <Link to="/resources/blog" className="oc-dropdown-item" onClick={() => setResourcesOpen(false)}>Blog</Link>
+                  <Link to="/resources/guides" className="oc-dropdown-item" onClick={() => setResourcesOpen(false)}>Guides</Link>
+                  <Link to="/resources/webinars" className="oc-dropdown-item" onClick={() => setResourcesOpen(false)}>Webinars</Link>
+                  <Link to="/resources/help" className="oc-dropdown-item" onClick={() => setResourcesOpen(false)}>Help Center</Link>
+                  <Link to="/resources/api-docs" className="oc-dropdown-item" onClick={() => setResourcesOpen(false)}>API Docs</Link>
+                </div>
+              )}
+            </div>
+
+            {/* About Dropdown */}
+            <div
+              className="oc-dropdown-container"
+              onMouseEnter={() => setAboutOpen(true)}
+              onMouseLeave={() => setAboutOpen(false)}
+            >
+              <button className="oc-nav-link">
+                About ▾
+              </button>
+              {aboutOpen && (
+                <div className="oc-dropdown-menu">
+                  <Link to="/about/mission" className="oc-dropdown-item" onClick={() => setAboutOpen(false)}>Our Mission</Link>
+                  <Link to="/about/team" className="oc-dropdown-item" onClick={() => setAboutOpen(false)}>Leadership Team</Link>
+                  <Link to="/about/contact" className="oc-dropdown-item" onClick={() => setAboutOpen(false)}>Contact Us</Link>
+                  <Link to="/about/pilot" className="oc-dropdown-item" onClick={() => setAboutOpen(false)}>Pilot Programme</Link>
+                </div>
+              )}
+            </div>
+          </div>
+          <div style={{display:"flex",gap:8,alignItems:"center",flexShrink:0}}>
+            <button
+              className="oc-theme-btn"
+              onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
+              title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
+            >
+              {theme === "dark" ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>
+                </svg>
+              )}
+            </button>
+            <button className="oc-btn-outline" onClick={handleRedirect}>Book a Demo</button>
+            <button className="oc-btn-primary" onClick={handleRedirect}>Join Pilot Programme</button>
+          </div>
+        </div>
+      </nav>
+
+      {/* ── CONTENT ROUTES ── */}
+      <Routes>
+        <Route path="/" element={<HomeView handleRedirect={handleRedirect} />} />
+        <Route path="/platform/overview" element={<PlatformOverview />} />
+        <Route path="/platform/signals" element={<PlatformSignals />} />
+        <Route path="/platform/risk-trajectory" element={<PlatformRiskTrajectory />} />
+        <Route path="/platform/escalations" element={<PlatformEscalations />} />
+        <Route path="/platform/weekly-review" element={<PlatformWeeklyReview />} />
+        <Route path="/platform/reports" element={<PlatformReports />} />
+        <Route path="/platform/security" element={<PlatformSecurity />} />
+        <Route path="/why-ordin-core" element={<WhyOrdinCore />} />
+        <Route path="/for-providers/supported-living" element={<ProviderSupportedLiving />} />
+        <Route path="/for-providers/mental-health" element={<ProviderMentalHealth />} />
+        <Route path="/for-providers/residential-care" element={<ProviderResidentialCare />} />
+        <Route path="/for-providers/domiciliary-care" element={<ProviderDomiciliaryCare />} />
+        <Route path="/for-providers/case-studies" element={<ProviderCaseStudies />} />
+        <Route path="/resources/blog" element={<ResourceBlog />} />
+        <Route path="/resources/guides" element={<ResourceGuides />} />
+        <Route path="/resources/webinars" element={<ResourceWebinars />} />
+        <Route path="/resources/help" element={<ResourceHelp />} />
+        <Route path="/resources/api-docs" element={<ResourceApiDocs />} />
+        <Route path="/about/mission" element={<AboutMission />} />
+        <Route path="/about/team" element={<AboutTeam />} />
+        <Route path="/about/contact" element={<AboutContact />} />
+        <Route path="/about/pilot" element={<AboutPilot />} />
+      </Routes>
 
       {/* ── FOOTER ── */}
       <footer className="oc-footer">
         <div className="oc-footer-inner">
           <div>
-            <a className="oc-logo" style={{marginBottom:16}} onClick={handleRedirect}>
-              <div className="oc-logo-box">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-                </svg>
-              </div>
+            <Link to="/" className="oc-logo" style={{marginBottom:16}}>
+              <img src={logoImg} alt="Ordin Core Logo" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "contain" }} />
               <div>
                 <div className="oc-logo-text">ORDIN CORE</div>
                 <div className="oc-logo-sub">Governance Platform</div>
               </div>
-            </a>
+            </Link>
             <p style={{fontSize:12,color:"var(--oc-muted)",marginTop:12,lineHeight:1.5,textAlign:"left"}}>
               Ordin Core is a secure, enterprise-grade governance infrastructure system built specifically for supported living and multi-site care providers.
             </p>
           </div>
-          {Object.entries(FOOTER_COLS).map(([title, links])=>(
-            <div key={title}>
-              <div className="oc-footer-col-title">{title}</div>
-              {links.map(l=>(
-                <a key={l} className="oc-footer-link" onClick={handleRedirect}>
-                  {l}
-                </a>
+          {FOOTER_COLUMNS.map(col=>(
+            <div key={col.title}>
+              <div className="oc-footer-col-title">{col.title}</div>
+              {col.links.map(l=>(
+                <Link key={l.label} to={l.to} className="oc-footer-link">
+                  {l.label}
+                </Link>
               ))}
             </div>
           ))}
@@ -489,12 +642,18 @@ export default function App() {
             <p style={{fontSize:12,color:"var(--oc-muted)",lineHeight:1.5,marginBottom:10,textAlign:"left"}}>
               Join our newsletter list for curated regulatory and governance insights.
             </p>
-            {subscribed ? (
+            {formStatus === "success" && (
               <div style={{padding:"8px 12px",background:"rgba(76, 175, 129, 0.14)",border:"1px solid rgba(76, 175, 129, 0.3)",borderRadius:"6px",color:"#4CAF81",fontSize:12,textAlign:"left"}}>
-                ✓ Subscription confirmed!
+                ✓ Thank you for subscribing!
               </div>
-            ) : (
-              <form onSubmit={handleSubscribe} className="oc-email-row">
+            )}
+            {formStatus === "error" && (
+              <div style={{padding:"8px 12px",background:"rgba(239, 83, 80, 0.14)",border:"1px solid rgba(239, 83, 80, 0.3)",borderRadius:"6px",color:"#EF5350",fontSize:12,textAlign:"left"}}>
+                ✗ Something went wrong. Please try again.
+              </div>
+            )}
+            {formStatus !== "success" && formStatus !== "error" && (
+              <form onSubmit={handleSubmit} className="oc-email-row">
                 <input
                   type="email"
                   placeholder="Enter email address"
@@ -502,8 +661,11 @@ export default function App() {
                   onChange={e => setEmail(e.target.value)}
                   className="oc-email-input"
                   required
+                  disabled={formStatus === "loading"}
                 />
-                <button type="submit" className="oc-email-btn">→</button>
+                <button type="submit" className="oc-email-btn" disabled={formStatus === "loading"}>
+                  {formStatus === "loading" ? "⋯" : "→"}
+                </button>
               </form>
             )}
           </div>
@@ -518,7 +680,16 @@ export default function App() {
           </div>
         </div>
       </footer>
-
     </div>
+  );
+}
+
+/* ─── Main App Entry Component ─────────────────────────── */
+export default function App() {
+  return (
+    <HashRouter>
+      <ScrollToTop />
+      <AppContent />
+    </HashRouter>
   );
 }

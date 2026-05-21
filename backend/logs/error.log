@@ -4448,3 +4448,6 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-20 17:21:37 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-20 17:21:39 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-20 17:21:39 [error]: Escalating 72h absence for Oak Lodge to Director
