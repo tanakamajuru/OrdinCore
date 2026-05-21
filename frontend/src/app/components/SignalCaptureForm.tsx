@@ -15,7 +15,10 @@ import {
   Save,
   Check,
   Paperclip,
-  Upload
+  Upload,
+  Search,
+  Home,
+  Loader2
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -104,10 +107,44 @@ export function SignalCaptureForm() {
   });
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [houseSearchTerm, setHouseSearchTerm] = useState('');
+  const [patientValid, setPatientValid] = useState(true);
+  const [patientValidationMessage, setPatientValidationMessage] = useState('');
+  const [isValidatingPatient, setIsValidatingPatient] = useState(false);
 
   useEffect(() => {
     loadHouses();
   }, []);
+
+  useEffect(() => {
+    const houseId = formData.house_id;
+    const patientName = formData.related_person;
+    
+    if (!houseId || !patientName || !patientName.trim()) {
+      setPatientValid(true);
+      setPatientValidationMessage('');
+      return;
+    }
+
+    setIsValidatingPatient(true);
+    const delayDebounce = setTimeout(async () => {
+      try {
+        const res = await apiClient.get(`/houses/${houseId}/validate-patient`, {
+          params: { name: patientName.trim() }
+        });
+        const exists = res.data?.data?.exists ?? res.data?.exists;
+        setPatientValid(exists);
+        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
+      } catch (err) {
+        setPatientValid(false);
+        setPatientValidationMessage('Validation error. Please try again.');
+      } finally {
+        setIsValidatingPatient(false);
+      }
+    }, 500);
+
+    return () => clearTimeout(delayDebounce);
+  }, [formData.house_id, formData.related_person]);
 
   const loadHouses = async () => {
     try {
@@ -161,7 +198,7 @@ export function SignalCaptureForm() {
       case 1: return !!formData.entry_date;
       case 2: return !!formData.entry_time;
       case 3: return true; // Related Person is optional
-      case 4: return !!formData.house_id;
+      case 4: return !!formData.house_id && patientValid;
       case 5: return !!formData.signal_type;
       case 6: return formData.risk_domain.length > 0;
       case 7: return formData.description.length > 10;
@@ -236,15 +273,84 @@ export function SignalCaptureForm() {
 
         {/* Step 4: House */}
         <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={4} title="Service House" icon={Layers}>
-          <select 
-            value={formData.house_id} 
-            onChange={e => handleFieldChange('house_id', e.target.value)}
-            className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none appearance-none"
-          >
-            {houses.map(h => (
-              <option key={h.id} value={h.id}>{h.name}</option>
-            ))}
-          </select>
+          <div className="space-y-4">
+            <div className="relative">
+              <input
+                type="text"
+                placeholder="Search service houses..."
+                value={houseSearchTerm}
+                onChange={e => setHouseSearchTerm(e.target.value)}
+                className="w-full bg-input-background border-b-4 border-primary p-4 pl-12 text-2xl focus:outline-none placeholder:text-muted-foreground/30"
+              />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 w-6 h-6" />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 mt-4 custom-scrollbar">
+              {houses
+                .filter(h => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase()))
+                .map(h => (
+                  <button
+                    key={h.id}
+                    type="button"
+                    onClick={() => {
+                      handleFieldChange('house_id', h.id);
+                    }}
+                    className={`p-4 border-2 text-left flex items-center gap-3 transition-all ${
+                      formData.house_id === h.id 
+                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-[1.02]' 
+                        : 'bg-card border-border hover:border-primary/50 hover:bg-muted/30'
+                    }`}
+                  >
+                    <Home className={`w-5 h-5 ${formData.house_id === h.id ? 'text-primary-foreground' : 'text-primary'}`} />
+                    <span className="font-semibold text-lg">{h.name}</span>
+                  </button>
+                ))}
+              {houses.filter(h => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase())).length === 0 && (
+                <div className="col-span-full py-8 text-center text-muted-foreground">
+                  No service houses match your search.
+                </div>
+              )}
+            </div>
+
+            {/* Validation Message Panel */}
+            {formData.related_person && formData.related_person.trim() && (
+              <div className={`mt-6 p-4 border-2 transition-all ${
+                isValidatingPatient 
+                  ? 'border-border bg-muted/20 opacity-70' 
+                  : patientValid 
+                    ? 'border-success/30 bg-success/5 text-success' 
+                    : 'border-destructive/30 bg-destructive/5 text-destructive'
+              }`}>
+                <div className="flex items-start gap-3">
+                  {isValidatingPatient ? (
+                    <Loader2 className="w-5 h-5 animate-spin mt-0.5" />
+                  ) : patientValid ? (
+                    <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
+                  ) : (
+                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
+                  )}
+                  <div>
+                    <h4 className="font-semibold text-sm">
+                      {isValidatingPatient 
+                        ? 'Validating related person...' 
+                        : patientValid 
+                          ? 'Valid Related Person' 
+                          : 'Invalid Related Person'
+                      }
+                    </h4>
+                    <p className="text-xs mt-1 leading-relaxed">
+                      {isValidatingPatient
+                        ? `Checking database for active records matching "${formData.related_person}"...`
+                        : patientValid
+                          ? `"${formData.related_person}" is verified as an active patient at this site.`
+                          : patientValidationMessage || `"${formData.related_person}" is not registered at this site. Please correct the name or select the correct house to proceed.`
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
         </FieldWrapper>
 
         {/* Step 5: Signal Type */}
