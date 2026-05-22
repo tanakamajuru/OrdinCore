@@ -34,6 +34,7 @@ export function GovernancePulse() {
   const [houseSearchTerm, setHouseSearchTerm] = useState('');
   const [patientValid, setPatientValid] = useState(true);
   const [patientValidationMessage, setPatientValidationMessage] = useState('');
+  const [serviceUsers, setServiceUsers] = useState<any[]>([]);
 
   // Form State - 12 Field Sequence
   const [formData, setFormData] = useState({
@@ -75,6 +76,23 @@ export function GovernancePulse() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    const houseId = formData.house_id;
+    if (!houseId) {
+      setServiceUsers([]);
+      return;
+    }
+    apiClient.get(`/houses/${houseId}/service-users`)
+      .then(res => {
+        const users = res.data?.data || res.data || [];
+        setServiceUsers(Array.isArray(users) ? users : []);
+      })
+      .catch(err => {
+        console.error('Failed to load service users', err);
+        setServiceUsers([]);
+      });
+  }, [formData.house_id]);
 
   useEffect(() => {
     const houseId = formData.house_id;
@@ -235,8 +253,14 @@ export function GovernancePulse() {
                 placeholder="First initial + Surname (e.g., T Muller)"
                 value={formData.related_person}
                 onChange={e => setFormData(prev => ({ ...prev, related_person: e.target.value }))}
+                list="active-patients"
                 className={`w-full bg-card border-2 border-border p-3 focus:border-primary outline-none ${patientValidationMessage ? 'border-destructive' : ''}`}
               />
+              <datalist id="active-patients">
+                {serviceUsers.map((u: any, idx: number) => (
+                  <option key={`${u.id || ''}-${u.display_name || ''}-${idx}`} value={u.display_name} />
+                ))}
+              </datalist>
               {patientValidationMessage && (
                 <p className="text-sm text-destructive font-bold mt-1">{patientValidationMessage}</p>
               )}

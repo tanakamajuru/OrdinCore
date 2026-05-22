@@ -71,7 +71,7 @@ export function Login() {
       await login(email, password);
       
       // Get role from localStorage since login() sets it there
-      const role = (localStorage.getItem('userRole') || '').toUpperCase();
+      const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
       if (role === 'SUPER_ADMIN') {
         navigate('/super-admin');
       } else if (role === 'ADMIN') {

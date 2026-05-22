@@ -13,8 +13,15 @@ class ApiClient {
     this.token = localStorage.getItem('authToken');
   }
 
-  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
-    const url = `${this.baseURL}${endpoint}`;
+  private async request<T>(endpoint: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<ApiResponse<T>> {
+    const { params, ...fetchOptions } = options;
+    let url = `${this.baseURL}${endpoint}`;
+    if (params) {
+      const query = new URLSearchParams(params).toString();
+      if (query) {
+        url += `${url.includes('?') ? '&' : '?'}${query}`;
+      }
+    }
     // Always read the freshest token from localStorage
     const token = localStorage.getItem('authToken');
     const headers: Record<string, string> = {
@@ -25,7 +32,7 @@ class ApiClient {
 
     try {
       const response = await fetch(url, {
-        ...options,
+        ...fetchOptions,
         headers,
       });
 
@@ -59,7 +66,7 @@ class ApiClient {
   }
 
   // Public generic HTTP helpers to support consolidation
-  public async get<T>(endpoint: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  public async get<T>(endpoint: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 

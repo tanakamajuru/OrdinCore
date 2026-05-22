@@ -3,6 +3,7 @@ import { Button } from './ui/button';
 import { Users, Building, Activity, TrendingUp, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router';
 import { apiClient } from '@/services/api';
+import { RoleBasedNavigation } from './RoleBasedNavigation';
 
 interface AdminStats {
   totalUsers: number;
@@ -69,8 +70,10 @@ const AdminDashboardSimple: React.FC = () => {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex justify-between items-center">
+    <div className="min-h-screen bg-background">
+      <RoleBasedNavigation />
+      <div className="p-6 w-full pt-20 space-y-6">
+        <div className="flex justify-between items-center">
         <h1 className="text-3xl ">Admin Dashboard</h1>
         <Button
           variant="outline"
@@ -176,6 +179,7 @@ const AdminDashboardSimple: React.FC = () => {
         </div>
       </div>
     </div>
+  </div>
   );
 };
 

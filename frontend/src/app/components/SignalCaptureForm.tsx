@@ -111,10 +111,28 @@ export function SignalCaptureForm() {
   const [patientValid, setPatientValid] = useState(true);
   const [patientValidationMessage, setPatientValidationMessage] = useState('');
   const [isValidatingPatient, setIsValidatingPatient] = useState(false);
+  const [serviceUsers, setServiceUsers] = useState<any[]>([]);
 
   useEffect(() => {
     loadHouses();
   }, []);
+
+  useEffect(() => {
+    const houseId = formData.house_id;
+    if (!houseId) {
+      setServiceUsers([]);
+      return;
+    }
+    apiClient.get(`/houses/${houseId}/service-users`)
+      .then(res => {
+        const users = res.data?.data || res.data || [];
+        setServiceUsers(Array.isArray(users) ? users : []);
+      })
+      .catch(err => {
+        console.error('Failed to load service users', err);
+        setServiceUsers([]);
+      });
+  }, [formData.house_id]);
 
   useEffect(() => {
     const houseId = formData.house_id;
@@ -267,8 +285,14 @@ export function SignalCaptureForm() {
             value={formData.related_person} 
             onChange={e => handleFieldChange('related_person', e.target.value)}
             placeholder="Name of person involved (if applicable)"
+            list="active-patients"
             className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none"
           />
+          <datalist id="active-patients">
+            {serviceUsers.map((u: any, idx: number) => (
+              <option key={`${u.id || ''}-${u.display_name || ''}-${idx}`} value={u.display_name} />
+            ))}
+          </datalist>
         </FieldWrapper>
 
         {/* Step 4: House */}

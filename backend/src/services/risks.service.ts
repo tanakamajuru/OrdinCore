@@ -71,7 +71,29 @@ export class RisksService {
   async addAction(risk_id: string, company_id: string, user_id: string, data: { title: string; description?: string; assigned_to?: string; due_date?: Date }) {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
-    return risksRepo.addAction(risk_id, company_id, { ...data, created_by: user_id });
+
+    let assigned_to = data.assigned_to;
+    if (!assigned_to) {
+      // Find Team Leader(s) assigned to this house
+      const tlRes = await query(
+        `SELECT u.id FROM users u
+         JOIN user_houses uh ON uh.user_id = u.id
+         WHERE uh.house_id = $1 AND u.role = 'TEAM_LEADER' AND u.company_id = $2
+         LIMIT 1`,
+        [risk.house_id, company_id]
+      );
+      assigned_to = tlRes.rows[0]?.id || null;
+      if (!assigned_to) {
+        // Fallback to any TEAM_LEADER in the company if no TL is assigned to this house
+        const fallbackRes = await query(
+          `SELECT id FROM users WHERE role = 'TEAM_LEADER' AND company_id = $1 LIMIT 1`,
+          [company_id]
+        );
+        assigned_to = fallbackRes.rows[0]?.id || null;
+      }
+    }
+
+    return risksRepo.addAction(risk_id, company_id, { ...data, assigned_to, created_by: user_id });
   }
 
   async getActions(risk_id: string, company_id: string) {

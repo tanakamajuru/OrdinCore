@@ -61,7 +61,7 @@ interface TimelineEntry {
 export function RiskDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
   
   const [showAddAction, setShowAddAction] = useState(false);
   const [risk, setRisk] = useState<RiskDetail | null>(null);
@@ -83,6 +83,8 @@ export function RiskDetail() {
     description: ""
   });
   const [isEscalating, setIsEscalating] = useState(false);
+  const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [escalationReason, setEscalationReason] = useState("");
   const [showVerifyAction, setShowVerifyAction] = useState<string | null>(null);
   const [verificationNotes, setVerificationNotes] = useState("");
   const [isVerifying, setIsVerifying] = useState(false);
@@ -96,13 +98,15 @@ export function RiskDetail() {
   const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
 
   const handleEscalate = async () => {
-    if (!id) return;
+    if (!id || !escalationReason) return;
     setIsEscalating(true);
     try {
       await apiClient.post(`/risks/${id}/escalate`, {
-        reason: "Manual escalation by user"
+        reason: escalationReason
       });
       toast.success('Risk escalated successfully');
+      setShowEscalateModal(false);
+      setEscalationReason("");
       loadRiskDetails(id);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to escalate risk');
@@ -334,6 +338,19 @@ export function RiskDetail() {
             <span className="px-3 py-1 bg-primary text-primary-foreground ">
               SCORE: {risk.risk_score}
             </span>
+            {risk.status?.toLowerCase() === 'escalated' && (
+              <span className="px-3 py-1 bg-destructive text-primary-foreground">
+                ESCALATED
+              </span>
+            )}
+            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
+              <button
+                onClick={() => setShowEscalateModal(true)}
+                className="px-3 py-1 bg-destructive text-primary-foreground hover:bg-destructive/80 transition-colors uppercase font-medium"
+              >
+                Escalate
+              </button>
+            )}
           </div>
           <p className="text-muted-foreground  uppercase tracking-widest text-sm">
             {risk.house_name} • Registered {new Date(risk.created_at).toLocaleDateString()} by {risk.created_by_name}
@@ -786,6 +803,47 @@ export function RiskDetail() {
           onClose={() => setShowCompletionModal(null)}
           onSuccess={() => id && loadRiskDetails(id)}
         />
+      )}
+
+      {/* Escalate Modal */}
+      {showEscalateModal && (
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+            <h2 className="text-xl mb-4 text-foreground font-semibold">Escalate Risk</h2>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-2 text-foreground">Escalation Reason</label>
+                <textarea
+                  name="reason"
+                  value={escalationReason}
+                  onChange={(e) => setEscalationReason(e.target.value)}
+                  className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
+                  placeholder="Summarize the reason for escalation..."
+                />
+              </div>
+            </div>
+            
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowEscalateModal(false);
+                  setEscalationReason("");
+                }}
+                className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEscalate}
+                disabled={isEscalating || !escalationReason}
+                className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
+              >
+                {isEscalating ? 'Escalating...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

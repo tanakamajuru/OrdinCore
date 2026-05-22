@@ -21,6 +21,9 @@ export class UsersService {
     house_ids?: string[];
     pulse_days?: string[];
   }) {
+    if (data.role) {
+      data.role = data.role.toUpperCase().replace(/-/g, '_');
+    }
     const existing = await usersRepo.findByEmail(data.email);
     if (existing) throw new Error('Email already in use');
 
@@ -85,6 +88,9 @@ export class UsersService {
   }
 
   async update(id: string, company_id: string | null, data: Partial<{ first_name: string; last_name: string; role: string; status: string; is_active: boolean; house_id: string; house_ids: string[]; pulse_days: string[] }>) {
+    if (data.role) {
+      data.role = data.role.toUpperCase().replace(/-/g, '_');
+    }
     const user = await usersRepo.findById(id, company_id);
     if (!user) throw new Error('User not found');
     

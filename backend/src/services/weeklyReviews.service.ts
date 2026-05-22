@@ -21,7 +21,7 @@ export class WeeklyReviewsService {
       }
     }
 
-    const required = mandatoryFields[targetStep] || [];
+    const required = mandatoryFields[targetStep - 1] || [];
     for (const field of required) {
       if (!existingContent || !existingContent[field]) {
         throw new Error(`Governance Block: Mandatory field '${field}' must be completed before proceeding.`);

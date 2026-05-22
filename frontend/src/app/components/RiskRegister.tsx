@@ -43,7 +43,7 @@ export function RiskRegister() {
   const [userHouseName, setUserHouseName] = useState<string>('');
   const [allHousesData, setAllHouses] = useState<any[]>([]);
   const [categories, setCategoriesState] = useState<string[]>(["Clinical", "Operational", "Environmental", "Safety", "Administrative"]);
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
   let user = { id: '', name: '' };
   try {
     const userStr = localStorage.getItem('user');

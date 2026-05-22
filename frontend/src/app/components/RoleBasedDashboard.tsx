@@ -7,7 +7,7 @@ import { TeamLeaderDashboard } from "./TeamLeaderDashboard";
 
 export function RoleBasedDashboard() {
   const navigate = useNavigate();
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
 
   useEffect(() => {
     if (!userRole) {

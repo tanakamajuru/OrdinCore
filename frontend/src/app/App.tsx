@@ -172,6 +172,11 @@ export default function App() {
               <WeeklyReview />
             </ProtectedRoute>
           } />
+          <Route path="/weekly-review/:id" element={
+            <ProtectedRoute>
+              <WeeklyReview />
+            </ProtectedRoute>
+          } />
           <Route path="/ri-governance/houses/:house_id/evidence-pack" element={
             <ProtectedRoute>
               <EvidencePackViewer />

@@ -49,7 +49,7 @@ export function IncidentDetail() {
   const { id } = useParams();
   
   const { user } = useAuth();
-  const userRole = (user?.role || localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (user?.role || localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
   
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);

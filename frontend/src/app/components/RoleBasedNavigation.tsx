@@ -11,15 +11,15 @@ export function RoleBasedNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, isLoading: isAuthLoading } = useAuth();
-  
+
   // Use user state if available, fallback to localStorage for immediate UI stability
   const rawRole = user?.role || localStorage.getItem('userRole') || '';
   const userRole = rawRole.toUpperCase();
-  
+
   const firstName = user?.first_name || '';
   const lastName = user?.last_name || '';
   const displayName = user?.name || (firstName || lastName ? `${firstName} ${lastName}`.trim() : localStorage.getItem('userName')) || 'User';
-  
+
   const userAvatar = (user as any)?.profile?.avatar_url || user?.profile_picture;
 
   const getNavigationItems = () => {
@@ -27,21 +27,21 @@ export function RoleBasedNavigation() {
       case 'ADMIN':
         return [
           { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
-          { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
-          { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
-          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/admin-users", label: "Users", icon: Users },
+          { path: "/admin-houses", label: "Houses", icon: Home },
           { path: "/admin/service-users", label: "Service Users", icon: Users },
+          { path: "/admin-pulses", label: "Governance Pulse (audit)", icon: Activity },
+          { path: "/admin-risks", label: "Risk Management (view-only)", icon: AlertTriangle },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
 
       case 'REGISTERED_MANAGER':
         return [
-          { path: "/dashboard", label: "Dashboard", icon: Home },
-          { path: "/oversight-board", label: "Oversight Board", icon: Shield },
-          { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
+          { path: "/dashboard", label: "Dashboard (Daily Oversight Board)", icon: Home },
           { path: "/risk-register", label: "Risk Management", icon: AlertTriangle },
-          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/my-actions", label: "Actions", icon: FileText },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
+          { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
 
@@ -53,25 +53,26 @@ export function RoleBasedNavigation() {
           { path: "/governance-pulse", label: "Governance Pulse Oversight", icon: Activity },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          { path: "/reports", label: "Cross-Site Reports", icon: FileDown },
-          { path: "/trends", label: "Trend Analysis", icon: TrendingUp },
+          { path: "/trends", label: "Trends", icon: TrendingUp },
+          { path: "/reports", label: "Reports", icon: FileDown },
         ];
 
       case 'TEAM_LEADER':
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
+          { path: "/pulse-history", label: "Pulse History", icon: FileText },
+          { path: "/my-actions", label: "My Actions", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          // { path: "/my-actions", label: "My Actions", icon: FileText },
         ];
- 
+
       case 'DIRECTOR':
         return [
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/patterns", label: "Patterns", icon: Eye },
+          { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/trends", label: "Trend Monitoring", icon: BarChart3 },
         ];
 
       default:
@@ -141,8 +142,8 @@ export function RoleBasedNavigation() {
                     key={item.path}
                     onClick={() => navigate(item.path)}
                     className={`flex-shrink-0 flex items-center gap-2 px-3 py-2 rounded-md transition-colors relative whitespace-nowrap ${isActive
-                        ? "bg-primary text-primary-foreground"
-                        : "text-muted-foreground hover:text-primary hover:bg-muted"
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-primary hover:bg-muted"
                       }`}
                   >
                     <Icon className="w-4 h-4" />
@@ -165,7 +166,7 @@ export function RoleBasedNavigation() {
                 <span className="text-sm  text-foreground leading-none">{displayName}</span>
                 <span className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1 ">{getRoleLabel()}</span>
               </div>
-              <button 
+              <button
                 type="button"
                 className="w-10 h-10 rounded-full border-2 border-primary overflow-hidden bg-muted flex items-center justify-center cursor-pointer hover:border-primary-foreground/50 transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2"
                 onClick={() => navigate('/profile')}

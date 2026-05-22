@@ -10,6 +10,11 @@ export function WeeklyReview() {
   const navigate = useNavigate();
   const { id } = useParams();
 
+  const user = JSON.parse(localStorage.getItem('user') || '{}');
+  const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
+  const isSenior = ['DIRECTOR', 'ADMIN', 'SUPER_ADMIN', 'RESPONSIBLE_INDIVIDUAL'].includes(userRole);
+
+  const [reviewId, setReviewId] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(0);
   const [completedStep, setCompletedStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
@@ -62,7 +67,7 @@ export function WeeklyReview() {
     try {
       setIsLoading(true);
       const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase();
+      const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
       let houseId = user.assigned_house_id;
 
       const hRes = await apiClient.get('/houses');
@@ -97,9 +102,11 @@ export function WeeklyReview() {
       const auto = previewRes.data?.data?.auto_population || {};
       setPreviewData(previewRes.data?.data || {});
       
-      if (id && id !== 'new') {
-        const reviewRes = await apiClient.get(`/weekly-reviews/${id}`);
+      const activeId = id || reviewId;
+      if (activeId && activeId !== 'new') {
+        const reviewRes = await apiClient.get(`/weekly-reviews/${activeId}`);
         const reviewData = reviewRes.data?.data || reviewRes.data;
+        setReviewId(reviewData.id);
         setFormData(reviewData.content || {});
         setCurrentStep(reviewData.step_reached - 1 || 0);
         setCompletedStep(reviewData.step_reached - 1 || 0);
@@ -178,6 +185,11 @@ export function WeeklyReview() {
           step_reached: nextStepIndex + 1
         });
         
+        const savedReview = saveRes.data?.data || saveRes.data;
+        if (savedReview && savedReview.id) {
+          setReviewId(savedReview.id);
+        }
+        
         if (nextStepIndex === 14) {
           // Refresh narrative from server response if we just reached Step 15
           setFormData((prev: any) => ({
@@ -210,11 +222,12 @@ export function WeeklyReview() {
     setIsSaving(true);
     try {
         const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase();
+        const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
         
+        const activeId = id || reviewId;
         if (userRole === 'REGISTERED_MANAGER') {
           // Use finalise endpoint for RMs
-          await apiClient.post(`/weekly-reviews/${id}/finalise`, {});
+          await apiClient.post(`/weekly-reviews/${activeId}/finalise`, {});
           toast.success('Governance Review finalised and sent for RI validation');
           setStatus('pending_validation');
         } else {
@@ -243,7 +256,8 @@ export function WeeklyReview() {
     
     setIsSaving(true);
     try {
-      await apiClient.post(`/weekly-reviews/${id}/validate`, {
+      const activeId = id || reviewId;
+      await apiClient.post(`/weekly-reviews/${activeId}/validate`, {
         validation_status: vStatus,
         validation_comment: comment
       });
@@ -310,8 +324,14 @@ export function WeeklyReview() {
                 placeholder="First initial + Surname (e.g., T Muller)"
                 value={formData.service_user_name || ''} 
                 onChange={(e) => setFormData({...formData, service_user_name: e.target.value})}
+                list="active-patients"
                 className={`${inputClass} ${patientValidationMessage ? 'border-destructive' : ''}`}
               />
+              <datalist id="active-patients">
+                {previewData?.service_users?.map((u: any, idx: number) => (
+                  <option key={`${u.id || ''}-${u.name || ''}-${idx}`} value={u.name} />
+                ))}
+              </datalist>
               {patientValidationMessage && (
                 <p className="text-sm text-destructive mt-1 font-bold">{patientValidationMessage}</p>
               )}
@@ -567,7 +587,7 @@ export function WeeklyReview() {
           />
           <p className="text-[10px]  text-muted-foreground ">This narrative will be pushed to the Director and NI Dashboards upon locking.</p>
           
-          {status === 'pending_validation' && (
+          {status === 'pending_validation' && isSenior && (
             <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
               <h3 className="text-blue-800 font-bold mb-2 flex items-center gap-2">
                 <Shield className="w-5 h-5"/> Oversight Validation Required

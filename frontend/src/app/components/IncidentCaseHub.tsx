@@ -60,7 +60,7 @@ export function IncidentCaseHub() {
 
   const userString = localStorage.getItem('user') || '{}';
   const user = JSON.parse(userString);
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
   const userId = user.id;
   const userName = `${user.first_name || ''} ${user.last_name || ''}`.trim() || 'Unknown User';
 

@@ -23,7 +23,7 @@ export function Reports() {
   const [showFilters, setShowFilters] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showMonthlyEditor, setShowMonthlyEditor] = useState(false);
-  const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+  const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
   
   const [filters, setFilters] = useState<ReportFilters & { leadershipObservations?: string; forwardPlan?: string }>({
     dateRange: {
@@ -91,7 +91,7 @@ export function Reports() {
   const loadPreviewData = async () => {
     try {
       const userId = JSON.parse(localStorage.getItem('user') || '{}').id;
-      const userRole = (localStorage.getItem('userRole') || '').toUpperCase();
+      const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);

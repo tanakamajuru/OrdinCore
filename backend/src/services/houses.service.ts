@@ -112,10 +112,11 @@ export class HousesService {
   async validatePatient(id: string, company_id: string, name: string) {
     const house = await housesRepo.findById(id, company_id);
     if (!house) throw new Error('House not found');
+    const cleanName = name.trim().replace(/\s+/g, ' ');
     const { query } = await import('../config/database');
     const result = await query(
-      `SELECT id FROM service_users WHERE house_id = $1 AND display_name = $2 AND is_active = true LIMIT 1`, 
-      [id, name]
+      `SELECT id FROM service_users WHERE house_id = $1 AND LOWER(display_name) = LOWER($2) AND is_active = true LIMIT 1`, 
+      [id, cleanName]
     );
     return result.rows.length > 0;
   }
