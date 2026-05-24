@@ -37,14 +37,26 @@ async function runMigrations() {
       const filepath = path.join(migrationsDir, file);
       const sql = fs.readFileSync(filepath, 'utf-8');
 
-      await client.query('BEGIN');
+      // Check if migration alters an enum type using ADD VALUE.
+      // If so, execute without a transaction block to prevent Postgres from throwing
+      // "ALTER TYPE ... ADD VALUE cannot be executed inside a transaction block"
+      // and allowing sequential statements in the file to auto-commit and see the new enum value.
+      const useTransaction = !sql.includes('ALTER TYPE') || !sql.includes('ADD VALUE');
+
+      if (useTransaction) {
+        await client.query('BEGIN');
+      }
       try {
         await client.query(sql);
         await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
-        await client.query('COMMIT');
+        if (useTransaction) {
+          await client.query('COMMIT');
+        }
         logger.info(`✅ Migration executed: ${file}`);
       } catch (err: any) {
-        await client.query('ROLLBACK');
+        if (useTransaction) {
+          await client.query('ROLLBACK');
+        }
         logger.error(`❌ Migration failed: ${file} | Error: ${err.message}`, err);
         throw err;
       }
