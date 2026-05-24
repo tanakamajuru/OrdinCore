@@ -7,6 +7,10 @@ const handleRedirect = () => {
   window.location.href = APP_LOGIN_URL;
 };
 
+const handleBookDemo = () => {
+  window.dispatchEvent(new CustomEvent("open-demo-modal"));
+};
+
 /* ─── Shared Layout & Sidebar ──────────────────────────── */
 interface SubpageLayoutProps {
   category: string;
@@ -44,7 +48,7 @@ const SubpageLayout: React.FC<SubpageLayoutProps> = ({ category, title, subtitle
             </p>
             <div style={{ display: "flex", gap: "12px", flexWrap: "wrap" }}>
               <button className="oc-btn-primary" onClick={handleRedirect}>Join Pilot Programme</button>
-              <button className="oc-btn-outline" onClick={handleRedirect}>Book a Demo</button>
+              <button className="oc-btn-outline" onClick={handleBookDemo}>Book a Demo</button>
             </div>
           </div>
         </div>

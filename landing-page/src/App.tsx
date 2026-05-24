@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import useWeb3Forms from "@web3forms/react";
 import logoImg from "./assets/logo.png";
+import * as Pages from "./pages/ContentPages";
 
 /* ─── Redirection Configuration ────────────────────────── */
 const APP_LOGIN_URL = import.meta.env.VITE_LOGIN_URL || "https://work.ordincore.co.uk/login";
@@ -37,10 +38,6 @@ const Icon: React.FC<IconProps> = ({ name }) => {
     </svg>
   );
 };
-
-
-
-
 
 /* ─── Static Data ──────────────────────────────────────── */
 const PAIN_POINTS = [
@@ -98,6 +95,32 @@ const FOOTER_COLS = {
   "Company": ["About", "Contact"],
 };
 
+/* ─── Sub-page Mapping ─────────────────────────────────── */
+const PAGE_COMPONENTS: Record<string, React.ComponentType> = {
+  overview: Pages.PlatformOverview,
+  signals: Pages.PlatformSignals,
+  trajectory: Pages.PlatformRiskTrajectory,
+  escalations: Pages.PlatformEscalations,
+  reviews: Pages.PlatformWeeklyReview,
+  reporting: Pages.PlatformReports,
+  security: Pages.PlatformSecurity,
+  why: Pages.WhyOrdinCore,
+  "supported-living": Pages.ProviderSupportedLiving,
+  "mental-health": Pages.ProviderMentalHealth,
+  residential: Pages.ProviderResidentialCare,
+  domiciliary: Pages.ProviderDomiciliaryCare,
+  "case-studies": Pages.ProviderCaseStudies,
+  blog: Pages.ResourceBlog,
+  guides: Pages.ResourceGuides,
+  webinars: Pages.ResourceWebinars,
+  help: Pages.ResourceHelp,
+  api: Pages.ResourceApiDocs,
+  mission: Pages.AboutMission,
+  team: Pages.AboutTeam,
+  contact: Pages.AboutContact,
+  pilot: Pages.AboutPilot,
+};
+
 /* ─── App Component ────────────────────────────────────── */
 export default function App() {
   const [email, setEmail] = useState("");
@@ -108,6 +131,16 @@ export default function App() {
   const [resourcesOpen, setResourcesOpen] = useState(false);
   const [aboutOpen, setAboutOpen] = useState(false);
 
+  // Dynamic Navigation & Modal State
+  const [activePage, setActivePage] = useState<string>("home");
+  const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+
+  // Book a Demo Form States
+  const [demoEmail, setDemoEmail] = useState("");
+  const [demoPhone, setDemoPhone] = useState("");
+  const [demoMessage, setDemoMessage] = useState("Hi, I am interested in Ordin Core and would like to book a demo for my organization.");
+  const [demoFormStatus, setDemoFormStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+
   useEffect(() => {
     if (theme === "dark") {
       document.documentElement.classList.add("dark");
@@ -117,7 +150,17 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  const accessKey = import.meta.env.VITE_WEB3FORMS_ACCESS_KEY || "YOUR_WEB3FORMS_ACCESS_KEY_HERE";
+  // Listen to sub-page 'Book a Demo' triggers
+  useEffect(() => {
+    const handleOpenModal = () => setIsDemoModalOpen(true);
+    window.addEventListener("open-demo-modal", handleOpenModal);
+    return () => {
+      window.removeEventListener("open-demo-modal", handleOpenModal);
+    };
+  }, []);
+
+  // Web3Forms access key
+  const accessKey = "b9e46d19-c01b-4527-a65f-67e31817e04e";
 
   const { submit } = useWeb3Forms({
     access_key: accessKey,
@@ -143,8 +186,72 @@ export default function App() {
     });
   };
 
+  const handleDemoSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!demoEmail || !demoPhone || !demoMessage) return;
+    setDemoFormStatus("loading");
+
+    const formData = new FormData();
+    formData.append("access_key", accessKey);
+    formData.append("email", demoEmail);
+    formData.append("phone", demoPhone);
+    formData.append("message", demoMessage);
+    formData.append("from_name", "Ordin Core Landing Page");
+    formData.append("subject", "New Demo Booking Request (ttmajuru@gmail.com)");
+
+    try {
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        body: formData
+      });
+      const data = await response.json();
+      if (data.success) {
+        setDemoFormStatus("success");
+        setDemoEmail("");
+        setDemoPhone("");
+      } else {
+        setDemoFormStatus("error");
+        setTimeout(() => setDemoFormStatus("idle"), 4000);
+      }
+    } catch (err) {
+      setDemoFormStatus("error");
+      setTimeout(() => setDemoFormStatus("idle"), 4000);
+    }
+  };
+
   const handleRedirect = () => {
     window.location.href = APP_LOGIN_URL;
+  };
+
+  const navigateTo = (page: string) => {
+    setActivePage(page);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+    // Auto-close dropdowns
+    setPlatformOpen(false);
+    setProvidersOpen(false);
+    setResourcesOpen(false);
+    setAboutOpen(false);
+  };
+
+  const handleFooterLinkClick = (colTitle: string, linkLabel: string) => {
+    if (colTitle === "Platform") {
+      if (linkLabel === "Overview") navigateTo("overview");
+      else if (linkLabel === "Features") navigateTo("signals");
+      else if (linkLabel === "Security") navigateTo("security");
+    } else if (colTitle === "Why Ordin Core") {
+      if (linkLabel === "Our Approach") navigateTo("why");
+      else if (linkLabel === "Governance Model") navigateTo("reviews");
+      else if (linkLabel === "For Providers") navigateTo("supported-living");
+    } else if (colTitle === "Resources") {
+      if (linkLabel === "Blog") navigateTo("blog");
+      else if (linkLabel === "Guides") navigateTo("guides");
+      else if (linkLabel === "Events") navigateTo("webinars");
+    } else if (colTitle === "Company") {
+      if (linkLabel === "About") navigateTo("mission");
+      else if (linkLabel === "Contact") navigateTo("contact");
+    } else {
+      handleRedirect();
+    }
   };
 
   return (
@@ -153,7 +260,7 @@ export default function App() {
       {/* ── NAV ── */}
       <nav className="oc-nav">
         <div className="oc-nav-inner">
-          <a className="oc-logo" onClick={handleRedirect}>
+          <a className="oc-logo" onClick={() => navigateTo("home")}>
             <img src={logoImg} alt="Ordin Core Logo" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "contain" }} />
             <div>
               <div className="oc-logo-text">ORDIN CORE</div>
@@ -167,24 +274,24 @@ export default function App() {
               onMouseEnter={() => setPlatformOpen(true)}
               onMouseLeave={() => setPlatformOpen(false)}
             >
-              <button className="oc-nav-link" onClick={handleRedirect}>
+              <button className="oc-nav-link" onClick={() => setPlatformOpen(!platformOpen)}>
                 Platform ▾
               </button>
               {platformOpen && (
                 <div className="oc-dropdown-menu">
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Overview</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Governance Signals</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Risk Trajectory</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Escalations & Actions</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Weekly Reviews</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Reporting & Analytics</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Security & Compliance</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("overview")}>Overview</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("signals")}>Governance Signals</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("trajectory")}>Risk Trajectory</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("escalations")}>Escalations & Actions</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("reviews")}>Weekly Reviews</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("reporting")}>Reporting & Analytics</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("security")}>Security & Compliance</a>
                 </div>
               )}
             </div>
 
             {/* Why Ordin Core Link */}
-            <button className="oc-nav-link" onClick={handleRedirect}>
+            <button className="oc-nav-link" onClick={() => navigateTo("why")}>
               Why Ordin Core
             </button>
 
@@ -194,16 +301,16 @@ export default function App() {
               onMouseEnter={() => setProvidersOpen(true)}
               onMouseLeave={() => setProvidersOpen(false)}
             >
-              <button className="oc-nav-link" onClick={handleRedirect}>
+              <button className="oc-nav-link" onClick={() => setProvidersOpen(!providersOpen)}>
                 For Providers ▾
               </button>
               {providersOpen && (
                 <div className="oc-dropdown-menu">
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Supported Living</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Mental Health Services</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Residential Care</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Domiciliary Care</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Case Studies</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("supported-living")}>Supported Living</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("mental-health")}>Mental Health Services</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("residential")}>Residential Care</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("domiciliary")}>Domiciliary Care</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("case-studies")}>Case Studies</a>
                 </div>
               )}
             </div>
@@ -214,16 +321,16 @@ export default function App() {
               onMouseEnter={() => setResourcesOpen(true)}
               onMouseLeave={() => setResourcesOpen(false)}
             >
-              <button className="oc-nav-link" onClick={handleRedirect}>
+              <button className="oc-nav-link" onClick={() => setResourcesOpen(!resourcesOpen)}>
                 Resources ▾
               </button>
               {resourcesOpen && (
                 <div className="oc-dropdown-menu">
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Blog</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Guides</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Webinars</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Help Center</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>API Docs</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("blog")}>Blog</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("guides")}>Guides</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("webinars")}>Webinars</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("help")}>Help Center</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("api")}>API Docs</a>
                 </div>
               )}
             </div>
@@ -234,15 +341,15 @@ export default function App() {
               onMouseEnter={() => setAboutOpen(true)}
               onMouseLeave={() => setAboutOpen(false)}
             >
-              <button className="oc-nav-link" onClick={handleRedirect}>
+              <button className="oc-nav-link" onClick={() => setAboutOpen(!aboutOpen)}>
                 About ▾
               </button>
               {aboutOpen && (
                 <div className="oc-dropdown-menu">
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Our Mission</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Leadership Team</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Contact Us</a>
-                  <a className="oc-dropdown-item" onClick={handleRedirect}>Pilot Programme</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("mission")}>Our Mission</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("team")}>Leadership Team</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("contact")}>Contact Us</a>
+                  <a className="oc-dropdown-item" onClick={() => navigateTo("pilot")}>Pilot Programme</a>
                 </div>
               )}
             </div>
@@ -263,7 +370,7 @@ export default function App() {
                 </svg>
               )}
             </button>
-            <button className="oc-btn-outline" onClick={handleRedirect}>Book a Demo</button>
+            <button className="oc-btn-outline" onClick={() => setIsDemoModalOpen(true)}>Book a Demo</button>
             <button className="oc-btn-primary" onClick={handleRedirect}>Join Pilot Programme</button>
           </div>
         </div>
@@ -281,7 +388,7 @@ export default function App() {
             Ordin Core helps Directors, Responsible Individuals, and Registered Managers maintain clearer oversight across supported living and care services through structured governance reviews, escalation visibility, and risk trajectory monitoring.
           </p>
           <div className="oc-hero-btns">
-            <button className="oc-btn-primary-lg" onClick={handleRedirect}>Book a Demo</button>
+            <button className="oc-btn-primary-lg" onClick={() => setIsDemoModalOpen(true)}>Book a Demo</button>
             <button className="oc-btn-outline-lg" onClick={handleRedirect}>Join Pilot Programme</button>
           </div>
           <div className="oc-hero-note">
@@ -302,221 +409,230 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── BADGE STRIP ── */}
-      <div className="oc-badge-strip">
-        <div className="oc-badge-strip-inner">
-          {[
-            { icon: "shield", title: "Designed for Governance", sub: "Not just compliance" },
-            { icon: "check", title: "Inspection-Aware", sub: "Evidence what matters" },
-            { icon: "users", title: "Operationally Grounded", sub: "Built with provider input" },
-            { icon: "doc", title: "Secure & Private", sub: "Enterprise-grade security" },
-          ].map(b => (
-            <div key={b.title} className="oc-badge-item">
-              <div className="oc-badge-icon" style={{ color: "var(--oc-sky)" }}><Icon name={b.icon} /></div>
-              <div>
-                <div className="oc-badge-title">{b.title}</div>
-                <div className="oc-badge-sub">{b.sub}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* ── PROBLEM ── */}
-      <div className="oc-section oc-center">
-        <h2 className="oc-section-h2">Governance Becomes Difficult When<br />Information Is Scattered</h2>
-        <p className="oc-section-sub">As services grow, maintaining consistent oversight becomes harder.</p>
-        <div className="oc-grid-4">
-          {PAIN_POINTS.map(p => (
-            <div key={p.title} className="oc-card">
-              <div className="oc-card-icon" style={{ color: "var(--oc-sky)" }}><Icon name={p.icon} /></div>
-              <div className="oc-card-title">{p.title}</div>
-              <div className="oc-card-desc">{p.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="oc-divider" />
-
-      {/* ── RHYTHM ── */}
-      <div className="oc-section oc-center">
-        <h2 className="oc-section-h2">A Structured Governance Rhythm<br />For Operational Oversight</h2>
-        <p className="oc-section-sub">Ordin Core helps you build a repeatable governance rhythm across your organisation.</p>
-        <div className="oc-rhythm">
-          {RHYTHM.map((step, i) => (
-            <React.Fragment key={step.title}>
-              <div className="oc-rhythm-step">
-                <div style={{ display: "flex", justifyContent: "center" }}>
-                  <div className="oc-rhythm-circle">{step.icon}</div>
-                </div>
-                <div className="oc-rhythm-tag">{i + 1}.</div>
-                <div className="oc-rhythm-title">{step.title}</div>
-                <div className="oc-rhythm-desc">{step.desc}</div>
-              </div>
-              {i < RHYTHM.length - 1 && (
-                <div style={{ width: 40, flexShrink: 0, display: "flex", alignItems: "flex-start", paddingTop: 28 }} className="oc-rhythm-arrow">
-                  <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
-                    <line x1="0" y1="8" x2="32" y2="8" stroke="var(--oc-border)" strokeWidth="1.5" />
-                    <polyline points="26,3 33,8 26,13" fill="none" stroke="var(--oc-cobalt)" strokeWidth="1.5" />
-                  </svg>
-                </div>
-              )}
-            </React.Fragment>
-          ))}
-        </div>
-      </div>
-
-      <div className="oc-divider" />
-
-      {/* ── FEATURES ── */}
-      <div className="oc-section oc-center">
-        <h2 className="oc-section-h2">Designed For Governance Visibility</h2>
-        <div className="oc-grid-6">
-          {FEATURES.map(f => (
-            <div key={f.title} className="oc-card" style={{ textAlign: "left" }}>
-              <div className="oc-card-icon" style={{ color: "var(--oc-sky)" }}><Icon name={f.icon} /></div>
-              <div className="oc-card-title">{f.title}</div>
-              <div className="oc-card-desc">{f.desc}</div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="oc-divider" />
-
-      {/* ── BUILT FOR ── */}
-      <div className="oc-section">
-        <div className="oc-built-grid">
-          <div>
-            <h2 className="oc-section-h2">Built For Operational and Governance Leadership</h2>
-            <div style={{ marginTop: 28 }}>
-              {USERS.map(u => (
-                <div key={u.title} className="oc-user-item">
-                  <div className="oc-user-icon">{u.icon}</div>
+      {activePage === "home" ? (
+        <>
+          {/* ── BADGE STRIP ── */}
+          <div className="oc-badge-strip">
+            <div className="oc-badge-strip-inner">
+              {[
+                { icon: "shield", title: "Designed for Governance", sub: "Not just compliance" },
+                { icon: "check", title: "Inspection-Aware", sub: "Evidence what matters" },
+                { icon: "users", title: "Operationally Grounded", sub: "Built with provider input" },
+                { icon: "doc", title: "Secure & Private", sub: "Enterprise-grade security" },
+              ].map(b => (
+                <div key={b.title} className="oc-badge-item">
+                  <div className="oc-badge-icon" style={{ color: "var(--oc-sky)" }}><Icon name={b.icon} /></div>
                   <div>
-                    <div className="oc-user-title">{u.title}</div>
-                    <div className="oc-user-desc">{u.desc}</div>
+                    <div className="oc-badge-title">{b.title}</div>
+                    <div className="oc-badge-sub">{b.sub}</div>
                   </div>
                 </div>
               ))}
             </div>
           </div>
-          <div>
-            <h2 className="oc-section-h2">See Governance Activity More Clearly</h2>
-            <p style={{ fontSize: 14, color: "var(--oc-muted)", marginTop: 8, marginBottom: 24, textAlign: "left" }}>Dashboards that bring clarity to your oversight.</p>
-            <div className="oc-dashboard" style={{ marginBottom: 20 }}>
-              <div className="oc-db-header">
-                <div className="oc-db-logo">ORDIN<br />CORE</div>
-                <div style={{ flex: 1 }} />
-                <div className="oc-db-tab oc-db-tab-active">Governance Signals</div>
-                <div className="oc-db-tab">All Services ▾</div>
-              </div>
-              <div style={{ padding: "14px", background: "#0E2038" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-                  <div className="oc-db-chart">
-                    <div className="oc-db-chart-title">By Risk Area</div>
-                    {[
-                      ["Staffing & Supervision", "12"],
-                      ["Medication Management", "24"],
-                      ["Safeguarding", "8"],
-                      ["Quality of Care", "16"],
-                      ["Environment", "6"],
-                      ["Other", "10"]
-                    ].map(([l, v]) => (
-                      <div key={l} className="oc-risk-row">
-                        <span style={{ flex: 1, fontSize: 9 }}>{l}</span>
-                        <span style={{ fontSize: 9, color: "var(--oc-ice)", fontWeight: 600 }}>{v}</span>
-                      </div>
-                    ))}
+
+          {/* ── PROBLEM ── */}
+          <div className="oc-section oc-center">
+            <h2 className="oc-section-h2">Governance Becomes Difficult When<br />Information Is Scattered</h2>
+            <p className="oc-section-sub">As services grow, maintaining consistent oversight becomes harder.</p>
+            <div className="oc-grid-4">
+              {PAIN_POINTS.map(p => (
+                <div key={p.title} className="oc-card">
+                  <div className="oc-card-icon" style={{ color: "var(--oc-sky)" }}><Icon name={p.icon} /></div>
+                  <div className="oc-card-title">{p.title}</div>
+                  <div className="oc-card-desc">{p.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="oc-divider" />
+
+          {/* ── RHYTHM ── */}
+          <div className="oc-section oc-center">
+            <h2 className="oc-section-h2">A Structured Governance Rhythm<br />For Operational Oversight</h2>
+            <p className="oc-section-sub">Ordin Core helps you build a repeatable governance rhythm across your organisation.</p>
+            <div className="oc-rhythm">
+              {RHYTHM.map((step, i) => (
+                <React.Fragment key={step.title}>
+                  <div className="oc-rhythm-step">
+                    <div style={{ display: "flex", justifyContent: "center" }}>
+                      <div className="oc-rhythm-circle">{step.icon}</div>
+                    </div>
+                    <div className="oc-rhythm-tag">{i + 1}.</div>
+                    <div className="oc-rhythm-title">{step.title}</div>
+                    <div className="oc-rhythm-desc">{step.desc}</div>
                   </div>
-                  <div className="oc-db-chart" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-                    <div className="oc-db-chart-title" style={{ alignSelf: "flex-start" }}>By Severity</div>
-                    <div style={{ width: 64, height: 64, borderRadius: "50%", background: "conic-gradient(#EF5350 0% 23%, var(--oc-cobalt) 23% 60%, #4CAF81 60% 100%)", margin: "8px auto 6px", boxShadow: "0 0 0 8px var(--oc-card)" }} />
-                    <div style={{ fontSize: 10, color: "var(--oc-ice)", fontFamily: "'Sora',sans-serif", fontWeight: 700 }}>128 Total</div>
-                    <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
-                      {[["High", "#EF5350", "23%"], ["Med", "var(--oc-cobalt)", "37%"], ["Low", "#4CAF81", "40%"]].map(([l, c, p]) => (
-                        <div key={l} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 8 }}>
-                          <div style={{ width: 6, height: 6, borderRadius: "50%", background: c }} />
-                          <span style={{ color: "var(--oc-muted)" }}>{l} {p}</span>
+                  {i < RHYTHM.length - 1 && (
+                    <div style={{ width: 40, flexShrink: 0, display: "flex", alignItems: "flex-start", paddingTop: 28 }} className="oc-rhythm-arrow">
+                      <svg width="40" height="16" viewBox="0 0 40 16" fill="none">
+                        <line x1="0" y1="8" x2="32" y2="8" stroke="var(--oc-border)" strokeWidth="1.5" />
+                        <polyline points="26,3 33,8 26,13" fill="none" stroke="var(--oc-cobalt)" strokeWidth="1.5" />
+                      </svg>
+                    </div>
+                  )}
+                </React.Fragment>
+              ))}
+            </div>
+          </div>
+
+          <div className="oc-divider" />
+
+          {/* ── FEATURES ── */}
+          <div className="oc-section oc-center">
+            <h2 className="oc-section-h2">Designed For Governance Visibility</h2>
+            <div className="oc-grid-6">
+              {FEATURES.map(f => (
+                <div key={f.title} className="oc-card" style={{ textAlign: "left" }}>
+                  <div className="oc-card-icon" style={{ color: "var(--oc-sky)" }}><Icon name={f.icon} /></div>
+                  <div className="oc-card-title">{f.title}</div>
+                  <div className="oc-card-desc">{f.desc}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="oc-divider" />
+
+          {/* ── BUILT FOR ── */}
+          <div className="oc-section">
+            <div className="oc-built-grid">
+              <div>
+                <h2 className="oc-section-h2">Built For Operational and Governance Leadership</h2>
+                <div style={{ marginTop: 28 }}>
+                  {USERS.map(u => (
+                    <div key={u.title} className="oc-user-item">
+                      <div className="oc-user-icon">{u.icon}</div>
+                      <div>
+                        <div className="oc-user-title">{u.title}</div>
+                        <div className="oc-user-desc">{u.desc}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <h2 className="oc-section-h2">See Governance Activity More Clearly</h2>
+                <p style={{ fontSize: 14, color: "var(--oc-muted)", marginTop: 8, marginBottom: 24, textAlign: "left" }}>Dashboards that bring clarity to your oversight.</p>
+                <div className="oc-dashboard" style={{ marginBottom: 20 }}>
+                  <div className="oc-db-header">
+                    <div className="oc-db-logo">ORDIN<br />CORE</div>
+                    <div style={{ flex: 1 }} />
+                    <div className="oc-db-tab oc-db-tab-active">Governance Signals</div>
+                    <div className="oc-db-tab">All Services ▾</div>
+                  </div>
+                  <div style={{ padding: "14px", background: "#0E2038" }}>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                      <div className="oc-db-chart">
+                        <div className="oc-db-chart-title">By Risk Area</div>
+                        {[
+                          ["Staffing & Supervision", "12"],
+                          ["Medication Management", "24"],
+                          ["Safeguarding", "8"],
+                          ["Quality of Care", "16"],
+                          ["Environment", "6"],
+                          ["Other", "10"]
+                        ].map(([l, v]) => (
+                          <div key={l} className="oc-risk-row">
+                            <span style={{ flex: 1, fontSize: 9 }}>{l}</span>
+                            <span style={{ fontSize: 9, color: "var(--oc-ice)", fontWeight: 600 }}>{v}</span>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="oc-db-chart" style={{ display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+                        <div className="oc-db-chart-title" style={{ alignSelf: "flex-start" }}>By Severity</div>
+                        <div style={{ width: 64, height: 64, borderRadius: "50%", background: "conic-gradient(#EF5350 0% 23%, var(--oc-cobalt) 23% 60%, #4CAF81 60% 100%)", margin: "8px auto 6px", boxShadow: "0 0 0 8px var(--oc-card)" }} />
+                        <div style={{ fontSize: 10, color: "var(--oc-ice)", fontFamily: "'Sora',sans-serif", fontWeight: 700 }}>128 Total</div>
+                        <div style={{ display: "flex", gap: 8, marginTop: 6 }}>
+                          {[["High", "#EF5350", "23%"], ["Med", "var(--oc-cobalt)", "37%"], ["Low", "#4CAF81", "40%"]].map(([l, c, p]) => (
+                            <div key={l} style={{ display: "flex", alignItems: "center", gap: 3, fontSize: 8 }}>
+                              <div style={{ width: 6, height: 6, borderRadius: "50%", background: c }} />
+                              <span style={{ color: "var(--oc-muted)" }}>{l} {p}</span>
+                            </div>
+                          ))}
                         </div>
-                      ))}
+                      </div>
                     </div>
                   </div>
                 </div>
+                <ul className="oc-check-list">
+                  {CHECKLIST.map(item => (
+                    <li key={item} className="oc-check-item">
+                      <div className="oc-check-dot">✓</div>
+                      {item}
+                    </li>
+                  ))}
+                </ul>
               </div>
             </div>
-            <ul className="oc-check-list">
-              {CHECKLIST.map(item => (
-                <li key={item} className="oc-check-item">
-                  <div className="oc-check-dot">✓</div>
-                  {item}
-                </li>
+          </div>
+
+          {/* ── BEYOND COMPLIANCE ── */}
+          <div className="oc-beyond">
+            <div className="oc-beyond-inner">
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
+                  <path d="M36 4L8 16v20c0 18 12 30 28 32C52 66 64 54 64 36V16L36 4z" fill="rgba(47, 108, 181, 0.14)" stroke="var(--oc-cobalt)" strokeWidth="2" />
+                  <path d="M36 18L18 26v14c0 12 8 20 18 22 10-2 18-10 18-22V26L36 18z" fill="rgba(91, 159, 212, 0.09)" stroke="var(--oc-sky)" strokeWidth="1.5" />
+                  <path d="M27 36l7 7 11-11" stroke="var(--oc-sky)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>Governance Visibility Beyond Compliance</div>
+                </div>
+              </div>
+              <div>
+                <p style={{ fontSize: 14, color: "var(--oc-silver)", lineHeight: 1.7, marginBottom: 16, textAlign: "left" }}>
+                  Ordin Core is not a care planning platform or compliance scoring system.
+                </p>
+                <p style={{ fontSize: 13, color: "var(--oc-muted)", lineHeight: 1.7, textAlign: "left" }}>
+                  It is a governance infrastructure platform designed to support structured oversight, operational visibility, and continuity of governance review across care services.
+                </p>
+              </div>
+              <div>
+                <p style={{ fontSize: 13, color: "var(--oc-muted)", lineHeight: 1.7, textAlign: "left" }}>
+                  The platform is designed to help organisations maintain clearer operational awareness and stronger governance defensibility through structured oversight activity over time.
+                </p>
+                <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(47, 108, 181, 0.07)", borderRadius: 8, border: "1px solid rgba(47, 108, 181, 0.2)", display: "flex", alignItems: "center", gap: 10 }}>
+                  <span style={{ color: "var(--oc-sky)", fontSize: 14 }}>✓</span>
+                  <span style={{ fontSize: 13, color: "var(--oc-silver)", textAlign: "left" }}>Structured oversight. Clearer visibility. Better governance continuity.</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* ── PILOT CTA ── */}
+          <div className="oc-section oc-pilot">
+            <div style={{ display: "inline-block", padding: "4px 14px", borderRadius: 20, border: "1px solid var(--oc-border)", fontSize: 11, color: "var(--oc-sky)", letterSpacing: ".8px", textTransform: "uppercase", fontWeight: 600, marginBottom: 20, background: "rgba(47, 108, 181, 0.05)" }}>Limited Access</div>
+            <h2 className="oc-section-h2">Join The Ordin Core Pilot Programme</h2>
+            <p className="oc-section-sub" style={{ marginTop: 10 }}>
+              We are partnering with a limited number of supported living and care providers to shape the future of governance oversight.
+            </p>
+            <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
+              <button className="oc-btn-primary-lg" onClick={handleRedirect}>Join Pilot Programme</button>
+              <button className="oc-btn-outline-lg" onClick={() => setIsDemoModalOpen(true)}>Book a Demo</button>
+            </div>
+            <div className="oc-pilot-icons">
+              {PILOT_ITEMS.map(p => (
+                <div key={p.label} className="oc-pilot-icon-item">
+                  <div className="oc-pilot-icon-circle">{p.icon}</div>
+                  <div className="oc-pilot-icon-label">{p.label}</div>
+                </div>
               ))}
-            </ul>
-          </div>
-        </div>
-      </div>
-
-      {/* ── BEYOND COMPLIANCE ── */}
-      <div className="oc-beyond">
-        <div className="oc-beyond-inner">
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
-            <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-              <path d="M36 4L8 16v20c0 18 12 30 28 32C52 66 64 54 64 36V16L36 4z" fill="rgba(47, 108, 181, 0.14)" stroke="var(--oc-cobalt)" strokeWidth="2" />
-              <path d="M36 18L18 26v14c0 12 8 20 18 22 10-2 18-10 18-22V26L36 18z" fill="rgba(91, 159, 212, 0.09)" stroke="var(--oc-sky)" strokeWidth="1.5" />
-              <path d="M27 36l7 7 11-11" stroke="var(--oc-sky)" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            </svg>
-            <div style={{ textAlign: "center" }}>
-              <div style={{ fontFamily: "'Sora',sans-serif", fontSize: 18, fontWeight: 700, color: "#fff", lineHeight: 1.2 }}>Governance Visibility Beyond Compliance</div>
             </div>
           </div>
-          <div>
-            <p style={{ fontSize: 14, color: "var(--oc-silver)", lineHeight: 1.7, marginBottom: 16, textAlign: "left" }}>
-              Ordin Core is not a care planning platform or compliance scoring system.
-            </p>
-            <p style={{ fontSize: 13, color: "var(--oc-muted)", lineHeight: 1.7, textAlign: "left" }}>
-              It is a governance infrastructure platform designed to support structured oversight, operational visibility, and continuity of governance review across care services.
-            </p>
-          </div>
-          <div>
-            <p style={{ fontSize: 13, color: "var(--oc-muted)", lineHeight: 1.7, textAlign: "left" }}>
-              The platform is designed to help organisations maintain clearer operational awareness and stronger governance defensibility through structured oversight activity over time.
-            </p>
-            <div style={{ marginTop: 20, padding: "12px 16px", background: "rgba(47, 108, 181, 0.07)", borderRadius: 8, border: "1px solid rgba(47, 108, 181, 0.2)", display: "flex", alignItems: "center", gap: 10 }}>
-              <span style={{ color: "var(--oc-sky)", fontSize: 14 }}>✓</span>
-              <span style={{ fontSize: 13, color: "var(--oc-silver)", textAlign: "left" }}>Structured oversight. Clearer visibility. Better governance continuity.</span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* ── PILOT CTA ── */}
-      <div className="oc-section oc-pilot">
-        <div style={{ display: "inline-block", padding: "4px 14px", borderRadius: 20, border: "1px solid var(--oc-border)", fontSize: 11, color: "var(--oc-sky)", letterSpacing: ".8px", textTransform: "uppercase", fontWeight: 600, marginBottom: 20, background: "rgba(47, 108, 181, 0.05)" }}>Limited Access</div>
-        <h2 className="oc-section-h2">Join The Ordin Core Pilot Programme</h2>
-        <p className="oc-section-sub" style={{ marginTop: 10 }}>
-          We are partnering with a limited number of supported living and care providers to shape the future of governance oversight.
-        </p>
-        <div style={{ display: "flex", justifyContent: "center", gap: 12, marginTop: 32, flexWrap: "wrap" }}>
-          <button className="oc-btn-primary-lg" onClick={handleRedirect}>Join Pilot Programme</button>
-          <button className="oc-btn-outline-lg" onClick={handleRedirect}>Book a Demo</button>
-        </div>
-        <div className="oc-pilot-icons">
-          {PILOT_ITEMS.map(p => (
-            <div key={p.label} className="oc-pilot-icon-item">
-              <div className="oc-pilot-icon-circle">{p.icon}</div>
-              <div className="oc-pilot-icon-label">{p.label}</div>
-            </div>
-          ))}
-        </div>
-      </div>
+        </>
+      ) : (
+        (() => {
+          const ActivePageComp = PAGE_COMPONENTS[activePage] || Pages.PlatformOverview;
+          return <ActivePageComp />;
+        })()
+      )}
 
       {/* ── FOOTER ── */}
       <footer className="oc-footer">
         <div className="oc-footer-inner">
           <div>
-            <a className="oc-logo" style={{ marginBottom: 16 }} onClick={handleRedirect}>
+            <a className="oc-logo" style={{ marginBottom: 16 }} onClick={() => navigateTo("home")}>
               <img src={logoImg} alt="Ordin Core Logo" style={{ width: 32, height: 32, borderRadius: 6, objectFit: "contain" }} />
               <div>
                 <div className="oc-logo-text">ORDIN CORE</div>
@@ -531,7 +647,7 @@ export default function App() {
             <div key={title}>
               <div className="oc-footer-col-title">{title}</div>
               {links.map(l => (
-                <a key={l} className="oc-footer-link" onClick={handleRedirect}>
+                <a key={l} className="oc-footer-link" onClick={() => handleFooterLinkClick(title, l)}>
                   {l}
                 </a>
               ))}
@@ -580,6 +696,99 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* ── BOOK A DEMO MODAL ── */}
+      {isDemoModalOpen && (
+        <div className="oc-modal-overlay" onClick={() => { setIsDemoModalOpen(false); setDemoFormStatus("idle"); }}>
+          <div className="oc-modal-container" onClick={e => e.stopPropagation()}>
+            <button className="oc-modal-close-btn" onClick={() => { setIsDemoModalOpen(false); setDemoFormStatus("idle"); }}>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+            
+            {demoFormStatus === "success" ? (
+              <div className="oc-demo-success-box">
+                <div className="oc-demo-success-circle">✓</div>
+                <h3 className="oc-modal-title" style={{ textAlign: "center", marginBottom: 4 }}>Thank you for your interest!</h3>
+                <p style={{ fontSize: "14px", color: "var(--oc-muted)", lineHeight: 1.5, textAlign: "center" }}>
+                  We have received your demo booking request. A member of the Ordin Core team will contact you shortly to schedule your briefing.
+                </p>
+                <button 
+                  className="oc-btn-primary" 
+                  style={{ marginTop: 12, padding: "8px 24px" }} 
+                  onClick={() => {
+                    setIsDemoModalOpen(false);
+                    setDemoFormStatus("idle");
+                  }}
+                >
+                  Close Window
+                </button>
+              </div>
+            ) : (
+              <form onSubmit={handleDemoSubmit}>
+                <h3 className="oc-modal-title">Book a Demo</h3>
+                <p className="oc-modal-subtitle">
+                  Experience how Ordin Core's continuous evidence-based governance drives operational assurance. Enter your details below.
+                </p>
+                
+                <div className="oc-form-group">
+                  <label className="oc-form-label">Email Address</label>
+                  <input 
+                    type="email" 
+                    className="oc-form-input" 
+                    placeholder="name@organization.com" 
+                    value={demoEmail}
+                    onChange={e => setDemoEmail(e.target.value)}
+                    required
+                    disabled={demoFormStatus === "loading"}
+                  />
+                </div>
+                
+                <div className="oc-form-group">
+                  <label className="oc-form-label">Phone Number</label>
+                  <input 
+                    type="tel" 
+                    className="oc-form-input" 
+                    placeholder="+44 7123 456789" 
+                    value={demoPhone}
+                    onChange={e => setDemoPhone(e.target.value)}
+                    required
+                    disabled={demoFormStatus === "loading"}
+                  />
+                </div>
+                
+                <div className="oc-form-group">
+                  <label className="oc-form-label">Message</label>
+                  <textarea 
+                    className="oc-form-textarea" 
+                    value={demoMessage}
+                    onChange={e => setDemoMessage(e.target.value)}
+                    required
+                    disabled={demoFormStatus === "loading"}
+                  />
+                </div>
+                
+                {demoFormStatus === "error" && (
+                  <div style={{ padding: "8px 12px", background: "rgba(239, 83, 80, 0.14)", border: "1px solid rgba(239, 83, 80, 0.3)", borderRadius: "6px", color: "#EF5350", fontSize: 12, marginBottom: 16 }}>
+                    ✗ Failed to submit request. Please try again.
+                  </div>
+                )}
+                
+                <button 
+                  type="submit" 
+                  className="oc-btn-primary-lg" 
+                  style={{ width: "100%", justifyContent: "center" }}
+                  disabled={demoFormStatus === "loading"}
+                >
+                  {demoFormStatus === "loading" ? "Submitting Request..." : "Schedule Briefing"}
+                </button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
 
     </div>
   );
