@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Shield, Ambulance, AlertTriangle, ArrowRight, Activity, Zap } from "lucide-react";
+import { Shield, Ambulance, AlertTriangle, ArrowRight, Activity, Zap, Clock } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 
@@ -14,6 +14,7 @@ export function RegisteredManagerDashboard() {
   const [recentIncidents, setRecentIncidents] = useState<any[]>([]);
   const [riskStats, setRiskStats] = useState({ total: 0, critical: 0, high: 0 });
   const [incidentStats, setIncidentStats] = useState({ total: 0, open: 0 });
+  const [assignedActions, setAssignedActions] = useState<any[]>([]);
 
   useEffect(() => { loadDashboardData(); }, []);
 
@@ -31,10 +32,14 @@ export function RegisteredManagerDashboard() {
         setHouse(myHouse);
         const hid = myHouse.id;
 
-        const [candidatesRes, incidentsRes, risksRes] = await Promise.all([
+        const [candidatesRes, incidentsRes, risksRes, actionsRes] = await Promise.all([
           apiClient.get(`/governance/risk-candidates?house_id=${hid}&status=New&limit=3`),
           apiClient.get(`/incidents?house_id=${hid}&limit=5`),
-          apiClient.get(`/risks?house_id=${hid}&status=Open`)
+          apiClient.get(`/risks?house_id=${hid}&status=Open`),
+          apiClient.get(`/actions/my`).catch(err => {
+            console.error('Actions fetch failed:', err);
+            return { data: { data: [] } };
+          })
         ]);
 
         // Risk Candidates
@@ -55,6 +60,9 @@ export function RegisteredManagerDashboard() {
           critical: riskData.filter((r: any) => r.severity === 'Critical').length,
           high: riskData.filter((r: any) => r.severity === 'High').length
         });
+
+        // Assigned Actions
+        setAssignedActions(actionsRes.data?.data || actionsRes.data || []);
       }
     } catch (err) {
       console.error('Dashboard load error:', err);
@@ -62,6 +70,40 @@ export function RegisteredManagerDashboard() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getActiveDirectorAlerts = () => {
+    if (!house || !house.director_alert_flags) return [];
+    
+    const flags = house.director_alert_flags;
+    const activeAlerts: { type: string; title: string; message: string; date?: string }[] = [];
+    
+    if (flags.ineffective_actions) {
+      activeAlerts.push({
+        type: 'ineffective_actions',
+        title: 'Director Strategic Intervention: Ineffective Actions',
+        message: 'A Director has flagged multiple consecutive ineffective actions on your service unit. Immediate risk register review and mitigation updates are required.',
+        date: flags.ineffective_actions_at
+      });
+    }
+    if (flags.neutral_outcomes) {
+      activeAlerts.push({
+        type: 'neutral_outcomes',
+        title: 'Director Strategic Intervention: Stagnant Outcomes',
+        message: 'A Director has flagged stagnant outcomes on key controls. Please review the effectiveness of clinical and care measures.',
+        date: flags.neutral_outcomes_at
+      });
+    }
+    if (flags.recurrence) {
+      activeAlerts.push({
+        type: 'recurrence',
+        title: 'Director Strategic Intervention: Risk Recurrence Warning',
+        message: 'A Director has raised a statutory alert regarding repeating incidents. Enact operational/service stabilization protocols immediately.',
+        date: flags.recurrence_at
+      });
+    }
+    
+    return activeAlerts;
   };
 
   if (isLoading) return (
@@ -86,6 +128,42 @@ export function RegisteredManagerDashboard() {
           </div>
       
         </div>
+
+        {/* Active Director Strategic Interventions alerts */}
+        {getActiveDirectorAlerts().length > 0 && (
+          <div className="mb-8 space-y-4">
+            {getActiveDirectorAlerts().map((alert) => (
+              <div 
+                key={alert.type} 
+                className="bg-destructive/10 border-4 border-destructive p-5 flex flex-col md:flex-row items-start md:items-center justify-between gap-4 shadow-lg hover:bg-destructive/15 transition-all animate-pulse"
+                style={{ animationDuration: '3s' }}
+              >
+                <div className="flex items-start gap-4">
+                  <div className="bg-destructive text-primary-foreground p-3 rounded-none flex items-center justify-center">
+                    <Shield size={28} className="animate-bounce" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-bold text-destructive uppercase tracking-tight flex items-center gap-2 leading-none mb-1">
+                      {alert.title}
+                    </h3>
+                    <p className="text-sm text-foreground leading-normal max-w-4xl">{alert.message}</p>
+                    {alert.date && (
+                      <span className="text-[10px] text-muted-foreground uppercase tracking-widest mt-1 block font-semibold">
+                        Intervention Logged: {new Date(alert.date).toLocaleString('en-GB')}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <button
+                  onClick={() => navigate('/risk-register')}
+                  className="bg-destructive text-primary-foreground font-semibold px-5 py-2.5 uppercase text-xs tracking-wider hover:bg-destructive/90 transition-all leading-none border-2 border-destructive shrink-0 self-stretch md:self-auto flex items-center justify-center cursor-pointer"
+                >
+                  Inspect Risk Register
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           
@@ -210,6 +288,64 @@ export function RegisteredManagerDashboard() {
             </button>
           </div>
 
+        </div>
+
+        {/* My Assigned Actions Grid Section */}
+        <div className="mt-12 bg-card border-4 border-border p-8 shadow-md">
+          <div className="flex items-center justify-between border-b-2 border-border pb-4 mb-6">
+            <div className="flex items-center gap-3 text-primary">
+              <Clock size={26} />
+              <h2 className="text-2xl uppercase tracking-tighter">My Assigned Actions</h2>
+            </div>
+            <span className="bg-primary/10 text-primary px-3 py-1 text-xs uppercase tracking-widest font-bold border border-primary/20">
+              {assignedActions.length} Actions Active
+            </span>
+          </div>
+
+          {assignedActions.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              {assignedActions.map((action: any) => (
+                <div 
+                  key={action.id} 
+                  onClick={() => navigate('/my-actions')}
+                  className="border-2 border-border bg-card p-5 hover:border-primary/50 cursor-pointer transition-all flex flex-col justify-between group hover:shadow-md relative overflow-hidden"
+                >
+                  <div className="absolute top-0 left-0 w-1 h-full bg-primary/20 group-hover:bg-primary transition-colors" />
+                  
+                  <div className="pl-2">
+                    <div className="flex justify-between items-start gap-2 mb-3">
+                      <span className={`px-2 py-0.5 text-[9px] uppercase tracking-widest font-bold ${
+                        action.status === 'Completed' ? 'bg-success/10 text-success border border-success/20' : 'bg-warning/10 text-warning border border-warning/20'
+                      }`}>
+                        {action.status}
+                      </span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-semibold">
+                        Due: {new Date(action.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                      </span>
+                    </div>
+
+                    <h3 className="font-bold text-foreground group-hover:text-primary transition-colors text-base line-clamp-1 uppercase tracking-tight">
+                      {action.title}
+                    </h3>
+                    <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
+                      {action.description}
+                    </p>
+                  </div>
+
+                  <div className="mt-4 pt-3 border-t border-border/60 pl-2 flex justify-between items-center text-[10px] uppercase text-muted-foreground tracking-wider">
+                    <span>By: <strong className="text-foreground">{action.assigned_by_name || 'System'}</strong></span>
+                    <span className="text-primary opacity-0 group-hover:opacity-100 transition-opacity flex items-center gap-1 font-bold">
+                      Resolve <ArrowRight size={10} />
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16 border-2 border-dashed border-border text-muted-foreground uppercase tracking-widest text-sm bg-muted/5">
+              No actions currently assigned to your account.
+            </div>
+          )}
         </div>
 
       </div>

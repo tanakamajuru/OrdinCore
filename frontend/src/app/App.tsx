@@ -92,6 +92,21 @@ export default function App() {
               <SuperAdminDashboard />
             </SuperAdminRoute>
           } />
+          <Route path="/super-admin/companies" element={
+            <SuperAdminRoute>
+              <SuperAdminDashboard />
+            </SuperAdminRoute>
+          } />
+          <Route path="/super-admin/users" element={
+            <SuperAdminRoute>
+              <SuperAdminDashboard />
+            </SuperAdminRoute>
+          } />
+          <Route path="/super-admin/settings" element={
+            <SuperAdminRoute>
+              <SuperAdminDashboard />
+            </SuperAdminRoute>
+          } />
           <Route path="/admin" element={
             <ProtectedRoute>
               <AdminDashboard />
@@ -108,6 +123,11 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/admin-houses" element={
+            <ProtectedRoute>
+              <AdminHouseManagement />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin/houses" element={
             <ProtectedRoute>
               <AdminHouseManagement />
             </ProtectedRoute>

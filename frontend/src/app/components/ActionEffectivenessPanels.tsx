@@ -27,6 +27,20 @@ export function ActionEffectivenessPanels() {
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
   if (!data) return null;
 
+  // Cast PG BigInt count strings to true JavaScript Numbers for Recharts compatibility
+  const domainAnalysisWithNumbers = (data.domain_analysis || []).map((item: any) => ({
+    ...item,
+    effective: Number(item.effective || 0),
+    neutral: Number(item.neutral || 0),
+    ineffective: Number(item.ineffective || 0)
+  }));
+
+  const dailyTrendWithNumbers = (data.daily_trend || []).map((item: any) => ({
+    ...item,
+    effective: Number(item.effective || 0),
+    ineffective: Number(item.ineffective || 0)
+  }));
+
   return (
     <div className="space-y-6 mb-8">
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -58,23 +72,47 @@ export function ActionEffectivenessPanels() {
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.domain_analysis || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <BarChart data={domainAnalysisWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis dataKey="domain" fontSize={10} fontWeight="bold" tick={{ fill: 'hsl(var(--foreground))' }} />
                 <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
                 <Tooltip 
-                  cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                  cursor={false}
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
                 />
                 <Legend verticalAlign="top" align="right" iconType="circle" />
                 <Bar dataKey="effective" fill="#10B981" stackId="a" name="Effective" radius={[0, 0, 0, 0]}>
-                  <LabelList dataKey="effective" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                  <LabelList dataKey="effective" position="center" content={(props: any) => {
+                    const { x, y, width, height, value } = props;
+                    if (!value || Number(value) === 0) return null;
+                    return (
+                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                        {value}
+                      </text>
+                    );
+                  }} />
                 </Bar>
                 <Bar dataKey="neutral" fill="#F59E0B" stackId="a" name="Neutral">
-                  <LabelList dataKey="neutral" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                  <LabelList dataKey="neutral" position="center" content={(props: any) => {
+                    const { x, y, width, height, value } = props;
+                    if (!value || Number(value) === 0) return null;
+                    return (
+                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                        {value}
+                      </text>
+                    );
+                  }} />
                 </Bar>
                 <Bar dataKey="ineffective" fill="#EF4444" stackId="a" name="Ineffective">
-                  <LabelList dataKey="ineffective" position="center" style={{ fill: '#fff', fontSize: 10, fontWeight: 'bold' }} />
+                  <LabelList dataKey="ineffective" position="center" content={(props: any) => {
+                    const { x, y, width, height, value } = props;
+                    if (!value || Number(value) === 0) return null;
+                    return (
+                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                        {value}
+                      </text>
+                    );
+                  }} />
                 </Bar>
               </BarChart>
             </ResponsiveContainer>
@@ -123,7 +161,7 @@ export function ActionEffectivenessPanels() {
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={data.daily_trend || []} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <LineChart data={dailyTrendWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
                 <XAxis 
                   dataKey="day" 

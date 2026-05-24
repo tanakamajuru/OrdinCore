@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, Users, FileDown, BarChart3, Eye, Ambulance, Settings, Shield } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, User, Users, FileDown, BarChart3, Eye, Ambulance, Settings, Shield, Building2 } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { Button } from "./ui/button";
 import { apiClient } from "@/services/api";
@@ -24,15 +24,19 @@ export function RoleBasedNavigation() {
 
   const getNavigationItems = () => {
     switch (userRole) {
+      case 'SUPER_ADMIN':
+        return [
+          { path: "/super-admin/companies", label: "Company Management", icon: Building2 },
+          { path: "/super-admin/users", label: "Users", icon: Users },
+          { path: "/super-admin/settings", label: "System Settings", icon: Settings },
+        ];
+
       case 'ADMIN':
         return [
           { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
           { path: "/admin-users", label: "Users", icon: Users },
-          { path: "/admin-houses", label: "Houses", icon: Home },
+          { path: "/admin/houses", label: "Houses", icon: Home },
           { path: "/admin/service-users", label: "Service Users", icon: Users },
-          { path: "/admin-pulses", label: "Governance Pulse (audit)", icon: Activity },
-          { path: "/admin-risks", label: "Risk Management (view-only)", icon: AlertTriangle },
-          { path: "/reports", label: "Reports", icon: FileDown },
         ];
 
       case 'REGISTERED_MANAGER':
@@ -50,8 +54,6 @@ export function RoleBasedNavigation() {
           { path: "/dashboard", label: "Cross-Site Dashboard", icon: Home },
           { path: "/escalation-log", label: "Escalation Management", icon: AlertTriangle },
           { path: "/risk-register", label: "Risk Register Oversight", icon: AlertTriangle },
-          { path: "/governance-pulse", label: "Governance Pulse Oversight", icon: Activity },
-          { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/trends", label: "Trends", icon: TrendingUp },
           { path: "/reports", label: "Reports", icon: FileDown },

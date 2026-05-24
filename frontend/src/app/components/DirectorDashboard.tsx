@@ -18,6 +18,7 @@ export function DirectorDashboard() {
   const [patternDetections, setPatternDetections] = useState<any[]>([]);
   const [sitePerformance, setSitePerformance] = useState<any[]>([]);
   const [unacknowledgedIncidents, setUnacknowledgedIncidents] = useState<any[]>([]);
+  const [perfPage, setPerfPage] = useState(1);
 
 
   useEffect(() => {
@@ -134,6 +135,13 @@ export function DirectorDashboard() {
     })) : [];
 
   const strategicInsights = patternDetections;
+
+  const perfItemsPerPage = 5;
+  const totalPerfPages = Math.ceil(sitePerformance.length / perfItemsPerPage);
+  const paginatedSitePerformance = sitePerformance.slice(
+    (perfPage - 1) * perfItemsPerPage,
+    perfPage * perfItemsPerPage
+  );
 
   return (
     <div className="min-h-screen bg-background">
@@ -293,30 +301,52 @@ export function DirectorDashboard() {
             {/* Site Performance */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
               <h2 className="text-xl  mb-4 text-primary">Site Performance</h2>
-              <div className="space-y-3">
-                {sitePerformance.length > 0 ? sitePerformance.map((site: any, idx: number) => (
-                  <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                    <div className="flex justify-between items-center">
-                      <div>
-                        <p className=" text-foreground">{site.house_name || 'Service Site'}</p>
-                        <p className="text-sm text-muted-foreground font-mono">
-                          Risks: <span className="text-foreground ">{site.risks_count}</span> | Incidents: <span className="text-foreground ">{site.incidents_count}</span>
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <span className={`text-lg  ${
-                          site.compliance_score > 90 ? "text-success" :
-                          site.compliance_score > 70 ? "text-warning" :
-                          "text-destructive"
-                        }`}>
-                          {Math.round(site.compliance_score || 0)}%
-                        </span>
-                        <p className="text-sm text-muted-foreground">Compliance</p>
+              <div className="space-y-3 min-h-[360px] flex flex-col justify-between">
+                <div className="space-y-3">
+                  {paginatedSitePerformance.length > 0 ? paginatedSitePerformance.map((site: any, idx: number) => (
+                    <div key={idx} className="border-b border-border pb-3 last:border-b-0">
+                      <div className="flex justify-between items-center">
+                        <div>
+                          <p className=" text-foreground">{site.house_name || 'Service Site'}</p>
+                          <p className="text-sm text-muted-foreground font-mono">
+                            Risks: <span className="text-foreground ">{site.risks_count}</span> | Incidents: <span className="text-foreground ">{site.incidents_count}</span>
+                          </p>
+                        </div>
+                        <div className="text-right">
+                          <span className={`text-lg  ${
+                            site.compliance_score > 90 ? "text-success" :
+                            site.compliance_score > 70 ? "text-warning" :
+                            "text-destructive"
+                          }`}>
+                            {Math.round(site.compliance_score || 0)}%
+                          </span>
+                          <p className="text-sm text-muted-foreground">Compliance</p>
+                        </div>
                       </div>
                     </div>
+                  )) : (
+                    <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No site performance data available</p>
+                  )}
+                </div>
+
+                {totalPerfPages > 1 && (
+                  <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
+                    <button 
+                      disabled={perfPage === 1}
+                      onClick={() => setPerfPage(prev => prev - 1)}
+                      className="px-3 py-1.5 text-xs border-2 border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer font-medium"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs text-muted-foreground uppercase tracking-widest">Page {perfPage} of {totalPerfPages}</span>
+                    <button 
+                      disabled={perfPage === totalPerfPages}
+                      onClick={() => setPerfPage(prev => prev + 1)}
+                      className="px-3 py-1.5 text-xs border-2 border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer font-medium"
+                    >
+                      Next
+                    </button>
                   </div>
-                )) : (
-                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No site performance data available</p>
                 )}
               </div>
             </div>
