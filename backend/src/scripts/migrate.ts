@@ -45,20 +45,34 @@ async function runMigrations() {
 
       if (useTransaction) {
         await client.query('BEGIN');
-      }
-      try {
-        await client.query(sql);
-        await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
-        if (useTransaction) {
+        try {
+          await client.query(sql);
+          await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
           await client.query('COMMIT');
-        }
-        logger.info(`✅ Migration executed: ${file}`);
-      } catch (err: any) {
-        if (useTransaction) {
+          logger.info(`✅ Migration executed: ${file}`);
+        } catch (err: any) {
           await client.query('ROLLBACK');
+          logger.error(`❌ Migration failed: ${file} | Error: ${err.message}`, err);
+          throw err;
         }
-        logger.error(`❌ Migration failed: ${file} | Error: ${err.message}`, err);
-        throw err;
+      } else {
+        logger.info(`Running non-transactional migration: ${file}`);
+        try {
+          // Split by semicolon, filter out empty statements, and execute each sequentially
+          const statements = sql
+            .split(';')
+            .map(s => s.trim())
+            .filter(s => s.length > 0);
+
+          for (const stmt of statements) {
+            await client.query(stmt);
+          }
+          await client.query('INSERT INTO _migrations (filename) VALUES ($1)', [file]);
+          logger.info(`✅ Non-transactional migration executed: ${file}`);
+        } catch (err: any) {
+          logger.error(`❌ Non-transactional migration failed: ${file} | Error: ${err.message}`, err);
+          throw err;
+        }
       }
     }
 
