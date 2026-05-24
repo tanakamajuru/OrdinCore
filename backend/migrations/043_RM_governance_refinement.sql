@@ -1,7 +1,7 @@
 -- Migration: RM Governance Refinement (Action Effectiveness & Weekly Review)
 
--- 1. Enhance action_effectiveness with refined columns
-ALTER TABLE action_effectiveness 
+-- 1. Enhance action_effectiveness_metrics with refined columns
+ALTER TABLE action_effectiveness_metrics 
 ADD COLUMN IF NOT EXISTS service_id UUID,
 ADD COLUMN IF NOT EXISTS measurement_date TIMESTAMP WITH TIME ZONE,
 ADD COLUMN IF NOT EXISTS signals_before_count INTEGER DEFAULT 0,
@@ -31,6 +31,6 @@ ALTER TABLE risk_candidates
 ADD COLUMN IF NOT EXISTS linked_risk_id UUID REFERENCES risks(id) ON DELETE SET NULL;
 
 -- 6. Add Indexes for Performance
-CREATE INDEX IF NOT EXISTS idx_action_effectiveness_action_id ON action_effectiveness(action_id);
-CREATE INDEX IF NOT EXISTS idx_action_effectiveness_measurement_date ON action_effectiveness(measurement_date);
+CREATE INDEX IF NOT EXISTS idx_action_effectiveness_action_id ON action_effectiveness_metrics(action_id);
+CREATE INDEX IF NOT EXISTS idx_action_effectiveness_measurement_date ON action_effectiveness_metrics(measurement_date);
 CREATE INDEX IF NOT EXISTS idx_risk_actions_effectiveness_measured_at ON risk_actions(effectiveness_measured_at) WHERE effectiveness_measured_at IS NULL;

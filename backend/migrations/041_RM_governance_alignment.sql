@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS daily_governance_log (
 );
 
 -- 2. Action Effectiveness Tracker
-CREATE TABLE IF NOT EXISTS action_effectiveness (
+CREATE TABLE IF NOT EXISTS action_effectiveness_metrics (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     action_id UUID NOT NULL REFERENCES risk_actions(id) ON DELETE CASCADE,
     risk_id UUID REFERENCES risks(id) ON DELETE SET NULL,
@@ -60,11 +60,13 @@ BEGIN
 END;
 $$ language 'plpgsql';
 
+DROP TRIGGER IF EXISTS update_daily_governance_log_updated_at ON daily_governance_log;
 CREATE TRIGGER update_daily_governance_log_updated_at
     BEFORE UPDATE ON daily_governance_log
     FOR EACH ROW
     EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_risk_candidates_updated_at ON risk_candidates;
 CREATE TRIGGER update_risk_candidates_updated_at
     BEFORE UPDATE ON risk_candidates
     FOR EACH ROW
