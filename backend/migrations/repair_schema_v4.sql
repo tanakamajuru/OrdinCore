@@ -10,7 +10,7 @@ BEGIN
     END IF;
 
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness_metrics') THEN
-        ALTER TABLE action_effectiveness_metrics RENAME TO action_effectiveness;
+        EXECUTE 'ALTER TABLE action_effectiveness_metrics RENAME TO action_effectiveness';
     END IF;
 
     -- 2. Companies.is_active
@@ -53,11 +53,11 @@ BEGIN
     -- 7. action_effectiveness table columns
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness') THEN
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_before_count') THEN
-            ALTER TABLE action_effectiveness ADD COLUMN signals_before_count INTEGER DEFAULT 0;
+            EXECUTE 'ALTER TABLE action_effectiveness ADD COLUMN signals_before_count INTEGER DEFAULT 0';
         END IF;
 
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'action_effectiveness' AND column_name = 'signals_after_count') THEN
-            ALTER TABLE action_effectiveness ADD COLUMN signals_after_count INTEGER DEFAULT 0;
+            EXECUTE 'ALTER TABLE action_effectiveness ADD COLUMN signals_after_count INTEGER DEFAULT 0';
         END IF;
     END IF;
 

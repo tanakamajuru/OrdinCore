@@ -64,12 +64,20 @@ EOF`);
     const m42 = fs.readFileSync(path.join(__dirname, 'migrations/042_RM_governance_alignment_v2.sql'), 'utf8');
     const m43 = fs.readFileSync(path.join(__dirname, 'migrations/043_RM_governance_refinement.sql'), 'utf8');
     const m44 = fs.readFileSync(path.join(__dirname, 'migrations/044_ordin_core_alignment_v2.sql'), 'utf8');
+    const repair = fs.readFileSync(path.join(__dirname, 'migrations/repair_schema.sql'), 'utf8');
+    const repair2 = fs.readFileSync(path.join(__dirname, 'migrations/repair_schema_v2.sql'), 'utf8');
+    const repair3 = fs.readFileSync(path.join(__dirname, 'migrations/repair_schema_v3.sql'), 'utf8');
+    const repair4 = fs.readFileSync(path.join(__dirname, 'migrations/repair_schema_v4.sql'), 'utf8');
 
     await run(`echo "${Buffer.from(migrateTs).toString('base64')}" | base64 -d > /var/www/ordincore/backend/src/scripts/migrate.ts`);
     await run(`echo "${Buffer.from(m41).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/041_RM_governance_alignment.sql`);
     await run(`echo "${Buffer.from(m42).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/042_RM_governance_alignment_v2.sql`);
     await run(`echo "${Buffer.from(m43).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/043_RM_governance_refinement.sql`);
     await run(`echo "${Buffer.from(m44).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/044_ordin_core_alignment_v2.sql`);
+    await run(`echo "${Buffer.from(repair).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/repair_schema.sql`);
+    await run(`echo "${Buffer.from(repair2).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/repair_schema_v2.sql`);
+    await run(`echo "${Buffer.from(repair3).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/repair_schema_v3.sql`);
+    await run(`echo "${Buffer.from(repair4).toString('base64')}" | base64 -d > /var/www/ordincore/backend/migrations/repair_schema_v4.sql`);
     console.log('✅ Corrected files uploaded successfully');
 
     console.log('\n--- STEP 2: INSTALLING DEPENDENCIES & BUILDING BACKEND ---');

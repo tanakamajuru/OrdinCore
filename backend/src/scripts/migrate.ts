@@ -37,11 +37,9 @@ async function runMigrations() {
       const filepath = path.join(migrationsDir, file);
       const sql = fs.readFileSync(filepath, 'utf-8');
 
-      // Check if migration alters an enum type using ADD VALUE.
-      // If so, execute without a transaction block to prevent Postgres from throwing
-      // "ALTER TYPE ... ADD VALUE cannot be executed inside a transaction block"
-      // and allowing sequential statements in the file to auto-commit and see the new enum value.
-      const useTransaction = !sql.includes('ALTER TYPE') || !sql.includes('ADD VALUE');
+      // Check if migration alters an enum type and references it immediately (specifically 044).
+      // If so, execute without a transaction block and split statements to auto-commit sequentially.
+      const useTransaction = !file.includes('044_ordin_core_alignment_v2.sql');
 
       if (useTransaction) {
         await client.query('BEGIN');

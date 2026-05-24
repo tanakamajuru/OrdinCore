@@ -10,7 +10,7 @@ BEGIN
 
     -- 2. Rename the table if it exists as a base table
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness' AND table_type = 'BASE TABLE') THEN
-        ALTER TABLE action_effectiveness RENAME TO action_effectiveness_metrics;
+        EXECUTE 'ALTER TABLE action_effectiveness RENAME TO action_effectiveness_metrics';
     END IF;
 
     -- 3. Fix columns in risk_actions to use VARCHAR
