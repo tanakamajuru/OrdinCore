@@ -8,6 +8,13 @@ BEGIN
         DROP VIEW action_effectiveness;
     END IF;
 
+    -- Drop conflicting enum type if it exists to allow view/table creation
+    BEGIN
+        EXECUTE 'DROP TYPE action_effectiveness CASCADE';
+    EXCEPTION
+        WHEN undefined_object THEN NULL;
+    END;
+
     -- 2. Rename the table if it exists as a base table
     IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'action_effectiveness' AND table_type = 'BASE TABLE') THEN
         EXECUTE 'ALTER TABLE action_effectiveness RENAME TO action_effectiveness_metrics';

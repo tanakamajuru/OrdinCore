@@ -135,7 +135,8 @@ EOF`);
     // Let's print out active Nginx configuration for verification
     await run('cat /etc/nginx/sites-enabled/ordincore.co.uk || cat /etc/nginx/sites-available/default || true');
     await run('nginx -t');
-    await run('systemctl reload nginx');
+    await run('systemctl enable nginx || true');
+    await run('systemctl restart nginx || systemctl start nginx');
 
     console.log('\n--- STEP 8: ADJUSTING PERMISSIONS & SELINUX ---');
     await run('chmod +x /var /var/www /var/www/ordincore /var/www/ordincore/frontend /var/www/ordincore/frontend/dist');
