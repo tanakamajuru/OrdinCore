@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface CreateIncidentDto {
   company_id: string;
   house_id: string;
+  source_pulse_id?: string;
   category_id?: string;
   title: string;
   description: string;
@@ -131,14 +132,14 @@ export const incidentsRepo = {
     const id = uuidv4();
     const result = await query(
       `INSERT INTO incidents (
-        id, company_id, house_id, category_id, title, description, severity, status, occurred_at, location, 
+        id, company_id, house_id, category_id, source_pulse_id, title, description, severity, status, occurred_at, location, 
         immediate_action, created_by, assigned_to, persons_involved, follow_up_required,
         la_referral, cqc_notification, police_reference, other_references, is_foreseeable,
         risk_factors, preventive_measures, leadership_commentary
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23) RETURNING *`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
       [
-        id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description,
+        id, dto.company_id, dto.house_id, dto.category_id || null, dto.source_pulse_id || null, dto.title, dto.description,
         dto.severity || 'Moderate', dto.status || 'Open', dto.occurred_at, dto.location || null,
         dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
         JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false,
@@ -519,5 +520,21 @@ export const incidentsRepo = {
       findings,
       recommendations
     };
+  },
+
+  async addAction(incident_id: string, company_id: string, data: { 
+    title: string; 
+    description?: string; 
+    assigned_to?: string; 
+    due_date?: Date; 
+    created_by: string 
+  }) {
+    const id = uuidv4();
+    const result = await query(
+      `INSERT INTO incident_actions (id, incident_id, company_id, title, description, assigned_to, due_date, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, incident_id, company_id, data.title, data.description || null, data.assigned_to || null, data.due_date || null, data.created_by]
+    );
+    return result.rows[0];
   }
 };

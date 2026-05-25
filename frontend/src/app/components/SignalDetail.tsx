@@ -180,43 +180,58 @@ export function SignalDetail() {
             </div>
             
             {signal.review_status === 'New' && user?.role !== 'TEAM_LEADER' && (
-                <div className="flex justify-end gap-4 mt-8">
-                    <button 
-                        onClick={() => {
-                            navigate('/incidents', { state: { 
-                                fromSignal: true,
-                                signalId: signal.id,
-                                title: `Serious Incident: ${signal.signal_type} - ${signal.related_person}`,
-                                description: signal.description,
-                                immediate_action: signal.immediate_action,
-                                // Use raw severity from database as it matches Incident Hub enum
-                                severity: signal.severity,
-                                signalType: signal.signal_type.toLowerCase() === 'behaviour' ? 'behavioral' : 
-                                            signal.signal_type.toLowerCase() === 'medication' ? 'medication' : 'other',
-                                houseId: signal.house_id
-                            }});
-                            toast.info('Transitioning to Incident Case Hub for promotion...');
-                        }}
-                        className="bg-destructive text-destructive-foreground px-6 py-3  hover:bg-destructive/90 transition-colors flex items-center gap-2"
-                    >
-                        <AlertTriangle className="w-4 h-4" />
-                        Promote to Serious Incident
-                    </button>
-                    <button 
-                        onClick={async () => {
-                            try {
-                                await apiClient.patch(`/pulses/${signal.id}/status`, { review_status: 'Reviewed' });
-                                toast.success('Signal marked as reviewed');
-                                navigate('/dashboard');
-                            } catch {
-                                toast.error('Failed to update status');
-                            }
-                        }}
-                        className="bg-primary text-primary-foreground px-6 py-3  hover:bg-primary/90 transition-colors"
-                    >
-                        Mark as Reviewed
-                    </button>
-                </div>
+              <div className="flex justify-end gap-4 mt-8">
+                {/* Show Promote to Serious Incident only for critical signals */}
+                {signal.severity && signal.severity.toLowerCase() === 'critical' && (
+                  <button 
+                  onClick={() => {
+                    navigate('/incidents', { state: { 
+                      fromSignal: true,
+                      signalId: signal.id,
+                      title: `Serious Incident: ${signal.signal_type} - ${signal.related_person}`,
+                      description: signal.description,
+                      immediate_action: signal.immediate_action,
+                      // Use raw severity from database as it matches Incident Hub enum
+                      severity: signal.severity,
+                      signalType: signal.signal_type.toLowerCase() === 'behaviour' ? 'behavioral' : 
+                            signal.signal_type.toLowerCase() === 'medication' ? 'medication' : 'other',
+                      houseId: signal.house_id
+                    }});
+                    toast.info('Transitioning to Incident Case Hub for promotion...');
+                  }}
+                  className="bg-destructive text-destructive-foreground px-6 py-3  hover:bg-destructive/90 transition-colors flex items-center gap-2"
+                >
+                  <AlertTriangle className="w-4 h-4" />
+                  Promote to Serious Incident
+                  </button>
+                )}
+
+                {/* Promote to Risk: creates a formal risk from this signal */}
+                <button 
+                  onClick={async () => {
+                    try {
+                      await apiClient.post('/risks', {
+                        house_id: signal.house_id,
+                        title: `Risk: ${signal.signal_type}`,
+                        description: signal.description,
+                        severity: 'High',
+                        source_cluster_id: null,
+                        metadata: { source_pulse_id: signal.id, immediate_action: signal.immediate_action }
+                      });
+                      // mark signal reviewed
+                      await apiClient.patch(`/pulses/${signal.id}/status`, { review_status: 'Reviewed' });
+                      toast.success('Signal promoted to Risk and marked as reviewed');
+                      navigate('/risk-register');
+                    } catch (err) {
+                      console.error(err);
+                      toast.error('Failed to promote signal to risk');
+                    }
+                  }}
+                  className="bg-primary text-primary-foreground px-6 py-3  hover:bg-primary/90 transition-colors"
+                >
+                  Promote to Risk
+                </button>
+              </div>
             )}
         </div>
       </div>

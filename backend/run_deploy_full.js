@@ -135,6 +135,8 @@ EOF`);
     // Let's print out active Nginx configuration for verification
     await run('cat /etc/nginx/sites-enabled/ordincore.co.uk || cat /etc/nginx/sites-available/default || true');
     await run('nginx -t');
+    await run('systemctl stop httpd || true');
+    await run('systemctl disable httpd || true');
     await run('systemctl enable nginx || true');
     await run('systemctl restart nginx || systemctl start nginx');
 

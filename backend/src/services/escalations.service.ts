@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
+import { risksRepo } from '../repositories/risks.repo';
 
 export class EscalationsService {
   async findAll(company_id: string, filters: Record<string, unknown> = {}, page = 1, limit = 50) {
@@ -74,18 +75,48 @@ export class EscalationsService {
     );
 
     await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: id, company_id, resolved_by: user_id });
+
+    // If escalation is linked to a risk, check remaining open escalations and update risk status if appropriate
+    const riskId = escalation.rows[0].risk_id;
+    if (riskId) {
+      const openRes = await query(`SELECT COUNT(*) FROM escalations WHERE risk_id = $1 AND status NOT IN ('Resolved','Closed')`, [riskId]);
+      const openCount = parseInt(openRes.rows[0].count || '0');
+      if (openCount === 0) {
+        try {
+          await risksRepo.updateStatus(riskId, company_id, 'Open');
+          await risksRepo.addEvent(riskId, company_id, 'escalation_resolved', `All escalations resolved for this risk`, user_id);
+        } catch (err) {
+          console.warn('Failed to update risk status after escalation resolved:', err);
+        }
+      }
+    }
+
     return { message: 'Escalation resolved successfully' };
   }
 
   async acknowledge(id: string, company_id: string, user_id: string) {
-    await query(
-      `UPDATE escalations SET status = 'Acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`,
+    const res = await query(
+      `UPDATE escalations SET status = 'Acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING *`,
       [id, company_id]
     );
+    const escalation = res.rows[0];
+
     await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by) VALUES ($1,$2,$3,'Acknowledged','Escalation acknowledged',$4)`,
       [uuidv4(), id, company_id, user_id]
     );
+
+    // If escalation linked to a risk, mark the risk status to 'Escalated'
+    try {
+      const riskId = escalation?.risk_id;
+      if (riskId) {
+        await risksRepo.updateStatus(riskId, company_id, 'Escalated');
+        await risksRepo.addEvent(riskId, company_id, 'escalation_acknowledged', `Escalation acknowledged for this risk`, user_id);
+      }
+    } catch (err) {
+      console.warn('Failed to update risk status after escalation acknowledged:', err);
+    }
+
     return { message: 'Escalation acknowledged' };
   }
 

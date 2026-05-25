@@ -24,6 +24,10 @@ interface Risk {
   riskScore: number;
   createdBy: string;
   lastUpdated: string;
+  pulseDescription?: string;
+  incidentDescription?: string;
+  incidentTitle?: string;
+  escalations?: Array<{ id: string; reason: string; status: string; priority: string }>;
 }
 
 export function RiskRegister() {
@@ -155,6 +159,10 @@ export function RiskRegister() {
         riskScore: r.risk_score || 0,
         createdBy: r.created_by_name || '',
         lastUpdated: r.updated_at ? new Date(r.updated_at).toISOString().split('T')[0] : '',
+        pulseDescription: r.pulse_descriptions || r.pulse_description || undefined,
+        incidentDescription: r.incident_description || undefined,
+        incidentTitle: r.incident_title || undefined,
+        escalations: r.escalations && Array.isArray(r.escalations) ? r.escalations.filter((e: any) => e && e.id) : undefined,
       }));
       setRisks(mapped);
     } catch (error) {
@@ -244,7 +252,10 @@ export function RiskRegister() {
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.house}</td>
                 <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
                     <div className="">{risk.description}</div>
+                    {risk.incidentTitle && <div className="text-[10px] text-warning uppercase ">Incident: {risk.incidentTitle}</div>}
+                    {risk.pulseDescription && <div className="text-[10px] text-muted-foreground italic">Signal: {risk.pulseDescription?.substring(0, 50)}</div>}
                     {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase ">Pattern: {risk.sourceClusterName}</div>}
+                    {risk.escalations && risk.escalations.length > 0 && <div className="text-[10px] text-destructive uppercase ">Escalated: {risk.escalations.length} item(s)</div>}
                 </td>
                 <td className="border-b border-border px-4 py-4 whitespace-nowrap">{risk.category}</td>
                 <td className="border-b border-border px-4 py-4 text-center">

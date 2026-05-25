@@ -14,6 +14,36 @@ export class IncidentsService {
       created_by
     });
 
+    // [GOVERNANCE] Auto-create actions for serious incidents
+    if (incident.severity === 'serious' || incident.severity === 'critical') {
+      // Immediate investigation action
+      await incidentsRepo.addAction(incident.id, company_id, {
+        title: `Immediate Investigation Required: ${incident.title}`,
+        description: `Formal investigation required for serious/critical incident. Source: ${data.source_pulse_id ? 'Promoted from signal' : 'Direct report'}`,
+        assigned_to: data.assigned_to || created_by,
+        created_by,
+        due_date: new Date(Date.now() + 24 * 60 * 60 * 1000) // Due within 24 hours
+      });
+
+      // Notification action
+      await incidentsRepo.addAction(incident.id, company_id, {
+        title: 'Notify Regulatory Bodies if Required',
+        description: `Assess whether notification to CQC, LA, or police is required for this serious/critical incident.`,
+        assigned_to: data.assigned_to || created_by,
+        created_by,
+        due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // Due within 48 hours
+      });
+
+      // Incident reconstruction
+      await incidentsRepo.addAction(incident.id, company_id, {
+        title: 'Complete Incident Reconstruction',
+        description: `Conduct structured incident reconstruction to identify contributing factors, control weaknesses, and learning points.`,
+        assigned_to: data.assigned_to || created_by,
+        created_by,
+        due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // Due within 14 days
+      });
+    }
+
     await eventBus.emitEvent(EVENTS.INCIDENT_CREATED, { incident_id: incident.id, company_id, created_by, severity: incident.severity });
     return incident;
   }

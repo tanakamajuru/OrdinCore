@@ -32,15 +32,27 @@ export const risksRepo = {
         u1.first_name || ' ' || u1.last_name AS created_by_name,
         u2.first_name || ' ' || u2.last_name AS assigned_to_name,
         h.name AS house_name,
-        sc.cluster_label AS source_cluster_name
+        sc.cluster_label AS source_cluster_name,
+        i.title AS incident_title, i.description AS incident_description, i.severity AS incident_severity,
+        string_agg(DISTINCT gp.description, '; ') FILTER (WHERE gp.description IS NOT NULL) AS pulse_descriptions,
+        json_agg(DISTINCT jsonb_build_object('id', gp.id, 'description', gp.description, 'immediate_action', gp.immediate_action)) FILTER (WHERE gp.id IS NOT NULL) AS pulses,
+        json_agg(DISTINCT jsonb_build_object('id', e.id, 'reason', e.reason, 'status', e.status, 'priority', e.priority)) FILTER (WHERE e.id IS NOT NULL) AS escalations
       FROM risks r
       LEFT JOIN risk_categories rc ON rc.id = r.category_id
       LEFT JOIN users u1 ON u1.id = r.created_by
       LEFT JOIN users u2 ON u2.id = r.assigned_to
       LEFT JOIN houses h ON h.id = r.house_id
       LEFT JOIN signal_clusters sc ON sc.id = r.source_cluster_id
+      LEFT JOIN incident_risks ir ON ir.risk_id = r.id
+      LEFT JOIN incidents i ON i.id = ir.incident_id
+      LEFT JOIN incident_reconstruction irec ON irec.incident_id = i.id
+      LEFT JOIN incident_reconstruction_pulses irp ON irp.reconstruction_id = irec.id
+      LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
+      LEFT JOIN escalations e ON e.risk_id = r.id
       WHERE r.id = $1`;
     if (company_id) { sql += ' AND r.company_id = $2'; params.push(company_id); }
+    // Aggregate pulses and escalations; group by base entities only
+    sql += ' GROUP BY r.id, rc.id, u1.id, u2.id, h.id, sc.id, i.id';
     const result = await query(sql, params);
     return result.rows[0] || null;
   },
@@ -58,12 +70,23 @@ export const risksRepo = {
     const where = conditions.join(' AND ');
     const result = await query(
       `SELECT r.*, rc.name AS category_name, h.name AS house_name,
-        u.first_name || ' ' || u.last_name AS assigned_to_name
+        u.first_name || ' ' || u.last_name AS assigned_to_name,
+        i.title AS incident_title, i.description AS incident_description, i.severity AS incident_severity,
+        string_agg(DISTINCT gp.description, '; ') FILTER (WHERE gp.description IS NOT NULL) AS pulse_descriptions,
+        json_agg(DISTINCT jsonb_build_object('id', gp.id, 'description', gp.description, 'immediate_action', gp.immediate_action)) FILTER (WHERE gp.id IS NOT NULL) AS pulses,
+        json_agg(DISTINCT jsonb_build_object('id', e.id, 'reason', e.reason, 'status', e.status, 'priority', e.priority)) FILTER (WHERE e.id IS NOT NULL) AS escalations
        FROM risks r
        LEFT JOIN risk_categories rc ON rc.id = r.category_id
        LEFT JOIN houses h ON h.id = r.house_id
        LEFT JOIN users u ON u.id = r.assigned_to
+       LEFT JOIN incident_risks ir ON ir.risk_id = r.id
+       LEFT JOIN incidents i ON i.id = ir.incident_id
+       LEFT JOIN incident_reconstruction irec ON irec.incident_id = i.id
+       LEFT JOIN incident_reconstruction_pulses irp ON irp.reconstruction_id = irec.id
+       LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
+       LEFT JOIN escalations e ON e.risk_id = r.id
        WHERE ${where}
+       GROUP BY r.id, rc.id, h.id, u.id, i.id
        ORDER BY CASE WHEN r.status = 'Escalated' THEN 1 ELSE 2 END, r.created_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
       params
