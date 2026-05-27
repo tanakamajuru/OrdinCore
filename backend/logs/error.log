@@ -5412,3 +5412,219 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-24 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-24 08:00:02 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\notification.worker.ts:15:25)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-25 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-26 07:23:53 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-26 08:26:58 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-26 13:00:02 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-27 12:01:25 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-27 12:01:26 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-27 12:01:26 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-27 12:01:26 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-27 12:04:17 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:04:40 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:05:03 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:05:28 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:05:52 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:06:15 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:06:39 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:07:02 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:07:26 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:44:38 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:45:10 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-27 12:45:43 [error]: Error: Not allowed by CORS
+    at origin (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\app.ts:65:16)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:219:13
+    at optionsCallback (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:199:9)
+    at corsMiddleware (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\cors\lib\index.js:204:7)
+    at Layer.handle [as handle_request] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\layer.js:95:5)
+    at trim_prefix (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:328:13)
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:286:9
+    at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
+    at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
+    at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
