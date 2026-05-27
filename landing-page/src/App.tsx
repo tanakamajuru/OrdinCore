@@ -49,7 +49,7 @@ import {
   MoonIcon,
   SunIcon,
   XMarkIcon,
-} from "@heroicons/react/24/outline/index.js";
+} from "@heroicons/react/24/outline";
 
 const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
