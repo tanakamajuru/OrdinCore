@@ -38,8 +38,9 @@ export function EscalationLog() {
     try {
       setIsLoading(true);
       const res = await apiClient.get('/escalations?limit=100');
-      const data = (res as any).data || res || [];
-      setEscalations(Array.isArray(data) ? data : []);
+      const payload = (res.data as any).data || (res.data as any) || [];
+      const list = Array.isArray(payload) ? payload : (payload.escalations || payload.items || []);
+      setEscalations(list);
     } catch (err) {
       console.error('Failed to load escalations', err);
       toast.error('Failed to load escalation log');
@@ -101,7 +102,8 @@ export function EscalationLog() {
   };
 
   const getPriorityColor = (priority: string) => {
-    switch (priority) {
+    const normalized = priority?.toLowerCase?.() || '';
+    switch (normalized) {
       case 'critical': return 'bg-destructive text-destructive-foreground';
       case 'urgent': return 'bg-destructive/80 text-destructive-foreground';
       case 'high': return 'bg-primary text-primary-foreground';
@@ -110,7 +112,8 @@ export function EscalationLog() {
   };
 
   const getStatusIcon = (status: string) => {
-    switch (status) {
+    const normalized = status?.toLowerCase?.() || '';
+    switch (normalized) {
       case 'resolved': return <CheckCircle2 className="w-5 h-5 text-success" />;
       case 'pending': return <Clock className="w-5 h-5 text-destructive" />;
       case 'acknowledged': return <AlertCircle className="w-5 h-5 text-primary" />;
@@ -121,8 +124,8 @@ export function EscalationLog() {
   const handleSelectEscalation = async (esc: Escalation) => {
     try {
       const res = await apiClient.get(`/escalations/${esc.id}`);
-      const fullData = (res as any).data || res;
-      setSelectedEscalation(fullData || esc);
+      const payload = (res.data as any).data || (res.data as any) || null;
+      setSelectedEscalation(payload || esc);
     } catch (err) {
       console.error('Failed to load escalation details', err);
       setSelectedEscalation(esc); // Fallback to list data
@@ -153,7 +156,7 @@ export function EscalationLog() {
           {/* List Section */}
           <div className="lg:col-span-2 space-y-4">
             <div className="bg-card border-2 border-border p-4 mb-4 flex justify-between items-center text-sm shadow-sm">
-              <span className=" text-foreground">{escalations.filter(e => e.status !== 'resolved').length} Pending Actions</span>
+              <span className=" text-foreground">{escalations.filter(e => e.status?.toLowerCase?.() !== 'resolved').length} Pending Actions</span>
               <div className="flex gap-4">
                 <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-destructive"></div> Critical</span>
                 <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div> High</span>
@@ -232,7 +235,7 @@ export function EscalationLog() {
                       </div>
                     </div>
 
-                    {selectedEscalation.status === 'pending' && (
+                    {selectedEscalation.status?.toLowerCase?.() === 'pending' && (
                       <Button 
                         onClick={() => handleAcknowledge(selectedEscalation.id)}
                         className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -241,7 +244,7 @@ export function EscalationLog() {
                       </Button>
                     )}
 
-                    {selectedEscalation.status !== 'resolved' && (
+                    {selectedEscalation.status?.toLowerCase?.() !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
                         <label className="text-xs  uppercase text-muted-foreground block">Resolution Action</label>
                         <textarea
@@ -270,7 +273,7 @@ export function EscalationLog() {
                       </div>
                     )}
 
-                    {selectedEscalation.status === 'resolved' && (
+                    {selectedEscalation.status?.toLowerCase?.() === 'resolved' && (
                       <div className="bg-success/20 border border-success p-4 rounded text-sm text-success">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4" />

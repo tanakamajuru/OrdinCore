@@ -1,8 +1,25 @@
 import { incidentsRepo } from '../repositories/incidents.repo';
+import { pulsesRepo } from '../repositories/pulses.repo';
+import { incidentReconstructionService } from './incidentReconstruction.service';
 import { eventBus, EVENTS } from '../events/eventBus';
 
 export class IncidentsService {
   async create(company_id: string, created_by: string, data: any) {
+    const severity = (data.severity || '').toString().toLowerCase();
+    const isSeriousOrCritical = severity === 'serious' || severity === 'critical';
+
+    if (isSeriousOrCritical && data.source_pulse_id) {
+      const pulse = await pulsesRepo.findById(data.source_pulse_id, company_id);
+      const pulseSeverity = pulse?.severity?.toString().toLowerCase();
+      if (!pulse || !(pulseSeverity === 'critical' || pulse?.is_fatal || pulse?.serious_injury)) {
+        throw new Error('Serious incidents can only be created from Critical severity signals or when fatality/serious injury is indicated.');
+      }
+    }
+
+    if (severity === 'serious' && !data.source_pulse_id) {
+      throw new Error('Serious incidents must be created from a qualifying critical signal.');
+    }
+
     const incident = await incidentsRepo.create({ company_id, created_by, ...data });
 
     // Add creation event to timeline
@@ -42,6 +59,19 @@ export class IncidentsService {
         created_by,
         due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // Due within 14 days
       });
+
+      if (data.source_pulse_id) {
+        try {
+          const reconstruction = await incidentReconstructionService.create(company_id, created_by, {
+            incident_id: incident.id,
+            house_id: incident.house_id,
+            lead_investigator: created_by
+          });
+          await incidentReconstructionService.linkPulses(reconstruction.id, company_id, [data.source_pulse_id]);
+        } catch (reconErr) {
+          console.error('Failed to create incident reconstruction snapshot:', reconErr);
+        }
+      }
     }
 
     await eventBus.emitEvent(EVENTS.INCIDENT_CREATED, { incident_id: incident.id, company_id, created_by, severity: incident.severity });

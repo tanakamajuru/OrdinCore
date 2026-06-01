@@ -143,8 +143,8 @@ export function RiskRegister() {
       const mapped: Risk[] = rawRisks.map((r: any) => ({
         id: r.id,
         house: r.house_name || (r.house_id ? allHouses.find((h: any) => h.id === r.house_id)?.name : null) || userHouseName || 'Unknown',
-        description: r.title || r.description,
-        impact: r.description || '',
+        description: r.title || r.description || r.incident_description || r.pulse_descriptions || r.pulse_description || '',
+        impact: r.description || r.incident_description || '',
         category: r.category_name || r.category || 'General',
         severity: r.severity || 'Medium',
         dateIdentified: r.created_at ? new Date(r.created_at).toISOString().split('T')[0] : '',
@@ -253,6 +253,7 @@ export function RiskRegister() {
                 <td className="border-b border-border px-4 py-4 min-w-[200px] max-w-sm" title={risk.description}>
                     <div className="">{risk.description}</div>
                     {risk.incidentTitle && <div className="text-[10px] text-warning uppercase ">Incident: {risk.incidentTitle}</div>}
+                    {risk.incidentDescription && <div className="text-[10px] text-muted-foreground italic">Incident detail: {risk.incidentDescription.substring(0, 70)}</div>}
                     {risk.pulseDescription && <div className="text-[10px] text-muted-foreground italic">Signal: {risk.pulseDescription?.substring(0, 50)}</div>}
                     {risk.sourceClusterName && <div className="text-[10px] text-primary uppercase ">Pattern: {risk.sourceClusterName}</div>}
                     {risk.escalations && risk.escalations.length > 0 && <div className="text-[10px] text-destructive uppercase ">Escalated: {risk.escalations.length} item(s)</div>}

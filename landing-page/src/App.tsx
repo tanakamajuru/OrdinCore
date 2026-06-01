@@ -65,37 +65,37 @@ const PROBLEM_CARDS = [
     image: problemRepeatedConcernsImg,
     title: "Repeated Concerns Across Shifts",
     description: "Small issues repeated over time can indicate larger operational pressure.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
   {
     image: problemEscalationsLosingVisibilityImg,
     title: "Escalations Losing Visibility",
     description: "Important concerns can become unclear once shifts change or teams rotate.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
   {
     image: problemRisksIncreasingHousesImg,
     title: "Risks Increasing Across Houses",
     description: "Leadership teams need clearer visibility of worsening patterns across services.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
   {
     image: problemActionsNotBeingFollowedImg,
     title: "Actions Not Being Followed Through",
     description: "Operational actions should remain visible until completed and reviewed.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
   {
     image: problemOverRelianceMemoryImg,
     title: "Over-Reliance on Memory & Messaging",
     description: "Critical oversight should not rely on WhatsApp messages, verbal updates or memory.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
   {
     image: problemDifficultyOversightImg,
     title: "Difficulty Demonstrating Oversight",
     description: "Services often struggle to evidence operational governance during inspections.",
-    color: "bg-brand-soft/20 text-[#2F6CB5] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
   },
 ];
 
@@ -263,16 +263,16 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F6FC] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-[#F0F7F3] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
 
       {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-40 border-b border-[#B8D3EA] dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-[#B0D4C0] dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-8">
           <div className="flex items-center gap-3">
-            <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-2 ring-[#B8D3EA]/50" />
+            <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-2 ring-[#B0D4C0]/50" />
             <div className="leading-none">
-              <p className="text-sm font-black uppercase tracking-widest text-[#1A3259] dark:text-white">ordin</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-[#2F6CB5] dark:text-emerald-400">core</p>
+              <p className="text-sm font-black uppercase tracking-widest text-[#1A3D28] dark:text-white">ordin</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#1E7D4F] dark:text-emerald-400">core</p>
             </div>
           </div>
 
@@ -281,7 +281,7 @@ export default function App() {
               <a
                 key={item.label}
                 href={item.href}
-                className="inline-flex items-center gap-1 transition-colors hover:text-[#2F6CB5] dark:hover:text-[#5B9FD4]"
+                className="inline-flex items-center gap-1 transition-colors hover:text-[#1E7D4F] dark:hover:text-[#3DAB72]"
               >
                 {item.label}
                 {item.href.startsWith("#") && <ChevronDownIcon className="h-3.5 w-3.5 opacity-55" />}
@@ -295,7 +295,7 @@ export default function App() {
             </Button>
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="h-9 w-9 rounded-full border border-[#B8D3EA] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#2F6CB5] hover:bg-[#E2EEF8]/45"
+              className="h-9 w-9 rounded-full border border-[#B0D4C0] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#1E7D4F] hover:bg-[#E2F0EA]/45"
               aria-label="Toggle theme"
             >
               {theme === "dark" ? <SunIcon className="h-4.5 w-4.5 text-amber-400" /> : <MoonIcon className="h-4.5 w-4.5 text-slate-500" />}
@@ -307,7 +307,7 @@ export default function App() {
       <main>
 
         {/* ── HERO ── */}
-        <section className="bg-gradient-to-b from-white to-[#F0F6FC] dark:from-slate-900 dark:to-slate-950 border-b border-[#B8D3EA]/40 dark:border-slate-800">
+        <section className="bg-gradient-to-b from-white to-[#F0F7F3] dark:from-slate-900 dark:to-slate-950 border-b border-[#B0D4C0]/40 dark:border-slate-800">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
             {/* Left */}
@@ -316,7 +316,7 @@ export default function App() {
                 Governance Oversight for Care Services
               </div>
 
-              <h1 className="text-4xl font-extrabold leading-[1.12] tracking-tight text-[#1A3259] dark:text-white sm:text-5xl">
+              <h1 className="text-4xl font-extrabold leading-[1.12] tracking-tight text-[#1A3D28] dark:text-white sm:text-5xl">
                 Structured Governance Oversight for Supported Living & Care
               </h1>
 
@@ -331,7 +331,7 @@ export default function App() {
                   { img: heroMaintainStrongerImg, text: "Evidence robust governance to regulators dynamically" },
                 ].map(({ img, text }) => (
                   <div key={text} className="flex items-center gap-3 text-sm font-semibold text-slate-700 dark:text-slate-300">
-                    <div className="h-9 w-9 shrink-0 rounded-xl border border-[#B8D3EA] dark:border-slate-800 bg-white dark:bg-slate-800 p-2 flex items-center justify-center shadow-sm">
+                    <div className="h-9 w-9 shrink-0 rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-white dark:bg-slate-800 p-2 flex items-center justify-center shadow-sm">
                       <img src={img} alt="" className="h-full w-full object-contain" />
                     </div>
                     {text}
@@ -344,15 +344,15 @@ export default function App() {
                   Book a Demo
                   <img src={rightArrowImg} alt="" className="h-4 w-4 object-contain invert brightness-200" />
                 </Button>
-                <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#B8D3EA] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3259] dark:text-white hover:bg-[#E2EEF8]/30 transition shadow-sm">
+                <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#B0D4C0] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/30 transition shadow-sm">
                   View Governance Workflow
                 </a>
-                <a href="https://work.ordincore.co.uk" className="text-sm font-bold text-[#2F6CB5] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
+                <a href="https://work.ordincore.co.uk" className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
                   Join Pilot Programme →
                 </a>
               </div>
 
-              <div className="flex items-start gap-3 rounded-2xl border border-[#B8D3EA]/60 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-4 text-xs text-slate-500 dark:text-slate-400 shadow-sm">
+              <div className="flex items-start gap-3 rounded-2xl border border-[#B0D4C0]/60 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-4 text-sm text-slate-500 dark:text-slate-400 shadow-sm">
                 <img src={designedToSupportGovernanceImg} alt="" className="h-5 w-5 shrink-0 object-contain mt-0.5" />
                 <p>Designed around real operational workflows and statutory duties within supported living, mental health, and community care environments.</p>
               </div>
@@ -361,7 +361,7 @@ export default function App() {
             {/* Right – Interactive Role-based Device Frame Preview */}
             <div className="space-y-4">
               {/* Tab Selector */}
-              <div className="flex flex-wrap gap-1 bg-[#E2EEF8]/80 dark:bg-slate-900 p-1.5 rounded-2xl border border-[#B8D3EA]/60 dark:border-slate-800 shadow-inner">
+              <div className="flex flex-wrap gap-1 bg-[#E2F0EA]/80 dark:bg-slate-900 p-1.5 rounded-2xl border border-[#B0D4C0]/60 dark:border-slate-800 shadow-inner">
                 {[
                   { id: "team_leader", label: "Team Leader" },
                   { id: "registered_manager", label: "Registered Manager" },
@@ -372,7 +372,7 @@ export default function App() {
                     key={tab.id}
                     onClick={() => setActiveHeroTab(tab.id as any)}
                     className={`flex-1 min-w-[90px] text-center px-2.5 py-2 rounded-xl text-xs font-bold transition duration-200 ${activeHeroTab === tab.id
-                        ? "bg-[#2F6CB5] text-white shadow"
+                        ? "bg-[#1E7D4F] text-white shadow"
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
                       }`}
                   >
@@ -382,13 +382,13 @@ export default function App() {
               </div>
 
               {/* Display Area (Device Frame mockup) */}
-              <Card className="overflow-hidden rounded-3xl border border-[#B8D3EA] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl relative transition-all duration-300">
-                <div className="border-b border-[#B8D3EA]/50 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
+              <Card className="overflow-hidden rounded-3xl border border-[#B0D4C0] dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl relative transition-all duration-300">
+                <div className="border-b border-[#B0D4C0]/50 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
-                    <span className="h-3 w-3 rounded-full bg-[#1A3259]/30 dark:bg-slate-700" />
-                    <span className="h-3 w-3 rounded-full bg-[#2F6CB5]/30 dark:bg-slate-700" />
+                    <span className="h-3 w-3 rounded-full bg-[#1A3D28]/30 dark:bg-slate-700" />
+                    <span className="h-3 w-3 rounded-full bg-[#1E7D4F]/30 dark:bg-slate-700" />
                     <span className="h-3 w-3 rounded-full bg-emerald-500/30 dark:bg-slate-700" />
-                    <span className="ml-2 text-xs font-bold text-[#1A3259] dark:text-slate-300 capitalize tracking-wide">
+                    <span className="ml-2 text-xs font-bold text-[#1A3D28] dark:text-slate-300 capitalize tracking-wide">
                       Role View: {activeHeroTab.replace("_", " ")}
                     </span>
                   </div>
@@ -415,8 +415,8 @@ export default function App() {
                   </div>
                 </div>
 
-                <div className="px-5 py-3 border-t border-[#B8D3EA]/55 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-[11px] text-slate-500 flex items-center justify-between">
-                  <span className="inline-flex items-center gap-1 font-semibold text-[#1A3259] dark:text-[#A8CDE8]">
+                <div className="px-5 py-3 border-t border-[#B0D4C0]/55 dark:border-slate-800 bg-slate-50 dark:bg-slate-900 text-sm text-slate-500 flex items-center justify-between">
+                  <span className="inline-flex items-center gap-1 font-semibold text-[#1A3D28] dark:text-[#A8D5BE]">
                     <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-ping" />
                     Interactive Screenshot View
                   </span>
@@ -432,8 +432,7 @@ export default function App() {
         <section className="py-20 bg-white dark:bg-slate-950" id="why">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
-              
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3259] dark:text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
                 Governance Problems Build Quietly
               </h2>
               <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -444,13 +443,13 @@ export default function App() {
               {PROBLEM_CARDS.map((card) => (
                 <Card key={card.title} className="p-6 hover:shadow-lg transition duration-300 dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between group">
                   <div>
-                    <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E2EEF8] dark:bg-slate-800 p-2.5 shadow-sm group-hover:scale-105 transition-transform duration-300">
+                    <div className="mb-5 inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-[#E2F0EA] dark:bg-slate-800 p-2.5 shadow-sm group-hover:scale-105 transition-transform duration-300">
                       <img src={card.image} alt={card.title} className="h-full w-full object-contain" />
                     </div>
-                    <h3 className="text-base font-bold text-[#1A3259] dark:text-white mb-2">{card.title}</h3>
+                    <h3 className="text-base font-bold text-[#1A3D28] dark:text-white mb-2">{card.title}</h3>
                     <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-[#B8D3EA]/30 dark:border-slate-800 text-xs font-bold text-[#2F6CB5] dark:text-[#5B9FD4]">
+                  <div className="mt-4 pt-3 border-t border-[#B0D4C0]/30 dark:border-slate-800 text-sm font-bold text-[#1E7D4F] dark:text-[#3DAB72]">
                     Addressed by Ordin Core
                   </div>
                 </Card>
@@ -460,11 +459,10 @@ export default function App() {
         </section>
 
         {/* ── HOW IT WORKS ── */}
-        <section className="py-20 bg-[#F0F6FC] dark:bg-slate-900 border-y border-[#B8D3EA]/35 dark:border-slate-800" id="workflow">
+        <section className="py-20 bg-[#F0F7F3] dark:bg-slate-900 border-y border-[#B0D4C0]/35 dark:border-slate-800" id="workflow">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
-             
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3259] dark:text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
                 How Ordin Core Works
               </h2>
               <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -477,33 +475,33 @@ export default function App() {
                 <Card key={step.title} className="p-5 dark:border-slate-800 dark:bg-slate-800/60 flex flex-col justify-between shadow-sm relative">
                   <div>
                     <div className="flex items-start justify-between mb-4">
-                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1A3259] dark:bg-emerald-600 text-xs font-black text-white shadow">
+                      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[#1A3D28] dark:bg-emerald-600 text-sm font-black text-white shadow">
                         {step.number}
                       </span>
-                      <div className="h-9 w-9 p-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm flex items-center justify-center border border-[#B8D3EA]/30 dark:border-slate-850">
+                      <div className="h-9 w-9 p-1 bg-white dark:bg-slate-900 rounded-lg shadow-sm flex items-center justify-center border border-[#B0D4C0]/30 dark:border-slate-850">
                         <img src={step.image} alt={step.title} className="h-full w-full object-contain" />
                       </div>
                     </div>
-                    <h3 className="text-sm font-bold text-[#1A3259] dark:text-white mb-2 leading-tight">{step.title}</h3>
-                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400 mb-4">{step.description}</p>
+                    <h3 className="text-sm font-bold text-[#1A3D28] dark:text-white mb-2 leading-tight">{step.title}</h3>
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400 mb-4">{step.description}</p>
                   </div>
-                  <p className="text-[11px] leading-relaxed text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-700/60 pt-3 italic">
+                  <p className="text-sm leading-relaxed text-slate-400 dark:text-slate-500 border-t border-slate-100 dark:border-slate-700/60 pt-3 italic">
                     {step.example}
                   </p>
                 </Card>
               ))}
 
               {/* Quote card */}
-              <Card key="quote" className="p-5 bg-[#E2EEF8] dark:bg-slate-950 border border-[#B8D3EA] dark:border-emerald-800/40 flex flex-col justify-between shadow">
+              <Card key="quote" className="p-5 bg-[#E2F0EA] dark:bg-slate-950 border border-[#B0D4C0] dark:border-emerald-800/40 flex flex-col justify-between shadow">
                 <div>
-                  <p className="text-3xl font-serif text-[#2F6CB5] dark:text-emerald-500 leading-none mb-2">“</p>
-                  <p className="text-xs font-bold text-[#1A3259] dark:text-slate-200 leading-relaxed">
+                  <p className="text-3xl font-serif text-[#1E7D4F] dark:text-emerald-500 leading-none mb-2">"</p>
+                  <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-200 leading-relaxed">
                     Ordin Core aligns daily activities to weekly reviews, ensuring that critical data is captured and reconstructable.
                   </p>
                 </div>
-                <div className="pt-4 flex justify-between items-end border-t border-[#B8D3EA]/50 dark:border-slate-800">
+                <div className="pt-4 flex justify-between items-end border-t border-[#B0D4C0]/50 dark:border-slate-800">
                   <img src={designedToSupportGovernanceImg} alt="" className="h-10 w-auto object-contain opacity-90" />
-                  <span className="text-[9px] uppercase tracking-wider font-bold text-[#2F6CB5] dark:text-emerald-400">Assurance</span>
+                  <span className="text-sm uppercase tracking-wider font-bold text-[#1E7D4F] dark:text-emerald-400">Assurance</span>
                 </div>
               </Card>
             </div>
@@ -514,8 +512,7 @@ export default function App() {
         <section className="py-20 bg-white dark:bg-slate-950" id="audience">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
-            
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3259] dark:text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
                 Built for Operational & Governance Leadership
               </h2>
               <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -526,13 +523,13 @@ export default function App() {
               {AUDIENCE_CARDS.map((card) => (
                 <Card key={card.title} className="p-6 text-center hover:shadow-md transition dark:border-slate-800 dark:bg-slate-900 flex flex-col justify-between">
                   <div>
-                    <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-[#E2EEF8] dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
+                    <div className="mx-auto mb-4 h-12 w-12 rounded-2xl bg-[#E2F0EA] dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
                       <img src={card.image} alt={card.title} className="h-full w-full object-contain" />
                     </div>
-                    <h3 className="text-sm font-bold text-[#1A3259] dark:text-white mb-2">{card.title}</h3>
-                    <p className="text-xs leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
+                    <h3 className="text-sm font-bold text-[#1A3D28] dark:text-white mb-2">{card.title}</h3>
+                    <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
                   </div>
-                  <div className="mt-4 text-[10px] uppercase font-bold tracking-wider text-[#2F6CB5] dark:text-[#5B9FD4]">
+                  <div className="mt-4 text-sm uppercase font-bold tracking-wider text-[#1E7D4F] dark:text-[#3DAB72]">
                     Dedicated View
                   </div>
                 </Card>
@@ -542,53 +539,53 @@ export default function App() {
         </section>
 
         {/* ── 4-COLUMN COMPARISON ── */}
-        <section className="py-20 bg-[#F0F6FC] dark:bg-slate-900 border-t border-[#B8D3EA]/30 dark:border-slate-800" id="resources">
+        <section className="py-20 bg-[#F0F7F3] dark:bg-slate-900 border-t border-[#B0D4C0]/30 dark:border-slate-800" id="resources">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-4">
 
               {/* Col 1 – Fragmented Visibility */}
               <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#1A3259] dark:text-white leading-snug">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white leading-snug">
                   Fragmented Visibility Disrupts Oversight
                 </h3>
                 <ul className="space-y-2.5">
                   {["Different shifts and team rotations", "Multiple services, locations and branches", "Verbal updates and WhatsApp streams", "Siloed databases and custom spreadsheets", "Varying levels of management experience", "Inspection stress due to poor audit trails"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-350">
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
                       <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                       {item}
                     </li>
                   ))}
                 </ul>
-                <p className="text-[11px] font-bold text-[#2F6CB5] dark:text-[#5B9FD4]">
+                <p className="text-sm font-bold text-[#1E7D4F] dark:text-[#3DAB72]">
                   Ordin Core establishes a clean, unified workflow across your services.
                 </p>
                 <div className="flex gap-2 pt-1">
-                  <img src={problemDifficultyOversightImg} alt="" className="h-14 w-14 rounded-xl border border-[#B8D3EA]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
-                  <img src={governanceDiff2Img} alt="" className="h-14 w-14 rounded-xl border border-[#B8D3EA]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
+                  <img src={problemDifficultyOversightImg} alt="" className="h-14 w-14 rounded-xl border border-[#B0D4C0]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
+                  <img src={governanceDiff2Img} alt="" className="h-14 w-14 rounded-xl border border-[#B0D4C0]/55 dark:border-slate-700 object-contain bg-white dark:bg-slate-800 p-1.5 shadow-sm" />
                 </div>
               </Card>
 
               {/* Col 2 – Not Another CMS */}
               <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#1A3259] dark:text-white leading-snug">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white leading-snug">
                   Not Another Care Management System
                 </h3>
                 <div>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Most platforms focus on:</p>
+                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2">Most platforms focus on:</p>
                   <ul className="space-y-2">
                     {["Daily care logs & charts", "Medication (eMAR) logs", "Staff shift rostering", "Basic incident capture", "Folders for static policies"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-350">
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
                         <XMarkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="border-t border-[#B8D3EA]/20 dark:border-slate-700/60 pt-3">
-                  <p className="text-xs font-bold text-[#2F6CB5] dark:text-emerald-400 mb-2">Ordin Core focuses on:</p>
+                <div className="border-t border-[#B0D4C0]/20 dark:border-slate-700/60 pt-3">
+                  <p className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 mb-2">Ordin Core focuses on:</p>
                   <ul className="space-y-2">
                     {["Governance visibility", "Worsening risk trajectories", "Active escalation tracking", "Assurance & rhythm oversight", "Regulatory inspection readiness"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-slate-700 dark:text-white font-medium">
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-700 dark:text-white font-medium">
                         <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         {item}
                       </li>
@@ -599,28 +596,28 @@ export default function App() {
 
               {/* Col 3 – Designed for Operational Use */}
               <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#1A3259] dark:text-white leading-snug">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white leading-snug">
                   Designed for Operational Use
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   We empower leadership teams to enforce compliance and oversight without overwhelming staff with paperwork.
                 </p>
                 <div>
-                  <p className="text-xs font-bold text-slate-500 dark:text-slate-400 mb-2">Our Workflow:</p>
+                  <p className="text-sm font-bold text-slate-500 dark:text-slate-400 mb-2">Our Workflow:</p>
                   <ul className="space-y-2">
                     {["Rapid 3-minute inputs", "Visual traffic-light summaries", "Action and ownership logs", "Clean role delegation", "Structured reviews"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-350 font-medium">
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350 font-medium">
                         <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         {item}
                       </li>
                     ))}
                   </ul>
                 </div>
-                <div className="border-t border-[#B8D3EA]/20 dark:border-slate-700/60 pt-3">
-                  <p className="text-xs font-bold text-slate-450 dark:text-slate-500 mb-2">Avoids:</p>
+                <div className="border-t border-[#B0D4C0]/20 dark:border-slate-700/60 pt-3">
+                  <p className="text-sm font-bold text-slate-450 dark:text-slate-500 mb-2">Avoids:</p>
                   <ul className="space-y-2">
                     {["Duplicate log entries", "Lengthy essay formats", "Over-complicated software", "Administrative bloat"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-slate-500 dark:text-slate-500">
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-500 dark:text-slate-500">
                         <XMarkIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400 dark:text-slate-500" />
                         {item}
                       </li>
@@ -631,25 +628,25 @@ export default function App() {
 
               {/* Col 4 – Assurance Outcomes */}
               <Card className="p-6 space-y-4 dark:border-slate-800 dark:bg-slate-800/50">
-                <h3 className="text-sm font-black text-[#1A3259] dark:text-white leading-snug">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white leading-snug">
                   Uncompromised Oversight & Assurance
                 </h3>
-                <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                <p className="text-sm text-slate-500 dark:text-slate-400 leading-relaxed">
                   Never worry about gaps in your governance audits during an inspection.
                 </p>
                 <ul className="space-y-2">
                   {["A continuous audit trail of decisions", "Reconstructable evidence for inspections", "Clean delegation and task handovers", "Immediate visibility of neglected houses", "Structured support for new managers"].map((item) => (
-                    <li key={item} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-350">
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-350">
                       <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                       {item}
                     </li>
                   ))}
                 </ul>
                 <div>
-                  <p className="text-xs font-semibold text-slate-500 dark:text-slate-400 mb-2">This supports:</p>
+                  <p className="text-sm font-semibold text-slate-500 dark:text-slate-400 mb-2">This supports:</p>
                   <ul className="space-y-2">
                     {["Structured governance review", "Operational assurance", "Leadership continuity", "Internal oversight", "Inspection preparation"].map((item) => (
-                      <li key={item} className="flex items-start gap-2 text-xs text-slate-600 dark:text-slate-400">
+                      <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-400">
                         <CheckBadgeIcon className="mt-0.5 h-3.5 w-3.5 shrink-0 text-emerald-500" />
                         {item}
                       </li>
@@ -665,8 +662,7 @@ export default function App() {
         <section className="py-20 bg-white dark:bg-slate-950">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
-             
-              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3259] dark:text-white sm:text-4xl">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
                 Example Governance Outputs
               </h2>
               <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
@@ -681,19 +677,19 @@ export default function App() {
                   onClick={() => setActiveOutputDetail(output)}
                   className="text-center group cursor-pointer flex flex-col justify-between"
                 >
-                  <div className="mb-3 overflow-hidden rounded-2xl border border-[#B8D3EA] dark:border-slate-800 bg-[#F0F6FC] dark:bg-slate-900 hover:border-[#2F6CB5] dark:hover:border-slate-600 transition shadow-sm h-36 flex items-center justify-center relative">
+                  <div className="mb-3 overflow-hidden rounded-2xl border border-[#B0D4C0] dark:border-slate-800 bg-[#F0F7F3] dark:bg-slate-900 hover:border-[#1E7D4F] dark:hover:border-slate-600 transition shadow-sm h-36 flex items-center justify-center relative">
                     <img
                       src={output.image}
                       alt={output.label}
                       className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
                     />
-                    <div className="absolute inset-0 bg-[#1A3259]/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
-                      <span className="bg-white/95 dark:bg-slate-900/95 text-[#1A3259] dark:text-white text-xs font-bold px-3 py-1.5 rounded-full shadow border border-brand-border">
+                    <div className="absolute inset-0 bg-[#1A3D28]/20 opacity-0 group-hover:opacity-100 flex items-center justify-center transition-opacity">
+                      <span className="bg-white/95 dark:bg-slate-900/95 text-[#1A3D28] dark:text-white text-sm font-bold px-3 py-1.5 rounded-full shadow border border-brand-border">
                         Inspect Page
                       </span>
                     </div>
                   </div>
-                  <p className="text-xs font-bold text-[#1A3259] dark:text-slate-300 group-hover:text-[#2F6CB5] transition">
+                  <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-300 group-hover:text-[#1E7D4F] transition">
                     {output.label}
                   </p>
                 </div>
@@ -702,12 +698,12 @@ export default function App() {
               <div className="rounded-3xl bg-slate-950 border border-slate-800 p-5 flex flex-col items-center justify-center text-center gap-4 shadow-xl">
                 <img src={designedToSupportGovernanceImg} alt="" className="h-10 w-10 object-contain opacity-80" />
                 <div>
-                  <p className="text-xs font-bold text-white leading-tight mb-1">View Real Reviews</p>
-                  <p className="text-[10px] text-slate-500">Examine how data is presented</p>
+                  <p className="text-sm font-bold text-white leading-tight mb-1">View Real Reviews</p>
+                  <p className="text-sm text-slate-500">Examine how data is presented</p>
                 </div>
                 <Button
                   onClick={() => setIsDemoModalOpen(true)}
-                  className="w-full text-xs rounded-full py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold transition"
+                  className="w-full text-sm rounded-full py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold transition"
                 >
                   Request Live Demo →
                 </Button>
@@ -717,15 +713,14 @@ export default function App() {
         </section>
 
         {/* ── PILOT PROGRAMME ── */}
-        <section className="py-20 bg-[#F0F6FC] dark:bg-slate-900 border-t border-[#B8D3EA]/35 dark:border-slate-800" id="pilot">
+        <section className="py-20 bg-[#F0F7F3] dark:bg-slate-900 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="pilot">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="grid gap-12 lg:grid-cols-2 items-start">
 
               {/* Left */}
               <div className="space-y-8">
                 <div>
-                 
-                  <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3259] dark:text-white sm:text-4xl">
+                  <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
                     Join the Ordin Core Pilot Programme
                   </h2>
                   <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-350">
@@ -734,14 +729,14 @@ export default function App() {
                 </div>
 
                 <div>
-                  <p className="text-sm font-bold text-[#1A3259] dark:text-white mb-5">Participating providers receive:</p>
+                  <p className="text-sm font-bold text-[#1A3D28] dark:text-white mb-5">Participating providers receive:</p>
                   <div className="grid grid-cols-5 gap-3">
                     {PILOT_BENEFITS.map((benefit) => (
                       <div key={benefit.label} className="flex flex-col items-center gap-2.5 text-center">
-                        <div className="h-12 w-12 rounded-2xl border border-[#B8D3EA] dark:border-slate-800 bg-white dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
+                        <div className="h-12 w-12 rounded-2xl border border-[#B0D4C0] dark:border-slate-800 bg-white dark:bg-slate-800 p-2.5 flex items-center justify-center shadow-sm">
                           <img src={benefit.image} alt={benefit.label} className="h-full w-full object-contain" />
                         </div>
-                        <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-snug font-semibold">{benefit.label}</p>
+                        <p className="text-sm text-slate-500 dark:text-slate-400 leading-snug font-semibold">{benefit.label}</p>
                       </div>
                     ))}
                   </div>
@@ -749,15 +744,15 @@ export default function App() {
 
                 <a
                   href="https://work.ordincore.co.uk"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#2F6CB5] hover:bg-[#1A3259] px-7 py-4 text-sm font-bold text-white transition shadow-md hover:shadow-lg"
+                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1E7D4F] hover:bg-[#1A3D28] px-7 py-4 text-sm font-bold text-white transition shadow-md hover:shadow-lg"
                 >
                   Apply for Pilot Access →
                 </a>
               </div>
 
               {/* Right */}
-              <Card className="p-8 dark:border-slate-800 dark:bg-slate-800/80 shadow-xl border border-[#B8D3EA]/60">
-                <h3 className="text-lg font-bold text-[#1A3259] dark:text-white mb-3">
+              <Card className="p-8 dark:border-slate-800 dark:bg-slate-800/80 shadow-xl border border-[#B0D4C0]/60">
+                <h3 className="text-lg font-bold text-[#1A3D28] dark:text-white mb-3">
                   Governance is More Than Compliance Auditing
                 </h3>
                 <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-450 mb-6">
@@ -770,15 +765,15 @@ export default function App() {
                     "Ensuring escalations always have clear ownership & actions",
                     "Validating whether corrective measures are actually working over time",
                   ].map((item) => (
-                    <li key={item} className="flex items-start gap-3 text-xs sm:text-sm text-slate-700 dark:text-slate-350 font-medium">
+                    <li key={item} className="flex items-start gap-3 text-sm text-slate-700 dark:text-slate-350 font-medium">
                       <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
                       {item}
                     </li>
                   ))}
                 </ul>
-                <div className="mt-8 border-t border-[#B8D3EA]/20 dark:border-slate-700 pt-6 flex items-start gap-4">
+                <div className="mt-8 border-t border-[#B0D4C0]/20 dark:border-slate-700 pt-6 flex items-start gap-4">
                   <img src={governanceIsImg} alt="" className="h-10 w-10 shrink-0 object-contain opacity-85" />
-                  <p className="text-xs text-slate-400 dark:text-slate-500 leading-relaxed">
+                  <p className="text-sm text-slate-400 dark:text-slate-500 leading-relaxed">
                     Ordin Core is engineered as an active, daily discipline that brings team leaders, managers, and directors into a robust, synchronized assurance loop.
                   </p>
                 </div>
@@ -791,7 +786,7 @@ export default function App() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-slate-950 text-slate-400 border-t border-slate-900" id="footer">
+      <footer className="bg-white text-slate-700 border-t border-slate-200 dark:bg-slate-950 dark:text-slate-400 dark:border-slate-900" id="footer">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
           <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-5 mb-14">
             {/* Brand */}
@@ -800,23 +795,23 @@ export default function App() {
                 <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-800" />
                 <div className="leading-none">
                   <p className="text-sm font-black uppercase tracking-widest text-white">ordin</p>
-                  <p className="text-xs font-bold uppercase tracking-widest text-emerald-400">core</p>
+                  <p className="text-sm font-bold uppercase tracking-widest text-emerald-400">core</p>
                 </div>
               </div>
-              <p className="text-xs leading-relaxed max-w-xs text-slate-500">
+              <p className="text-sm leading-relaxed max-w-xs text-slate-500">
                 Structured operational governance and assurance loops for supported living, community, and care services.
               </p>
             </div>
 
             {FOOTER_LINKS.map((section) => (
               <div key={section.title} className="space-y-4">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-200">{section.title}</p>
+                <p className="text-sm font-black uppercase tracking-widest text-slate-200">{section.title}</p>
                 <div className="space-y-2">
                   {section.links.map((link) => (
                     <a
                       key={link}
                       href={link === "Pilot Programme" ? "https://work.ordincore.co.uk" : "#"}
-                      className="block text-xs text-slate-500 transition-colors hover:text-white font-medium"
+                      className="block text-sm text-slate-500 transition-colors hover:text-white font-medium"
                     >
                       {link}
                     </a>
@@ -826,7 +821,7 @@ export default function App() {
             ))}
           </div>
 
-          <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-600 font-medium">
+          <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-medium">
             <p>© 2026 Ordin Core Inc. All rights reserved.</p>
             <div className="flex gap-4">
               <a href="#" className="hover:text-slate-400">Privacy Policy</a>
@@ -840,7 +835,7 @@ export default function App() {
       {/* ── BOOK A DEMO MODAL ── */}
       {isDemoModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#B8D3EA] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-8 space-y-6">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#B0D4C0] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-8 space-y-6">
             <button
               onClick={() => setIsDemoModalOpen(false)}
               className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
@@ -850,7 +845,7 @@ export default function App() {
             </button>
 
             <div className="space-y-2">
-              <h3 className="text-2xl font-black text-[#1A3259] dark:text-white">
+              <h3 className="text-2xl font-black text-[#1A3D28] dark:text-white">
                 Book an Ordin Core Demo
               </h3>
               <p className="text-sm text-slate-500 dark:text-slate-450">
@@ -884,7 +879,7 @@ export default function App() {
                     placeholder="you@company.com"
                     value={demoFormEmail}
                     onChange={(e) => setDemoFormEmail(e.target.value)}
-                    className="w-full rounded-xl border border-[#B8D3EA] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#2F6CB5] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -899,7 +894,7 @@ export default function App() {
                     placeholder="e.g. +44 7123 456789"
                     value={demoFormPhone}
                     onChange={(e) => setDemoFormPhone(e.target.value)}
-                    className="w-full rounded-xl border border-[#B8D3EA] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#2F6CB5] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -913,7 +908,7 @@ export default function App() {
                     rows={4}
                     value={demoFormMessage}
                     onChange={(e) => setDemoFormMessage(e.target.value)}
-                    className="w-full rounded-xl border border-[#B8D3EA] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#2F6CB5] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -924,7 +919,7 @@ export default function App() {
                 <Button
                   type="submit"
                   disabled={demoSubmitStatus === "submitting"}
-                  className="w-full rounded-xl bg-[#2F6CB5] hover:bg-[#1A3259] text-white flex items-center justify-center gap-2 py-3 shadow"
+                  className="w-full rounded-xl bg-[#1E7D4F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
                 >
                   {demoSubmitStatus === "submitting" ? "Sending Request..." : "Request a Demo"}
                 </Button>

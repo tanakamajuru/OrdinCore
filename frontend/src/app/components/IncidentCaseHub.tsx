@@ -45,7 +45,7 @@ export function IncidentCaseHub() {
 
   // Create incident form state
   const [incidentForm, setIncidentForm] = useState<any>({
-    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '',
+    house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '',
     la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
     is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
   });
@@ -77,6 +77,7 @@ export function IncidentCaseHub() {
         severity: location.state.severity || prev.severity,
         type: location.state.signalType || prev.type,
         house_id: location.state.houseId || location.state.house_id || prev.house_id,
+        source_pulse_id: location.state.signalId || location.state.source_pulse_id || prev.source_pulse_id,
         occurred_at: defaultOccurredAt()
       }));
       setShowCreateModal(true);
@@ -163,6 +164,7 @@ export function IncidentCaseHub() {
         occurred_at: new Date(incidentForm.occurred_at).toISOString(),
         location: incidentForm.location,
         immediate_action: incidentForm.immediate_action,
+        source_pulse_id: incidentForm.source_pulse_id || undefined,
         persons_involved: incidentForm.persons_involved ? [incidentForm.persons_involved] : [],
         follow_up_required: true,
         linked_risks: incidentForm.linked_risks || [],
@@ -180,7 +182,7 @@ export function IncidentCaseHub() {
       setShowCreateModal(false);
       setIncidentForm({ 
         house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), 
-        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', linked_risks: [], linked_escalations: [],
+        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '', linked_risks: [], linked_escalations: [],
         la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
         is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
       });

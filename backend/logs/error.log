@@ -5628,3 +5628,88 @@
     at router.process_params (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:346:12)
     at next (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\express\lib\router\index.js:280:10)
     at internalNext (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\helmet\index.cjs:537:6)
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-28 08:46:21 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-28 08:46:22 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-29 09:12:56 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-29 09:12:57 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-05-30 08:00:35 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\recurrenceWatch.worker.ts:13:32)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-30 08:00:35 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\effectivenessReminder.worker.ts:13:28)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-30 08:00:35 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\dailyGovernanceCheck.worker.ts:22:23)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-30 08:00:35 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\directorGovernance.worker.ts:11:30)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-30 08:00:35 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\actionEffectiveness.worker.ts:12:28)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-30 08:00:38 [error]: Error: Connection terminated due to connection timeout
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
