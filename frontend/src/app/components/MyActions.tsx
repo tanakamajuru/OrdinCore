@@ -38,7 +38,9 @@ export function MyActions() {
     try {
       setIsLoading(true);
       const response = await apiClient.get("/actions/my");
-      setActions(response.data.data || []);
+      // apiClient (@/services/api) returns the parsed body, so response.data is the payload array
+      const list: any = response.data;
+      setActions(Array.isArray(list) ? list : (list?.data || []));
     } catch (error) {
       console.error("Failed to fetch assigned actions:", error);
       toast.error("Failed to load assigned actions.");
