@@ -42,7 +42,7 @@ export class RisksService {
     if (!risk) throw new Error('Risk not found');
 
     // [GOVERNANCE] Locked Means Locked
-    if (risk.status === 'escalated' || risk.status === 'closed' || risk.status === 'resolved') {
+    if (['escalated', 'closed', 'resolved'].includes((risk.status || '').toLowerCase())) {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
@@ -197,7 +197,7 @@ export class RisksService {
     if (!risk) throw new Error('Risk not found');
     const updated = await risksRepo.updateStatus(risk_id, company_id, status);
     await risksRepo.addEvent(risk_id, company_id, 'status_updated', `Status changed to ${status}`, user_id);
-    if (status === 'closed' || status === 'resolved') {
+    if (['closed', 'resolved'].includes(status.toLowerCase())) {
       await risksRepo.update(risk_id, company_id, { resolved_at: new Date() });
     }
     return updated;

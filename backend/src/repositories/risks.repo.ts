@@ -62,7 +62,7 @@ export const risksRepo = {
     const params: unknown[] = [company_id];
     let idx = 2;
 
-    if (filters.status) { conditions.push(`r.status = $${idx++}`); params.push(filters.status); }
+    if (filters.status) { conditions.push(`LOWER(r.status) = LOWER($${idx++})`); params.push(filters.status); }
     if (filters.severity) { conditions.push(`r.severity = $${idx++}`); params.push(filters.severity); }
     if (filters.house_id) { conditions.push(`r.house_id = $${idx++}`); params.push(filters.house_id); }
     if (filters.assigned_to) { conditions.push(`r.assigned_to = $${idx++}`); params.push(filters.assigned_to); }
@@ -87,7 +87,7 @@ export const risksRepo = {
        LEFT JOIN escalations e ON e.risk_id = r.id
        WHERE ${where}
        GROUP BY r.id, rc.id, h.id, u.id, i.id
-       ORDER BY CASE WHEN r.status = 'Escalated' THEN 1 ELSE 2 END, r.created_at DESC
+       ORDER BY CASE WHEN LOWER(r.status) = 'escalated' THEN 1 ELSE 2 END, r.created_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
       params
     );
@@ -98,7 +98,7 @@ export const risksRepo = {
     const conditions = ['company_id = $1'];
     const params: unknown[] = [company_id];
     let idx = 2;
-    if (filters.status) { conditions.push(`status = $${idx++}`); params.push(filters.status); }
+    if (filters.status) { conditions.push(`LOWER(status) = LOWER($${idx++})`); params.push(filters.status); }
     if (filters.severity) { conditions.push(`severity = $${idx++}`); params.push(filters.severity); }
     const result = await query(`SELECT COUNT(*) FROM risks WHERE ${conditions.join(' AND ')}`, params);
     return parseInt(result.rows[0].count);
@@ -142,7 +142,7 @@ export const risksRepo = {
   },
 
   async delete(id: string, company_id: string) {
-    await query("UPDATE risks SET status = 'closed', updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
+    await query("UPDATE risks SET status = 'Closed', resolved_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
   },
 
   async addEvent(risk_id: string, company_id: string, event_type: string, description: string, created_by: string) {

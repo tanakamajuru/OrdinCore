@@ -109,6 +109,19 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         );
     }
 
+    // 1b. Person-Level Pattern Emerging: same Related Person + same domain ≥3 in 7 days (higher priority)
+    if (related_person && signals7d.length >= 3) {
+        // Bump cluster priority above a plain system-level emerging pattern
+        if (cluster_status === 'Emerging') cluster_status = 'Escalated';
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Person-Level Pattern Emerging', output_type: 'Risk Review Required', description: `≥3 ${domain} signals for ${related_person} within 7 days` });
+        await query(
+            `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
+             VALUES ($1, $2, $3, $4, 'Person-Level Pattern Emerging', $5, $6)
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
+        );
+    }
+
     // 2. Risk Review Required: ≥5 signals in 10 days OR ≥2 Escalating flags
     const escalating = signals10d.filter(s => s.pattern_concern === 'Escalating');
     if (signals10d.length >= 5 || escalating.length >= 2) {
@@ -175,9 +188,9 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 
     // 5. Control Failure (recurrence): Same domain reappears within 14 days of risk closure for the SAME PERSON
     const recentClosedRisks = await query(
-        `SELECT id, resolved_at FROM risks 
-         WHERE house_id = $1 AND company_id = $2 AND status = 'Closed'
-         AND category_id IN (SELECT id FROM risk_categories WHERE name = $3)
+        `SELECT id, resolved_at FROM risks
+         WHERE house_id = $1 AND company_id = $2 AND LOWER(status) IN ('closed', 'resolved')
+         AND (risk_domain = $3 OR category_id IN (SELECT id FROM risk_categories WHERE name = $3))
          AND resolved_at >= CURRENT_DATE - INTERVAL '14 days'
          AND (linked_person = $4 OR (linked_person IS NULL AND $4 IS NULL))
          LIMIT 1`,
