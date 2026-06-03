@@ -59,8 +59,8 @@ export function RegisteredManagerOversightBoard() {
           apiClient.get(`/ri-governance/rm/queries?house_id=${hid}`)
         ]);
 
-        setHighPrioritySignals(signalsRes.data?.pulses || signalsRes.data?.items || (Array.isArray(signalsRes.data) ? signalsRes.data : []));
-        setClusters(Array.isArray(clustersRes.data) ? clustersRes.data : clustersRes.data?.data || []);
+        setHighPrioritySignals(signalsRes.data?.data || signalsRes.data?.pulses || signalsRes.data?.items || (Array.isArray(signalsRes.data) ? signalsRes.data : []));
+        setClusters(clustersRes.data?.data || (Array.isArray(clustersRes.data) ? clustersRes.data : []));
         
         const candidateData = candidatesRes.data?.data || (Array.isArray(candidatesRes.data) ? candidatesRes.data : []);
         setRiskCandidates(candidateData);

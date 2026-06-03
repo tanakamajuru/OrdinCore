@@ -31,13 +31,25 @@ export class ClustersController {
         house_id: req.query.house_id as string,
       };
       
-      const sql = `SELECT c.*, h.name as house_name 
+      const params: any[] = [company_id];
+      let conditions = 'c.company_id = $1';
+
+      if (filters.house_id) {
+        params.push(filters.house_id);
+        conditions += ` AND c.house_id = $${params.length}`;
+      }
+      if (filters.status) {
+        params.push(filters.status);
+        conditions += ` AND c.cluster_status = $${params.length}`;
+      }
+
+      const sql = `SELECT c.*, h.name as house_name
                   FROM signal_clusters c
                   JOIN houses h ON h.id = c.house_id
-                  WHERE c.company_id = $1
+                  WHERE ${conditions}
                   ORDER BY c.last_signal_date DESC`;
-      
-      const result = await query(sql, [company_id]);
+
+      const result = await query(sql, params);
       return res.json({ success: true, data: result.rows, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch clusters';

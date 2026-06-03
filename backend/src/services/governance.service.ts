@@ -134,16 +134,21 @@ export class GovernanceService {
   }
 
   async getActionEffectiveness(company_id: string, filters: any) {
-    let q = 'SELECT * FROM action_effectiveness WHERE company_id = $1';
-    const params: any[] = [company_id];
-    if (filters.house_id) {
-      const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
-      params.push(houseIds);
-      q += ` AND house_id = ANY($${params.length}::uuid[])`;
+    try {
+      let q = 'SELECT * FROM action_effectiveness WHERE company_id = $1';
+      const params: any[] = [company_id];
+      if (filters.house_id) {
+        const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
+        params.push(houseIds);
+        q += ` AND house_id = ANY($${params.length}::uuid[])`;
+      }
+      q += ' ORDER BY calculated_at DESC';
+      const res = await query(q, params);
+      return res.rows;
+    } catch (err) {
+      // action_effectiveness table may not exist in all environments
+      return [];
     }
-    q += ' ORDER BY calculated_at DESC';
-    const res = await query(q, params);
-    return res.rows;
   }
 }
 

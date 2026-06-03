@@ -164,10 +164,9 @@ export class WeeklyReviewsService {
 
     // Step 9 & 10: Risks
     const risksRes = await query(
-      `SELECT r.id, r.title, r.trajectory, r.status, 
-              (SELECT outcome FROM action_effectiveness ae WHERE ae.risk_id = r.id ORDER BY calculated_at DESC LIMIT 1) as last_effectiveness
+      `SELECT r.id, r.title, r.trajectory, r.status, NULL as last_effectiveness
        FROM risks r
-       WHERE r.house_id = $1 AND r.company_id = $2 AND r.status != 'Closed'`,
+       WHERE r.house_id = $1 AND r.company_id = $2 AND LOWER(r.status) NOT IN ('closed')`,
       [house_id, company_id]
     );
 

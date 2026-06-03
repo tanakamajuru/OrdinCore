@@ -39,7 +39,6 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          AND gp.entry_date >= CURRENT_DATE - INTERVAL '21 days'
          AND $3 = ANY(gp.risk_domain)
          AND (gp.related_person = $4 OR (gp.related_person IS NULL AND $4 IS NULL))
-         AND gp.pattern_concern IN ('Clear', 'Escalating')
          AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
         [company_id, house_id, domain, related_person]
@@ -60,9 +59,11 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     if (clusterRes.rows.length > 0) {
         cluster_id = clusterRes.rows[0].id;
     } else {
-        const clusterLabel = related_person 
-            ? `${domain} Pattern for ${related_person} – ${house_id}`
-            : `${domain} Signal Cluster – ${house_id}`;
+        const houseNameRes = await query(`SELECT name FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
+        const houseName = houseNameRes.rows[0]?.name || house_id;
+        const clusterLabel = related_person
+            ? `${domain} Pattern for ${related_person} – ${houseName}`
+            : `${domain} Signal Cluster – ${houseName}`;
 
         const newClusterRes = await query(
             `INSERT INTO signal_clusters (company_id, house_id, risk_domain, linked_person, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
@@ -91,7 +92,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     const signals48h = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 48 * 60 * 60 * 1000));
 
     // Get RM user ID for notifications
-    const rmRes = await query(`SELECT manager_id as id FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
+    const rmRes = await query(`SELECT COALESCE(primary_rm_id, manager_id) as id FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
     const rm_id = rmRes.rows[0]?.id;
 
     let cluster_status = 'Emerging';
