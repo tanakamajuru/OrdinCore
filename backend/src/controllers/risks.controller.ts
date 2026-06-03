@@ -119,7 +119,13 @@ export class RisksController {
   async addAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const action = await risksService.addAction(req.params.id, company_id, req.user!.user_id, req.body);
+      const { title, description, assigned_to, due_date, action_date } = req.body;
+      const action = await risksService.addAction(req.params.id, company_id, req.user!.user_id, {
+        title,
+        description,
+        assigned_to: assigned_to || undefined,
+        due_date: due_date || action_date || undefined,
+      });
       return res.status(201).json({ success: true, data: action, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add action';

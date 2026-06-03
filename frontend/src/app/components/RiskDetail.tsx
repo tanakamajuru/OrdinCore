@@ -73,8 +73,10 @@ export function RiskDetail() {
     title: "",
     action: "",
     status: "Pending" as "Pending" | "In Progress" | "Complete" | "Ongoing",
-    date: ""
+    date: "",
+    assigned_to: ""
   });
+  const [teamLeaders, setTeamLeaders] = useState<{ id: string; first_name: string; last_name: string; role: string }[]>([]);
   
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
@@ -120,6 +122,19 @@ export function RiskDetail() {
       loadRiskDetails(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    const loadTeamLeaders = async () => {
+      try {
+        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100');
+        const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        setTeamLeaders(list);
+      } catch (err) {
+        console.error('Failed to load team leaders for assignment', err);
+      }
+    };
+    loadTeamLeaders();
+  }, []);
 
   const loadRiskDetails = async (riskId: string) => {
     try {
@@ -187,12 +202,14 @@ export function RiskDetail() {
         title: newAction.title,
         description: newAction.action,
         status: newAction.status,
+        assigned_to: newAction.assigned_to || undefined,
+        due_date: newAction.date || new Date().toISOString().split('T')[0],
         action_date: newAction.date || new Date().toISOString().split('T')[0]
       });
       
       toast.success('Action added successfully');
       setShowAddAction(false);
-      setNewAction({ title: "", action: "", status: "Pending", date: "" });
+      setNewAction({ title: "", action: "", status: "Pending", date: "", assigned_to: "" });
       
       if (id) {
         loadRiskDetails(id);
@@ -600,6 +617,22 @@ export function RiskDetail() {
               </div>
               
               <div>
+                <label className="block mb-2 text-foreground ">Assign To</label>
+                <select
+                  value={newAction.assigned_to}
+                  onChange={(e) => setNewAction({...newAction, assigned_to: e.target.value})}
+                  className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                >
+                  <option value="">Auto-assign to house Team Leader</option>
+                  {teamLeaders.map((tl) => (
+                    <option key={tl.id} value={tl.id}>
+                      {tl.first_name} {tl.last_name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
                 <label className="block mb-2 text-foreground ">Status</label>
                 <select
                   value={newAction.status}
@@ -628,7 +661,7 @@ export function RiskDetail() {
               <button
                 onClick={() => {
                   setShowAddAction(false);
-                  setNewAction({ title: "", action: "", status: "Pending", date: "" });
+                  setNewAction({ title: "", action: "", status: "Pending", date: "", assigned_to: "" });
                 }}
                 className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >

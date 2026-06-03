@@ -78,7 +78,7 @@ export class RisksService {
       const tlRes = await query(
         `SELECT u.id FROM users u
          JOIN user_houses uh ON uh.user_id = u.id
-         WHERE uh.house_id = $1 AND u.role = 'TEAM_LEADER' AND u.company_id = $2
+         WHERE uh.house_id = $1 AND u.role IN ('TEAM_LEADER', 'TL') AND u.company_id = $2
          LIMIT 1`,
         [risk.house_id, company_id]
       );
@@ -86,7 +86,7 @@ export class RisksService {
       if (!assigned_to) {
         // Fallback to any TEAM_LEADER in the company if no TL is assigned to this house
         const fallbackRes = await query(
-          `SELECT id FROM users WHERE role = 'TEAM_LEADER' AND company_id = $1 LIMIT 1`,
+          `SELECT id FROM users WHERE role IN ('TEAM_LEADER', 'TL') AND company_id = $1 LIMIT 1`,
           [company_id]
         );
         assigned_to = fallbackRes.rows[0]?.id || null;
