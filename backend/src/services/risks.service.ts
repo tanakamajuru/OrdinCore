@@ -11,9 +11,29 @@ export class RisksService {
     risk_domain?: string;
     metadata?: any;
     linked_person?: string;
+    critical_exception_reason?: string;
   }) {
-    const risk = await risksRepo.create({ company_id, created_by, ...data });
-    await risksRepo.addEvent(risk.id, company_id, 'created', 'Risk created', created_by);
+    // [GOVERNANCE] Risk provenance: risks are never created out of thin air.
+    // They must originate from a detected cluster (source_cluster_id) OR be a
+    // documented critical exception. (Doctrine: "Risks never auto-created;
+    // formal risks come from source cluster or critical exception.")
+    const exceptionReason = (data.critical_exception_reason || data.metadata?.critical_exception_reason || '').trim();
+    if (!data.source_cluster_id && exceptionReason.length < 10) {
+      throw new Error('Risk provenance required: provide a source_cluster_id, or a critical exception reason (min 10 characters) to justify a manually-created risk.');
+    }
+
+    // Fold the exception reason into metadata so the provenance is auditable.
+    const metadata = exceptionReason
+      ? { ...(data.metadata || {}), critical_exception_reason: exceptionReason }
+      : data.metadata;
+    const { critical_exception_reason, ...rest } = data;
+
+    const risk = await risksRepo.create({ company_id, created_by, ...rest, metadata });
+    await risksRepo.addEvent(
+      risk.id, company_id, 'created',
+      data.source_cluster_id ? 'Risk created from source cluster' : `Risk created (critical exception): ${exceptionReason}`,
+      created_by
+    );
     await eventBus.emitEvent(EVENTS.RISK_CREATED, { risk_id: risk.id, company_id, created_by, severity: risk.severity });
 
     // [ENGINE] Automated Escalation Trigger

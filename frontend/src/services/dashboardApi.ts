@@ -104,90 +104,53 @@ export interface GovernancePulseStatus {
   }>;
 }
 
-// Mock data function for when backend is not available
-function getMockDashboardData(_role: string): DashboardData {
+// Honest empty dataset for when the backend returns nothing or errors.
+// IMPORTANT (governance integrity): never fabricate governance activity here —
+// users must see real zeros, not simulated risks/incidents/trends.
+function getEmptyDashboardData(): DashboardData {
   return {
     overview: {
-      totalRisks: 15,
-      activeRisks: 8,
-      highPriorityRisks: 3,
-      totalIncidents: 12,
-      seriousIncidents: 2,
-      totalEscalations: 5,
-      pendingEscalations: 2,
-      complianceRate: 85
+      totalRisks: 0,
+      activeRisks: 0,
+      highPriorityRisks: 0,
+      totalIncidents: 0,
+      seriousIncidents: 0,
+      totalEscalations: 0,
+      pendingEscalations: 0,
+      complianceRate: 0
     },
-    recentActivities: [
-      {
-        id: '1',
-        type: 'risk',
-        description: 'Medication administration errors - Potential adverse health outcomes for residents',
-        timestamp: new Date().toISOString(),
-        severity: 'high',
-        house: 'Oakwood'
-      },
-      {
-        id: '2',
-        type: 'incident',
-        description: 'Resident fall incident - Fall prevention measures needed',
-        timestamp: new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString(),
-        severity: 'medium',
-        house: 'Riverside'
-      },
-      {
-        id: '3',
-        type: 'escalation',
-        description: 'Staffing shortage - Emergency staffing activated',
-        timestamp: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString(),
-        severity: 'high',
-        house: 'Maple Grove'
-      }
-    ],
-    riskTrends: [
-      { date: '2024-01-01', count: 8, severity: 'high' },
-      { date: '2024-01-08', count: 10, severity: 'high' },
-      { date: '2024-01-15', count: 9, severity: 'high' },
-      { date: '2024-01-22', count: 11, severity: 'high' },
-      { date: '2024-01-29', count: 13, severity: 'high' },
-      { date: '2024-02-05', count: 12, severity: 'high' }
-    ],
-    incidentTrends: [
-      { date: '2024-01-01', count: 2, severity: 'medium' },
-      { date: '2024-01-08', count: 3, severity: 'medium' },
-      { date: '2024-01-15', count: 1, severity: 'low' },
-      { date: '2024-01-22', count: 4, severity: 'high' },
-      { date: '2024-01-29', count: 2, severity: 'medium' },
-      { date: '2024-02-05', count: 3, severity: 'medium' }
-    ],
+    recentActivities: [],
+    riskTrends: [],
+    incidentTrends: [],
     escalationMetrics: {
-      total: 5,
-      resolved: 3,
-      pending: 2,
+      total: 0,
+      resolved: 0,
+      pending: 0,
       overdue: 0,
-      averageResponseTime: 2.5
+      averageResponseTime: 0
     },
     pulseStatus: {
-      totalSites: 5,
-      completedPulses: 4,
-      missedPulses: 1,
+      totalSites: 0,
+      completedPulses: 0,
+      missedPulses: 0,
       overduePulses: 0,
-      overallCompliance: 80
+      overallCompliance: 0
     }
   };
 }
 
 export const dashboardApi = {
   // Get dashboard data for specific role
-  async getDashboardData(role: string): Promise<DashboardData> {
+  async getDashboardData(_role: string): Promise<DashboardData> {
     try {
       const response = await apiClient.get<ApiResponse<any>>('/analytics/dashboard');
       const data = response.data.data;
       
-      if (!data) return getMockDashboardData(role);
+      if (!data) return getEmptyDashboardData();
 
       // Map backend summary to DashboardData interface
       return {
-        ...getMockDashboardData(role),
+        ...getEmptyDashboardData(),
         overview: {
           totalRisks: Number(data.risks?.total || 0),
           activeRisks: Number(data.risks?.open || 0),
@@ -200,8 +163,8 @@ export const dashboardApi = {
         }
       };
     } catch (error) {
-      console.warn('Dashboard API failed, using mock data:', error);
-      return getMockDashboardData(role);
+      console.error('Dashboard API failed; returning empty dataset (no fabricated data):', error);
+      return getEmptyDashboardData();
     }
   },
 
@@ -216,23 +179,23 @@ export const dashboardApi = {
     try {
       const response = await apiClient.get<ApiResponse<GovernancePulseStatus>>('/governance-pulse/status');
       return response.data.data || {
-        totalSites: 5,
-        completedPulses: 4,
-        missedPulses: 1,
+        totalSites: 0,
+        completedPulses: 0,
+        missedPulses: 0,
         overduePulses: 0,
         pendingPulses: 0,
-        overallCompliance: 80,
+        overallCompliance: 0,
         siteStatuses: []
       };
     } catch (error) {
-      console.warn('Backend not available, using mock pulse status:', error);
+      console.error('Pulse status API failed; returning empty status (no fabricated data):', error);
       return {
-        totalSites: 5,
-        completedPulses: 4,
-        missedPulses: 1,
+        totalSites: 0,
+        completedPulses: 0,
+        missedPulses: 0,
         overduePulses: 0,
         pendingPulses: 0,
-        overallCompliance: 80,
+        overallCompliance: 0,
         siteStatuses: []
       };
     }

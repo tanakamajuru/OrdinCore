@@ -140,7 +140,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     const highs = signals48h.filter(s => s.severity === 'High');
     if (criticals.length >= 1 || highs.length >= 2) {
         cluster_status = 'Escalated';
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 3, rule_name: 'Immediate Risk', output_type: 'Immediate Alert', description: 'Critical/High severity threshold met in 48h' });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 3, rule_name: 'Immediate Risk', output_type: 'Mandatory Review', description: 'Critical/High severity threshold met in 48h' });
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Immediate Risk', $5, $6) 
@@ -176,7 +176,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     if (domain === 'Behaviour') {
         const aggression = signals7d.filter(s => s.description.toLowerCase().includes('aggression') || s.description.toLowerCase().includes('agitation'));
         if (aggression.length >= 1 && (aggression[0].severity === 'High' || aggression[0].severity === 'Critical')) {
-            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6.1, rule_name: 'Behaviour: Physical Aggression', output_type: 'Immediate Risk', description: 'Physical aggression signal detected' });
+            await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6.1, rule_name: 'Behaviour: Physical Aggression', output_type: 'Mandatory Review', description: 'Physical aggression signal detected' });
         }
     } else if (domain === 'Medication') {
         const errors = signals7d.filter(s => s.signal_type === 'Medication');
@@ -200,8 +200,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     if (recentClosedRisks.rows.length > 0) {
         await thresholdEventsRepo.create({ 
             company_id, house_id, pulse_id, cluster_id, 
-            rule_number: 5, rule_name: 'Control Failure (Recurrence)', 
-            output_type: 'Immediate Risk', 
+            rule_number: 5, rule_name: 'Control Failure (Recurrence)',
+            output_type: 'Control Failure',
             description: `Domain ${domain} reappeared within 14 days of risk closure (${recentClosedRisks.rows[0].id})${related_person ? ' for ' + related_person : ''}` 
         });
         await query(

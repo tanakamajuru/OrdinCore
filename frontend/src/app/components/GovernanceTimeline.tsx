@@ -120,26 +120,11 @@ export function GovernanceTimeline() {
         setEvents(eventsWithIntervals);
         eventsLoadedRef.current = true;
       } catch (err) {
+        // Governance integrity: never fabricate a timeline. Show empty + error.
         console.error('Governance timeline endpoint failed:', err);
-        // Create mock timeline based on incident
-        if (incidentData) {
-          const mockEvents: TimelineEvent[] = [
-            {
-              id: '1',
-              timestamp: new Date(incidentData.occurred_at).toISOString(),
-              sourceType: 'incident',
-              sourceId: incidentData.id,
-              label: 'Serious Incident Occurred',
-              detail: incidentData.title,
-              actor: incidentData.created_by_name || 'Unknown',
-              actorRole: 'Reporter',
-              gapFlag: true
-            }
-          ];
-          console.log('Setting mock events due to API failure:', mockEvents);
-          setEvents(mockEvents);
-          eventsLoadedRef.current = true;
-        }
+        toast.error('Could not load the governance timeline.');
+        setEvents([]);
+        eventsLoadedRef.current = true;
       }
       
     } catch (error) {

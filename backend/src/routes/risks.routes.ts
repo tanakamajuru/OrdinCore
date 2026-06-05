@@ -67,7 +67,7 @@ router.get('/assigned-to-me', requireAuth, requireTenant, risksController.getAss
  *       200:
  *         description: Success
  */
-router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.create.bind(risksController));
+router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER'), risksController.create.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/promote:
@@ -136,7 +136,7 @@ router.get('/:id', requireAuth, requireTenant, requireScope, risksController.fin
  *       200:
  *         description: Success
  */
-router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.update.bind(risksController));
+router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER'), risksController.update.bind(risksController));
 
 
 /**
@@ -219,7 +219,7 @@ router.post('/:id/assign', requireAuth, requireTenant, requireRole('SUPER_ADMIN'
  *       200:
  *         description: Success
  */
-router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.updateStatus.bind(risksController));
+router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), risksController.updateStatus.bind(risksController));
 
 /**
  * @openapi
