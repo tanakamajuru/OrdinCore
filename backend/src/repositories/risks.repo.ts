@@ -69,7 +69,11 @@ export const risksRepo = {
 
     const where = conditions.join(' AND ');
     const result = await query(
-      `SELECT r.*, rc.name AS category_name, h.name AS house_name,
+      `SELECT r.*, rc.name AS category_name, h.name AS house_name, h.name AS service_name,
+        COALESCE(r.strategic_theme, r.title) AS strategic_theme_display,
+        EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open_computed,
+        (SELECT COUNT(*) FROM risk_actions ra2 WHERE ra2.risk_id = r.id
+           AND ra2.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions_count,
         u.first_name || ' ' || u.last_name AS assigned_to_name,
         i.title AS incident_title, i.description AS incident_description, i.severity AS incident_severity,
         string_agg(DISTINCT gp.description, '; ') FILTER (WHERE gp.description IS NOT NULL) AS pulse_descriptions,
@@ -124,9 +128,10 @@ export const risksRepo = {
 
   async update(id: string, company_id: string, data: Partial<CreateRiskDto> & { status?: string; resolved_at?: Date }) {
     const allowed = [
-      'title', 'description', 'severity', 'status', 'likelihood', 'impact', 
+      'title', 'description', 'severity', 'status', 'likelihood', 'impact',
       'assigned_to', 'category_id', 'review_due_date', 'resolved_at',
-      'trajectory', 'control_effectiveness', 'next_review_date', 'closure_reason', 'linked_person'
+      'trajectory', 'control_effectiveness', 'next_review_date', 'closure_reason', 'linked_person',
+      'trend', 'strategic_theme', 'services_affected_count', 'clients_affected_count', 'closure_eligible'
     ];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {

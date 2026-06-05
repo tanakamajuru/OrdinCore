@@ -1,7 +1,52 @@
 import { Request, Response } from 'express';
 import { reportsService } from '../services/reports.service';
+import { reportsDataService } from '../services/reportsData.service';
+import { reconstructionService, ReconstructionScope } from '../services/reconstruction.service';
 
 export class ReportsController {
+  // ─── Canonical report data (spec module 10: only four reports) ──────────────
+  async weeklyGovernance(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.weeklyGovernance(company_id, req.query.service_id as string, req.query.start as string, req.query.end as string);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build weekly governance report', errors: [] });
+    }
+  }
+
+  async strategicRisks(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.strategicRisks(company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build strategic risk report', errors: [] });
+    }
+  }
+
+  async escalationsReport(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.escalations(company_id, req.query.start as string, req.query.end as string);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build escalation report', errors: [] });
+    }
+  }
+
+  async reconstructionReport(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const scope = (req.query.scope as ReconstructionScope) || 'service';
+      const id = req.query.id as string;
+      if (!id) return res.status(400).json({ success: false, message: 'id query param is required', errors: [] });
+      const data = await reconstructionService.reconstruct(company_id, scope, id, req.query.start as string, req.query.end as string);
+      return res.json({ success: true, data: { report: 'Reconstruction Report', ...data }, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build reconstruction report', errors: [] });
+    }
+  }
   async request(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

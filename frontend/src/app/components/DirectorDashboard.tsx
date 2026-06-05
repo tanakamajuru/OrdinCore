@@ -1,387 +1,286 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { AlertTriangle, Ambulance } from "lucide-react";
-import { dashboardApi } from "@/services/dashboardApi";
+import {
+  Shield, Flag, Clock, ClipboardCheck, TrendingUp, Users,
+  ArrowUpRight, ArrowDownRight, Minus, Download,
+} from "lucide-react";
 import { toast } from "sonner";
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { apiClient } from "@/services/api";
-import { ActionEffectivenessPanels } from "./ActionEffectivenessPanels";
-import { ControlFailurePanel } from "./ControlFailurePanel";
-import { directorApi } from "@/services/directorApi";
-import { Shield, Clock, AlertCircle } from "lucide-react";
 
+const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
+const asArray = (v: any): any[] => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
+
+const isRising = (t: string) => ["Rising", "Deteriorating", "Critical"].includes(t);
+
+function StatCard({ icon: Icon, label, value, tone, footer }: any) {
+  return (
+    <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <p className="text-2xl font-semibold mt-1 text-foreground">{value}</p>
+        </div>
+        <div className={`p-2 rounded-lg ${tone}`}><Icon className="w-5 h-5" /></div>
+      </div>
+      {footer && <div className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px]">{footer}</div>}
+    </div>
+  );
+}
+
+function Donut({ data, centerLabel }: { data: { name: string; value: number; color: string }[]; centerLabel?: string }) {
+  const total = data.reduce((s, d) => s + d.value, 0);
+  return (
+    <div className="flex items-center gap-4">
+      <div className="relative w-32 h-32">
+        <ResponsiveContainer width="100%" height="100%">
+          <PieChart>
+            <Pie data={total ? data : [{ name: "None", value: 1, color: "#e5e7eb" }]} dataKey="value" innerRadius={42} outerRadius={60} paddingAngle={2}>
+              {(total ? data : [{ color: "#e5e7eb" }]).map((d: any, i) => <Cell key={i} fill={d.color} />)}
+            </Pie>
+          </PieChart>
+        </ResponsiveContainer>
+        <div className="absolute inset-0 flex flex-col items-center justify-center">
+          <span className="text-xl font-semibold">{centerLabel ?? total}</span>
+        </div>
+      </div>
+      <div className="space-y-1.5 text-xs">
+        {data.map((d) => (
+          <div key={d.name} className="flex items-center gap-2">
+            <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />
+            <span className="text-muted-foreground flex-1">{d.name}</span>
+            <span className="font-medium">{d.value}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function HeatCell({ trend }: { trend?: string }) {
+  if (!trend) return <td className="p-2 text-center"><span className="inline-block w-6 h-6 rounded bg-muted" /></td>;
+  const cfg = isRising(trend)
+    ? { bg: "bg-red-100", icon: <ArrowUpRight className="w-4 h-4 text-red-600" /> }
+    : trend === "Improving"
+      ? { bg: "bg-emerald-100", icon: <ArrowDownRight className="w-4 h-4 text-emerald-600" /> }
+      : { bg: "bg-amber-100", icon: <Minus className="w-4 h-4 text-amber-600" /> };
+  return <td className="p-2 text-center"><span className={`inline-flex items-center justify-center w-7 h-7 rounded ${cfg.bg}`}>{cfg.icon}</span></td>;
+}
 
 export function DirectorDashboard() {
   const navigate = useNavigate();
-  const [dashboardData, setDashboardData] = useState<any>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [patternDetections, setPatternDetections] = useState<any[]>([]);
-  const [sitePerformance, setSitePerformance] = useState<any[]>([]);
-  const [unacknowledgedIncidents, setUnacknowledgedIncidents] = useState<any[]>([]);
-  const [perfPage, setPerfPage] = useState(1);
+  const [loading, setLoading] = useState(true);
+  const [risks, setRisks] = useState<any[]>([]);
+  const [escalations, setEscalations] = useState<any[]>([]);
+  const [escStats, setEscStats] = useState<any>({});
+  const [actions, setActions] = useState<any[]>([]);
+  const [effPending, setEffPending] = useState<any[]>([]);
+  const [services, setServices] = useState<any[]>([]);
 
+  useEffect(() => { load(); }, []);
 
-  useEffect(() => {
-    loadDashboardData();
-    loadPatternDetections();
-    loadPerformance();
-    loadUnacknowledgedIncidents();
-  }, []);
-
-
-  const loadDashboardData = async () => {
+  const load = async () => {
     try {
-      const data = await dashboardApi.getDashboardData('director');
-      setDashboardData(data);
-    } catch (error) {
-      console.error('Failed to load dashboard data:', error);
-      toast.error('Failed to load dashboard data');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const loadPatternDetections = async () => {
-    try {
-      const patterns = await dashboardApi.getPatternDetections();
-      let thresholdEvents = [];
-      try {
-        const tRes = await apiClient.get('/threshold-events?output_type=Control Failure');
-        thresholdEvents = (tRes as any).data || [];
-      } catch (err) {
-        // Fallback or ignore if endpoint doesn't exist
-      }
-      
-      const formattedEvents = thresholdEvents.map((t: any) => ({
-        type: t.rule_name || "Control Failure",
-        detail: t.description || "Repeated control failure detected",
-        priority: "High"
-      }));
-
-      const formattedPatterns = patterns.map((pattern: any) => ({
-        type: pattern.patternType || "Pattern Detection",
-        detail: pattern.patternDescription || "Pattern detected",
-        priority: pattern.severity === 'critical' ? 'High' : pattern.severity === 'high' ? 'High' : 'Medium'
-      }));
-
-      setPatternDetections([...formattedEvents, ...formattedPatterns]);
-    } catch (error) {
-           console.error('Failed to load pattern detections:', error);
-    }
-  };
-
-  const loadPerformance = async () => {
-    try {
-      const perf = await dashboardApi.getSitePerformance();
-      setSitePerformance(perf);
-    } catch (error) {
-      console.error('Failed to load site performance:', error);
-    }
-  };
-
-  const loadUnacknowledgedIncidents = async () => {
-    try {
-      const data = await directorApi.getUnacknowledgedIncidents();
-      setUnacknowledgedIncidents(data);
+      setLoading(true);
+      const [rk, esc, st, act, eff, hs] = await Promise.all([
+        apiClient.get(`/risks?limit=200`).catch(() => ({})),
+        apiClient.getEscalations(1, 200).catch(() => ({})),
+        apiClient.getEscalationStats().catch(() => ({})),
+        apiClient.getRisksActions().catch(() => ({})),
+        apiClient.getPendingEffectiveness().catch(() => ({})),
+        apiClient.get(`/houses?limit=100`).catch(() => ({})),
+      ]);
+      setRisks(asArray(unwrap(rk)));
+      setEscalations(asArray(unwrap(esc)));
+      setEscStats(unwrap(st) || {});
+      setActions(asArray(unwrap(act)));
+      setEffPending(asArray(unwrap(eff)));
+      setServices(asArray(unwrap(hs)));
     } catch (err) {
-      console.error('Failed to load unacknowledged incidents:', err);
+      console.error(err);
+      toast.error("Failed to load director dashboard");
+    } finally {
+      setLoading(false);
     }
   };
 
-
-  if (isLoading) {
-    return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
-          <p className="mt-4 text-muted-foreground">Loading strategic dashboard...</p>
-        </div>
-      </div>
-    );
-  }
-
-  const organizationalSnapshot = dashboardData ? [
-    { label: "Total Sites", value: dashboardData.overview.totalSites || sitePerformance.length || "5" },
-    { label: "Active High Risks", value: dashboardData.overview.highPriorityRisks || "0" },
-    { label: "Monthly Incidents", value: dashboardData.overview.seriousIncidents || "0" },
-    { label: "Compliance Rate", value: `${(dashboardData.overview.complianceRate || 0).toFixed(1)}%` },
-  ] : [];
-
-  const seriousIncidentAlerts = dashboardData?.recentActivities
-    ?.filter((activity: any) => activity.type === 'incident' && activity.severity === 'serious')
-    .map((incident: any) => ({
-      id: incident.id,
-      house: incident.house,
-      incidentDate: new Date(incident.timestamp).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' }),
-      riskSignalsLogged: 3,
-      escalationsTriggered: 2,
-      leadershipReviews: 2,
-      lastOversightReviewDays: 6,
-      status: "under-review"
-    })) || [];
-
-  const riskCategories = dashboardData?.riskTrends ? 
-    Object.entries(dashboardData.riskTrends.reduce((acc: any, trend: any) => {
-      const category = trend.category || 'Other';
-      if (!acc[category]) {
-        acc[category] = { count: 0, trend: 'stable' };
-      }
-      acc[category].count += trend.count;
-      return acc;
-    }, {})).map(([category, data]: [string, any]) => ({
-      category,
-      count: data.count,
-      trend: data.trend as string
-    })) : [];
-
-  const strategicInsights = patternDetections;
-
-  const perfItemsPerPage = 5;
-  const totalPerfPages = Math.ceil(sitePerformance.length / perfItemsPerPage);
-  const paginatedSitePerformance = sitePerformance.slice(
-    (perfPage - 1) * perfItemsPerPage,
-    perfPage * perfItemsPerPage
+  if (loading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" /><span>Loading dashboard…</span>
+    </div>
   );
+
+  const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
+  const trendOf = (r: any) => r.trend || r.trajectory || "Stable";
+  const rising = openRisks.filter(r => isRising(trendOf(r))).length;
+  const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
+  const stable = openRisks.length - rising - improving;
+
+  const openEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
+  const overdueEsc = escalations.filter(e => e.overdue).length;
+
+  const rated = actions.filter(a => a.effectiveness_outcome || a.effectiveness);
+  const effCount = (names: string[]) => rated.filter(a => names.includes(a.effectiveness_outcome) || names.includes(a.effectiveness)).length;
+  const effEffective = effCount(["Effective"]);
+  const effPartial = effCount(["Partially Effective", "Neutral"]);
+  const effNot = effCount(["Not Effective", "Ineffective"]);
+  const effPct = rated.length ? Math.round((effEffective / rated.length) * 100) : 0;
+
+  const actionsDue = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
+
+  const themeCount: Record<string, number> = {};
+  openRisks.forEach(r => { const t = r.strategic_theme || r.risk_domain || r.title; if (t) themeCount[t] = (themeCount[t] || 0) + 1; });
+  const topThemes = Object.entries(themeCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
+  const worstTrend = (svcId: string, theme: string) => {
+    const rs = openRisks.filter(r => r.house_id === svcId && (r.strategic_theme || r.risk_domain || r.title) === theme);
+    if (rs.length === 0) return undefined;
+    if (rs.some(r => isRising(trendOf(r)))) return "Rising";
+    if (rs.some(r => trendOf(r) === "Stable")) return "Stable";
+    return "Improving";
+  };
+  const servicesWithRisk = services.slice(0, 7);
+  const servicesNeedingAttention = servicesWithRisk.filter(s => openRisks.some(r => r.house_id === s.id && isRising(trendOf(r)))).length;
 
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20">
-        <div className="mb-6">
-          <h1 className="text-3xl  text-primary">Strategic Dashboard</h1>
-          <p className="text-muted-foreground mt-1">High-level strategic visibility across the organisation</p>
+      <div className="p-6 pt-24 max-w-[1500px] mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Director Dashboard</h1>
+            <p className="text-sm text-muted-foreground">Strategic oversight across all services</p>
+          </div>
+          <button onClick={() => navigate("/reports")} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90">
+            <Download className="w-4 h-4" /> Download Reports
+          </button>
         </div>
 
-        {/* P1: Statutory Escalation View - Unacknowledged Serious Incidents */}
-        {unacknowledgedIncidents.length > 0 && (
-          <div className="mb-6 bg-destructive/10 border-4 border-destructive p-6 ">
-            <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <Shield className="w-8 h-8 text-destructive" />
-                <h2 className="text-2xl  uppercase  tracking-tighter text-destructive">Statutory Escalation: Unacknowledged Incidents</h2>
-              </div>
-              <span className="bg-destructive text-primary-foreground px-3 py-1  uppercase text-sm animate-pulse">Critical Governance Breach</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {unacknowledgedIncidents.map((incident: any) => (
-                <div key={incident.id} className="bg-card border-2 border-destructive p-4 group hover:shadow-md transition-all">
-                  <div className="flex justify-between items-start mb-2">
-                    <span className="text-[10px]  uppercase bg-destructive text-primary-foreground px-2 py-0.5">{incident.severity}</span>
-                    <span className="flex items-center gap-1 text-[10px]  text-destructive">
-                      <Clock className="w-3 h-3" />
-                      {Math.round(incident.age_hours)}H UNACKNOWLEDGED
-                    </span>
-                  </div>
-                  <h3 className=" text-primary uppercase  tracking-tighter mb-1">{incident.title}</h3>
-                  <p className="text-xs  text-muted-foreground mb-3">{incident.house_name}</p>
-                  <Button 
-                    className="w-full bg-destructive text-primary-foreground hover:bg-destructive/90  uppercase text-xs rounded-none"
-                    onClick={() => navigate(`/incidents/${incident.id}`)}
-                  >
-                    Direct Intervention
-                  </Button>
-                </div>
-              ))}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+          <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}
+            footer={<><span className="text-red-600">↑ {rising}</span><span className="text-amber-600">→ {stable}</span><span className="text-emerald-600">↓ {improving}</span></>} />
+          <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={openEsc.length}
+            footer={<><span className="text-red-600">● {overdueEsc} Overdue</span><span className="text-emerald-600">● {openEsc.length - overdueEsc} On time</span></>} />
+          <StatCard icon={Clock} tone="bg-amber-100 text-amber-600" label="Overdue Reviews" value={overdueEsc}
+            footer={<span className="text-muted-foreground">need attention</span>} />
+          <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Actions Due" value={actionsDue.length}
+            footer={<span className="text-muted-foreground">across services</span>} />
+          <StatCard icon={TrendingUp} tone="bg-emerald-100 text-emerald-600" label="Action Effectiveness" value={`${effPct}%`}
+            footer={<><span className="text-amber-600">{rated.length ? Math.round(effPartial / rated.length * 100) : 0}% Partial</span><span className="text-red-600">{rated.length ? Math.round(effNot / rated.length * 100) : 0}% Not</span></>} />
+          <StatCard icon={Users} tone="bg-rose-100 text-rose-600" label="Services Requiring Attention" value={servicesNeedingAttention}
+            footer={<span className="text-muted-foreground">rising risk</span>} />
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr><th className="text-left p-2 text-muted-foreground">Service</th>{topThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {servicesWithRisk.map(s => (
+                    <tr key={s.id}><td className="p-2 font-medium whitespace-nowrap">{s.name}</td>{topThemes.map(t => <HeatCell key={t} trend={worstTrend(s.id, t)} />)}</tr>
+                  ))}
+                  {servicesWithRisk.length === 0 && <tr><td colSpan={topThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
+                </tbody>
+              </table>
             </div>
           </div>
-        )}
 
-        {/* P0: Action Effectiveness Summary */}
-        <ActionEffectivenessPanels />
-
-        {/* P0: Control Failure Detection */}
-        <ControlFailurePanel />
-
-
-        {/* Governance Oversight: Services Without RM Review - NEW */}
-        <div className="mb-6 bg-warning/5 border-2 border-warning/20 p-6 shadow-sm">
-          <div className="flex items-center gap-3 mb-4">
-            <Shield className="w-6 h-6 text-warning" />
-            <h2 className="text-xl  uppercase  tracking-tighter text-primary">Governance Oversight: RM Reviews</h2>
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Risks by Trend</h3>
+            <Donut data={[
+              { name: "Rising", value: rising, color: "#ef4444" },
+              { name: "Stable", value: Math.max(stable, 0), color: "#f59e0b" },
+              { name: "Improving", value: improving, color: "#10b981" },
+            ]} />
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {sitePerformance.filter(s => (s.compliance_score || 0) < 100).map((site: any) => (
-              <div key={site.house_id} className="bg-card border-2 border-border p-4 flex justify-between items-center group hover:border-warning/50 transition-all">
-                <div>
-                  <p className=" text-foreground uppercase  tracking-tighter">{site.house_name}</p>
-                  <p className="text-xs  text-muted-foreground uppercase">Last Review: {site.last_review_date ? new Date(site.last_review_date).toLocaleDateString() : 'NEVER'}</p>
-                </div>
-                <div className="text-right">
-                   <span className={`text-[10px]  uppercase px-2 py-1 ${
-                     !site.last_review_date || new Date(site.last_review_date) < new Date(Date.now() - 48*60*60*1000) 
-                       ? 'bg-destructive text-destructive-foreground' 
-                       : 'bg-warning text-warning-foreground'
-                   }`}>
-                     {!site.last_review_date || new Date(site.last_review_date) < new Date(Date.now() - 48*60*60*1000) ? '48H+ OVERDUE' : 'DUE'}
-                   </span>
-                </div>
-              </div>
-            ))}
-            {sitePerformance.filter(s => (s.compliance_score || 0) < 100).length === 0 && (
-              <div className="col-span-3 text-center py-6 text-muted-foreground border border-dashed border-border   uppercase tracking-widest text-sm opacity-50">
-                All services have completed daily oversight reviews.
-              </div>
-            )}
+
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Action Effectiveness <span className="text-xs text-muted-foreground font-normal">(All Services)</span></h3>
+            <Donut centerLabel={`${effPct}%`} data={[
+              { name: "Effective", value: effEffective, color: "#10b981" },
+              { name: "Partially Effective", value: effPartial, color: "#f59e0b" },
+              { name: "Not Effective", value: effNot, color: "#ef4444" },
+            ]} />
           </div>
         </div>
 
-        {/* Serious Incident Alert */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Escalations by Status</h3>
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart layout="vertical" data={[
+                { name: "Open", value: Number(escStats.new_open || 0) },
+                { name: "Under Review", value: Number(escStats.under_review || 0) },
+                { name: "Actions Impl.", value: Number(escStats.actions_implemented || 0) },
+                { name: "Monitoring", value: Number(escStats.monitoring_effectiveness || 0) },
+                { name: "Closed", value: Number(escStats.closed || 0) },
+              ]} margin={{ left: 20 }}>
+                <XAxis type="number" hide /><YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11 }} />
+                <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#6366f1" />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Left Column */}
-          <div className="space-y-6">
-            {/* Organizational Snapshot */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Organizational Overview</h2>
-              <div className="space-y-3">
-                {organizationalSnapshot.map((item: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center">
-                    <span className="text-foreground">{item.label}</span>
-                    <span className=" text-foreground">{item.value}</span>
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Top Risk Themes <span className="text-xs text-muted-foreground font-normal">(by services affected)</span></h3>
+            <div className="space-y-2">
+              {topThemes.map(t => {
+                const svcs = new Set(openRisks.filter(r => (r.strategic_theme || r.risk_domain || r.title) === t).map(r => r.house_id)).size;
+                const trend = openRisks.some(r => (r.strategic_theme || r.risk_domain || r.title) === t && isRising(trendOf(r))) ? "Rising" : "Stable";
+                return (
+                  <div key={t} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
+                    <div><div className="font-medium">{t}</div><div className="text-xs text-muted-foreground">{svcs} service{svcs !== 1 ? "s" : ""}</div></div>
+                    <span className={`text-xs rounded px-2 py-0.5 ${trend === "Rising" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{trend}</span>
                   </div>
+                );
+              })}
+              {topThemes.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No themes</p>}
+            </div>
+          </div>
+
+          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-4">Services Overview</h3>
+            <div className="space-y-2">
+              {servicesWithRisk.map(s => {
+                const sr = openRisks.filter(r => r.house_id === s.id);
+                const risingN = sr.filter(r => isRising(trendOf(r))).length;
+                const level = risingN >= 2 ? "High" : risingN === 1 ? "Medium" : "Low";
+                return (
+                  <div key={s.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
+                    <span className="font-medium">{s.name}</span>
+                    <span className={`text-xs rounded px-2 py-0.5 ${level === "High" ? "bg-red-100 text-red-700" : level === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{level}</span>
+                  </div>
+                );
+              })}
+              {servicesWithRisk.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No services</p>}
+            </div>
+          </div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-semibold mb-4">Recent Escalations</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
+                <th className="py-2 pr-2">Escalation</th><th className="px-2">Service</th><th className="px-2">Escalated On</th><th className="px-2">Due By</th><th className="px-2">Status</th>
+              </tr></thead>
+              <tbody>
+                {escalations.slice(0, 8).map(e => (
+                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalations")}>
+                    <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
+                    <td className="px-2">{e.service_name || e.house_name || "—"}</td>
+                    <td className="px-2 whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</td>
+                    <td className="px-2 whitespace-nowrap">{e.due_by ? new Date(e.due_by).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
+                    <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted text-foreground"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
+                  </tr>
                 ))}
-              </div>
-            </div>
-
-            {/* Risk Categories */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Risk Categories</h2>
-              <div className="space-y-3">
-                {riskCategories.length > 0 ? riskCategories.map((category: any, idx: number) => (
-                  <div key={idx} className="flex justify-between items-center">
-                    <div>
-                      <p className=" text-foreground">{category.category}</p>
-                      <p className="text-sm text-muted-foreground">{category.count} active risks</p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className={`w-2 h-2 rounded-full ${
-                        category.trend === "up" ? "bg-destructive" :
-                        category.trend === "down" ? "bg-success" :
-                        "bg-warning"
-                      }`}></span>
-                      <span className="text-sm text-muted-foreground capitalize ">{category.trend}</span>
-                    </div>
-                  </div>
-                )) : (
-                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No risk data available</p>
-                )}
-              </div>
-            </div>
-
-            {/* Strategic Insights */}
-            {/* <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Strategic Insights</h2>
-              <div className="space-y-3">
-                {strategicInsights.length > 0 ? (
-                  strategicInsights.map((insight: any, idx: number) => (
-                    <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <p className=" text-foreground">{insight.type}</p>
-                          <p className="text-sm text-muted-foreground">{insight.detail}</p>
-                        </div>
-                        <span className={`text-sm px-2 py-1 shadow-sm ${
-                          insight.priority === "High" ? "bg-destructive text-destructive-foreground" :
-                          "bg-muted text-muted-foreground"
-                        }`}>
-                          {insight.priority}
-                        </span>
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No strategic insights available</p>
-                )}
-              </div>
-            </div> */}
-          </div>
-
-          {/* Right Column */}
-          <div className="space-y-6">
-            {/* Site Performance */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Site Performance</h2>
-              <div className="space-y-3 min-h-[360px] flex flex-col justify-between">
-                <div className="space-y-3">
-                  {paginatedSitePerformance.length > 0 ? paginatedSitePerformance.map((site: any, idx: number) => (
-                    <div key={idx} className="border-b border-border pb-3 last:border-b-0">
-                      <div className="flex justify-between items-center">
-                        <div>
-                          <p className=" text-foreground">{site.house_name || 'Service Site'}</p>
-                          <p className="text-sm text-muted-foreground font-mono">
-                            Risks: <span className="text-foreground ">{site.risks_count}</span> | Incidents: <span className="text-foreground ">{site.incidents_count}</span>
-                          </p>
-                        </div>
-                        <div className="text-right">
-                          <span className={`text-lg  ${
-                            site.compliance_score > 90 ? "text-success" :
-                            site.compliance_score > 70 ? "text-warning" :
-                            "text-destructive"
-                          }`}>
-                            {Math.round(site.compliance_score || 0)}%
-                          </span>
-                          <p className="text-sm text-muted-foreground">Compliance</p>
-                        </div>
-                      </div>
-                    </div>
-                  )) : (
-                    <p className="text-muted-foreground text-center py-4 border border-dashed border-border rounded">No site performance data available</p>
-                  )}
-                </div>
-
-                {totalPerfPages > 1 && (
-                  <div className="flex justify-between items-center mt-4 pt-3 border-t border-border">
-                    <button 
-                      disabled={perfPage === 1}
-                      onClick={() => setPerfPage(prev => prev - 1)}
-                      className="px-3 py-1.5 text-xs border-2 border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer font-medium"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs text-muted-foreground uppercase tracking-widest">Page {perfPage} of {totalPerfPages}</span>
-                    <button 
-                      disabled={perfPage === totalPerfPages}
-                      onClick={() => setPerfPage(prev => prev + 1)}
-                      className="px-3 py-1.5 text-xs border-2 border-border bg-card text-foreground hover:bg-muted disabled:opacity-40 transition-colors cursor-pointer font-medium"
-                    >
-                      Next
-                    </button>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {/* Quick Actions */}
-            <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Strategic Actions</h2>
-              <div className="space-y-3">
-                <button
-                  onClick={() => navigate("/incidents")}
-                  className="w-full py-3 px-4 bg-destructive text-destructive-foreground hover:bg-destructive/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  <Ambulance className="w-5 h-5" />
-                  Manage Serious Incidents
-                </button>
-                <button
-                  onClick={() => navigate("/reports")}
-                  className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  Generate Monthly Report
-                </button>
-                <button
-                  onClick={() => navigate("/trends")}
-                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  View Risk Trends
-                </button>
-                {/* <button
-                  onClick={() => navigate("/engines")}
-                  className="w-full py-3 px-4 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors flex items-center justify-center gap-2 shadow-sm"
-                >
-                  Manage Computational Engines
-                </button> */}
-              </div>
-            </div>
+                {escalations.length === 0 && <tr><td colSpan={5} className="py-8 text-center text-muted-foreground text-xs">No escalations</td></tr>}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>

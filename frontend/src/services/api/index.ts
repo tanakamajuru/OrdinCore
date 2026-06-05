@@ -480,6 +480,85 @@ class ApiClient {
   async getAdminRiskStats(): Promise<ApiResponse<{ total: number; active: number }>> {
     return this.request<{ total: number; active: number }>('/admin/risks/stats/summary');
   }
+
+  // ─── Governance Reviews (spec module 5) ──────────────────────────────────────
+  async getGovernanceReviewQueue(): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>('/governance-reviews/queue');
+  }
+
+  async getGovernanceReviews(filters: Record<string, string> = {}): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>('/governance-reviews', { params: filters });
+  }
+
+  async createGovernanceReview(data: {
+    risk_id?: string;
+    escalation_id?: string;
+    service_id?: string;
+    review_type: 'RM_REVIEW' | 'DIRECTOR_REVIEW' | 'RI_ASSURANCE_REVIEW' | 'WEEKLY_REVIEW';
+    what_is_happening: string;
+    decision: 'Monitor' | 'Create Action' | 'Escalate' | 'Close' | 'Reopen';
+    escalation_required?: boolean;
+    action_required?: boolean;
+    evidence?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post<any>('/governance-reviews', data);
+  }
+
+  // ─── Escalation lifecycle (spec module 4) ────────────────────────────────────
+  async getEscalationStats(): Promise<ApiResponse<any>> {
+    return this.get<any>('/escalations/stats');
+  }
+
+  async transitionEscalation(id: string, lifecycle_status: string): Promise<ApiResponse<any>> {
+    return this.post<any>(`/escalations/${id}/transition`, { lifecycle_status });
+  }
+
+  async reopenEscalation(id: string, reopened_reason: string): Promise<ApiResponse<any>> {
+    return this.post<any>(`/escalations/${id}/reopen`, { reopened_reason });
+  }
+
+  // ─── Closure (spec module 8) ─────────────────────────────────────────────────
+  async closeEscalation(id: string, data: {
+    pattern_reduced: boolean;
+    actions_completed: boolean;
+    effectiveness_reviewed: boolean;
+    further_escalation_required: boolean;
+    closure_reason?: string;
+    evidence: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post<any>(`/closure/escalations/${id}`, data);
+  }
+
+  async closeRisk(id: string, data: {
+    pattern_reduced: boolean;
+    actions_completed: boolean;
+    effectiveness_reviewed: boolean;
+    further_escalation_required: boolean;
+    closure_reason?: string;
+    evidence: string;
+  }): Promise<ApiResponse<any>> {
+    return this.post<any>(`/closure/risks/${id}`, data);
+  }
+
+  // ─── Effectiveness review (spec module 7) ────────────────────────────────────
+  async getPendingEffectiveness(): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>('/actions/pending-effectiveness');
+  }
+
+  async rateActionEffectiveness(id: string, data: {
+    outcome: 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess';
+    evidence?: string;
+  }): Promise<ApiResponse<any>> {
+    return this.patch<any>(`/actions/${id}/effectiveness`, data);
+  }
+
+  // ─── Reconstruction scopes (spec module 9) ───────────────────────────────────
+  async reconstructByScope(scope: 'client' | 'service' | 'theme' | 'incident', id: string, params: { start?: string; end?: string } = {}): Promise<ApiResponse<any>> {
+    const q: Record<string, string> = {};
+    if (params.start) q.start = params.start;
+    if (params.end) q.end = params.end;
+    return this.get<any>(`/reconstruction/${scope}/${encodeURIComponent(id)}`, { params: q });
+  }
 }
 
 export const apiClient = new ApiClient(API_BASE_URL);

@@ -2,37 +2,55 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface PulseDto {
-    house_id: string;
-    entry_date: string;
-    entry_time: string;
+    house_id?: string;
+    service_id?: string;          // simplified form alias for house_id
+    entry_date?: string;
+    entry_time?: string;
+    occurred_at?: string;         // simplified form: ISO datetime
     related_person?: string;
-    signal_type: string;
-    risk_domain: string[];
+    client_id?: string;           // simplified form alias for related_person
+    signal_type?: string;
+    category?: string;            // simplified form: single theme -> risk_domain[0]
+    risk_domain?: string[];
     description: string;
     immediate_action?: string;
     severity: string;
-    has_happened_before: string;
-    pattern_concern: string;
-    escalation_required: string;
+    has_happened_before?: string;
+    pattern_concern?: string;
+    escalation_required?: string;
     evidence_url?: string;
     medication_error_type?: string;
 }
 
 export const pulsesRepo = {
     async create(company_id: string, user_id: string, dto: PulseDto) {
-        console.log('[DEBUG] pulsesRepo.create - company_id:', company_id, 'user_id:', user_id, 'dto:', JSON.stringify(dto, null, 2));
         const id = uuidv4();
+
+        // Normalise the simplified signal payload (spec module 1) into the
+        // underlying governance_pulses shape. Legacy fields are now nullable.
+        const houseId = dto.house_id || dto.service_id;
+        const occurred = dto.occurred_at ? new Date(dto.occurred_at) : null;
+        const entryDate = dto.entry_date || (occurred ? occurred.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
+        const entryTime = dto.entry_time || (occurred ? occurred.toTimeString().slice(0, 8) : new Date().toTimeString().slice(0, 8));
+        const riskDomain = (dto.risk_domain && dto.risk_domain.length > 0)
+            ? dto.risk_domain
+            : (dto.category ? [dto.category] : []);
+        // signal_type is a constrained enum; the free-text category lives in
+        // risk_domain. Never put the category into signal_type.
+        const signalType = dto.signal_type || 'Concern';
+        const relatedPerson = dto.related_person || dto.client_id || null;
+
         const result = await query(
             `INSERT INTO governance_pulses (
-                id, company_id, house_id, created_by, entry_date, entry_time, related_person, 
-                signal_type, risk_domain, description, immediate_action, severity, 
+                id, company_id, house_id, created_by, entry_date, entry_time, related_person,
+                signal_type, risk_domain, description, immediate_action, severity,
                 has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'New', $17) 
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'New', $17)
             RETURNING *`,
             [
-                id, company_id, dto.house_id, user_id, dto.entry_date, dto.entry_time, dto.related_person || null,
-                dto.signal_type, dto.risk_domain, dto.description, dto.immediate_action || null, dto.severity,
-                dto.has_happened_before, dto.pattern_concern, dto.escalation_required, dto.evidence_url || null,
+                id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
+                signalType, riskDomain, dto.description, dto.immediate_action || null, dto.severity,
+                dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null
             ]
         );

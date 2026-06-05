@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import { escalationsController } from '../controllers/escalations.controller';
+import { closureController } from '../controllers/closure.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 
@@ -177,5 +178,55 @@ router.post('/:id/resolve', requireAuth, requireTenant, escalationsController.re
  *         description: Success
  */
 router.post('/:id/acknowledge', requireAuth, requireTenant, escalationsController.acknowledge.bind(escalationsController));
+
+// Time-bound lifecycle transitions (spec module 4)
+/**
+ * @openapi
+ * /api/v1/escalations/{id}/transition:
+ *   post:
+ *     tags: [Escalations]
+ *     summary: Move an escalation through its lifecycle (Open -> Under Review -> Actions Implemented -> Monitoring Effectiveness)
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Success }
+ */
+router.post('/:id/transition', requireAuth, requireTenant, escalationsController.transition.bind(escalationsController));
+/**
+ * @openapi
+ * /api/v1/escalations/{id}/reopen:
+ *   post:
+ *     tags: [Escalations]
+ *     summary: Reopen a closed/monitoring escalation with a reason
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Success }
+ */
+router.post('/:id/reopen', requireAuth, requireTenant, escalationsController.reopen.bind(escalationsController));
+/**
+ * @openapi
+ * /api/v1/escalations/{id}/closure-review:
+ *   post:
+ *     tags: [Escalations]
+ *     summary: Evidence-based closure of an escalation (spec module 8)
+ *     security: [{ BearerAuth: [] }]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       200: { description: Success }
+ */
+router.post('/:id/closure-review', requireAuth, requireTenant, closureController.closeEscalation.bind(closureController));
 
 export default router;

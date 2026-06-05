@@ -33,6 +33,12 @@ router.post('/request', requireAuth, requireTenant, reportsController.request.bi
  *         description: Success
  */
 router.get('/', requireAuth, requireTenant, reportsController.findAll.bind(reportsController));
+
+// ─── Canonical four reports (spec module 10) — declared before '/:id' ─────────
+router.get('/weekly-governance', requireAuth, requireTenant, reportsController.weeklyGovernance.bind(reportsController));
+router.get('/strategic-risks', requireAuth, requireTenant, reportsController.strategicRisks.bind(reportsController));
+router.get('/escalations', requireAuth, requireTenant, reportsController.escalationsReport.bind(reportsController));
+router.get('/reconstruction', requireAuth, requireTenant, reportsController.reconstructionReport.bind(reportsController));
 /**
  * @openapi
  * /api/v1/reports/{id}:

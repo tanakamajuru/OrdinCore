@@ -3,18 +3,18 @@
 -- We'll use the ALTER TYPE ADD VALUE or just recreate if needed.
 
 -- Signal Type: Incident, Concern, Observation, Safeguarding, Medication, Staffing, Environment, Positive signal
-ALTER TYPE signal_type ADD VALUE 'Positive signal' AFTER 'Positive';
+ALTER TYPE signal_type ADD VALUE IF NOT EXISTS 'Positive signal' AFTER 'Positive';
 -- We'll map 'Positive' to 'Positive signal' in the application layer if needed, or just keep both for now to avoid breaking existing data.
 
 -- Pattern Concern: None / Possible repeat / Clear repeat / Escalating
-ALTER TYPE pattern_concern ADD VALUE 'Possible repeat' AFTER 'Possible';
-ALTER TYPE pattern_concern ADD VALUE 'Clear repeat' AFTER 'Clear';
+ALTER TYPE pattern_concern ADD VALUE IF NOT EXISTS 'Possible repeat' AFTER 'Possible';
+ALTER TYPE pattern_concern ADD VALUE IF NOT EXISTS 'Clear repeat' AFTER 'Clear';
 
 -- Escalation Level: No escalation / Manager review / Urgent review / Immediate escalation
-ALTER TYPE escalation_level ADD VALUE 'No escalation' BEFORE 'None';
-ALTER TYPE escalation_level ADD VALUE 'Manager review' AFTER 'Manager Review';
-ALTER TYPE escalation_level ADD VALUE 'Urgent review' AFTER 'Urgent Review';
-ALTER TYPE escalation_level ADD VALUE 'Immediate escalation' AFTER 'Immediate Escalation';
+ALTER TYPE escalation_level ADD VALUE IF NOT EXISTS 'No escalation' BEFORE 'None';
+ALTER TYPE escalation_level ADD VALUE IF NOT EXISTS 'Manager review' AFTER 'Manager Review';
+ALTER TYPE escalation_level ADD VALUE IF NOT EXISTS 'Urgent review' AFTER 'Urgent Review';
+ALTER TYPE escalation_level ADD VALUE IF NOT EXISTS 'Immediate escalation' AFTER 'Immediate Escalation';
 
 -- Update pulses to use new values where applicable (migration of existing data)
 UPDATE governance_pulses SET signal_type = 'Positive signal' WHERE signal_type = 'Positive';

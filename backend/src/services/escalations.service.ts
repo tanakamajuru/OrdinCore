@@ -3,6 +3,39 @@ import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { risksRepo } from '../repositories/risks.repo';
 
+export type EscalationLifecycleStatus =
+  | 'Open'
+  | 'Under Review'
+  | 'Actions Implemented'
+  | 'Monitoring Effectiveness'
+  | 'Closed'
+  | 'Reopened';
+
+// Time-bound escalation SLAs (spec module 4). Hours until an escalation is "due by".
+const ESCALATION_DUE_HOURS: Record<string, number> = {
+  SIMILAR_SIGNALS_14_DAYS: 72,
+  HIGH_SAFEGUARDING: 24,
+  CROSS_SERVICE_PATTERN: 72,
+  ACTION_INEFFECTIVE_TWICE: 72,
+  SERIOUS_INCIDENT: 24,
+  REOPENED_RISK: 72,
+};
+
+export function escalationDueBy(triggerType: string | undefined | null, now = new Date()): Date {
+  const hours = (triggerType && ESCALATION_DUE_HOURS[triggerType]) || 72;
+  return new Date(now.getTime() + hours * 60 * 60 * 1000);
+}
+
+// Allowed lifecycle transitions for time-bound escalations.
+const LIFECYCLE_TRANSITIONS: Record<EscalationLifecycleStatus, EscalationLifecycleStatus[]> = {
+  'Open': ['Under Review'],
+  'Under Review': ['Actions Implemented', 'Reopened'],
+  'Actions Implemented': ['Monitoring Effectiveness'],
+  'Monitoring Effectiveness': ['Closed', 'Reopened'],
+  'Reopened': ['Under Review'],
+  'Closed': [],
+};
+
 export class EscalationsService {
   async findAll(company_id: string, filters: Record<string, unknown> = {}, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
@@ -20,7 +53,9 @@ export class EscalationsService {
           r.title AS risk_title,
           i.title AS incident_title,
           h.name AS house_name,
-          COALESCE(e.house_id, r.house_id, i.house_id) AS house_id
+          h.name AS service_name,
+          COALESCE(e.house_id, r.house_id, i.house_id) AS house_id,
+          (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
@@ -197,12 +232,88 @@ export class EscalationsService {
     return result.rows[0];
   }
 
+  /**
+   * Move an escalation through its time-bound lifecycle, enforcing valid transitions.
+   * Closure is handled separately by ClosureService (requires an evidenced closure review).
+   */
+  async transition(id: string, company_id: string, user_id: string, nextStatus: EscalationLifecycleStatus) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const current: EscalationLifecycleStatus = escalation.rows[0].lifecycle_status || 'Open';
+    if (current === 'Closed') {
+      throw new Error('This escalation is closed and cannot be modified (Governance Integrity Rule).');
+    }
+    if (!LIFECYCLE_TRANSITIONS[current]?.includes(nextStatus)) {
+      throw new Error(`Invalid escalation transition: ${current} -> ${nextStatus}`);
+    }
+    if (nextStatus === 'Closed') {
+      throw new Error('Use the closure review flow to close an escalation.');
+    }
+
+    const result = await query(
+      `UPDATE escalations
+         SET lifecycle_status = $1,
+             reviewed_at = CASE WHEN $1 = 'Under Review' AND reviewed_at IS NULL THEN NOW() ELSE reviewed_at END,
+             actions_implemented_at = CASE WHEN $1 = 'Actions Implemented' THEN NOW() ELSE actions_implemented_at END,
+             effectiveness_review_due = CASE WHEN $1 = 'Monitoring Effectiveness' THEN NOW() + INTERVAL '72 hours' ELSE effectiveness_review_due END,
+             updated_at = NOW()
+       WHERE id = $2 AND company_id = $3
+       RETURNING *`,
+      [nextStatus, id, company_id]
+    );
+
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'lifecycle_transition',$4,$5)`,
+      [uuidv4(), id, company_id, `Lifecycle moved to ${nextStatus}`, user_id]
+    );
+
+    return result.rows[0];
+  }
+
+  async reopen(id: string, company_id: string, user_id: string, reopened_reason: string) {
+    if (!reopened_reason || reopened_reason.trim().length < 5) {
+      throw new Error('A reason is required to reopen an escalation.');
+    }
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+
+    const result = await query(
+      `UPDATE escalations
+         SET lifecycle_status = 'Reopened',
+             status = 'In Progress',
+             reopened_at = NOW(),
+             reopened_reason = $1,
+             closed_at = NULL,
+             due_by = $2,
+             updated_at = NOW()
+       WHERE id = $3 AND company_id = $4
+       RETURNING *`,
+      [reopened_reason, escalationDueBy('REOPENED_RISK'), id, company_id]
+    );
+
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'reopened',$4,$5)`,
+      [uuidv4(), id, company_id, `Escalation reopened: ${reopened_reason}`, user_id]
+    );
+
+    return result.rows[0];
+  }
+
   async getEscalationStats(company_id: string) {
     const result = await query(
-      `SELECT 
+      `SELECT
         COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE status = 'Pending') AS pending,
-        COUNT(*) FILTER (WHERE status = 'Acknowledged' OR status = 'In Progress') AS active,
+        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed') AS open,
+        COUNT(*) FILTER (WHERE lifecycle_status = 'Open') AS new_open,
+        COUNT(*) FILTER (WHERE lifecycle_status = 'Under Review') AS under_review,
+        COUNT(*) FILTER (WHERE lifecycle_status = 'Actions Implemented') AS actions_implemented,
+        COUNT(*) FILTER (WHERE lifecycle_status = 'Monitoring Effectiveness') AS monitoring_effectiveness,
+        COUNT(*) FILTER (WHERE lifecycle_status = 'Closed') AS closed,
+        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed' AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
+        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed' AND (due_by IS NULL OR due_by >= NOW())) AS on_time,
         COUNT(*) FILTER (WHERE priority = 'Critical' OR priority = 'Urgent') AS urgent_count
        FROM escalations
        WHERE company_id = $1`,

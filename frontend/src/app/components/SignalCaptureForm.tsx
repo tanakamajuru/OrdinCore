@@ -1,514 +1,255 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  AlertTriangle, 
-  CheckCircle, 
-  Clock, 
-  Calendar, 
-  User, 
-  FileText, 
-  ShieldAlert, 
-  Zap, 
+import {
+  Activity,
+  AlertTriangle,
+  Calendar,
+  Clock,
+  FileText,
   Layers,
-  ArrowRight,
-  ArrowLeft,
+  Loader2,
   Save,
-  Check,
-  Paperclip,
-  Upload,
-  Search,
-  Home,
-  Loader2
+  User,
 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 
-// Types from Spec
-type SignalType = 'Incident' | 'Concern' | 'Observation' | 'Safeguarding' | 'Medication' | 'Staffing' | 'Environment' | 'Positive';
-type SeverityType = 'Low' | 'Moderate' | 'High' | 'Critical';
-type HappenedBeforeType = 'Yes' | 'No' | 'Unsure';
-type PatternConcernType = 'None' | 'Possible' | 'Clear' | 'Escalating';
-type EscalationType = 'None' | 'Manager Review' | 'Urgent Review' | 'Immediate Escalation';
+// Spec module 1: a signal is a simple concern, not an incident.
+// No risk scoring, no likelihood/impact, no investigation language.
+type SignalCategory =
+  | 'Wellbeing'
+  | 'Medication'
+  | 'Behaviour'
+  | 'Safeguarding'
+  | 'Staffing'
+  | 'Environment'
+  | 'Documentation'
+  | 'Service Delivery';
 
-const DOMAINS = ['Behaviour', 'Medication', 'Staffing', 'Physical', 'Mental', 'Safeguarding', 'Environment', 'Governance'];
+type SeverityType = 'Low' | 'Medium' | 'High' | 'Critical';
 
-interface House { id: string; name: string; }
+const CATEGORIES: SignalCategory[] = [
+  'Wellbeing', 'Medication', 'Behaviour', 'Safeguarding',
+  'Staffing', 'Environment', 'Documentation', 'Service Delivery',
+];
 
-const FieldWrapper = ({ step, title, icon: Icon, children, currentStep, nextStep, prevStep, validateStep, handleSubmit, isSubmitting }: any) => (
-    <div className={`transition-all duration-500 ${currentStep === step ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none hidden'}`}>
-      <div className="flex items-center gap-3 mb-6">
-        <div className="p-3 bg-primary/10 rounded-xl text-primary">
-          <Icon size={24} />
-        </div>
-        <div>
-          <span className="text-xs  uppercase tracking-wider text-muted-foreground">Step {step} of 13</span>
-          <h2 className="text-2xl  text-foreground">{title}</h2>
-        </div>
-      </div>
-      <div className="bg-card border-2 border-border p-8 shadow-xl">
-        {children}
-        <div className="mt-8 flex justify-between items-center">
-          <div>
-            {step > 1 && (
-              <button 
-                  onClick={prevStep}
-                  className="flex items-center gap-2 px-6 py-3 bg-muted text-muted-foreground hover:bg-muted/80 transition-all "
-              >
-                <ArrowLeft size={20} /> Previous
-              </button>
-            )}
-          </div>
-          <div>
-            {step < 13 ? (
-               <button 
-                  onClick={nextStep}
-                  disabled={!validateStep(step)}
-                  className="flex items-center gap-2 px-6 py-3 bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all "
-               >
-                 Next <ArrowRight size={20} />
-               </button>
-            ) : (
-              <button 
-                  onClick={handleSubmit}
-                  disabled={isSubmitting || !validateStep(13)}
-                  className="flex items-center gap-2 px-8 py-3 bg-success text-primary-foreground hover:bg-success/90 disabled:opacity-50 transition-all "
-              >
-                {isSubmitting ? 'Submitting...' : 'Submit Signal'} <Save size={20} />
-              </button>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-  
+const SEVERITIES: { value: SeverityType; tone: string }[] = [
+  { value: 'Low', tone: 'data-[active=true]:bg-emerald-600' },
+  { value: 'Medium', tone: 'data-[active=true]:bg-amber-500' },
+  { value: 'High', tone: 'data-[active=true]:bg-orange-600' },
+  { value: 'Critical', tone: 'data-[active=true]:bg-red-600' },
+];
+
+interface ServiceUnit { id: string; name: string; }
+
 export function SignalCaptureForm() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  
-  const [houses, setHouses] = useState<House[]>([]);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    entry_date: new Date().toISOString().split('T')[0],
-    entry_time: new Date().toTimeString().slice(0, 5),
-    house_id: '',
-    signal_type: '' as SignalType,
-    risk_domain: [] as string[],
+
+  const [services, setServices] = useState<ServiceUnit[]>([]);
+  const [serviceUsers, setServiceUsers] = useState<any[]>([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const now = new Date();
+  const [form, setForm] = useState({
+    service_id: '',
+    category: '' as SignalCategory | '',
+    severity: '' as SeverityType | '',
     description: '',
-    immediate_action: '',
-    severity: '' as SeverityType,
-    has_happened_before: '' as HappenedBeforeType,
-    pattern_concern: '' as PatternConcernType,
-    escalation_required: '' as EscalationType,
+    entry_date: now.toISOString().split('T')[0],
+    entry_time: now.toTimeString().slice(0, 5),
     related_person: '',
-    evidence_url: ''
+    immediate_action: '',
   });
 
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [houseSearchTerm, setHouseSearchTerm] = useState('');
-  const [patientValid, setPatientValid] = useState(true);
-  const [patientValidationMessage, setPatientValidationMessage] = useState('');
-  const [isValidatingPatient, setIsValidatingPatient] = useState(false);
-  const [serviceUsers, setServiceUsers] = useState<any[]>([]);
+  const set = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
+
+  useEffect(() => { loadServices(); }, []);
 
   useEffect(() => {
-    loadHouses();
-  }, []);
-
-  useEffect(() => {
-    const houseId = formData.house_id;
-    if (!houseId) {
-      setServiceUsers([]);
-      return;
-    }
-    apiClient.get(`/houses/${houseId}/service-users`)
+    if (!form.service_id) { setServiceUsers([]); return; }
+    apiClient.get(`/houses/${form.service_id}/service-users`)
       .then(res => {
-        const users = res.data?.data || res.data || [];
-        setServiceUsers(Array.isArray(users) ? users : []);
+        const u = (res as any).data?.data || (res as any).data || [];
+        setServiceUsers(Array.isArray(u) ? u : []);
       })
-      .catch(err => {
-        console.error('Failed to load service users', err);
-        setServiceUsers([]);
-      });
-  }, [formData.house_id]);
+      .catch(() => setServiceUsers([]));
+  }, [form.service_id]);
 
-  useEffect(() => {
-    const houseId = formData.house_id;
-    const patientName = formData.related_person;
-    
-    if (!houseId || !patientName || !patientName.trim()) {
-      setPatientValid(true);
-      setPatientValidationMessage('');
-      return;
-    }
-
-    setIsValidatingPatient(true);
-    const delayDebounce = setTimeout(async () => {
-      try {
-        const res = await apiClient.get(`/houses/${houseId}/validate-patient`, {
-          params: { name: patientName.trim() }
-        });
-        const exists = res.data?.data?.exists ?? res.data?.exists;
-        setPatientValid(exists);
-        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
-      } catch (err) {
-        setPatientValid(false);
-        setPatientValidationMessage('Validation error. Please try again.');
-      } finally {
-        setIsValidatingPatient(false);
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounce);
-  }, [formData.house_id, formData.related_person]);
-
-  const loadHouses = async () => {
+  const loadServices = async () => {
     try {
-      const housesRes = await apiClient.get('/houses?limit=100');
-      const hData = (housesRes as any).data || (housesRes as any) || [];
-      let housesList = Array.isArray(hData) ? hData : [];
-      
+      const res = await apiClient.get('/houses?limit=100');
+      const data = (res as any).data?.data || (res as any).data || [];
+      let list: ServiceUnit[] = Array.isArray(data) ? data : [];
       const role = (user?.role || '').toUpperCase().replace('-', '_');
       if (['TEAM_LEADER', 'TL', 'REGISTERED_MANAGER', 'RM'].includes(role)) {
-        const assignedIds = user?.assigned_house_ids || (user?.assigned_house_id ? [user.assigned_house_id] : []);
-        if (assignedIds.length > 0 && !assignedIds.includes('all')) {
-          housesList = housesList.filter((h: any) => assignedIds.includes(h.id));
+        const assigned = (user as any)?.assigned_house_ids || ((user as any)?.assigned_house_id ? [(user as any).assigned_house_id] : []);
+        if (assigned.length > 0 && !assigned.includes('all')) {
+          list = list.filter(h => assigned.includes(h.id));
         }
       }
-      
-      setHouses(housesList);
-      if (housesList.length > 0) {
-        setFormData(prev => ({ ...prev, house_id: housesList[0].id }));
-      }
-    } catch (err) {
-      console.error('Failed to load houses', err);
-      toast.error("Failed to load houses");
+      setServices(list);
+      if (list.length > 0) set('service_id', list[0].id);
+    } catch {
+      toast.error('Failed to load services');
     }
   };
 
-  const handleFieldChange = (field: string, value: any) => {
-    setFormData(prev => ({ ...prev, [field]: value }));
-  };
-
-  const toggleDomain = (domain: string) => {
-    setFormData(prev => ({
-      ...prev,
-      risk_domain: prev.risk_domain.includes(domain)
-        ? prev.risk_domain.filter(d => d !== domain)
-        : [...prev.risk_domain, domain]
-    }));
-  };
-
-  const nextStep = () => {
-    if (validateStep(currentStep)) {
-      setCurrentStep(prev => Math.min(prev + 1, 13));
-    }
-  };
-
-  const prevStep = () => {
-    setCurrentStep(prev => Math.max(prev - 1, 1));
-  };
-
-  const validateStep = (step: number) => {
-    switch (step) {
-      case 1: return !!formData.entry_date;
-      case 2: return !!formData.entry_time;
-      case 3: return true; // Related Person is optional
-      case 4: return !!formData.house_id && patientValid;
-      case 5: return !!formData.signal_type;
-      case 6: return formData.risk_domain.length > 0;
-      case 7: return formData.description.length > 10;
-      case 8: return true; 
-      case 9: return !!formData.severity;
-      case 10: return !!formData.has_happened_before;
-      case 11: return !!formData.pattern_concern;
-      case 12: return !!formData.escalation_required;
-      case 13: return true; // Evidence is optional
-      default: return true;
-    }
-  };
+  const isValid = !!form.service_id && !!form.category && !!form.severity && form.description.trim().length >= 10;
 
   const handleSubmit = async () => {
+    if (!isValid) {
+      toast.error('Please choose a service, category, severity and add a short description.');
+      return;
+    }
     setIsSubmitting(true);
     try {
-      await apiClient.post('/pulses', formData);
-      toast.success("Signal submitted successfully");
+      await apiClient.post('/pulses', {
+        service_id: form.service_id,
+        category: form.category,
+        severity: form.severity,
+        description: form.description.trim(),
+        entry_date: form.entry_date,
+        entry_time: form.entry_time,
+        related_person: form.related_person || undefined,
+        immediate_action: form.immediate_action || undefined,
+      });
+      toast.success('Signal recorded');
       navigate('/dashboard');
     } catch (err: any) {
-      toast.error(err.response?.data?.message || "Failed to submit signal");
+      toast.error(err?.message || 'Failed to record signal');
     } finally {
       setIsSubmitting(false);
     }
   };
 
-  // Removed redundant internal FieldWrapper to prevent re-render focus issues
-
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="max-w-3xl mx-auto pt-32 p-6">
-        
-        {/* Progress Bar */}
-        <div className="w-full bg-muted h-2 mb-12 flex">
-           <div 
-             className="bg-primary h-full transition-all duration-700" 
-             style={{ width: `${(currentStep / 13) * 100}%` }} 
-           />
+      <div className="max-w-2xl mx-auto pt-28 p-6">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Activity size={22} /></div>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Record a Signal</h1>
+            <p className="text-sm text-muted-foreground">Something that may need attention. Keep it short and factual.</p>
+          </div>
         </div>
 
-        {/* Step 1: Date */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={1} title="Date of Observation" icon={Calendar}>
-          <input 
-            type="date" 
-            value={formData.entry_date} 
-            onChange={e => handleFieldChange('entry_date', e.target.value)}
-            className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none"
-          />
-        </FieldWrapper>
+        <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 mt-6">
+          {/* Service */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Layers size={16} /> Service</label>
+            <select
+              value={form.service_id}
+              onChange={e => set('service_id', e.target.value)}
+              className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="" disabled>Select a service…</option>
+              {services.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+          </div>
 
-        {/* Step 2: Time */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={2} title="Time of Observation" icon={Clock}>
-          <input 
-            type="time" 
-            value={formData.entry_time} 
-            onChange={e => handleFieldChange('entry_time', e.target.value)}
-            className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none"
-          />
-        </FieldWrapper>
-
-        {/* Step 3: Related Person */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={3} title="Related Person (Optional)" icon={User}>
-          <input 
-            type="text" 
-            value={formData.related_person} 
-            onChange={e => handleFieldChange('related_person', e.target.value)}
-            placeholder="Name of person involved (if applicable)"
-            list="active-patients"
-            className="w-full bg-input-background border-b-4 border-primary p-4 text-2xl focus:outline-none"
-          />
-          <datalist id="active-patients">
-            {serviceUsers.map((u: any, idx: number) => (
-              <option key={`${u.id || ''}-${u.display_name || ''}-${idx}`} value={u.display_name} />
-            ))}
-          </datalist>
-        </FieldWrapper>
-
-        {/* Step 4: House */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={4} title="Service House" icon={Layers}>
-          <div className="space-y-4">
-            <div className="relative">
-              <input
-                type="text"
-                placeholder="Search service houses..."
-                value={houseSearchTerm}
-                onChange={e => setHouseSearchTerm(e.target.value)}
-                className="w-full bg-input-background border-b-4 border-primary p-4 pl-12 text-2xl focus:outline-none placeholder:text-muted-foreground/30"
-              />
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-muted-foreground/60 w-6 h-6" />
+          {/* Category */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Category</label>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {CATEGORIES.map(c => (
+                <button
+                  key={c}
+                  type="button"
+                  onClick={() => set('category', c)}
+                  className={`px-3 py-2.5 rounded-lg border text-sm transition-all ${form.category === c ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
+                >
+                  {c}
+                </button>
+              ))}
             </div>
+          </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[300px] overflow-y-auto pr-2 mt-4 custom-scrollbar">
-              {houses
-                .filter(h => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase()))
-                .map(h => (
-                  <button
-                    key={h.id}
-                    type="button"
-                    onClick={() => {
-                      handleFieldChange('house_id', h.id);
-                    }}
-                    className={`p-4 border-2 text-left flex items-center gap-3 transition-all ${
-                      formData.house_id === h.id 
-                        ? 'bg-primary text-primary-foreground border-primary shadow-lg scale-[1.02]' 
-                        : 'bg-card border-border hover:border-primary/50 hover:bg-muted/30'
-                    }`}
-                  >
-                    <Home className={`w-5 h-5 ${formData.house_id === h.id ? 'text-primary-foreground' : 'text-primary'}`} />
-                    <span className="font-semibold text-lg">{h.name}</span>
-                  </button>
-                ))}
-              {houses.filter(h => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase())).length === 0 && (
-                <div className="col-span-full py-8 text-center text-muted-foreground">
-                  No service houses match your search.
-                </div>
-              )}
+          {/* Severity */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><AlertTriangle size={16} /> Severity</label>
+            <div className="grid grid-cols-4 gap-2">
+              {SEVERITIES.map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  data-active={form.severity === s.value}
+                  onClick={() => set('severity', s.value)}
+                  className={`px-3 py-2.5 rounded-lg border text-sm transition-all data-[active=true]:text-white data-[active=true]:border-transparent ${s.tone} ${form.severity === s.value ? '' : 'bg-card border-border hover:border-primary/50'}`}
+                >
+                  {s.value}
+                </button>
+              ))}
             </div>
-
-            {/* Validation Message Panel */}
-            {formData.related_person && formData.related_person.trim() && (
-              <div className={`mt-6 p-4 border-2 transition-all ${
-                isValidatingPatient 
-                  ? 'border-border bg-muted/20 opacity-70' 
-                  : patientValid 
-                    ? 'border-success/30 bg-success/5 text-success' 
-                    : 'border-destructive/30 bg-destructive/5 text-destructive'
-              }`}>
-                <div className="flex items-start gap-3">
-                  {isValidatingPatient ? (
-                    <Loader2 className="w-5 h-5 animate-spin mt-0.5" />
-                  ) : patientValid ? (
-                    <CheckCircle className="w-5 h-5 text-success mt-0.5 flex-shrink-0" />
-                  ) : (
-                    <AlertTriangle className="w-5 h-5 text-destructive mt-0.5 flex-shrink-0" />
-                  )}
-                  <div>
-                    <h4 className="font-semibold text-sm">
-                      {isValidatingPatient 
-                        ? 'Validating related person...' 
-                        : patientValid 
-                          ? 'Valid Related Person' 
-                          : 'Invalid Related Person'
-                      }
-                    </h4>
-                    <p className="text-xs mt-1 leading-relaxed">
-                      {isValidatingPatient
-                        ? `Checking database for active records matching "${formData.related_person}"...`
-                        : patientValid
-                          ? `"${formData.related_person}" is verified as an active patient at this site.`
-                          : patientValidationMessage || `"${formData.related_person}" is not registered at this site. Please correct the name or select the correct house to proceed.`
-                      }
-                    </p>
-                  </div>
-                </div>
-              </div>
-            )}
           </div>
-        </FieldWrapper>
 
-        {/* Step 5: Signal Type */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={5} title="What type of signal is this?" icon={Zap}>
+          {/* Description */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> What happened?</label>
+            <textarea
+              value={form.description}
+              onChange={e => set('description', e.target.value)}
+              placeholder="Factual description only…"
+              className="w-full h-28 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <p className="text-xs text-muted-foreground mt-1">{form.description.trim().length}/10 characters minimum</p>
+          </div>
+
+          {/* Date / Time */}
           <div className="grid grid-cols-2 gap-4">
-            {['Incident', 'Concern', 'Observation', 'Safeguarding', 'Medication', 'Staffing', 'Environment', 'Positive'].map(type => (
-              <button
-                key={type}
-                onClick={() => handleFieldChange('signal_type', type)}
-                className={`p-4 border-2 transition-all  ${formData.signal_type === type ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
-              >
-                {type}
-              </button>
-            ))}
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Calendar size={16} /> Date</label>
+              <input type="date" value={form.entry_date} onChange={e => set('entry_date', e.target.value)}
+                className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Clock size={16} /> Time</label>
+              <input type="time" value={form.entry_time} onChange={e => set('entry_time', e.target.value)}
+                className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
           </div>
-        </FieldWrapper>
 
-        {/* Step 6: Risk Domains */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={6} title="Which domain(s) does this affect?" icon={ShieldAlert}>
-          <div className="grid grid-cols-2 gap-4">
-            {DOMAINS.map(domain => (
-              <button
-                key={domain}
-                onClick={() => toggleDomain(domain)}
-                className={`p-4 border-2 transition-all  ${formData.risk_domain.includes(domain) ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
-              >
-                {domain}
-              </button>
-            ))}
+          {/* Client (optional) */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><User size={16} /> Client <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <input
+              type="text"
+              value={form.related_person}
+              onChange={e => set('related_person', e.target.value)}
+              placeholder="Person involved, if applicable"
+              list="signal-clients"
+              className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+            <datalist id="signal-clients">
+              {serviceUsers.map((u: any, i: number) => <option key={`${u.id || ''}-${i}`} value={u.display_name} />)}
+            </datalist>
           </div>
-        </FieldWrapper>
 
-        {/* Step 7: Description */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={7} title="Describe the observation" icon={FileText}>
-          <textarea 
-            value={formData.description}
-            onChange={e => handleFieldChange('description', e.target.value)}
-            placeholder="Provide factual details only..."
-            className="w-full h-48 bg-input-background border-b-4 border-primary p-4 text-xl focus:outline-none resize-none"
-          />
-          <p className="text-xs text-muted-foreground mt-2">Minimum 10 characters required for defensible governance.</p>
-        </FieldWrapper>
-
-        {/* Step 8: Immediate Action */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={8} title="What immediate action was taken?" icon={Check}>
-          <textarea 
-            value={formData.immediate_action}
-            onChange={e => handleFieldChange('immediate_action', e.target.value)}
-            placeholder="What was done at the time?"
-            className="w-full h-32 bg-input-background border-b-4 border-primary p-4 text-xl focus:outline-none resize-none"
-          />
-        </FieldWrapper>
-
-        {/* Step 9: Severity */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={9} title="What is the current level of concern?" icon={AlertTriangle}>
-          <div className="flex flex-col gap-3">
-            {['Low', 'Moderate', 'High', 'Critical'].map(sev => (
-              <button
-                key={sev}
-                onClick={() => handleFieldChange('severity', sev)}
-                className={`p-4 border-2 text-left  transition-all ${formData.severity === sev ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
-              >
-                {sev}
-              </button>
-            ))}
-          </div>
-        </FieldWrapper>
-
-        {/* Step 10: Happened Before */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={10} title="Has this happened before?" icon={Clock}>
-          <div className="flex gap-4">
-            {['Yes', 'No', 'Unsure'].map(val => (
-              <button
-                key={val}
-                onClick={() => handleFieldChange('has_happened_before', val)}
-                className={`flex-1 p-4 border-2  transition-all ${formData.has_happened_before === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-        </FieldWrapper>
-
-        {/* Step 11: Pattern Concern */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={11} title="Does this suggest a pattern? " icon={Layers}>
-          <div className="flex flex-col gap-3">
-            {['None', 'Possible', 'Clear', 'Escalating'].map(val => (
-              <button
-                key={val}
-                onClick={() => handleFieldChange('pattern_concern', val)}
-                className={`p-4 border-2 text-left  transition-all ${formData.pattern_concern === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-        </FieldWrapper>
-
-        {/* Step 12: Escalation */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={12} title=" What level of follow-up is required?" icon={ShieldAlert}>
-          <div className="flex flex-col gap-3">
-            {['None', 'Manager Review', 'Urgent Review', 'Immediate Escalation'].map(val => (
-              <button
-                key={val}
-                onClick={() => handleFieldChange('escalation_required', val)}
-                className={`p-4 border-2 text-left  transition-all ${formData.escalation_required === val ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border'}`}
-              >
-                {val}
-              </button>
-            ))}
-          </div>
-        </FieldWrapper>
-
-        {/* Step 13: Evidence */}
-        <FieldWrapper currentStep={currentStep} nextStep={nextStep} prevStep={prevStep} validateStep={validateStep} handleSubmit={handleSubmit} isSubmitting={isSubmitting} step={13} title="Attach supporting evidence" icon={Paperclip}>
-          <div className="flex flex-col items-center justify-center p-12 border-4 border-dashed border-border rounded-2xl bg-muted/30 hover:bg-muted/50 transition-all cursor-pointer group">
-            <Upload className="w-16 h-16 text-muted-foreground group-hover:text-primary transition-colors mb-4" />
-            <p className="text-xl  text-foreground mb-2">Click to upload files</p>
-            <p className="text-sm text-muted-foreground ">Video, Image or PDF accepted (Max 50MB)</p>
-            {formData.evidence_url && (
-              <div className="mt-6 p-3 bg-success/20 text-success-foreground rounded-lg flex items-center gap-2 border border-success/30">
-                <CheckCircle size={18} />
-                <span className="">File uploaded successfully</span>
-              </div>
-            )}
-            <input 
-              type="file" 
-              className="hidden" 
-              onChange={() => handleFieldChange('evidence_url', 'https://mock-storage.ordincore.com/evidence-' + Date.now() + '.pdf')}
+          {/* Immediate action (optional) */}
+          <div>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Immediate action taken <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <textarea
+              value={form.immediate_action}
+              onChange={e => set('immediate_action', e.target.value)}
+              placeholder="What was done at the time, if anything?"
+              className="w-full h-20 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
-          <p className="text-xs text-muted-foreground mt-4 text-center">Supporting evidence provides stronger defensibility for governance decisions.</p>
-        </FieldWrapper>
 
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={handleSubmit}
+              disabled={!isValid || isSubmitting}
+              className="flex items-center gap-2 px-6 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 transition-all"
+            >
+              {isSubmitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save size={18} />}
+              {isSubmitting ? 'Recording…' : 'Record Signal'}
+            </button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -5713,3 +5713,59 @@
 [OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
 [OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
 [OrdinCore] 2026-05-31 13:45:28 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-01 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-01 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-01 08:00:01 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-05 11:58:36 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:9:18)
+[OrdinCore] 2026-06-05 12:03:25 [error]: error: enum label "Positive signal" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:66:13)
+[OrdinCore] 2026-06-05 12:03:39 [error]: error: enum label "Positive signal" already exists
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg\lib\client.js:631:17
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async runMigrations (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\scripts\migrate.ts:66:13)
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-05 16:29:12 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-05 16:39:12 [error]: error: invalid input syntax for type uuid: ""
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:41:24)
+    at async PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at async PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-06-05 16:39:41 [error]: error: invalid input value for enum signal_type: "Service Delivery"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:41:24)
+    at async PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at async PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)

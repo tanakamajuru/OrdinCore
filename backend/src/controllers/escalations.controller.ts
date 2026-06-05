@@ -89,6 +89,26 @@ export class EscalationsController {
     }
   }
 
+  async transition(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.transition(req.params.id, company_id, req.user!.user_id, req.body.lifecycle_status);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to transition escalation', errors: [] });
+    }
+  }
+
+  async reopen(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.reopen(req.params.id, company_id, req.user!.user_id, req.body.reopened_reason || req.body.reason || '');
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to reopen escalation', errors: [] });
+    }
+  }
+
   async getStats(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

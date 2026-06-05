@@ -2,16 +2,18 @@ import { startPatternWorker } from './workers/pattern.worker';
 import { startAnalyticsWorker } from './workers/analytics.worker';
 import { startReportWorker } from './workers/report.worker';
 import { startActionPatternWorker } from './workers/actionPattern.worker';
+import { startEscalationOverdueWorker } from './workers/escalationOverdue.worker';
 import logger from './utils/logger';
 
 async function main() {
   logger.info('Starting OrdinCore Background Workers...');
-  
+
   startPatternWorker();
   startAnalyticsWorker();
   startReportWorker();
   startActionPatternWorker();
-  
+  startEscalationOverdueWorker();
+
   logger.info('Workers are running and listening for jobs in Redis.');
 }
 

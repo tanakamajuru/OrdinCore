@@ -35,6 +35,9 @@ import riGovernanceRoutes from './routes/riGovernance.routes';
 import directorGovernanceRoutes from './routes/directorGovernance.routes';
 import actionsRoutes from './routes/actions.routes';
 import serviceUsersRoutes from './routes/serviceUsers.routes';
+import governanceReviewsRoutes from './routes/governanceReviews.routes';
+import closureRoutes from './routes/closure.routes';
+import reconstructionRoutes from './routes/reconstruction.routes';
 
 
 
@@ -132,6 +135,9 @@ app.use(`${API}/clusters`, clustersRoutes);
 app.use(`${API}/ri-governance`, riGovernanceRoutes);
 app.use(`${API}/director-governance`, directorGovernanceRoutes);
 app.use(`${API}/service-users`, serviceUsersRoutes);
+app.use(`${API}/governance-reviews`, governanceReviewsRoutes);
+app.use(`${API}/closure`, closureRoutes);
+app.use(`${API}/reconstruction`, reconstructionRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
