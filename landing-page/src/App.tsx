@@ -55,9 +55,9 @@ const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  { label: "Resources", href: "#resources" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "FAQ", href: "#faq" },
   { label: "Pilot Programme", href: "https://work.ordincore.co.uk" },
-  { label: "About Us", href: "#footer" },
 ];
 
 const PROBLEM_CARDS = [
@@ -181,6 +181,76 @@ const PILOT_BENEFITS = [
   { label: "Direct feedback opportunities", image: governanceIsImg },
 ];
 
+const FOUR_QUESTIONS = [
+  {
+    question: "What is getting worse?",
+    answer: "Identify recurring concerns and emerging operational pressures.",
+  },
+  {
+    question: "What needs our attention?",
+    answer: "Focus leadership time where it matters most.",
+  },
+  {
+    question: "Are we following through?",
+    answer: "Maintain visibility of actions, reviews and outcomes.",
+  },
+  {
+    question: "Can we demonstrate oversight over time?",
+    answer: "Maintain a structured, reconstructable record of governance activity.",
+  },
+];
+
+const PILOT_TIMELINE = [
+  { phase: "Week 1", label: "Onboarding" },
+  { phase: "Week 2–4", label: "Governance rhythm implementation" },
+  { phase: "Week 5–8", label: "Operational review and optimisation" },
+  { phase: "Week 9–12", label: "Evaluation and governance outcomes review" },
+];
+
+const PILOT_PRICING_DOM = [
+  {
+    tier: "Small Provider",
+    scope: "1–50 service users",
+    price: "£49",
+    features: ["Up to 5 management users", "Full governance pulse", "Escalations", "Weekly governance reviews", "Monthly governance narrative", "Direct founder support"],
+  },
+  {
+    tier: "Medium Provider",
+    scope: "50–150 service users",
+    price: "£99",
+    features: ["Multiple managers", "Multiple service areas", "Cross-team oversight", "Priority support"],
+  },
+  {
+    tier: "Large Provider",
+    scope: "150+ service users",
+    price: "£199",
+    features: ["Multi-branch oversight", "Director dashboard", "Strategic reporting", "Pilot partner status"],
+  },
+];
+
+const PILOT_PRICING_SL = [
+  { scope: "1–3 houses", price: "£149" },
+  { scope: "4–8 houses", price: "£249" },
+  { scope: "9–15 houses", price: "£399" },
+  { scope: "16+ houses", price: "Contact Us" },
+];
+
+const PILOT_INCLUDED = [
+  "Full platform access",
+  "Onboarding support",
+  "Governance review sessions",
+  "Priority support",
+  "Future feature consideration",
+];
+
+const FAQ_ITEMS = [
+  { q: "Is Ordin Core a care management system?", a: "No. Ordin Core is a governance oversight layer — it does not replace your care management system." },
+  { q: "Does it replace care notes?", a: "No. Ordin Core sits alongside your care notes and existing records." },
+  { q: "Does it replace incident systems?", a: "No. It brings governance concerns into a structured oversight process rather than replacing incident reporting." },
+  { q: "How long does implementation take?", a: "Typically less than two weeks." },
+  { q: "Is staff training provided?", a: "Yes. Onboarding and staff training are included." },
+];
+
 const FOOTER_LINKS = [
   {
     title: "Platform",
@@ -209,8 +279,14 @@ export default function App() {
 
   // Modal / Form States
   const [isDemoModalOpen, setIsDemoModalOpen] = useState(false);
+  const [demoFormName, setDemoFormName] = useState("");
   const [demoFormEmail, setDemoFormEmail] = useState("");
   const [demoFormPhone, setDemoFormPhone] = useState("");
+  const [demoFormOrg, setDemoFormOrg] = useState("");
+  const [demoFormRole, setDemoFormRole] = useState("");
+  const [demoFormServices, setDemoFormServices] = useState("");
+  const [demoFormServiceType, setDemoFormServiceType] = useState("");
+  const [demoFormContactMethod, setDemoFormContactMethod] = useState("Email");
   const [demoFormMessage, setDemoFormMessage] = useState(
     "Hi! I am interested in learning more about how Ordin Core can help support our care service's operational governance. Please contact me to arrange a brief demonstration."
   );
@@ -237,8 +313,14 @@ export default function App() {
     try {
       const formData = new FormData();
       formData.append("access_key", "b9e46d19-c01b-4527-a65f-67e31817e04e");
+      formData.append("name", demoFormName);
       formData.append("email", demoFormEmail);
       formData.append("phone", demoFormPhone);
+      formData.append("organisation", demoFormOrg);
+      formData.append("role", demoFormRole);
+      formData.append("number_of_services_sites", demoFormServices);
+      formData.append("type_of_service", demoFormServiceType);
+      formData.append("preferred_contact_method", demoFormContactMethod);
       formData.append("message", demoFormMessage);
       formData.append("subject", "Ordin Core Landing Page - Demo Request");
 
@@ -250,8 +332,14 @@ export default function App() {
       const data = await response.json();
       if (data.success) {
         setDemoSubmitStatus("success");
+        setDemoFormName("");
         setDemoFormEmail("");
         setDemoFormPhone("");
+        setDemoFormOrg("");
+        setDemoFormRole("");
+        setDemoFormServices("");
+        setDemoFormServiceType("");
+        setDemoFormContactMethod("Email");
       } else {
         setDemoSubmitStatus("error");
         setDemoSubmitError(data.message || "Failed to submit demo request.");
@@ -425,6 +513,28 @@ export default function App() {
               </Card>
             </div>
 
+          </div>
+        </section>
+
+        {/* ── THE FOUR QUESTIONS ── */}
+        <section className="py-20 bg-white dark:bg-slate-950 border-b border-[#B0D4C0]/40 dark:border-slate-800">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center mb-14">
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
+                The Four Questions Every Leadership Team Needs Answered
+              </h2>
+            </div>
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+              {FOUR_QUESTIONS.map((item, idx) => (
+                <Card key={item.question} className="p-6 dark:border-slate-800 dark:bg-slate-900 flex flex-col">
+                  <span className="mb-4 inline-flex h-9 w-9 items-center justify-center rounded-full bg-[#1A3D28] dark:bg-emerald-600 text-sm font-black text-white shadow">
+                    {idx + 1}
+                  </span>
+                  <h3 className="text-base font-bold text-[#1A3D28] dark:text-white mb-2 leading-snug">{item.question}</h3>
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.answer}</p>
+                </Card>
+              ))}
+            </div>
           </div>
         </section>
 
@@ -783,6 +893,158 @@ export default function App() {
           </div>
         </section>
 
+        {/* ── PILOT STRUCTURE & PRICING ── */}
+        <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="pricing">
+          <div className="mx-auto max-w-7xl px-6 lg:px-8">
+
+            {/* Pilot Structure */}
+            <div className="mx-auto max-w-2xl text-center mb-12">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                12-Week Early Adopter Pilot
+              </span>
+              <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
+                Pilot Structure
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
+                A structured 12-week programme to embed governance rhythm inside real operational services.
+              </p>
+            </div>
+
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-20">
+              {PILOT_TIMELINE.map((item) => (
+                <Card key={item.phase} className="p-6 dark:border-slate-800 dark:bg-slate-900 flex flex-col">
+                  <p className="text-sm font-black uppercase tracking-wider text-[#1E7D4F] dark:text-[#3DAB72] mb-2">{item.phase}</p>
+                  <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 font-semibold">{item.label}</p>
+                </Card>
+              ))}
+            </div>
+
+            {/* Pricing */}
+            <div className="mx-auto max-w-2xl text-center mb-12">
+              <h2 className="text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
+                Early Adopter Pilot Pricing
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
+                Founder pricing for the first cohort of providers. Limited to the first 10 providers.
+              </p>
+            </div>
+
+            {/* Domiciliary & Community Care pricing */}
+            <p className="text-sm font-black uppercase tracking-wider text-[#1A3D28] dark:text-white mb-5">
+              Domiciliary &amp; Community Care Services
+            </p>
+            <div className="grid gap-6 lg:grid-cols-3 mb-14">
+              {PILOT_PRICING_DOM.map((plan, idx) => (
+                <Card
+                  key={plan.tier}
+                  className={`p-7 flex flex-col dark:bg-slate-900 ${idx === 1 ? "border-2 border-[#1E7D4F] dark:border-emerald-600 shadow-lg" : "dark:border-slate-800"}`}
+                >
+                  {idx === 1 && (
+                    <span className="self-start mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
+                      Most Popular
+                    </span>
+                  )}
+                  <h3 className="text-lg font-bold text-[#1A3D28] dark:text-white">{plan.tier}</h3>
+                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{plan.scope}</p>
+                  <p className="mb-5">
+                    <span className="text-4xl font-extrabold text-[#1A3D28] dark:text-white">{plan.price}</span>
+                    <span className="text-sm text-slate-500 dark:text-slate-400"> / month</span>
+                  </p>
+                  <ul className="space-y-2.5 flex-1">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                        <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                        {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <a
+                    href="https://work.ordincore.co.uk"
+                    className={`mt-6 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-bold transition shadow-sm ${idx === 1 ? "bg-[#1E7D4F] hover:bg-[#1A3D28] text-white" : "border border-[#B0D4C0] dark:border-slate-700 text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/40 dark:hover:bg-slate-800"}`}
+                  >
+                    Apply for Pilot Access →
+                  </a>
+                </Card>
+              ))}
+            </div>
+
+            {/* Supported Living pricing */}
+            <p className="text-sm font-black uppercase tracking-wider text-[#1A3D28] dark:text-white mb-5">
+              Supported Living Services
+            </p>
+            <Card className="overflow-hidden dark:border-slate-800 dark:bg-slate-900 mb-16">
+              <div className="grid grid-cols-2 bg-[#E2F0EA] dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white">
+                <span>Services / Houses</span>
+                <span className="text-right">Monthly Cost</span>
+              </div>
+              {PILOT_PRICING_SL.map((row) => (
+                <div key={row.scope} className="grid grid-cols-2 px-6 py-3.5 border-t border-[#B0D4C0]/30 dark:border-slate-800 text-sm">
+                  <span className="text-slate-700 dark:text-slate-300 font-medium">{row.scope}</span>
+                  <span className="text-right font-bold text-[#1A3D28] dark:text-white">{row.price}</span>
+                </div>
+              ))}
+            </Card>
+
+            {/* Included / Guarantee / Expectations */}
+            <div className="grid gap-6 md:grid-cols-3">
+              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white mb-4">Included in Every Pilot</h3>
+                <ul className="space-y-2.5">
+                  {PILOT_INCLUDED.map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white mb-4">Pilot Guarantee</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Complete the full 12-week pilot and retain:</p>
+                <ul className="space-y-2.5">
+                  {["Founder pricing for 12 months", "Priority onboarding into future releases", "Early access to new governance modules"].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+              <Card className="p-6 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="text-sm font-black text-[#1A3D28] dark:text-white mb-4">Pilot Expectations</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-3">Pilot providers should:</p>
+                <ul className="space-y-2.5">
+                  {["Actively use the platform", "Attend review sessions", "Provide operational feedback", "Participate in governance evaluation"].map((item) => (
+                    <li key={item} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
+                      <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
+                      {item}
+                    </li>
+                  ))}
+                </ul>
+              </Card>
+            </div>
+          </div>
+        </section>
+
+        {/* ── FAQ ── */}
+        <section className="py-20 bg-[#F0F7F3] dark:bg-slate-900 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="faq">
+          <div className="mx-auto max-w-3xl px-6 lg:px-8">
+            <div className="text-center mb-14">
+              <h2 className="text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
+                Frequently Asked Questions
+              </h2>
+            </div>
+            <div className="space-y-4">
+              {FAQ_ITEMS.map((item) => (
+                <Card key={item.q} className="p-6 dark:border-slate-800 dark:bg-slate-950">
+                  <h3 className="text-base font-bold text-[#1A3D28] dark:text-white mb-2">{item.q}</h3>
+                  <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.a}</p>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </section>
+
       </main>
 
       {/* ── FOOTER ── */}
@@ -801,6 +1063,14 @@ export default function App() {
               <p className="text-sm leading-relaxed max-w-xs text-slate-500">
                 Structured operational governance and assurance loops for supported living, community, and care services.
               </p>
+              <div className="space-y-1.5 pt-2 text-sm">
+                <a href="mailto:hello@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
+                  hello@ordincore.co.uk
+                </a>
+                <a href="mailto:pilot@ordincore.com" className="block text-slate-400 hover:text-white transition-colors font-medium">
+                  pilot@ordincore.com — Pilot enquiries
+                </a>
+              </div>
             </div>
 
             {FOOTER_LINKS.map((section) => (
@@ -867,35 +1137,133 @@ export default function App() {
                 </Button>
               </div>
             ) : (
-              <form onSubmit={handleDemoSubmit} className="space-y-4">
+              <form onSubmit={handleDemoSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Email Address
+                    Full Name
                   </label>
                   <input
-                    type="email"
-                    name="email"
+                    type="text"
+                    name="name"
                     required
-                    placeholder="you@company.com"
-                    value={demoFormEmail}
-                    onChange={(e) => setDemoFormEmail(e.target.value)}
+                    placeholder="Jane Smith"
+                    value={demoFormName}
+                    onChange={(e) => setDemoFormName(e.target.value)}
                     className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="you@company.com"
+                      value={demoFormEmail}
+                      onChange={(e) => setDemoFormEmail(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      placeholder="e.g. +44 7123 456789"
+                      value={demoFormPhone}
+                      onChange={(e) => setDemoFormPhone(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                </div>
+
                 <div className="space-y-1.5">
                   <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                    Phone Number
+                    Organisation Name
                   </label>
                   <input
-                    type="tel"
-                    name="phone"
+                    type="text"
+                    name="organisation"
                     required
-                    placeholder="e.g. +44 7123 456789"
-                    value={demoFormPhone}
-                    onChange={(e) => setDemoFormPhone(e.target.value)}
+                    placeholder="Your organisation"
+                    value={demoFormOrg}
+                    onChange={(e) => setDemoFormOrg(e.target.value)}
                     className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Role
+                    </label>
+                    <input
+                      type="text"
+                      name="role"
+                      required
+                      placeholder="e.g. Registered Manager"
+                      value={demoFormRole}
+                      onChange={(e) => setDemoFormRole(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Number of Services / Sites
+                    </label>
+                    <input
+                      type="text"
+                      name="number_of_services_sites"
+                      required
+                      placeholder="e.g. 5"
+                      value={demoFormServices}
+                      onChange={(e) => setDemoFormServices(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Type of Service
+                    </label>
+                    <select
+                      name="type_of_service"
+                      required
+                      value={demoFormServiceType}
+                      onChange={(e) => setDemoFormServiceType(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    >
+                      <option value="">Select…</option>
+                      <option value="Supported Living">Supported Living</option>
+                      <option value="Mental Health Services">Mental Health Services</option>
+                      <option value="Domiciliary & Community Care">Domiciliary &amp; Community Care</option>
+                      <option value="Other">Other</option>
+                    </select>
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Preferred Contact Method
+                    </label>
+                    <select
+                      name="preferred_contact_method"
+                      required
+                      value={demoFormContactMethod}
+                      onChange={(e) => setDemoFormContactMethod(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    >
+                      <option value="Email">Email</option>
+                      <option value="Phone">Phone</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="space-y-1.5">
