@@ -227,7 +227,7 @@ export function RiskRegister() {
         <table className="w-full border-collapse">
           <thead>
             <tr className="bg-primary text-primary-foreground text-sm whitespace-nowrap">
-              <th className="border-b border-border px-4 py-3 text-left ">House</th>
+              <th className="border-b border-border px-4 py-3 text-left ">Service</th>
               <th className="border-b border-border px-4 py-3 text-left ">Description</th>
               <th className="border-b border-border px-4 py-3 text-left ">Category</th>
               <th className="border-b border-border px-4 py-3 text-center ">Score</th>
@@ -426,7 +426,7 @@ export function RiskRegister() {
         <table border="1">
           <thead>
             <tr>
-              <th style="background-color: #00A3B2; color: white;">House</th>
+              <th style="background-color: #00A3B2; color: white;">Service</th>
               <th style="background-color: #00A3B2; color: white;">Description</th>
               <th style="background-color: #00A3B2; color: white;">Category</th>
               <th style="background-color: #00A3B2; color: white;">Score</th>
@@ -512,7 +512,7 @@ export function RiskRegister() {
         <div className="bg-card border-2 border-border p-6 mb-6 shadow-sm">
           <div className="flex gap-4">
             <div className="flex-1">
-              <label className="block mb-2 text-foreground ">Filter by House</label>
+              <label className="block mb-2 text-foreground ">Filter by Service</label>
               <div className="relative">
                 <select
                   value={houseFilter}
@@ -579,13 +579,13 @@ export function RiskRegister() {
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-foreground ">House</label>
+                <label className="block mb-2 text-foreground ">Service</label>
                 <select
                   value={newRisk.house}
                   onChange={(e) => setNewRisk({...newRisk, house: e.target.value})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
-                  <option value="">Select house</option>
+                  <option value="">Select service</option>
                   {allHousesData.map((house) => (
                     <option key={house.id} value={house.id}>
                       {house.name}
@@ -593,7 +593,7 @@ export function RiskRegister() {
                   ))}
                 </select>
                 {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
-                  <p className="text-xs text-muted-foreground mt-1">Only your assigned house is available</p>
+                  <p className="text-xs text-muted-foreground mt-1">Only your assigned service is available</p>
                 )}
               </div>
               
@@ -735,13 +735,13 @@ export function RiskRegister() {
             
             <div className="grid grid-cols-2 gap-4 mb-4">
               <div>
-                <label className="block mb-2 text-foreground ">House</label>
+                <label className="block mb-2 text-foreground ">Service</label>
                 <select
                   value={outOfCycleRisk.house}
                   onChange={(e) => setOutOfCycleRisk({...outOfCycleRisk, house: e.target.value})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
-                  <option value="">Select house</option>
+                  <option value="">Select service</option>
                   {allHousesData.map((house) => (
                     <option key={house.id} value={house.id}>
                       {house.name}
@@ -749,7 +749,7 @@ export function RiskRegister() {
                   ))}
                 </select>
                 {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
-                  <p className="text-xs text-muted-foreground mt-1">Only your assigned house is available</p>
+                  <p className="text-xs text-muted-foreground mt-1">Only your assigned service is available</p>
                 )}
               </div>
               

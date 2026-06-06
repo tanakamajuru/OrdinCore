@@ -1,3 +1,32 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+
+/* ─── Left sidebar layout ─────────────────────────────────────────────────────
+   RoleBasedNavigation renders a fixed left sidebar (.ordin-sidebar). Every page
+   places its content as the sidebar's sibling, so offset that content to the
+   right of the 16rem sidebar. Scoped to >=768px; on small screens content is
+   full-width (sidebar overlays). */
+@media (min-width: 768px) {
+  .ordin-sidebar ~ * {
+    margin-left: 16rem;
+  }
+}
+
+/* ─── Recharts hover fix ───────────────────────────────────────────────────────
+   Recharts marks hovered/clicked SVG sectors & surfaces as focusable, and the
+   browser draws a black focus rectangle around them. Suppress that outline. */
+.recharts-wrapper:focus,
+.recharts-wrapper *:focus,
+.recharts-surface:focus,
+.recharts-sector:focus,
+.recharts-layer:focus,
+.recharts-pie-sector:focus,
+.recharts-rectangle:focus,
+.recharts-bar-rectangle:focus {
+  outline: none !important;
+}
+.recharts-sector,
+.recharts-pie-sector {
+  outline: none;
+}

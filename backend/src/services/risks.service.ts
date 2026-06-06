@@ -296,10 +296,10 @@ export class RisksService {
   async promoteFromCandidate(company_id: string, user_id: string, data: {
     candidate_id: string; title: string; severity: string; trajectory: string;
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
-    reason?: string;
+    reason?: string; cluster_id?: string;
   }) {
     const candidateRes = await query(
-      `SELECT id, risk_domain, linked_person FROM risk_candidates 
+      `SELECT id, risk_domain, linked_person, cluster_id FROM risk_candidates
        WHERE id = $1 AND company_id = $2`,
       [data.candidate_id, company_id]
     );
@@ -308,6 +308,9 @@ export class RisksService {
     const risk = await this.create(company_id, user_id, {
       ...data,
       status: 'Open',
+      // Provenance: the originating cluster is the risk's source (satisfies the
+      // "risks come from a cluster or critical exception" governance rule).
+      source_cluster_id: data.cluster_id || candidateRes.rows[0].cluster_id || undefined,
       risk_domain: candidateRes.rows[0].risk_domain,
       metadata: { promotion_reason: data.reason },
       linked_person: candidateRes.rows[0].linked_person

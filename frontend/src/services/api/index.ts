@@ -552,6 +552,17 @@ class ApiClient {
     return this.patch<any>(`/actions/${id}/effectiveness`, data);
   }
 
+  // ─── Director / RI insights (spec section 9) ─────────────────────────────────
+  async getCrossSiteHeatmap(): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>('/director/cross-site-heatmap');
+  }
+  async getEffectivenessByService(): Promise<ApiResponse<any[]>> {
+    return this.get<any[]>('/director/effectiveness-by-service');
+  }
+  async getRiAssuranceSummary(): Promise<ApiResponse<any>> {
+    return this.get<any>('/ri/assurance-summary');
+  }
+
   // ─── Reconstruction scopes (spec module 9) ───────────────────────────────────
   async reconstructByScope(scope: 'client' | 'service' | 'theme' | 'incident', id: string, params: { start?: string; end?: string } = {}): Promise<ApiResponse<any>> {
     const q: Record<string, string> = {};

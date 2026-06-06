@@ -57,7 +57,7 @@ const NAV_LINKS = [
   { label: "For Who", href: "#audience" },
   { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
-  { label: "Pilot Programme", href: "https://work.ordincore.co.uk" },
+  { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
 
 const PROBLEM_CARDS = [
@@ -293,6 +293,21 @@ export default function App() {
   const [demoSubmitStatus, setDemoSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
   const [demoSubmitError, setDemoSubmitError] = useState("");
 
+  // Pilot Programme Modal / Form States
+  const [isPilotModalOpen, setIsPilotModalOpen] = useState(false);
+  const [pilotFormName, setPilotFormName] = useState("");
+  const [pilotFormEmail, setPilotFormEmail] = useState("");
+  const [pilotFormPhone, setPilotFormPhone] = useState("");
+  const [pilotFormOrg, setPilotFormOrg] = useState("");
+  const [pilotFormRole, setPilotFormRole] = useState("");
+  const [pilotFormServices, setPilotFormServices] = useState("");
+  const [pilotFormServiceType, setPilotFormServiceType] = useState("");
+  const [pilotFormChallenge, setPilotFormChallenge] = useState("");
+  const [pilotFormHelp, setPilotFormHelp] = useState("");
+  const [pilotFormConsent, setPilotFormConsent] = useState(false);
+  const [pilotSubmitStatus, setPilotSubmitStatus] = useState<"idle" | "submitting" | "success" | "error">("idle");
+  const [pilotSubmitError, setPilotSubmitError] = useState("");
+
   // Hero Tabbed Device Frame State
   const [activeHeroTab, setActiveHeroTab] = useState<"team_leader" | "registered_manager" | "responsible_individual" | "director">("team_leader");
 
@@ -347,6 +362,55 @@ export default function App() {
     } catch (err: any) {
       setDemoSubmitStatus("error");
       setDemoSubmitError(err.message || "An unexpected network error occurred.");
+    }
+  };
+
+  // Handle Pilot Programme Form Submission with Web3Forms
+  const handlePilotSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setPilotSubmitStatus("submitting");
+    setPilotSubmitError("");
+
+    try {
+      const formData = new FormData();
+      formData.append("access_key", "b9e46d19-c01b-4527-a65f-67e31817e04e");
+      formData.append("name", pilotFormName);
+      formData.append("email", pilotFormEmail);
+      formData.append("phone", pilotFormPhone);
+      formData.append("organisation", pilotFormOrg);
+      formData.append("role", pilotFormRole);
+      formData.append("number_of_services_sites", pilotFormServices);
+      formData.append("type_of_service", pilotFormServiceType);
+      formData.append("current_governance_challenge", pilotFormChallenge);
+      formData.append("what_ordin_core_can_help_with", pilotFormHelp);
+      formData.append("consent_to_be_contacted", pilotFormConsent ? "Yes" : "No");
+      formData.append("subject", "Ordin Core Landing Page - Pilot Programme Application");
+
+      const response = await fetch("https://api.web3forms.com/submit", {
+        method: "POST",
+        body: formData,
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setPilotSubmitStatus("success");
+        setPilotFormName("");
+        setPilotFormEmail("");
+        setPilotFormPhone("");
+        setPilotFormOrg("");
+        setPilotFormRole("");
+        setPilotFormServices("");
+        setPilotFormServiceType("");
+        setPilotFormChallenge("");
+        setPilotFormHelp("");
+        setPilotFormConsent(false);
+      } else {
+        setPilotSubmitStatus("error");
+        setPilotSubmitError(data.message || "Failed to submit pilot application.");
+      }
+    } catch (err: any) {
+      setPilotSubmitStatus("error");
+      setPilotSubmitError(err.message || "An unexpected network error occurred.");
     }
   };
 
@@ -435,9 +499,9 @@ export default function App() {
                 <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#B0D4C0] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/30 transition shadow-sm">
                   View Governance Workflow
                 </a>
-                <a href="https://work.ordincore.co.uk" className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
+                <button onClick={() => setIsPilotModalOpen(true)} className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
                   Join Pilot Programme →
-                </a>
+                </button>
               </div>
 
               <div className="flex items-start gap-3 rounded-2xl border border-[#B0D4C0]/60 dark:border-slate-800 bg-white/60 dark:bg-slate-900/60 p-4 text-sm text-slate-500 dark:text-slate-400 shadow-sm">
@@ -852,12 +916,13 @@ export default function App() {
                   </div>
                 </div>
 
-                <a
-                  href="https://work.ordincore.co.uk"
-                  className="inline-flex items-center justify-center gap-2 rounded-full bg-[#1E7D4F] hover:bg-[#1A3D28] px-7 py-4 text-sm font-bold text-white transition shadow-md hover:shadow-lg"
+                <Button
+                  onClick={() => setIsPilotModalOpen(true)}
+                  className="rounded-full gap-2 px-7 py-4 text-sm shadow-md hover:shadow-lg"
                 >
-                  Apply for Pilot Access →
-                </a>
+                  Apply for Pilot Access
+                  <img src={rightArrowImg} alt="" className="h-4 w-4 object-contain invert brightness-200" />
+                </Button>
               </div>
 
               {/* Right */}
@@ -958,12 +1023,12 @@ export default function App() {
                       </li>
                     ))}
                   </ul>
-                  <a
-                    href="https://work.ordincore.co.uk"
+                  <button
+                    onClick={() => setIsPilotModalOpen(true)}
                     className={`mt-6 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-bold transition shadow-sm ${idx === 1 ? "bg-[#1E7D4F] hover:bg-[#1A3D28] text-white" : "border border-[#B0D4C0] dark:border-slate-700 text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/40 dark:hover:bg-slate-800"}`}
                   >
                     Apply for Pilot Access →
-                  </a>
+                  </button>
                 </Card>
               ))}
             </div>
@@ -1290,6 +1355,212 @@ export default function App() {
                   className="w-full rounded-xl bg-[#1E7D4F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
                 >
                   {demoSubmitStatus === "submitting" ? "Sending Request..." : "Request a Demo"}
+                </Button>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── JOIN PILOT PROGRAMME MODAL ── */}
+      {isPilotModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-sm animate-fade-in">
+          <div className="relative w-full max-w-lg overflow-hidden rounded-3xl border border-[#B0D4C0] dark:border-slate-800 bg-white dark:bg-slate-900 shadow-2xl p-8 space-y-6">
+            <button
+              onClick={() => setIsPilotModalOpen(false)}
+              className="absolute top-4 right-4 h-8 w-8 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-500 hover:bg-slate-200 dark:hover:bg-slate-700 transition"
+              aria-label="Close modal"
+            >
+              <XMarkIcon className="h-5 w-5" />
+            </button>
+
+            <div className="space-y-2">
+              <h3 className="text-2xl font-black text-[#1A3D28] dark:text-white">
+                Join the Ordin Core Pilot Programme
+              </h3>
+              <p className="text-sm text-slate-500 dark:text-slate-450">
+                Tell us about your service and the governance challenges you'd like Ordin Core to help with.
+              </p>
+            </div>
+
+            {pilotSubmitStatus === "success" ? (
+              <div className="text-center py-6 space-y-4">
+                <div className="mx-auto h-12 w-12 rounded-full bg-emerald-100 dark:bg-emerald-950/40 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
+                  <CheckBadgeIcon className="h-7 w-7" />
+                </div>
+                <h4 className="text-lg font-bold text-slate-950 dark:text-white">Application Submitted!</h4>
+                <p className="text-sm text-slate-500 dark:text-slate-450">
+                  Thank you for your interest in the pilot programme. A member of our team will be in touch shortly.
+                </p>
+                <Button onClick={() => { setIsPilotModalOpen(false); setPilotSubmitStatus("idle"); }} className="w-full">
+                  Close Window
+                </Button>
+              </div>
+            ) : (
+              <form onSubmit={handlePilotSubmit} className="space-y-4 max-h-[60vh] overflow-y-auto pr-1">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Full Name
+                  </label>
+                  <input
+                    type="text"
+                    name="name"
+                    required
+                    placeholder="Jane Smith"
+                    value={pilotFormName}
+                    onChange={(e) => setPilotFormName(e.target.value)}
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      name="email"
+                      required
+                      placeholder="you@company.com"
+                      value={pilotFormEmail}
+                      onChange={(e) => setPilotFormEmail(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      name="phone"
+                      required
+                      placeholder="e.g. +44 7123 456789"
+                      value={pilotFormPhone}
+                      onChange={(e) => setPilotFormPhone(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Organisation Name
+                  </label>
+                  <input
+                    type="text"
+                    name="organisation"
+                    required
+                    placeholder="Your organisation"
+                    value={pilotFormOrg}
+                    onChange={(e) => setPilotFormOrg(e.target.value)}
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Role
+                    </label>
+                    <input
+                      type="text"
+                      name="role"
+                      required
+                      placeholder="e.g. Registered Manager"
+                      value={pilotFormRole}
+                      onChange={(e) => setPilotFormRole(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                      Number of Services / Sites
+                    </label>
+                    <input
+                      type="text"
+                      name="number_of_services_sites"
+                      required
+                      placeholder="e.g. 5"
+                      value={pilotFormServices}
+                      onChange={(e) => setPilotFormServices(e.target.value)}
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Type of Service
+                  </label>
+                  <select
+                    name="type_of_service"
+                    required
+                    value={pilotFormServiceType}
+                    onChange={(e) => setPilotFormServiceType(e.target.value)}
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                  >
+                    <option value="">Select…</option>
+                    <option value="Supported Living">Supported Living</option>
+                    <option value="Mental Health Services">Mental Health Services</option>
+                    <option value="Domiciliary & Community Care">Domiciliary &amp; Community Care</option>
+                    <option value="Other">Other</option>
+                  </select>
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    Current Governance Challenge
+                  </label>
+                  <textarea
+                    name="current_governance_challenge"
+                    required
+                    rows={3}
+                    placeholder="What governance challenge are you currently facing?"
+                    value={pilotFormChallenge}
+                    onChange={(e) => setPilotFormChallenge(e.target.value)}
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                  />
+                </div>
+
+                <div className="space-y-1.5">
+                  <label className="text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                    What would you like Ordin Core to help with?
+                  </label>
+                  <textarea
+                    name="what_ordin_core_can_help_with"
+                    required
+                    rows={3}
+                    placeholder="Tell us what you'd like to achieve."
+                    value={pilotFormHelp}
+                    onChange={(e) => setPilotFormHelp(e.target.value)}
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                  />
+                </div>
+
+                <label className="flex items-start gap-3 text-sm text-slate-600 dark:text-slate-300">
+                  <input
+                    type="checkbox"
+                    name="consent_to_be_contacted"
+                    required
+                    checked={pilotFormConsent}
+                    onChange={(e) => setPilotFormConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#B0D4C0] text-[#1E7D4F] focus:ring-[#1E7D4F]"
+                  />
+                  I consent to be contacted by Ordin Core about the pilot programme.
+                </label>
+
+                {pilotSubmitStatus === "error" && (
+                  <p className="text-xs text-red-500 font-semibold">{pilotSubmitError || "Failed to submit. Please try again."}</p>
+                )}
+
+                <Button
+                  type="submit"
+                  disabled={pilotSubmitStatus === "submitting"}
+                  className="w-full rounded-xl bg-[#1E7D4F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
+                >
+                  {pilotSubmitStatus === "submitting" ? "Submitting Application..." : "Apply for Pilot Access"}
                 </Button>
               </form>
             )}

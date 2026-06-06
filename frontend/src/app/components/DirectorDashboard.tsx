@@ -77,19 +77,21 @@ export function DirectorDashboard() {
   const [actions, setActions] = useState<any[]>([]);
   const [effPending, setEffPending] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
+  const [heatmap, setHeatmap] = useState<any[]>([]);
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     try {
       setLoading(true);
-      const [rk, esc, st, act, eff, hs] = await Promise.all([
+      const [rk, esc, st, act, eff, hs, hm] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
         apiClient.getRisksActions().catch(() => ({})),
         apiClient.getPendingEffectiveness().catch(() => ({})),
         apiClient.get(`/houses?limit=100`).catch(() => ({})),
+        apiClient.getCrossSiteHeatmap().catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -97,6 +99,7 @@ export function DirectorDashboard() {
       setActions(asArray(unwrap(act)));
       setEffPending(asArray(unwrap(eff)));
       setServices(asArray(unwrap(hs)));
+      setHeatmap(asArray(unwrap(hm)));
     } catch (err) {
       console.error(err);
       toast.error("Failed to load director dashboard");
@@ -142,10 +145,23 @@ export function DirectorDashboard() {
   const servicesWithRisk = services.slice(0, 7);
   const servicesNeedingAttention = servicesWithRisk.filter(s => openRisks.some(r => r.house_id === s.id && isRising(trendOf(r)))).length;
 
+  // Heat map from the server-side /director/cross-site-heatmap endpoint, with a
+  // client-side fallback so the panel still renders if the endpoint is empty.
+  const heatTrend: Record<string, string> = {};
+  heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; });
+  const heatThemes = heatmap.length
+    ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map()).entries())
+        .sort((a, b) => b[1] - a[1]).slice(0, 5).map((e) => e[0])
+    : topThemes;
+  const heatServices = heatmap.length
+    ? Array.from(new Map(heatmap.map((h: any) => [h.service_id, { id: h.service_id, name: h.service_name }])).values()).slice(0, 7)
+    : servicesWithRisk;
+  const trendFor = (svcId: string, theme: string) => heatmap.length ? heatTrend[`${svcId}|${theme}`] : worstTrend(svcId, theme);
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 pt-24 max-w-[1500px] mx-auto">
+      <div className="p-6 max-w-[1500px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Director Dashboard</h1>
@@ -177,13 +193,13 @@ export function DirectorDashboard() {
             <div className="overflow-x-auto">
               <table className="w-full text-xs">
                 <thead>
-                  <tr><th className="text-left p-2 text-muted-foreground">Service</th>{topThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
+                  <tr><th className="text-left p-2 text-muted-foreground">Service</th>{heatThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
                 </thead>
                 <tbody>
-                  {servicesWithRisk.map(s => (
-                    <tr key={s.id}><td className="p-2 font-medium whitespace-nowrap">{s.name}</td>{topThemes.map(t => <HeatCell key={t} trend={worstTrend(s.id, t)} />)}</tr>
+                  {heatServices.map(s => (
+                    <tr key={s.id}><td className="p-2 font-medium whitespace-nowrap">{s.name}</td>{heatThemes.map(t => <HeatCell key={t} trend={trendFor(s.id, t)} />)}</tr>
                   ))}
-                  {servicesWithRisk.length === 0 && <tr><td colSpan={topThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
+                  {heatServices.length === 0 && <tr><td colSpan={heatThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
                 </tbody>
               </table>
             </div>
@@ -270,7 +286,7 @@ export function DirectorDashboard() {
               </tr></thead>
               <tbody>
                 {escalations.slice(0, 8).map(e => (
-                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalations")}>
+                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
                     <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
                     <td className="px-2">{e.service_name || e.house_name || "—"}</td>
                     <td className="px-2 whitespace-nowrap">{new Date(e.created_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</td>

@@ -253,10 +253,10 @@ export class EscalationsService {
 
     const result = await query(
       `UPDATE escalations
-         SET lifecycle_status = $1,
-             reviewed_at = CASE WHEN $1 = 'Under Review' AND reviewed_at IS NULL THEN NOW() ELSE reviewed_at END,
-             actions_implemented_at = CASE WHEN $1 = 'Actions Implemented' THEN NOW() ELSE actions_implemented_at END,
-             effectiveness_review_due = CASE WHEN $1 = 'Monitoring Effectiveness' THEN NOW() + INTERVAL '72 hours' ELSE effectiveness_review_due END,
+         SET lifecycle_status = $1::escalation_lifecycle_status,
+             reviewed_at = CASE WHEN $1::text = 'Under Review' AND reviewed_at IS NULL THEN NOW() ELSE reviewed_at END,
+             actions_implemented_at = CASE WHEN $1::text = 'Actions Implemented' THEN NOW() ELSE actions_implemented_at END,
+             effectiveness_review_due = CASE WHEN $1::text = 'Monitoring Effectiveness' THEN NOW() + INTERVAL '72 hours' ELSE effectiveness_review_due END,
              updated_at = NOW()
        WHERE id = $2 AND company_id = $3
        RETURNING *`,

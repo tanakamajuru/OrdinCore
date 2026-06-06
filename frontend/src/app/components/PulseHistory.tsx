@@ -136,7 +136,7 @@ export function PulseHistory() {
                 <thead>
                   <tr className="bg-muted/50 border-b-2 border-border">
                     <th className="p-4  uppercase text-xs tracking-widest">Date / Time</th>
-                    <th className="p-4  uppercase text-xs tracking-widest">House</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Service</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Type</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Severity</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Status</th>

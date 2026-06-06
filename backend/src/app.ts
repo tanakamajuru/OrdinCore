@@ -38,6 +38,8 @@ import serviceUsersRoutes from './routes/serviceUsers.routes';
 import governanceReviewsRoutes from './routes/governanceReviews.routes';
 import closureRoutes from './routes/closure.routes';
 import reconstructionRoutes from './routes/reconstruction.routes';
+import { directorInsightsRouter, riInsightsRouter } from './routes/directorInsights.routes';
+import effectivenessRoutes from './routes/effectiveness.routes';
 
 
 
@@ -138,6 +140,9 @@ app.use(`${API}/service-users`, serviceUsersRoutes);
 app.use(`${API}/governance-reviews`, governanceReviewsRoutes);
 app.use(`${API}/closure`, closureRoutes);
 app.use(`${API}/reconstruction`, reconstructionRoutes);
+app.use(`${API}/director`, directorInsightsRouter);
+app.use(`${API}/ri`, riInsightsRouter);
+app.use(`${API}/effectiveness`, effectivenessRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────

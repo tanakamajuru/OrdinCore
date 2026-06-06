@@ -623,7 +623,7 @@ export function RiskDetail() {
                   onChange={(e) => setNewAction({...newAction, assigned_to: e.target.value})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
-                  <option value="">Auto-assign to house Team Leader</option>
+                  <option value="">Auto-assign to service Team Leader</option>
                   {teamLeaders.map((tl) => (
                     <option key={tl.id} value={tl.id}>
                       {tl.first_name} {tl.last_name}

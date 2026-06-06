@@ -110,7 +110,7 @@ export function MonthlyReport() {
                        </div>
                        <div className="flex items-center gap-2">
                          <input type="checkbox" checked readOnly className="accent-black" />
-                         <span className="text-sm">Cross-House Compliance Benchmarking</span>
+                         <span className="text-sm">Cross-Service Compliance Benchmarking</span>
                        </div>
                     </div>
                   </div>

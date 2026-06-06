@@ -68,7 +68,7 @@ const HouseForm = ({
   <div className="grid gap-4 py-4">
     <div className="grid gap-2">
       <Label htmlFor="name" className="flex items-center gap-1">
-        Site Name <span className="text-destructive">*</span>
+        Service Name <span className="text-destructive">*</span>
       </Label>
       <Input
         id="name"
@@ -148,7 +148,7 @@ const HouseForm = ({
       <div className="space-y-0.5">
         <Label>Operational Status</Label>
         <p className="text-xs text-muted-foreground">
-          {formData.isActive ? "Active - Site is operational" : "Inactive - Site is archived"}
+          {formData.isActive ? "Active - Service is operational" : "Inactive - Service is archived"}
         </p>
       </div>
       <Switch checked={formData.isActive} onCheckedChange={(val) => onChange("isActive", val)} />
@@ -484,7 +484,7 @@ const AdminHouseManagement: React.FC = () => {
   }, [houses]);
 
   const validateForm = () => {
-    if (!formData.name.trim()) { toast.error("Site name is required"); return false; }
+    if (!formData.name.trim()) { toast.error("Service name is required"); return false; }
     if (!formData.address.trim()) { toast.error("Address is required"); return false; }
     if (!formData.city.trim()) { toast.error("City is required"); return false; }
     if (!formData.postcode.trim()) { toast.error("Postcode is required"); return false; }
@@ -516,7 +516,7 @@ const AdminHouseManagement: React.FC = () => {
         const err = await res.json().catch(() => ({}));
         throw new Error(err.message || "Failed to create site. It may already exist.");
       }
-      toast.success("Site created successfully");
+      toast.success("Service created successfully");
       setIsCreateDialogOpen(false);
       resetForm();
       fetchHouses();
@@ -549,7 +549,7 @@ const AdminHouseManagement: React.FC = () => {
         }),
       });
       if (!res.ok) throw new Error("Update failed");
-      toast.success("Site updated successfully");
+      toast.success("Service updated successfully");
       setIsEditDialogOpen(false);
       fetchHouses();
     } catch (err: any) {
@@ -567,7 +567,7 @@ const AdminHouseManagement: React.FC = () => {
         headers: getHeaders(),
       });
       if (!res.ok) throw new Error();
-      toast.success("Site archived");
+      toast.success("Service archived");
       setIsDeleteDialogOpen(false);
       fetchHouses();
     } catch {
@@ -607,9 +607,9 @@ const AdminHouseManagement: React.FC = () => {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl text-primary">Site Management</h1>
+          <h1 className="text-3xl text-primary">Service Management</h1>
           <Button onClick={() => { resetForm(); setIsCreateDialogOpen(true); }}>
-            <Home className="mr-2 h-4 w-4" /> Add Site
+            <Home className="mr-2 h-4 w-4" /> Add Service
           </Button>
         </div>
 
@@ -618,14 +618,14 @@ const AdminHouseManagement: React.FC = () => {
           <div className="grid md:grid-cols-4 gap-6">
             <div className="bg-card border-2 border-border p-6 shadow-sm">
               <div className="flex justify-between mb-2">
-                <span className="text-sm">Total Sites</span>
+                <span className="text-sm">Total Services</span>
                 <Building className="w-4 h-4 text-primary" />
               </div>
               <div className="text-2xl">{stats.total}</div>
             </div>
             <div className="bg-card border-2 border-border p-6 shadow-sm">
               <div className="flex justify-between mb-2">
-                <span className="text-sm text-success">Active Sites</span>
+                <span className="text-sm text-success">Active Services</span>
                 <ShieldCheck className="w-4 h-4 text-success" />
               </div>
               <div className="text-2xl text-success">{stats.active}</div>
@@ -649,7 +649,7 @@ const AdminHouseManagement: React.FC = () => {
                 <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 <Input
                   className="pl-8"
-                  placeholder="Search by site name or location…"
+                  placeholder="Search by service name or location…"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                 />
@@ -659,7 +659,7 @@ const AdminHouseManagement: React.FC = () => {
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="all">All Sites</SelectItem>
+                  <SelectItem value="all">All Services</SelectItem>
                   <SelectItem value="active">Active Only</SelectItem>
                   <SelectItem value="inactive">Inactive Only</SelectItem>
                 </SelectContent>
@@ -669,7 +669,7 @@ const AdminHouseManagement: React.FC = () => {
             <Table>
               <TableHeader className="bg-muted/50">
                 <TableRow>
-                  <TableHead>Site Name</TableHead>
+                  <TableHead>Service Name</TableHead>
                   <TableHead>Reg Number</TableHead>
                   <TableHead>Location</TableHead>
                   <TableHead>Registered Manager</TableHead>
@@ -716,7 +716,7 @@ const AdminHouseManagement: React.FC = () => {
                           variant="outline"
                           className="flex items-center gap-1.5 text-primary border-primary/40 hover:bg-primary/10 hover:border-primary"
                           onClick={() => setPatientDrawerHouse(house)}
-                          title="Manage patients for this house"
+                          title="Manage patients for this service"
                         >
                           <span>Patients</span>
                           <ChevronRight className="w-3 h-3" />
@@ -726,7 +726,7 @@ const AdminHouseManagement: React.FC = () => {
                           size="sm"
                           variant="outline"
                           onClick={() => openEditDialog(house)}
-                          title="Edit site details"
+                          title="Edit service details"
                         >
                           <Edit size={14} />
                         </Button>
@@ -747,7 +747,7 @@ const AdminHouseManagement: React.FC = () => {
                 {houses.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-12 text-muted-foreground">
-                      No sites found. Create a new site to get started.
+                      No services found. Create a new service to get started.
                     </TableCell>
                   </TableRow>
                 )}
@@ -783,17 +783,17 @@ const AdminHouseManagement: React.FC = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Building className="w-5 h-5 text-primary" />
-              Add New Governance Site
+              Add New Governance Service
             </DialogTitle>
             <DialogDescription>
-              Initialise a new care setting with strict governance oversight.
+              Initialise a new care service with strict governance oversight.
             </DialogDescription>
           </DialogHeader>
           <HouseForm formData={formData} managers={managers} onChange={(f, v) => setFormData((p) => ({ ...p, [f]: v }))} />
           <DialogFooter>
             <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>Cancel</Button>
             <Button onClick={handleCreateHouse} disabled={isSubmitting}>
-              {isSubmitting ? "Creating…" : "Create Site"}
+              {isSubmitting ? "Creating…" : "Create Service"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -803,9 +803,9 @@ const AdminHouseManagement: React.FC = () => {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Update Site Records</DialogTitle>
+            <DialogTitle>Update Service Records</DialogTitle>
             <DialogDescription>
-              Edit the details for this governance site. All changes are saved immediately.
+              Edit the details for this governance service. All changes are saved immediately.
             </DialogDescription>
           </DialogHeader>
           <HouseForm formData={formData} managers={managers} onChange={(f, v) => setFormData((p) => ({ ...p, [f]: v }))} />
@@ -822,9 +822,9 @@ const AdminHouseManagement: React.FC = () => {
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>Archive this site?</AlertDialogTitle>
+            <AlertDialogTitle>Archive this service?</AlertDialogTitle>
             <AlertDialogDescription>
-              Archiving will preserve governance records but block new pulse submissions for this site.
+              Archiving will preserve governance records but block new pulse submissions for this service.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -833,7 +833,7 @@ const AdminHouseManagement: React.FC = () => {
               onClick={handleDeleteHouse}
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
-              Archive Site
+              Archive Service
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

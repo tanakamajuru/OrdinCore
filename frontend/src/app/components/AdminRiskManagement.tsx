@@ -258,10 +258,10 @@ const AdminRiskManagement: React.FC = () => {
             </Select>
             <Select value={houseFilter} onValueChange={setHouseFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by house" />
+                <SelectValue placeholder="Filter by service" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Houses</SelectItem>
+                <SelectItem value="all">All Services</SelectItem>
                 {houses.map(house => (
                   <SelectItem key={house.id} value={house.id}>
                     {house.name} ({house.house_code})
@@ -339,13 +339,13 @@ const AdminRiskManagement: React.FC = () => {
               <AdminFormField label="Risk ID">
                 <Input placeholder="Enter risk ID..." className="font-mono" />
               </AdminFormField>
-              <AdminFormField label="House">
+              <AdminFormField label="Service">
                 <Select>
                   <SelectTrigger>
-                    <SelectValue placeholder="Select house" />
+                    <SelectValue placeholder="Select service" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="none">Select a house</SelectItem>
+                    <SelectItem value="none">Select a service</SelectItem>
                     {houses.map(house => (
                       <SelectItem key={house.id} value={house.id}>
                         {house.name} ({house.house_code})

@@ -248,10 +248,10 @@ const AdminPulseManagement: React.FC = () => {
             </Select>
             <Select value={houseFilter} onValueChange={setHouseFilter}>
               <SelectTrigger className="w-[180px]">
-                <SelectValue placeholder="Filter by house" />
+                <SelectValue placeholder="Filter by service" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="all">All Houses</SelectItem>
+                <SelectItem value="all">All Services</SelectItem>
                 {houses.map(house => (
                   <SelectItem key={house.id} value={house.id}>
                     {house.name} ({house.house_code})
@@ -326,7 +326,7 @@ const AdminPulseManagement: React.FC = () => {
                 <AdminFormField label="Pulse ID">
                   <Input value={selectedPulse.pulse_id} disabled />
                 </AdminFormField>
-                <AdminFormField label="House">
+                <AdminFormField label="Service">
                   <Input value={`${selectedPulse.house_name} (${selectedPulse.house_code})`} disabled />
                 </AdminFormField>
               </div>

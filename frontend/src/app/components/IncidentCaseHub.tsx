@@ -274,7 +274,7 @@ export function IncidentCaseHub() {
                 }
               </p>
               {userRole === 'REGISTERED_MANAGER' && (
-                <p className="text-sm text-muted-foreground mt-1">Showing incidents for your assigned house only</p>
+                <p className="text-sm text-muted-foreground mt-1">Showing incidents for your assigned service only</p>
               )}
             </div>
             {canCreateIncident && (
@@ -296,7 +296,7 @@ export function IncidentCaseHub() {
                   <div className="flex-1 relative">
                     <Search className="absolute left-3 top-3 w-4 h-4 text-muted-foreground" />
                     <Input
-                      placeholder="Search incidents by title, description, house, or type..."
+                      placeholder="Search incidents by title, description, service, or type..."
                       value={searchTerm}
                       onChange={(e) => setSearchTerm(e.target.value)}
                       className="pl-10 border-border bg-background focus:ring-primary"
@@ -527,7 +527,7 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label htmlFor="incident-house" className="block text-sm  text-foreground mb-1">House/Service *</label>
+                        <label htmlFor="incident-house" className="block text-sm  text-foreground mb-1">Service *</label>
                         <select 
                           id="incident-house"
                           value={incidentForm.house_id} 
@@ -541,7 +541,7 @@ export function IncidentCaseHub() {
                           ))}
                         </select>
                         {userRole === 'REGISTERED_MANAGER' && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Only your assigned house is available</p>
+                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Only your assigned service is available</p>
                         )}
                       </div>
                       <div>

@@ -119,7 +119,7 @@ export function AdminServiceUsers() {
                 onChange={e => setSelectedHouse(e.target.value)}
                 className="w-full bg-background border-2 border-border p-3 focus:border-primary outline-none"
               >
-                <option value="">Select Service / House...</option>
+                <option value="">Select Service...</option>
                 {houses.map(h => (
                   <option key={h.id} value={h.id}>{h.name}</option>
                 ))}

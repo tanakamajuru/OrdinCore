@@ -465,7 +465,7 @@ export function IncidentDetail() {
                 <p className="text-foreground">{incident.id}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">House ID</p>
+                <p className="text-sm text-muted-foreground mb-1">Service ID</p>
                 <p className="text-foreground">{incident.house_id}</p>
               </div>
               <div>

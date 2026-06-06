@@ -134,7 +134,7 @@ export function CrossHousePatternDetection() {
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl  text-foreground mb-2">Cross-House Pattern Detection</h1>
+          <h1 className="text-3xl  text-foreground mb-2">Cross-Service Pattern Detection</h1>
           <p className="text-muted-foreground">Identify and analyze recurring risk patterns across all services</p>
         </div>
 
@@ -272,7 +272,7 @@ export function CrossHousePatternDetection() {
                         </div>
                       </div>
                       <div>
-                        <div className="text-sm text-muted-foreground mb-1">Affected Houses</div>
+                        <div className="text-sm text-muted-foreground mb-1">Affected Services</div>
                         <div className="flex flex-wrap gap-2">
                           {selectedPattern.affectedHouses.map((house, index) => (
                             <span key={index} className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded border">

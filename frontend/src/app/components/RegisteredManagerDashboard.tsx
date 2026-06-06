@@ -8,6 +8,7 @@ import {
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { apiClient } from "@/services/api";
+import { GovernanceReviewModal } from "@/components/GovernanceReviewModal";
 
 // Defensively unwrap the varying { data } / { data: { data } } response shapes.
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
@@ -103,6 +104,7 @@ export function RegisteredManagerDashboard() {
   const [reviewQueue, setReviewQueue] = useState<any[]>([]);
   const [effPending, setEffPending] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
+  const [reviewCtx, setReviewCtx] = useState<{ risk_id?: string; service_id?: string; theme?: string } | null>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -180,7 +182,7 @@ export function RegisteredManagerDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 pt-24 max-w-[1500px] mx-auto">
+      <div className="p-6 max-w-[1500px]">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
@@ -259,19 +261,23 @@ export function RegisteredManagerDashboard() {
           <Panel title="Governance Review Queue" count={reviewQueue.length} onView={() => navigate("/oversight-board")}>
             <div className="space-y-2">
               {reviewQueue.slice(0, 5).map((q) => (
-                <div key={q.risk_id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
-                  <div>
-                    <div className="font-medium">{q.theme}</div>
+                <div key={q.risk_id} className="flex items-center justify-between gap-2 text-sm border-b border-border/50 pb-2">
+                  <div className="min-w-0">
+                    <div className="font-medium truncate">{q.theme}</div>
                     <div className="text-xs text-muted-foreground">{q.signal_count || 0} signals · {q.days_since_review ?? 0}d since review</div>
                   </div>
-                  <span className={`text-xs rounded px-2 py-0.5 ${SEVERITY_BADGE[q.severity] || "bg-muted"}`}>{q.severity || "—"}</span>
+                  <div className="flex items-center gap-2 shrink-0">
+                    <span className={`text-xs rounded px-2 py-0.5 ${SEVERITY_BADGE[q.severity] || "bg-muted"}`}>{q.severity || "—"}</span>
+                    <button onClick={() => setReviewCtx({ risk_id: q.risk_id, service_id: q.service_id, theme: q.theme })}
+                      className="text-xs px-2 py-1 rounded-md bg-primary text-primary-foreground hover:bg-primary/90">Review</button>
+                  </div>
                 </div>
               ))}
               {reviewQueue.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">Queue clear</p>}
             </div>
           </Panel>
 
-          <Panel title="Escalation Queue" count={openEsc.length} onView={() => navigate("/escalations")}>
+          <Panel title="Escalation Queue" count={openEsc.length} onView={() => navigate("/escalation-log")}>
             <div className="space-y-2">
               {openEsc.slice(0, 5).map((e) => (
                 <div key={e.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
@@ -286,7 +292,7 @@ export function RegisteredManagerDashboard() {
             </div>
           </Panel>
 
-          <Panel title="Effectiveness Review Queue" count={effPending.length} onView={() => navigate("/effectiveness")}>
+          <Panel title="Effectiveness Review Queue" count={effPending.length} onView={() => navigate("/my-actions")}>
             <div className="space-y-2">
               {effPending.slice(0, 5).map((a) => (
                 <div key={a.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
@@ -343,6 +349,13 @@ export function RegisteredManagerDashboard() {
           </div>
         </div>
       </div>
+
+      <GovernanceReviewModal
+        open={!!reviewCtx}
+        context={reviewCtx || {}}
+        onClose={() => setReviewCtx(null)}
+        onSubmitted={load}
+      />
     </div>
   );
 }

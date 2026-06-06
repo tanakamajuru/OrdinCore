@@ -23,7 +23,7 @@ router.post('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTE
  *     tags: [Pulses]
  *     summary: List signals
  */
-router.get('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'), pulseController.getPulses.bind(pulseController));
+router.get('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.getPulses.bind(pulseController));
 
 /**
  * @openapi

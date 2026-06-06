@@ -129,7 +129,7 @@ export function ResponsibleIndividualDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 pt-24 max-w-[1500px] mx-auto">
+      <div className="p-6 max-w-[1500px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Responsible Individual Dashboard</h1>
@@ -193,7 +193,7 @@ export function ResponsibleIndividualDashboard() {
                 </tr></thead>
                 <tbody>
                   {openEsc.slice(0, 6).map(e => (
-                    <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalations")}>
+                    <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
                       <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
                       <td className="px-2 max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
                       <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>

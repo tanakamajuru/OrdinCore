@@ -5,6 +5,7 @@ import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { ClosureReviewModal } from "@/components/ClosureReviewModal";
 
 interface Escalation {
   id: string;
@@ -29,6 +30,7 @@ export function EscalationLog() {
   const [selectedEscalation, setSelectedEscalation] = useState<Escalation | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [closeTarget, setCloseTarget] = useState<{ id: string; title?: string } | null>(null);
 
   useEffect(() => {
     loadEscalations();
@@ -143,7 +145,7 @@ export function EscalationLog() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20">
+      <div className="p-6 w-full">
         <div className="mb-8">
           <h1 className="text-3xl  text-primary mb-2 flex items-center gap-3">
             <ShieldAlert className="w-8 h-8" />
@@ -262,7 +264,7 @@ export function EscalationLog() {
                           >
                             Log Progress
                           </Button>
-                          <Button 
+                          <Button
                             onClick={handleResolve}
                             disabled={isSubmitting || !resolutionNotes}
                             className="flex-1 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
@@ -270,6 +272,12 @@ export function EscalationLog() {
                             Mark as Resolved
                           </Button>
                         </div>
+                        <button
+                          onClick={() => setCloseTarget({ id: selectedEscalation.id, title: selectedEscalation.risk_title || selectedEscalation.reason })}
+                          className="w-full mt-1 px-4 py-2 rounded-lg border-2 border-success/40 text-success hover:bg-success/5 text-sm flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Close with Evidence (Governance)
+                        </button>
                       </div>
                     )}
 
@@ -319,6 +327,13 @@ export function EscalationLog() {
           </div>
         </div>
       </div>
+
+      <ClosureReviewModal
+        open={!!closeTarget}
+        target={{ type: "escalation", id: closeTarget?.id || "", title: closeTarget?.title }}
+        onClose={() => setCloseTarget(null)}
+        onClosed={() => { setSelectedEscalation(null); loadEscalations(); }}
+      />
     </div>
   );
 }
