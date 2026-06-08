@@ -15,7 +15,7 @@ export class IncidentReconstructionService {
 
   async findById(id: string, company_id: string) {
     const result = await query(
-      `SELECT ir.*, h.name as house_name, i.incident_type, i.severity as incident_severity,
+      `SELECT ir.*, h.name as house_name, i.title AS incident_type, i.severity as incident_severity,
               u.first_name || ' ' || u.last_name as investigator_name
        FROM incident_reconstruction ir
        JOIN houses h ON h.id = ir.house_id
