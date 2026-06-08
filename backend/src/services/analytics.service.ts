@@ -161,7 +161,7 @@ export class AnalyticsService {
           COUNT(*) AS total,
           COUNT(*) FILTER (WHERE LOWER(status::text) = 'resolved') AS resolved,
           COUNT(*) FILTER (WHERE LOWER(status::text) = 'pending') AS pending,
-          ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at))/3600), 2) AS avg_resolution_hours
+          ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at))/3600)::numeric, 2) AS avg_resolution_hours
          FROM escalations
          WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '${days} days'`,
         [company_id]
