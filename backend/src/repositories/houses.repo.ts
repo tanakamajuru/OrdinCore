@@ -18,7 +18,8 @@ export interface CreateHouseDto {
 export const housesRepo = {
   async findById(id: string, company_id?: string) {
     const params: unknown[] = [id];
-    let sql = 'SELECT * FROM houses WHERE id = $1';
+    // Derive is_active from status (single source of truth) so it can never drift.
+    let sql = "SELECT *, (status = 'active') AS is_active FROM houses WHERE id = $1";
     if (company_id) {
       sql += ' AND company_id = $2';
       params.push(company_id);
@@ -50,7 +51,7 @@ export const housesRepo = {
 
     const where = conditions.join(' AND ');
     const result = await query(
-      `SELECT h.*, u.first_name AS manager_first_name, u.last_name AS manager_last_name
+      `SELECT h.*, (h.status = 'active') AS is_active, u.first_name AS manager_first_name, u.last_name AS manager_last_name
        FROM houses h
        LEFT JOIN users u ON u.id = h.manager_id
        WHERE ${where}
@@ -109,10 +110,18 @@ export const housesRepo = {
   },
 
   async update(id: string, company_id: string, data: Partial<CreateHouseDto>) {
-    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'registration_number', 'last_daily_review_at'];
+    const d = { ...(data as Record<string, unknown>) };
+    // Frontend uses the boolean is_active; translate it to the canonical status column.
+    if ('is_active' in d && d.is_active !== undefined && !('status' in d)) {
+      d.status = d.is_active === true || d.is_active === 'true' ? 'active' : 'inactive';
+    }
+    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'is_active', 'registration_number', 'last_daily_review_at'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
-      if (key in data) filteredData[key] = (data as Record<string, unknown>)[key];
+      if (key in d) filteredData[key] = d[key];
+    }
+    if (Object.keys(filteredData).length === 0) {
+      return this.findById(id, company_id);
     }
     const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 3}`).join(', ');
     const values = Object.values(filteredData);
