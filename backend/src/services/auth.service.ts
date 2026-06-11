@@ -30,6 +30,16 @@ export class AuthService {
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) throw new Error('Invalid credentials');
 
+    // Block access when the organisation itself has been deactivated/suspended/archived.
+    // (SUPER_ADMIN has no company_id and is exempt.)
+    if (user.company_id) {
+      const compRes = await query('SELECT status FROM companies WHERE id = $1', [user.company_id]);
+      const compStatus = compRes.rows[0]?.status;
+      if (compStatus && compStatus !== 'active') {
+        throw new Error('Your organisation account has been suspended. Please contact your administrator.');
+      }
+    }
+
     // Update last login
     await usersRepo.update(user.id, { last_login: new Date() });
 

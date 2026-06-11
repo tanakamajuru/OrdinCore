@@ -37,13 +37,14 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     // Verify user still exists and is active, and fetch assigned houses
     const result = await query(
-      `SELECT u.id, u.company_id, u.email, u.role, u.status, 
+      `SELECT u.id, u.company_id, u.email, u.role, u.status, c.status AS company_status,
               ARRAY_AGG(DISTINCT COALESCE(uh.house_id, h_direct.id)) FILTER (WHERE COALESCE(uh.house_id, h_direct.id) IS NOT NULL) AS house_ids
        FROM users u
+       LEFT JOIN companies c ON c.id = u.company_id
        LEFT JOIN user_houses uh ON uh.user_id = u.id
        LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
        WHERE u.id = $1
-       GROUP BY u.id`,
+       GROUP BY u.id, c.status`,
       [decoded.user_id]
     );
 
@@ -55,6 +56,12 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     const user = result.rows[0];
     if (user.status !== 'active') {
       res.status(401).json({ success: false, message: 'Account is inactive', errors: [] });
+      return;
+    }
+    // Org-level deactivation: a suspended/archived company locks out all its users
+    // (SUPER_ADMIN has no company and is exempt).
+    if (user.company_id && user.company_status && user.company_status !== 'active') {
+      res.status(401).json({ success: false, message: 'Organisation suspended', errors: [] });
       return;
     }
 

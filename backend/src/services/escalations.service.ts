@@ -98,9 +98,16 @@ export class EscalationsService {
     }
 
     const status = 'Resolved';
+    // Keep lifecycle_status in sync with the legacy status. Dashboards treat any
+    // escalation whose lifecycle_status != 'Closed' as still open, so resolving
+    // must also close the lifecycle or the item lingers in the queue as "Open".
     await query(
-      `UPDATE escalations SET status = $1, resolved_at = NOW(), resolution_notes = $2, updated_at = NOW() WHERE id = $3`,
-      [status, resolution_notes, id]
+      `UPDATE escalations
+         SET status = $1, lifecycle_status = 'Closed',
+             resolved_at = NOW(), closed_at = NOW(), closed_by = $4,
+             resolution_notes = $2, updated_at = NOW()
+       WHERE id = $3`,
+      [status, resolution_notes, id, user_id]
     );
 
     await query(
