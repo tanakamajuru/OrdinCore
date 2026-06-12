@@ -42,7 +42,13 @@ class ApiClient {
         if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
-          window.location.href = '/login';
+          // Surface WHY the session ended so a disabled account / suspended org is
+          // not mistaken for a random "logout" bug.
+          try { sessionStorage.setItem('logoutReason', data.message || 'Your session has ended. Please sign in again.'); } catch { /* ignore */ }
+          // Avoid redirect loops if we're already on the login screen.
+          if (!window.location.pathname.startsWith('/login')) {
+            window.location.href = '/login';
+          }
         }
         throw new Error(data.message || data.error || `HTTP error! status: ${response.status}`);
       }

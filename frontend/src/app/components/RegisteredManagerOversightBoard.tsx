@@ -35,7 +35,12 @@ export function RegisteredManagerOversightBoard() {
       setIsLoading(true);
       const userStr = localStorage.getItem('user');
       const user = userStr ? JSON.parse(userStr) : {};
-      const userId = user.id;
+      const userId = user.id || user.user_id;
+      if (!userId) {
+        toast.error('Could not determine your account. Please sign in again.');
+        setIsLoading(false);
+        return;
+      }
 
       // 1. Determine House & Deputy Status
       const housesRes = await apiClient.get(`/users/${userId}/houses`);

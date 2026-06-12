@@ -29,7 +29,7 @@ export function Navigation() {
     { path: "/dashboard", label: "Dashboard", icon: Home },
     { path: "/governance-pulse", label: "Governance Pulse", icon: Activity },
     { path: "/weekly-review", label: "Weekly Review", icon: FileText },
-    { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
+    { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
     { path: "/escalation-log", label: "Escalation Log", icon: Users },
     { path: "/incidents", label: "Incidents", icon: Shield },
     { path: "/patterns", label: "Patterns", icon: Network },

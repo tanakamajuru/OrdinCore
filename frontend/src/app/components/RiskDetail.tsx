@@ -315,7 +315,7 @@ export function RiskDetail() {
             onClick={() => navigate("/risk-register")}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
           >
-            Back to Risk Register
+            Back to Oversight Register
           </button>
         </div>
       </div>
@@ -331,7 +331,7 @@ export function RiskDetail() {
           className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Risk Register
+          Back to Oversight Register
         </button>
 
         <div className="mb-6">

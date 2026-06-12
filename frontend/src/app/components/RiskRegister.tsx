@@ -488,8 +488,8 @@ export function RiskRegister() {
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h1 className="text-3xl  text-primary">Risk Register</h1>
-            <p className="text-muted-foreground mt-1">Live register of all identified risks</p>
+            <h1 className="text-3xl  text-primary">Governance Oversight Register</h1>
+            <p className="text-muted-foreground mt-1">What leadership is actively overseeing — concerns, trajectory and controls</p>
             <div className="mt-2 flex gap-2">
               <span className="text-xs text-muted-foreground">Pulse-originated risks are created through Governance Pulse rhythm</span>
               <span className="text-xs text-muted-foreground">•</span>

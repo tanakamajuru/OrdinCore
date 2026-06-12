@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
 import { apiClient } from "@/services/api";
@@ -53,6 +53,15 @@ export function Login() {
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const handle = useFullScreenHandle();
+
+  // If the session was ended by the API (e.g. account/organisation deactivated),
+  // show the reason instead of a silent, confusing redirect.
+  useEffect(() => {
+    try {
+      const reason = sessionStorage.getItem('logoutReason');
+      if (reason) { setError(reason); sessionStorage.removeItem('logoutReason'); }
+    } catch { /* ignore */ }
+  }, []);
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent) => {
