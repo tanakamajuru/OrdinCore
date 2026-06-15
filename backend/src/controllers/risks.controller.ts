@@ -62,6 +62,21 @@ export class RisksController {
     }
   }
 
+  // Governance Oversight Register summary (banner + Emerging/Active/Strategic/Closed).
+  async getOversightSummary(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const role = (req.user!.role || '').toUpperCase().replace('-', '_');
+      const scoped = ['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(role);
+      const houseIds = scoped ? (req.user!.assigned_house_ids || []) : undefined;
+      const data = await risksService.getOversightSummary(company_id, houseIds);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch oversight summary';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
   async findById(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

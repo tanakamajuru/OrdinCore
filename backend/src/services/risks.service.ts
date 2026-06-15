@@ -427,6 +427,130 @@ export class RisksService {
       }
     }
   }
+
+  /**
+   * Governance Oversight Register summary: banner counts + the four oversight
+   * buckets (Emerging / Active / Strategic / Closed). Reuses existing risk,
+   * cluster, candidate and action data — no new tables.
+   */
+  async getOversightSummary(company_id: string, houseIds?: string[]) {
+    const hasHouseFilter = Array.isArray(houseIds) && houseIds.length > 0;
+    const houseClause = hasHouseFilter ? ' AND r.house_id = ANY($2::uuid[])' : '';
+    const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
+
+    const risksRes = await query(
+      `SELECT r.id, r.title, r.strategic_theme, r.trajectory, r.trend, r.status, r.severity,
+              COALESCE(r.services_affected_count, 1) AS services_affected_count,
+              r.last_governance_review_at, r.review_due_date, r.house_id,
+              h.name AS service_name,
+              (SELECT COUNT(*) FROM risk_signal_links rsl WHERE rsl.risk_id = r.id) AS evidence_count,
+              (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id) AS controls_count,
+              (SELECT ra.effectiveness_outcome FROM risk_actions ra
+                 WHERE ra.risk_id = r.id AND ra.effectiveness_outcome IS NOT NULL
+                 ORDER BY ra.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness,
+              u.first_name || ' ' || u.last_name AS owner_name, u.role AS owner_role
+         FROM risks r
+         LEFT JOIN houses h ON h.id = r.house_id
+         LEFT JOIN users u ON u.id = r.assigned_to
+        WHERE r.company_id = $1${houseClause}
+        ORDER BY r.created_at DESC`,
+      params
+    );
+
+    const positionOf = (r: any): string => {
+      if (r.status === 'Escalated') return 'Escalating';
+      const t = (r.trajectory || r.trend || 'Stable').toString().toLowerCase();
+      if (t.includes('critical')) return 'Critical';
+      if (t.includes('deteriorat') || t.includes('escalat') || t.includes('worsen')) return 'Escalating';
+      if (t.includes('improv')) return 'Improving';
+      return 'Stable';
+    };
+
+    const shape = (r: any) => ({
+      id: r.id,
+      concern: r.strategic_theme || r.title,
+      type: Number(r.services_affected_count) > 1 ? 'Strategic' : 'Operational',
+      position: positionOf(r),
+      trajectory: r.trajectory || r.trend || 'Stable',
+      severity: r.severity,
+      evidence: Number(r.evidence_count) || 0,
+      controls: Number(r.controls_count) || 0,
+      effectiveness: r.latest_effectiveness || 'Not yet reviewed',
+      owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
+      service: r.service_name || '—',
+      nextReview: r.review_due_date || r.last_governance_review_at || null,
+    });
+
+    const all = risksRes.rows.map(shape);
+    const open = risksRes.rows.filter(r => r.status !== 'Closed');
+    const active = open.filter(r => Number(r.services_affected_count) <= 1).map(shape);
+    const strategic = open.filter(r => Number(r.services_affected_count) > 1).map(shape);
+    const closed = risksRes.rows.filter(r => r.status === 'Closed').map(shape);
+
+    // Emerging concerns = unpromoted signal clusters + new risk candidates.
+    const clustersRes = await query(
+      `SELECT id, cluster_label, risk_domain, signal_count, trajectory, house_id
+         FROM signal_clusters
+        WHERE company_id = $1 AND linked_risk_id IS NULL
+              AND cluster_status <> 'Resolved'${hasHouseFilter ? ' AND house_id = ANY($2::uuid[])' : ''}
+        ORDER BY signal_count DESC NULLS LAST`,
+      params
+    );
+    const candidatesRes = await query(
+      `SELECT id, risk_domain, candidate_type, house_id
+         FROM risk_candidates
+        WHERE company_id = $1 AND status = 'New'${hasHouseFilter ? ' AND house_id = ANY($2::uuid[])' : ''}`,
+      params
+    );
+    const emerging = [
+      ...clustersRes.rows.map((c: any) => ({
+        id: c.id, source: 'cluster',
+        concern: c.cluster_label || c.risk_domain || 'Emerging cluster',
+        type: 'Emerging', position: 'Stable',
+        trajectory: c.trajectory || 'Stable',
+        evidence: Number(c.signal_count) || 0,
+        service: null,
+      })),
+      ...candidatesRes.rows.map((c: any) => ({
+        id: c.id, source: 'candidate',
+        concern: c.risk_domain || 'Risk candidate',
+        type: 'Emerging', position: 'Stable',
+        trajectory: 'Stable', evidence: 0, service: null,
+      })),
+    ];
+
+    // Banner
+    const counts = { escalating: 0, stable: 0, improving: 0, critical: 0 };
+    for (const r of [...active, ...strategic]) {
+      if (r.position === 'Escalating') counts.escalating++;
+      else if (r.position === 'Improving') counts.improving++;
+      else if (r.position === 'Critical') counts.critical++;
+      else counts.stable++;
+    }
+    const cfRes = await query(
+      `SELECT COUNT(*) FROM risk_actions ra JOIN risks r ON r.id = ra.risk_id
+        WHERE r.company_id = $1 AND ra.effectiveness_outcome = 'Not Effective'${hasHouseFilter ? ' AND r.house_id = ANY($2::uuid[])' : ''}`,
+      params
+    );
+    const lastReviewRes = await query(
+      `SELECT MAX(last_governance_review_at) AS last FROM risks WHERE company_id = $1${hasHouseFilter ? ' AND house_id = ANY($2::uuid[])' : ''}`,
+      params
+    );
+
+    return {
+      banner: {
+        activeOversight: active.length + strategic.length,
+        ...counts,
+        controlFailures: Number(cfRes.rows[0]?.count) || 0,
+        lastReviewAt: lastReviewRes.rows[0]?.last || null,
+      },
+      emerging,
+      active,
+      strategic,
+      closed,
+      all,
+    };
+  }
 }
 
 export const risksService = new RisksService();

@@ -54,6 +54,9 @@ router.post('/categories', requireAuth, requireTenant, requireRole('SUPER_ADMIN'
  */
 router.get('/assigned-to-me', requireAuth, requireTenant, risksController.getAssignedToMe.bind(risksController));
 
+// Governance Oversight Register summary (banner + Emerging/Active/Strategic/Closed buckets)
+router.get('/oversight-summary', requireAuth, requireTenant, risksController.getOversightSummary.bind(risksController));
+
 /**
  * @openapi
  * /api/v1/risks:

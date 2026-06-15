@@ -420,7 +420,7 @@ export function RiskDetail() {
           {/* Actions */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl  text-foreground">Actions Taken</h2>
+              <h2 className="text-xl  text-foreground">Controls &amp; Effectiveness</h2>
               <button
                 onClick={() => setShowAddAction(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -523,7 +523,7 @@ export function RiskDetail() {
           {/* Timeline */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl  text-foreground">Timeline</h2>
+              <h2 className="text-xl  text-foreground">Leadership Decision Log</h2>
               <button
                 onClick={() => setShowAddEvent(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
