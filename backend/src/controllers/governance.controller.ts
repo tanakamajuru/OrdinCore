@@ -1,7 +1,20 @@
 import { Request, Response } from 'express';
 import { governanceService } from '../services/governance.service';
+import { governanceDomainsService } from '../services/governanceDomains.service';
 
 export class GovernanceController {
+  // Configurable governance domains + signal library for the org's sector.
+  async getDomains(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id || null;
+      const data = await governanceDomainsService.getDomainsForCompany(company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch governance domains';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
   async createTemplate(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

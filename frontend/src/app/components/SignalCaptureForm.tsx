@@ -51,11 +51,14 @@ export function SignalCaptureForm() {
   const [services, setServices] = useState<ServiceUnit[]>([]);
   const [serviceUsers, setServiceUsers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Configurable governance domains (12 for Supported Living) + their signal library.
+  const [domains, setDomains] = useState<{ name: string; description?: string; signals: string[] }[]>([]);
 
   const now = new Date();
   const [form, setForm] = useState({
     service_id: '',
-    category: '' as SignalCategory | '',
+    governance_domain: '',
+    signal_label: '',
     severity: '' as SeverityType | '',
     description: '',
     entry_date: now.toISOString().split('T')[0],
@@ -66,7 +69,19 @@ export function SignalCaptureForm() {
 
   const set = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
-  useEffect(() => { loadServices(); }, []);
+  useEffect(() => { loadServices(); loadDomains(); }, []);
+
+  const loadDomains = async () => {
+    try {
+      const res = await apiClient.get('/governance/domains');
+      const list = (res as any).data?.domains || [];
+      setDomains(Array.isArray(list) ? list : []);
+    } catch {
+      setDomains([]);
+    }
+  };
+
+  const selectedDomain = domains.find(d => d.name === form.governance_domain);
 
   useEffect(() => {
     if (!form.service_id) { setServiceUsers([]); return; }
@@ -97,18 +112,21 @@ export function SignalCaptureForm() {
     }
   };
 
-  const isValid = !!form.service_id && !!form.category && !!form.severity && form.description.trim().length >= 10;
+  const isValid = !!form.service_id && !!form.governance_domain && !!form.severity && form.description.trim().length >= 10;
 
   const handleSubmit = async () => {
     if (!isValid) {
-      toast.error('Please choose a service, category, severity and add a short description.');
+      toast.error('Please choose a service, governance domain, severity and add a short description.');
       return;
     }
     setIsSubmitting(true);
     try {
       await apiClient.post('/pulses', {
         service_id: form.service_id,
-        category: form.category,
+        governance_domain: form.governance_domain,
+        signal_label: form.signal_label || undefined,
+        // Keep legacy category populated for back-compat dashboards.
+        category: form.governance_domain,
         severity: form.severity,
         description: form.description.trim(),
         entry_date: form.entry_date,
@@ -152,21 +170,40 @@ export function SignalCaptureForm() {
           </div>
 
           {/* Category */}
+          {/* Governance Domain (12-domain clustering model) */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Category</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-              {CATEGORIES.map(c => (
-                <button
-                  key={c}
-                  type="button"
-                  onClick={() => set('category', c)}
-                  className={`px-3 py-2.5 rounded-lg border text-sm transition-all ${form.category === c ? 'bg-primary text-primary-foreground border-primary' : 'bg-card border-border hover:border-primary/50'}`}
-                >
-                  {c}
-                </button>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Governance Domain</label>
+            <select
+              value={form.governance_domain}
+              onChange={e => { set('governance_domain', e.target.value); set('signal_label', ''); }}
+              className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+            >
+              <option value="" disabled>Select a governance domain…</option>
+              {domains.map(d => (
+                <option key={d.name} value={d.name}>{d.name}</option>
               ))}
-            </div>
+            </select>
+            {selectedDomain?.description && (
+              <p className="text-xs text-muted-foreground mt-1">{selectedDomain.description}</p>
+            )}
           </div>
+
+          {/* Specific signal within the chosen domain */}
+          {selectedDomain && selectedDomain.signals.length > 0 && (
+            <div>
+              <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Signal</label>
+              <select
+                value={form.signal_label}
+                onChange={e => set('signal_label', e.target.value)}
+                className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
+              >
+                <option value="">Select a signal (optional)…</option>
+                {selectedDomain.signals.map(s => (
+                  <option key={s} value={s}>{s}</option>
+                ))}
+              </select>
+            </div>
+          )}
 
           {/* Severity */}
           <div>

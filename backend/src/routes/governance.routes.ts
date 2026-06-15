@@ -39,6 +39,9 @@ router.post('/templates', requireAuth, requireTenant, requireRole('SUPER_ADMIN',
  */
 router.get('/templates', requireAuth, requireTenant, governanceController.getTemplates.bind(governanceController));
 
+// Configurable governance domains + signal library (per org sector)
+router.get('/domains', requireAuth, requireTenant, governanceController.getDomains.bind(governanceController));
+
 // Template Questions
 /**
  * @openapi

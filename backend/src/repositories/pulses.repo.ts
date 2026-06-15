@@ -11,6 +11,8 @@ export interface PulseDto {
     client_id?: string;           // simplified form alias for related_person
     signal_type?: string;
     category?: string;            // simplified form: single theme -> risk_domain[0]
+    governance_domain?: string;   // 12-domain clustering key (Supported Living / Domiciliary)
+    signal_label?: string;        // specific signal chosen within the domain
     risk_domain?: string[];
     description: string;
     immediate_action?: string;
@@ -32,9 +34,13 @@ export const pulsesRepo = {
         const occurred = dto.occurred_at ? new Date(dto.occurred_at) : null;
         const entryDate = dto.entry_date || (occurred ? occurred.toISOString().split('T')[0] : new Date().toISOString().split('T')[0]);
         const entryTime = dto.entry_time || (occurred ? occurred.toTimeString().slice(0, 8) : new Date().toTimeString().slice(0, 8));
+        // The 12-domain governance clustering key. Prefer the explicit governance_domain,
+        // fall back to legacy category. Clustering groups signals by this value, so it
+        // also drives risk_domain.
+        const governanceDomain = dto.governance_domain || dto.category || null;
         const riskDomain = (dto.risk_domain && dto.risk_domain.length > 0)
             ? dto.risk_domain
-            : (dto.category ? [dto.category] : []);
+            : (governanceDomain ? [governanceDomain] : []);
         // signal_type is a constrained enum; the free-text category lives in
         // risk_domain. Never put the category into signal_type.
         const signalType = dto.signal_type || 'Concern';
@@ -43,13 +49,13 @@ export const pulsesRepo = {
         const result = await query(
             `INSERT INTO governance_pulses (
                 id, company_id, house_id, created_by, entry_date, entry_time, related_person,
-                signal_type, risk_domain, description, immediate_action, severity,
+                signal_type, risk_domain, governance_domain, description, immediate_action, severity,
                 has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, 'New', $17)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'New', $18)
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
-                signalType, riskDomain, dto.description, dto.immediate_action || null, dto.severity,
+                signalType, riskDomain, governanceDomain, dto.description, dto.immediate_action || null, dto.severity,
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null
             ]
