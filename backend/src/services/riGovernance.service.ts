@@ -7,12 +7,13 @@ export class RiGovernanceService {
     const ospLadder = await query(
       `SELECT h.id as house_id, h.name as house_name, 
               wr.overall_position, wr.id as weekly_review_id,
-              CASE 
+              CASE
+                WHEN wr.overall_position = 'Improving' THEN 0
                 WHEN wr.overall_position = 'Stable' THEN 1
                 WHEN wr.overall_position = 'Watch' THEN 2
-                WHEN wr.overall_position = 'Concern' THEN 3
+                WHEN wr.overall_position IN ('Concern', 'Emerging Concern') THEN 3
                 WHEN wr.overall_position = 'Escalating' THEN 4
-                WHEN wr.overall_position = 'Serious Concern' THEN 5
+                WHEN wr.overall_position IN ('Serious Concern', 'Critical') THEN 5
                 ELSE 0
               END as position_rank
        FROM houses h

@@ -1,693 +1,283 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { WeeklyReviewStepNav } from "../../components/WeeklyReviewStepNav";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { Shield, Clock, Activity, FileText, AlertTriangle } from "lucide-react";
+import { Shield, Activity, FileText, AlertTriangle, TrendingUp, CheckCircle2, ListChecks } from "lucide-react";
+
+// Doctrine: the Weekly Governance Review is the formal interpretation layer, not a
+// report. It is reduced to FIVE governance questions. The system calculates Q1
+// (what changed) and seeds Q4 (effectiveness); the RM supplies judgement.
+const POSITIONS = ["Improving", "Stable", "Emerging Concern", "Escalating", "Critical"];
+const POSITION_TONE: Record<string, string> = {
+  Improving: "bg-emerald-600", Stable: "bg-sky-600", "Emerging Concern": "bg-amber-500",
+  Escalating: "bg-orange-600", Critical: "bg-red-600",
+};
 
 export function WeeklyReview() {
   const navigate = useNavigate();
   const { id } = useParams();
 
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
-  const isSenior = ['DIRECTOR', 'ADMIN', 'SUPER_ADMIN', 'RESPONSIBLE_INDIVIDUAL'].includes(userRole);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const userRole = (localStorage.getItem("userRole") || user.role || "").toUpperCase().replace(/-/g, "_");
+  const isSenior = ["DIRECTOR", "ADMIN", "SUPER_ADMIN", "RESPONSIBLE_INDIVIDUAL"].includes(userRole);
 
+  const [houses, setHouses] = useState<any[]>([]);
+  const [houseId, setHouseId] = useState<string>("");
   const [reviewId, setReviewId] = useState<string | null>(null);
-  const [currentStep, setCurrentStep] = useState(0);
-  const [completedStep, setCompletedStep] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [previewData, setPreviewData] = useState<any>(null);
-  const [formData, setFormData] = useState<any>({
-    step10_risk_analysis: [],
-    step13_new_actions: []
-  });
-  const [status, setStatus] = useState<"Draft" | "Submitted" | "Locked" | "pending_validation">("Draft");
-  const [validationData, setValidationData] = useState<any>(null);
+  const [preview, setPreview] = useState<any>(null);
+  const [form, setForm] = useState<any>({ step10_risk_analysis: [] });
+  const [status, setStatus] = useState<string>("Draft");
+  const [validation, setValidation] = useState<any>(null);
 
-  const [houseSearchTerm, setHouseSearchTerm] = useState('');
-  const [patientValid, setPatientValid] = useState(true);
-  const [patientValidationMessage, setPatientValidationMessage] = useState('');
+  const set = (field: string, value: any) => setForm((p: any) => ({ ...p, [field]: value }));
+  const locked = status === "Locked" || status === "pending_validation";
 
-  // Validate patient name when house or name changes
-  useEffect(() => {
-    const houseId = formData.step1_services?.[0];
-    const patientName = formData.service_user_name;
-    
-    if (!houseId || !patientName || !patientName.trim()) {
-      setPatientValid(true);
-      setPatientValidationMessage('');
-      return;
+  useEffect(() => { loadHouses(); }, []);
+  useEffect(() => { if (houseId) loadReview(houseId); }, [houseId, id]);
+
+  const loadHouses = async () => {
+    try {
+      const res = await apiClient.get("/houses?limit=100");
+      const data = res.data?.data || res.data || [];
+      const list = Array.isArray(data) ? data : (data.items || []);
+      setHouses(list);
+      const assigned = user.assigned_house_id;
+      const def = list.find((h: any) => h.id === assigned) ? assigned : list[0]?.id;
+      if (def) setHouseId(def); else setIsLoading(false);
+    } catch {
+      toast.error("Failed to load services");
+      setIsLoading(false);
     }
+  };
 
-    const delayDebounce = setTimeout(async () => {
-      try {
-        const res = await apiClient.get(`/houses/${houseId}/validate-patient`, {
-          params: { name: patientName.trim() }
-        });
-        const exists = res.data?.data?.exists;
-        setPatientValid(exists);
-        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
-      } catch (err) {
-        setPatientValid(false);
-        setPatientValidationMessage('Validation error. Please try again.');
-      }
-    }, 500);
-
-    return () => clearTimeout(delayDebounce);
-  }, [formData.step1_services?.[0], formData.service_user_name]);
-
-  useEffect(() => {
-    loadReviewData();
-  }, [id]);
-
-  const loadReviewData = async () => {
+  const loadReview = async (hid: string) => {
     try {
       setIsLoading(true);
-      const user = JSON.parse(localStorage.getItem('user') || '{}');
-      const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
-      let houseId = user.assigned_house_id;
-
-      const hRes = await apiClient.get('/houses');
-      const hData = hRes.data?.data || hRes.data || [];
-      const housesList = Array.isArray(hData) ? hData : (hData.items || []);
-      
-      const isValidHouse = houseId && 
-                           houseId !== '1' && 
-                           houseId !== 'all' && 
-                           houseId !== 'undefined' && 
-                           houseId !== 'null' &&
-                           housesList.some((h: any) => h.id === houseId);
-      
-      if (!isValidHouse) {
-        if (housesList.length > 0) {
-          houseId = housesList[0].id;
-        } else {
-          toast.error("No services found in your company context. Please contact your administrator.");
-          setIsLoading(false);
-          return;
-        }
-      }
-
-      if (!houseId) {
-        toast.error("No service selected for review.");
-        setIsLoading(false);
-        return;
-      }
-      
-      const weekEnding = new Date().toISOString().split('T')[0];
-      const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${houseId}&week_ending=${weekEnding}`);
+      const weekEnding = new Date().toISOString().split("T")[0];
+      const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${hid}&week_ending=${weekEnding}`);
       const auto = previewRes.data?.data?.auto_population || {};
-      setPreviewData(previewRes.data?.data || {});
-      
-      const activeId = id || reviewId;
-      if (activeId && activeId !== 'new') {
-        const reviewRes = await apiClient.get(`/weekly-reviews/${activeId}`);
-        const reviewData = reviewRes.data?.data || reviewRes.data;
-        setReviewId(reviewData.id);
-        setFormData(reviewData.content || {});
-        setCurrentStep(reviewData.step_reached - 1 || 0);
-        setCompletedStep(reviewData.step_reached - 1 || 0);
-        setStatus(reviewData.status || 'Draft');
-        setValidationData({
-          validation_status: reviewData.validation_status,
-          validation_comment: reviewData.validation_comment,
-          validation_at: reviewData.validation_at
-        });
+      setPreview(previewRes.data?.data || {});
 
+      const activeId = id && id !== "new" ? id : null;
+      if (activeId) {
+        const reviewRes = await apiClient.get(`/weekly-reviews/${activeId}`);
+        const rv = reviewRes.data?.data || reviewRes.data;
+        setReviewId(rv.id);
+        setForm(rv.content || { step10_risk_analysis: [] });
+        setStatus(rv.status || "Draft");
+        setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment, validation_at: rv.validation_at });
       } else {
-        // Pre-fill Step 1-7 from auto-population
-        setFormData((prev: any) => ({
-          ...prev,
-          step1_services: [houseId],
-          step2_period: `${previewRes.data?.data?.week_range?.start} to ${previewRes.data?.data?.week_range?.end}`,
+        setForm({
+          step1_services: [hid],
           step3_pulse_count: auto.pulse_count,
           step4_signals: auto.signals,
           step5_repeats: auto.repeats,
           step6_worsening: auto.worsening,
           step7_improvements: auto.improvements,
-          // Initialize Step 10 from active risks
-          step10_risk_analysis: auto.active_risks?.map((r: any) => ({
-            risk_id: r.id,
-            title: r.title,
-            trajectory: r.current_trajectory || 'Stable',
-            controls_effective: r.last_effectiveness === 'Effective' ? 'Yes' : 'Partially'
-          })) || []
-        }));
+          step10_risk_analysis: (auto.active_risks || []).map((r: any) => ({
+            risk_id: r.id, title: r.title,
+            trajectory: r.current_trajectory || "Stable",
+            controls_effective: r.last_effectiveness === "Effective" ? "Yes" : "Partially",
+          })),
+        });
       }
-    } catch (error) {
-      console.error('Failed to load review:', error);
-      toast.error('Failed to prepare review data');
+    } catch (e) {
+      toast.error("Failed to prepare review data");
     } finally {
       setIsLoading(false);
     }
   };
 
-  const validateStep = (step: number) => {
-    if (step === 7 && !formData.step8_interpretation) {
-      toast.error("Step 8: Interpretation is mandatory");
-      return false;
-    }
-    if (step === 10) {
-      const hasIneffective = formData.step10_risk_analysis.some((r: any) => r.controls_effective === 'Partially' || r.controls_effective === 'No');
-      if (hasIneffective && !formData.step11_control_failures) {
-        toast.error("Step 11: Control failure analysis is mandatory when controls are ineffective");
-        return false;
-      }
-    }
-    if (step === 11 && !formData.step12_decisions) {
-      toast.error("Step 12: Decisions required is mandatory");
-      return false;
-    }
-    if (step === 13 && !formData.step14_overall_position) {
-      toast.error("Step 14: Overall service position is mandatory");
-      return false;
-    }
-    return true;
+  const anyIneffective = (form.step10_risk_analysis || []).some((r: any) => r.controls_effective === "Partially" || r.controls_effective === "No");
+
+  const validate = (): string | null => {
+    if (!houseId) return "Select a service.";
+    if (!form.step8_interpretation?.trim()) return "Q2: Tell us what concerns you most.";
+    if (!form.step12_decisions?.trim()) return "Q3: Record the actions required (or 'None this week').";
+    if (anyIneffective && !form.step11_control_failures?.trim()) return "Q4: Explain why controls are not fully effective.";
+    if (!form.step14_overall_position) return "Q5: Choose an overall governance position.";
+    return null;
   };
 
-  const handleNextStep = async () => {
-    if (!validateStep(currentStep)) return;
-
-    if (currentStep < 14) {
-      const nextStepIndex = currentStep + 1;
-      setIsSaving(true);
-      try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const weekEnding = new Date().toISOString().split('T')[0];
-        
-        const saveRes = await apiClient.post(`/weekly-reviews`, {
-          house_id: formData.step1_services?.[0],
-          week_ending: weekEnding,
-          content: formData,
-          step_reached: nextStepIndex + 1
-        });
-        
-        const savedReview = saveRes.data?.data || saveRes.data;
-        if (savedReview && savedReview.id) {
-          setReviewId(savedReview.id);
-        }
-        
-        if (nextStepIndex === 14) {
-          // Refresh narrative from server response if we just reached Step 15
-          setFormData((prev: any) => ({
-            ...prev,
-            step15_narrative: saveRes.data?.data?.content?.step15_narrative || prev.step15_narrative
-          }));
-        }
-
-        setCurrentStep(nextStepIndex);
-        if (nextStepIndex > completedStep) {
-          setCompletedStep(nextStepIndex);
-        }
-        window.scrollTo(0, 0);
-      } catch (error) {
-        toast.error('Failed to save progress');
-      } finally {
-        setIsSaving(false);
-      }
-    }
+  const persist = async (extra: any = {}) => {
+    const res = await apiClient.post(`/weekly-reviews`, {
+      house_id: houseId,
+      week_ending: new Date().toISOString().split("T")[0],
+      content: form,
+      step_reached: 15,
+      ...extra,
+    });
+    const saved = res.data?.data || res.data;
+    if (saved?.id) setReviewId(saved.id);
+    return saved;
   };
 
-  const handlePrevStep = () => {
-    if (currentStep > 0) {
-      setCurrentStep(currentStep - 1);
-      window.scrollTo(0, 0);
-    }
+  const saveDraft = async () => {
+    setIsSaving(true);
+    try { await persist(); toast.success("Draft saved"); }
+    catch { toast.error("Failed to save draft"); }
+    finally { setIsSaving(false); }
   };
 
-  const handleSubmitAndLock = async () => {
+  const submit = async () => {
+    const err = validate();
+    if (err) { toast.error(err); return; }
     setIsSaving(true);
     try {
-        const user = JSON.parse(localStorage.getItem('user') || '{}');
-        const userRole = (localStorage.getItem('userRole') || user.role || '').toUpperCase().replace(/-/g, '_');
-        
-        const activeId = id || reviewId;
-        if (userRole === 'REGISTERED_MANAGER') {
-          // Use finalise endpoint for RMs
-          await apiClient.post(`/weekly-reviews/${activeId}/finalise`, {});
-          toast.success('Governance Review finalised and sent for RI validation');
-          setStatus('pending_validation');
-        } else {
-          // Direct lock for senior users or fallback
-          await apiClient.post(`/weekly-reviews`, {
-            house_id: formData.step1_services?.[0],
-            week_ending: new Date().toISOString().split('T')[0],
-            content: formData,
-            status: 'LOCKED',
-            step_reached: 15
-          });
-          toast.success('Governance Review Locked & Published');
-          setStatus('Locked');
-        }
-        navigate('/dashboard');
-    } catch (error) {
-      toast.error('Failed to process review');
-    } finally {
-      setIsSaving(false);
-    }
+      const saved = await persist();
+      const activeId = id && id !== "new" ? id : (reviewId || saved?.id);
+      if (userRole === "REGISTERED_MANAGER") {
+        await apiClient.post(`/weekly-reviews/${activeId}/finalise`, {});
+        toast.success("Governance Review finalised and sent for RI validation");
+        setStatus("pending_validation");
+      } else {
+        await persist({ status: "LOCKED" });
+        toast.success("Governance Review locked & published");
+        setStatus("Locked");
+      }
+      navigate("/dashboard");
+    } catch { toast.error("Failed to submit review"); }
+    finally { setIsSaving(false); }
   };
 
-  const handleValidate = async (vStatus: string) => {
+  const doValidate = async (vStatus: string) => {
     const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
     if (comment === null) return;
-    
     setIsSaving(true);
     try {
       const activeId = id || reviewId;
-      await apiClient.post(`/weekly-reviews/${activeId}/validate`, {
-        validation_status: vStatus,
-        validation_comment: comment
-      });
-      toast.success(`Review ${vStatus.toLowerCase()} successfully`);
-      loadReviewData();
-    } catch (error) {
-      toast.error('Failed to validate review');
-    } finally {
-      setIsSaving(false);
-    }
+      await apiClient.post(`/weekly-reviews/${activeId}/validate`, { validation_status: vStatus, validation_comment: comment });
+      toast.success(`Review ${vStatus.toLowerCase()}`);
+      if (houseId) loadReview(houseId);
+    } catch { toast.error("Failed to validate review"); }
+    finally { setIsSaving(false); }
   };
 
-
-  const renderStepContent = () => {
-    const sectionClass = "bg-card border border-border rounded-xl p-6 shadow-md";
-    const titleClass = "text-xl  text-primary mb-6 flex items-center gap-2";
-    const labelClass = "block mb-2 text-sm  text-muted-foreground";
-    const inputClass = "w-full px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg  shadow-sm mb-4";
-    const areaClass = "w-full h-32 px-4 py-3 bg-card border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-ring text-lg  resize-none shadow-sm mb-4";
-
-    switch(currentStep) {
-      case 0: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><Shield className="w-6 h-6"/> Step 1: Service Scope</h2>
-           <div className="flex flex-col gap-4 mb-4">
-              <label className={labelClass}>Search Service</label>
-              <input
-                type="text"
-                placeholder="Type to filter services..."
-                value={houseSearchTerm}
-                onChange={(e) => setHouseSearchTerm(e.target.value)}
-                className={inputClass}
-              />
-              <label className={labelClass}>Select Service for Review</label>
-              <select 
-                value={formData.step1_services?.[0] || ''} 
-                onChange={async (e) => {
-                  const newId = e.target.value;
-                  setFormData({...formData, step1_services: [newId]});
-                  // Re-load preview data for the selected house
-                  try {
-                    setIsLoading(true);
-                    const weekEnding = new Date().toISOString().split('T')[0];
-                    const previewRes = await apiClient.get(`/weekly-reviews/preview?house_id=${newId}&week_ending=${weekEnding}`);
-                    setPreviewData(previewRes.data?.data || {});
-                  } catch (err) {
-                    toast.error("Failed to load data for this service");
-                  } finally {
-                    setIsLoading(false);
-                  }
-                }}
-                className={inputClass}
-              >
-                {previewData?.available_houses?.filter((h: any) => h.name.toLowerCase().includes(houseSearchTerm.toLowerCase())).map((h: any) => (
-                  <option key={h.id} value={h.id}>{h.name}</option>
-                )) || <option value={formData.step1_services?.[0]}>{previewData?.house_name || 'Select Service...'}</option>}
-              </select>
-           </div>
-
-           <div className="flex flex-col gap-4 mb-4">
-              <label className={labelClass}>Related Person (Optional)</label>
-              <input 
-                type="text" 
-                placeholder="First initial + Surname (e.g., T Muller)"
-                value={formData.service_user_name || ''} 
-                onChange={(e) => setFormData({...formData, service_user_name: e.target.value})}
-                list="active-patients"
-                className={`${inputClass} ${patientValidationMessage ? 'border-destructive' : ''}`}
-              />
-              <datalist id="active-patients">
-                {previewData?.service_users?.map((u: any, idx: number) => (
-                  <option key={`${u.id || ''}-${u.name || ''}-${idx}`} value={u.name} />
-                ))}
-              </datalist>
-              {patientValidationMessage && (
-                <p className="text-sm text-destructive mt-1 font-bold">{patientValidationMessage}</p>
-              )}
-              <p className="text-[10px] text-muted-foreground">
-                Use the format: first letter of first name, space, full surname. This ensures consistent pattern detection. If this review focuses on a specific individual, enter them here.
-              </p>
-           </div>
-           
-           <p className="text-[10px]  text-muted-foreground ">You must complete a separate review for each service under your oversight.</p>
-        </div>
-      );
-      case 1: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><Clock className="w-6 h-6"/> Step 2: Review Period</h2>
-          <label className={labelClass}>Reporting Window</label>
-          <input readOnly value={formData.step2_period} className={inputClass} />
-        </div>
-      );
-      case 2: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><Activity className="w-6 h-6"/> Step 3: Pulse Compliance</h2>
-          <label className={labelClass}>Entries Reviewed</label>
-          <div className="text-6xl   tracking-tighter mb-4">{formData.step3_pulse_count}</div>
-          <p className="text-xs  text-muted-foreground uppercase tracking-widest">Daily governance pulses recorded this week</p>
-        </div>
-      );
-      case 3: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><FileText className="w-6 h-6"/> Step 4: Signal Registry</h2>
-          <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-            {formData.step4_signals?.map((s: any) => (
-              <div key={s.id} className="p-4 border border-border bg-muted/20">
-                <div className="flex justify-between items-start mb-2">
-                  <span className="bg-primary text-primary-foreground px-2 py-0.5 text-[10px]  rounded-full">{s.signal_type}</span>
-                  <span className=" text-xs">{new Date(s.entry_date).toLocaleDateString()}</span>
-                </div>
-                <p className="text-sm ">{s.description}</p>
-                <div className="mt-2 flex gap-4 text-xs  text-muted-foreground">
-                  <span>Domain: {s.risk_domain}</span>
-                  <span>Severity: {s.severity}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      );
-      case 4: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><AlertTriangle className="w-6 h-6"/> Step 5: Repeating Issues</h2>
-          <label className={labelClass}>Identified Pattern Clusters</label>
-          <textarea 
-            value={formData.step5_repeats || ''} 
-            onChange={e => setFormData({...formData, step5_repeats: e.target.value})}
-            className={areaClass}
-            placeholder="No clusters identified automatically..."
-          />
-        </div>
-      );
-      case 5: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><AlertTriangle className="w-6 h-6 text-destructive"/> Step 6: Worsening Trends</h2>
-          <label className={labelClass}>Escalating or Increased Severity</label>
-          <textarea 
-            value={formData.step6_worsening || ''} 
-            onChange={e => setFormData({...formData, step6_worsening: e.target.value})}
-            className={areaClass}
-            placeholder="No worsening trends identified automatically..."
-          />
-        </div>
-      );
-      case 6: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}><Shield className="w-6 h-6 text-success"/> Step 7: Improvements</h2>
-          <label className={labelClass}>Stabilised or Reduced Risks</label>
-          <textarea 
-            value={formData.step7_improvements || ''} 
-            onChange={e => setFormData({...formData, step7_improvements: e.target.value})}
-            className={areaClass}
-          />
-        </div>
-      );
-      case 7: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 8: Governance Interpretation</h2>
-          <label className={labelClass}>What does this pattern mean for the service? (Mandatory)</label>
-          <textarea 
-            value={formData.step8_interpretation || ''} 
-            onChange={e => setFormData({...formData, step8_interpretation: e.target.value})}
-            className={`${areaClass} h-64 border-primary`}
-            placeholder="Considering repetition and escalation, what is the current risk position?"
-          />
-        </div>
-      );
-      case 8: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 9: Affected Risks</h2>
-          <p className="text-sm  text-muted-foreground mb-4 ">Show existing risks linked to signals this week.</p>
-          {/* Mocked multi-select list for risks */}
-          <div className="space-y-2">
-            {formData.step10_risk_analysis?.map((r: any) => (
-               <div key={r.risk_id} className="p-3 bg-primary text-primary-foreground text-sm  uppercase  tracking-widest">
-                 {r.title}
-               </div>
-            ))}
-          </div>
-        </div>
-      );
-      case 9: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 10: Risk Analysis Table</h2>
-          <div className="overflow-x-auto">
-            <table className="w-full border-collapse">
-              <thead>
-                <tr className="border-b-2 border-border">
-                  <th className="text-left py-2 text-[10px] ">Risk</th>
-                  <th className="text-left py-2 text-[10px] ">Trajectory</th>
-                  <th className="text-left py-2 text-[10px] ">Controls Effective?</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.step10_risk_analysis?.map((r: any, idx: number) => (
-                  <tr key={r.risk_id} className="border-b border-border">
-                    <td className="py-4  text-sm">{r.title}</td>
-                    <td className="py-4">
-                      <select 
-                        value={r.trajectory}
-                        onChange={e => {
-                          const newList = [...formData.step10_risk_analysis];
-                          newList[idx].trajectory = e.target.value;
-                          setFormData({...formData, step10_risk_analysis: newList});
-                        }}
-                        className="bg-transparent  text-xs uppercase"
-                      >
-                        <option>Improving</option>
-                        <option>Stable</option>
-                        <option>Deteriorating</option>
-                        <option>Critical</option>
-                      </select>
-                    </td>
-                    <td className="py-4">
-                      <select 
-                        value={r.controls_effective}
-                        onChange={e => {
-                          const newList = [...formData.step10_risk_analysis];
-                          newList[idx].controls_effective = e.target.value;
-                          setFormData({...formData, step10_risk_analysis: newList});
-                        }}
-                        className={`bg-transparent  text-xs uppercase ${r.controls_effective === 'No' ? 'text-destructive' : ''}`}
-                      >
-                        <option>Yes</option>
-                        <option>Partially</option>
-                        <option>No</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      );
-      case 10: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 11: Control Failure Analysis</h2>
-          <label className={labelClass}>Where did controls fail? (Mandatory if Ineffective)</label>
-          <textarea 
-            value={formData.step11_control_failures || ''} 
-            onChange={e => setFormData({...formData, step11_control_failures: e.target.value})}
-            className={areaClass}
-            placeholder="e.g. PRN protocol not followed, escalation missed..."
-          />
-        </div>
-      );
-      case 11: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 12: Decisions Required</h2>
-          <label className={labelClass}>What actions are needed now? (Mandatory)</label>
-          <textarea 
-            value={formData.step12_decisions || ''} 
-            onChange={e => setFormData({...formData, step12_decisions: e.target.value})}
-            className={areaClass}
-            placeholder="e.g. increase monitoring, review care plans..."
-          />
-        </div>
-      );
-      case 12: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 13: Action Tracker</h2>
-          <button 
-            type="button"
-            onClick={() => {
-              const title = window.prompt("Enter Action Title:");
-              if (!title) return;
-              const owner = window.prompt("Enter Owner/Assignee:");
-              const due = window.prompt("Enter Due Date (e.g. 2026-05-10):");
-              const newAction = { title, owner: owner || 'TBD', due: due || 'TBD' };
-              setFormData({
-                ...formData, 
-                step13_new_actions: [...(formData.step13_new_actions || []), newAction]
-              });
-            }}
-            className="w-full py-4 border border-dashed border-border text-sm  hover:bg-muted mb-6 transition-colors"
-          >
-            + Create New Governance Action
-          </button>
-          <div className="space-y-4">
-             {formData.step13_new_actions?.map((a: any, idx: number) => (
-                <div key={idx} className="p-4 border border-border bg-muted/10 relative">
-                  <p className="">{a.title}</p>
-                  <p className="text-[10px]  text-muted-foreground mt-1">Assignee: {a.owner} | Due: {a.due}</p>
-                  <button 
-                    type="button"
-                    onClick={() => {
-                      const newList = [...formData.step13_new_actions];
-                      newList.splice(idx, 1);
-                      setFormData({...formData, step13_new_actions: newList});
-                    }}
-                    className="absolute top-2 right-2 text-destructive hover:text-destructive/80 text-xs "
-                  >
-                    Remove
-                  </button>
-                </div>
-             ))}
-          </div>
-        </div>
-      );
-      case 13: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 14: Overall Service Position</h2>
-          <div className="grid grid-cols-1 gap-2">
-            {['Stable', 'Watch', 'Concern', 'Escalating', 'Serious Concern'].map(p => (
-              <button
-                key={p}
-                onClick={() => setFormData({...formData, step14_overall_position: p})}
-                className={`py-4 px-6 text-left  uppercase  border border-border transition-all ${
-                  formData.step14_overall_position === p ? 'bg-primary text-primary-foreground shadow-md' : 'bg-card hover:bg-muted'
-                }`}
-              >
-                {p}
-              </button>
-            ))}
-          </div>
-        </div>
-      );
-      case 14: return (
-        <div className={sectionClass}>
-          <h2 className={titleClass}>Step 15: Governance Narrative</h2>
-          <label className={labelClass}>Review & Finalise Paragraph (Mandatory)</label>
-          <textarea 
-            value={formData.step15_narrative || ''} 
-            onChange={e => setFormData({...formData, step15_narrative: e.target.value})}
-            className={`${areaClass} h-80 font-serif leading-relaxed text-base`}
-          />
-          <p className="text-[10px]  text-muted-foreground ">This narrative will be pushed to the Director and NI Dashboards upon locking.</p>
-          
-          {status === 'pending_validation' && isSenior && (
-            <div className="mt-8 p-6 bg-blue-50 border border-blue-200 rounded-xl">
-              <h3 className="text-blue-800 font-bold mb-2 flex items-center gap-2">
-                <Shield className="w-5 h-5"/> Oversight Validation Required
-              </h3>
-              <p className="text-sm text-blue-700 mb-4">
-                This review has been finalised by the RM. Please challenge or approve for operational locking.
-              </p>
-              <div className="flex gap-4">
-                <button 
-                  onClick={() => handleValidate('Approved')}
-                  className="flex-1 py-3 bg-green-600 text-white rounded-lg font-bold hover:bg-green-700 transition-colors"
-                >
-                  Approve & Lock
-                </button>
-                <button 
-                  onClick={() => handleValidate('Challenged')}
-                  className="flex-1 py-3 bg-orange-600 text-white rounded-lg font-bold hover:bg-orange-700 transition-colors"
-                >
-                  Challenge / Evidence Req.
-                </button>
-              </div>
-            </div>
-          )}
-
-          {validationData?.validation_status && (
-            <div className={`mt-8 p-6 rounded-xl border ${
-              validationData.validation_status === 'Approved' ? 'bg-green-50 border-green-200' : 'bg-orange-50 border-orange-200'
-            }`}>
-              <h3 className={`font-bold mb-2 ${
-                validationData.validation_status === 'Approved' ? 'text-green-800' : 'text-orange-800'
-              }`}>
-                Oversight Decision: {validationData.validation_status}
-              </h3>
-              <p className="text-sm text-foreground/80 italic mb-1">"{validationData.validation_comment}"</p>
-              <p className="text-[10px] text-muted-foreground">Decided on {new Date(validationData.validation_at).toLocaleString()}</p>
-            </div>
-          )}
-        </div>
-      );
-
-      default: return null;
-    }
-  };
+  const card = "bg-card border border-border rounded-xl p-6 shadow-sm";
+  const qLabel = "text-lg text-primary mb-1 flex items-center gap-2 font-semibold";
+  const area = "w-full h-28 px-4 py-3 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-none";
 
   if (isLoading) return (
-    <div className="min-h-screen bg-background flex items-center justify-center">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mr-3" />
-      <span className=" ">Syncing Doctrine Logic...</span>
-    </div>
+    <div className="min-h-screen bg-background"><RoleBasedNavigation /><div className="pt-28 text-center text-muted-foreground">Preparing review…</div></div>
   );
 
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-24 max-w-4xl mx-auto">
-        <div className="mb-12 border-b-4 border-border pb-8">
-          <div className="flex justify-between items-end">
-            <div>
-              <h1 className="text-4xl  text-primary">Governance Review</h1>
-              <p className="text-sm  text-muted-foreground mt-2">RM Sequential Oversight | Phase {currentStep + 1} of 15</p>
-            </div>
-            <div className="text-right">
-               <span className="block text-[10px]  uppercase text-muted-foreground">Status</span>
-               <span className="inline-block px-3 py-1 bg-primary text-primary-foreground text-xs  uppercase  tracking-widest">{status}</span>
-            </div>
+      <div className="max-w-3xl mx-auto pt-28 p-6 space-y-5">
+        <div className="flex items-center gap-3">
+          <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
+            <p className="text-sm text-muted-foreground">Five governance questions. What did leadership understand, decide, and why.</p>
           </div>
         </div>
 
-        <WeeklyReviewStepNav activeStep={currentStep} completedStep={completedStep} />
-
-        <div className="mb-12">
-          {renderStepContent()}
+        {/* Service + period */}
+        <div className={card}>
+          <label className="block text-sm font-medium mb-2">Service</label>
+          <select value={houseId} onChange={(e) => { setHouseId(e.target.value); }} disabled={locked}
+            className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary">
+            {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+          {preview?.week_range && <p className="text-xs text-muted-foreground mt-2">Week: {preview.week_range.start} → {preview.week_range.end}</p>}
         </div>
 
-        <div className="flex justify-between items-center mt-12 pb-12">
-          <button
-            onClick={handlePrevStep}
-            disabled={currentStep === 0 || isSaving}
-            className="py-4 px-8 bg-card text-foreground border border-border hover:bg-muted transition-colors  rounded-md disabled:opacity-50"
-          >
-            Previous
-          </button>
-          
-          {currentStep < 14 ? (
-            <button
-              onClick={handleNextStep}
-              disabled={isSaving || status === 'Locked' || !patientValid}
-              className="py-4 px-10 bg-primary text-primary-foreground hover:bg-primary transition-all rounded-md  disabled:opacity-50"
-            >
-              {isSaving ? 'Synching...' : 'Validate & Proceed'}
-            </button>
-          ) : (
-            <button
-              onClick={handleSubmitAndLock}
-              disabled={isSaving || status === 'Locked'}
-              className="py-4 px-10 bg-destructive text-primary-foreground hover:bg-primary transition-all rounded-md  disabled:opacity-50"
-            >
-              {isSaving ? 'Locking...' : 'LOCK & PUBLISH GOVERNANCE'}
-            </button>
+        {validation?.validation_status && (
+          <div className={`${card} border-l-4 ${validation.validation_status === "Approved" ? "border-emerald-500" : "border-red-500"}`}>
+            <p className="text-sm font-medium">RI Validation: {validation.validation_status}</p>
+            {validation.validation_comment && <p className="text-sm text-muted-foreground mt-1">{validation.validation_comment}</p>}
+          </div>
+        )}
+
+        {/* Q1 — auto */}
+        <div className={card}>
+          <div className={qLabel}><TrendingUp size={18} /> 1. What changed this week?</div>
+          <p className="text-xs text-muted-foreground mb-3">Calculated automatically from this week's signals.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+            <div className="bg-muted/40 rounded-lg p-3"><div className="text-2xl font-semibold">{preview?.auto_population?.pulse_count ?? form.step3_pulse_count ?? 0}</div><div className="text-xs text-muted-foreground">Signals this week</div></div>
+            <div className="bg-muted/40 rounded-lg p-3"><div className="text-2xl font-semibold text-amber-600">{preview?.auto_population?.repeats ?? form.step5_repeats ?? 0}</div><div className="text-xs text-muted-foreground">Repeat patterns</div></div>
+            <div className="bg-muted/40 rounded-lg p-3"><div className="text-2xl font-semibold text-red-600">{preview?.auto_population?.worsening ?? form.step6_worsening ?? 0}</div><div className="text-xs text-muted-foreground">Worsening</div></div>
+            <div className="bg-muted/40 rounded-lg p-3"><div className="text-2xl font-semibold text-emerald-600">{preview?.auto_population?.improvements ?? form.step7_improvements ?? 0}</div><div className="text-xs text-muted-foreground">Improving</div></div>
+          </div>
+        </div>
+
+        {/* Q2 */}
+        <div className={card}>
+          <div className={qLabel}><AlertTriangle size={18} /> 2. What concerns you most?</div>
+          <p className="text-xs text-muted-foreground mb-3">Your governance judgement — the issue that most needs leadership attention.</p>
+          <textarea className={area} disabled={locked} value={form.step8_interpretation || ""} onChange={(e) => set("step8_interpretation", e.target.value)} placeholder="The concern that matters most this week and why…" />
+        </div>
+
+        {/* Q3 */}
+        <div className={card}>
+          <div className={qLabel}><ListChecks size={18} /> 3. What actions are required?</div>
+          <p className="text-xs text-muted-foreground mb-3">The decisions you are making in response.</p>
+          <textarea className={area} disabled={locked} value={form.step12_decisions || ""} onChange={(e) => set("step12_decisions", e.target.value)} placeholder="Actions / decisions required (or 'None this week')…" />
+        </div>
+
+        {/* Q4 — effectiveness */}
+        <div className={card}>
+          <div className={qLabel}><CheckCircle2 size={18} /> 4. Are previous actions working?</div>
+          <p className="text-xs text-muted-foreground mb-3">Effectiveness of the controls already in place.</p>
+          {(form.step10_risk_analysis || []).length === 0 && <p className="text-sm text-muted-foreground py-2">No active risks to review.</p>}
+          <div className="space-y-2">
+            {(form.step10_risk_analysis || []).map((r: any, i: number) => (
+              <div key={r.risk_id || i} className="flex items-center justify-between gap-3 border-b border-border/50 pb-2">
+                <div className="text-sm min-w-0 truncate">{r.title}</div>
+                <select className="bg-input-background border border-border rounded-lg p-2 text-sm shrink-0" disabled={locked}
+                  value={r.controls_effective || "Yes"}
+                  onChange={(e) => {
+                    const next = [...form.step10_risk_analysis];
+                    next[i] = { ...r, controls_effective: e.target.value };
+                    set("step10_risk_analysis", next);
+                  }}>
+                  <option value="Yes">Working</option>
+                  <option value="Partially">Partially</option>
+                  <option value="No">Not working</option>
+                </select>
+              </div>
+            ))}
+          </div>
+          {anyIneffective && (
+            <div className="mt-3">
+              <label className="block text-sm font-medium mb-1 text-amber-600">Why are controls not fully effective?</label>
+              <textarea className={area} disabled={locked} value={form.step11_control_failures || ""} onChange={(e) => set("step11_control_failures", e.target.value)} placeholder="Control failure analysis…" />
+            </div>
           )}
+        </div>
+
+        {/* Q5 — position + narrative */}
+        <div className={card}>
+          <div className={qLabel}><FileText size={18} /> 5. Overall governance position</div>
+          <p className="text-xs text-muted-foreground mb-3">Your end-of-week judgement, with a short narrative.</p>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-2 mb-3">
+            {POSITIONS.map((p) => (
+              <button key={p} type="button" disabled={locked} onClick={() => set("step14_overall_position", p)}
+                className={`px-2 py-2.5 rounded-lg border text-xs sm:text-sm transition-all ${form.step14_overall_position === p ? `${POSITION_TONE[p]} text-white border-transparent` : "bg-card border-border hover:border-primary/50"}`}>
+                {p}
+              </button>
+            ))}
+          </div>
+          <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="Governance narrative: what you understood and decided this week…" />
+        </div>
+
+        {/* Actions */}
+        <div className="flex items-center justify-between gap-3 pb-10">
+          <button onClick={() => navigate("/dashboard")} className="px-4 py-2 text-muted-foreground hover:text-foreground">Cancel</button>
+          <div className="flex gap-3">
+            {!locked && <button onClick={saveDraft} disabled={isSaving} className="px-4 py-2 rounded-lg border border-border hover:bg-muted/40">Save draft</button>}
+            {isSenior && status === "pending_validation" && (
+              <>
+                <button onClick={() => doValidate("Rejected")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-red-600 text-white">Reject</button>
+                <button onClick={() => doValidate("Approved")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-emerald-600 text-white">Approve</button>
+              </>
+            )}
+            {!locked && <button onClick={submit} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90">{userRole === "REGISTERED_MANAGER" ? "Finalise review" : "Lock & publish"}</button>}
+          </div>
         </div>
       </div>
     </div>
