@@ -40,6 +40,7 @@ export function RoleBasedNavigation() {
           { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
           { path: "/admin-users", label: "Users", icon: Users },
           { path: "/admin/houses", label: "Services", icon: Home },
+          { path: "/patients", label: "Patients", icon: Users },
           { path: "/admin/service-users", label: "Service Users", icon: Users },
         ];
       case "REGISTERED_MANAGER":
