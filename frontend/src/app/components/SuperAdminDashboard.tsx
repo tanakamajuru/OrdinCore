@@ -220,8 +220,14 @@ export default function SuperAdminDashboard() {
         ...newAdmin,
         role: "ADMIN",
         email: newAdmin.email,
-        company_id: newAdmin.company_id,
+        // When invoked from a specific company context, always bind to that company.
+        company_id: selectedCompany?.id || newAdmin.company_id,
       };
+      if (!payload.company_id) {
+        setFormError("Please select an organisation");
+        setIsSubmitting(false);
+        return;
+      }
       const res = await apiClient.createUser(payload as any);
       if ((res as any).success) {
         setFormSuccess(`Admin account created for ${newAdmin.email}`);

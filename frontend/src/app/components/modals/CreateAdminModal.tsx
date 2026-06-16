@@ -91,17 +91,25 @@ export default function CreateAdminModal({
           </div>
           <div>
             <label className="block text-sm  text-muted-foreground mb-1">Organisation *</label>
-            <select
-              required
-              value={newAdmin.company_id}
-              onChange={(e) => setNewAdmin({ ...newAdmin, company_id: e.target.value })}
-              className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring text-sm"
-            >
-              <option value="">Select organisation...</option>
-              {companies.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+            {selectedCompany ? (
+              // Adding an admin from a specific company context: bind to that company, no dropdown.
+              <div className="w-full px-3 py-2 border border-border rounded bg-muted/40 text-sm text-foreground flex items-center justify-between">
+                <span>{selectedCompany.name}</span>
+                <span className="text-xs text-muted-foreground uppercase tracking-wide">Fixed</span>
+              </div>
+            ) : (
+              <select
+                required
+                value={newAdmin.company_id}
+                onChange={(e) => setNewAdmin({ ...newAdmin, company_id: e.target.value })}
+                className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+              >
+                <option value="">Select organisation...</option>
+                {companies.map((c) => (
+                  <option key={c.id} value={c.id}>{c.name}</option>
+                ))}
+              </select>
+            )}
           </div>
           <div className="flex gap-3 pt-2">
             <button
