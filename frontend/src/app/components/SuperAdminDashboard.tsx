@@ -160,10 +160,11 @@ export default function SuperAdminDashboard() {
       const companiesList = (companiesRes as any).data || [];
       setCompanies(Array.isArray(companiesList) ? companiesList : []);
       const active = companiesList.filter((c: Company) => c.status === 'active').length;
+      const totalUsers = companiesList.reduce((sum: number, c: Company) => sum + (Number(c.user_count) || 0), 0);
       setStats({
         totalCompanies: companiesList.length,
         activeCompanies: active,
-        totalUsers: 0,
+        totalUsers,
         systemHealth: "Good",
       });
     } catch (err) {
