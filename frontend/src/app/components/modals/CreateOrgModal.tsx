@@ -5,7 +5,7 @@ interface CreateOrgModalProps {
   isOpen: boolean;
   onClose: () => void;
   onSubmit: (e: React.FormEvent) => void;
-  newOrg: { name: string; contactEmail: string; plan: string };
+  newOrg: { name: string; contactEmail: string; plan: string; sector?: string };
   setNewOrg: (org: any) => void;
   formError: string;
   isSubmitting: boolean;
@@ -72,6 +72,18 @@ export default function CreateOrgModal({
               <option value="professional">Professional</option>
               <option value="enterprise">Enterprise</option>
             </select>
+          </div>
+          <div>
+            <label className="block text-sm  text-muted-foreground mb-1">Sector</label>
+            <select
+              value={newOrg.sector || "SUPPORTED_LIVING"}
+              onChange={(e) => setNewOrg({ ...newOrg, sector: e.target.value })}
+              className="w-full px-3 py-2 border border-border rounded focus:outline-none focus:ring-2 focus:ring-ring text-sm"
+            >
+              <option value="SUPPORTED_LIVING">Supported Living</option>
+              <option value="DOMICILIARY">Domiciliary Care</option>
+            </select>
+            <p className="text-xs text-muted-foreground mt-1">Determines the governance domains and signal library loaded for this organisation.</p>
           </div>
           <div className="flex gap-3 pt-2">
             <button

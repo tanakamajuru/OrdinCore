@@ -6,6 +6,7 @@ import {
   UserPlus, ChevronRight, Activity, Cpu, Database, Search, Key, X, Check
 } from "lucide-react";
 import { apiClient } from "@/services/api";
+import { toast } from "sonner";
 import CreateOrgModal from "./modals/CreateOrgModal";
 import CreateAdminModal from "./modals/CreateAdminModal";
 import ManageAdminsModal from "./modals/ManageAdminsModal";
@@ -47,7 +48,7 @@ export default function SuperAdminDashboard() {
   const [showUnsuspendModal, setShowUnsuspendModal] = useState(false);
   const [showUnarchiveModal, setShowUnarchiveModal] = useState(false);
   const [showManageAdmins, setShowManageAdmins] = useState(false);
-  const [newOrg, setNewOrg] = useState({ name: "", domain: "", contactEmail: "", plan: "professional" });
+  const [newOrg, setNewOrg] = useState({ name: "", domain: "", contactEmail: "", plan: "professional", sector: "SUPPORTED_LIVING" });
   const [newAdmin, setNewAdmin] = useState({ first_name: "", last_name: "", email: "", password: "", company_id: "" });
   const [formError, setFormError] = useState("");
   const [formSuccess, setFormSuccess] = useState("");
@@ -186,7 +187,7 @@ export default function SuperAdminDashboard() {
       const res = await apiClient.createCompany(newOrg as any);
       if ((res as any).success) {
         setFormSuccess("Organisation created successfully!");
-        setNewOrg({ name: "", domain: "", contactEmail: "", plan: "professional" });
+        setNewOrg({ name: "", domain: "", contactEmail: "", plan: "professional", sector: "SUPPORTED_LIVING" });
         setShowCreateOrg(false);
         loadData();
       } else {
@@ -233,6 +234,16 @@ export default function SuperAdminDashboard() {
       setFormError(err.message || "Failed to create admin");
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  const handleSectorChange = async (company: Company, sector: string) => {
+    try {
+      await apiClient.updateCompany(company.id, { sector } as any);
+      toast.success(`${company.name} sector set to ${sector === 'DOMICILIARY' ? 'Domiciliary Care' : 'Supported Living'}`);
+      loadData();
+    } catch (err: any) {
+      toast.error(err.message || "Failed to update sector");
     }
   };
 
@@ -362,7 +373,16 @@ export default function SuperAdminDashboard() {
                   </div>
                 </td>
                 <td className="py-4 px-4">
-                  <span className="capitalize text-muted-foreground">{company.plan || 'professional'}</span>
+                  <span className="capitalize text-muted-foreground block mb-1">{company.plan || 'professional'}</span>
+                  <select
+                    value={(company as any).sector || 'SUPPORTED_LIVING'}
+                    onChange={(e) => handleSectorChange(company, e.target.value)}
+                    className="text-xs bg-card border border-border rounded px-1.5 py-1 text-muted-foreground"
+                    title="Governance sector"
+                  >
+                    <option value="SUPPORTED_LIVING">Supported Living</option>
+                    <option value="DOMICILIARY">Domiciliary Care</option>
+                  </select>
                 </td>
                 <td className="py-4 px-4">
                   <span className={`px-2 py-1 rounded-full text-xs  capitalize ${statusColor(company.status)}`}>

@@ -2,12 +2,13 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 
 export class CompanyService {
-  async create(data: { name: string; domain?: string; plan?: string; email?: string; phone?: string; address?: string }) {
+  async create(data: { name: string; domain?: string; plan?: string; email?: string; phone?: string; address?: string; sector?: string }) {
     const id = uuidv4();
+    const sector = data.sector === 'DOMICILIARY' ? 'DOMICILIARY' : 'SUPPORTED_LIVING';
     const result = await query(
-      `INSERT INTO companies (id, name, domain, plan, email, phone, address)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [id, data.name, data.domain || null, data.plan || 'starter', data.email || null, data.phone || null, data.address || null]
+      `INSERT INTO companies (id, name, domain, plan, email, phone, address, sector)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
+      [id, data.name, data.domain || null, data.plan || 'starter', data.email || null, data.phone || null, data.address || null, sector]
     );
     const company = result.rows[0];
 
@@ -70,7 +71,7 @@ export class CompanyService {
   }
 
   async update(id: string, data: Partial<{ name: string; domain: string; status: string; plan: string; email: string; phone: string; address: string }>) {
-    const allowed = ['name', 'domain', 'status', 'plan', 'email', 'phone', 'address', 'logo_url'];
+    const allowed = ['name', 'domain', 'status', 'plan', 'email', 'phone', 'address', 'logo_url', 'sector'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) { if (key in data) filteredData[key] = (data as Record<string, unknown>)[key]; }
     const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 2}`).join(', ');
