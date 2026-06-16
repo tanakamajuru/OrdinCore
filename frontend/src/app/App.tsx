@@ -32,6 +32,7 @@ import AdminHouseManagement from "./components/AdminHouseManagement";
 import AdminPulseManagement from "./components/AdminPulseManagement";
 import AdminRiskManagement from "./components/AdminRiskManagement";
 import AdminSettings from "./components/AdminSettings";
+import { AdminLayout } from "./components/AdminLayout";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { ComputationalEngines } from "./components/ComputationalEngines";
 import { PulseHistory } from "./components/PulseHistory";
@@ -110,7 +111,7 @@ export default function App() {
           } />
           <Route path="/admin" element={
             <ProtectedRoute>
-              <AdminDashboard />
+              <AdminLayout><AdminDashboard /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin-dashboard" element={
@@ -120,32 +121,32 @@ export default function App() {
           } />
           <Route path="/admin-users" element={
             <ProtectedRoute>
-              <AdminUserManagement />
+              <AdminLayout><AdminUserManagement /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin-houses" element={
             <ProtectedRoute>
-              <AdminHouseManagement />
+              <AdminLayout><AdminHouseManagement /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin/houses" element={
             <ProtectedRoute>
-              <AdminHouseManagement />
+              <AdminLayout><AdminHouseManagement /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin-pulses" element={
             <ProtectedRoute>
-              <AdminPulseManagement />
+              <AdminLayout><AdminPulseManagement /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin-risks" element={
             <ProtectedRoute>
-              <AdminRiskManagement />
+              <AdminLayout><AdminRiskManagement /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin-settings" element={
             <ProtectedRoute>
-              <AdminSettings />
+              <AdminLayout><AdminSettings /></AdminLayout>
             </ProtectedRoute>
           } />
           <Route path="/admin/service-users" element={
