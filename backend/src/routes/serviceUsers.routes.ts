@@ -6,6 +6,9 @@ import { requireTenant } from '../middleware/tenant.middleware';
 
 const router = Router();
 
+// List all patients for the company (search + site filter). All authenticated roles.
+router.get('/', requireAuth, requireTenant, serviceUsersController.list.bind(serviceUsersController));
+
 router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), serviceUsersController.update.bind(serviceUsersController));
 
 export default router;

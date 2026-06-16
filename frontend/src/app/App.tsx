@@ -10,6 +10,7 @@ import { EvidencePackViewer } from "./components/EvidencePackViewer";
 import { SignalCaptureForm } from "./components/SignalCaptureForm";
 import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
+import { Patients } from "./components/Patients";
 import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { EscalationLog } from "./components/EscalationLog";
@@ -205,6 +206,11 @@ export default function App() {
           <Route path="/risk-register" element={
             <ProtectedRoute>
               <RiskRegister />
+            </ProtectedRoute>
+          } />
+          <Route path="/patients" element={
+            <ProtectedRoute>
+              <Patients />
             </ProtectedRoute>
           } />
           <Route path="/risks/promote" element={

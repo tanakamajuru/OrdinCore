@@ -46,6 +46,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
+          { path: "/patients", label: "Patients", icon: Users },
           { path: "/my-actions", label: "Actions", icon: ClipboardList },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
@@ -58,6 +59,7 @@ export function RoleBasedNavigation() {
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
+          { path: "/patients", label: "Patients", icon: Users },
           { path: "/trends", label: "Trends", icon: TrendingUp },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
@@ -66,6 +68,7 @@ export function RoleBasedNavigation() {
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/patients", label: "Patients", icon: Users },
           { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -75,6 +78,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
+          { path: "/patients", label: "Patients", icon: Users },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
