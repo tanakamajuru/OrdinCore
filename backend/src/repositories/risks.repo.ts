@@ -25,7 +25,7 @@ export interface CreateRiskDto {
 }
 
 export const risksRepo = {
-  async findById(id: string, company_id?: string) {
+  async findById(id: string, company_id: string) {
     const params: unknown[] = [id];
     let sql = `SELECT r.*, 
         rc.name AS category_name,
@@ -50,7 +50,8 @@ export const risksRepo = {
       LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
       LEFT JOIN escalations e ON e.risk_id = r.id
       WHERE r.id = $1`;
-    if (company_id) { sql += ' AND r.company_id = $2'; params.push(company_id); }
+    // Tenant isolation is mandatory — always scope to the company.
+    sql += ' AND r.company_id = $2'; params.push(company_id);
     // Aggregate pulses and escalations; group by base entities only
     sql += ' GROUP BY r.id, rc.id, u1.id, u2.id, h.id, sc.id, i.id';
     const result = await query(sql, params);
@@ -195,6 +196,10 @@ export const risksRepo = {
     if (filters.house_id) {
       conditions.push(`r.house_id = $${idx++}`);
       params.push(filters.house_id);
+    } else if (Array.isArray(filters.house_ids)) {
+      // RM/TL scope: confine to the user's assigned houses (empty array -> no rows).
+      conditions.push(`r.house_id = ANY($${idx++}::uuid[])`);
+      params.push(filters.house_ids);
     }
     if (filters.status) {
       conditions.push(`ra.status = $${idx++}`);

@@ -220,11 +220,6 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     );
 }
 
-function compareSeverity(a: string, b: string): number {
-    const levels: Record<string, number> = { 'Low': 1, 'Moderate': 2, 'High': 3, 'Critical': 4 };
-    return (levels[a] || 1) - (levels[b] || 1);
-}
-
 if (process.env.RUN_ONCE === 'true') {
     logger.info('Starting pattern worker in RUN_ONCE mode (this will listen to jobs until manually stopped)...');
     startPatternWorker();

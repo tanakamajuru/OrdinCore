@@ -42,7 +42,9 @@ export class EscalationsService {
     const conditions = ['e.company_id = $1'];
     const params: unknown[] = [company_id];
     let idx = 2;
-    if (filters.status) { conditions.push(`e.status = $${idx++}`); params.push(filters.status); }
+    // Match either the lifecycle status (Open/Under Review/Closed…) or the legacy
+    // status (Pending/Acknowledged/Resolved…) so dashboard filters work regardless.
+    if (filters.status) { conditions.push(`(e.lifecycle_status::text = $${idx} OR e.status = $${idx})`); params.push(filters.status); idx++; }
     const where = conditions.join(' AND ');
 
     const [esc, countResult] = await Promise.all([
@@ -79,7 +81,7 @@ export class EscalationsService {
         u2.first_name || ' ' || u2.last_name AS escalated_to_name
        FROM escalations e
        JOIN users u1 ON u1.id = e.escalated_by
-       JOIN users u2 ON u2.id = e.escalated_to
+       LEFT JOIN users u2 ON u2.id = e.escalated_to
        WHERE e.id = $1 AND e.company_id = $2`,
       [id, company_id]
     );

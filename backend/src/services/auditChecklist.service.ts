@@ -21,7 +21,11 @@ export class AuditChecklistService {
     const params: unknown[] = [company_id];
     let idx = 2;
 
-    if (filters.status) { conditions.push(`gp.review_status = $${idx++}`); params.push(filters.status); }
+    // The SELECT exposes a computed status (SUBMITTED/DRAFT). Accept those, otherwise
+    // filter the real review_status enum (New/Reviewed/Closed/Monitoring/Linked).
+    if (filters.status === 'SUBMITTED') { conditions.push('gp.completed_at IS NOT NULL'); }
+    else if (filters.status === 'DRAFT') { conditions.push('gp.completed_at IS NULL'); }
+    else if (filters.status) { conditions.push(`gp.review_status = $${idx++}`); params.push(filters.status); }
     if (filters.house_id) { conditions.push(`gp.house_id = $${idx++}`); params.push(filters.house_id); }
     if (filters.assigned_user_id) { 
       const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -223,13 +227,17 @@ export class AuditChecklistService {
   }
 
   async checkPulseCompliance(company_id: string) {
+    // Find overdue, unreviewed pulses and raise the overdue event. (Previously this
+    // UPDATE wrote review_status='LOCKED' WHERE review_status='DRAFT' — neither is a
+    // valid review_status enum value, so the whole call crashed and no overdue
+    // notifications ever fired.)
     const result = await query(
-      `UPDATE governance_pulses 
-       SET review_status = 'LOCKED', updated_at = NOW()
-       WHERE company_id = $1 
-         AND review_status = 'DRAFT' 
-         AND entry_date < NOW()
-       RETURNING id, house_id AS house_id, entry_date as due_date`,
+      `SELECT id, house_id AS house_id, entry_date AS due_date
+       FROM governance_pulses
+       WHERE company_id = $1
+         AND review_status = 'New'
+         AND completed_at IS NULL
+         AND entry_date < NOW()`,
       [company_id]
     );
 

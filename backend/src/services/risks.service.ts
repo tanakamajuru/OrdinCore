@@ -2,6 +2,7 @@ import { risksRepo } from '../repositories/risks.repo';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { escalationDueBy } from './escalations.service';
 
 export class RisksService {
   async create(company_id: string, created_by: string, data: {
@@ -144,12 +145,15 @@ export class RisksService {
       target = adminRes.rows[0]?.id || risk.created_by;
     }
 
-    // Create escalation record
+    // Create escalation record with an SLA due date so the overdue sweep and
+    // stats work (previously due_by was NULL -> never flagged overdue / always "on time").
+    const domains: string[] = Array.isArray(risk.risk_domain) ? risk.risk_domain : (risk.risk_domain ? [risk.risk_domain] : []);
+    const trigger = domains.some((d) => String(d).toLowerCase().includes('safeguard')) ? 'HIGH_SAFEGUARDING' : 'SIMILAR_SIGNALS_14_DAYS';
     const id = uuidv4();
     await query(
-      `INSERT INTO escalations (id, company_id, risk_id, escalated_by, escalated_to, reason, status)
-       VALUES ($1,$2,$3,$4,$5,$6,'Pending')`,
-      [id, company_id, risk_id, escalated_by, target, data.reason]
+      `INSERT INTO escalations (id, company_id, risk_id, escalated_by, escalated_to, reason, status, lifecycle_status, due_by)
+       VALUES ($1,$2,$3,$4,$5,$6,'Pending','Open',$7)`,
+      [id, company_id, risk_id, escalated_by, target, data.reason, escalationDueBy(trigger)]
     );
 
     await risksRepo.update(risk_id, company_id, { status: 'Escalated' });

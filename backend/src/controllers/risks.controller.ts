@@ -162,11 +162,18 @@ export class RisksController {
   async getAllActions(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const filters = { 
-        house_id: req.query.house_id, 
+      const role = (req.user!.role || '').toUpperCase().replace('-', '_');
+      const scoped = ['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(role);
+      const filters: Record<string, unknown> = {
+        house_id: req.query.house_id,
         status: req.query.status,
-        pending_review: req.query.pending_review 
+        pending_review: req.query.pending_review,
       };
+      // Confine RM/TL to their assigned houses so the tracker never shows other
+      // houses' actions (the route also now passes requireScope).
+      if (scoped && !req.query.house_id) {
+        filters.house_ids = req.user!.assigned_house_ids || [];
+      }
 
       const actions = await risksService.findAllActions(company_id, filters);
       return res.json({ success: true, data: actions, meta: {} });

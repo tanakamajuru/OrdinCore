@@ -7,8 +7,12 @@ const pool = new Pool({
 });
 
 export async function seedTestData() {
+  // Never seed test data into a production database.
+  if (process.env.NODE_ENV === 'production' || process.env.DB_NAME === 'ordincore') {
+    throw new Error('Refusing to seed test data in production (NODE_ENV=production / DB_NAME=ordincore).');
+  }
   console.log('🌱 Seeding test data for Ordin Core E2E tests...');
-  
+
   try {
     await pool.query('BEGIN');
 

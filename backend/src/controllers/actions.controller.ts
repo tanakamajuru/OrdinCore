@@ -35,15 +35,16 @@ export class ActionsController {
         return res.status(400).json({ success: false, message: 'Action is already completed.' });
       }
 
-      // 3. Update action
+      // 3. Update status + trajectory side-effects, then persist completion detail
+      // (single authoritative write that RETURNs the full row for the response).
       const updated = await risksService.updateActionStatus(id, action.rows[0].risk_id, company_id, user_id, 'Completed');
-      
-      await query(
-        `UPDATE risk_actions 
+      const completedRes = await query(
+        `UPDATE risk_actions
          SET completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW()
-         WHERE id = $4 AND company_id = $5`,
+         WHERE id = $4 AND company_id = $5 RETURNING *`,
         [completion_note || null, completion_outcome, completion_rationale, id, company_id]
       );
+      const completedAction = completedRes.rows[0] || updated;
 
       // 4. Notification to RM (the one who assigned it)
       const manager_id = action.rows[0].created_by; // The assigner (usually RM)
@@ -60,7 +61,7 @@ export class ActionsController {
         });
       }
 
-      res.json({ success: true, data: updated });
+      res.json({ success: true, data: completedAction });
     } catch (err: any) {
       logger.error('Error completing action', err);
       res.status(500).json({ success: false, message: err.message });

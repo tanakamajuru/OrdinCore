@@ -62,22 +62,8 @@ async function runRule12() {
 
 // Rule 13 – Mismatched completion (premature closure)
 async function runRule13() {
-    const res = await query(`
-        SELECT ra.id as action_id, ra.risk_id, r.company_id, r.house_id, r.category_id
-        FROM risk_actions ra
-        JOIN risks r ON ra.risk_id = r.id
-        WHERE ra.completion_outcome = 'Risk reduced'
-          AND EXISTS (
-            SELECT 1 FROM governance_pulses p
-            WHERE $1 = ANY(p.risk_domain)
-              AND p.house_id = r.house_id
-              AND p.entry_date > ra.completed_at
-              AND p.entry_date <= ra.completed_at + INTERVAL '14 days'
-              AND p.severity IN ('High', 'Critical')
-          )
-    `, ['Behaviour']); // This needs to be dynamic based on risk domain/category. For now using a placeholder or joining categories.
-    // Optimization: Join with risk_categories to get the domain name
-    
+    // Premature closure: a 'Risk reduced' action followed by fresh High/Critical signals
+    // in the same domain. Domain comes from the risk's category (joined below).
     const resDynamic = await query(`
         SELECT ra.id as action_id, ra.risk_id, r.company_id, r.house_id, rc.name as domain_name
         FROM risk_actions ra

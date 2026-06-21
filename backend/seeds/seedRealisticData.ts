@@ -15,6 +15,10 @@ const pool = new Pool({
 });
 
 async function seed() {
+    // Never seed demo data into a production database.
+    if (process.env.NODE_ENV === 'production' || process.env.DB_NAME === 'ordincore') {
+        throw new Error('Refusing to seed demo data in production (NODE_ENV=production / DB_NAME=ordincore).');
+    }
     console.log('🚀 Starting Realistic Data Seeding...');
     const companyId = '11111111-1111-1111-1111-111111111111';
 

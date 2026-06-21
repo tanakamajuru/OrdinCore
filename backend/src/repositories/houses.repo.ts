@@ -16,14 +16,11 @@ export interface CreateHouseDto {
 }
 
 export const housesRepo = {
-  async findById(id: string, company_id?: string) {
-    const params: unknown[] = [id];
+  async findById(id: string, company_id: string) {
+    const params: unknown[] = [id, company_id];
     // Derive is_active from status (single source of truth) so it can never drift.
-    let sql = "SELECT *, (status = 'active') AS is_active FROM houses WHERE id = $1";
-    if (company_id) {
-      sql += ' AND company_id = $2';
-      params.push(company_id);
-    }
+    // Tenant isolation is mandatory — always scope to the company.
+    const sql = "SELECT *, (status = 'active') AS is_active FROM houses WHERE id = $1 AND company_id = $2";
     const result = await query(sql, params);
     return result.rows[0] || null;
   },
