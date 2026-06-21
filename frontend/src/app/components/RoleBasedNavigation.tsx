@@ -47,8 +47,10 @@ export function RoleBasedNavigation() {
       case "REGISTERED_MANAGER":
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
+          { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
           { path: "/my-actions", label: "Actions", icon: ClipboardList },
+          { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -56,17 +58,21 @@ export function RoleBasedNavigation() {
         ];
       case "RESPONSIBLE_INDIVIDUAL":
         return [
-          { path: "/dashboard", label: "Cross-Site Dashboard", icon: Home },
-          { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/dashboard", label: "Assurance", icon: Home },
+          { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
+          { path: "/reconstruction", label: "Reconstruction", icon: Layers },
+          { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
-          { path: "/trends", label: "Trends", icon: TrendingUp },
+          { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/reports", label: "Reports", icon: FileDown },
         ];
       case "DIRECTOR":
         return [
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
+          { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
+          { path: "/reconstruction", label: "Reconstruction", icon: Layers },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/trends", label: "Trends", icon: BarChart3 },

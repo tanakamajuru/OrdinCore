@@ -2,8 +2,17 @@ import { Router } from 'express';
 import { reconstructionController } from '../controllers/reconstruction.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
+import { requireRole } from '../middleware/role.middleware';
 
 const router = Router();
+
+// Saved reconstruction records (by-house / by-person wizard, FR9). Registered BEFORE
+// the catch-all /:scope/:id so these specific paths win. Create/lock are senior-only.
+const recordWriters = requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN');
+router.get('/persons', requireAuth, requireTenant, reconstructionController.listPersons.bind(reconstructionController));
+router.post('/record', requireAuth, requireTenant, recordWriters, reconstructionController.saveRecord.bind(reconstructionController));
+router.get('/record/:id', requireAuth, requireTenant, reconstructionController.getRecord.bind(reconstructionController));
+router.post('/record/:id/lock', requireAuth, requireTenant, recordWriters, reconstructionController.lockRecord.bind(reconstructionController));
 
 /**
  * @openapi

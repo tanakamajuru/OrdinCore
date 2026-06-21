@@ -180,6 +180,41 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
+  test('RM nav has Patterns + Effectiveness; Effectiveness page loads', async ({ page }) => {
+    await login(page, USERS.rm);
+    for (const label of ['Patterns', 'Effectiveness']) {
+      await expect(page.getByRole('button', { name: new RegExp(`^${label}$`, 'i') }).first()).toBeVisible();
+    }
+    await page.goto('/effectiveness');
+    await expect(page.getByRole('heading', { name: /Action Effectiveness/i })).toBeVisible({ timeout: 30_000 });
+    await logout(page);
+  });
+
+  test('Director: Incident Reconstruction wizard (by house → timeline → narrative → lock)', async ({ page }) => {
+    await login(page, USERS.director);
+    await expect(page.getByRole('button', { name: /^Reconstruction$/i }).first()).toBeVisible();
+    await page.goto('/reconstruction');
+    await expect(page.getByRole('heading', { name: /Incident Reconstruction/i })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText(/Scope the reconstruction/i)).toBeVisible();
+    // By House is default; pick the first real service and generate
+    const houseSelect = page.locator('select').first();
+    const opts = houseSelect.locator('option');
+    await expect.poll(async () => await opts.count()).toBeGreaterThan(1);
+    await houseSelect.selectOption({ index: 1 });
+    await page.getByRole('button', { name: /Generate reconstruction/i }).click();
+    // Step 1: timeline + summary counts
+    await expect(page.getByText(/Pre-incident signal timeline/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/linked risk/i)).toBeVisible();
+    await page.getByRole('button', { name: /Continue to assessment/i }).click();
+    // Step 2: assessment
+    await expect(page.getByText(/Trajectory & control-failure analysis/i)).toBeVisible();
+    await page.getByRole('button', { name: /Draft narrative/i }).click();
+    // Step 3: narrative + KLOE + lock button present (not locking, to avoid persisting test data)
+    await expect(page.getByText(/CQC KEY LINE OF ENQUIRY/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: /Lock reconstruction/i })).toBeVisible();
+    await logout(page);
+  });
+
   test('Super Admin: Governance Configuration tabs + per-sector thresholds', async ({ page }) => {
     await login(page, USERS.superadmin);
     await page.goto('/governance-config');

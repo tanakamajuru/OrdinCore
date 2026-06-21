@@ -12,6 +12,8 @@ import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
 import { Patients } from "./components/Patients";
 import { GovernanceConfig } from "./components/GovernanceConfig";
+import { IncidentReconstruction } from "./components/IncidentReconstruction";
+import { Effectiveness } from "./components/Effectiveness";
 import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { EscalationLog } from "./components/EscalationLog";
@@ -218,6 +220,16 @@ export default function App() {
           <Route path="/governance-config" element={
             <ProtectedRoute>
               <GovernanceConfig />
+            </ProtectedRoute>
+          } />
+          <Route path="/reconstruction" element={
+            <ProtectedRoute>
+              <IncidentReconstruction />
+            </ProtectedRoute>
+          } />
+          <Route path="/effectiveness" element={
+            <ProtectedRoute>
+              <Effectiveness />
             </ProtectedRoute>
           } />
           <Route path="/risks/promote" element={
