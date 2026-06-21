@@ -4,27 +4,23 @@ import { v4 as uuidv4 } from 'uuid';
 // export class WeeklyReviewsService {
 export class WeeklyReviewsService {
   async validateStepDependency(targetStep: number, existingContent: any) {
-    const mandatoryFields: Record<number, string[]> = {
-      8: ['step8_interpretation'],
-      11: [], // Logic handled below (conditional)
-      12: ['step12_decisions'],
-      14: ['step14_overall_position'],
-      15: ['step15_narrative']
+    // 13-step UI numbering: steps 1–10 auto-populate (no mandatory input); the manager
+    // supplies Leadership Interpretation (step 11), Overall Position (step 12), and the
+    // Narrative (step 13). Keys are indexed by (targetStep - 1), matching the save() loop.
+    const fieldLabels: Record<string, string> = {
+      step8_interpretation: 'Leadership Interpretation',
+      step14_overall_position: 'Overall Position',
+      step15_narrative: 'Governance Narrative',
     };
-
-    // Special validation for Step 11
-    if (targetStep > 11) {
-      const riskAnalysis = existingContent.step10_risk_analysis || [];
-      const hasIneffective = riskAnalysis.some((r: any) => r.controls_effective === 'Partially' || r.controls_effective === 'No');
-      if (hasIneffective && !existingContent.step11_control_failures) {
-        throw new Error('Governance Block: Mandatory field "Control Failures" must be completed because ineffective controls were identified in Step 10.');
-      }
-    }
+    const mandatoryFields: Record<number, string[]> = {
+      11: ['step8_interpretation'],    // required before leaving step 11
+      12: ['step14_overall_position'], // required before leaving step 12
+    };
 
     const required = mandatoryFields[targetStep - 1] || [];
     for (const field of required) {
       if (!existingContent || !existingContent[field]) {
-        throw new Error(`Governance Block: Mandatory field '${field}' must be completed before proceeding.`);
+        throw new Error(`Governance Block: '${fieldLabels[field] || field}' must be completed before proceeding.`);
       }
     }
   }

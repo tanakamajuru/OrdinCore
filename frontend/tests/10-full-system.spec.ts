@@ -48,10 +48,10 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
-  test('Director: nav items present, Oversight Register tabs, Patients search+filter', async ({ page }) => {
+  test('Director: nav items present, Oversight Register tabs, Service Users search+filter', async ({ page }) => {
     await login(page, USERS.director);
-    // Sidebar should contain the key nav items
-    for (const label of ['Oversight Register', 'Patients', 'Escalations']) {
+    // Sidebar should contain the key nav items (Service Users is admin-only, not here)
+    for (const label of ['Oversight Register', 'Escalations']) {
       await expect(page.getByRole('button', { name: new RegExp(label, 'i') }).first()).toBeVisible();
     }
     // Governance Oversight Register
@@ -60,26 +60,25 @@ test.describe('Full system UI walkthrough', () => {
     for (const tab of ['Emerging', 'Active', 'Strategic', 'Closed']) {
       await expect(page.getByText(new RegExp(tab, 'i')).first()).toBeVisible();
     }
-    // Patients page: search box + site filter
+    // Service Users directory: search box + site filter
     await page.goto('/patients');
-    await expect(page.getByText('Patients').first()).toBeVisible();
-    await expect(page.getByPlaceholder(/search patients/i)).toBeVisible();
+    await expect(page.getByText('Service Users').first()).toBeVisible();
+    await expect(page.getByPlaceholder(/search service users/i)).toBeVisible();
     await expect(page.locator('select')).toHaveCount(1); // the site/service filter
-    await page.getByPlaceholder(/search patients/i).fill('z');
+    await page.getByPlaceholder(/search service users/i).fill('z');
     await page.waitForTimeout(800); // debounce
     await logout(page);
   });
 
-  test('Director: Weekly Governance Review shows 5 questions', async ({ page }) => {
+  test('Director: Weekly Governance Review is a 13-step wizard', async ({ page }) => {
     await login(page, USERS.director);
     await page.goto('/weekly-review');
     await expect(page.getByText(/Weekly Governance Review/i)).toBeVisible({ timeout: 30_000 });
-    // Five governance questions
-    await expect(page.getByText(/What changed this week/i)).toBeVisible();
-    await expect(page.getByText(/What concerns you most/i)).toBeVisible();
-    await expect(page.getByText(/What actions are required/i)).toBeVisible();
-    await expect(page.getByText(/Are previous actions working/i)).toBeVisible();
-    await expect(page.getByText(/Overall governance position/i)).toBeVisible();
+    await expect(page.getByText(/Step 1 of 13/i)).toBeVisible();
+    // Step rail items
+    for (const s of ['Scope', 'Signal Volume', 'Leadership Interpretation', 'Overall Position', 'Narrative']) {
+      await expect(page.getByText(new RegExp(s, 'i')).first()).toBeVisible();
+    }
     await logout(page);
   });
 
@@ -110,20 +109,18 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
-  test('TL: dashboard + Patients nav present', async ({ page }) => {
+  test('TL: dashboard loads, no Patients nav (admin-only Service Users)', async ({ page }) => {
     await login(page, USERS.tl);
-    await expect(page.getByRole('button', { name: /Patients/i }).first()).toBeVisible();
-    await page.goto('/patients');
-    await expect(page.getByPlaceholder(/search patients/i)).toBeVisible();
+    await expect(page.getByText('ORDIN CORE').first()).toBeVisible();
+    // Patients/Service Users should NOT appear in the TL sidebar
+    await expect(page.getByRole('button', { name: /^Patients$/i })).toHaveCount(0);
     await logout(page);
   });
 
-  test('RI: oversight register + patients', async ({ page }) => {
+  test('RI: oversight register loads', async ({ page }) => {
     await login(page, USERS.ri);
     await page.goto('/risk-register');
     await expect(page.getByText('Governance Oversight Register')).toBeVisible();
-    await page.goto('/patients');
-    await expect(page.getByText('Patients').first()).toBeVisible();
     await logout(page);
   });
 
@@ -143,17 +140,28 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
-  test('WRITE: RM saves a weekly governance review draft', async ({ page }) => {
+  test('WRITE: RM advances the weekly review wizard (per-step save)', async ({ page }) => {
     await login(page, USERS.rm);
     await page.goto('/weekly-review');
-    await expect(page.getByText(/Weekly Governance Review/i)).toBeVisible({ timeout: 30_000 });
-    const areas = page.locator('textarea');
-    await areas.nth(0).fill('QA: medication engagement is the main concern this week.');
-    await areas.nth(1).fill('QA: increase MAR audits and competency checks.');
-    await page.getByRole('button', { name: /Emerging Concern/i }).click();
-    await page.locator('textarea').last().fill('QA governance narrative for the automated weekly review test.');
-    await page.getByRole('button', { name: /save draft/i }).click();
-    await expect(page.getByText(/saved|draft/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Step 1 of 13/i)).toBeVisible({ timeout: 30_000 });
+    // Advance from Scope through the 9 auto-populated steps to Leadership Interpretation.
+    // The button disables during each per-step POST /weekly-reviews, so click only when
+    // enabled and poll until the interpretation step appears (resilient to dropped clicks).
+    // Confirm & continue through each auto step. Wait for the next step's heading (h2)
+    // to render before the next click — one confirmed advance per click (clicking before
+    // the step settles would re-fire on the same step).
+    const order = ['Signal Volume', 'Pattern Summary', 'Cluster Review', 'Risk Touchpoint',
+      'Action Effectiveness', 'Escalations', 'Safeguarding', 'Medication', 'Workforce', 'Leadership Interpretation'];
+    for (const heading of order) {
+      await page.getByRole('button', { name: /Confirm & continue/i }).first().click();
+      await expect(page.getByRole('heading', { level: 2, name: heading })).toBeVisible({ timeout: 15_000 });
+    }
+    // Target the interpretation textarea by its placeholder (unique to that step body).
+    const interp = page.getByPlaceholder(/What does this week mean/i);
+    await expect(interp).toBeVisible({ timeout: 15_000 });
+    await interp.fill('QA: medication engagement is the main concern this week.');
+    await page.getByRole('button', { name: /Confirm & continue/i }).click();
+    await expect(page.getByText(/Overall governance position/i)).toBeVisible({ timeout: 15_000 });
     await logout(page);
   });
 
