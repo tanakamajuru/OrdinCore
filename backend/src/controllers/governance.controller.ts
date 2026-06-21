@@ -7,7 +7,9 @@ export class GovernanceController {
   async getDomains(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id || null;
-      const data = await governanceDomainsService.getDomainsForCompany(company_id);
+      // Sector is per-service: a house_id selects that service's domain library.
+      const house_id = (req.query.house_id as string) || (req.query.service_id as string) || null;
+      const data = await governanceDomainsService.getDomainsForCompany(company_id, house_id);
       return res.json({ success: true, data, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch governance domains';

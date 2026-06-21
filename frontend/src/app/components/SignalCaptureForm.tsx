@@ -69,13 +69,21 @@ export function SignalCaptureForm() {
 
   const set = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
-  useEffect(() => { loadServices(); loadDomains(); }, []);
+  useEffect(() => { loadServices(); }, []);
 
-  const loadDomains = async () => {
+  // Sector is per-service: reload the domain library for the chosen service, and
+  // reset the domain/signal selection when the service changes.
+  useEffect(() => { loadDomains(form.service_id); }, [form.service_id]);
+
+  const loadDomains = async (serviceId?: string) => {
     try {
-      const res = await apiClient.get('/governance/domains');
+      const qs = serviceId ? `?house_id=${serviceId}` : '';
+      const res = await apiClient.get(`/governance/domains${qs}`);
       const list = (res as any).data?.domains || [];
       setDomains(Array.isArray(list) ? list : []);
+      // If the previously chosen domain is not in the new (sector) library, clear it.
+      setForm(prev => (prev.governance_domain && !list.some((d: any) => d.name === prev.governance_domain))
+        ? { ...prev, governance_domain: '', signal_label: '' } : prev);
     } catch {
       setDomains([]);
     }

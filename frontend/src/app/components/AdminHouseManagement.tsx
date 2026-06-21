@@ -129,6 +129,18 @@ const HouseForm = ({
       </div>
     </div>
     <div className="grid gap-2">
+      <Label htmlFor="sector">Sector (drives the signal library &amp; thresholds)</Label>
+      <Select value={formData.sector} onValueChange={(val) => onChange("sector", val)}>
+        <SelectTrigger id="sector">
+          <SelectValue placeholder="Select a sector" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="SUPPORTED_LIVING">Supported Living</SelectItem>
+          <SelectItem value="DOMICILIARY">Domiciliary Care</SelectItem>
+        </SelectContent>
+      </Select>
+    </div>
+    <div className="grid gap-2">
       <Label htmlFor="managerId">Assigned Manager</Label>
       <Select value={formData.managerId} onValueChange={(val) => onChange("managerId", val)}>
         <SelectTrigger id="managerId">
@@ -427,7 +439,7 @@ const AdminHouseManagement: React.FC = () => {
   const emptyForm = {
     name: "", registration_number: "", address: "", city: "",
     county: "", postcode: "", phone: "", email: "",
-    capacity: "0", managerId: "", isActive: true,
+    capacity: "0", managerId: "", isActive: true, sector: "SUPPORTED_LIVING",
   };
   const [formData, setFormData] = useState(emptyForm);
   const [managers, setManagers] = useState<any[]>([]);
@@ -510,6 +522,7 @@ const AdminHouseManagement: React.FC = () => {
           capacity: parseInt(formData.capacity) || 0,
           manager_id: formData.managerId === "none" ? null : formData.managerId || null,
           is_active: formData.isActive,
+          sector: formData.sector,
         }),
       });
       if (!res.ok) {
@@ -546,6 +559,7 @@ const AdminHouseManagement: React.FC = () => {
           capacity: parseInt(formData.capacity) || 0,
           manager_id: formData.managerId === "none" ? null : formData.managerId || null,
           is_active: formData.isActive,
+          sector: formData.sector,
         }),
       });
       if (!res.ok) throw new Error("Update failed");
@@ -591,6 +605,7 @@ const AdminHouseManagement: React.FC = () => {
       capacity: String(house.capacity),
       managerId: house.manager_id || "none",
       isActive: house.is_active,
+      sector: (house as any).sector || "SUPPORTED_LIVING",
     });
     setIsEditDialogOpen(true);
   };
