@@ -180,6 +180,25 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
+  test('Super Admin: Governance Configuration tabs + per-sector thresholds', async ({ page }) => {
+    await login(page, USERS.superadmin);
+    await page.goto('/governance-config');
+    await expect(page.getByRole('heading', { name: /Governance Configuration/i })).toBeVisible({ timeout: 30_000 });
+    // All five config tabs present
+    for (const t of ['Risk Domains', 'Signal Library', 'Pattern Thresholds', 'Escalation SLAs', 'Audit Log']) {
+      await expect(page.getByRole('button', { name: t }).first()).toBeVisible();
+    }
+    // Pattern Thresholds tab shows editable rows, and the sector toggle switches the library
+    await page.getByRole('button', { name: 'Pattern Thresholds' }).first().click();
+    await expect(page.getByText(/Signals to trigger/i)).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Domiciliary Care' }).first().click();
+    await expect(page.getByText(/Visit Reliability/i).first()).toBeVisible({ timeout: 15_000 });
+    // Escalation SLAs tab lists the time-bound triggers
+    await page.getByRole('button', { name: 'Escalation SLAs' }).first().click();
+    await expect(page.getByText(/HIGH_SAFEGUARDING/i)).toBeVisible({ timeout: 15_000 });
+    await logout(page);
+  });
+
   test('Navbar present on key pages (no blank nav)', async ({ page }) => {
     await login(page, USERS.director);
     for (const path of ['/risk-register', '/patients', '/weekly-review', '/escalation-log', '/reports']) {

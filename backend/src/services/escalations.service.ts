@@ -12,6 +12,8 @@ export type EscalationLifecycleStatus =
   | 'Reopened';
 
 // Time-bound escalation SLAs (spec module 4). Hours until an escalation is "due by".
+// Defaults; the authoritative values live in escalation_sla_rules and are loaded into
+// slaCache (refreshEscalationSLAs), so the Escalation SLAs admin screen can tune them.
 const ESCALATION_DUE_HOURS: Record<string, number> = {
   SIMILAR_SIGNALS_14_DAYS: 72,
   HIGH_SAFEGUARDING: 24,
@@ -20,9 +22,23 @@ const ESCALATION_DUE_HOURS: Record<string, number> = {
   SERIOUS_INCIDENT: 24,
   REOPENED_RISK: 72,
 };
+let slaCache: Record<string, number> = { ...ESCALATION_DUE_HOURS };
+
+// Reload the SLA cache from the config table (called at startup and after admin edits).
+export async function refreshEscalationSLAs(): Promise<Record<string, number>> {
+  try {
+    const r = await query(`SELECT trigger_type, hours FROM escalation_sla_rules WHERE is_active = true`);
+    if (r.rows.length) {
+      const next: Record<string, number> = { ...ESCALATION_DUE_HOURS };
+      for (const row of r.rows) next[row.trigger_type] = Number(row.hours);
+      slaCache = next;
+    }
+  } catch { /* table may not exist yet (pre-migration) — keep defaults */ }
+  return slaCache;
+}
 
 export function escalationDueBy(triggerType: string | undefined | null, now = new Date()): Date {
-  const hours = (triggerType && ESCALATION_DUE_HOURS[triggerType]) || 72;
+  const hours = (triggerType && slaCache[triggerType]) || 72;
   return new Date(now.getTime() + hours * 60 * 60 * 1000);
 }
 

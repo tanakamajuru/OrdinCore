@@ -33,6 +33,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/super-admin/companies", label: "Company Management", icon: Building2 },
           { path: "/super-admin/users", label: "Users", icon: Users },
+          { path: "/governance-config", label: "Governance Config", icon: ClipboardList },
           { path: "/super-admin/settings", label: "System Settings", icon: Settings },
         ];
       case "ADMIN":
@@ -41,6 +42,7 @@ export function RoleBasedNavigation() {
           { path: "/admin-users", label: "Users", icon: Users },
           { path: "/admin/houses", label: "Services", icon: Home },
           { path: "/patients", label: "Service Users", icon: Users },
+          { path: "/governance-config", label: "Governance Config", icon: ClipboardList },
         ];
       case "REGISTERED_MANAGER":
         return [

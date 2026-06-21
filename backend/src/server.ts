@@ -4,6 +4,7 @@ import app from './app';
 import { getPool } from './config/database';
 import { redis } from './config/redis';
 import { initSocketServer } from './websocket/socket.server';
+import { refreshEscalationSLAs } from './services/escalations.service';
 import { startReportWorker } from './workers/report.worker';
 import { startAnalyticsWorker } from './workers/analytics.worker';
 import { startNotificationWorker } from './workers/notification.worker';
@@ -139,6 +140,8 @@ process.on('unhandledRejection', (reason) => {
 
 // ─── Start Server ─────────────────────────────────────────────────────────────
 httpServer.listen(PORT, () => {
+  // Load the editable escalation SLAs into cache (falls back to defaults if pre-migration).
+  refreshEscalationSLAs().catch(() => { /* non-fatal */ });
   logger.info(`
   ╔═══════════════════════════════════════════════════════╗
   ║            🏥  Ordin Core Backend v1.0.0              ║

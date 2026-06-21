@@ -29,19 +29,33 @@ export const startPatternWorker = () => {
 };
 
 async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string, related_person: string | null = null) {
-    // [ORDI CORE DOCTRINE] 21-day rolling window for signal memory and reactivation
+    // [ORDI CORE DOCTRINE] The primary "Pattern Emerging" threshold is data-driven:
+    // it reads threshold_rules for THIS service's sector + domain, so admins can tune
+    // it per sector without code changes. Falls back to the historical ≥3-in-7-days.
+    const sectorRes = await query(`SELECT sector FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
+    const sector = sectorRes.rows[0]?.sector || 'SUPPORTED_LIVING';
+    const thrRes = await query(
+        `SELECT trigger_signal_count, window_days FROM threshold_rules
+         WHERE sector = $1 AND domain_name = $2 AND is_active = true LIMIT 1`,
+        [sector, domain]
+    );
+    const triggerCount: number = thrRes.rows[0]?.trigger_signal_count ?? 3;
+    const windowDays: number = thrRes.rows[0]?.window_days ?? 7;
+    // Memory window: at least 21 days (doctrine), widened if a rule's window is longer.
+    const memoryDays = Math.max(21, windowDays);
+
     // Filter by domain and related_person to ensure targeted clustering
     const history21dRes = await query(
-        `SELECT gp.*, rsl.cluster_id 
+        `SELECT gp.*, rsl.cluster_id
          FROM governance_pulses gp
          LEFT JOIN risk_signal_links rsl ON gp.id = rsl.pulse_entry_id
-         WHERE gp.company_id = $1 AND gp.house_id = $2 
-         AND gp.entry_date >= CURRENT_DATE - INTERVAL '21 days'
+         WHERE gp.company_id = $1 AND gp.house_id = $2
+         AND gp.entry_date >= CURRENT_DATE - (INTERVAL '1 day' * $5)
          AND $3 = ANY(gp.risk_domain)
          AND (gp.related_person = $4 OR (gp.related_person IS NULL AND $4 IS NULL))
          AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
-        [company_id, house_id, domain, related_person]
+        [company_id, house_id, domain, related_person, memoryDays]
     );
     const recentSignals = history21dRes.rows;
     if (recentSignals.length === 0) return;
@@ -87,6 +101,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 
     // Timing Filters
     const now = new Date();
+    // Configurable window for the primary cluster threshold (from threshold_rules).
+    const signalsWindow = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - windowDays * 24 * 60 * 60 * 1000));
     const signals7d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
     const signals10d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000));
     const signals48h = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 48 * 60 * 60 * 1000));
@@ -98,27 +114,29 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     let cluster_status = 'Emerging';
     let trajectory = 'Stable';
 
-    // 1. Pattern Emerging: ≥3 same-domain signals within 7 days
-    if (signals7d.length >= 3) {
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Pattern Emerging', output_type: 'Signal Flag', description: '≥3 same-domain signals in 7 days' });
+    // 1. Pattern Emerging: ≥{triggerCount} same-domain signals within {windowDays} days
+    //    (both values come from threshold_rules for this service's sector + domain).
+    if (signalsWindow.length >= triggerCount) {
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Pattern Emerging', output_type: 'Signal Flag', description: `≥${triggerCount} same-domain signals in ${windowDays} days` });
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
-             VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6) 
+             VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
-            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, signalsWindow.map(s => s.id), related_person]
         );
     }
 
-    // 1b. Person-Level Pattern Emerging: same Related Person + same domain ≥3 in 7 days (higher priority)
-    if (related_person && signals7d.length >= 3) {
+    // 1b. Person-Level Pattern Emerging: same Related Person + same domain reaching the
+    //     configured threshold within the configured window (higher priority).
+    if (related_person && signalsWindow.length >= triggerCount) {
         // Bump cluster priority above a plain system-level emerging pattern
         if (cluster_status === 'Emerging') cluster_status = 'Escalated';
-        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Person-Level Pattern Emerging', output_type: 'Risk Review Required', description: `≥3 ${domain} signals for ${related_person} within 7 days` });
+        await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Person-Level Pattern Emerging', output_type: 'Risk Review Required', description: `≥${triggerCount} ${domain} signals for ${related_person} within ${windowDays} days` });
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Person-Level Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
-            [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, signalsWindow.map(s => s.id), related_person]
         );
     }
 

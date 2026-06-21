@@ -26,10 +26,10 @@ const SECTIONS: NavSection[] = [
   {
     heading: "Configuration",
     items: [
-      { label: "Signal Categories", icon: Tags, to: "/admin-settings" },
-      { label: "Escalation Rules", icon: AlertTriangle, to: "/admin-settings" },
-      { label: "Risk Themes", icon: ClipboardList, to: "/admin-risks" },
-      { label: "Action Templates", icon: ClipboardList, to: "/admin-settings" },
+      { label: "Governance Config", icon: Settings, to: "/governance-config" },
+      { label: "Signal Library", icon: Tags, to: "/governance-config" },
+      { label: "Pattern Thresholds", icon: AlertTriangle, to: "/governance-config" },
+      { label: "Risk Domains", icon: ClipboardList, to: "/governance-config" },
       { label: "Review Cycles", icon: RefreshCw, to: "/admin-settings" },
     ],
   },
@@ -39,7 +39,7 @@ const SECTIONS: NavSection[] = [
       { label: "Organisation Settings", icon: Settings, to: "/admin-settings" },
       { label: "Integrations", icon: Plug, to: "/admin-settings" },
       { label: "Notifications", icon: Bell, to: "/admin-settings" },
-      { label: "Audit Log", icon: FileSearch, to: "/admin-settings" },
+      { label: "Audit Log", icon: FileSearch, to: "/governance-config" },
       { label: "Data Retention", icon: Database, to: "/admin-settings" },
       { label: "System Health", icon: HeartPulse, to: "/admin-dashboard" },
     ],
