@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { governanceService } from '../services/governance.service';
 import { governanceDomainsService } from '../services/governanceDomains.service';
+import { pulseService } from '../services/pulse.service';
 
 export class GovernanceController {
   // Configurable governance domains + signal library for the org's sector.
@@ -42,7 +43,10 @@ export class GovernanceController {
   async createPulse(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const pulse = await governanceService.createPulse(company_id, req.body);
+      // Delegate to the canonical pulse pipeline so signals captured via this route also
+      // run pattern detection + the safeguarding-absence override (the auditChecklist path
+      // bypassed both). Keeps a single source of truth for signal creation.
+      const pulse = await pulseService.createPulse(company_id, req.user!.user_id, req.body);
       return res.status(201).json({ success: true, data: pulse, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create pulse';

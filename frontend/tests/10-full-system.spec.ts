@@ -219,10 +219,17 @@ test.describe('Full system UI walkthrough', () => {
     await login(page, USERS.superadmin);
     await page.goto('/governance-config');
     await expect(page.getByRole('heading', { name: /Governance Configuration/i })).toBeVisible({ timeout: 30_000 });
-    // All five config tabs present
-    for (const t of ['Risk Domains', 'Signal Library', 'Pattern Thresholds', 'Escalation SLAs', 'Audit Log']) {
+    // All config tabs present
+    for (const t of ['Services & Sector', 'Risk Domains', 'Signal Library', 'Pattern Thresholds', 'Escalation SLAs', 'Audit Log']) {
       await expect(page.getByRole('button', { name: t }).first()).toBeVisible();
     }
+    // Services & Sector tab lists services with a sector control
+    await page.getByRole('button', { name: 'Services & Sector' }).first().click();
+    await expect(page.getByText(/Sector \(drives the engine\)/i)).toBeVisible({ timeout: 15_000 });
+    // Risk Domains tab shows the CQC KLOE column
+    await page.getByRole('button', { name: 'Risk Domains' }).first().click();
+    await expect(page.getByText(/CQC KLOE/i).first()).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Safe · S4|Safe · S1/i).first()).toBeVisible({ timeout: 15_000 });
     // Pattern Thresholds tab shows editable rows, and the sector toggle switches the library
     await page.getByRole('button', { name: 'Pattern Thresholds' }).first().click();
     await expect(page.getByText(/Signals to trigger/i)).toBeVisible({ timeout: 15_000 });
