@@ -68,8 +68,8 @@ export function Patients() {
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Users size={22} /></div>
           <div>
-            <h1 className="text-3xl text-primary font-semibold">Patients</h1>
-            <p className="text-muted-foreground mt-0.5">All people supported across your services.</p>
+            <h1 className="text-3xl text-primary font-semibold">Service Users</h1>
+            <p className="text-muted-foreground mt-0.5">Anonymised references used in signal capture, across your services.</p>
           </div>
         </div>
 
@@ -80,7 +80,7 @@ export function Patients() {
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search patients by name…"
+              placeholder="Search service users by name…"
               className="w-full pl-9 pr-3 py-2.5 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
@@ -97,18 +97,18 @@ export function Patients() {
           </div>
         </div>
 
-        <div className="text-xs text-muted-foreground mb-2">{patients.length} patient{patients.length === 1 ? "" : "s"}{site !== "all" ? " in this site" : ""}</div>
+        <div className="text-xs text-muted-foreground mb-2">{patients.length} service user{patients.length === 1 ? "" : "s"}{site !== "all" ? " in this site" : ""}</div>
 
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">
           {isLoading ? (
-            <div className="p-10 text-center text-muted-foreground">Loading patients…</div>
+            <div className="p-10 text-center text-muted-foreground">Loading service users…</div>
           ) : patients.length === 0 ? (
-            <div className="p-10 text-center text-muted-foreground">No patients found{search ? ` for "${search}"` : ""}.</div>
+            <div className="p-10 text-center text-muted-foreground">No service users found{search ? ` for "${search}"` : ""}.</div>
           ) : (
             <table className="w-full text-sm">
               <thead>
                 <tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
-                  <th className="py-2.5 px-4">Patient</th>
+                  <th className="py-2.5 px-4">Service User</th>
                   <th className="px-3">Site / Service</th>
                   <th className="px-3">Status</th>
                 </tr>
