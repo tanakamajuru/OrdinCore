@@ -220,9 +220,15 @@ test.describe('Full system UI walkthrough', () => {
     await page.goto('/governance-config');
     await expect(page.getByRole('heading', { name: /Governance Configuration/i })).toBeVisible({ timeout: 30_000 });
     // All config tabs present
-    for (const t of ['Services & Sector', 'Risk Domains', 'Signal Library', 'Pattern Thresholds', 'Escalation SLAs', 'Audit Log']) {
+    for (const t of ['Services & Sector', 'Risk Domains', 'Signal Library', 'Pattern Thresholds', 'Escalation SLAs', 'Action Templates', 'Review Cycles', 'Audit Log']) {
       await expect(page.getByRole('button', { name: t }).first()).toBeVisible();
     }
+    // Review Cycles + Action Templates tabs render (table header or empty-state;
+    // company-scoped, and this super admin has no company so an empty-state is valid)
+    await page.getByRole('button', { name: 'Review Cycles' }).first().click();
+    await expect(page.getByText(/Cadence|No review cycles/i).first()).toBeVisible({ timeout: 15_000 });
+    await page.getByRole('button', { name: 'Action Templates' }).first().click();
+    await expect(page.getByText(/Action title|No action templates/i).first()).toBeVisible({ timeout: 15_000 });
     // Services & Sector tab lists services with a sector control
     await page.getByRole('button', { name: 'Services & Sector' }).first().click();
     await expect(page.getByText(/Sector \(drives the engine\)/i)).toBeVisible({ timeout: 15_000 });

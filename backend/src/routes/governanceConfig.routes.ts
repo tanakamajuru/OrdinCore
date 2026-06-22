@@ -31,4 +31,18 @@ router.patch('/slas/:trigger', ...edit, c.updateSLA);
 // Audit Log (read-only, tenant-scoped)
 router.get('/audit', ...view, c.listAudit);
 
+// Action Templates + Review Cycles are tenant-owned, so ADMIN may write them too.
+const tenantEdit = [requireAuth, requireTenant, requireRole('ADMIN', 'SUPER_ADMIN')];
+// RMs read action templates when creating an action, so this GET is broader.
+const tenantRead = [requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN')];
+router.get('/action-templates', ...tenantRead, c.listActionTemplates);
+router.post('/action-templates', ...tenantEdit, c.createActionTemplate);
+router.patch('/action-templates/:id', ...tenantEdit, c.updateActionTemplate);
+router.delete('/action-templates/:id', ...tenantEdit, c.deleteActionTemplate);
+
+router.get('/review-cycles', ...view, c.listReviewCycles);
+router.post('/review-cycles', ...tenantEdit, c.createReviewCycle);
+router.patch('/review-cycles/:id', ...tenantEdit, c.updateReviewCycle);
+router.delete('/review-cycles/:id', ...tenantEdit, c.deleteReviewCycle);
+
 export default router;

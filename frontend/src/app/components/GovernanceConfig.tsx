@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { Settings, Tags, Activity, AlertTriangle, ClipboardList, FileSearch, Plus, Check, X, Lock, Building2 } from "lucide-react";
+import { Settings, Tags, Activity, AlertTriangle, ClipboardList, FileSearch, Plus, Check, X, Lock, Building2, RefreshCw, Trash2 } from "lucide-react";
 
 const SECTORS = [
   { value: "SUPPORTED_LIVING", label: "Supported Living" },
@@ -14,15 +14,20 @@ const TABS = [
   { key: "signals", label: "Signal Library", icon: Tags, sectorScoped: true },
   { key: "thresholds", label: "Pattern Thresholds", icon: Activity, sectorScoped: true },
   { key: "slas", label: "Escalation SLAs", icon: AlertTriangle, sectorScoped: false },
+  { key: "templates", label: "Action Templates", icon: ClipboardList, sectorScoped: false },
+  { key: "cycles", label: "Review Cycles", icon: RefreshCw, sectorScoped: false },
   { key: "audit", label: "Audit Log", icon: FileSearch, sectorScoped: false },
 ];
+const CADENCES = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly"];
 
 export function GovernanceConfig() {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const role = (localStorage.getItem("userRole") || user.role || "").toUpperCase().replace(/-/g, "_");
   const isSuper = role === "SUPER_ADMIN";
-  // Per-service sector is tenant-owned config, so company Admins may edit it too.
+  // Per-service sector + action templates + review cycles are tenant-owned config,
+  // so company Admins may edit them too (not just Super Admins).
   const canEditServices = isSuper || role === "ADMIN";
+  const canEditTenant = isSuper || role === "ADMIN";
 
   const [tab, setTab] = useState("services");
   const [sector, setSector] = useState("SUPPORTED_LIVING");
@@ -38,6 +43,8 @@ export function GovernanceConfig() {
   const endpoint = () => {
     if (tab === "audit") return `/governance-config/audit?limit=100`;
     if (tab === "slas") return `/governance-config/slas`;
+    if (tab === "templates") return `/governance-config/action-templates`;
+    if (tab === "cycles") return `/governance-config/review-cycles`;
     return `/governance-config/${tab}?sector=${sector}`;
   };
 
@@ -86,6 +93,15 @@ export function GovernanceConfig() {
     } catch (e: any) { toast.error(e?.response?.data?.message || "Add failed"); }
   };
 
+  const del = async (path: string, label: string) => {
+    if (!window.confirm(`Delete this ${label.toLowerCase()}?`)) return;
+    try {
+      await apiClient.delete(`/governance-config/${path}`);
+      toast.success(`${label} deleted`);
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Delete failed"); }
+  };
+
   const card = "bg-card border border-border rounded-xl shadow-sm";
   const th = "text-left text-xs font-semibold text-muted-foreground uppercase tracking-wider py-2.5 px-4";
   const td = "py-2.5 px-4 text-sm border-t border-border/50 align-middle";
@@ -106,6 +122,14 @@ export function GovernanceConfig() {
   const ActiveToggle = ({ active, onToggle }: { active: boolean; onToggle: () => void }) => (
     <button disabled={!isSuper} onClick={onToggle}
       className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"} ${isSuper ? "hover:opacity-80 cursor-pointer" : "cursor-default"}`}>
+      {active ? <Check size={11} /> : <X size={11} />} {active ? "Active" : "Inactive"}
+    </button>
+  );
+
+  // Tenant-editable toggle (Action Templates / Review Cycles — editable by Admins too).
+  const ActiveToggleT = ({ active, onToggle }: { active: boolean; onToggle: () => void }) => (
+    <button disabled={!canEditTenant} onClick={onToggle}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"} ${canEditTenant ? "hover:opacity-80 cursor-pointer" : "cursor-default"}`}>
       {active ? <Check size={11} /> : <X size={11} />} {active ? "Active" : "Inactive"}
     </button>
   );
@@ -152,6 +176,12 @@ export function GovernanceConfig() {
             <button onClick={() => setAdding(tab === "domains" ? { name: "", description: "" } : { domain_name: "", signal_label: "" })}
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90">
               <Plus size={14} /> Add {tab === "domains" ? "domain" : "signal"}
+            </button>
+          )}
+          {canEditTenant && (tab === "templates" || tab === "cycles") && (
+            <button onClick={() => setAdding(tab === "templates" ? { domain_name: "", title: "", description: "" } : { name: "", cadence: "Weekly", day_of_week: "", description: "" })}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90">
+              <Plus size={14} /> Add {tab === "templates" ? "template" : "cycle"}
             </button>
           )}
         </div>
@@ -266,6 +296,66 @@ export function GovernanceConfig() {
                         <td className={td + " text-muted-foreground"}>{r.description || "—"}</td>
                         <td className={td}><NumCell value={r.hours} onSave={(v) => patch(`slas/${r.trigger_type}`, { hours: v }, "SLA")} /></td>
                         <td className={td}><ActiveToggle active={r.is_active} onToggle={() => patch(`slas/${r.trigger_type}`, { is_active: !r.is_active }, "SLA")} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {tab === "templates" && (
+                <table className="w-full">
+                  <thead><tr><th className={th}>Domain</th><th className={th}>Action title</th><th className={th}>Description</th><th className={th}>Status</th>{canEditTenant && <th className={th}></th>}</tr></thead>
+                  <tbody>
+                    {adding && (
+                      <tr className="bg-primary/5">
+                        <td className={td}><input className="w-full px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Domain (optional)" value={adding.domain_name} onChange={(e) => setAdding({ ...adding, domain_name: e.target.value })} /></td>
+                        <td className={td}><input className="w-full px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Action title" value={adding.title} onChange={(e) => setAdding({ ...adding, title: e.target.value })} /></td>
+                        <td className={td}><input className="w-full px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Description" value={adding.description} onChange={(e) => setAdding({ ...adding, description: e.target.value })} /></td>
+                        <td className={td} colSpan={2}>
+                          <button onClick={() => adding.title && create("action-templates", adding, "Template")} className="text-emerald-600 mr-2"><Check size={16} /></button>
+                          <button onClick={() => setAdding(null)} className="text-muted-foreground"><X size={16} /></button>
+                        </td>
+                      </tr>
+                    )}
+                    {rows.length === 0 && !adding && <tr><td className={td + " text-muted-foreground"} colSpan={5}>No action templates yet.</td></tr>}
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td className={td + " text-muted-foreground"}>{r.domain_name || "Any"}</td>
+                        <td className={td + " font-medium"}>{r.title}</td>
+                        <td className={td + " text-muted-foreground"}>{r.description || "—"}</td>
+                        <td className={td}><ActiveToggleT active={r.is_active} onToggle={() => patch(`action-templates/${r.id}`, { is_active: !r.is_active }, "Template")} /></td>
+                        {canEditTenant && <td className={td}><button onClick={() => del(`action-templates/${r.id}`, "Template")} className="text-red-600 hover:opacity-70"><Trash2 size={15} /></button></td>}
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {tab === "cycles" && (
+                <table className="w-full">
+                  <thead><tr><th className={th}>Cycle</th><th className={th}>Cadence</th><th className={th}>Day</th><th className={th}>Description</th><th className={th}>Status</th>{canEditTenant && <th className={th}></th>}</tr></thead>
+                  <tbody>
+                    {adding && (
+                      <tr className="bg-primary/5">
+                        <td className={td}><input className="w-full px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Cycle name" value={adding.name} onChange={(e) => setAdding({ ...adding, name: e.target.value })} /></td>
+                        <td className={td}><select className="px-2 py-1 bg-input-background border border-border rounded text-sm" value={adding.cadence} onChange={(e) => setAdding({ ...adding, cadence: e.target.value })}>{CADENCES.map((c) => <option key={c}>{c}</option>)}</select></td>
+                        <td className={td}><input className="w-20 px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Day" value={adding.day_of_week} onChange={(e) => setAdding({ ...adding, day_of_week: e.target.value })} /></td>
+                        <td className={td}><input className="w-full px-2 py-1 bg-input-background border border-border rounded text-sm" placeholder="Description" value={adding.description} onChange={(e) => setAdding({ ...adding, description: e.target.value })} /></td>
+                        <td className={td} colSpan={2}>
+                          <button onClick={() => adding.name && create("review-cycles", adding, "Review cycle")} className="text-emerald-600 mr-2"><Check size={16} /></button>
+                          <button onClick={() => setAdding(null)} className="text-muted-foreground"><X size={16} /></button>
+                        </td>
+                      </tr>
+                    )}
+                    {rows.length === 0 && !adding && <tr><td className={td + " text-muted-foreground"} colSpan={6}>No review cycles yet.</td></tr>}
+                    {rows.map((r) => (
+                      <tr key={r.id}>
+                        <td className={td + " font-medium"}>{r.name}</td>
+                        <td className={td}><span className="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5">{r.cadence}</span></td>
+                        <td className={td + " text-muted-foreground"}>{r.day_of_week || "—"}</td>
+                        <td className={td + " text-muted-foreground"}>{r.description || "—"}</td>
+                        <td className={td}><ActiveToggleT active={r.is_active} onToggle={() => patch(`review-cycles/${r.id}`, { is_active: !r.is_active }, "Review cycle")} /></td>
+                        {canEditTenant && <td className={td}><button onClick={() => del(`review-cycles/${r.id}`, "Review cycle")} className="text-red-600 hover:opacity-70"><Trash2 size={15} /></button></td>}
                       </tr>
                     ))}
                   </tbody>

@@ -77,6 +77,7 @@ export function RiskDetail() {
     assigned_to: ""
   });
   const [teamLeaders, setTeamLeaders] = useState<{ id: string; first_name: string; last_name: string; role: string }[]>([]);
+  const [actionTemplates, setActionTemplates] = useState<{ id: string; title: string; description: string; domain_name: string | null }[]>([]);
   
   const [showAddEvent, setShowAddEvent] = useState(false);
   const [isSubmittingEvent, setIsSubmittingEvent] = useState(false);
@@ -134,6 +135,10 @@ export function RiskDetail() {
       }
     };
     loadTeamLeaders();
+    // Load reusable action templates (admin-configured) for the picker.
+    apiClient.get('/governance-config/action-templates')
+      .then((res) => setActionTemplates(res.data?.data || []))
+      .catch(() => setActionTemplates([]));
   }, []);
 
   const loadRiskDetails = async (riskId: string) => {
@@ -595,6 +600,22 @@ export function RiskDetail() {
             <h2 className="text-xl  mb-4 text-foreground">Add New Action</h2>
             
             <div className="space-y-4">
+              {actionTemplates.length > 0 && (
+                <div>
+                  <label className="block mb-2 text-foreground">Start from a template <span className="text-muted-foreground text-sm">(optional)</span></label>
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const t = actionTemplates.find((x) => x.id === e.target.value);
+                      if (t) setNewAction({ ...newAction, title: t.title, action: t.description || newAction.action });
+                    }}
+                    className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                  >
+                    <option value="">— Choose an action template —</option>
+                    {actionTemplates.map((t) => <option key={t.id} value={t.id}>{t.domain_name ? `[${t.domain_name}] ` : ""}{t.title}</option>)}
+                  </select>
+                </div>
+              )}
               <div>
                 <label className="block mb-2 text-foreground ">Action Title</label>
                 <input

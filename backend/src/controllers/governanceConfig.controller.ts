@@ -165,4 +165,99 @@ export const governanceConfigController = {
       return ok(res, r.rows);
     } catch (e) { return fail(res, e); }
   },
+
+  // ---- Action Templates (tenant-owned; reusable actions per domain) ----
+  async listActionTemplates(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(
+        `SELECT id, domain_name, title, description, is_active FROM action_templates
+          WHERE company_id = $1 ORDER BY domain_name NULLS LAST, title`, [company_id]);
+      return ok(res, r.rows);
+    } catch (e) { return fail(res, e); }
+  },
+  async createActionTemplate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { domain_name, title, description } = req.body;
+      if (!title) return fail(res, new Error('title is required'), 400);
+      const r = await query(
+        `INSERT INTO action_templates (company_id, domain_name, title, description, is_active)
+         VALUES ($1,$2,$3,$4,true) RETURNING *`,
+        [company_id, domain_name || null, title, description || null]);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async updateActionTemplate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { domain_name, title, description, is_active } = req.body;
+      const r = await query(
+        `UPDATE action_templates SET
+           domain_name = COALESCE($3, domain_name), title = COALESCE($4, title),
+           description = COALESCE($5, description), is_active = COALESCE($6, is_active)
+         WHERE id = $1 AND company_id = $2 RETURNING *`,
+        [req.params.id, company_id, domain_name ?? null, title ?? null, description ?? null,
+         typeof is_active === 'boolean' ? is_active : null]);
+      if (!r.rows[0]) return fail(res, new Error('Template not found'), 404);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async deleteActionTemplate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(`DELETE FROM action_templates WHERE id = $1 AND company_id = $2 RETURNING id`, [req.params.id, company_id]);
+      if (!r.rows[0]) return fail(res, new Error('Template not found'), 404);
+      return ok(res, { deleted: true });
+    } catch (e) { return fail(res, e, 400); }
+  },
+
+  // ---- Review Cycles (tenant-owned governance cadences) ----
+  async listReviewCycles(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(
+        `SELECT id, name, cadence, day_of_week, description, is_active FROM review_cycles
+          WHERE company_id = $1 ORDER BY
+            CASE cadence WHEN 'Daily' THEN 1 WHEN 'Weekly' THEN 2 WHEN 'Fortnightly' THEN 3
+                         WHEN 'Monthly' THEN 4 WHEN 'Quarterly' THEN 5 ELSE 6 END, name`, [company_id]);
+      return ok(res, r.rows);
+    } catch (e) { return fail(res, e); }
+  },
+  async createReviewCycle(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { name, cadence, day_of_week, description } = req.body;
+      if (!name || !cadence) return fail(res, new Error('name and cadence are required'), 400);
+      const r = await query(
+        `INSERT INTO review_cycles (company_id, name, cadence, day_of_week, description, is_active)
+         VALUES ($1,$2,$3,$4,$5,true) RETURNING *`,
+        [company_id, name, cadence, day_of_week || null, description || null]);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async updateReviewCycle(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { name, cadence, day_of_week, description, is_active } = req.body;
+      const r = await query(
+        `UPDATE review_cycles SET
+           name = COALESCE($3, name), cadence = COALESCE($4, cadence),
+           day_of_week = COALESCE($5, day_of_week), description = COALESCE($6, description),
+           is_active = COALESCE($7, is_active)
+         WHERE id = $1 AND company_id = $2 RETURNING *`,
+        [req.params.id, company_id, name ?? null, cadence ?? null, day_of_week ?? null,
+         description ?? null, typeof is_active === 'boolean' ? is_active : null]);
+      if (!r.rows[0]) return fail(res, new Error('Review cycle not found'), 404);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async deleteReviewCycle(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(`DELETE FROM review_cycles WHERE id = $1 AND company_id = $2 RETURNING id`, [req.params.id, company_id]);
+      if (!r.rows[0]) return fail(res, new Error('Review cycle not found'), 404);
+      return ok(res, { deleted: true });
+    } catch (e) { return fail(res, e, 400); }
+  },
 };
