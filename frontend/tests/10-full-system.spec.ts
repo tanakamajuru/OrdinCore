@@ -215,6 +215,20 @@ test.describe('Full system UI walkthrough', () => {
     await logout(page);
   });
 
+  test('RM: Reports include narrated Cross-Service + Inspection Evidence with KLOE', async ({ page }) => {
+    await login(page, USERS.rm);
+    await page.goto('/reports');
+    await expect(page.getByRole('heading', { name: /^Reports$/i })).toBeVisible({ timeout: 30_000 });
+    await expect(page.getByText('Cross-Service Control Report').first()).toBeVisible();
+    await expect(page.getByText('Inspection Evidence Pack').first()).toBeVisible();
+    // Preview the evidence pack → narrated text + CQC KLOE chips
+    const card = page.locator('div.flex.flex-col').filter({ hasText: 'Inspection Evidence Pack' });
+    await card.getByRole('button', { name: /Preview/i }).click();
+    await expect(page.getByText(/CQC KLOE/i)).toBeVisible({ timeout: 20_000 });
+    await expect(page.getByText(/traces every active oversight risk/i)).toBeVisible();
+    await logout(page);
+  });
+
   test('Super Admin: Governance Configuration tabs + per-sector thresholds', async ({ page }) => {
     await login(page, USERS.superadmin);
     await page.goto('/governance-config');

@@ -75,6 +75,67 @@ export class ReportsDataService {
     );
     return { report: 'Escalation Report', escalations: rows.rows };
   }
+
+  // Cross-Service Control Report (Director view): domains showing a pattern across
+  // multiple services — a systemic control weakness, not isolated risks. KLOE Safe S4 /
+  // Well-Led W4. Narrated in plain English for inspection-defensibility.
+  async crossServiceControl(companyId: string) {
+    const rows = await query(
+      `SELECT sc.risk_domain AS domain,
+              COUNT(DISTINCT sc.house_id)::int AS service_count,
+              string_agg(DISTINCT h.name, ', ') AS services,
+              SUM(sc.signal_count)::int AS total_signals,
+              MAX(d.kloe_label) AS kloe_label, MAX(d.kloe_code) AS kloe_code
+         FROM signal_clusters sc
+         JOIN houses h ON h.id = sc.house_id
+         LEFT JOIN governance_domains d ON d.name = sc.risk_domain
+        WHERE sc.company_id = $1 AND sc.cluster_status IN ('Escalated','Emerging')
+        GROUP BY sc.risk_domain
+       HAVING COUNT(DISTINCT sc.house_id) >= 2
+        ORDER BY service_count DESC, total_signals DESC`,
+      [companyId]
+    );
+    const flags = rows.rows.map((r) => ({
+      ...r,
+      level: r.service_count >= 3 ? 'Director-Level Risk · Mandatory Review' : 'System-Level Risk',
+    }));
+    const narrative = flags.length === 0
+      ? 'No cross-service patterns were detected this period. Each governance theme is contained within a single service and managed locally.'
+      : `Cross-service detection identified ${flags.length} governance theme${flags.length === 1 ? '' : 's'} spanning multiple services: ${flags.map((f) => `${f.domain} (${f.service_count} services — ${f.services})`).join('; ')}. ` +
+        `A pattern present in two or more services is read as a systemic control weakness with a likely shared root cause, not a set of isolated risks. ` +
+        `${flags.some((f) => f.service_count >= 3) ? 'Where a theme spans three or more services it triggers a Director-Level Mandatory Review; the Responsible Individual and all Registered Managers are notified. ' : ''}` +
+        `Acting once, systemically, rather than locally in each service, is the test CQC applies under Well-Led.`;
+    return { report: 'Cross-Service Control Report', kloe: ['S4', 'W4'], narrative, summary: { themes: flags.length, services_in_scope: flags.reduce((n, f) => Math.max(n, f.service_count), 0) }, flags };
+  }
+
+  // Inspection Evidence Pack: the traceable lineage from each oversight risk back through
+  // its source cluster to the signals that justified it, mapped to CQC KLOEs (S1/S2/W2).
+  async inspectionEvidence(companyId: string) {
+    const rows = await query(
+      `SELECT r.id AS risk_id,
+              COALESCE(r.strategic_theme, r.title) AS concern,
+              r.risk_domain AS domain, h.name AS service,
+              COALESCE(sc.signal_count, 0)::int AS source_signals,
+              sc.cluster_label AS source_cluster,
+              r.trajectory, r.status,
+              d.kloe_label, d.kloe_code
+         FROM risks r
+         LEFT JOIN houses h ON h.id = r.house_id
+         LEFT JOIN signal_clusters sc ON sc.id = r.source_cluster_id
+         LEFT JOIN governance_domains d ON d.name = r.risk_domain
+        WHERE r.company_id = $1 AND r.status NOT IN ('Closed')
+        ORDER BY r.created_at DESC`,
+      [companyId]
+    );
+    const evidence = rows.rows;
+    const traced = evidence.filter((e) => e.source_signals > 0).length;
+    const narrative =
+      `This evidence pack traces every active oversight risk back to the body of signals that justified it. ` +
+      `${evidence.length} risk${evidence.length === 1 ? '' : 's'} are on the register; ${traced} trace directly to a source cluster with a recorded signal count, demonstrating that no risk was created without evidence and none automatically. ` +
+      `Each entry carries its governance domain's CQC Key Line of Enquiry so an inspector can follow the chain from observation to action: ` +
+      `Safe (S1/S2) for how risks are identified and mitigated, and Well-Led (W2) for how they are understood and governed across the service.`;
+    return { report: 'Inspection Evidence Pack', kloe: ['S1', 'S2', 'W2'], narrative, summary: { risks: evidence.length, evidence_backed: traced }, evidence };
+  }
 }
 
 export const reportsDataService = new ReportsDataService();

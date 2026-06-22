@@ -47,6 +47,26 @@ export class ReportsController {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build reconstruction report', errors: [] });
     }
   }
+  async crossServiceControl(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.crossServiceControl(company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build cross-service control report', errors: [] });
+    }
+  }
+
+  async inspectionEvidence(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.inspectionEvidence(company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build inspection evidence pack', errors: [] });
+    }
+  }
+
   async request(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

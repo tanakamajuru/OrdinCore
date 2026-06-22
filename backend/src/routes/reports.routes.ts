@@ -39,6 +39,8 @@ router.get('/weekly-governance', requireAuth, requireTenant, reportsController.w
 router.get('/strategic-risks', requireAuth, requireTenant, reportsController.strategicRisks.bind(reportsController));
 router.get('/escalations', requireAuth, requireTenant, reportsController.escalationsReport.bind(reportsController));
 router.get('/reconstruction', requireAuth, requireTenant, reportsController.reconstructionReport.bind(reportsController));
+router.get('/cross-service-control', requireAuth, requireTenant, reportsController.crossServiceControl.bind(reportsController));
+router.get('/inspection-evidence', requireAuth, requireTenant, reportsController.inspectionEvidence.bind(reportsController));
 /**
  * @openapi
  * /api/v1/reports/{id}:

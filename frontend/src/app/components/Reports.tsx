@@ -1,12 +1,14 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download } from "lucide-react";
+import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2 } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 
-// The doctrine permits exactly four downloadable reports.
+// Narrated, KLOE-referenced governance reports.
 const REPORTS = [
-  { key: "weekly-governance", title: "Weekly Governance Report", desc: "What happened this week and what was done.", icon: FileText, needsService: true, scopePicker: false },
+  { key: "weekly-governance", title: "Weekly Governance Narrative", desc: "Plain-English account of the week's signals, patterns and decisions.", icon: FileText, needsService: true, scopePicker: false },
+  { key: "cross-service-control", title: "Cross-Service Control Report", desc: "Director view of systemic patterns spanning multiple services (Safe S4 · Well-Led W4).", icon: Network, needsService: false, scopePicker: false },
+  { key: "inspection-evidence", title: "Inspection Evidence Pack", desc: "Traceable lineage from observation to action, mapped to CQC KLOEs (S1 · S2 · W2).", icon: FileCheck2, needsService: false, scopePicker: false },
   { key: "strategic-risks", title: "Strategic Risk Report", desc: "Organisational risks currently requiring oversight.", icon: ShieldAlert, needsService: false, scopePicker: false },
   { key: "escalations", title: "Escalation Report", desc: "Evidence that concerns were escalated appropriately.", icon: Flag, needsService: false, scopePicker: false },
   { key: "reconstruction", title: "Reconstruction Report", desc: "The full governance timeline for a client, service, theme or incident.", icon: GitBranch, needsService: false, scopePicker: true },
@@ -71,7 +73,7 @@ export function Reports() {
       const data = unwrap(res);
       setActive(key); setResult(data);
       if (download) {
-        const rows = data?.risks || data?.escalations || data?.timeline || data?.themes;
+        const rows = data?.risks || data?.escalations || data?.timeline || data?.themes || data?.flags || data?.evidence;
         const stamp = new Date().toISOString().slice(0, 10);
         if (Array.isArray(rows) && rows.length) {
           downloadFile(`${key}-${stamp}.csv`, toCsv(rows), "text/csv");
@@ -89,7 +91,7 @@ export function Reports() {
 
   const renderPreview = () => {
     if (!result) return null;
-    const rows = result.risks || result.escalations || result.timeline || result.themes;
+    const rows = result.risks || result.escalations || result.timeline || result.themes || result.flags || result.evidence;
     return (
       <div className="mt-6 bg-card border border-border rounded-xl p-5 shadow-sm">
         <div className="flex items-center justify-between mb-4">
@@ -100,6 +102,18 @@ export function Reports() {
             </button>
           )}
         </div>
+        {/* Narrated reports: plain-English account + CQC KLOE references */}
+        {result.narrative && (
+          <div className="bg-muted/40 rounded-lg p-4 text-sm leading-7 mb-3">{result.narrative}</div>
+        )}
+        {Array.isArray(result.kloe) && result.kloe.length > 0 && (
+          <div className="flex items-center gap-2 mb-4">
+            <span className="text-[10px] font-bold tracking-widest text-primary">CQC KLOE</span>
+            {result.kloe.map((k: string) => (
+              <span key={k} className="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5">{k}</span>
+            ))}
+          </div>
+        )}
         {result.summary && (
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
             {Object.entries(result.summary).map(([k, v]) => (
@@ -147,7 +161,7 @@ export function Reports() {
       <div className="p-6 max-w-[1300px]">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
-          <p className="text-sm text-muted-foreground">Four downloadable governance reports — what was noticed, what leaders did, what was escalated, and the full story.</p>
+          <p className="text-sm text-muted-foreground">Narrated governance reports, cross-referenced to CQC Key Lines of Enquiry — what was noticed, the systemic picture, the inspection evidence trail, and the full story.</p>
         </div>
 
         {/* Filters */}
@@ -187,8 +201,8 @@ export function Reports() {
           </div>
         </div>
 
-        {/* Four report cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {/* Report cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {REPORTS.map(r => (
             <div key={r.key} className="bg-card border border-border rounded-xl p-5 shadow-sm flex flex-col">
               <div className="w-10 h-10 rounded-lg bg-primary/10 text-primary flex items-center justify-center mb-3"><r.icon className="w-5 h-5" /></div>
