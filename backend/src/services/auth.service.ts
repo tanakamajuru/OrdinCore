@@ -1,9 +1,16 @@
 import bcrypt from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import crypto from 'crypto';
 import { usersRepo } from '../repositories/users.repo';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { governanceService } from './governance.service';
+import { sendMail } from '../utils/mailer';
+
+// One-time password-reset tokens are valid for this long.
+const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
+
+const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
 
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
@@ -116,11 +123,75 @@ export class AuthService {
     return { message: 'Password changed successfully' };
   }
 
-  async resetToDefault(email: string) {
+  /**
+   * Step 1 of password reset: issue a random one-time token and email a reset link.
+   *
+   * Security notes:
+   *  - We always return success regardless of whether the email exists, to avoid
+   *    leaking which addresses are registered (account-enumeration protection).
+   *  - Only the SHA-256 hash of the token is stored; the raw token lives only in
+   *    the emailed link. A token is single-use and expires after RESET_TOKEN_TTL_MS.
+   */
+  async requestPasswordReset(email: string) {
     const user = await usersRepo.findByEmail(email);
-    if (!user) throw new Error('User not found');
-    const hash = await bcrypt.hash('Default123!', 12); // Use a string that passes validation (mixed case + number)
-    await usersRepo.update(user.id, { password_hash: hash } as any);
+    if (!user) return; // silent no-op — do not reveal non-existent accounts
+
+    // Invalidate any outstanding tokens for this user.
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
+
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
+    await query(
+      `INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
+       VALUES ($1, $2, $3, $4)`,
+      [uuidv4(), user.id, hashToken(rawToken), expiresAt]
+    );
+
+    const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const resetLink = `${appUrl}/reset-password?token=${rawToken}`;
+    const name = user.first_name || 'there';
+
+    await sendMail({
+      to: user.email,
+      subject: 'Reset your OrdinCore password',
+      text:
+        `Hi ${name},\n\n` +
+        `We received a request to reset your OrdinCore password. ` +
+        `Use the link below within the next hour to set a new password:\n\n${resetLink}\n\n` +
+        `If you didn't request this, you can safely ignore this email — your password will not change.`,
+      html:
+        `<p>Hi ${name},</p>` +
+        `<p>We received a request to reset your OrdinCore password. ` +
+        `Click the button below within the next hour to set a new password:</p>` +
+        `<p><a href="${resetLink}" style="display:inline-block;padding:10px 18px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px">Reset password</a></p>` +
+        `<p>Or paste this link into your browser:<br><a href="${resetLink}">${resetLink}</a></p>` +
+        `<p>If you didn't request this, you can safely ignore this email — your password will not change.</p>`,
+    });
+  }
+
+  /**
+   * Step 2 of password reset: consume a valid one-time token and set a new password.
+   */
+  async resetPassword(rawToken: string, newPassword: string) {
+    if (!rawToken) throw new Error('Reset token is required');
+    this.validatePassword(newPassword);
+
+    const tokenRes = await query(
+      `SELECT id, user_id, expires_at, used_at
+         FROM password_reset_tokens
+        WHERE token_hash = $1`,
+      [hashToken(rawToken)]
+    );
+    const row = tokenRes.rows[0];
+    if (!row || row.used_at || new Date(row.expires_at) < new Date()) {
+      throw new Error('This password reset link is invalid or has expired. Please request a new one.');
+    }
+
+    const hash = await bcrypt.hash(newPassword, 12);
+    await usersRepo.update(row.user_id, { password_hash: hash } as any);
+    await query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [row.id]);
+
+    return { message: 'Password reset successfully. You can now sign in with your new password.' };
   }
 
   async refreshToken(token: string) {

@@ -37,10 +37,10 @@ export const startRecurrenceWatchWorker = () => {
                     description: 'Similar signals detected within 14 days of risk closure.'
                 });
 
-                // Escalate severity
-                let newSeverity = 'Medium';
-                if (risk.severity === 'Low') newSeverity = 'Medium';
-                else if (risk.severity === 'Medium') newSeverity = 'High';
+                // Escalate severity (severity_level enum: Low → Moderate → High → Critical)
+                let newSeverity = 'Moderate';
+                if (risk.severity === 'Low') newSeverity = 'Moderate';
+                else if (risk.severity === 'Moderate') newSeverity = 'High';
                 else if (risk.severity === 'High') newSeverity = 'Critical';
 
                 await query(`

@@ -111,7 +111,7 @@ export function GovernancePulse() {
         });
         const exists = res.data?.data?.exists;
         setPatientValid(exists);
-        setPatientValidationMessage(exists ? '' : 'Patient name does not match any active patient for this house. Please use the format: First initial + Surname (e.g., T Muller)');
+        setPatientValidationMessage(exists ? '' : 'Service user name does not match any active service user for this house. Please use the format: First initial + Surname (e.g., T Muller)');
       } catch (err) {
         setPatientValid(false);
         setPatientValidationMessage('Validation error. Please try again.');

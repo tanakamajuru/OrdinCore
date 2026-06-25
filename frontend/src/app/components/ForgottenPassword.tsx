@@ -52,20 +52,20 @@ export function ForgottenPassword() {
         <div className="w-full max-w-md">
           <Card>
             <CardHeader className="text-center">
-              <CardTitle className="text-3xl">Password Reset Sent</CardTitle>
-              <CardDescription>Check your email for reset instructions</CardDescription>
+              <CardTitle className="text-3xl">Check Your Email</CardTitle>
+              <CardDescription>Password reset link sent</CardDescription>
             </CardHeader>
 
             <CardContent>
               <div className="bg-muted border border-border p-4 mb-6 rounded-md">
                 <p className="text-sm text-muted-foreground text-center">
-                  Your password has been successfully reset!
+                  If an account exists for that email, we've sent a link to reset your password.
+                  The link expires in 1 hour.
                 </p>
-                <p className="text-foreground  text-center mt-2"> Temporary password: Default123!</p>
               </div>
 
               <div className="text-sm text-muted-foreground text-center mb-6">
-                <p>Please log in with the default password and change your password immediately in account settings.</p>
+                <p>Didn't get it? Check your spam folder, or try again in a few minutes.</p>
               </div>
 
               <div className="space-y-4">
@@ -124,7 +124,7 @@ export function ForgottenPassword() {
                 type="submit"
                 className="w-full"
               >
-                Reset to Default Password
+                Send Reset Link
               </Button>
 
               <div className="text-center mt-4">

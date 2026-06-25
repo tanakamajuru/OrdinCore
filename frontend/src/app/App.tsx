@@ -4,13 +4,14 @@ import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
+import { ResetPassword } from "./components/ResetPassword";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";
 import { WeeklyReview } from "./components/WeeklyReview";
 import { EvidencePackViewer } from "./components/EvidencePackViewer";
 import { SignalCaptureForm } from "./components/SignalCaptureForm";
 import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
-import { Patients } from "./components/Patients";
+import { ServiceUsers } from "./components/ServiceUsers";
 import { GovernanceConfig } from "./components/GovernanceConfig";
 import { IncidentReconstruction } from "./components/IncidentReconstruction";
 import { Effectiveness } from "./components/Effectiveness";
@@ -87,6 +88,7 @@ export default function App() {
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
           <Route path="/forgotten-password" element={<ForgottenPassword />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/dashboard" element={
             <ProtectedRoute>
               <RoleBasedDashboard />
@@ -212,11 +214,13 @@ export default function App() {
               <RiskRegister />
             </ProtectedRoute>
           } />
-          <Route path="/patients" element={
+          <Route path="/service-users" element={
             <ProtectedRoute>
-              <Patients />
+              <ServiceUsers />
             </ProtectedRoute>
           } />
+          {/* Legacy clinical path — redirect to the anonymised "Service Users" view. */}
+          <Route path="/patients" element={<Navigate to="/service-users" replace />} />
           <Route path="/governance-config" element={
             <ProtectedRoute>
               <GovernanceConfig />

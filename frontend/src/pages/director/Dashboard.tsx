@@ -141,9 +141,9 @@ const DirectorDashboard: React.FC = () => {
             </div>
             <div className="text-center">
               <div className="text-3xl  text-yellow-600">
-                {risks.filter(r => r.severity === 'Medium').length}
+                {risks.filter(r => r.severity === 'Moderate').length}
               </div>
-              <div className="text-sm text-muted-foreground">Medium</div>
+              <div className="text-sm text-muted-foreground">Moderate</div>
             </div>
           </div>
           

@@ -18,7 +18,7 @@ const SECTIONS: NavSection[] = [
     heading: "User Management",
     items: [
       { label: "Users", icon: Users, to: "/admin-users" },
-      { label: "Service Users", icon: Users, to: "/patients" },
+      { label: "Service Users", icon: Users, to: "/service-users" },
       { label: "Roles & Permissions", icon: ShieldCheck, to: "/admin-settings" },
       { label: "Teams & Services", icon: Building, to: "/admin-houses" },
     ],

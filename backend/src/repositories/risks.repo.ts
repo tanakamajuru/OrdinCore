@@ -119,7 +119,7 @@ export const risksRepo = {
         risk_domain
       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20) RETURNING *`,
       [id, dto.company_id, dto.house_id, dto.category_id || null, dto.title, dto.description || null,
-       dto.severity || 'Medium', dto.status || 'Open', dto.likelihood || null, dto.impact || null,
+       dto.severity || 'Moderate', dto.status || 'Open', dto.likelihood || null, dto.impact || null,
        dto.assigned_to || null, dto.created_by, dto.review_due_date || null, JSON.stringify(dto.metadata || {}),
        dto.source_cluster_id || null, dto.trajectory || 'Stable', dto.control_effectiveness || 'Partially', dto.next_review_date || null, dto.linked_person || null,
        dto.risk_domain || null]

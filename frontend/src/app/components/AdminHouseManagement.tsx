@@ -216,9 +216,9 @@ const PatientDrawer = ({
       });
       if (!res.ok) {
         const err = await res.json().catch(() => ({}));
-        throw new Error(err.message || "Failed to add patient");
+        throw new Error(err.message || "Failed to add service user");
       }
-      toast.success(`Patient added to ${house.name}`);
+      toast.success(`Service user added to ${house.name}`);
       setForm({ first_name: "", last_name: "" });
       load();
     } catch (err: any) {
@@ -267,7 +267,7 @@ const PatientDrawer = ({
         <div className="flex items-start justify-between px-6 pt-6 pb-4 border-b-2 border-border bg-card">
           <div>
             <div className="flex items-center gap-2 text-primary mb-1">
-              <h2 className="text-xl font-semibold tracking-tight">Patients</h2>
+              <h2 className="text-xl font-semibold tracking-tight">Service Users</h2>
             </div>
             <p className="text-sm text-muted-foreground font-medium">{house.name}</p>
             {house.address && (
@@ -286,7 +286,7 @@ const PatientDrawer = ({
         {/* Add patient form */}
         <div className="px-6 py-5 border-b border-border bg-primary/5">
           <h3 className="text-sm font-semibold uppercase tracking-widest text-primary mb-4 flex items-center gap-2">
-            <UserPlus className="w-4 h-4" /> Add New Patient
+            <UserPlus className="w-4 h-4" /> Add New Service User
           </h3>
           <form onSubmit={handleAdd} className="flex flex-col gap-3">
             <div className="grid grid-cols-2 gap-3">
@@ -320,11 +320,11 @@ const PatientDrawer = ({
             <Button type="submit" disabled={isSubmitting} className="w-full mt-1">
               {isSubmitting ? (
                 <>
-                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding Patient…
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" /> Adding Service User…
                 </>
               ) : (
                 <>
-                  <UserPlus className="w-4 h-4 mr-2" /> Add Patient to {house.name}
+                  <UserPlus className="w-4 h-4 mr-2" /> Add Service User to {house.name}
                 </>
               )}
             </Button>
@@ -338,7 +338,7 @@ const PatientDrawer = ({
         <div className="flex-1 overflow-y-auto px-6 py-5">
           <div className="flex items-center justify-between mb-4">
             <h3 className="text-sm font-semibold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <Users className="w-4 h-4" /> Active Patients
+              <Users className="w-4 h-4" /> Active Service Users
             </h3>
             {!isLoading && (
               <Badge variant="outline" className="text-xs">
@@ -410,7 +410,7 @@ const PatientDrawer = ({
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
               onClick={() => confirmDeactivate && handleDeactivate(confirmDeactivate)}
             >
-              Remove Patient
+              Remove Service User
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -731,9 +731,9 @@ const AdminHouseManagement: React.FC = () => {
                           variant="outline"
                           className="flex items-center gap-1.5 text-primary border-primary/40 hover:bg-primary/10 hover:border-primary"
                           onClick={() => setPatientDrawerHouse(house)}
-                          title="Manage patients for this service"
+                          title="Manage service users for this service"
                         >
-                          <span>Patients</span>
+                          <span>Service Users</span>
                           <ChevronRight className="w-3 h-3" />
                         </Button>
                         {/* ── Edit ── */}

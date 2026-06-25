@@ -3,6 +3,7 @@ import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
+import { notificationsService } from './notifications.service';
 
 export class RisksService {
   async create(company_id: string, created_by: string, data: {
@@ -157,6 +158,11 @@ export class RisksService {
     );
 
     await risksRepo.update(risk_id, company_id, { status: 'Escalated' });
+    // Confirmed escalation supersedes any prior recommendation flag.
+    await query(
+      `UPDATE risks SET escalation_recommended = FALSE, escalation_recommended_at = NULL WHERE id = $1 AND company_id = $2`,
+      [risk_id, company_id]
+    );
     await risksRepo.addEvent(risk_id, company_id, 'Escalated', `Risk escalated: ${data.reason}`, escalated_by);
     await eventBus.emitEvent(EVENTS.RISK_ESCALATED, { risk_id, company_id, escalated_by, escalated_to: target });
 
@@ -273,12 +279,37 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
   }) {
     const clusterRes = await query(
-      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person FROM signal_clusters 
+      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person FROM signal_clusters
        WHERE id = $1 AND company_id = $2`,
       [data.cluster_id, company_id]
     );
     if (clusterRes.rows.length === 0) throw new Error('Source cluster not found');
     const cluster = clusterRes.rows[0];
+
+    // [GOVERNANCE] Promotion evidentiary floor (Doctrine §9 / correction.md §2.1):
+    // a cluster may only be promoted to a formal risk if it has ≥3 linked signals,
+    // OR at least one of its signals is Critical. This keeps every risk anchored to
+    // a genuine pattern (or a single critical event), never a one-off.
+    const linkCountRes = await query(
+      `SELECT COUNT(*)::int AS count FROM risk_signal_links WHERE cluster_id = $1`,
+      [data.cluster_id]
+    );
+    const linkedSignals = linkCountRes.rows[0]?.count ?? Number(cluster.signal_count) ?? 0;
+    const criticalRes = await query(
+      `SELECT 1
+         FROM risk_signal_links rsl
+         JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE rsl.cluster_id = $1 AND gp.severity = 'Critical'
+        LIMIT 1`,
+      [data.cluster_id]
+    );
+    const hasCritical = criticalRes.rows.length > 0;
+    if (linkedSignals < 3 && !hasCritical) {
+      throw new Error(
+        `Cluster does not meet the promotion threshold: ${linkedSignals} signal(s) and no Critical signal. ` +
+        `A risk requires at least 3 linked signals, or one Critical signal (Governance Integrity §9).`
+      );
+    }
 
     const risk = await this.create(company_id, user_id, {
       ...data,
@@ -346,18 +377,67 @@ export class RisksService {
   }
 
   private async checkAutoEscalation(risk: any) {
-    // Rule 1: High/Critical severity and no progress in 24h (Simple version: trigger immediately on creation/update to high)
+    // Rule 1: High/Critical severity.
+    // [GOVERNANCE] Do NOT auto-escalate (and thereby lock) a fresh risk — escalation
+    // is the RM's decision. We *flag* a recommendation and notify; the RM confirms by
+    // calling escalate(). This preserves "RM completes the risk form / RM decides".
     if (risk.severity === 'High' || risk.severity === 'Critical') {
-        await this.triggerEscalation(risk, `Automated escalation: ${risk.severity.toUpperCase()} risk detected.`);
+        await this.recommendEscalation(risk, `Automated recommendation: ${String(risk.severity).toUpperCase()} severity risk — review for escalation.`);
     }
 
-    // Rule 2: Open > 14 days (Defensible Governance)
+    // Rule 2: Open > 14 days (Defensible Governance). A risk left open this long has
+    // had time to be shaped, so the time-based rule does escalate automatically.
     const createdAt = new Date(risk.created_at);
     const now = new Date();
     const diffDays = Math.ceil((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays > 14 && risk.status === 'Open') {
         await this.triggerEscalation(risk, `Defensible Governance Rule: Risk open for more than 14 days without resolution.`);
+    }
+  }
+
+  /**
+   * [GOVERNANCE] Non-blocking escalation recommendation. Sets a flag on the risk and
+   * notifies the Director/RM, but leaves the risk Open and editable. The RM turns this
+   * into a real escalation (which locks the record) by calling escalate().
+   */
+  private async recommendEscalation(risk: any, reason: string) {
+    // Already escalated or already flagged — nothing to do.
+    if (String(risk.status || '').toLowerCase() === 'escalated' || risk.escalation_recommended) return;
+
+    await query(
+      `UPDATE risks
+          SET escalation_recommended = TRUE,
+              escalation_recommended_reason = $2,
+              escalation_recommended_at = NOW(),
+              updated_at = NOW()
+        WHERE id = $1`,
+      [risk.id, reason]
+    );
+    await risksRepo.addEvent(risk.id, risk.company_id, 'escalation_recommended', reason, risk.created_by);
+
+    // Best-effort notify the first Director (fallback Admin) so the recommendation surfaces.
+    try {
+      const targetRes = await query(
+        `SELECT id FROM users
+          WHERE company_id = $1 AND role IN ('DIRECTOR', 'ADMIN', 'SUPER_ADMIN')
+          ORDER BY CASE role WHEN 'DIRECTOR' THEN 0 WHEN 'ADMIN' THEN 1 ELSE 2 END
+          LIMIT 1`,
+        [risk.company_id]
+      );
+      const targetId = targetRes.rows[0]?.id;
+      if (targetId) {
+        await notificationsService.create({
+          company_id: risk.company_id,
+          user_id: targetId,
+          type: 'escalation_recommended',
+          title: 'Escalation recommended',
+          body: `${risk.title || 'A risk'} — ${reason}`,
+          link: `/risk-register/${risk.id}`,
+        });
+      }
+    } catch {
+      // Notification is best-effort; do not block risk creation.
     }
   }
 

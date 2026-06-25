@@ -158,7 +158,7 @@ export function CrossHousePatternDetection() {
               >
                 <option value="all">All Severities</option>
                 <option value="high">High</option>
-                <option value="medium">Medium</option>
+                <option value="moderate">Moderate</option>
                 <option value="low">Low</option>
               </select>
               <Button variant="outline" className="border-border hover:bg-primary hover:text-primary-foreground">

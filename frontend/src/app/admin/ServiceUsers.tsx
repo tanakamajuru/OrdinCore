@@ -129,7 +129,7 @@ export function AdminServiceUsers() {
             {selectedHouse && (
               <div className="bg-card p-6 border-2 border-primary/20">
                 <h2 className="text-xl text-primary flex items-center gap-2 mb-4">
-                  <UserPlus className="w-5 h-5" /> Add Patient
+                  <UserPlus className="w-5 h-5" /> Add Service User
                 </h2>
                 <form onSubmit={handleAddUser} className="space-y-4">
                   <div>
@@ -157,7 +157,7 @@ export function AdminServiceUsers() {
                     disabled={isSubmitting}
                     className="w-full py-3 bg-primary text-primary-foreground uppercase tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Adding...' : 'Add Patient'}
+                    {isSubmitting ? 'Adding...' : 'Add Service User'}
                   </button>
                   <p className="text-[10px] text-muted-foreground text-center mt-2">
                     Note: Names are securely hashed/truncated for UI display.
@@ -169,7 +169,7 @@ export function AdminServiceUsers() {
 
           <div className="lg:col-span-2">
             <div className="bg-card p-6 border-2 border-border min-h-[400px]">
-              <h2 className="text-xl text-primary mb-6">Active Patients</h2>
+              <h2 className="text-xl text-primary mb-6">Active Service Users</h2>
               
               {!selectedHouse ? (
                 <div className="text-center py-20 text-muted-foreground border-2 border-dashed border-border">

@@ -5797,3 +5797,359 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\notification.worker.ts:15:25)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-08 05:20:12 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-08 08:39:45 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-09 09:06:07 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 09:06:07 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\noSignalPrompt.worker.ts:12:26)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 09:06:07 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\dailyGovernanceCheck.worker.ts:22:23)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 10:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 11:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at updateDeputyCoverMetrics (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:42:23)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:15:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\effectivenessReminder.worker.ts:13:28)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\directorGovernance.worker.ts:11:30)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\actionEffectiveness.worker.ts:12:28)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at checkUnacknowledgedIncidents (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:79:21)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:17:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 12:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 13:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 14:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-09 15:00:00 [error]: error: password authentication failed for user "ordinuser"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-10 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-11 08:17:10 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-12 08:18:29 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-12 08:18:30 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-12 10:52:30 [error]: error: null value in column "house_id" of relation "governance_pulses" violates not-null constraint
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at Object.create (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\repositories\pulses.repo.ts:49:24)
+    at PulseService.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\services\pulse.service.ts:14:23)
+    at PulseController.createPulse (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\controllers\pulse.controller.ts:21:27)
+[OrdinCore] 2026-06-15 09:58:04 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-15 09:58:06 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-15 09:59:33 [error]: error: insert or update on table "risk_signal_links" violates foreign key constraint "risk_signal_links_pulse_entry_id_fkey"
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at evaluateRules (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:77:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\pattern.worker.ts:16:13)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-16 08:37:44 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-17 08:43:27 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-17 08:43:27 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-17 08:43:27 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-17 08:43:27 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-17 08:43:28 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-18 09:01:29 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-18 09:01:29 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-18 09:01:29 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-18 09:01:30 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-18 09:01:30 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-18 09:01:31 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-19 08:30:10 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-19 08:30:10 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-19 08:30:10 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-19 08:30:11 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-21 03:14:47 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-21 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-06-22 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
+[OrdinCore] 2026-06-22 09:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-22 10:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-22 11:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-22 12:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-06-22 13:00:00 [error]: error: new data for materialized view "service_governance_compliance_mv" contains duplicate rows without any null columns
+    at C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\pg-pool\index.js:45:11
+    at processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at refreshHeatmap (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:108:5)
+    at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
+    at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
+    at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)

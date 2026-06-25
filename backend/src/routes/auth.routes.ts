@@ -111,5 +111,6 @@ router.post('/change-password', requireAuth, authController.changePassword.bind(
 router.patch('/profile', requireAuth, authController.updateProfile.bind(authController));
 
 router.post('/forgot-password', authController.forgotPassword.bind(authController));
+router.post('/reset-password', authController.resetPassword.bind(authController));
 
 export default router;

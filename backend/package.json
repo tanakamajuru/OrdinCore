@@ -14,7 +14,8 @@
     "worker:pattern": "ts-node src/workers/pattern.worker.ts",
     "worker:trends": "ts-node src/workers/analytics.worker.ts",
     "worker:reports": "ts-node src/workers/report.worker.ts",
-    "workers": "ts-node src/run_workers.ts"
+    "workers": "ts-node src/run_workers.ts",
+    "test": "jest"
   },
   "dependencies": {
     "axios": "^1.15.0",
@@ -28,6 +29,7 @@
     "ioredis": "^5.3.2",
     "jsonwebtoken": "^9.0.2",
     "morgan": "^1.10.0",
+    "nodemailer": "^9.0.1",
     "pdfkit": "^0.18.0",
     "pg": "^8.11.3",
     "socket.io": "^4.7.2",
@@ -44,6 +46,7 @@
     "@types/jsonwebtoken": "^9.0.5",
     "@types/morgan": "^1.9.9",
     "@types/node": "^20.10.4",
+    "@types/nodemailer": "^8.0.1",
     "@types/pdfkit": "^0.17.5",
     "@types/pg": "^8.18.0",
     "@types/ssh2": "^1.15.5",

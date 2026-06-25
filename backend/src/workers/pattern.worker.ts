@@ -5,6 +5,9 @@ import { notificationsService } from '../services/notifications.service';
 import { thresholdEventsRepo } from '../repositories/thresholdEvents.repo';
 import logger from '../utils/logger';
 
+// Cross-service detection uses this rule slot (rules 8–10 are descoped for the pilot).
+const CROSS_SERVICE_RULE_NUMBER = 11;
+
 export const startPatternWorker = () => {
     const worker = new Worker('pattern-detection', async (job: Job) => {
         const { pulse_id, company_id, house_id, risk_domain } = job.data;
@@ -236,6 +239,85 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          WHERE id = $4`,
         [cluster_status, trajectory, signal_count, cluster_id]
     );
+
+    // FR3.5 / FR8.2 — Cross-service (System-Level) Risk, evaluated live in the sweep.
+    await evaluateCrossServiceRisk(company_id, house_id, domain, pulse_id, cluster_id);
+}
+
+/**
+ * Cross-service / System-Level Risk (FR3.5, FR8.2):
+ * if the SAME domain (issue) appears in >=2 houses within 7 days, raise a
+ * System-Level Risk Flag and notify Directors/RI in (near) real time — the sweep
+ * runs every 15 minutes, well inside the "within 1 hour of detection" requirement.
+ * De-duplicated: at most one flag per company+domain per rolling 7-day window.
+ */
+async function evaluateCrossServiceRisk(
+    company_id: string,
+    house_id: string,
+    domain: string,
+    pulse_id: string,
+    cluster_id: string,
+) {
+    const affectedRes = await query(
+        `SELECT COUNT(DISTINCT gp.house_id)::int AS house_count,
+                ARRAY_AGG(DISTINCT h.name) AS house_names
+           FROM governance_pulses gp
+           JOIN houses h ON h.id = gp.house_id
+          WHERE gp.company_id = $1
+            AND $2 = ANY(gp.risk_domain)
+            AND gp.entry_date >= CURRENT_DATE - INTERVAL '7 days'
+            AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)`,
+        [company_id, domain]
+    );
+    const houseCount: number = affectedRes.rows[0]?.house_count ?? 0;
+    if (houseCount < 2) return;
+
+    const houseNames: string[] = (affectedRes.rows[0]?.house_names || []).filter(Boolean);
+
+    // De-dupe: skip if we already flagged this company+domain in the last 7 days.
+    const existing = await query(
+        `SELECT 1 FROM threshold_events
+          WHERE company_id = $1
+            AND rule_number = $2
+            AND description ILIKE $3
+            AND fired_at >= NOW() - INTERVAL '7 days'
+          LIMIT 1`,
+        [company_id, CROSS_SERVICE_RULE_NUMBER, `%[${domain}]%`]
+    );
+    if (existing.rows.length > 0) return;
+
+    const description = `[${domain}] System-Level Risk: "${domain}" issues across ${houseCount} services in 7 days (${houseNames.join(', ')}).`;
+    await thresholdEventsRepo.create({
+        company_id,
+        house_id,
+        pulse_id,
+        cluster_id,
+        rule_number: CROSS_SERVICE_RULE_NUMBER,
+        rule_name: 'System-Level Risk (Cross-Service)',
+        output_type: 'System-Level Risk Flag',
+        description,
+    });
+
+    // Notify Directors / Responsible Individuals so it surfaces within the SLA window.
+    try {
+        const directors = await query(
+            `SELECT id FROM users
+              WHERE company_id = $1 AND role IN ('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'RI')`,
+            [company_id]
+        );
+        for (const d of directors.rows) {
+            await notificationsService.create({
+                company_id,
+                user_id: d.id,
+                type: 'system_level_risk',
+                title: 'System-Level Risk detected',
+                body: description,
+                link: '/patterns',
+            });
+        }
+    } catch (err) {
+        logger.error('Cross-service notification failed', err);
+    }
 }
 
 if (process.env.RUN_ONCE === 'true') {

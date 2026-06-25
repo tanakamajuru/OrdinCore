@@ -152,14 +152,40 @@ export class AuthController {
    * /auth/forgot-password:
    *   post:
    *     tags: [Auth]
-   *     summary: Reset password to "default"
+   *     summary: Request a password reset link by email
    */
   async forgotPassword(req: Request, res: Response) {
     try {
       const { email } = req.body;
       if (!email) return res.status(400).json({ success: false, message: 'Email required', errors: [] });
-      await authService.resetToDefault(email);
-      return res.json({ success: true, message: 'Password reset to default successfully', meta: {} });
+      await authService.requestPasswordReset(email);
+      // Always respond the same way whether or not the email exists (no enumeration).
+      return res.json({
+        success: true,
+        message: 'If an account exists for that email, a password reset link has been sent.',
+        meta: {},
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Password reset request failed';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  /**
+   * @swagger
+   * /auth/reset-password:
+   *   post:
+   *     tags: [Auth]
+   *     summary: Set a new password using a one-time reset token
+   */
+  async resetPassword(req: Request, res: Response) {
+    try {
+      const { token, password } = req.body;
+      if (!token || !password) {
+        return res.status(400).json({ success: false, message: 'Token and new password are required', errors: [] });
+      }
+      const result = await authService.resetPassword(token, password);
+      return res.json({ success: true, data: result, message: result.message, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Password reset failed';
       return res.status(400).json({ success: false, message, errors: [] });
