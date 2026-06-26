@@ -260,4 +260,87 @@ export const governanceConfigController = {
       return ok(res, { deleted: true });
     } catch (e) { return fail(res, e, 400); }
   },
+
+  // ---- Immediate Detection Rules (fast-path escalation; migration 068) ----
+  // Platform defaults (company_id IS NULL) are read-only; companies clone-to-override.
+  async listImmediateRules(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(
+        `SELECT * FROM immediate_detection_rules
+          WHERE company_id IS NULL OR company_id = $1
+          ORDER BY (company_id IS NULL) DESC, sector,
+                   CASE domain_name WHEN '*' THEN 'zzz' ELSE domain_name END,
+                   min_severity NULLS FIRST`,
+        [company_id]);
+      return ok(res, r.rows);
+    } catch (e) { return fail(res, e); }
+  },
+  async createImmediateRule(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const b = req.body;
+      if (!b.sector || !b.domain_name) return fail(res, new Error('sector and domain_name are required'), 400);
+      const r = await query(
+        `INSERT INTO immediate_detection_rules
+           (company_id, sector, domain_name, min_severity, signal_count, window_hours, match_any_severity,
+            action, escalate_to_role, sla_trigger_type, priority, rationale, is_active, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,COALESCE($13,true),$14) RETURNING *`,
+        [company_id, b.sector, b.domain_name, b.min_severity || null,
+         Number.isFinite(+b.signal_count) ? +b.signal_count : 1,
+         Number.isFinite(+b.window_hours) ? +b.window_hours : 1,
+         b.match_any_severity === true,
+         b.action || 'ESCALATE', b.escalate_to_role || 'REGISTERED_MANAGER',
+         b.sla_trigger_type || 'HIGH_SAFEGUARDING', b.priority || 'High',
+         b.rationale || null, typeof b.is_active === 'boolean' ? b.is_active : null, req.user!.user_id]);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async updateImmediateRule(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const existing = await query(`SELECT company_id FROM immediate_detection_rules WHERE id = $1`, [req.params.id]);
+      if (!existing.rows[0]) return fail(res, new Error('Rule not found'), 404);
+      if (existing.rows[0].company_id === null)
+        return fail(res, new Error('Platform default rules are read-only — create a company override instead.'), 403);
+      if (existing.rows[0].company_id !== company_id) return fail(res, new Error('Not permitted'), 403);
+      const b = req.body;
+      const r = await query(
+        `UPDATE immediate_detection_rules SET
+           min_severity = $3,
+           signal_count = COALESCE($4, signal_count),
+           window_hours = COALESCE($5, window_hours),
+           match_any_severity = COALESCE($6, match_any_severity),
+           action = COALESCE($7, action),
+           escalate_to_role = COALESCE($8, escalate_to_role),
+           sla_trigger_type = COALESCE($9, sla_trigger_type),
+           priority = COALESCE($10, priority),
+           rationale = COALESCE($11, rationale),
+           is_active = COALESCE($12, is_active),
+           updated_at = NOW()
+         WHERE id = $1 AND company_id = $2 RETURNING *`,
+        [req.params.id, company_id, b.min_severity || null,
+         Number.isFinite(+b.signal_count) && b.signal_count != null ? +b.signal_count : null,
+         Number.isFinite(+b.window_hours) && b.window_hours != null ? +b.window_hours : null,
+         typeof b.match_any_severity === 'boolean' ? b.match_any_severity : null,
+         b.action ?? null, b.escalate_to_role ?? null, b.sla_trigger_type ?? null,
+         b.priority ?? null, b.rationale ?? null,
+         typeof b.is_active === 'boolean' ? b.is_active : null]);
+      if (!r.rows[0]) return fail(res, new Error('Rule not found'), 404);
+      return ok(res, r.rows[0]);
+    } catch (e) { return fail(res, e, 400); }
+  },
+  async deleteImmediateRule(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const existing = await query(`SELECT company_id FROM immediate_detection_rules WHERE id = $1`, [req.params.id]);
+      if (!existing.rows[0]) return fail(res, new Error('Rule not found'), 404);
+      if (existing.rows[0].company_id === null)
+        return fail(res, new Error('Platform default rules cannot be deleted.'), 403);
+      const r = await query(`DELETE FROM immediate_detection_rules WHERE id = $1 AND company_id = $2 RETURNING id`,
+        [req.params.id, company_id]);
+      if (!r.rows[0]) return fail(res, new Error('Rule not found'), 404);
+      return ok(res, { deleted: true });
+    } catch (e) { return fail(res, e, 400); }
+  },
 };

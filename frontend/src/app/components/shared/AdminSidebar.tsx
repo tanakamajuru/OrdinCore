@@ -29,6 +29,7 @@ const SECTIONS: NavSection[] = [
       { label: "Governance Config", icon: Settings, to: "/governance-config" },
       { label: "Signal Library", icon: Tags, to: "/governance-config" },
       { label: "Pattern Thresholds", icon: AlertTriangle, to: "/governance-config" },
+      { label: "Immediate Escalation Rules", icon: ShieldCheck, to: "/governance-config/immediate-rules" },
       { label: "Risk Domains", icon: ClipboardList, to: "/governance-config" },
       { label: "Review Cycles", icon: RefreshCw, to: "/admin-settings" },
     ],

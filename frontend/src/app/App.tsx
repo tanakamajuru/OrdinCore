@@ -13,6 +13,7 @@ import { DailyOversightBoard } from "./components/DailyOversightBoard";
 import { RiskRegister } from "./components/RiskRegister";
 import { ServiceUsers } from "./components/ServiceUsers";
 import { GovernanceConfig } from "./components/GovernanceConfig";
+import ImmediateRulesAdmin from "./components/ImmediateRulesAdmin";
 import { IncidentReconstruction } from "./components/IncidentReconstruction";
 import { Effectiveness } from "./components/Effectiveness";
 import { RiskPromotion } from "./components/RiskPromotion";
@@ -238,6 +239,11 @@ export default function App() {
           <Route path="/governance-config" element={
             <ProtectedRoute>
               <GovernanceConfig />
+            </ProtectedRoute>
+          } />
+          <Route path="/governance-config/immediate-rules" element={
+            <ProtectedRoute>
+              <ImmediateRulesAdmin />
             </ProtectedRoute>
           } />
           <Route path="/reconstruction" element={
