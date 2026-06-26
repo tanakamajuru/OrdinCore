@@ -3,6 +3,7 @@ import { redisConnection } from '../config/redis';
 import { query } from '../config/database';
 import { notificationsService } from '../services/notifications.service';
 import { thresholdEventsRepo } from '../repositories/thresholdEvents.repo';
+import { runImmediateDetection } from './immediateDetection';
 import logger from '../utils/logger';
 
 // Cross-service detection uses this rule slot (rules 8–10 are descoped for the pilot).
@@ -32,6 +33,11 @@ export const startPatternWorker = () => {
 };
 
 async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string, related_person: string | null = null) {
+    // [FAST PATH] Evaluate this pulse for immediate escalation (safeguarding 1/1,
+    // single High/Critical — all config-driven) BEFORE any clustering. Harm-now
+    // signals must never be diluted by the slow cumulative-pattern machinery.
+    await runImmediateDetection(company_id, house_id, domain, pulse_id, related_person);
+
     // [ORDI CORE DOCTRINE] The primary "Pattern Emerging" threshold is data-driven:
     // it reads threshold_rules for THIS service's sector + domain, so admins can tune
     // it per sector without code changes. Falls back to the historical ≥3-in-7-days.

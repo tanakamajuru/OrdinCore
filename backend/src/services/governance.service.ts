@@ -91,6 +91,19 @@ export class GovernanceService {
       FROM risk_candidates rc
       LEFT JOIN signal_clusters sc ON rc.cluster_id = sc.id
       WHERE rc.company_id = $1
+      -- [DEDUP] An item must appear in exactly one queue. When a person-level
+      -- candidate exists for the same house+domain, suppress the redundant
+      -- system-level (linked_person IS NULL) candidate. (RM Bug #4.)
+      AND NOT (
+        rc.linked_person IS NULL AND EXISTS (
+          SELECT 1 FROM risk_candidates rc2
+           WHERE rc2.company_id = rc.company_id
+             AND rc2.house_id = rc.house_id
+             AND rc2.risk_domain = rc.risk_domain
+             AND rc2.linked_person IS NOT NULL
+             AND rc2.status = rc.status
+        )
+      )
     `;
     const params: any[] = [company_id];
     if (filters.id) {

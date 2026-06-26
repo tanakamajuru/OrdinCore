@@ -18,12 +18,20 @@ interface PulseRecord {
   id: string;
   house_name: string;
   signal_type: string;
+  risk_domain?: string[] | string;   // the theme(s) — what the dashboard shows
+  related_person?: string;           // the client
   severity: string;
   review_status: string;
   entry_date: string;
   entry_time: string;
   description: string;
 }
+
+// The "theme" is the risk domain (e.g. "Mental Health Stability"); signal_type is
+// the generic category (Concern/Observation/Incident). Show the theme, fall back.
+const themeOf = (p: PulseRecord): string =>
+  Array.isArray(p.risk_domain) ? (p.risk_domain[0] || p.signal_type)
+    : (p.risk_domain || p.signal_type);
 
 export function PulseHistory() {
   const navigate = useNavigate();
@@ -61,12 +69,19 @@ export function PulseHistory() {
   };
 
   const filteredPulses = pulses.filter(p => {
-    const matchesText = p.signal_type.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.house_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.description.toLowerCase().includes(searchTerm.toLowerCase());
-    
-    const matchesDate = !searchDate || p.entry_date.includes(searchDate);
-    
+    const q = searchTerm.toLowerCase();
+    const matchesText = !q ||
+      themeOf(p).toLowerCase().includes(q) ||
+      (p.signal_type || '').toLowerCase().includes(q) ||
+      (p.related_person || '').toLowerCase().includes(q) ||
+      (p.house_name || '').toLowerCase().includes(q) ||
+      (p.description || '').toLowerCase().includes(q);
+
+    // Normalise both sides to YYYY-MM-DD: entry_date may arrive as a date or a
+    // full ISO timestamp, so a raw substring match (the old bug) was unreliable.
+    const pulseDay = p.entry_date ? new Date(p.entry_date).toISOString().slice(0, 10) : '';
+    const matchesDate = !searchDate || pulseDay === searchDate;
+
     return matchesText && matchesDate;
   });
 
@@ -137,7 +152,8 @@ export function PulseHistory() {
                   <tr className="bg-muted/50 border-b-2 border-border">
                     <th className="p-4  uppercase text-xs tracking-widest">Date / Time</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Service</th>
-                    <th className="p-4  uppercase text-xs tracking-widest">Type</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Theme</th>
+                    <th className="p-4  uppercase text-xs tracking-widest">Client</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Severity</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Status</th>
                     <th className="p-4  uppercase text-xs tracking-widest text-right">Action</th>
@@ -154,10 +170,14 @@ export function PulseHistory() {
                       </td>
                       <td className="p-4  text-foreground">{pulse.house_name}</td>
                       <td className="p-4">
-                        <span className="px-2 py-1 bg-primary/10 text-primary text-xs  uppercase tracking-tighter">
-                          {pulse.signal_type}
-                        </span>
+                        <div className="flex flex-col gap-1">
+                          <span className="text-foreground font-medium">{themeOf(pulse)}</span>
+                          <span className="px-1.5 py-0.5 bg-muted text-muted-foreground text-[10px] uppercase tracking-tighter w-fit rounded">
+                            {pulse.signal_type}
+                          </span>
+                        </div>
                       </td>
+                      <td className="p-4 text-muted-foreground">{pulse.related_person || "—"}</td>
                       <td className="p-4">
                         <span className={` ${
                           pulse.severity === 'High' || pulse.severity === 'Critical' ? 'text-destructive' : 'text-foreground'

@@ -59,6 +59,15 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/login" replace />;
 };
 
+// Catch-all for unknown paths. An authenticated user hitting an unknown route
+// should land on their dashboard, not be bounced to the Login page (which read
+// as a surprise logout). Only unauthenticated users go to /login.
+const NotFoundRedirect = () => {
+  const { isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return null;
+  return <Navigate to={isAuthenticated ? "/dashboard" : "/login"} replace />;
+};
+
 // Super Admin Only Route
 const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   const { user, isAuthenticated, isLoading } = useAuth();
@@ -189,6 +198,11 @@ export default function App() {
               <PulseDetail />
             </ProtectedRoute>
           } />
+          <Route path="/signals" element={
+            <ProtectedRoute>
+              <PulseHistory />
+            </ProtectedRoute>
+          } />
           <Route path="/signals/:id" element={
             <ProtectedRoute>
               <SignalDetail />
@@ -301,7 +315,7 @@ export default function App() {
               <ComputationalEngines />
             </ProtectedRoute>
           } />
-          <Route path="*" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundRedirect />} />
         </Routes>
       </BrowserRouter>
     </AuthProvider>

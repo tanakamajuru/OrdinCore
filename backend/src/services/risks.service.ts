@@ -340,15 +340,25 @@ export class RisksService {
     );
     if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
 
+    const candidate = candidateRes.rows[0];
+    const sourceCluster = data.cluster_id || candidate.cluster_id || undefined;
+
     const risk = await this.create(company_id, user_id, {
       ...data,
       status: 'Open',
-      // Provenance: the originating cluster is the risk's source (satisfies the
-      // "risks come from a cluster or critical exception" governance rule).
-      source_cluster_id: data.cluster_id || candidateRes.rows[0].cluster_id || undefined,
-      risk_domain: candidateRes.rows[0].risk_domain,
+      // Provenance: the originating cluster is the risk's source. If the candidate
+      // has no cluster (some candidate types), the RM's promotion reason becomes the
+      // documented critical-exception provenance — so promotion never silently fails
+      // the provenance guard. (RM Bug #5.)
+      source_cluster_id: sourceCluster,
+      critical_exception_reason: sourceCluster
+        ? undefined
+        : ((data.reason && data.reason.trim().length >= 10)
+            ? data.reason
+            : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
+      risk_domain: candidate.risk_domain,
       metadata: { promotion_reason: data.reason },
-      linked_person: candidateRes.rows[0].linked_person
+      linked_person: candidate.linked_person
     });
 
     // Update candidate status
