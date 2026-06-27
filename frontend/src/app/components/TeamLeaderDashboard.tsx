@@ -102,7 +102,13 @@ export function TeamLeaderDashboard() {
   const myActions = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
   const dueSoon = myActions.filter(a => a.due_date && new Date(a.due_date).getTime() <= now + 7 * 86400000);
   const myEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
-  const closedThisMonth = actions.filter(a => ["Complete", "Completed"].includes(a.status) && a.completed_at && new Date(a.completed_at).getTime() >= monthStart).length;
+  // "Closed This Month" counts closed ESCALATIONS (not completed actions) so a TL who
+  // raised an escalation sees it resolved — matching how the RM dashboard counts. (Bug B1.)
+  const closedThisMonth = escalations.filter(e =>
+    (e.lifecycle_status || "") === "Closed" &&
+    (e.closed_at || e.resolved_at) &&
+    new Date(e.closed_at || e.resolved_at).getTime() >= monthStart
+  ).length;
 
   const themeCount: Record<string, number> = {};
   signals.forEach(s => {

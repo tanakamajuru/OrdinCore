@@ -191,6 +191,16 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         );
     }
 
+    // [SAFETY] Severity must drive trajectory (Bug B4 / root cause C3). A single
+    // High/Critical signal — or ANY Safeguarding signal — can never read as "Stable"
+    // on the Oversight/Patterns boards; that would lull a manager into thinking a live
+    // concern is calm. This is independent of the Low→Moderate→High progression rule.
+    const hasHighCritical = signalsWindow.some(s => s.severity === 'High' || s.severity === 'Critical')
+        || criticals.length > 0 || highs.length > 0;
+    if (domain === 'Safeguarding' || hasHighCritical) {
+        trajectory = 'Deteriorating';
+    }
+
     // Reactivation Check (21-day rolling)
     if (recentSignals.length >= 3) {
         await query(
