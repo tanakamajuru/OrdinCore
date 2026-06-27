@@ -7,14 +7,18 @@
  * draft the manager reads and edits; it never invents figures or decides
  * escalations. This is the "draft -> human confirms" pattern.
  *
- * Uses the Anthropic Messages API when ANTHROPIC_API_KEY is set; otherwise it
- * degrades gracefully to a deterministic template (same as the mailer pattern),
- * so the feature never hard-fails when the key is absent.
+ * Uses any OpenAI-compatible chat-completions endpoint via env config, so you can
+ * use a FREE provider:
+ *   - Groq (free tier, fast):   NARRATIVE_API_URL=https://api.groq.com/openai/v1/chat/completions
+ *                               NARRATIVE_MODEL=llama-3.3-70b-versatile
+ *   - OpenRouter free models, a local Ollama, etc. also work.
+ * If NARRATIVE_API_KEY is absent it degrades gracefully to a deterministic
+ * template (same as the mailer pattern), so the feature never hard-fails.
  */
 import logger from '../utils/logger';
 
-const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages';
-const DEFAULT_MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6';
+const DEFAULT_API_URL = process.env.NARRATIVE_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
+const DEFAULT_MODEL = process.env.NARRATIVE_MODEL || 'llama-3.3-70b-versatile';
 
 const SYSTEM_PROMPT =
   'You are a governance analyst writing the narrative section of a CQC inspection ' +
@@ -40,7 +44,7 @@ function templateFallback(req: NarrativeRequest): string {
   const json = JSON.stringify(req.data ?? {}, null, 2);
   return (
     `${req.reportTitle}${scope}${period}.\n\n` +
-    `An AI narrative is not configured on this server (set ANTHROPIC_API_KEY to enable ` +
+    `An AI narrative is not configured on this server (set NARRATIVE_API_KEY to enable ` +
     `auto-drafted prose). The structured data below is provided for the registered ` +
     `manager to summarise manually:\n\n${json}`
   );
@@ -48,11 +52,11 @@ function templateFallback(req: NarrativeRequest): string {
 
 export const narrativeService = {
   isEnabled(): boolean {
-    return !!process.env.ANTHROPIC_API_KEY;
+    return !!process.env.NARRATIVE_API_KEY;
   },
 
   async generate(req: NarrativeRequest): Promise<{ narrative: string; generated: boolean; model?: string }> {
-    const apiKey = process.env.ANTHROPIC_API_KEY;
+    const apiKey = process.env.NARRATIVE_API_KEY;
     if (!apiKey) {
       return { narrative: templateFallback(req), generated: false };
     }
@@ -66,31 +70,31 @@ export const narrativeService = {
       'Write the inspection narrative draft now.';
 
     try {
-      const res = await fetch(ANTHROPIC_URL, {
+      const res = await fetch(DEFAULT_API_URL, {
         method: 'POST',
         headers: {
           'content-type': 'application/json',
-          'x-api-key': apiKey,
-          'anthropic-version': '2023-06-01',
+          authorization: `Bearer ${apiKey}`,
         },
         body: JSON.stringify({
           model: DEFAULT_MODEL,
           max_tokens: 1200,
-          system: SYSTEM_PROMPT,
-          messages: [{ role: 'user', content: userContent }],
+          temperature: 0.3,
+          messages: [
+            { role: 'system', content: SYSTEM_PROMPT },
+            { role: 'user', content: userContent },
+          ],
         }),
       });
 
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
-        logger.error(`[narrative] Anthropic API ${res.status}: ${errText.slice(0, 300)}`);
+        logger.error(`[narrative] API ${res.status}: ${errText.slice(0, 300)}`);
         return { narrative: templateFallback(req), generated: false };
       }
 
       const json: any = await res.json();
-      const text = Array.isArray(json?.content)
-        ? json.content.filter((b: any) => b?.type === 'text').map((b: any) => b.text).join('\n').trim()
-        : '';
+      const text: string = json?.choices?.[0]?.message?.content?.trim() || '';
       if (!text) return { narrative: templateFallback(req), generated: false };
       return { narrative: text, generated: true, model: DEFAULT_MODEL };
     } catch (err) {

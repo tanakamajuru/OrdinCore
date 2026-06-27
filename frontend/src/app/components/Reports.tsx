@@ -57,7 +57,7 @@ export function Reports() {
       });
       const out = unwrap(res);
       setAiNarrative(out?.narrative || "");
-      if (out?.generated === false) toast.message("Draft generated from a template — set ANTHROPIC_API_KEY for AI prose.");
+      if (out?.generated === false) toast.message("Draft generated from a template — configure NARRATIVE_API_KEY (free via Groq) for AI prose.");
     } catch (e: any) {
       toast.error(e?.message || "Failed to generate narrative");
     } finally {
