@@ -132,21 +132,51 @@ export class AuthService {
    *  - Only the SHA-256 hash of the token is stored; the raw token lives only in
    *    the emailed link. A token is single-use and expires after RESET_TOKEN_TTL_MS.
    */
+  /** Issue a fresh single-use token for a user (invalidating any prior ones). */
+  private async issueResetToken(userId: string, ttlMs = RESET_TOKEN_TTL_MS): Promise<string> {
+    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [userId]);
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const expiresAt = new Date(Date.now() + ttlMs);
+    await query(
+      `INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)`,
+      [uuidv4(), userId, hashToken(rawToken), expiresAt]
+    );
+    return rawToken;
+  }
+
+  /**
+   * Onboarding: email a newly-created user a secure link to set their own password,
+   * so admins never have to hand out or communicate a password manually. 7-day TTL.
+   */
+  async sendAccountSetupEmail(userId: string) {
+    const user = await usersRepo.findById(userId);
+    if (!user || !user.email) return;
+    const rawToken = await this.issueResetToken(user.id, 7 * 24 * 60 * 60 * 1000);
+    const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
+    const link = `${appUrl}/reset-password?token=${rawToken}`;
+    const name = user.first_name || 'there';
+    await sendMail({
+      to: user.email,
+      subject: 'Welcome to OrdinCore — set your password',
+      text:
+        `Hi ${name},\n\n` +
+        `An OrdinCore account has been created for you (${user.email}). ` +
+        `Use the link below within 7 days to set your password and sign in:\n\n${link}\n\n` +
+        `If you weren't expecting this, you can ignore this email.`,
+      html:
+        `<p>Hi ${name},</p>` +
+        `<p>An OrdinCore account has been created for you (<b>${user.email}</b>). ` +
+        `Click below within 7 days to set your password and sign in:</p>` +
+        `<p><a href="${link}" style="display:inline-block;padding:10px 18px;background:#0f172a;color:#fff;text-decoration:none;border-radius:6px">Set your password</a></p>` +
+        `<p>Or paste this link into your browser:<br><a href="${link}">${link}</a></p>`,
+    });
+  }
+
   async requestPasswordReset(email: string) {
     const user = await usersRepo.findByEmail(email);
     if (!user) return; // silent no-op — do not reveal non-existent accounts
 
-    // Invalidate any outstanding tokens for this user.
-    await query('DELETE FROM password_reset_tokens WHERE user_id = $1', [user.id]);
-
-    const rawToken = crypto.randomBytes(32).toString('hex');
-    const expiresAt = new Date(Date.now() + RESET_TOKEN_TTL_MS);
-    await query(
-      `INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at)
-       VALUES ($1, $2, $3, $4)`,
-      [uuidv4(), user.id, hashToken(rawToken), expiresAt]
-    );
-
+    const rawToken = await this.issueResetToken(user.id);
     const appUrl = (process.env.APP_URL || 'http://localhost:5173').replace(/\/$/, '');
     const resetLink = `${appUrl}/reset-password?token=${rawToken}`;
     const name = user.first_name || 'there';

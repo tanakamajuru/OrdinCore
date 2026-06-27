@@ -55,7 +55,9 @@ export function ReconstructionReport() {
   const params = useParams();
   const incidentId = params.incidentId || params.id;
   const [isGenerating, setIsGenerating] = useState(false);
-  const [reportFormat, setReportFormat] = useState<"pdf" | "word">("pdf");
+  // Reconstruction packs export as PDF (narrative inspection evidence); raw-data CSV
+  // export lives on the Reports page. Word/Excel were dropped for format consistency.
+  const [reportFormat] = useState<"pdf">("pdf");
   const [incident, setIncident] = useState<IncidentSummary | null>(null);
   const [timelineEvents, setTimelineEvents] = useState<TimelineEvent[]>([]);
   const [metrics, setMetrics] = useState<GovernanceMetrics>(defaultMetrics);
@@ -265,14 +267,7 @@ export function ReconstructionReport() {
           </div>
           
           <div className="flex gap-3">
-            <select
-              value={reportFormat}
-              onChange={(e) => setReportFormat(e.target.value as "pdf" | "word")}
-              className="px-3 py-2 border-2 border-border rounded"
-            >
-              <option value="pdf">PDF</option>
-              <option value="word">Word</option>
-            </select>
+            <span className="px-3 py-2 border-2 border-border rounded text-sm text-muted-foreground">PDF</span>
             <Button
               onClick={generateReport}
               disabled={isGenerating}

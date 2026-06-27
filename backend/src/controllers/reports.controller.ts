@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { reportsService } from '../services/reports.service';
 import { reportsDataService } from '../services/reportsData.service';
 import { reconstructionService, ReconstructionScope } from '../services/reconstruction.service';
+import { narrativeService } from '../services/narrative.service';
+import { query } from '../config/database';
 
 export class ReportsController {
   // ─── Canonical report data (spec module 10: only four reports) ──────────────
@@ -67,10 +69,44 @@ export class ReportsController {
     }
   }
 
+  // Locked reconstructions (built + locked in the Reconstruction wizard) so they
+  // appear in the report set instead of being disconnected from Reports. (Bug B6.)
+  async savedReconstructions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const r = await query(
+        `SELECT id, scope, scope_label, incident_date, trajectory, narrative,
+                summary, timeline_events, status, locked_at, created_at
+           FROM governance_reconstructions
+          WHERE company_id = $1 AND status = 'Locked'
+          ORDER BY locked_at DESC NULLS LAST, created_at DESC`,
+        [company_id]
+      );
+      return res.json({ success: true, data: r.rows, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load saved reconstructions', errors: [] });
+    }
+  }
+
+  // AI narrative draft for a report. The frontend posts the structured report data
+  // it already fetched; we return prose for the manager to review and edit.
+  async narrative(req: Request, res: Response) {
+    try {
+      const { reportTitle, periodLabel, serviceName, data } = req.body || {};
+      if (!reportTitle || data === undefined) {
+        return res.status(400).json({ success: false, message: 'reportTitle and data are required', errors: [] });
+      }
+      const result = await narrativeService.generate({ reportTitle, periodLabel, serviceName, data });
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to generate narrative', errors: [] });
+    }
+  }
+
   async request(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      
+
       // Enforce RM/TL report scoping
       const rbacRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'];
       const userRole = req.user!.role.toUpperCase();

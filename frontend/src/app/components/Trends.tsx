@@ -90,7 +90,7 @@ export function Trends() {
           </button>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 [&>*]:min-w-0">
           {/* Risk Trajectory */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">

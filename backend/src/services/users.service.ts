@@ -1,6 +1,7 @@
 import bcrypt from 'bcryptjs';
 import { usersRepo } from '../repositories/users.repo';
 import { housesRepo } from '../repositories/houses.repo';
+import { authService } from './auth.service';
 
 export class UsersService {
   private validatePassword(password: string) {
@@ -61,6 +62,11 @@ export class UsersService {
         await usersRepo.assignToHouse(user.id, data.house_id, company_id);
       }
     }
+
+    // Onboarding: email the new user a secure link to set their own password,
+    // so an admin never has to communicate a password manually. Best-effort.
+    void authService.sendAccountSetupEmail(user.id).catch(err =>
+      console.error('Failed to send account setup email:', err));
 
     const { password_hash: _, ...safeUser } = user;
     void _;

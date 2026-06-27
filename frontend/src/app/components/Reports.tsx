@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2 } from "lucide-react";
+import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2, Sparkles } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 
@@ -43,11 +43,37 @@ export function Reports() {
   const [busy, setBusy] = useState<ReportKey | null>(null);
   const [active, setActive] = useState<ReportKey | null>(null);
   const [result, setResult] = useState<any>(null);
+  const [aiNarrative, setAiNarrative] = useState("");
+  const [aiBusy, setAiBusy] = useState(false);
+
+  const generateNarrative = async () => {
+    if (!result || !active) return;
+    setAiBusy(true);
+    try {
+      const title = REPORTS.find(r => r.key === active)?.title || "Governance Report";
+      const serviceName = houses.find(h => h.id === serviceId)?.name;
+      const res = await apiClient.post("/reports/narrative", {
+        reportTitle: title, periodLabel: `${start} to ${end}`, serviceName, data: result,
+      });
+      const out = unwrap(res);
+      setAiNarrative(out?.narrative || "");
+      if (out?.generated === false) toast.message("Draft generated from a template — set ANTHROPIC_API_KEY for AI prose.");
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to generate narrative");
+    } finally {
+      setAiBusy(false);
+    }
+  };
+
+  const [savedRecon, setSavedRecon] = useState<any[]>([]);
 
   useEffect(() => {
     apiClient.get("/houses?limit=100").then(r => {
       const list = unwrap(r); const arr = Array.isArray(list) ? list : (list?.data || []);
       setHouses(arr); if (arr[0]) setServiceId(arr[0].id);
+    }).catch(() => { /* non-fatal */ });
+    apiClient.get("/reports/saved-reconstructions").then(r => {
+      const list = unwrap(r); setSavedRecon(Array.isArray(list) ? list : []);
     }).catch(() => { /* non-fatal */ });
   }, []);
 
@@ -71,7 +97,7 @@ export function Reports() {
     try {
       const res = await apiClient.get(buildPath(key));
       const data = unwrap(res);
-      setActive(key); setResult(data);
+      setActive(key); setResult(data); setAiNarrative("");
       if (download) {
         const rows = data?.risks || data?.escalations || data?.timeline || data?.themes || data?.flags || data?.evidence;
         const stamp = new Date().toISOString().slice(0, 10);
@@ -106,6 +132,38 @@ export function Reports() {
         {result.narrative && (
           <div className="bg-muted/40 rounded-lg p-4 text-sm leading-7 mb-3">{result.narrative}</div>
         )}
+
+        {/* AI narrative draft — assistive, editable. Never decides; never invents figures. */}
+        <div className="border border-border rounded-lg p-4 mb-4">
+          <div className="flex items-center justify-between mb-2">
+            <h4 className="text-sm font-semibold flex items-center gap-2">
+              <Sparkles className="w-4 h-4 text-primary" /> AI Narrative (draft)
+            </h4>
+            <div className="flex items-center gap-3">
+              <button onClick={generateNarrative} disabled={aiBusy} className="text-sm text-primary flex items-center gap-1 disabled:opacity-50">
+                {aiBusy ? <><Loader2 className="w-4 h-4 animate-spin" /> Generating…</> : (aiNarrative ? "Regenerate" : "Generate")}
+              </button>
+              {aiNarrative && (
+                <button onClick={() => downloadFile(`${active}-narrative-${new Date().toISOString().slice(0,10)}.txt`, aiNarrative, "text/plain")} className="text-sm text-muted-foreground flex items-center gap-1">
+                  <Download className="w-3.5 h-3.5" /> .txt
+                </button>
+              )}
+            </div>
+          </div>
+          {aiNarrative ? (
+            <textarea
+              value={aiNarrative}
+              onChange={e => setAiNarrative(e.target.value)}
+              rows={12}
+              className="w-full text-sm p-3 border border-border rounded-lg bg-background leading-6"
+            />
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Generate an editable, inspection-ready prose draft from this report's data. Review and edit
+              before use — it summarises only what the system computed and never invents figures.
+            </p>
+          )}
+        </div>
         {Array.isArray(result.kloe) && result.kloe.length > 0 && (
           <div className="flex items-center gap-2 mb-4">
             <span className="text-[10px] font-bold tracking-widest text-primary">CQC KLOE</span>
@@ -219,6 +277,28 @@ export function Reports() {
             </div>
           ))}
         </div>
+
+        {/* B6: locked reconstructions now appear in the report set */}
+        {savedRecon.length > 0 && (
+          <div className="mt-6 bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-1 flex items-center gap-2"><GitBranch className="w-4 h-4 text-primary" /> Saved Reconstructions</h3>
+            <p className="text-xs text-muted-foreground mb-4">Locked incident reconstructions, retained as inspection evidence.</p>
+            <div className="divide-y divide-border">
+              {savedRecon.map(rec => (
+                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3">
+                  <div>
+                    <p className="text-sm font-medium">{rec.scope_label || rec.scope}{rec.incident_date ? ` · ${new Date(rec.incident_date).toLocaleDateString("en-GB")}` : ""}</p>
+                    <p className="text-xs text-muted-foreground">{rec.trajectory || "—"} · locked {rec.locked_at ? new Date(rec.locked_at).toLocaleDateString("en-GB") : "—"}</p>
+                  </div>
+                  <div className="flex gap-3 shrink-0">
+                    <button onClick={() => downloadFile(`reconstruction-${rec.id}.txt`, rec.narrative || "", "text/plain")} className="text-sm text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Narrative</button>
+                    <button onClick={() => downloadFile(`reconstruction-${rec.id}.csv`, toCsv(Array.isArray(rec.timeline_events) ? rec.timeline_events : []), "text/csv")} className="text-sm text-muted-foreground flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Timeline CSV</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {renderPreview()}
       </div>

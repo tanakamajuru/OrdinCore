@@ -41,6 +41,8 @@ router.get('/escalations', requireAuth, requireTenant, reportsController.escalat
 router.get('/reconstruction', requireAuth, requireTenant, reportsController.reconstructionReport.bind(reportsController));
 router.get('/cross-service-control', requireAuth, requireTenant, reportsController.crossServiceControl.bind(reportsController));
 router.get('/inspection-evidence', requireAuth, requireTenant, reportsController.inspectionEvidence.bind(reportsController));
+router.post('/narrative', requireAuth, requireTenant, reportsController.narrative.bind(reportsController));
+router.get('/saved-reconstructions', requireAuth, requireTenant, reportsController.savedReconstructions.bind(reportsController));
 /**
  * @openapi
  * /api/v1/reports/{id}:
