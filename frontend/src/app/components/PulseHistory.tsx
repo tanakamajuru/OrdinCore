@@ -40,12 +40,19 @@ export function PulseHistory() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [searchDate, setSearchDate] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
 
   useEffect(() => {
     if (user) {
       loadPulseHistory();
     }
   }, [user]);
+
+  // Reset to the first page whenever the filters change.
+  useEffect(() => { setPage(1); }, [searchTerm, searchDate]);
+
+  const openSignal = (id?: string) => { if (id) navigate(`/signals/${id}`); };
 
   const loadPulseHistory = async () => {
     try {
@@ -87,10 +94,14 @@ export function PulseHistory() {
 
   const formatDate = (d: string) => new Date(d).toLocaleDateString('en-GB');
 
+  const totalPages = Math.max(1, Math.ceil(filteredPulses.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pageRows = filteredPulses.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-6xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <button
           onClick={() => navigate("/dashboard")}
           className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline "
@@ -160,8 +171,12 @@ export function PulseHistory() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredPulses.map((pulse) => (
-                    <tr key={pulse.id} className="border-b border-border hover:bg-muted/30 transition-colors group">
+                  {pageRows.map((pulse) => (
+                    <tr
+                      key={pulse.id}
+                      onClick={() => openSignal(pulse.id)}
+                      className="border-b border-border hover:bg-muted/30 transition-colors group cursor-pointer"
+                    >
                       <td className="p-4">
                         <div className="flex flex-col">
                           <span className=" text-foreground">{formatDate(pulse.entry_date)}</span>
@@ -190,7 +205,7 @@ export function PulseHistory() {
                       </td>
                       <td className="p-4 text-right">
                         <button
-                          onClick={() => navigate(`/signals/${pulse.id}`)}
+                          onClick={(e) => { e.stopPropagation(); openSignal(pulse.id); }}
                           className="p-2 hover:bg-primary hover:text-primary-foreground transition-all rounded border-2 border-transparent hover:border-primary group-hover:shadow-md"
                           title="View Details"
                         >
@@ -201,6 +216,30 @@ export function PulseHistory() {
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Pagination */}
+            <div className="flex items-center justify-between gap-4 px-4 py-3 border-t-2 border-border bg-muted/30">
+              <span className="text-xs text-muted-foreground">
+                Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, filteredPulses.length)} of {filteredPulses.length}
+              </span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={safePage <= 1}
+                  className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Previous
+                </button>
+                <span className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</span>
+                <button
+                  onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                  disabled={safePage >= totalPages}
+                  className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  Next
+                </button>
+              </div>
             </div>
           </div>
         ) : (
