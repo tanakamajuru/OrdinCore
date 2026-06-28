@@ -12,6 +12,21 @@ export class CompanyService {
     );
     const company = result.rows[0];
 
+    // Seed the standard risk categories (from the governance domains) so the Risk
+    // Promotion form works immediately for this company — without categories the
+    // Register button can never enable and nothing can be promoted (see migration 070).
+    try {
+      await query(
+        `INSERT INTO risk_categories (id, company_id, name, description, color)
+         SELECT uuid_generate_v4(), $1, d.name, d.description, '#ef4444'
+         FROM (SELECT DISTINCT ON (LOWER(name)) name, description FROM governance_domains ORDER BY LOWER(name), name) d
+         WHERE NOT EXISTS (SELECT 1 FROM risk_categories rc WHERE rc.company_id = $1 AND LOWER(rc.name) = LOWER(d.name))`,
+        [company.id]
+      );
+    } catch (err) {
+      console.error('Failed to seed risk categories for new company:', err);
+    }
+
     // Initialize default Governance Template for the new company
     try {
       const templateId = '00000000-0000-0000-0000-000000000001';

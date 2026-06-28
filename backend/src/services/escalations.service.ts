@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { risksRepo } from '../repositories/risks.repo';
+import { notificationsService } from './notifications.service';
 
 export type EscalationLifecycleStatus =
   | 'Open'
@@ -53,6 +54,32 @@ const LIFECYCLE_TRANSITIONS: Record<EscalationLifecycleStatus, EscalationLifecyc
 };
 
 export class EscalationsService {
+  /**
+   * Close the loop back to the front-line worker who raised the originating signal,
+   * so they see their concern was picked up and progressed. Best-effort.
+   */
+  private async notifyOriginator(escalation: any, company_id: string, actorId: string, type: string, title: string, verb: string) {
+    try {
+      if (!escalation?.source_pulse_id) return;
+      const pulseRes = await query(
+        'SELECT created_by, related_person, risk_domain FROM governance_pulses WHERE id = $1',
+        [escalation.source_pulse_id]
+      );
+      const originator = pulseRes.rows[0]?.created_by;
+      if (!originator || originator === actorId) return; // don't notify yourself
+      const actorRes = await query('SELECT first_name, last_name FROM users WHERE id = $1', [actorId]);
+      const actor = actorRes.rows[0] ? `${actorRes.rows[0].first_name} ${actorRes.rows[0].last_name}`.trim() : 'A manager';
+      const person = pulseRes.rows[0]?.related_person;
+      const rd = pulseRes.rows[0]?.risk_domain;
+      const domain = Array.isArray(rd) ? rd[0] : (rd || 'governance');
+      await notificationsService.create({
+        company_id, user_id: originator, type, title,
+        body: `${actor} ${verb} the ${domain} escalation${person ? ` for ${person}` : ''}.`,
+        link: '/escalation-log',
+      });
+    } catch { /* best-effort: never block the lifecycle action */ }
+  }
+
   async findAll(company_id: string, filters: Record<string, unknown> = {}, page = 1, limit = 50) {
     const offset = (page - 1) * limit;
     const conditions = ['e.company_id = $1'];
@@ -134,6 +161,9 @@ export class EscalationsService {
       [uuidv4(), id, company_id, resolution_notes, user_id]
     );
 
+    // Close the loop back to the Team Leader who raised the signal.
+    await this.notifyOriginator(escalation.rows[0], company_id, user_id, 'ESCALATION_RESOLVED', 'Your escalation was resolved', 'resolved');
+
     await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: id, company_id, resolved_by: user_id });
 
     // If escalation is linked to a risk, check remaining open escalations and update risk status if appropriate
@@ -165,6 +195,9 @@ export class EscalationsService {
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by) VALUES ($1,$2,$3,'Acknowledged','Escalation acknowledged',$4)`,
       [uuidv4(), id, company_id, user_id]
     );
+
+    // Close the loop back to the Team Leader who raised the signal.
+    await this.notifyOriginator(escalation, company_id, user_id, 'ESCALATION_ACKNOWLEDGED', 'Your escalation was acknowledged', 'acknowledged');
 
     // If escalation linked to a risk, mark the risk status to 'Escalated'
     try {
