@@ -360,6 +360,59 @@ export class EscalationsService {
     return result.rows[0];
   }
 
+  /**
+   * Manually climb the accountability ladder (RM → Director → RI), independent of
+   * the overdue sweep. Resets the SLA clock, audits, and notifies the next role.
+   * This is the "Escalate further" action — distinct from closing.
+   */
+  async escalateFurther(id: string, company_id: string, user_id: string, reason?: string) {
+    const escRes = await query(
+      `SELECT e.*, u.role AS current_role
+         FROM escalations e LEFT JOIN users u ON u.id = e.escalated_to
+        WHERE e.id = $1 AND e.company_id = $2`,
+      [id, company_id]
+    );
+    const esc = escRes.rows[0];
+    if (!esc) throw new Error('Escalation not found');
+    if ((esc.lifecycle_status || '') === 'Closed') throw new Error('This escalation is closed.');
+
+    const NEXT: Record<string, string> = { REGISTERED_MANAGER: 'DIRECTOR', RM: 'DIRECTOR', DIRECTOR: 'RESPONSIBLE_INDIVIDUAL' };
+    const nextRole = NEXT[String(esc.current_role || '').toUpperCase()];
+    if (!nextRole) throw new Error('This escalation is already at the top of the ladder (Responsible Individual).');
+
+    const roles = nextRole === 'RESPONSIBLE_INDIVIDUAL' ? ['RESPONSIBLE_INDIVIDUAL', 'RI'] : [nextRole];
+    const uRes = await query(
+      `SELECT id FROM users WHERE company_id = $1 AND role = ANY($2::text[]) AND status = 'active' LIMIT 1`,
+      [company_id, roles]
+    );
+    const nextUser = uRes.rows[0]?.id;
+    const niceRole = nextRole.replace(/_/g, ' ').toLowerCase();
+    if (!nextUser) throw new Error(`No active ${niceRole} is available to escalate to.`);
+
+    await query(
+      `UPDATE escalations
+          SET escalated_to = $1, due_by = $2, status = 'In Progress',
+              priority = CASE WHEN priority = 'Critical' THEN priority ELSE 'Urgent' END,
+              updated_at = NOW()
+        WHERE id = $3`,
+      [nextUser, escalationDueBy(esc.trigger_type), id]
+    );
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'escalate_further',$4,$5)`,
+      [uuidv4(), id, company_id, `Escalated up to ${niceRole}${reason ? `: ${reason}` : ''}`, user_id]
+    );
+    try {
+      await notificationsService.create({
+        company_id, user_id: nextUser, type: 'ESCALATION_LADDER',
+        title: 'Escalation escalated to you',
+        body: `An escalation has been escalated up to you${reason ? `: ${reason}` : ''}.`,
+        link: '/escalation-log',
+      });
+    } catch { /* best-effort */ }
+    return { message: `Escalated to ${niceRole}.` };
+  }
+
   async getEscalationStats(company_id: string) {
     const result = await query(
       `SELECT

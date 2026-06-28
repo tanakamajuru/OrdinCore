@@ -75,8 +75,8 @@ export function RiskRegister() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-7xl mx-auto">
         <div className="mb-5">
-          <h1 className="text-3xl text-primary font-semibold">Governance Oversight Register</h1>
-          <p className="text-muted-foreground mt-1">What leadership is actively overseeing — concerns, trajectory and controls.</p>
+          <h1 className="text-3xl text-primary font-semibold">Risk Register</h1>
+          <p className="text-muted-foreground mt-1">What leadership is actively overseeing — emerging concerns, active and strategic risks, and closed items. Promote an emerging concern to a risk to act on it.</p>
         </div>
 
         {/* Summary banner */}

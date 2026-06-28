@@ -45,6 +45,16 @@ export class EscalationsController {
     }
   }
 
+  async escalateFurther(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.escalateFurther(req.params.id, company_id, req.user!.user_id, req.body?.reason);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to escalate further', errors: [] });
+    }
+  }
+
   async addAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

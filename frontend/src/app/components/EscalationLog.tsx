@@ -103,6 +103,22 @@ export function EscalationLog() {
     }
   };
 
+  const handleEscalateFurther = async () => {
+    if (!selectedEscalation) return;
+    setIsSubmitting(true);
+    try {
+      const res = await apiClient.post(`/escalations/${selectedEscalation.id}/escalate-further`, { reason: resolutionNotes || undefined });
+      toast.success((res.data as any)?.data?.message || 'Escalated to the next level');
+      setResolutionNotes("");
+      setSelectedEscalation(null);
+      loadEscalations();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to escalate further');
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const getPriorityColor = (priority: string) => {
     const normalized = priority?.toLowerCase?.() || '';
     switch (normalized) {
@@ -248,36 +264,54 @@ export function EscalationLog() {
 
                     {selectedEscalation.status?.toLowerCase?.() !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
-                        <label className="text-xs  uppercase text-muted-foreground block">Resolution Action</label>
+                        <label className="text-xs uppercase text-muted-foreground block">Decision &amp; notes</label>
                         <textarea
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
-                          placeholder="Document your oversight actions and resolution notes..."
-                          className="w-full h-32 bg-input-background border-2 border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
+                          placeholder="Document your oversight, progress, or the reason for your decision..."
+                          className="w-full h-28 bg-input-background border-2 border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
                         />
-                        <div className="flex gap-3">
-                          <Button 
+                        {!resolutionNotes && (
+                          <p className="text-xs text-muted-foreground">Add a note above to enable “Continue monitoring” and “Resolve”.</p>
+                        )}
+
+                        {/* The three-way decision: keep monitoring · resolve · escalate further */}
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <Button
                             onClick={handleUpdateProgress}
                             disabled={isSubmitting || !resolutionNotes}
                             variant="outline"
+                            title={!resolutionNotes ? "Add a note to enable" : "Keep this escalation open and log progress"}
                             className="flex-1 border-border text-foreground hover:bg-muted disabled:opacity-50"
                           >
-                            Log Progress
+                            <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>
                           <Button
                             onClick={handleResolve}
                             disabled={isSubmitting || !resolutionNotes}
+                            title={!resolutionNotes ? "Add a note to enable" : "Mark this escalation resolved"}
                             className="flex-1 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
                           >
-                            Mark as Resolved
+                            <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark as Resolved
                           </Button>
                         </div>
-                        <button
-                          onClick={() => setCloseTarget({ id: selectedEscalation.id, title: selectedEscalation.risk_title || selectedEscalation.reason })}
-                          className="w-full mt-1 px-4 py-2 rounded-lg border-2 border-success/40 text-success hover:bg-success/5 text-sm flex items-center justify-center gap-2"
-                        >
-                          <CheckCircle2 className="w-4 h-4" /> Close with Evidence (Governance)
-                        </button>
+
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <button
+                            onClick={handleEscalateFurther}
+                            disabled={isSubmitting}
+                            title="Escalate up the accountability ladder (RM → Director → RI)"
+                            className="flex-1 px-4 py-2 rounded-lg border-2 border-destructive/40 text-destructive hover:bg-destructive/5 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
+                          >
+                            <ShieldAlert className="w-4 h-4" /> Escalate further
+                          </button>
+                          <button
+                            onClick={() => setCloseTarget({ id: selectedEscalation.id, title: selectedEscalation.risk_title || selectedEscalation.reason })}
+                            className="flex-1 px-4 py-2 rounded-lg border-2 border-success/40 text-success hover:bg-success/5 text-sm flex items-center justify-center gap-2"
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Close with evidence
+                          </button>
+                        </div>
                       </div>
                     )}
 
@@ -331,6 +365,8 @@ export function EscalationLog() {
       <ClosureReviewModal
         open={!!closeTarget}
         target={{ type: "escalation", id: closeTarget?.id || "", title: closeTarget?.title }}
+        derivedActionsComplete={["actions implemented", "monitoring effectiveness"].includes((((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase())}
+        derivedEffectivenessReviewed={(((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase() === "monitoring effectiveness"}
         onClose={() => setCloseTarget(null)}
         onClosed={() => { setSelectedEscalation(null); loadEscalations(); }}
       />

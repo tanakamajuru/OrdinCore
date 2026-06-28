@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { X, Loader2, ShieldCheck } from "lucide-react";
+import { X, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 
@@ -8,23 +8,29 @@ interface Props {
   onClose: () => void;
   onClosed?: () => void;
   target: { type: "escalation" | "risk"; id: string; title?: string };
+  // Gates derived from real state (e.g. the escalation's lifecycle). When true the
+  // gate is shown as system-confirmed and locked, rather than a self-attest checkbox.
+  derivedActionsComplete?: boolean;
+  derivedEffectivenessReviewed?: boolean;
 }
 
-export function ClosureReviewModal({ open, onClose, onClosed, target }: Props) {
+export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed }: Props) {
   const [patternReduced, setPatternReduced] = useState(false);
   const [actionsCompleted, setActionsCompleted] = useState(false);
   const [effectivenessReviewed, setEffectivenessReviewed] = useState(false);
-  const [furtherEscalation, setFurtherEscalation] = useState(false);
   const [evidence, setEvidence] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!open) return null;
 
+  // A gate is satisfied if the system already confirms it (derived) OR the closer attests it.
+  const actionsOk = !!derivedActionsComplete || actionsCompleted;
+  const effOk = !!derivedEffectivenessReviewed || effectivenessReviewed;
+
   const blocked =
-    !actionsCompleted ? "All required actions must be complete." :
-    !effectivenessReviewed ? "Effectiveness must be reviewed before closure." :
-    furtherEscalation ? "Cannot close while further escalation is required." :
-    evidence.trim().length < 20 ? "Closure evidence (min 20 characters) is required." :
+    !actionsOk ? "All required actions must be complete." :
+    !effOk ? "Effectiveness must be reviewed before closure." :
+    evidence.trim().length < 20 ? "Add closure evidence (at least 20 characters)." :
     null;
 
   const submit = async () => {
@@ -33,9 +39,8 @@ export function ClosureReviewModal({ open, onClose, onClosed, target }: Props) {
     try {
       const payload = {
         pattern_reduced: patternReduced,
-        actions_completed: actionsCompleted,
-        effectiveness_reviewed: effectivenessReviewed,
-        further_escalation_required: furtherEscalation,
+        actions_completed: actionsOk,
+        effectiveness_reviewed: effOk,
         closure_reason: "Closed after evidence-based review",
         evidence: evidence.trim(),
       };
@@ -51,12 +56,19 @@ export function ClosureReviewModal({ open, onClose, onClosed, target }: Props) {
     }
   };
 
-  const Check = ({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) => (
-    <label className="flex items-start gap-2 text-sm py-1.5">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5" />
-      <span>{label}</span>
-    </label>
-  );
+  // A gate row: locked + green when system-derived, otherwise an attestation checkbox.
+  const Gate = ({ label, derived, checked, onChange }: { label: string; derived?: boolean; checked: boolean; onChange: (v: boolean) => void }) =>
+    derived ? (
+      <div className="flex items-start gap-2 text-sm py-1.5 text-success">
+        <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
+        <span>{label} <span className="text-xs text-muted-foreground">(confirmed by system)</span></span>
+      </div>
+    ) : (
+      <label className="flex items-start gap-2 text-sm py-1.5">
+        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5" />
+        <span>{label}</span>
+      </label>
+    );
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
@@ -73,25 +85,36 @@ export function ClosureReviewModal({ open, onClose, onClosed, target }: Props) {
         </div>
 
         <div className="p-5 space-y-1 max-h-[70vh] overflow-y-auto">
-          <p className="text-xs text-muted-foreground mb-2">Closure requires all governance gates to pass.</p>
-          <Check label="The pattern has reduced." checked={patternReduced} onChange={setPatternReduced} />
-          <Check label="All required actions are complete." checked={actionsCompleted} onChange={setActionsCompleted} />
-          <Check label="Effectiveness has been reviewed." checked={effectivenessReviewed} onChange={setEffectivenessReviewed} />
-          <Check label="Further escalation is still required." checked={furtherEscalation} onChange={setFurtherEscalation} />
+          <p className="text-xs text-muted-foreground mb-2">
+            Closure requires all governance gates to pass. Only close when the concern is genuinely
+            resolved — to keep it open, use “Continue monitoring”; to raise it higher, use “Escalate further”.
+          </p>
+          <Gate label="All required actions are complete." derived={derivedActionsComplete} checked={actionsCompleted} onChange={setActionsCompleted} />
+          <Gate label="Effectiveness has been reviewed." derived={derivedEffectivenessReviewed} checked={effectivenessReviewed} onChange={setEffectivenessReviewed} />
+          {/* The pattern-reduced attestation is genuinely a human judgement, so it stays a checkbox. */}
+          <label className="flex items-start gap-2 text-sm py-1.5">
+            <input type="checkbox" checked={patternReduced} onChange={(e) => setPatternReduced(e.target.checked)} className="mt-0.5" />
+            <span>The pattern has reduced and the concern is resolved.</span>
+          </label>
           <div className="mt-3">
             <label className="block text-sm font-medium mb-1">Closure evidence</label>
             <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3}
               placeholder="Describe why closure is justified (min 20 characters)…"
               className="w-full border border-border rounded-lg p-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
           </div>
-          {blocked && <p className="text-xs text-amber-600 mt-2">⚠ {blocked}</p>}
         </div>
 
-        <div className="flex justify-end gap-3 px-5 py-4 border-t border-border">
-          <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
-          <button onClick={submit} disabled={busy || !!blocked} className="px-4 py-2 rounded-lg bg-success text-success-foreground text-sm hover:bg-success/90 disabled:opacity-50 flex items-center gap-2">
-            {busy && <Loader2 className="w-4 h-4 animate-spin" />} Close with Evidence
-          </button>
+        <div className="px-5 py-4 border-t border-border">
+          {/* Always-visible reason, so a disabled button never looks "dead". */}
+          {blocked && <p className="text-xs text-amber-600 mb-3">⚠ {blocked}</p>}
+          <div className="flex justify-end gap-3">
+            <button onClick={onClose} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
+            <button onClick={submit} disabled={busy || !!blocked}
+              title={blocked || "Close with evidence"}
+              className="px-4 py-2 rounded-lg bg-success text-success-foreground text-sm hover:bg-success/90 disabled:opacity-50 flex items-center gap-2">
+              {busy && <Loader2 className="w-4 h-4 animate-spin" />} Close with Evidence
+            </button>
+          </div>
         </div>
       </div>
     </div>

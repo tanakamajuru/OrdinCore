@@ -164,7 +164,7 @@ export function RiskPromotion() {
         
         <div className="mb-8 border-b-8 border-primary pb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-5xl  text-primary  uppercase tracking-tighter">Risk Promotion</h1>
+            <h1 className="text-5xl  text-primary  uppercase tracking-tighter">Promote to Risk</h1>
             {sourceData?.linked_person && (
                 <span className="bg-primary/20 text-primary border-2 border-primary px-4 py-1 text-xs  uppercase  tracking-widest font-bold">
                     Ref: {sourceData.linked_person}
@@ -244,6 +244,11 @@ export function RiskPromotion() {
                     <option value="">Select Category</option>
                     {categories.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
+                {categories.length === 0 && (
+                  <p className="text-xs text-amber-600 -mt-4 mb-6">
+                    No risk categories configured — ask an admin to add them in Governance Config before promoting.
+                  </p>
+                )}
 
                 <label className="block text-xs  uppercase text-muted-foreground mb-2">Assign Owner</label>
                 <select 
@@ -298,6 +303,16 @@ export function RiskPromotion() {
                       Dismiss
                   </button>
                 </div>
+                {/* Tell the user why a button is disabled rather than leaving it silently dead. */}
+                {(!formData.category_id || !formData.reason) && (
+                  <p className="text-xs text-muted-foreground mt-3">
+                    {!formData.category_id && !formData.reason
+                      ? "Select a Risk Category and add a Governance Justification to Register."
+                      : !formData.category_id
+                        ? "Select a Risk Category to enable Register."
+                        : "Add a Governance Justification to enable Register and Dismiss."}
+                  </p>
+                )}
              </div>
           </div>
 

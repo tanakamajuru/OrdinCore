@@ -158,6 +158,7 @@ router.patch('/:id/priority', requireAuth, requireTenant, escalationsController.
  *         description: Success
  */
 router.post('/:id/resolve', requireAuth, requireTenant, escalationsController.resolve.bind(escalationsController));
+router.post('/:id/escalate-further', requireAuth, requireTenant, escalationsController.escalateFurther.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/acknowledge:
