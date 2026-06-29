@@ -17,6 +17,7 @@ router.post('/:id/publish', requireAuth, requireTenant, requireRole('REGISTERED_
 // Any authenticated team member can mark a published review as read.
 router.post('/:id/acknowledge', requireAuth, requireTenant, weeklyReviewsController.acknowledge.bind(weeklyReviewsController));
 router.get('/:id/acknowledgements', requireAuth, requireTenant, weeklyReviewsController.getAcknowledgements.bind(weeklyReviewsController));
+router.get('/:id/pdf', requireAuth, requireTenant, weeklyReviewsController.downloadPdf.bind(weeklyReviewsController));
 router.get('/preview', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
 router.get('/house/:houseId', requireAuth, requireTenant, weeklyReviewsController.findByHouse);
 router.get('/:id', requireAuth, requireTenant, weeklyReviewsController.findById);

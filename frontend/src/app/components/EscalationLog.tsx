@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity } from "lucide-react";
 import { Button } from "./ui/button";
@@ -48,6 +49,7 @@ export function EscalationLog() {
   const [closeTarget, setCloseTarget] = useState<{ id: string; title?: string } | null>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const [noteFlash, setNoteFlash] = useState(false);
+  const [searchParams] = useSearchParams();
 
   // Turn a dead-click on a gated action into guidance: focus the notes field and flash it.
   const requireNote = (): boolean => {
@@ -156,15 +158,42 @@ export function EscalationLog() {
     }
   };
 
-  const getStatusIcon = (status: string) => {
-    const normalized = status?.toLowerCase?.() || '';
-    switch (normalized) {
-      case 'resolved': return <CheckCircle2 className="w-5 h-5 text-success" />;
-      case 'pending': return <Clock className="w-5 h-5 text-destructive" />;
-      case 'acknowledged': return <AlertCircle className="w-5 h-5 text-primary" />;
-      default: return <Clock className="w-5 h-5 text-muted-foreground" />;
-    }
+  // Normalise an escalation to one of three actionable states — the queue is organised
+  // by what needs doing, not just newest-first.
+  const lifecycleState = (e: any): 'needs' | 'progress' | 'resolved' => {
+    const s = String(e.status || '').toLowerCase();
+    const ls = String(e.lifecycle_status || '').toLowerCase();
+    if (s === 'resolved' || s === 'closed' || ls === 'closed' || ls === 'resolved') return 'resolved';
+    if (s === 'pending' || ls === 'open' || (!s && !ls)) return 'needs';
+    return 'progress';
   };
+  const STATE_META: Record<string, { label: string; strip: string; chip: string; weight: number }> = {
+    needs:    { label: 'Needs review', strip: 'border-l-destructive', chip: 'bg-destructive/10 text-destructive', weight: 0 },
+    progress: { label: 'In progress',  strip: 'border-l-amber-500',   chip: 'bg-amber-100 text-amber-700',       weight: 1 },
+    resolved: { label: 'Resolved',     strip: 'border-l-success',     chip: 'bg-success/10 text-success',         weight: 2 },
+  };
+
+  // Initial filter can come from the URL (e.g. the TL dashboard's "Closed" link).
+  const initialFilter = (() => {
+    const s = (searchParams.get('status') || '').toLowerCase();
+    if (s === 'closed' || s === 'resolved') return 'resolved';
+    if (s === 'open' || s === 'pending') return 'needs';
+    return 'all';
+  })();
+  const [filter, setFilter] = useState<'all' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
+
+  const counts = {
+    needs: escalations.filter(e => lifecycleState(e) === 'needs').length,
+    progress: escalations.filter(e => lifecycleState(e) === 'progress').length,
+    resolved: escalations.filter(e => lifecycleState(e) === 'resolved').length,
+  };
+  const visibleEscalations = escalations
+    .filter(e => filter === 'all' || lifecycleState(e) === filter)
+    .sort((a, b) => {
+      const w = STATE_META[lifecycleState(a)].weight - STATE_META[lifecycleState(b)].weight;
+      if (w !== 0) return w;
+      return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+    });
 
   const handleSelectEscalation = async (esc: Escalation) => {
     try {
@@ -200,23 +229,35 @@ export function EscalationLog() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 [&>*]:min-w-0">
           {/* List Section */}
           <div className="lg:col-span-2 space-y-4">
-            <div className="bg-card border-2 border-border p-4 mb-4 flex justify-between items-center text-sm shadow-sm">
-              <span className=" text-foreground">{escalations.filter(e => e.status?.toLowerCase?.() !== 'resolved').length} Pending Actions</span>
-              <div className="flex gap-4">
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-destructive"></div> Critical</span>
-                <span className="flex items-center gap-1"><div className="w-2 h-2 rounded-full bg-primary"></div> High</span>
-              </div>
+            {/* Filter tabs — organise the queue by what needs doing */}
+            <div className="flex flex-wrap gap-2 mb-4">
+              {([
+                { key: 'all', label: 'All', n: escalations.length },
+                { key: 'needs', label: 'Needs action', n: counts.needs },
+                { key: 'progress', label: 'In progress', n: counts.progress },
+                { key: 'resolved', label: 'Resolved', n: counts.resolved },
+              ] as const).map(t => (
+                <button key={t.key} onClick={() => setFilter(t.key)}
+                  className={`px-3 py-1.5 rounded-lg text-sm border-2 transition-colors ${
+                    filter === t.key ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-muted'
+                  }`}>
+                  {t.label} <span className="text-xs opacity-70">({t.n})</span>
+                </button>
+              ))}
             </div>
 
-            {escalations.length > 0 ? escalations.map((esc) => (
-              <Card 
-                key={esc.id} 
-                className={`border-2 border-border transition-all cursor-pointer hover:shadow-lg ${selectedEscalation?.id === esc.id ? 'ring-2 ring-primary bg-muted/30' : 'bg-card'}`}
+            {visibleEscalations.length > 0 ? visibleEscalations.map((esc) => {
+              const st = lifecycleState(esc);
+              const meta = STATE_META[st];
+              return (
+              <Card
+                key={esc.id}
+                className={`border-2 border-border border-l-4 ${meta.strip} transition-all cursor-pointer hover:shadow-lg ${selectedEscalation?.id === esc.id ? 'ring-2 ring-primary bg-muted/30' : 'bg-card'}`}
                 onClick={() => handleSelectEscalation(esc)}
               >
                 <CardContent className="p-5">
-                  <div className="flex justify-between items-start mb-3">
-                    <div className="flex items-center gap-2">
+                  <div className="flex justify-between items-start mb-3 gap-2">
+                    <div className="flex items-center gap-2 min-w-0 flex-wrap">
                       <span className={`px-2 py-0.5 text-xs  uppercase ${getPriorityColor(esc.priority)}`}>
                         {esc.priority}
                       </span>
@@ -225,12 +266,12 @@ export function EscalationLog() {
                         <MapPin className="w-3 h-3" /> {esc.house_name}
                       </span>
                     </div>
-                    {getStatusIcon(esc.status)}
+                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
                   </div>
-                  
+
                   <h3 className="text-lg  text-primary mb-2">{esc.risk_title}</h3>
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{esc.reason}</p>
-                  
+
                   <div className="flex justify-between items-center pt-4 border-t border-border">
                     <div className="text-xs text-muted-foreground">
                       Escalated by <span className=" text-primary">{esc.escalated_by_name}</span> • {new Date(esc.created_at).toLocaleDateString('en-GB')}
@@ -239,10 +280,10 @@ export function EscalationLog() {
                   </div>
                 </CardContent>
               </Card>
-            )) : (
+            ); }) : (
               <div className="text-center py-20 bg-muted/30 border-2 border-dashed border-border">
                 <CheckCircle2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-                <h3 className="text-lg  text-muted-foreground">All clear! No pending escalations.</h3>
+                <h3 className="text-lg  text-muted-foreground">{filter === 'all' ? 'All clear! No escalations.' : `Nothing in "${filter === 'needs' ? 'Needs action' : filter === 'progress' ? 'In progress' : 'Resolved'}".`}</h3>
               </div>
             )}
           </div>

@@ -28,15 +28,19 @@ export class RisksController {
     try {
       const company_id = req.user!.company_id!;
       const user_id = req.user!.user_id;
-      const { candidate_id, cluster_id } = req.body;
-      
+      const { candidate_id, cluster_id, source_pulse_id } = req.body;
+
       let risk;
       if (candidate_id) {
         risk = await risksService.promoteFromCandidate(company_id, user_id, req.body);
       } else if (cluster_id) {
         risk = await risksService.promoteFromCluster(company_id, user_id, req.body);
+      } else if (source_pulse_id) {
+        // Single serious signal (High/Critical/Safeguarding) → risk, via the documented
+        // critical-exception path. The signal becomes the risk's first evidence.
+        risk = await risksService.promoteFromSignal(company_id, user_id, req.body);
       } else {
-        return res.status(400).json({ success: false, message: 'Source candidate_id or cluster_id required' });
+        return res.status(400).json({ success: false, message: 'Source candidate_id, cluster_id or source_pulse_id required' });
       }
 
       return res.status(201).json({ success: true, data: risk, meta: {} });

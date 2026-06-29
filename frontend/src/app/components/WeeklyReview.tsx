@@ -3,7 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users } from "lucide-react";
+import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History } from "lucide-react";
 
 // 13-step Weekly Governance Review wizard (per the doctrine/JSX MVP). Steps unlock in
 // order; steps 2–10 auto-populate from the week's data; the RM supplies interpretation,
@@ -35,6 +35,8 @@ export function WeeklyReview() {
   const [step, setStep] = useState(0);
   const [doneStep, setDoneStep] = useState(0);
   const [acks, setAcks] = useState<{ total: number; acknowledged: number; roster: any[] } | null>(null);
+  const [priorWeeks, setPriorWeeks] = useState<any[]>([]);
+  const [showPrior, setShowPrior] = useState(false);
 
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
   const statusU = (status || "").toUpperCase();
@@ -189,6 +191,35 @@ export function WeeklyReview() {
     } catch { toast.error("Failed to acknowledge"); }
   };
 
+  const downloadPdf = async () => {
+    const rid = (id && id !== "new") ? id : reviewId;
+    if (!rid) return;
+    try {
+      const base = (import.meta as any).env?.VITE_API_URL || "http://localhost:3001/api/v1";
+      const resp = await fetch(`${base}/weekly-reviews/${rid}/pdf`, {
+        headers: { Authorization: `Bearer ${localStorage.getItem("authToken")}` },
+      });
+      if (!resp.ok) throw new Error();
+      const blob = await resp.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `weekly-review-${new Date().toISOString().slice(0, 10)}.pdf`;
+      document.body.appendChild(a); a.click(); a.remove();
+      URL.revokeObjectURL(url);
+    } catch { toast.error("Failed to download PDF"); }
+  };
+
+  const togglePrior = async () => {
+    if (showPrior) { setShowPrior(false); return; }
+    setShowPrior(true);
+    if (priorWeeks.length || !houseId) return;
+    try {
+      const res = await apiClient.get(`/weekly-reviews/house/${houseId}`);
+      const rid = (id && id !== "new") ? id : reviewId;
+      setPriorWeeks((res.data?.data || []).filter((r: any) => r.id !== rid));
+    } catch { /* archive optional */ }
+  };
+
   const doValidate = async (vStatus: string) => {
     const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
     if (comment === null) return;
@@ -289,13 +320,42 @@ export function WeeklyReview() {
                   ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700"><Check size={16} /> Published to the team</span>
                   : <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground"><Lock size={15} /> Validated & locked</span>}
               </div>
-              {!isPublished && (
-                <button onClick={publishToTeam} disabled={isSaving}
-                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5 disabled:opacity-50">
-                  <Send size={14} /> Publish to team
+              <div className="flex items-center gap-2 flex-wrap">
+                <button onClick={downloadPdf}
+                  className="px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm flex items-center gap-1.5">
+                  <FileDown size={14} /> Download PDF
                 </button>
-              )}
+                <button onClick={togglePrior}
+                  className="px-3 py-2 rounded-lg border border-border hover:bg-muted text-sm flex items-center gap-1.5">
+                  <History size={14} /> Prior weeks
+                </button>
+                {!isPublished && (
+                  <button onClick={publishToTeam} disabled={isSaving}
+                    className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5 disabled:opacity-50">
+                    <Send size={14} /> Publish to team
+                  </button>
+                )}
+              </div>
             </div>
+
+            {showPrior && (
+              <div className="mt-4 border-t border-border/60 pt-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">Prior weeks · {houses.find(h => h.id === houseId)?.name || 'this service'}</p>
+                {priorWeeks.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No earlier reviews for this service.</p>
+                ) : (
+                  <div className="divide-y divide-border/60">
+                    {priorWeeks.map((r: any) => (
+                      <button key={r.id} onClick={() => navigate(`/weekly-review/${r.id}`)}
+                        className="w-full flex items-center justify-between py-2 text-left text-sm hover:bg-muted/40 px-1 rounded">
+                        <span>W/E {r.week_ending}</span>
+                        <span className="text-xs text-muted-foreground capitalize">{String(r.status || '').toLowerCase().replace('_', ' ')}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {isPublished && (
               <div className="mt-4 border-t border-border/60 pt-4">

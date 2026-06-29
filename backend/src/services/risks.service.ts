@@ -369,7 +369,77 @@ export class RisksService {
       ['Promoted', risk.id, data.candidate_id]);
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
-    
+
+    return risk;
+  }
+
+  // [GOVERNANCE] Single-signal promotion. The normal route is Signal → Pattern → Risk
+  // (a cluster of ≥3, or one Critical). But a lone High/Critical/Safeguarding signal
+  // should not have to wait for a pattern — that delay is clinically wrong. This is the
+  // documented "critical exception" path: the single serious signal becomes the risk's
+  // provenance AND its first evidence. A low/moderate one-off is rejected here and must
+  // go through its cluster.
+  async promoteFromSignal(company_id: string, user_id: string, data: {
+    source_pulse_id: string; title?: string; description?: string; severity?: string;
+    trajectory?: string; category_id?: string; likelihood?: number; impact?: number; reason?: string;
+  }) {
+    if (!data.source_pulse_id) throw new Error('source_pulse_id is required');
+
+    const sigRes = await query(
+      `SELECT id, house_id, severity, signal_type, risk_domain, related_person,
+              description, immediate_action
+         FROM governance_pulses
+        WHERE id = $1 AND company_id = $2`,
+      [data.source_pulse_id, company_id]
+    );
+    if (sigRes.rows.length === 0) throw new Error('Source signal not found');
+    const sig = sigRes.rows[0];
+
+    // Eligibility: only a High/Critical signal, or a Safeguarding concern, may bypass
+    // the pattern route. Everything else must build toward its cluster.
+    const severity = String(sig.severity || '').toLowerCase();
+    const domainStr = (Array.isArray(sig.risk_domain) ? sig.risk_domain.join(' ') : String(sig.risk_domain || '')).toLowerCase();
+    const isSafeguarding = domainStr.includes('safeguard') || String(sig.signal_type || '').toLowerCase().includes('safeguard');
+    const isSerious = severity === 'high' || severity === 'critical';
+    if (!isSerious && !isSafeguarding) {
+      throw new Error(
+        'This signal is not eligible for direct promotion. Only a High/Critical signal, or a Safeguarding concern, ' +
+        'may become a risk on its own — other signals build toward a pattern (cluster) first.'
+      );
+    }
+
+    const domain = Array.isArray(sig.risk_domain) ? (sig.risk_domain[0] || null) : (sig.risk_domain || null);
+    const provenance = (data.reason && data.reason.trim().length >= 10)
+      ? data.reason.trim()
+      : `Single-signal promotion (${isSafeguarding ? 'safeguarding 1/1' : `${sig.severity} severity`}): ${String(sig.description || '').slice(0, 200)}`;
+
+    const risk = await this.create(company_id, user_id, {
+      house_id: sig.house_id,
+      title: data.title || `Risk: ${domain || sig.signal_type || 'Signal'}${sig.related_person ? ' — ' + sig.related_person : ''}`,
+      description: data.description || sig.description,
+      severity: data.severity || sig.severity || 'High',
+      trajectory: data.trajectory || 'Stable',
+      category_id: data.category_id,
+      likelihood: data.likelihood,
+      impact: data.impact,
+      status: 'Open',
+      risk_domain: domain || undefined,
+      linked_person: sig.related_person || undefined,
+      // No cluster — the serious single signal is the documented critical exception.
+      critical_exception_reason: provenance,
+      metadata: { source_pulse_id: sig.id, immediate_action: sig.immediate_action },
+    });
+
+    // Carry the originating signal across as the risk's first evidence.
+    await query(
+      `INSERT INTO risk_signal_links (id, risk_id, pulse_entry_id, linked_by, link_note)
+       VALUES ($1, $2, $3, $4, $5)
+       ON CONFLICT DO NOTHING`,
+      [uuidv4(), risk.id, sig.id, user_id, 'Originating signal — promoted directly to risk']
+    );
+    await query(`UPDATE governance_pulses SET review_status = 'Linked', updated_at = NOW() WHERE id = $1`, [sig.id]);
+    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted directly from signal ${sig.id} (${isSafeguarding ? 'safeguarding 1/1' : sig.severity})`, user_id);
+
     return risk;
   }
 

@@ -2,8 +2,8 @@ import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
 import {
-  Activity, ClipboardList, Clock, TrendingUp, CheckCircle2, Users, Plus, FileText,
-  Bell, HelpCircle, Calendar, ArrowRight, Flag, Layers, Sparkles,
+  Activity, ClipboardList, Clock, TrendingUp, CheckCircle2, Plus, FileText,
+  Bell, HelpCircle, Calendar, ArrowRight, Layers, Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -50,7 +50,9 @@ export function TeamLeaderDashboard() {
   const [signals, setSignals] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
   const [escalations, setEscalations] = useState<any[]>([]);
-  const [teamMembers, setTeamMembers] = useState<number>(0);
+  const [notifications, setNotifications] = useState<any[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [notifOpen, setNotifOpen] = useState(false);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const displayName = user.name || `${user.first_name || ""} ${user.last_name || ""}`.trim() || "Team Leader";
@@ -61,23 +63,44 @@ export function TeamLeaderDashboard() {
   const load = async () => {
     try {
       setLoading(true);
-      const [sig, act, esc, team] = await Promise.all([
+      const [sig, act, esc, notif] = await Promise.all([
         apiClient.get(`/pulses?created_by=${user.id}&limit=100`).catch(() => apiClient.get(`/pulses?limit=100`)).catch(() => ({})),
         apiClient.get(`/actions/my`).catch(() => ({})),
         apiClient.getEscalations(1, 100).catch(() => ({})),
-        apiClient.get(`/users?limit=200`).catch(() => ({})),
+        apiClient.getNotifications().catch(() => ({})),
       ]);
       setSignals(asArray(unwrap(sig)));
       setActions(asArray(unwrap(act)));
       setEscalations(asArray(unwrap(esc)));
-      const teamData = unwrap(team);
-      setTeamMembers(asArray(teamData?.data ?? teamData).length);
+      const notifList = asArray(unwrap(notif));
+      setNotifications(notifList);
+      setUnreadCount((notif as any)?.meta?.unread_count ?? notifList.filter((n: any) => !(n.is_read ?? n.read)).length);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load dashboard");
     } finally {
       setLoading(false);
     }
+  };
+
+  const openNotification = async (n: any) => {
+    try {
+      if (!(n.is_read ?? n.read)) {
+        await apiClient.markNotificationRead(n.id);
+        setNotifications(prev => prev.map(x => x.id === n.id ? { ...x, is_read: true, read: true } : x));
+        setUnreadCount(c => Math.max(0, c - 1));
+      }
+    } catch { /* non-blocking */ }
+    setNotifOpen(false);
+    if (n.link) navigate(n.link);
+  };
+
+  const markAllNotifs = async () => {
+    try {
+      await apiClient.markAllNotificationsRead();
+      setNotifications(prev => prev.map(x => ({ ...x, is_read: true, read: true })));
+      setUnreadCount(0);
+    } catch { toast.error("Failed to mark all read"); }
   };
 
   if (loading) return (
@@ -135,10 +158,39 @@ export function TeamLeaderDashboard() {
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg border border-border bg-card text-sm text-muted-foreground">
                 <Calendar className="w-4 h-4" /> {monthLabel}
               </div>
-              <button className="relative p-2 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
-                <Bell className="w-4 h-4" />
-                {myEsc.length > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] w-4 h-4 rounded-full flex items-center justify-center">{myEsc.length}</span>}
-              </button>
+              <div className="relative">
+                <button onClick={() => setNotifOpen(o => !o)} className="relative p-2 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[9px] min-w-4 h-4 px-1 rounded-full flex items-center justify-center">{unreadCount}</span>}
+                </button>
+                {notifOpen && (
+                  <div className="absolute right-0 mt-2 w-80 max-h-96 overflow-y-auto bg-card border border-border rounded-xl shadow-lg z-50">
+                    <div className="flex items-center justify-between px-4 py-2.5 border-b border-border sticky top-0 bg-card">
+                      <span className="text-sm font-semibold">Notifications</span>
+                      {unreadCount > 0 && <button onClick={markAllNotifs} className="text-[11px] text-primary">Mark all read</button>}
+                    </div>
+                    {notifications.length === 0 ? (
+                      <p className="px-4 py-8 text-center text-xs text-muted-foreground">You're all caught up.</p>
+                    ) : (
+                      <div className="divide-y divide-border/60">
+                        {notifications.slice(0, 15).map(n => (
+                          <button key={n.id} onClick={() => openNotification(n)}
+                            className={`w-full text-left px-4 py-3 hover:bg-muted/40 ${!(n.is_read ?? n.read) ? 'bg-primary/5' : ''}`}>
+                            <div className="flex items-start gap-2">
+                              {!(n.is_read ?? n.read) && <span className="w-1.5 h-1.5 rounded-full bg-primary mt-1.5 shrink-0" />}
+                              <div className="min-w-0">
+                                <p className="text-sm font-medium text-foreground truncate">{n.title}</p>
+                                {n.body && <p className="text-xs text-muted-foreground line-clamp-2">{n.body}</p>}
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{n.created_at ? new Date(n.created_at).toLocaleString("en-GB") : ""}</p>
+                              </div>
+                            </div>
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
               <button onClick={() => toast.info("Help & Guides are coming soon.")} className="p-2 rounded-lg border border-border bg-card text-muted-foreground hover:bg-muted">
                 <HelpCircle className="w-4 h-4" />
               </button>
@@ -154,7 +206,7 @@ export function TeamLeaderDashboard() {
         </div>
 
         {/* Stat cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">
           <StatCard icon={Activity} tone="bg-blue-100 text-blue-600" label="Signals This Week" value={signalsThisWeek}
             delta={weekDelta !== 0 ? `${weekDelta > 0 ? "↑" : "↓"} ${Math.abs(weekDelta)} vs last week` : "No change vs last week"}
             deltaTone={weekDelta > 0 ? "text-emerald-600" : weekDelta < 0 ? "text-red-600" : "text-muted-foreground"}
@@ -168,9 +220,7 @@ export function TeamLeaderDashboard() {
             delta="Require your follow up" deltaTone={myEsc.length ? "text-red-600" : "text-muted-foreground"}
             viewLabel="View escalations" onView={() => navigate("/escalation-log")} />
           <StatCard icon={CheckCircle2} tone="bg-emerald-100 text-emerald-600" label="Closed This Month" value={closedThisMonth}
-            delta="Actions / escalations" viewLabel="View closed items" onView={() => navigate("/my-actions")} />
-          <StatCard icon={Users} tone="bg-violet-100 text-violet-600" label="Team Members" value={teamMembers || "—"}
-            delta="Active in system" viewLabel="View team activity" onView={() => navigate("/pulse-history")} />
+            delta="Escalations resolved" viewLabel="View closed escalations" onView={() => navigate("/escalation-log?status=Closed")} />
         </div>
 
         {/* Theme donut + Recent signals */}
@@ -286,13 +336,12 @@ export function TeamLeaderDashboard() {
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mt-6">
           <div className="lg:col-span-2 bg-card border border-border rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold mb-4">Quick Actions</h3>
-            <div className="grid grid-cols-3 sm:grid-cols-6 gap-3">
+            {/* De-duplicated: the stat cards + header already link to signals, actions,
+                escalations and Record Signal — only genuinely new entry points remain here. */}
+            <div className="grid grid-cols-3 gap-3">
               {[
-                { label: "Record Signal", icon: Plus, onClick: () => navigate("/governance-pulse") },
-                { label: "View My Signals", icon: FileText, onClick: () => navigate("/pulse-history") },
-                { label: "View My Actions", icon: ClipboardList, onClick: () => navigate("/my-actions") },
-                { label: "Escalate Concern", icon: Flag, onClick: () => navigate("/escalation-log") },
                 { label: "Team Signals", icon: Layers, onClick: () => navigate("/governance-dashboard") },
+                { label: "Weekly Review", icon: FileText, onClick: () => navigate("/weekly-review") },
                 { label: "Help & Guides", icon: HelpCircle, onClick: () => toast.info("Help & Guides are coming soon.") },
               ].map(q => (
                 <button key={q.label} onClick={q.onClick} className="flex flex-col items-center gap-2 p-3 rounded-lg border border-border hover:bg-muted text-xs text-center">

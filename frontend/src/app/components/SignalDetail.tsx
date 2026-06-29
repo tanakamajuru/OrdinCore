@@ -42,6 +42,14 @@ export function SignalDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [teamLeaders, setTeamLeaders] = useState<TeamLeaderOption[]>([]);
   const [reassigning, setReassigning] = useState(false);
+  const [promoting, setPromoting] = useState(false);
+  // Eligibility for direct single-signal promotion: High/Critical, or Safeguarding.
+  const domainLabel = signal ? (Array.isArray(signal.risk_domain) ? signal.risk_domain[0] : signal.risk_domain) : '';
+  const promotable = !!signal && (
+    ['High', 'Critical'].includes(signal.severity) ||
+    String(domainLabel || '').toLowerCase().includes('safeguard') ||
+    String(signal.signal_type || '').toLowerCase().includes('safeguard')
+  );
   const canAllocate = user?.role === 'TEAM_LEADER' || user?.role === 'REGISTERED_MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
@@ -278,31 +286,43 @@ export function SignalDetail() {
                   </button>
                 )}
 
-                {/* Promote to Risk: creates a formal risk from this signal */}
-                <button 
-                  onClick={async () => {
-                    try {
-                      await apiClient.post('/risks', {
-                        house_id: signal.house_id,
-                        title: `Risk: ${signal.signal_type}`,
-                        description: signal.description,
-                        severity: 'High',
-                        source_cluster_id: null,
-                        metadata: { source_pulse_id: signal.id, immediate_action: signal.immediate_action }
-                      });
-                      // mark signal reviewed
-                      await apiClient.patch(`/pulses/${signal.id}/status`, { review_status: 'Reviewed' });
-                      toast.success('Signal promoted to Risk and marked as reviewed');
-                      navigate('/risk-register');
-                    } catch (err) {
-                      console.error(err);
-                      toast.error('Failed to promote signal to risk');
-                    }
-                  }}
-                  className="bg-primary text-primary-foreground px-6 py-3  hover:bg-primary/90 transition-colors"
-                >
-                  Promote to Risk
-                </button>
+                {/* Promote to Risk — single serious signal (High/Critical/Safeguarding)
+                    becomes a formal risk via the documented critical-exception path. The
+                    signal is carried across as the risk's first evidence. Other signals
+                    must build toward their pattern first (doctrine: Signal → Pattern → Risk). */}
+                {promotable ? (
+                  <button
+                    disabled={promoting}
+                    onClick={async () => {
+                      setPromoting(true);
+                      try {
+                        const res = await apiClient.post('/risks/promote', {
+                          source_pulse_id: signal.id,
+                          title: `Risk: ${domainLabel || signal.signal_type}${signal.related_person ? ' — ' + signal.related_person : ''}`,
+                          description: signal.description,
+                          severity: ['High', 'Critical'].includes(signal.severity) ? signal.severity : 'High',
+                        });
+                        const newRisk = (res.data as any).data;
+                        toast.success('Signal promoted to a formal risk — carried across as its first evidence');
+                        if (newRisk?.id) navigate(`/risks/${newRisk.id}`); else navigate('/risk-register');
+                      } catch (err: any) {
+                        toast.error(err?.response?.data?.message || 'Failed to promote signal to risk');
+                      } finally {
+                        setPromoting(false);
+                      }
+                    }}
+                    className="bg-primary text-primary-foreground px-6 py-3 hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center gap-2"
+                  >
+                    <Shield className="w-4 h-4" />
+                    {promoting ? 'Promoting…' : 'Promote to Risk'}
+                  </button>
+                ) : (
+                  <div className="text-right max-w-sm">
+                    <p className="text-sm text-muted-foreground">
+                      This signal builds toward its <span className="font-medium text-foreground">pattern</span>. Promote from the cluster once it reaches the threshold — only High/Critical or Safeguarding signals can become a risk on their own.
+                    </p>
+                  </div>
+                )}
               </div>
             )}
         </div>
