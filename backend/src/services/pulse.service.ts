@@ -107,12 +107,50 @@ export class PulseService {
         return pulsesRepo.updateReview(id, company_id, user_id, data);
     }
 
+    // Reassign a signal to a different Team Leader (deliberate human allocation).
+    // Validates the target is an active staff member in the same company, logs the
+    // change, and notifies the new owner.
+    async reassignSignal(pulse_id: string, company_id: string, new_assignee: string, acting_user_id: string) {
+        if (!new_assignee) throw new Error('A target user (assigned_to) is required');
+        const target = await query(
+            `SELECT id, role FROM users WHERE id = $1 AND company_id = $2 AND status = 'active'`,
+            [new_assignee, company_id]
+        );
+        if (!target.rows[0]) throw new Error('Target user not found in this organisation');
+
+        const updated = await pulsesRepo.reassign(pulse_id, company_id, new_assignee, acting_user_id);
+        if (!updated) throw new Error('Signal not found');
+
+        await query(
+            `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+             VALUES ($1, $2, $3, 'SIGNAL_REALLOCATED', 'governance_pulse', $4, $5)`,
+            [uuidv4(), company_id, acting_user_id, pulse_id, JSON.stringify({ assigned_to: new_assignee })]
+        );
+
+        try {
+            const { notificationsService } = await import('./notifications.service');
+            await notificationsService.create({
+                company_id, user_id: new_assignee, type: 'signal_allocated',
+                title: 'Signal allocated to you',
+                body: 'A signal has been allocated to you for follow-up.',
+                link: `/signals/${pulse_id}`, metadata: { pulse_id },
+            });
+        } catch (err) {
+            logger.error('Failed to notify new signal assignee', err);
+        }
+
+        return updated;
+    }
+
     async linkToRisk(pulse_id: string, company_id: string, user_id: string, risk_id: string, note?: string) {
         return pulsesRepo.linkRisk(pulse_id, risk_id, user_id, note);
     }
 
     async getDashboardFeed(company_id: string, house_ids: string[]) {
-        if (house_ids.length === 0) return { highPriority: [], pattern_signals: [], risk_candidates: [], actions: [] };
+        // Single source of truth for the promotion gate (≥ this many signals, or one
+        // Critical). Exposed in the payload so the board's meter and the backend agree.
+        const PROMOTION_THRESHOLD = 3;
+        if (house_ids.length === 0) return { highPriority: [], pattern_signals: [], risk_candidates: [], actions: [], promotion_threshold: PROMOTION_THRESHOLD, open_escalations: 0 };
 
         // 1. High Priority Signals: severity=High/Critical or escalation!=None, last 48h
         const highPriority = await pulsesRepo.findAll(company_id, {
@@ -121,10 +159,18 @@ export class PulseService {
             severity: ['High', 'Critical']
         });
 
-        // 2. Pattern Signals: Active clusters (Emerging, Confirmed, Escalated)
+        // 2. Pattern Signals: Active clusters (Emerging, Confirmed, Escalated).
+        // has_critical lets the gate open on a single Critical signal without waiting
+        // for the cluster to reach the threshold (matching the promote rule).
         const placeholderIds = house_ids.map((_, i) => `$${i + 2}`).join(', ');
         const patternSignals = await query(
-            `SELECT sc.*, h.name as house_name 
+            `SELECT sc.*, h.name as house_name,
+                    EXISTS (
+                      SELECT 1 FROM governance_pulses gp
+                       WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
+                         AND gp.severity = 'Critical' AND gp.risk_domain && sc.risk_domain
+                         AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
+                    ) AS has_critical
              FROM signal_clusters sc
              JOIN houses h ON h.id = sc.house_id
              WHERE sc.company_id = $1 AND sc.house_id IN (${placeholderIds})
@@ -133,8 +179,20 @@ export class PulseService {
             [company_id, ...house_ids]
         );
 
-        // 3. Risk Candidates: Clusters with >=3 signals not yet promoted
-        const riskCandidates = patternSignals.rows.filter((c: any) => c.signal_count >= 3 && !c.linked_risk_id);
+        // 3. Risk Candidates: clusters at/over threshold OR carrying a Critical, not yet promoted.
+        const riskCandidates = patternSignals.rows.filter((c: any) => (c.signal_count >= PROMOTION_THRESHOLD || c.has_critical) && !c.linked_risk_id);
+
+        // Open escalations across these houses (for the shape-of-day strip).
+        let openEscalations = 0;
+        try {
+            const escRes = await query(
+                `SELECT COUNT(*)::int AS n FROM escalations
+                  WHERE company_id = $1 AND house_id IN (${placeholderIds})
+                    AND COALESCE(lifecycle_status, status) NOT IN ('Closed', 'Resolved')`,
+                [company_id, ...house_ids]
+            );
+            openEscalations = escRes.rows[0]?.n || 0;
+        } catch { openEscalations = 0; }
 
         // 4. Actions: Due today or overdue
         const actions = await query(
@@ -153,7 +211,9 @@ export class PulseService {
             highPriority,
             pattern_signals: patternSignals.rows,
             risk_candidates: riskCandidates,
-            actions: actions.rows
+            actions: actions.rows,
+            promotion_threshold: PROMOTION_THRESHOLD,
+            open_escalations: openEscalations
         };
     }
 }

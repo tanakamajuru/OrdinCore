@@ -24,6 +24,32 @@ export interface PulseDto {
     medication_error_type?: string;
 }
 
+// Resolve the default Team Leader a freshly captured signal should be allocated to.
+// 1. If the creator is a TL for this house, keep ownership with them.
+// 2. Otherwise the house's designated Team Leader (user_houses.role_in_house preferred).
+// 3. Otherwise the house manager (houses.manager_id).
+// 4. Otherwise null — surfaces in the UI as "Allocate to a Team Leader" (never silently ownerless).
+async function resolveDefaultAssignee(house_id: string, created_by: string): Promise<string | null> {
+    if (!house_id) return null;
+    const isTL = await query(
+        `SELECT 1 FROM user_houses uh JOIN users u ON u.id = uh.user_id
+          WHERE uh.user_id = $1 AND uh.house_id = $2 AND u.role = 'TEAM_LEADER'`,
+        [created_by, house_id]
+    );
+    if (isTL.rows.length) return created_by;
+
+    const tl = await query(
+        `SELECT uh.user_id FROM user_houses uh JOIN users u ON u.id = uh.user_id
+          WHERE uh.house_id = $1 AND u.role = 'TEAM_LEADER' AND u.status = 'active'
+          ORDER BY (uh.role_in_house = 'team_leader') DESC LIMIT 1`,
+        [house_id]
+    );
+    if (tl.rows[0]) return tl.rows[0].user_id;
+
+    const mgr = await query(`SELECT manager_id FROM houses WHERE id = $1`, [house_id]);
+    return mgr.rows[0]?.manager_id || null;
+}
+
 export const pulsesRepo = {
     async create(company_id: string, user_id: string, dto: PulseDto) {
         const id = uuidv4();
@@ -46,21 +72,41 @@ export const pulsesRepo = {
         const signalType = dto.signal_type || 'Concern';
         const relatedPerson = dto.related_person || dto.client_id || null;
 
+        // Auto-allocate the signal to the house's responsible Team Leader on capture.
+        const assignedTo = houseId ? await resolveDefaultAssignee(houseId, user_id) : null;
+
         const result = await query(
             `INSERT INTO governance_pulses (
                 id, company_id, house_id, created_by, entry_date, entry_time, related_person,
                 signal_type, risk_domain, governance_domain, description, immediate_action, severity,
-                has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'New', $18)
+                has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type,
+                assigned_to, assigned_at, assigned_by, allocation_is_auto
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'New', $18,
+                $19, ${'CASE WHEN $19::uuid IS NULL THEN NULL ELSE NOW() END'}, $20, TRUE)
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
                 signalType, riskDomain, governanceDomain, dto.description, dto.immediate_action || null, dto.severity,
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
-                dto.medication_error_type || null
+                dto.medication_error_type || null,
+                assignedTo, assignedTo ? user_id : null
             ]
         );
         return result.rows[0];
+    },
+
+    // Reassign a signal to a different Team Leader. Flips allocation_is_auto=false
+    // (now a deliberate human choice). The caller logs + notifies the new owner.
+    async reassign(pulse_id: string, company_id: string, new_assignee: string, acting_user_id: string) {
+        const result = await query(
+            `UPDATE governance_pulses
+                SET assigned_to = $1, assigned_at = NOW(), assigned_by = $2,
+                    allocation_is_auto = false, updated_at = NOW()
+              WHERE id = $3 AND company_id = $4
+              RETURNING *`,
+            [new_assignee, acting_user_id, pulse_id, company_id]
+        );
+        return result.rows[0] || null;
     },
 
     async findAll(company_id: string, filters: any = {}, limit = 50, offset = 0) {
@@ -87,13 +133,17 @@ export const pulsesRepo = {
         if (filters.start_date) { conditions.push(`gp.entry_date >= $${idx++}`); params.push(filters.start_date); }
         if (filters.end_date) { conditions.push(`gp.entry_date <= $${idx++}`); params.push(filters.end_date); }
         if (filters.created_by) { conditions.push(`gp.created_by = $${idx++}`); params.push(filters.created_by); }
+        if (filters.assigned_to) { conditions.push(`gp.assigned_to = $${idx++}`); params.push(filters.assigned_to); }
 
         const where = conditions.join(' AND ');
         const result = await query(
-            `SELECT gp.*, gp.review_status as status, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name
+            `SELECT gp.*, gp.review_status as status, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name,
+                    u.first_name || ' ' || u.last_name as created_by_name,
+                    au.first_name || ' ' || au.last_name as assigned_to_name
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
+             LEFT JOIN users au ON au.id = gp.assigned_to
              WHERE ${where}
              ORDER BY gp.entry_date DESC, gp.entry_time DESC
              LIMIT ${limit} OFFSET ${offset}`,
@@ -105,11 +155,13 @@ export const pulsesRepo = {
     async findById(id: string, company_id: string) {
         const result = await query(
             `SELECT gp.*, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name,
-                    rb.first_name || ' ' || rb.last_name as reviewed_by_name
+                    rb.first_name || ' ' || rb.last_name as reviewed_by_name,
+                    au.first_name || ' ' || au.last_name as assigned_to_name
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
              LEFT JOIN users rb ON rb.id = gp.reviewed_by
+             LEFT JOIN users au ON au.id = gp.assigned_to
              WHERE gp.id = $1 AND gp.company_id = $2`,
             [id, company_id]
         );

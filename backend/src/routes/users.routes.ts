@@ -91,6 +91,9 @@ router.get('/:id', requireAuth, requireTenant, usersController.findById.bind(use
 router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.update.bind(usersController));
 
 router.patch('/:id/password', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.resetPassword.bind(usersController));
+
+// Admin: per-user "can view all sites" read-scope override (audited).
+router.patch('/:id/site-visibility', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.setSiteVisibility.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:

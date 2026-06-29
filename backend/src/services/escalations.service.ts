@@ -100,13 +100,22 @@ export class EscalationsService {
           h.name AS house_name,
           h.name AS service_name,
           COALESCE(e.house_id, r.house_id, i.house_id) AS house_id,
-          (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue
+          (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue,
+          -- Originating signal — the decision-making evidence the detail pane needs.
+          p.description AS observation,
+          p.immediate_action AS signal_immediate_action,
+          p.severity AS signal_severity,
+          p.related_person AS signal_related_person,
+          p.risk_domain AS signal_risk_domain,
+          p.signal_type AS signal_type,
+          p.created_at AS signal_logged_at
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
          LEFT JOIN risks r ON r.id = e.risk_id
          LEFT JOIN incidents i ON i.id = e.incident_id
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
+         LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
          WHERE ${where}
          ORDER BY e.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
         params
@@ -121,10 +130,18 @@ export class EscalationsService {
     const result = await query(
       `SELECT e.*,
         u1.first_name || ' ' || u1.last_name AS escalated_by_name,
-        u2.first_name || ' ' || u2.last_name AS escalated_to_name
+        u2.first_name || ' ' || u2.last_name AS escalated_to_name,
+        p.description AS observation,
+        p.immediate_action AS signal_immediate_action,
+        p.severity AS signal_severity,
+        p.related_person AS signal_related_person,
+        p.risk_domain AS signal_risk_domain,
+        p.signal_type AS signal_type,
+        p.created_at AS signal_logged_at
        FROM escalations e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
+       LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
        WHERE e.id = $1 AND e.company_id = $2`,
       [id, company_id]
     );

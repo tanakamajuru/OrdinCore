@@ -98,6 +98,36 @@ export class WeeklyReviewsController {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to validate weekly review' });
     }
   }
+
+  async publish(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const review = await weeklyReviewsService.publish(req.params.id, company_id, req.user!.user_id);
+      return res.json({ success: true, data: review });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to publish weekly review' });
+    }
+  }
+
+  async acknowledge(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await weeklyReviewsService.acknowledge(req.params.id, company_id, req.user!.user_id);
+      return res.json({ success: true, data: result });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to acknowledge weekly review' });
+    }
+  }
+
+  async getAcknowledgements(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await weeklyReviewsService.getAcknowledgements(req.params.id, company_id);
+      return res.json({ success: true, data: result });
+    } catch (err: unknown) {
+      return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load acknowledgements' });
+    }
+  }
 }
 
 

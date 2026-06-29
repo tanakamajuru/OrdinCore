@@ -1,4 +1,6 @@
 import bcrypt from 'bcryptjs';
+import { v4 as uuidv4 } from 'uuid';
+import { query } from '../config/database';
 import { usersRepo } from '../repositories/users.repo';
 import { housesRepo } from '../repositories/houses.repo';
 import { authService } from './auth.service';
@@ -215,6 +217,32 @@ export class UsersService {
     this.validatePassword(passwordString);
     const password_hash = await bcrypt.hash(passwordString, 12);
     await usersRepo.update(userId, { password_hash } as any);
+  }
+
+  // Site-visibility override: grant/revoke a user's ability to view signals
+  // across ALL company sites. Read-scope widening only — never touches role or
+  // permissions. Same-company guarded + audited (CQC: who changed access, when).
+  async setViewAllHouses(company_id: string, targetUserId: string, value: boolean, actingUserId: string) {
+    const u = await usersRepo.findById(targetUserId, company_id);
+    if (!u || u.company_id !== company_id) throw new Error('User not found');
+
+    await usersRepo.update(targetUserId, {
+      can_view_all_houses: value,
+      view_all_houses_granted_by: value ? actingUserId : null,
+      view_all_houses_granted_at: value ? new Date() : null,
+    } as any);
+
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+       VALUES ($1, $2, $3, $4, 'user', $5, $6)`,
+      [
+        uuidv4(), company_id, actingUserId,
+        value ? 'GRANT_VIEW_ALL_SITES' : 'REVOKE_VIEW_ALL_SITES',
+        targetUserId, JSON.stringify({ can_view_all_houses: value }),
+      ]
+    );
+
+    return { id: targetUserId, can_view_all_houses: value };
   }
 
   async search(company_id: string | null, queryStr: string, page = 1, limit = 50, role?: string, status?: string) {

@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, D
 import { Switch } from './ui/switch';
 import { Checkbox } from './ui/checkbox';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from './ui/alert-dialog';
-import { Users, UserPlus, Edit, Trash2, Key, Search, RefreshCw } from 'lucide-react';
+import { Users, UserPlus, Edit, Trash2, Key, Search, RefreshCw, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROLES } from '../../constants/roles';
 
@@ -27,6 +27,9 @@ interface User {
   organization?: string;
   created_at?: string;
   updated_at?: string;
+  can_view_all_houses?: boolean;
+  view_all_houses_granted_by_name?: string | null;
+  view_all_houses_granted_at?: string | null;
 }
 
 interface House {
@@ -67,6 +70,7 @@ const AdminUserManagement: React.FC = () => {
   const [statusFilter, setStatusFilter] = useState('active');
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
+  const [siteVisGrantTarget, setSiteVisGrantTarget] = useState<User | null>(null);
 
 
   // Form state
@@ -391,6 +395,38 @@ const AdminUserManagement: React.FC = () => {
     }
   };
 
+  // Site visibility: grant/revoke a user's read-scope across all sites (audited).
+  // Grant goes through a confirm dialog (it widens access); revoke is immediate.
+  const applySiteVisibility = async (user: User, value: boolean) => {
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${user.id}/site-visibility`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`,
+        },
+        body: JSON.stringify({ can_view_all_houses: value }),
+      });
+      if (response.ok) {
+        toast.success(value ? 'Granted: user can now see all sites' : 'Revoked: user limited to assigned site(s)');
+        setUsers(prev => prev.map(u => u.id === user.id ? { ...u, can_view_all_houses: value } : u));
+      } else {
+        const error = await response.json().catch(() => ({}));
+        toast.error(error.message || 'Failed to update site visibility');
+      }
+    } catch (error) {
+      toast.error('Network error occurred');
+    }
+  };
+
+  const handleSiteVisibilityToggle = (user: User, value: boolean) => {
+    if (value) {
+      setSiteVisGrantTarget(user); // confirm before widening access
+    } else {
+      applySiteVisibility(user, false); // revoke immediately
+    }
+  };
+
   const resetForm = () => {
     setFormData({
       email: '',
@@ -577,6 +613,7 @@ const AdminUserManagement: React.FC = () => {
                   <TableHead className="text-primary ">Email</TableHead>
                   <TableHead className="text-primary ">Role</TableHead>
                   <TableHead className="text-primary ">Assigned Site</TableHead>
+                  <TableHead className="text-primary ">Site Visibility</TableHead>
                   <TableHead className="text-primary ">Pulse Days</TableHead>
                   <TableHead className="text-primary ">Status</TableHead>
                   <TableHead className="text-primary ">Actions</TableHead>
@@ -592,7 +629,31 @@ const AdminUserManagement: React.FC = () => {
                         {user.role.toLowerCase().replace(/_|-/g, ' ')}
                       </Badge>
                     </TableCell>
-                    <TableCell className="text-foreground">{user.assigned_house_name || '-'}</TableCell>
+                    <TableCell className="text-foreground">
+                      {user.can_view_all_houses
+                        ? <span className="inline-flex items-center gap-1 text-primary font-medium"><Globe className="h-3.5 w-3.5" /> All sites</span>
+                        : (user.assigned_house_name || '-')}
+                    </TableCell>
+                    <TableCell>
+                      {(() => {
+                        const role = user.role.toUpperCase();
+                        // Scope is role-determined for these — the flag doesn't govern them.
+                        const roleSeesAll = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(role);
+                        if (roleSeesAll) {
+                          return <span className="text-[11px] text-muted-foreground" title="This role already sees all sites — its scope isn't governed by this toggle.">All (by role)</span>;
+                        }
+                        if (role === 'REGISTERED_MANAGER') {
+                          return <span className="text-[11px] text-muted-foreground" title="A Registered Manager's scope is their assigned site(s) — not governed by this toggle.">By assignment</span>;
+                        }
+                        // Team Leader (and any other site-scoped role): interactive, audited toggle.
+                        return (
+                          <div className="flex items-center gap-2" title={user.can_view_all_houses && user.view_all_houses_granted_by_name ? `Granted by ${user.view_all_houses_granted_by_name}${user.view_all_houses_granted_at ? ' · ' + new Date(user.view_all_houses_granted_at).toLocaleDateString('en-GB') : ''}` : 'Allow this Team Leader to see signals across all sites'}>
+                            <Switch checked={!!user.can_view_all_houses} onCheckedChange={(val) => handleSiteVisibilityToggle(user, val)} />
+                            <span className="text-[11px] text-muted-foreground">{user.can_view_all_houses ? 'On' : 'Off'}</span>
+                          </div>
+                        );
+                      })()}
+                    </TableCell>
                     <TableCell>
                       {['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(user.role.toUpperCase()) && user.pulse_days ? (
                         <div className="flex flex-wrap gap-1">
@@ -910,6 +971,26 @@ const AdminUserManagement: React.FC = () => {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Site Visibility grant confirmation (widens access — confirm before granting) */}
+      <AlertDialog open={!!siteVisGrantTarget} onOpenChange={(open) => { if (!open) setSiteVisGrantTarget(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle className="flex items-center gap-2"><Globe className="h-5 w-5 text-primary" /> Grant all-site visibility?</AlertDialogTitle>
+            <AlertDialogDescription>
+              <span className="font-medium text-foreground">{siteVisGrantTarget?.name}</span> will be able to <span className="font-medium">see signals and dashboards across all sites</span>, not just their assigned site(s).
+              <br /><br />
+              This does <span className="font-medium">not</span> change their role, their ability to promote risks, or who owns a decision — it only widens what they can view. The change is recorded in the audit log and can be revoked at any time.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={() => { if (siteVisGrantTarget) applySiteVisibility(siteVisGrantTarget, true); setSiteVisGrantTarget(null); }}>
+              Grant all-site visibility
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Delete/Archive Confirmation */}
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen}>

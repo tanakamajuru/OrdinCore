@@ -11,6 +11,7 @@ interface SignalDetail {
   house_id: string;
   house_name: string;
   creator_name: string;
+  created_by_name?: string;
   entry_date: string;
   entry_time: string;
   related_person: string;
@@ -23,6 +24,14 @@ interface SignalDetail {
   pattern_concern: string;
   escalation_required: string;
   review_status: string;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
+  allocation_is_auto?: boolean;
+}
+
+interface TeamLeaderOption {
+  id: string;
+  name: string;
 }
 
 export function SignalDetail() {
@@ -31,12 +40,41 @@ export function SignalDetail() {
   const { user } = useAuth();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [teamLeaders, setTeamLeaders] = useState<TeamLeaderOption[]>([]);
+  const [reassigning, setReassigning] = useState(false);
+  const canAllocate = user?.role === 'TEAM_LEADER' || user?.role === 'REGISTERED_MANAGER' || user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
 
   useEffect(() => {
     if (id) {
       loadSignalDetails(id);
     }
   }, [id]);
+
+  useEffect(() => {
+    if (!canAllocate) return;
+    (async () => {
+      try {
+        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
+        const list = (res.data as any).data?.users ?? (res.data as any).data ?? [];
+        setTeamLeaders(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })));
+      } catch { /* picker just stays empty */ }
+    })();
+  }, [canAllocate]);
+
+  const reassignSignal = async (assigned_to: string) => {
+    if (!signal || !assigned_to) return;
+    setReassigning(true);
+    try {
+      await apiClient.patch(`/pulses/${signal.id}/assignee`, { assigned_to });
+      const picked = teamLeaders.find(t => t.id === assigned_to);
+      setSignal({ ...signal, assigned_to, assigned_to_name: picked?.name || signal.assigned_to_name, allocation_is_auto: false });
+      toast.success('Signal reallocated');
+    } catch (err) {
+      toast.error('Failed to reallocate signal');
+    } finally {
+      setReassigning(false);
+    }
+  };
 
   const loadSignalDetails = async (signalId: string) => {
     try {
@@ -113,12 +151,46 @@ export function SignalDetail() {
               {signal.house_name} • Logged on {formatDate(signal.entry_date)} at {signal.entry_time.slice(0, 5)}
             </p>
           </div>
-          <div className="bg-card border-2 border-border p-4 shadow-sm w-full md:w-auto">
-              <span className="text-xs text-muted-foreground  uppercase tracking-wider block mb-1">Submitted By</span>
-              <span className="text-foreground  flex items-center gap-2">
-                  <User className="w-4 h-4" />
-                  {signal.creator_name || 'Team Leader'}
-              </span>
+          <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+            <div className="bg-card border-2 border-border p-4 shadow-sm flex-1 md:flex-none">
+                <span className="text-xs text-muted-foreground  uppercase tracking-wider block mb-1">Submitted By</span>
+                <span className="text-foreground  flex items-center gap-2">
+                    <User className="w-4 h-4" />
+                    {signal.creator_name || signal.created_by_name || 'Team Leader'}
+                </span>
+                <span className="text-[10px] text-muted-foreground block mt-1">Permanent record — who raised it</span>
+            </div>
+            <div className="bg-card border-2 border-border p-4 shadow-sm flex-1 md:flex-none md:min-w-[220px]">
+                <span className="text-xs text-muted-foreground uppercase tracking-wider block mb-1">Allocated To</span>
+                {signal.assigned_to_name ? (
+                  <span className="text-foreground flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-primary" />
+                    {signal.assigned_to_name}
+                  </span>
+                ) : (
+                  <span className="text-warning flex items-center gap-2 text-sm font-medium">
+                    <AlertTriangle className="w-4 h-4" /> Unallocated
+                  </span>
+                )}
+                {signal.assigned_to_name && (
+                  <span className="text-[10px] text-muted-foreground block mt-1">
+                    {signal.allocation_is_auto ? 'Auto-allocated to house Team Leader' : 'Manually allocated'}
+                  </span>
+                )}
+                {canAllocate && (
+                  <select
+                    disabled={reassigning}
+                    value=""
+                    onChange={(e) => reassignSignal(e.target.value)}
+                    className="mt-2 w-full text-xs border border-border rounded px-2 py-1 bg-background text-foreground"
+                  >
+                    <option value="">{signal.assigned_to_name ? 'Reassign to…' : 'Allocate to a Team Leader…'}</option>
+                    {teamLeaders.filter(t => t.id !== signal.assigned_to).map(t => (
+                      <option key={t.id} value={t.id}>{t.name}</option>
+                    ))}
+                  </select>
+                )}
+            </div>
           </div>
         </div>
 

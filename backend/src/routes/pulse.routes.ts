@@ -62,6 +62,15 @@ router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_
  */
 router.post('/:id/link-risk', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), pulseController.linkToRisk.bind(pulseController));
 
+/**
+ * @openapi
+ * /api/v1/pulses/{id}/assignee:
+ *   patch:
+ *     tags: [Pulses]
+ *     summary: Reassign a signal to a different Team Leader
+ */
+router.patch('/:id/assignee', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.reassignSignal.bind(pulseController));
+
 // Alias for singular /pulse to reuse existing /pulses logic
 router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));
 

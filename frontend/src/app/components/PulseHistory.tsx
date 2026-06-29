@@ -42,12 +42,16 @@ export function PulseHistory() {
   const [searchDate, setSearchDate] = useState("");
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 15;
+  const isTL = (user?.role || '').toUpperCase().replace('-', '_') === 'TEAM_LEADER' || (user?.role || '').toUpperCase() === 'TL';
+  // For a Team Leader, signals split three ways: what they OWN (allocated to me —
+  // the work queue), everything at their site(s), and what they personally raised.
+  const [view, setView] = useState<'allocated' | 'all' | 'raised'>('allocated');
 
   useEffect(() => {
     if (user) {
       loadPulseHistory();
     }
-  }, [user]);
+  }, [user, view]);
 
   // Reset to the first page whenever the filters change.
   useEffect(() => { setPage(1); }, [searchTerm, searchDate]);
@@ -57,11 +61,13 @@ export function PulseHistory() {
   const loadPulseHistory = async () => {
     try {
       setIsLoading(true);
-      // Fetch pulses created by this user
       const params: any = { limit: 100 };
-      const role = (user?.role || '').toUpperCase().replace('-', '_');
-      if (role === 'TEAM_LEADER' || role === 'TL') {
-        params.created_by = user?.id;
+      // Team Leader views: allocated to me (default), all site signals, or raised by me.
+      // Other roles see all org signals (house-scoped server-side) as before.
+      if (isTL) {
+        if (view === 'allocated') params.assigned_to = user?.id;
+        else if (view === 'raised') params.created_by = user?.id;
+        // 'all' => no extra filter; server scopes to the TL's assigned house(s)
       }
 
       const res = await apiClient.get('/pulses', { params });
@@ -114,8 +120,10 @@ export function PulseHistory() {
           <div>
             <h1 className="text-4xl  text-primary tracking-tighter uppercase ">Pulse History</h1>
             <p className="text-muted-foreground ">
-              {(user?.role?.toUpperCase() === 'TEAM_LEADER' || user?.role?.toUpperCase() === 'TL') 
-                ? "All governance signals you have submitted" 
+              {isTL
+                ? (view === 'allocated' ? "Signals allocated to you for follow-up"
+                  : view === 'raised' ? "Signals you personally raised"
+                  : "All signals across your site(s)")
                 : "All governance signals for your organisation"}
             </p>
           </div>
@@ -150,6 +158,26 @@ export function PulseHistory() {
             </div>
           </div>
         </div>
+
+        {isTL && (
+          <div className="flex gap-1 mb-4 border-b-2 border-border">
+            {([
+              { key: 'allocated', label: 'Allocated to me' },
+              { key: 'all', label: 'All site signals' },
+              { key: 'raised', label: 'Raised by me' },
+            ] as const).map(t => (
+              <button
+                key={t.key}
+                onClick={() => setView(t.key)}
+                className={`px-4 py-2 text-sm font-medium -mb-0.5 border-b-2 transition-colors ${
+                  view === t.key ? 'border-primary text-primary' : 'border-transparent text-muted-foreground hover:text-foreground'
+                }`}
+              >
+                {t.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {isLoading ? (
           <div className="flex justify-center py-20">

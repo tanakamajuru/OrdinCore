@@ -36,6 +36,13 @@ export class PulseController {
             if (typeof filters.severity === 'string' && filters.severity.includes(',')) {
                 filters.severity = filters.severity.split(',');
             }
+            // A Team Leader's signal list is always scoped to the house(s) they can see
+            // (assigned_house_ids — already widened if granted all-site visibility), so
+            // the "All site signals" view never leaks cross-site signals.
+            if ((req.user!.role || '').toUpperCase() === 'TEAM_LEADER' && !filters.house_id) {
+                const houseIds = req.user!.assigned_house_ids || [];
+                filters.house_id = houseIds.length > 0 ? houseIds : ['00000000-0000-0000-0000-000000000000'];
+            }
             const pulses = await pulseService.getPulses(company_id, filters);
             res.json({ success: true, data: pulses });
         } catch (err: any) {
@@ -74,6 +81,18 @@ export class PulseController {
             const user_id = req.user!.user_id;
             const result = await pulseService.linkToRisk(id, company_id, user_id, risk_id, link_note);
             res.json({ success: true, data: result });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
+    async reassignSignal(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { assigned_to } = req.body || {};
+            const updated = await pulseService.reassignSignal(id, company_id, assigned_to, req.user!.user_id);
+            res.json({ success: true, data: updated });
         } catch (err: any) {
             res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
         }

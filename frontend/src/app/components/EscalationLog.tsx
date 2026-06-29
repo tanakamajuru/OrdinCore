@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
@@ -22,7 +22,22 @@ interface Escalation {
   acknowledged_at?: string;
   resolved_at?: string;
   resolution_notes?: string;
+  // Originating signal — the evidence behind the escalation (joined from governance_pulses).
+  observation?: string;
+  signal_immediate_action?: string;
+  signal_severity?: string;
+  signal_related_person?: string;
+  signal_risk_domain?: string[] | string;
+  signal_type?: string;
+  signal_logged_at?: string;
 }
+
+// risk_domain is TEXT[] — render the first element, never the raw {…}.
+const firstDomain = (d?: string[] | string): string => {
+  if (Array.isArray(d)) return d[0] || "";
+  if (typeof d === "string") return d.replace(/[{}]/g, "").split(",")[0] || "";
+  return "";
+};
 
 export function EscalationLog() {
   const [escalations, setEscalations] = useState<Escalation[]>([]);
@@ -31,6 +46,18 @@ export function EscalationLog() {
   const [resolutionNotes, setResolutionNotes] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeTarget, setCloseTarget] = useState<{ id: string; title?: string } | null>(null);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
+  const [noteFlash, setNoteFlash] = useState(false);
+
+  // Turn a dead-click on a gated action into guidance: focus the notes field and flash it.
+  const requireNote = (): boolean => {
+    if (resolutionNotes.trim()) return true;
+    notesRef.current?.focus();
+    setNoteFlash(true);
+    setTimeout(() => setNoteFlash(false), 1200);
+    toast.info('Add a note to record why — then you can resolve or keep monitoring.');
+    return false;
+  };
 
   useEffect(() => {
     loadEscalations();
@@ -242,6 +269,38 @@ export function EscalationLog() {
                       </div>
                     </div>
 
+                    {/* Originating signal — the decision-making evidence (observation,
+                        severity, person, immediate action already taken). */}
+                    {(selectedEscalation.observation || selectedEscalation.signal_severity) && (
+                      <div className="border-2 border-border rounded-lg p-3 bg-background">
+                        <label className="text-xs uppercase text-muted-foreground mb-2 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> Originating signal</label>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {selectedEscalation.signal_severity && (
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                              ['High', 'Critical'].includes(selectedEscalation.signal_severity) ? 'bg-destructive/10 text-destructive' : 'bg-muted text-foreground'
+                            }`}>{selectedEscalation.signal_severity}</span>
+                          )}
+                          {firstDomain(selectedEscalation.signal_risk_domain) && (
+                            <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{firstDomain(selectedEscalation.signal_risk_domain)}</span>
+                          )}
+                          {selectedEscalation.signal_related_person && (
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {selectedEscalation.signal_related_person}</span>
+                          )}
+                        </div>
+                        {selectedEscalation.observation && (
+                          <p className="text-sm text-foreground">{selectedEscalation.observation}</p>
+                        )}
+                        {selectedEscalation.signal_immediate_action && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">Immediate action taken: </span>{selectedEscalation.signal_immediate_action}
+                          </div>
+                        )}
+                        {selectedEscalation.signal_logged_at && (
+                          <p className="text-[10px] text-muted-foreground mt-2">Logged {new Date(selectedEscalation.signal_logged_at).toLocaleString('en-GB')}</p>
+                        )}
+                      </div>
+                    )}
+
                     <div className="grid grid-cols-2 gap-4">
                       <div>
                         <label className="text-xs  uppercase text-muted-foreground block mb-1">Site</label>
@@ -264,38 +323,45 @@ export function EscalationLog() {
 
                     {selectedEscalation.status?.toLowerCase?.() !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
-                        <label className="text-xs uppercase text-muted-foreground block">Decision &amp; notes</label>
+                        <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5">
+                          Decision &amp; notes {!resolutionNotes && <span className="text-amber-600 normal-case font-medium">· required</span>}
+                        </label>
                         <textarea
+                          ref={notesRef}
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
                           spellCheck
                           placeholder="Document your oversight, progress, or the reason for your decision..."
-                          className="w-full h-28 bg-input-background border-2 border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
+                          className={`w-full h-28 bg-input-background border-2 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none transition-colors ${
+                            !resolutionNotes ? 'border-amber-400' : 'border-border'
+                          } ${noteFlash ? 'ring-2 ring-amber-400 animate-pulse' : ''}`}
                         />
-                        {!resolutionNotes && (
-                          <p className="text-xs text-muted-foreground">Add a note above to enable “Continue monitoring” and “Resolve”.</p>
-                        )}
 
-                        {/* The three-way decision: keep monitoring · resolve · escalate further */}
+                        {/* The three-way decision: keep monitoring · resolve · escalate further.
+                            Gated actions stay clickable so a tap focuses the note field (guidance,
+                            not a dead button) while still looking inactive until a note is present. */}
                         <div className="flex flex-col sm:flex-row gap-3">
                           <Button
-                            onClick={handleUpdateProgress}
-                            disabled={isSubmitting || !resolutionNotes}
+                            onClick={() => { if (requireNote()) handleUpdateProgress(); }}
+                            disabled={isSubmitting}
                             variant="outline"
                             title={!resolutionNotes ? "Add a note to enable" : "Keep this escalation open and log progress"}
-                            className="flex-1 border-border text-foreground hover:bg-muted disabled:opacity-50"
+                            className={`flex-1 border-border text-foreground hover:bg-muted ${!resolutionNotes ? 'opacity-60' : ''}`}
                           >
                             <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>
                           <Button
-                            onClick={handleResolve}
-                            disabled={isSubmitting || !resolutionNotes}
+                            onClick={() => { if (requireNote()) handleResolve(); }}
+                            disabled={isSubmitting}
                             title={!resolutionNotes ? "Add a note to enable" : "Mark this escalation resolved"}
-                            className="flex-1 bg-success text-success-foreground hover:bg-success/90 disabled:opacity-50"
+                            className={`flex-1 bg-success text-success-foreground hover:bg-success/90 ${!resolutionNotes ? 'opacity-60' : ''}`}
                           >
                             <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark as Resolved
                           </Button>
                         </div>
+                        {!resolutionNotes && (
+                          <p className="text-xs text-amber-600">A note is required before you can resolve or keep this escalation open — it's the record of your decision.</p>
+                        )}
 
                         <div className="flex flex-col sm:flex-row gap-3">
                           <button

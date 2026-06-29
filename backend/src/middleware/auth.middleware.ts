@@ -37,7 +37,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     // Verify user still exists and is active, and fetch assigned houses
     const result = await query(
-      `SELECT u.id, u.company_id, u.email, u.role, u.status, c.status AS company_status,
+      `SELECT u.id, u.company_id, u.email, u.role, u.status, u.can_view_all_houses, c.status AS company_status,
               ARRAY_AGG(DISTINCT COALESCE(uh.house_id, h_direct.id)) FILTER (WHERE COALESCE(uh.house_id, h_direct.id) IS NOT NULL) AS house_ids
        FROM users u
        LEFT JOIN companies c ON c.id = u.company_id
@@ -66,7 +66,15 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     }
 
     let finalHouseIds = user.house_ids || [];
-    if (finalHouseIds.length === 0 && (user.role === 'RESPONSIBLE_INDIVIDUAL' || user.role === 'DIRECTOR' || user.role === 'SUPER_ADMIN')) {
+    // The user's own home house — preserved as the capture / "my house" default
+    // even when read-scope is widened to all sites below.
+    const homeHouseId = finalHouseIds.length > 0 ? finalHouseIds[0] : null;
+    const roleSeesAll = user.role === 'RESPONSIBLE_INDIVIDUAL' || user.role === 'DIRECTOR' || user.role === 'SUPER_ADMIN';
+    // An admin-granted per-user override widens read scope to all company sites
+    // (e.g. a senior Team Leader covering multiple houses). Read-only widening:
+    // every signal/dashboard query already filters on assigned_house_ids, so no
+    // downstream query changes are needed.
+    if (user.can_view_all_houses || (finalHouseIds.length === 0 && roleSeesAll)) {
       const allHouses = await query('SELECT id FROM houses WHERE company_id = $1 AND status != $2', [user.company_id, 'closed']);
       finalHouseIds = allHouses.rows.map(h => h.id);
     }
@@ -77,7 +85,9 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       role: user.role,
       email: user.email,
       assigned_house_ids: finalHouseIds,
-      assigned_house_id: finalHouseIds.length > 0 ? finalHouseIds[0] : null,
+      // Capture default stays on the user's home house; falls back to first
+      // visible house for role-sees-all users who have no direct assignment.
+      assigned_house_id: homeHouseId || (finalHouseIds.length > 0 ? finalHouseIds[0] : null),
     };
 
     next();

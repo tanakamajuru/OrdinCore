@@ -42,6 +42,22 @@ export class UsersController {
     }
   }
 
+  // Admin: grant/revoke "can view all sites" for a specific user (read-scope only).
+  async setSiteVisibility(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { can_view_all_houses } = req.body || {};
+      if (typeof can_view_all_houses !== 'boolean') {
+        return res.status(400).json({ success: false, message: 'can_view_all_houses (boolean) is required', errors: [] });
+      }
+      const data = await usersService.setViewAllHouses(company_id, req.params.id, can_view_all_houses, req.user!.user_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update site visibility';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async findById(req: Request, res: Response) {
     try {
       const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;

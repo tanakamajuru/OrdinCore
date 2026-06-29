@@ -320,6 +320,84 @@ export class WeeklyReviewsService {
 
     return result.rows[0];
   }
+
+  // Publish a validated/locked review to the house team. Only runs once validated,
+  // stamps publisher + time, and fans out a notification to all active staff at the
+  // house (+ users granted all-site visibility).
+  async publish(id: string, company_id: string, user_id: string) {
+    const rev = await this.findById(id, company_id);
+    if (!rev) throw new Error('Review not found');
+    if (rev.status !== 'LOCKED' && rev.status !== 'published' && rev.validation_status !== 'Approved') {
+      throw new Error('Only a validated/locked review can be published to the team.');
+    }
+
+    const result = await query(
+      `UPDATE weekly_reviews
+          SET status = 'published', published_at = NOW(), published_by = $1, updated_at = NOW()
+        WHERE id = $2 AND company_id = $3
+        RETURNING *`,
+      [user_id, id, company_id]
+    );
+
+    // Recipients: active staff at this house (+ all-site-visibility users).
+    const team = await query(
+      `SELECT DISTINCT u.id
+         FROM users u
+         LEFT JOIN user_houses uh ON uh.user_id = u.id
+        WHERE u.company_id = $1 AND u.status = 'active'
+          AND (uh.house_id = $2 OR u.can_view_all_houses = true)`,
+      [company_id, rev.house_id]
+    );
+
+    const { notificationsService } = require('./notifications.service');
+    for (const m of team.rows) {
+      await notificationsService.create({
+        company_id, user_id: m.id,
+        type: 'weekly_review_published',
+        title: 'Weekly review published',
+        body: `The weekly governance review for your service (W/E ${rev.week_ending}) is ready to read.`,
+        link: `/weekly-reviews/${id}`,
+        metadata: { review_id: id, house_id: rev.house_id },
+      });
+    }
+
+    return { ...result.rows[0], recipients: team.rows.length };
+  }
+
+  // Current user marks a published review as read. Idempotent.
+  async acknowledge(reviewId: string, company_id: string, user_id: string) {
+    await query(
+      `INSERT INTO weekly_review_acknowledgements (company_id, review_id, user_id)
+       VALUES ($1, $2, $3) ON CONFLICT (review_id, user_id) DO NOTHING`,
+      [company_id, reviewId, user_id]
+    );
+    return { acknowledged: true };
+  }
+
+  // Roster driving the read-only view's progress + list: who has / hasn't read it.
+  async getAcknowledgements(reviewId: string, company_id: string) {
+    const rev = await this.findById(reviewId, company_id);
+    if (!rev) throw new Error('Review not found');
+    const result = await query(
+      `SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.role,
+              a.acknowledged_at,
+              (a.id IS NOT NULL) AS acknowledged
+         FROM users u
+         LEFT JOIN user_houses uh ON uh.user_id = u.id
+         LEFT JOIN weekly_review_acknowledgements a
+           ON a.user_id = u.id AND a.review_id = $1
+        WHERE u.company_id = $2 AND u.status = 'active'
+          AND (uh.house_id = $3 OR u.can_view_all_houses = true)
+        ORDER BY acknowledged DESC, u.first_name`,
+      [reviewId, company_id, rev.house_id]
+    );
+    const roster = result.rows;
+    return {
+      total: roster.length,
+      acknowledged: roster.filter((r: any) => r.acknowledged).length,
+      roster,
+    };
+  }
 }
 
 export const weeklyReviewsService = new WeeklyReviewsService();

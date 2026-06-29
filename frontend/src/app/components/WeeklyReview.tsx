@@ -3,7 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight } from "lucide-react";
+import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users } from "lucide-react";
 
 // 13-step Weekly Governance Review wizard (per the doctrine/JSX MVP). Steps unlock in
 // order; steps 2–10 auto-populate from the week's data; the RM supplies interpretation,
@@ -34,9 +34,15 @@ export function WeeklyReview() {
   const [validation, setValidation] = useState<any>(null);
   const [step, setStep] = useState(0);
   const [doneStep, setDoneStep] = useState(0);
+  const [acks, setAcks] = useState<{ total: number; acknowledged: number; roster: any[] } | null>(null);
 
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
-  const locked = status === "Locked" || status === "pending_validation";
+  const statusU = (status || "").toUpperCase();
+  const locked = statusU === "LOCKED" || status === "pending_validation" || statusU === "PUBLISHED";
+  const isValidatedLocked = statusU === "LOCKED" || validation?.validation_status === "Approved";
+  const isPublished = statusU === "PUBLISHED";
+  const myId = user.id || user.user_id;
+  const myAck = acks?.roster?.find((r: any) => r.id === myId);
 
   useEffect(() => { loadHouses(); }, []);
   useEffect(() => { if (houseId) loadReview(houseId); }, [houseId, id]);
@@ -146,6 +152,43 @@ export function WeeklyReview() {
     finally { setIsSaving(false); }
   };
 
+  const loadAcks = async (rid: string) => {
+    try {
+      const res = await apiClient.get(`/weekly-reviews/${rid}/acknowledgements`);
+      setAcks(res.data?.data || null);
+    } catch { /* roster optional */ }
+  };
+
+  useEffect(() => {
+    const rid = (id && id !== "new") ? id : reviewId;
+    if (rid && (isPublished || isValidatedLocked)) loadAcks(rid);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, reviewId, id]);
+
+  const publishToTeam = async () => {
+    const rid = (id && id !== "new") ? id : reviewId;
+    if (!rid) return;
+    setIsSaving(true);
+    try {
+      const res = await apiClient.post(`/weekly-reviews/${rid}/publish`, {});
+      const n = res.data?.data?.recipients;
+      toast.success(`Published to the team${typeof n === "number" ? ` · ${n} notified` : ""}`);
+      setStatus("published");
+      loadAcks(rid);
+    } catch { toast.error("Failed to publish — the review must be validated first."); }
+    finally { setIsSaving(false); }
+  };
+
+  const acknowledge = async () => {
+    const rid = (id && id !== "new") ? id : reviewId;
+    if (!rid) return;
+    try {
+      await apiClient.post(`/weekly-reviews/${rid}/acknowledge`, {});
+      toast.success("Marked as read");
+      loadAcks(rid);
+    } catch { toast.error("Failed to acknowledge"); }
+  };
+
   const doValidate = async (vStatus: string) => {
     const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
     if (comment === null) return;
@@ -232,6 +275,71 @@ export function WeeklyReview() {
           <div className={`${card} mb-4 border-l-4 ${validation.validation_status === "Approved" ? "border-emerald-500" : "border-red-500"}`}>
             <p className="text-sm font-medium">RI Validation: {validation.validation_status}</p>
             {validation.validation_comment && <p className="text-sm text-muted-foreground mt-1">{validation.validation_comment}</p>}
+          </div>
+        )}
+
+        {/* Publish to team — appears once the review is validated/locked. Separates
+            "governed" from "communicated": the team that recorded the signals and
+            carries out the actions gets the review, with a logged acknowledgement. */}
+        {(isValidatedLocked || isPublished) && (
+          <div className={`${card} mb-4`}>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+              <div className="flex items-center gap-2">
+                {isPublished
+                  ? <span className="inline-flex items-center gap-1.5 text-sm font-medium text-emerald-700"><Check size={16} /> Published to the team</span>
+                  : <span className="inline-flex items-center gap-1.5 text-sm font-medium text-foreground"><Lock size={15} /> Validated & locked</span>}
+              </div>
+              {!isPublished && (
+                <button onClick={publishToTeam} disabled={isSaving}
+                  className="px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5 disabled:opacity-50">
+                  <Send size={14} /> Publish to team
+                </button>
+              )}
+            </div>
+
+            {isPublished && (
+              <div className="mt-4 border-t border-border/60 pt-4">
+                {/* This user's own acknowledgement */}
+                {myAck && (
+                  myAck.acknowledged ? (
+                    <div className="flex items-center gap-2 text-sm text-emerald-700 mb-4">
+                      <Check size={16} /> You acknowledged this review{myAck.acknowledged_at ? ` · ${new Date(myAck.acknowledged_at).toLocaleString("en-GB")}` : ""}
+                    </div>
+                  ) : (
+                    <div className="flex items-center justify-between gap-3 mb-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                      <span className="text-sm text-amber-800 flex items-center gap-1.5"><Clock size={14} /> You haven't acknowledged this review yet.</span>
+                      <button onClick={acknowledge} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm">Mark as read</button>
+                    </div>
+                  )
+                )}
+
+                {/* Progress + roster */}
+                {acks && (
+                  <>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground flex items-center gap-1.5"><Users size={13} /> Team acknowledgement</span>
+                      <span className="text-sm font-medium">{acks.acknowledged} of {acks.total}</span>
+                    </div>
+                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden mb-3">
+                      <div className="h-full bg-emerald-500" style={{ width: `${acks.total ? (acks.acknowledged / acks.total) * 100 : 0}%` }} />
+                    </div>
+                    <div className="divide-y divide-border/60 max-h-72 overflow-y-auto">
+                      {acks.roster.map((r: any) => (
+                        <div key={r.id} className="flex items-center justify-between py-2 text-sm">
+                          <div>
+                            <span className="font-medium">{r.name}{r.id === myId ? " (you)" : ""}</span>
+                            <span className="text-xs text-muted-foreground ml-2 capitalize">{String(r.role || "").toLowerCase().replace(/_/g, " ")}</span>
+                          </div>
+                          {r.acknowledged
+                            ? <span className="text-xs text-emerald-700 flex items-center gap-1"><Check size={13} /> Read{r.acknowledged_at ? ` · ${new Date(r.acknowledged_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" })}` : ""}</span>
+                            : <span className="text-xs text-muted-foreground flex items-center gap-1"><Clock size={13} /> Awaiting</span>}
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
           </div>
         )}
 

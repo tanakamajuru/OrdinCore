@@ -44,6 +44,9 @@ export const usersRepo = {
              u.role, u.status, (u.status = 'active') as is_active,
              u.created_at, u.updated_at,
              u.pulse_days,
+             u.can_view_all_houses,
+             u.view_all_houses_granted_at,
+             (SELECT gb.first_name || ' ' || gb.last_name FROM users gb WHERE gb.id = u.view_all_houses_granted_by) AS view_all_houses_granted_by_name,
              COALESCE(
                (SELECT CASE WHEN COUNT(*) > 1 THEN 'all' ELSE MAX(house_id::text) END FROM user_houses WHERE user_id = u.id),
                (SELECT CASE WHEN COUNT(*) > 1 THEN 'all' ELSE MAX(id::text) END FROM houses WHERE manager_id = u.id)
