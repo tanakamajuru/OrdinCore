@@ -130,8 +130,23 @@ export class EscalationsService {
     );
     if (!result.rows[0]) throw new Error('Escalation not found');
 
-    const actions = await query('SELECT * FROM escalation_actions WHERE escalation_id = $1 ORDER BY created_at', [id]);
-    return { ...result.rows[0], actions: actions.rows };
+    // Join the actor so the Action History can show WHO took each action, not just
+    // what and when — core to the audit trail (Well-Led).
+    const actions = await query(
+      `SELECT ea.*, COALESCE(u.first_name || ' ' || u.last_name, 'System') AS taken_by_name
+         FROM escalation_actions ea
+         LEFT JOIN users u ON u.id = ea.taken_by
+        WHERE ea.escalation_id = $1
+        ORDER BY ea.created_at DESC`,
+      [id]
+    );
+    // Also resolve the name of whoever closed/resolved it for the summary block.
+    let closed_by_name: string | null = null;
+    if (result.rows[0].closed_by) {
+      const cb = await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [result.rows[0].closed_by]);
+      closed_by_name = cb.rows[0]?.name || null;
+    }
+    return { ...result.rows[0], closed_by_name, actions: actions.rows };
   }
 
   async resolve(id: string, company_id: string, user_id: string, resolution_notes: string) {

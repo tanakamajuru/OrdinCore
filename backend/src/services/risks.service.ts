@@ -290,6 +290,8 @@ export class RisksService {
     // a cluster may only be promoted to a formal risk if it has ≥3 linked signals,
     // OR at least one of its signals is Critical. This keeps every risk anchored to
     // a genuine pattern (or a single critical event), never a one-off.
+    // EXCEPTION: Safeguarding — a lone safeguarding concern should not have to wait
+    // for a pattern; a single signal is promotable (doctrine: safeguarding 1/1).
     const linkCountRes = await query(
       `SELECT COUNT(*)::int AS count FROM risk_signal_links WHERE cluster_id = $1`,
       [data.cluster_id]
@@ -304,7 +306,8 @@ export class RisksService {
       [data.cluster_id]
     );
     const hasCritical = criticalRes.rows.length > 0;
-    if (linkedSignals < 3 && !hasCritical) {
+    const isSafeguarding = String(cluster.risk_domain || '').toLowerCase().includes('safeguard');
+    if (linkedSignals < 3 && !hasCritical && !isSafeguarding) {
       throw new Error(
         `Cluster does not meet the promotion threshold: ${linkedSignals} signal(s) and no Critical signal. ` +
         `A risk requires at least 3 linked signals, or one Critical signal (Governance Integrity §9).`

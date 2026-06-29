@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, Eye } from "lucide-react";
+import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, ShieldAlert } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -27,6 +27,7 @@ export function CrossHousePatternDetection() {
   const [patterns, setPatterns] = useState<RiskPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPattern, setSelectedPattern] = useState<RiskPattern | null>(null);
+  const [relatedSignals, setRelatedSignals] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
 
@@ -96,29 +97,30 @@ export function CrossHousePatternDetection() {
     }
   };
 
-  const getRelatedSignals = (pattern: RiskPattern) => {
-    return []; // Future implementation: fetch signals for cluster
-  };
-
-  const handleViewAnalysis = (pattern: RiskPattern) => {
-    toast.info(`Opening detailed analysis for ${pattern.description}`);
-    // Navigate to incidents with domain filter if possible, or just keep them here for now
-    navigate("/incidents");
-  };
-
-  const handleAddToReview = async (pattern: RiskPattern) => {
+  // Select a pattern and fetch its real linked signals (the evidence behind it).
+  const selectPattern = async (pattern: RiskPattern) => {
+    setSelectedPattern(pattern);
+    setRelatedSignals([]);
     try {
-      await apiClient.post('/director-governance/interventions', {
-        service_id: pattern.houseIds[0], // Using first house as primary target
-        intervention_type: 'Strategic Review',
-        message: `Governance Pattern Detected: ${pattern.description}`,
-        priority: pattern.severity === 'high' ? 'Critical' : 'High'
-      });
-      toast.success("Pattern added to Governance Review queue");
-    } catch (err) {
-      toast.error("Failed to add pattern to review");
+      const res = await apiClient.get(`/governance/clusters/${pattern.id}/signals`);
+      const data = (res as any).data?.data || (res as any).data || [];
+      setRelatedSignals(Array.isArray(data) ? data : []);
+    } catch {
+      setRelatedSignals([]);
     }
   };
+
+  const getRelatedSignals = (_pattern: RiskPattern) => relatedSignals;
+
+  // The doctrine action for a pattern is to PROMOTE the cluster to a risk (the RM
+  // decides). Send the user to the promotion form with this cluster — works for the
+  // RM (unlike the Director-only intervention endpoint), and opens the evidence.
+  const goToPromote = (pattern: RiskPattern) => {
+    navigate(`/risks/promote?cluster_id=${pattern.id}`, { state: { cluster_id: pattern.id } });
+  };
+
+  const handleViewAnalysis = (pattern: RiskPattern) => goToPromote(pattern);
+  const handleAddToReview = (pattern: RiskPattern) => goToPromote(pattern);
 
   if (loading) {
     return (
@@ -189,7 +191,7 @@ export function CrossHousePatternDetection() {
                           ? "border-border bg-muted" 
                           : "border-border hover:border-border"
                       }`}
-                      onClick={() => setSelectedPattern(pattern)}
+                      onClick={() => selectPattern(pattern)}
                     >
                       <div className="flex justify-between items-start mb-3">
                         <div className="flex-1">
@@ -292,24 +294,29 @@ export function CrossHousePatternDetection() {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-3">
-                      {getRelatedSignals(selectedPattern).map((signal, index) => (
-                        <div key={index} className="p-3 bg-muted rounded border">
-                          <div className="flex justify-between items-start mb-2">
-                            <div>
-                              <div className=" text-foreground text-sm">{signal.houseName}</div>
-                              <div className="text-sm text-muted-foreground">{signal.signal}</div>
+                      {getRelatedSignals(selectedPattern).length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No linked signals found for this pattern.</p>
+                      ) : getRelatedSignals(selectedPattern).map((signal: any, index: number) => {
+                        const sev = String(signal.severity || '');
+                        const sevClass = (sev === 'Critical' || sev === 'High') ? 'high' : sev === 'Moderate' ? 'medium' : 'low';
+                        const theme = Array.isArray(signal.risk_domain) ? signal.risk_domain[0] : (signal.risk_domain || signal.signal_type);
+                        return (
+                          <div key={signal.id || index} className="p-3 bg-muted rounded border">
+                            <div className="flex justify-between items-start mb-2">
+                              <div className="min-w-0">
+                                <div className="text-foreground text-sm font-medium">{signal.related_person || signal.house_name || 'Signal'}</div>
+                                <div className="text-sm text-muted-foreground truncate">{signal.description}</div>
+                              </div>
+                              <span className={`px-2 py-1 rounded text-xs border shrink-0 ${getSeverityColor(sevClass)}`}>{sev || '—'}</span>
                             </div>
-                            <span className={`px-2 py-1 rounded text-xs  border ${getSeverityColor(signal.severity)}`}>
-                              {signal.severity}
-                            </span>
+                            <div className="flex justify-between gap-2 text-xs text-muted-foreground">
+                              <span className="truncate">{theme}</span>
+                              {signal.pattern_concern && <span className="shrink-0">{signal.pattern_concern}</span>}
+                              <span className="shrink-0">{signal.entry_date ? new Date(signal.entry_date).toLocaleDateString('en-GB') : ''}</span>
+                            </div>
                           </div>
-                          <div className="flex justify-between text-xs text-muted-foreground">
-                            <span>{signal.category}</span>
-                            <span>{signal.frequency} occurrences</span>
-                            <span>{new Date(signal.detectedDate).toLocaleDateString()}</span>
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })}
                     </div>
                   </CardContent>
                 </Card>
@@ -336,19 +343,12 @@ export function CrossHousePatternDetection() {
                         </div>
                       </div>
                       
-                      <Button 
-                        onClick={() => handleViewAnalysis(selectedPattern)}
+                      <Button
+                        onClick={() => goToPromote(selectedPattern)}
                         className="w-full bg-primary text-primary-foreground hover:bg-[#008394]"
                       >
-                        <Eye className="w-4 h-4 mr-2" />
-                        View Full Analysis
-                      </Button>
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleAddToReview(selectedPattern)}
-                        className="w-full border-border hover:bg-primary hover:text-primary-foreground"
-                      >
-                        Add to Governance Review
+                        <ShieldAlert className="w-4 h-4 mr-2" />
+                        Promote to Risk
                       </Button>
                     </div>
                   </CardContent>

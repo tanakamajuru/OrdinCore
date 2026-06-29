@@ -167,11 +167,11 @@ export function SignalDetail() {
             <div className="bg-card border-2 border-border p-6 flex justify-between">
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Pattern Concern</h3>
-                  <p className="text-lg ">{signal.pattern_concern}</p>
+                  <p className="text-lg ">{signal.pattern_concern || "None"}</p>
                </div>
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Happened Before</h3>
-                  <p className="text-lg ">{signal.has_happened_before}</p>
+                  <p className="text-lg ">{signal.has_happened_before || "No"}</p>
                </div>
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Risk Domains</h3>

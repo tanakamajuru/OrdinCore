@@ -246,6 +246,7 @@ router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('REGI
 
 // Clusters & Candidates
 router.get('/clusters', requireAuth, requireTenant, requireScope, governanceController.getClusters.bind(governanceController));
+router.get('/clusters/:id/signals', requireAuth, requireTenant, governanceController.getClusterSignals.bind(governanceController));
 router.get('/risk-candidates', requireAuth, requireTenant, requireScope, governanceController.getRiskCandidates.bind(governanceController));
 
 // Action Effectiveness

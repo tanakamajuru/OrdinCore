@@ -172,6 +172,18 @@ export class GovernanceController {
     }
   }
 
+  // The signals linked to a cluster — the evidence behind a pattern.
+  async getClusterSignals(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const signals = await governanceService.getClusterSignals(company_id, req.params.id);
+      return res.json({ success: true, data: signals });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch cluster signals';
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
   async getRiskCandidates(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

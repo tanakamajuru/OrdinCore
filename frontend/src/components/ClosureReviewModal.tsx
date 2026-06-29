@@ -98,7 +98,7 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
           </label>
           <div className="mt-3">
             <label className="block text-sm font-medium mb-1">Closure evidence</label>
-            <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3}
+            <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3} spellCheck
               placeholder="Describe why closure is justified (min 20 characters)…"
               className="w-full border border-border rounded-lg p-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
           </div>

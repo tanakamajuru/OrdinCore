@@ -58,6 +58,22 @@ export class GovernanceService {
     return auditChecklistService.generateMissingPulses(company_id, house_id, user_id);
   }
 
+  // The signals linked to a cluster (via risk_signal_links) — the evidence behind a pattern.
+  async getClusterSignals(company_id: string, clusterId: string) {
+    const r = await query(
+      `SELECT gp.id, gp.entry_date, gp.entry_time, gp.severity, gp.signal_type, gp.risk_domain,
+              gp.related_person, gp.description, gp.pattern_concern, gp.created_at,
+              h.name AS house_name
+         FROM risk_signal_links rsl
+         JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+         LEFT JOIN houses h ON h.id = gp.house_id
+        WHERE rsl.cluster_id = $1 AND gp.company_id = $2
+        ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
+      [clusterId, company_id]
+    );
+    return r.rows;
+  }
+
   async getClusters(company_id: string, filters: any, userRole?: string) {
     let q = 'SELECT * FROM signal_clusters WHERE company_id = $1';
     const params: any[] = [company_id];

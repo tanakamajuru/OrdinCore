@@ -283,6 +283,7 @@ export function RiskPromotion() {
                 <textarea 
                     value={formData.reason}
                     onChange={e => setFormData(p => ({ ...p, reason: e.target.value }))}
+                    spellCheck
                     placeholder="Provide professional justification for promoting or dismissing this candidate..."
                     className="w-full h-32 bg-input-background border-b-2 border-primary p-3  focus:outline-none mb-8 resize-none"
                 />

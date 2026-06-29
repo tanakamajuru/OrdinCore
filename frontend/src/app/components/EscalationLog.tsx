@@ -268,6 +268,7 @@ export function EscalationLog() {
                         <textarea
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
+                          spellCheck
                           placeholder="Document your oversight, progress, or the reason for your decision..."
                           className="w-full h-28 bg-input-background border-2 border-border p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none"
                         />
@@ -322,7 +323,9 @@ export function EscalationLog() {
                           <span className="">Resolved</span>
                         </div>
                         <p className=" text-foreground">"{selectedEscalation.resolution_notes}"</p>
-                        <p className="mt-2 text-xs opacity-75">Resolved on {new Date(selectedEscalation.resolved_at!).toLocaleDateString('en-GB')}</p>
+                        <p className="mt-2 text-xs opacity-75">
+                          Resolved{(selectedEscalation as any).closed_by_name ? ` by ${(selectedEscalation as any).closed_by_name}` : ''} on {new Date(selectedEscalation.resolved_at!).toLocaleString('en-GB')}
+                        </p>
                       </div>
                     )}
 
@@ -335,7 +338,9 @@ export function EscalationLog() {
                             <div key={action.id} className="text-xs border-l-2 border-primary pl-3 py-1">
                               <p className=" text-primary">{action.action_type.toUpperCase()}</p>
                               <p className="text-muted-foreground mt-0.5">{action.description}</p>
-                              <p className="text-[10px] text-muted-foreground mt-1">{new Date(action.created_at).toLocaleString('en-GB')}</p>
+                              <p className="text-[10px] text-muted-foreground mt-1">
+                                {action.taken_by_name ? `${action.taken_by_name} · ` : ''}{new Date(action.created_at).toLocaleString('en-GB')}
+                              </p>
                             </div>
                           ))}
                         </div>
@@ -365,8 +370,14 @@ export function EscalationLog() {
       <ClosureReviewModal
         open={!!closeTarget}
         target={{ type: "escalation", id: closeTarget?.id || "", title: closeTarget?.title }}
-        derivedActionsComplete={["actions implemented", "monitoring effectiveness"].includes((((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase())}
-        derivedEffectivenessReviewed={(((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase() === "monitoring effectiveness"}
+        derivedActionsComplete={
+          ["actions implemented", "monitoring effectiveness"].includes((((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase())
+          || !((selectedEscalation as any)?.risk_id) /* no linked risk -> no remediation actions to complete (vacuous) */
+        }
+        derivedEffectivenessReviewed={
+          (((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase() === "monitoring effectiveness"
+          || !((selectedEscalation as any)?.risk_id)
+        }
         onClose={() => setCloseTarget(null)}
         onClosed={() => { setSelectedEscalation(null); loadEscalations(); }}
       />

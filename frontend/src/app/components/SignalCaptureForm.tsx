@@ -237,6 +237,7 @@ export function SignalCaptureForm() {
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
+              spellCheck
               placeholder="Factual description only…"
               className="w-full h-28 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
@@ -279,6 +280,7 @@ export function SignalCaptureForm() {
             <textarea
               value={form.immediate_action}
               onChange={e => set('immediate_action', e.target.value)}
+              spellCheck
               placeholder="What was done at the time, if anything?"
               className="w-full h-20 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
