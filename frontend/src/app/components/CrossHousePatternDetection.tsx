@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
-import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, ShieldAlert } from "lucide-react";
+import { TrendingUp, AlertTriangle, MapPin, Calendar, Filter, Search, ShieldAlert, CheckCircle2, ArrowRight } from "lucide-react";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
@@ -20,7 +20,22 @@ interface RiskPattern {
   frequency: number;
   trend: "increasing" | "stable" | "decreasing";
   relatedIncidents: number;
+  // Promotion readiness + state (Issues 2 & 3)
+  signalCount: number;
+  threshold: number;
+  hasCritical: boolean;
+  promotedRiskId: string | null;
+  promotedAt: string | null;
 }
+
+type Readiness = "promoted" | "ready" | "nearly" | "forming";
+const readinessOf = (p: RiskPattern): Readiness => {
+  if (p.promotedRiskId) return "promoted";
+  if (p.signalCount >= p.threshold || p.hasCritical) return "ready";
+  if (p.signalCount === p.threshold - 1) return "nearly";
+  return "forming";
+};
+const READINESS_WEIGHT: Record<Readiness, number> = { ready: 0, nearly: 1, forming: 2, promoted: 3 };
 
 export function CrossHousePatternDetection() {
   const navigate = useNavigate();
@@ -41,20 +56,29 @@ export function CrossHousePatternDetection() {
       const res = await apiClient.get('/governance/clusters');
       const data = (res as any).data || [];
       
+      const domainLabel = (rd: any): string => Array.isArray(rd) ? (rd[0] || '') : (rd || '');
       const formatted: RiskPattern[] = data.map((c: any) => ({
         id: c.id,
-        patternType: c.risk_domain,
+        patternType: domainLabel(c.risk_domain),
         description: c.cluster_label,
-        affectedHouses: [c.house_name], // Backend returns one house per cluster for now, but we can aggregate if needed
+        affectedHouses: [c.house_name].filter(Boolean),
         houseIds: [c.house_id],
         severity: c.trajectory === 'Critical' ? 'high' : c.trajectory === 'Deteriorating' ? 'high' : 'medium',
         firstDetected: c.first_signal_date,
         lastDetected: c.last_signal_date,
-        frequency: parseInt(c.signal_count),
-        trend: c.trajectory.toLowerCase(),
-        relatedIncidents: 0 // Will need another query or join
+        frequency: parseInt(c.signal_count) || 0,
+        trend: String(c.trajectory || 'stable').toLowerCase(),
+        relatedIncidents: 0,
+        signalCount: parseInt(c.signal_count) || 0,
+        threshold: c.promotion_threshold ?? 3,
+        hasCritical: !!c.has_critical,
+        promotedRiskId: c.linked_risk_id || null,
+        promotedAt: c.promoted_at || null,
       }));
-      
+
+      // Ready-first, then nearly, then forming, with already-promoted patterns last.
+      formatted.sort((a, b) => READINESS_WEIGHT[readinessOf(a)] - READINESS_WEIGHT[readinessOf(b)]
+        || b.signalCount - a.signalCount);
       setPatterns(formatted);
     } catch (err) {
       toast.error("Failed to load patterns");
@@ -118,9 +142,30 @@ export function CrossHousePatternDetection() {
   const goToPromote = (pattern: RiskPattern) => {
     navigate(`/risks/promote?cluster_id=${pattern.id}`, { state: { cluster_id: pattern.id } });
   };
+  const viewRisk = (pattern: RiskPattern) => {
+    if (pattern.promotedRiskId) navigate(`/risks/${pattern.promotedRiskId}`);
+  };
 
-  const handleViewAnalysis = (pattern: RiskPattern) => goToPromote(pattern);
-  const handleAddToReview = (pattern: RiskPattern) => goToPromote(pattern);
+  // Readiness badge + 3-segment distance-to-promotion meter (Issue 2 / 3).
+  const ReadinessBadge = ({ p }: { p: RiskPattern }) => {
+    const r = readinessOf(p);
+    if (r === "promoted") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Promoted</span>;
+    if (r === "ready") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30">Ready to promote</span>;
+    if (r === "nearly") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">1 from promotion</span>;
+    return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-muted text-muted-foreground border border-border">Forming ({p.signalCount} of {p.threshold})</span>;
+  };
+  const PromotionMeter = ({ p }: { p: RiskPattern }) => {
+    const r = readinessOf(p);
+    const filled = Math.min(p.signalCount, p.threshold);
+    const tone = (r === "ready" || r === "promoted") ? "bg-success" : r === "nearly" ? "bg-amber-500" : "bg-primary/40";
+    return (
+      <div className="flex gap-1 mt-2 max-w-[160px]">
+        {Array.from({ length: p.threshold }).map((_, i) => (
+          <div key={i} className={`h-1.5 flex-1 rounded-full ${i < filled ? tone : "bg-muted"}`} />
+        ))}
+      </div>
+    );
+  };
 
   if (loading) {
     return (
@@ -193,9 +238,9 @@ export function CrossHousePatternDetection() {
                       }`}
                       onClick={() => selectPattern(pattern)}
                     >
-                      <div className="flex justify-between items-start mb-3">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-2 mb-2">
+                      <div className="flex justify-between items-start mb-3 gap-2">
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 mb-2 flex-wrap">
                             <h3 className=" text-foreground">{pattern.patternType}</h3>
                             <span className={`px-2 py-1 rounded text-xs  border ${getSeverityColor(pattern.severity)}`}>
                               {pattern.severity.toUpperCase()}
@@ -205,35 +250,47 @@ export function CrossHousePatternDetection() {
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">{pattern.description}</p>
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
-                              {pattern.affectedHouses.length} houses
+                              {pattern.affectedHouses[0] || `${pattern.affectedHouses.length} houses`}
                             </div>
                             <div className="flex items-center gap-1">
                               <Calendar className="w-3 h-3" />
-                              Since {new Date(pattern.firstDetected).toLocaleDateString()}
+                              Since {new Date(pattern.firstDetected).toLocaleDateString('en-GB')}
                             </div>
                             <div className="flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
                               {pattern.frequency} signals
                             </div>
-                            {pattern.relatedIncidents > 0 && (
-                              <div className="flex items-center gap-1 text-red-600">
-                                <AlertTriangle className="w-3 h-3" />
-                                {pattern.relatedIncidents} incidents
-                              </div>
-                            )}
                           </div>
                         </div>
+                        <ReadinessBadge p={pattern} />
                       </div>
-                      
-                      <div className="flex flex-wrap gap-2">
-                        {pattern.affectedHouses.map((house, index) => (
-                          <span key={index} className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded border">
-                            {house}
-                          </span>
-                        ))}
+
+                      <div className="flex items-end justify-between gap-3">
+                        <div>
+                          <PromotionMeter p={pattern} />
+                          <p className="text-[11px] text-muted-foreground mt-1">
+                            {readinessOf(pattern) === 'promoted' ? `Promoted${pattern.promotedAt ? ' · ' + new Date(pattern.promotedAt).toLocaleDateString('en-GB') : ''} — in the Risk Register`
+                              : readinessOf(pattern) === 'ready' ? (pattern.hasCritical && pattern.signalCount < pattern.threshold ? 'Critical signal — ready to promote' : 'Threshold met — ready to promote')
+                              : readinessOf(pattern) === 'nearly' ? '1 signal from promotion'
+                              : `Needs ${pattern.threshold - pattern.signalCount} more signal${pattern.threshold - pattern.signalCount === 1 ? '' : 's'}`}
+                          </p>
+                        </div>
+                        {readinessOf(pattern) === 'promoted' ? (
+                          <button onClick={(e) => { e.stopPropagation(); viewRisk(pattern); }}
+                            className="shrink-0 text-xs font-semibold text-success inline-flex items-center gap-1 hover:underline underline-offset-4">
+                            View risk <ArrowRight className="w-3.5 h-3.5" />
+                          </button>
+                        ) : readinessOf(pattern) === 'ready' ? (
+                          <button onClick={(e) => { e.stopPropagation(); goToPromote(pattern); }}
+                            className="shrink-0 text-xs font-semibold text-primary-foreground bg-primary rounded px-3 py-1.5 inline-flex items-center gap-1 hover:bg-primary/90">
+                            Promote ‣
+                          </button>
+                        ) : (
+                          <span className="shrink-0 text-[11px] text-muted-foreground">Review →</span>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -343,13 +400,21 @@ export function CrossHousePatternDetection() {
                         </div>
                       </div>
                       
-                      <Button
-                        onClick={() => goToPromote(selectedPattern)}
-                        className="w-full bg-primary text-primary-foreground hover:bg-[#008394]"
-                      >
-                        <ShieldAlert className="w-4 h-4 mr-2" />
-                        Promote to Risk
-                      </Button>
+                      {readinessOf(selectedPattern) === 'promoted' ? (
+                        <Button onClick={() => viewRisk(selectedPattern)} className="w-full bg-success text-success-foreground hover:bg-success/90">
+                          <CheckCircle2 className="w-4 h-4 mr-2" /> Promoted — View Risk
+                        </Button>
+                      ) : readinessOf(selectedPattern) === 'ready' ? (
+                        <Button onClick={() => goToPromote(selectedPattern)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                          <ShieldAlert className="w-4 h-4 mr-2" /> Promote to Risk
+                        </Button>
+                      ) : (
+                        <div className="w-full text-center text-sm text-muted-foreground bg-muted rounded-lg py-2.5 px-3">
+                          {readinessOf(selectedPattern) === 'nearly'
+                            ? '1 more signal needed before this pattern can be promoted.'
+                            : `Forming — needs ${selectedPattern.threshold - selectedPattern.signalCount} more signal${selectedPattern.threshold - selectedPattern.signalCount === 1 ? '' : 's'} (or one Critical) to promote.`}
+                        </div>
+                      )}
                     </div>
                   </CardContent>
                 </Card>

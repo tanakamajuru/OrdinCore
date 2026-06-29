@@ -75,27 +75,40 @@ export class GovernanceService {
   }
 
   async getClusters(company_id: string, filters: any, userRole?: string) {
-    let q = 'SELECT * FROM signal_clusters WHERE company_id = $1';
+    // Promotion threshold (≥ this many signals, or one Critical) — exposed on each row
+    // so the Patterns view's readiness states and the backend promote guard never disagree.
+    const PROMOTION_THRESHOLD = 3;
+    let q = `SELECT sc.*, h.name AS house_name,
+                    EXISTS (
+                      SELECT 1 FROM governance_pulses gp
+                       WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
+                         AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
+                         AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
+                    ) AS has_critical
+             FROM signal_clusters sc
+             LEFT JOIN houses h ON h.id = sc.house_id
+             WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
     if (filters.house_id) {
       const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
       params.push(houseIds);
-      q += ` AND house_id = ANY($${params.length}::uuid[])`;
+      q += ` AND sc.house_id = ANY($${params.length}::uuid[])`;
     }
     if (filters.status) {
       params.push(filters.status);
-      q += ` AND cluster_status = $${params.length}`;
+      q += ` AND sc.cluster_status = $${params.length}`;
     }
-    q += ' ORDER BY last_signal_date DESC';
+    q += ' ORDER BY sc.last_signal_date DESC';
     const res = await query(q, params);
-    
+
     // Anonymization for RI/Director roles (§7 Visibility Rule)
     const anonymize = userRole === 'RESPONSIBLE_INDIVIDUAL' || userRole === 'DIRECTOR';
     return res.rows.map(cluster => {
-      if (anonymize && cluster.linked_person) {
-        return { ...cluster, linked_person: 'Service user (Redacted)' };
+      const c = { ...cluster, promotion_threshold: PROMOTION_THRESHOLD };
+      if (anonymize && c.linked_person) {
+        c.linked_person = 'Service user (Redacted)';
       }
-      return cluster;
+      return c;
     });
   }
 

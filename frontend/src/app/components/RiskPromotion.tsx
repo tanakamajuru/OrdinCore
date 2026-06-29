@@ -88,8 +88,17 @@ export function RiskPromotion() {
           }));
         }
       } else if (clusterId) {
-        const cRes = await apiClient.get(`/governance/clusters?id=${clusterId}`);
-        const cluster = (cRes as any).data?.[0];
+        // Load THIS exact cluster by id (path param). The old `/governance/clusters?id=`
+        // filter was ignored by the API, which returned all clusters and took [0] — i.e.
+        // the most recently active cluster, not the one clicked. That promoted the wrong
+        // service user's data. The path-param endpoint can't fall back to "first of list".
+        const cRes = await apiClient.get(`/clusters/${clusterId}`);
+        const cluster = (cRes as any).data;
+        if (cluster && cluster.id && cluster.id !== clusterId) {
+          toast.error('Loaded the wrong cluster — please reopen from the pattern.');
+          setIsLoading(false);
+          return;
+        }
         if (cluster) {
           setSourceData(cluster);
           const matchedCategory = categories.find(c => 

@@ -322,8 +322,9 @@ export class RisksService {
       linked_person: cluster.linked_person
     });
 
-    // Update cluster status to 'Escalated' or 'Confirmed'
-    await query('UPDATE signal_clusters SET cluster_status = $1, linked_risk_id = $2 WHERE id = $3', 
+    // Update cluster status to 'Escalated' and stamp the promotion (link + time) so
+    // the Patterns view can show "Promoted ✓ · View risk" instead of re-offering it.
+    await query('UPDATE signal_clusters SET cluster_status = $1, linked_risk_id = $2, promoted_at = NOW() WHERE id = $3',
       ['Escalated', risk.id, data.cluster_id]);
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Signal Cluster ${data.cluster_id}`, user_id);
@@ -365,8 +366,15 @@ export class RisksService {
     });
 
     // Update candidate status
-    await query('UPDATE risk_candidates SET status = $1, linked_risk_id = $2 WHERE id = $3', 
+    await query('UPDATE risk_candidates SET status = $1, linked_risk_id = $2 WHERE id = $3',
       ['Promoted', risk.id, data.candidate_id]);
+
+    // If this candidate came from a cluster, mark that cluster promoted too so the
+    // Patterns view reflects it consistently.
+    if (sourceCluster) {
+      await query('UPDATE signal_clusters SET linked_risk_id = $1, promoted_at = NOW() WHERE id = $2 AND linked_risk_id IS NULL',
+        [risk.id, sourceCluster]);
+    }
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
 
