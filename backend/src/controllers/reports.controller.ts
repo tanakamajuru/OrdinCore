@@ -3,6 +3,7 @@ import { reportsService } from '../services/reports.service';
 import { reportsDataService } from '../services/reportsData.service';
 import { reconstructionService, ReconstructionScope } from '../services/reconstruction.service';
 import { narrativeService } from '../services/narrative.service';
+import { generatedReportsService } from '../services/generatedReports.service';
 import { query } from '../config/database';
 
 export class ReportsController {
@@ -85,6 +86,49 @@ export class ReportsController {
       return res.json({ success: true, data: r.rows, meta: {} });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load saved reconstructions', errors: [] });
+    }
+  }
+
+  // Generate a report server-side (PDF or CSV) and retain it in OrdinCore.
+  async saveGenerated(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { reportKey, title, format, periodLabel, serviceName, data, narrative } = req.body || {};
+      if (!reportKey || !title || !['pdf', 'csv'].includes(format)) {
+        return res.status(400).json({ success: false, message: 'reportKey, title and format (pdf|csv) are required', errors: [] });
+      }
+      const record = await generatedReportsService.generate(company_id, req.user!.user_id, { reportKey, title, format, periodLabel, serviceName, data, narrative });
+      return res.status(201).json({ success: true, data: record, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to generate report', errors: [] });
+    }
+  }
+
+  async listGenerated(req: Request, res: Response) {
+    try {
+      const data = await generatedReportsService.list(req.user!.company_id!);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load saved reports', errors: [] });
+    }
+  }
+
+  async downloadGenerated(req: Request, res: Response) {
+    try {
+      const { abs, title, format } = await generatedReportsService.getFile(req.params.id, req.user!.company_id!);
+      const safe = title.replace(/[^a-z0-9-_ ]/gi, '').trim().slice(0, 60) || 'report';
+      return res.download(abs, `${safe}.${format}`);
+    } catch (err: unknown) {
+      return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Report not found', errors: [] });
+    }
+  }
+
+  async deleteGenerated(req: Request, res: Response) {
+    try {
+      const data = await generatedReportsService.remove(req.params.id, req.user!.company_id!);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to delete report', errors: [] });
     }
   }
 

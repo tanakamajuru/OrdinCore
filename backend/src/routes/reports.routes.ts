@@ -43,6 +43,12 @@ router.get('/cross-service-control', requireAuth, requireTenant, reportsControll
 router.get('/inspection-evidence', requireAuth, requireTenant, reportsController.inspectionEvidence.bind(reportsController));
 router.post('/narrative', requireAuth, requireTenant, reportsController.narrative.bind(reportsController));
 router.get('/saved-reconstructions', requireAuth, requireTenant, reportsController.savedReconstructions.bind(reportsController));
+// Server-side generated reports (PDF/CSV) retained in-platform — defined before
+// the '/:id' wildcard so '/saved' isn't swallowed as an id.
+router.post('/save', requireAuth, requireTenant, reportsController.saveGenerated.bind(reportsController));
+router.get('/saved', requireAuth, requireTenant, reportsController.listGenerated.bind(reportsController));
+router.get('/saved/:id/download', requireAuth, requireTenant, reportsController.downloadGenerated.bind(reportsController));
+router.delete('/saved/:id', requireAuth, requireTenant, reportsController.deleteGenerated.bind(reportsController));
 /**
  * @openapi
  * /api/v1/reports/{id}:

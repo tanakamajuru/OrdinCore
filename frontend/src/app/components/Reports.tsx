@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2, Sparkles } from "lucide-react";
+import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2, Sparkles, Trash2 } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 
@@ -45,6 +45,64 @@ export function Reports() {
   const [result, setResult] = useState<any>(null);
   const [aiNarrative, setAiNarrative] = useState("");
   const [aiBusy, setAiBusy] = useState(false);
+  const [format, setFormat] = useState<"pdf" | "csv">("pdf");
+  const [savedReports, setSavedReports] = useState<any[]>([]);
+  const [savingKey, setSavingKey] = useState<ReportKey | null>(null);
+
+  const loadSavedReports = () => {
+    apiClient.get("/reports/saved").then(r => {
+      const list = unwrap(r); setSavedReports(Array.isArray(list) ? list : []);
+    }).catch(() => { /* non-fatal */ });
+  };
+
+  // Generate the report server-side in the chosen format and retain it in OrdinCore.
+  const generateAndSave = async (key: ReportKey) => {
+    if (key === "reconstruction" && scope !== "service" && !scopeId.trim()) {
+      toast.error(`Enter a ${scope} reference for the reconstruction.`); return;
+    }
+    setSavingKey(key);
+    try {
+      const res = await apiClient.get(buildPath(key));
+      const data = unwrap(res);
+      const meta = REPORTS.find(r => r.key === key);
+      await apiClient.post("/reports/save", {
+        reportKey: key,
+        title: meta?.title || key,
+        format,
+        periodLabel: `${start} to ${end}`,
+        serviceName: houses.find(h => h.id === serviceId)?.name,
+        data,
+        narrative: active === key ? aiNarrative : undefined,
+      });
+      toast.success(`Saved to OrdinCore as ${format.toUpperCase()}.`);
+      loadSavedReports();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to save report.");
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const downloadSaved = async (rep: any) => {
+    try {
+      const res = await apiClient.get(`/reports/saved/${rep.id}/download`, { responseType: "blob" });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = `${(rep.title || "report").replace(/[^a-z0-9-_ ]/gi, "")}.${rep.format}`; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error("Could not download report.");
+    }
+  };
+
+  const deleteSaved = async (id: string) => {
+    try {
+      await apiClient.delete(`/reports/saved/${id}`);
+      setSavedReports(s => s.filter((r: any) => r.id !== id));
+    } catch {
+      toast.error("Could not delete report.");
+    }
+  };
 
   const generateNarrative = async () => {
     if (!result || !active) return;
@@ -75,6 +133,7 @@ export function Reports() {
     apiClient.get("/reports/saved-reconstructions").then(r => {
       const list = unwrap(r); setSavedRecon(Array.isArray(list) ? list : []);
     }).catch(() => { /* non-fatal */ });
+    loadSavedReports();
   }, []);
 
   const buildPath = (key: ReportKey) => {
@@ -217,9 +276,18 @@ export function Reports() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 max-w-[1300px]">
-        <div className="mb-6">
-          <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
-          <p className="text-sm text-muted-foreground">Narrated governance reports, cross-referenced to CQC Key Lines of Enquiry — what was noticed, the systemic picture, the inspection evidence trail, and the full story.</p>
+        <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Reports</h1>
+            <p className="text-sm text-muted-foreground max-w-2xl">Narrated governance reports, cross-referenced to CQC Key Lines of Enquiry. Generate &amp; save retains a copy in OrdinCore; pick PDF (narrative) or CSV (raw data).</p>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-xs text-muted-foreground">Format</span>
+            <div className="inline-flex rounded-lg border border-border overflow-hidden">
+              <button onClick={() => setFormat("pdf")} className={`px-3 py-1.5 text-sm ${format === "pdf" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>PDF</button>
+              <button onClick={() => setFormat("csv")} className={`px-3 py-1.5 text-sm ${format === "csv" ? "bg-primary text-primary-foreground" : "bg-background hover:bg-muted"}`}>CSV</button>
+            </div>
+          </div>
         </div>
 
         {/* Filters */}
@@ -270,13 +338,40 @@ export function Reports() {
                 <button onClick={() => run(r.key, false)} disabled={busy === r.key} className="flex-1 flex items-center justify-center gap-1 px-3 py-2 rounded-lg border border-border text-sm hover:bg-muted disabled:opacity-50">
                   {busy === r.key ? <Loader2 className="w-4 h-4 animate-spin" /> : "Preview"}
                 </button>
-                <button onClick={() => run(r.key, true)} disabled={busy === r.key} className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50">
-                  <FileDown className="w-4 h-4" />
+                <button onClick={() => generateAndSave(r.key)} disabled={savingKey === r.key} title={`Generate & save as ${format.toUpperCase()}`} className="flex items-center justify-center gap-1 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50">
+                  {savingKey === r.key ? <Loader2 className="w-4 h-4 animate-spin" /> : <><FileDown className="w-4 h-4" /> {format.toUpperCase()}</>}
                 </button>
               </div>
             </div>
           ))}
         </div>
+
+        {/* Saved Reports — generated server-side and retained in-platform */}
+        {savedReports.length > 0 && (
+          <div className="mt-6 bg-card border border-border rounded-xl p-5 shadow-sm">
+            <h3 className="font-semibold mb-1 flex items-center gap-2"><FileCheck2 className="w-4 h-4 text-primary" /> Saved Reports</h3>
+            <p className="text-xs text-muted-foreground mb-4">Reports generated and retained in OrdinCore — your inspection evidence trail.</p>
+            <div className="divide-y divide-border">
+              {savedReports.map((rep: any) => (
+                <div key={rep.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 py-3">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium truncate">
+                      {rep.title}
+                      <span className="text-[10px] uppercase bg-muted text-muted-foreground rounded px-1.5 py-0.5 ml-2">{rep.format}</span>
+                    </p>
+                    <p className="text-xs text-muted-foreground">
+                      {rep.period_label || ""}{rep.service_name ? ` · ${rep.service_name}` : ""} · {new Date(rep.created_at).toLocaleString("en-GB")}
+                    </p>
+                  </div>
+                  <div className="flex gap-4 shrink-0">
+                    <button onClick={() => downloadSaved(rep)} className="text-sm text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Download</button>
+                    <button onClick={() => deleteSaved(rep.id)} className="text-sm text-muted-foreground hover:text-destructive flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Remove</button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* B6: locked reconstructions now appear in the report set */}
         {savedRecon.length > 0 && (
