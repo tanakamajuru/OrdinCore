@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
+import { io, type Socket } from "socket.io-client";
 import { apiClient } from "@/services/api";
 
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
@@ -59,6 +60,40 @@ export function TeamLeaderDashboard() {
   const initials = ((user.first_name?.[0] || displayName[0] || "T") + (user.last_name?.[0] || "L")).toUpperCase();
 
   useEffect(() => { load(); }, []);
+
+  // Pull the latest notifications (used on mount, on socket reconnect, and on window focus).
+  const refreshNotifications = async () => {
+    try {
+      const res: any = await apiClient.getNotifications();
+      const list = asArray(unwrap(res));
+      setNotifications(list);
+      setUnreadCount(res?.meta?.unread_count ?? list.filter((n: any) => !(n.is_read ?? n.read)).length);
+    } catch { /* keep current state */ }
+  };
+
+  // Real-time: the backend emits a `notification` event to this user's room on every
+  // create (e.g. an escalation acknowledged/resolved back to the TL). Listen live, and
+  // resync on reconnect / window focus so nothing is missed while disconnected.
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    const base = (import.meta as any).env?.VITE_WS_URL
+      || ((import.meta as any).env?.VITE_API_URL || "http://localhost:3001/api/v1").replace(/\/api\/v1\/?$/, "");
+    const socket: Socket = io(base, { auth: { token }, transports: ["websocket", "polling"], reconnection: true });
+
+    socket.on("notification", (n: any) => {
+      setNotifications(prev => (prev.some(x => x.id === n.id) ? prev : [n, ...prev]));
+      setUnreadCount(c => c + 1);
+      toast.message(n.title || "New notification", { description: n.body });
+    });
+    socket.on("connect", () => { refreshNotifications(); });
+
+    const onFocus = () => refreshNotifications();
+    window.addEventListener("focus", onFocus);
+
+    return () => { window.removeEventListener("focus", onFocus); socket.off("notification"); socket.disconnect(); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const load = async () => {
     try {
