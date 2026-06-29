@@ -118,7 +118,7 @@ export function PulseHistory() {
 
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
           <div>
-            <h1 className="text-4xl  text-primary tracking-tighter uppercase ">Pulse History</h1>
+            <h1 className="text-4xl  text-foreground tracking-tighter uppercase ">Pulse History</h1>
             <p className="text-muted-foreground ">
               {isTL
                 ? (view === 'allocated' ? "Signals allocated to you for follow-up"

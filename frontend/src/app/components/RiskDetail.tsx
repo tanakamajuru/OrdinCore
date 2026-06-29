@@ -341,7 +341,7 @@ export function RiskDetail() {
 
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
-            <h1 className="text-3xl  text-primary  uppercase tracking-tighter">{risk.title}</h1>
+            <h1 className="text-3xl  text-foreground  uppercase tracking-tighter">{risk.title}</h1>
             <span
               className={`px-3 py-1  ${
                 risk.severity === "High" || risk.severity === "Critical"

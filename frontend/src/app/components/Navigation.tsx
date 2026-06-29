@@ -50,7 +50,7 @@ export function Navigation() {
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
             <img src={logo} alt="Logo" className="h-10 w-auto" />
-            <div className="text-xl  text-primary">OrdinCore</div>
+            <div className="text-xl  text-foreground">OrdinCore</div>
             <div className="hidden md:flex space-x-1">
               {navItems.map((item) => {
                 const Icon = item.icon;

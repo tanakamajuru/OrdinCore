@@ -147,7 +147,7 @@ export function SignalDetail() {
         <div className="mb-6 flex flex-col md:flex-row justify-between items-start gap-4">
           <div>
             <div className="flex items-center gap-4 mb-2">
-              <h1 className="text-3xl  text-primary tracking-tighter uppercase ">Signal Details</h1>
+              <h1 className="text-3xl  text-foreground tracking-tighter uppercase ">Signal Details</h1>
               <span className={`px-3 py-1 text-sm  flex items-center gap-2 ${
                 signal.review_status === 'New' ? 'bg-primary/10 text-primary' : 'bg-muted text-muted-foreground'
               }`}>

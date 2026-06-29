@@ -49,7 +49,7 @@ export function TrendAnalysis() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-8">
-          <h1 className="text-3xl  text-primary mb-2 flex items-center gap-3">
+          <h1 className="text-3xl  text-foreground mb-2 flex items-center gap-3">
             <TrendingUp className="w-8 h-8 text-primary" />
             Trend Analysis
           </h1>
@@ -270,7 +270,7 @@ export function TrendAnalysis() {
                       />
                     </svg>
                     <div className="absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-4xl  text-primary">{compliance?.overall?.avg_compliance || 0}%</span>
+                      <span className="text-4xl  text-foreground">{compliance?.overall?.avg_compliance || 0}%</span>
                       <span className="text-xs  text-muted-foreground uppercase tracking-wider">Avg Score</span>
                     </div>
                   </div>

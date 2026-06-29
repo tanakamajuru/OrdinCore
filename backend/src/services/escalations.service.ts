@@ -117,7 +117,15 @@ export class EscalationsService {
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
          LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
          WHERE ${where}
-         ORDER BY e.created_at DESC LIMIT ${limit} OFFSET ${offset}`,
+         ORDER BY
+           CASE
+             WHEN COALESCE(e.lifecycle_status::text, e.status) IN ('Closed', 'Resolved', 'resolved', 'closed') THEN 2
+             WHEN e.status = 'pending' OR e.lifecycle_status::text = 'Open' THEN 0
+             ELSE 1
+           END,
+           (e.due_by IS NOT NULL AND e.due_by < NOW()) DESC,
+           e.created_at DESC
+         LIMIT ${limit} OFFSET ${offset}`,
         params
       ),
       query(`SELECT COUNT(*) FROM escalations e WHERE ${where}`, params),

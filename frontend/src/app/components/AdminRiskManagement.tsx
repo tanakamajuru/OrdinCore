@@ -288,8 +288,8 @@ const AdminRiskManagement: React.FC = () => {
       >
         {risks.map((risk) => (
           <TableRow key={risk.id}>
-            <TableCell className="font-mono">{risk.activity_id}</TableCell>
-            <TableCell className="font-mono">{risk.risk_id}</TableCell>
+            <TableCell className="">{risk.activity_id}</TableCell>
+            <TableCell className="">{risk.risk_id}</TableCell>
             <TableCell>
               <div>
                 <div className="">{risk.house_name}</div>
@@ -337,7 +337,7 @@ const AdminRiskManagement: React.FC = () => {
           <div className="space-y-6">
             <div className="grid grid-cols-2 gap-4">
               <AdminFormField label="Risk ID">
-                <Input placeholder="Enter risk ID..." className="font-mono" />
+                <Input placeholder="Enter risk ID..." className="" />
               </AdminFormField>
               <AdminFormField label="Service">
                 <Select>

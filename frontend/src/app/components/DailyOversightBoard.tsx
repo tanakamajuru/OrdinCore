@@ -174,7 +174,7 @@ export function DailyOversightBoard() {
       <div className="p-6 md:px-12 lg:px-20 pt-28 max-w-[1400px] mx-auto">
 
         <div className="mb-6 border-b-2 border-border pb-5">
-          <h1 className="text-4xl text-primary tracking-tighter uppercase">RM Daily Oversight</h1>
+          <h1 className="text-4xl text-foreground tracking-tighter uppercase">RM Daily Oversight</h1>
           <p className="text-muted-foreground mt-1">Defensible governance feed — last 48 hours</p>
         </div>
 

@@ -18,18 +18,20 @@
 /* ── Light theme (default) ─────────────────────────────── */
 :root {
   --font-size: 14px;
-  --background: #F0F6FC;
-  --foreground: #0B1628;
+  --background: #F7F9FB;
+  /* Uniform near-black body text (was navy #0B1628) — one neutral ink for all text. */
+  --foreground: #171717;
   --card: #FFFFFF;
-  --card-foreground: #0B1628;
+  --card-foreground: #171717;
   --popover: #FFFFFF;
-  --popover-foreground: #0B1628;
+  --popover-foreground: #171717;
   --primary: #2F6CB5;
   --primary-foreground: #FFFFFF;
   --secondary: #E2EEF8;
   --secondary-foreground: #1A3259;
-  --muted: #E2EEF8;
-  --muted-foreground: #3D5A7A;
+  --muted: #EEF2F6;
+  /* Neutral grey for secondary text (was blue-grey #3D5A7A). */
+  --muted-foreground: #5B6470;
   --accent: #1A3259;
   --accent-foreground: #FFFFFF;
   --success: #2E7D32;
@@ -177,6 +179,16 @@
     font-family: 'Inter', system-ui, sans-serif;
   }
 
+  /* One font family for the whole system — neutralise any mono/serif usage. */
+  *, code, pre, kbd, samp {
+    font-family: 'Inter', system-ui, sans-serif;
+  }
+
+  /* Uniform heading colour: headings are body ink (black), not the blue accent. */
+  h1, h2, h3, h4, h5, h6 {
+    color: var(--foreground);
+  }
+
   h1 {
     font-size: 24px;
     font-weight: 400 !important;
@@ -227,4 +239,27 @@
     font-weight: 400 !important;
     font-style: normal !important;
   }
+}
+
+/* ── Layout: offset page content for the fixed left sidebar ──────────────────
+   RoleBasedNavigation is `fixed left-0 w-64`. On every page it renders as the
+   first child, with the page content as following sibling(s). Without an offset
+   the content sits *under* the sidebar and you have to scroll right to see the
+   hidden left edge. This pushes all following siblings clear of the sidebar on
+   desktop. (Admin pages use AdminLayout and are unaffected — no .ordin-sidebar.) */
+@media (min-width: 1024px) {
+  /* These rules are intentionally unlayered so they win over Tailwind's `w-full`
+     utility: width:auto makes the content fill only the space *beside* the sidebar
+     (containing-block − 16rem margin), so it never spills 16rem past the viewport. */
+  .ordin-sidebar ~ * {
+    margin-left: 16rem; /* = w-64 */
+    width: auto;
+  }
+}
+
+/* Belt-and-braces: nothing should force a horizontal page scrollbar; wide tables
+   scroll within their own `overflow-x-auto` wrapper instead of widening the page. */
+html, body {
+  max-width: 100%;
+  overflow-x: clip; /* clip (not hidden) — prevents h-scroll without breaking position:sticky */
 }

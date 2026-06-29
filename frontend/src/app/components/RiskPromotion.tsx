@@ -164,7 +164,7 @@ export function RiskPromotion() {
         
         <div className="mb-8 border-b-8 border-primary pb-6">
           <div className="flex items-center gap-4">
-            <h1 className="text-5xl  text-primary  uppercase tracking-tighter">Promote to Risk</h1>
+            <h1 className="text-5xl  text-foreground  uppercase tracking-tighter">Promote to Risk</h1>
             {sourceData?.linked_person && (
                 <span className="bg-primary/20 text-primary border-2 border-primary px-4 py-1 text-xs  uppercase  tracking-widest font-bold">
                     Ref: {sourceData.linked_person}

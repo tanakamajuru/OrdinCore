@@ -372,7 +372,7 @@ const PatientDrawer = ({
                       <p className="text-sm font-medium text-foreground">
                         {p.display_name || `${p.first_name} ${p.last_name}`}
                       </p>
-                      <p className="text-xs text-muted-foreground font-mono">ID: {p.id.slice(0, 8)}…</p>
+                      <p className="text-xs text-muted-foreground">ID: {p.id.slice(0, 8)}…</p>
                     </div>
                   </div>
                   <button
@@ -622,7 +622,7 @@ const AdminHouseManagement: React.FC = () => {
       <div className="p-6 space-y-6">
         {/* Header */}
         <div className="flex justify-between items-center">
-          <h1 className="text-3xl text-primary">Service Management</h1>
+          <h1 className="text-3xl text-foreground">Service Management</h1>
           <Button onClick={() => { resetForm(); setIsCreateDialogOpen(true); }}>
             <Home className="mr-2 h-4 w-4" /> Add Service
           </Button>

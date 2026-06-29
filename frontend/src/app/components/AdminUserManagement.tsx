@@ -506,7 +506,7 @@ const AdminUserManagement: React.FC = () => {
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
-          <h1 className="text-3xl  text-primary">User Management</h1>
+          <h1 className="text-3xl  text-foreground">User Management</h1>
         </div>
         <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
           <UserPlus className="mr-2 h-4 w-4" />
@@ -551,7 +551,7 @@ const AdminUserManagement: React.FC = () => {
       {/* Filters */}
       <div className="bg-card border-2 border-border p-6 shadow-sm">
         <div className="mb-4">
-          <h2 className="text-xl  text-primary mb-2">Filters</h2>
+          <h2 className="text-xl  text-foreground mb-2">Filters</h2>
         </div>
         <div className="flex flex-wrap gap-4">
           <div className="flex-1 min-w-[200px]">
@@ -602,7 +602,7 @@ const AdminUserManagement: React.FC = () => {
       <Card className="border-2 border-border bg-card shadow-sm">
         <div className="p-6">
           <div className="mb-4">
-            <h2 className="text-xl  text-primary mb-1">Users</h2>
+            <h2 className="text-xl  text-foreground mb-1">Users</h2>
             <p className="text-muted-foreground">Manage user accounts, roles, and permissions</p>
           </div>
           <CardContent className="p-0">

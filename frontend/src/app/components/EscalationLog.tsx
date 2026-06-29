@@ -181,6 +181,9 @@ export function EscalationLog() {
     return 'all';
   })();
   const [filter, setFilter] = useState<'all' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 10;
+  useEffect(() => { setPage(1); }, [filter]);
 
   const counts = {
     needs: escalations.filter(e => lifecycleState(e) === 'needs').length,
@@ -194,6 +197,9 @@ export function EscalationLog() {
       if (w !== 0) return w;
       return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
     });
+  const totalPages = Math.max(1, Math.ceil(visibleEscalations.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedEscalations = visibleEscalations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleSelectEscalation = async (esc: Escalation) => {
     try {
@@ -219,7 +225,7 @@ export function EscalationLog() {
       <RoleBasedNavigation />
       <div className="p-6 w-full">
         <div className="mb-8">
-          <h1 className="text-3xl  text-primary mb-2 flex items-center gap-3">
+          <h1 className="text-3xl  text-foreground mb-2 flex items-center gap-3">
             <ShieldAlert className="w-8 h-8" />
             Escalation Management
           </h1>
@@ -246,7 +252,7 @@ export function EscalationLog() {
               ))}
             </div>
 
-            {visibleEscalations.length > 0 ? visibleEscalations.map((esc) => {
+            {visibleEscalations.length > 0 ? pagedEscalations.map((esc) => {
               const st = lifecycleState(esc);
               const meta = STATE_META[st];
               return (
@@ -269,7 +275,7 @@ export function EscalationLog() {
                     <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
                   </div>
 
-                  <h3 className="text-lg  text-primary mb-2">{esc.risk_title}</h3>
+                  <h3 className="text-lg  text-foreground mb-2">{esc.risk_title}</h3>
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{esc.reason}</p>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border">
@@ -284,6 +290,21 @@ export function EscalationLog() {
               <div className="text-center py-20 bg-muted/30 border-2 border-dashed border-border">
                 <CheckCircle2 className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
                 <h3 className="text-lg  text-muted-foreground">{filter === 'all' ? 'All clear! No escalations.' : `Nothing in "${filter === 'needs' ? 'Needs action' : filter === 'progress' ? 'In progress' : 'Resolved'}".`}</h3>
+              </div>
+            )}
+
+            {visibleEscalations.length > PAGE_SIZE && (
+              <div className="flex items-center justify-between gap-4 pt-2">
+                <span className="text-xs text-muted-foreground">
+                  Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, visibleEscalations.length)} of {visibleEscalations.length}
+                </span>
+                <div className="flex items-center gap-2">
+                  <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1}
+                    className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">Previous</button>
+                  <span className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</span>
+                  <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages}
+                    className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40 disabled:cursor-not-allowed">Next</button>
+                </div>
               </div>
             )}
           </div>

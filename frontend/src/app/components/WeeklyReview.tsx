@@ -424,7 +424,7 @@ export function WeeklyReview() {
           {/* Step body */}
           <div className={`${card} flex-1`}>
             <div className="text-xs text-muted-foreground mb-1">Step {step + 1} of 13</div>
-            <h2 className="text-xl text-primary font-semibold mb-3">{STEPS[step]}</h2>
+            <h2 className="text-xl text-foreground font-semibold mb-3">{STEPS[step]}</h2>
             {isAuto && <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded px-2 py-1 mb-3"><Activity size={12} /> Auto-populated from this week's data</div>}
             <div className="mb-4">{stepBody()}</div>
             <div className="flex items-center gap-3 pt-2 border-t border-border/50">

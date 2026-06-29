@@ -68,7 +68,7 @@ export function ServiceUsers() {
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Users size={22} /></div>
           <div>
-            <h1 className="text-3xl text-primary font-semibold">Service Users</h1>
+            <h1 className="text-3xl text-foreground font-semibold">Service Users</h1>
             <p className="text-muted-foreground mt-0.5">Anonymised references used in signal capture, across your services.</p>
           </div>
         </div>

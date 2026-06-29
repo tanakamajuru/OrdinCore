@@ -29,6 +29,11 @@ export function MyActions() {
   const [outcome, setOutcome] = useState("");
   const [rationale, setRationale] = useState("");
   const [note, setNote] = useState("");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 12;
+  const totalPages = Math.max(1, Math.ceil(actions.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedActions = actions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   useEffect(() => {
     fetchActions();
@@ -101,7 +106,7 @@ export function MyActions() {
             Back to Dashboard
           </Button>
           <div>
-            <h1 className="text-3xl text-primary uppercase tracking-tighter">My Action Tracker</h1>
+            <h1 className="text-3xl text-foreground uppercase tracking-tighter">My Action Tracker</h1>
             <p className="text-muted-foreground">Governance implementation and risk mitigation tasks assigned to you.</p>
           </div>
         </div>
@@ -113,7 +118,7 @@ export function MyActions() {
               <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">No active actions assigned to you.</p>
             </div>
           ) : (
-            actions.map((action) => (
+            pagedActions.map((action) => (
               <Card key={action.id} className="border-2 border-border hover:border-primary/40 transition-colors">
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row justify-between gap-6">
@@ -170,6 +175,16 @@ export function MyActions() {
                 </CardContent>
               </Card>
             ))
+          )}
+          {actions.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-4">
+              <span className="text-xs text-muted-foreground">Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, actions.length)} of {actions.length}</span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Previous</button>
+                <span className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
+              </div>
+            </div>
           )}
         </div>
       </div>

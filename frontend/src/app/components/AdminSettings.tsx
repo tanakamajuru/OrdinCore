@@ -15,7 +15,7 @@ const AdminSettings: React.FC = () => {
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4 border-b border-border pb-4">
-            <h3 className="text-lg  flex items-center gap-2 text-primary">
+            <h3 className="text-lg  flex items-center gap-2 text-foreground">
               <Shield className="h-5 w-5" />
               Security Settings
             </h3>
@@ -41,7 +41,7 @@ const AdminSettings: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4 border-b border-border pb-4">
-            <h3 className="text-lg  flex items-center gap-2 text-primary">
+            <h3 className="text-lg  flex items-center gap-2 text-foreground">
               <Database className="h-5 w-5" />
               System Configuration
             </h3>
@@ -67,7 +67,7 @@ const AdminSettings: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4 border-b border-border pb-4">
-            <h3 className="text-lg  flex items-center gap-2 text-primary">
+            <h3 className="text-lg  flex items-center gap-2 text-foreground">
               <Bell className="h-5 w-5" />
               Notification Settings
             </h3>
@@ -93,7 +93,7 @@ const AdminSettings: React.FC = () => {
 
         <div className="bg-card border-2 border-border p-6 shadow-sm">
           <div className="mb-4 border-b border-border pb-4">
-            <h3 className="text-lg  flex items-center gap-2 text-primary">
+            <h3 className="text-lg  flex items-center gap-2 text-foreground">
               <Settings className="h-5 w-5" />
               General Settings
             </h3>

@@ -82,7 +82,7 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
                             <Textarea 
                                 value={finalNarrative}
                                 onChange={(e) => setFinalNarrative(e.target.value)}
-                                className="min-h-[600px] font-mono text-sm border-2 border-border focus-visible:ring-0 rounded-none bg-muted/5 p-6"
+                                className="min-h-[600px] text-sm border-2 border-border focus-visible:ring-0 rounded-none bg-muted/5 p-6"
                             />
                         </div>
                         

@@ -184,7 +184,7 @@ export function IncidentDetail() {
         {['REGISTERED_MANAGER', 'RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && incident.status !== 'closed' && (
           <div className="bg-primary/5 border-2 border-primary/20 p-6 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
             <div>
-              <h3 className="text-lg  text-primary flex items-center gap-2">
+              <h3 className="text-lg  text-foreground flex items-center gap-2">
                 <Shield className="w-5 h-5" />
                 Governance Moderation
               </h3>

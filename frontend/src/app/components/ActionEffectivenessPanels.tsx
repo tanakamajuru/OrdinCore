@@ -47,7 +47,7 @@ export function ActionEffectivenessPanels() {
         {/* Org Summary Card */}
         <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Organisational Effectiveness (7D)</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Organisational Effectiveness (7D)</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
@@ -68,7 +68,7 @@ export function ActionEffectivenessPanels() {
         {/* Domain Analysis */}
         <Card className="lg:col-span-2 border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Effectiveness by Domain</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness by Domain</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -124,7 +124,7 @@ export function ActionEffectivenessPanels() {
         {/* Service Comparison */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Service Performance Matrix</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Service Performance Matrix</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -157,7 +157,7 @@ export function ActionEffectivenessPanels() {
         {/* Daily Trend */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-primary">Organisational Trajectory</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Organisational Trajectory</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
             <ResponsiveContainer width="100%" height="100%">

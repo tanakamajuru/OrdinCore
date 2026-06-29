@@ -266,7 +266,7 @@ export function IncidentCaseHub() {
           {/* Header */}
           <div className="flex justify-between items-center mb-8">
             <div>
-              <h1 className="text-3xl  text-primary mb-2">Serious Incidents</h1>
+              <h1 className="text-3xl  text-foreground mb-2">Serious Incidents</h1>
               <p className="text-muted-foreground">
                 {userRole === 'REGISTERED_MANAGER'
                   ? `Serious incident management for ${userHouseName || 'your house'}`
@@ -358,7 +358,7 @@ export function IncidentCaseHub() {
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
                         <h3 
-                          className="text-lg  text-primary cursor-pointer hover:underline"
+                          className="text-lg  text-foreground cursor-pointer hover:underline"
                           onClick={() => navigate(`/incidents/${incident.id}`)}
                         >
                           {incident.title}
@@ -474,7 +474,7 @@ export function IncidentCaseHub() {
             <div className="text-center py-12 bg-card border-2 border-dashed border-border rounded-lg shadow-inner">
               <div className="text-muted-foreground mb-6">
                 <Ambulance className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
-                <h3 className="text-xl  text-primary mb-2">No incidents found</h3>
+                <h3 className="text-xl  text-foreground mb-2">No incidents found</h3>
                 <p>
                   {userRole === 'REGISTERED_MANAGER'
                     ? 'There are no incidents for your assigned house.'
@@ -497,7 +497,7 @@ export function IncidentCaseHub() {
             <div className="fixed inset-0 backdrop-blur-sm bg-primary/50 flex items-center justify-center z-50 p-4">
               <div className="bg-card border-2 border-border shadow-2xl rounded-xl p-6 max-w-2xl w-full max-h-[90vh] overflow-y-auto">
                 <div className="flex justify-between items-center mb-6 sticky top-0 bg-card pb-4 border-b border-border z-10">
-                  <h2 className="text-2xl  text-primary">Report Serious Incident</h2>
+                  <h2 className="text-2xl  text-foreground">Report Serious Incident</h2>
                   <Button
                     variant="ghost"
                     size="sm"

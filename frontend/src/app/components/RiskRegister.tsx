@@ -48,6 +48,13 @@ export function RiskRegister() {
   const banner = data?.banner || { activeOversight: 0, escalating: 0, stable: 0, improving: 0, critical: 0, controlFailures: 0, lastReviewAt: null };
   const rows: any[] = data?.[tab] || [];
 
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+  useEffect(() => { setPage(1); }, [tab]);
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
   const tabs: { key: Tab; label: string; count: number; icon: any }[] = [
     { key: "emerging", label: "Emerging Concerns", count: data?.emerging?.length || 0, icon: Layers },
     { key: "active", label: "Active Oversight", count: data?.active?.length || 0, icon: AlertTriangle },
@@ -75,7 +82,7 @@ export function RiskRegister() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-7xl mx-auto">
         <div className="mb-5">
-          <h1 className="text-3xl text-primary font-semibold">Risk Register</h1>
+          <h1 className="text-3xl text-foreground font-semibold">Risk Register</h1>
           <p className="text-muted-foreground mt-1">What leadership is actively overseeing — emerging concerns, active and strategic risks, and closed items. Promote an emerging concern to a risk to act on it.</p>
         </div>
 
@@ -124,7 +131,7 @@ export function RiskRegister() {
                   </tr>
                 </thead>
                 <tbody>
-                  {rows.map((r) => (
+                  {pagedRows.map((r) => (
                     <tr key={r.id} onClick={() => openRow(r)} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer">
                       <td className="py-2.5 px-3 font-medium max-w-[260px] truncate">{r.concern}</td>
                       <td className="px-2"><span className="text-xs text-muted-foreground">{r.type}</span></td>
@@ -139,6 +146,16 @@ export function RiskRegister() {
                   ))}
                 </tbody>
               </table>
+            </div>
+          )}
+          {rows.length > PAGE_SIZE && (
+            <div className="flex items-center justify-between gap-4 px-3 py-3 border-t border-border">
+              <span className="text-xs text-muted-foreground">Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, rows.length)} of {rows.length}</span>
+              <div className="flex items-center gap-2">
+                <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Previous</button>
+                <span className="text-sm text-muted-foreground">Page {safePage} of {totalPages}</span>
+                <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
+              </div>
             </div>
           )}
         </div>

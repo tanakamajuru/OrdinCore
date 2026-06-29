@@ -78,7 +78,7 @@ export function Trends() {
       <div className="p-6 w-full pt-20">
         <div className="mb-6 flex justify-between items-start">
           <div>
-            <h1 className="text-3xl  text-primary">Trends & Strategic Telemetry</h1>
+            <h1 className="text-3xl  text-foreground">Trends & Strategic Telemetry</h1>
             <p className="text-muted-foreground mt-1">6-Week Rolling Analysis across the organization</p>
           </div>
           <button
@@ -194,7 +194,7 @@ export function Trends() {
               </div>
               <div className="p-3 bg-primary/10 rounded border-2 border-primary/20">
                 <p className="text-[10px] uppercase  text-primary mb-1">Current</p>
-                <p className="text-xl  text-primary">{safeguardingData?.currentWeek || 0}</p>
+                <p className="text-xl  text-foreground">{safeguardingData?.currentWeek || 0}</p>
               </div>
             </div>
           </div>

@@ -147,7 +147,7 @@ export function RegisteredManagerOversightBoard() {
   );
 
   const sectionClass = "bg-card border-4 border-border p-8 ";
-  const titleClass = "text-xl  uppercase  text-primary mb-6 tracking-tighter flex items-center gap-3";
+  const titleClass = "text-xl  uppercase  text-foreground mb-6 tracking-tighter flex items-center gap-3";
   const badgeClass = "bg-primary text-primary-foreground px-3 py-1 text-xs  uppercase  tracking-widest";
 
   const hasSafeguardingOverride = isDeputyCover && highPrioritySignals.length > 0;
@@ -230,7 +230,7 @@ export function RegisteredManagerOversightBoard() {
 
         <div className="mb-10 flex flex-col md:flex-row md:items-end justify-between gap-4 border-b-4 border-primary pb-6">
           <div>
-            <h1 className="text-2xl  text-primary tracking-tighter uppercase  leading-none">Oversight Board</h1>
+            <h1 className="text-2xl  text-foreground tracking-tighter uppercase  leading-none">Oversight Board</h1>
             <p className="text-muted-foreground  mt-2 tracking-wide uppercase text-sm">
               Service: <span className="text-primary">{house?.name}</span> | {new Date().toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long' })}
             </p>

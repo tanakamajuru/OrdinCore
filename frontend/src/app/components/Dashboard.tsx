@@ -144,7 +144,7 @@ export function Dashboard() {
       <Navigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-6">
-          <h1 className="text-3xl  text-primary">Governance Overview</h1>
+          <h1 className="text-3xl  text-foreground">Governance Overview</h1>
           <p className="text-muted-foreground mt-1">
             Welcome back, {user?.name}. Here's your governance overview for {new Date().toLocaleDateString()}.
           </p>
@@ -155,7 +155,7 @@ export function Dashboard() {
           <div className="space-y-6">
             {/* Today's Governance Pulse */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Today's Governance Pulse</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Today's Governance Pulse</h2>
               <div className="mb-4">
                 <p className="text-muted-foreground">Status: <span className="text-foreground ">{getTodayPulseStatus().message}</span></p>
                 {pulseStatus && (
@@ -174,12 +174,12 @@ export function Dashboard() {
 
             {/* Weekly Snapshot Summary */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Weekly Snapshot Summary</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Weekly Snapshot Summary</h2>
               <div className="grid grid-cols-2 gap-4">
                 {weeklySnapshot.map((stat) => (
                   <div key={stat.label} className="bg-muted/30 border border-border p-4">
                     <span className="block text-sm text-muted-foreground mb-1">{stat.label}</span>
-                    <span className="text-xl  text-primary">{stat.value}</span>
+                    <span className="text-xl  text-foreground">{stat.value}</span>
                   </div>
                 ))}
               </div>
@@ -190,7 +190,7 @@ export function Dashboard() {
           <div className="space-y-6">
             {/* Active High Risks */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Active High Risks</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Active High Risks</h2>
               <div className="space-y-2">
                 {activeHighRisks.length > 0 ? (
                   activeHighRisks.map((risk, idx) => (
@@ -216,7 +216,7 @@ export function Dashboard() {
 
             {/* Escalations This Week */}
             <div className="bg-card border-2 border-border p-6 shadow-sm">
-              <h2 className="text-xl  mb-4 text-primary">Escalations This Week</h2>
+              <h2 className="text-xl  mb-4 text-foreground">Escalations This Week</h2>
               <div className="space-y-2">
                 {escalationsThisWeek.length > 0 ? (
                   escalationsThisWeek.map((esc, idx) => (

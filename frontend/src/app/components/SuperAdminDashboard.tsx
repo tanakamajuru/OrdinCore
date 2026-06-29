@@ -729,7 +729,7 @@ export default function SuperAdminDashboard() {
                         onChange={(e) => setTemperature(parseFloat(e.target.value))}
                         className="flex-1 accent-primary h-2 bg-muted rounded-lg appearance-none cursor-pointer"
                       />
-                      <span className="w-12 text-center text-sm bg-muted border border-border py-1 px-2 rounded-md font-mono">{temperature}</span>
+                      <span className="w-12 text-center text-sm bg-muted border border-border py-1 px-2 rounded-md">{temperature}</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1.5">Lower temperatures trigger high determinism. Recommended for structured safety metrics.</p>
                   </div>
@@ -746,7 +746,7 @@ export default function SuperAdminDashboard() {
                         onChange={(e) => setComplianceThreshold(parseInt(e.target.value))}
                         className="flex-1 accent-primary h-2 bg-muted rounded-lg appearance-none cursor-pointer"
                       />
-                      <span className="w-12 text-center text-sm bg-muted border border-border py-1 px-2 rounded-md font-mono">{complianceThreshold}%</span>
+                      <span className="w-12 text-center text-sm bg-muted border border-border py-1 px-2 rounded-md">{complianceThreshold}%</span>
                     </div>
                     <p className="text-[11px] text-muted-foreground mt-1.5">Flag systems automatically if process adherence dips below this parameter.</p>
                   </div>
@@ -763,11 +763,11 @@ export default function SuperAdminDashboard() {
                 <div className="space-y-6">
                   <div className="grid grid-cols-2 gap-4">
                     <div className="bg-muted p-4 border border-border rounded-lg text-center">
-                      <span className="block text-2xl font-mono font-semibold text-primary">12 / 50</span>
+                      <span className="block text-2xl font-semibold text-foreground">12 / 50</span>
                       <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1 block">Active Connections</span>
                     </div>
                     <div className="bg-muted p-4 border border-border rounded-lg text-center">
-                      <span className="block text-2xl font-mono font-semibold text-green-600">38</span>
+                      <span className="block text-2xl font-semibold text-green-600">38</span>
                       <span className="text-xs text-muted-foreground uppercase tracking-wider mt-1 block">Idle Connections</span>
                     </div>
                   </div>
@@ -810,7 +810,7 @@ export default function SuperAdminDashboard() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3">
                       <span className="text-sm text-foreground font-semibold">Enable Maintenance Lockdown</span>
-                      <span className={`px-2 py-0.5 text-[9px] uppercase tracking-wider rounded font-mono ${
+                      <span className={`px-2 py-0.5 text-[9px] uppercase tracking-wider rounded ${
                         maintenanceMode ? "bg-red-100 text-red-700 animate-pulse" : "bg-green-100 text-green-700"
                       }`}>
                         {maintenanceMode ? "Lockdown Enabled" : "System Operational"}

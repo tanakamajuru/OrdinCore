@@ -270,7 +270,7 @@ const AdminPulseManagement: React.FC = () => {
       >
         {pulses.map((pulse) => (
           <TableRow key={pulse.id}>
-            <TableCell className="font-mono">{pulse.pulse_id}</TableCell>
+            <TableCell className="">{pulse.pulse_id}</TableCell>
             <TableCell>
               <div>
                 <div className="">{pulse.house_name}</div>
