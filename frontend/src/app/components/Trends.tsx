@@ -1,8 +1,32 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, LabelList } from "recharts";
+import { Inbox } from "lucide-react";
 import { dashboardApi } from "@/services/dashboardApi";
 import { toast } from "sonner";
+
+// Honest empty states: a 6-week rolling chart on a system only days old reads as
+// "broken" when it shows flat zeros. These helpers tell apart "no data in this period"
+// from a genuine trend, and find where real data actually starts.
+const labelOf = (row: any): string => row?.date ?? row?.week ?? "";
+const rowHasValue = (row: any, keys: string[]): boolean => keys.some((k) => Number(row?.[k]) > 0);
+const lineHasData = (data: any[], keys: string[]): boolean =>
+  Array.isArray(data) && data.length > 0 && keys.length > 0 && data.some((r) => rowHasValue(r, keys));
+const firstDataLabel = (data: any[], keys: string[]): string | null => {
+  const r = (data || []).find((row) => rowHasValue(row, keys));
+  return r ? labelOf(r) : null;
+};
+const barHasData = (trends: any[], key: string, total: number): boolean =>
+  Number(total) > 0 || (Array.isArray(trends) && trends.some((t) => Number(t?.[key]) > 0));
+
+function EmptyChart({ height, message }: { height: number; message: string }) {
+  return (
+    <div style={{ height }} className="flex flex-col items-center justify-center text-center border-2 border-dashed border-border rounded-lg bg-muted/20 px-6">
+      <Inbox className="w-8 h-8 text-muted-foreground/40 mb-3" />
+      <p className="text-sm text-muted-foreground max-w-sm">{message}</p>
+    </div>
+  );
+}
 
 export function Trends() {
   const [highRiskData, setHighRiskData] = useState<any[]>([]);
@@ -72,6 +96,16 @@ export function Trends() {
     '#EC4899'  // Pink
   ];
 
+  // Per-chart data presence + where real history begins (for the "limited history" note).
+  const riskHasData = lineHasData(highRiskData, riskHouseNames);
+  const riskFirst = riskHasData ? firstDataLabel(highRiskData, riskHouseNames) : null;
+  const riskLimited = riskHasData && highRiskData.length > 0 && labelOf(highRiskData[0]) !== riskFirst;
+  const incidentHasData = lineHasData(incidentTrajectoryData, incidentHouseNames);
+  const incidentFirst = incidentHasData ? firstDataLabel(incidentTrajectoryData, incidentHouseNames) : null;
+  const incidentLimited = incidentHasData && incidentTrajectoryData.length > 0 && labelOf(incidentTrajectoryData[0]) !== incidentFirst;
+  const safeguardingHasData = barHasData(safeguardingData?.trends, 'incidents', safeguardingData?.total);
+  const escalationHasData = barHasData(escalationData?.trends, 'count', escalationData?.total);
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
@@ -97,35 +131,42 @@ export function Trends() {
               <span className="w-3 h-3 bg-primary rounded-full"></span>
               Cross-House Risk Trajectory
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={highRiskData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "2px solid hsl(var(--border))",
-                    color: "hsl(var(--foreground))",
-                    borderRadius: "0.5rem",
-                    boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
-                  }}
-                />
-                <Legend verticalAlign="top" align="right" iconType="circle" />
-                {riskHouseNames.map((house, idx) => (
-                  <Line 
-                    key={house} 
-                    type="monotone" 
-                    dataKey={house} 
-                    stroke={chartColors[idx % chartColors.length]} 
-                    strokeWidth={3} 
-                    dot={{ fill: chartColors[idx % chartColors.length], r: 4 }} 
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                    name={house}
+            {riskHasData ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={highRiskData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "2px solid hsl(var(--border))",
+                      color: "hsl(var(--foreground))",
+                      borderRadius: "0.5rem",
+                      boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
+                    }}
                   />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+                  <Legend verticalAlign="top" align="right" iconType="circle" />
+                  {riskHouseNames.map((house, idx) => (
+                    <Line
+                      key={house}
+                      type="monotone"
+                      dataKey={house}
+                      stroke={chartColors[idx % chartColors.length]}
+                      strokeWidth={3}
+                      dot={{ fill: chartColors[idx % chartColors.length], r: 4 }}
+                      activeDot={{ r: 6, strokeWidth: 0 }}
+                      name={house}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart height={300} message="No risk trajectory in this 6-week period — promoted risks plot here as their history accumulates." />
+            )}
+            {riskLimited && riskFirst && (
+              <p className="text-[11px] text-muted-foreground mt-2">Trend builds as history accumulates — limited data before {riskFirst}.</p>
+            )}
           </div>
 
           {/* Incident Trajectory */}
@@ -134,33 +175,40 @@ export function Trends() {
               <span className="w-3 h-3 bg-destructive rounded-full"></span>
               Cross-House Incident Trajectory
             </h2>
-            <ResponsiveContainer width="100%" height={300}>
-              <LineChart data={incidentTrajectoryData}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
-                <Tooltip
-                  contentStyle={{
-                    backgroundColor: "hsl(var(--card))",
-                    border: "2px solid hsl(var(--border))",
-                    color: "hsl(var(--foreground))",
-                    borderRadius: "0.5rem",
-                  }}
-                />
-                <Legend verticalAlign="top" align="right" iconType="circle" />
-                {incidentHouseNames.map((house, idx) => (
-                  <Line 
-                    key={house} 
-                    type="stepAfter" 
-                    dataKey={house} 
-                    stroke={chartColors[(idx + 2) % chartColors.length]} 
-                    strokeWidth={3} 
-                    dot={{ fill: chartColors[(idx + 2) % chartColors.length], r: 4 }} 
-                    name={house}
+            {incidentHasData ? (
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart data={incidentTrajectoryData}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} tickMargin={10} />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "hsl(var(--card))",
+                      border: "2px solid hsl(var(--border))",
+                      color: "hsl(var(--foreground))",
+                      borderRadius: "0.5rem",
+                    }}
                   />
-                ))}
-              </LineChart>
-            </ResponsiveContainer>
+                  <Legend verticalAlign="top" align="right" iconType="circle" />
+                  {incidentHouseNames.map((house, idx) => (
+                    <Line
+                      key={house}
+                      type="stepAfter"
+                      dataKey={house}
+                      stroke={chartColors[(idx + 2) % chartColors.length]}
+                      strokeWidth={3}
+                      dot={{ fill: chartColors[(idx + 2) % chartColors.length], r: 4 }}
+                      name={house}
+                    />
+                  ))}
+                </LineChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart height={300} message="No incidents logged in the last 6 weeks. Serious incidents recorded in the Incident Hub will trajectory here." />
+            )}
+            {incidentLimited && incidentFirst && (
+              <p className="text-[11px] text-muted-foreground mt-2">Trend builds as history accumulates — limited data before {incidentFirst}.</p>
+            )}
           </div>
 
           {/* Safeguarding Volume */}
@@ -169,20 +217,24 @@ export function Trends() {
               <span className="w-3 h-3 bg-amber-500 rounded-full"></span>
               Safeguarding Volume (6-Week View)
             </h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={safeguardingData?.trends || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
-                <Bar dataKey="incidents" radius={[4, 4, 0, 0]} barSize={40}>
-                  {(safeguardingData?.trends || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
-                  ))}
-                  <LabelList dataKey="incidents" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {safeguardingHasData ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={safeguardingData?.trends || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
+                  <Bar dataKey="incidents" radius={[4, 4, 0, 0]} barSize={40}>
+                    {(safeguardingData?.trends || []).map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
+                    ))}
+                    <LabelList dataKey="incidents" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart height={250} message="No safeguarding signals recorded in this 6-week period." />
+            )}
             <div className="mt-6 grid grid-cols-3 gap-4">
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
                 <p className="text-[10px] uppercase  text-muted-foreground mb-1">Weekly Avg</p>
@@ -205,20 +257,24 @@ export function Trends() {
               <span className="w-3 h-3 bg-secondary rounded-full"></span>
               Escalation Velocity
             </h2>
-            <ResponsiveContainer width="100%" height={250}>
-              <BarChart data={escalationData?.trends || []}>
-                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
-                <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
-                <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
-                <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
-                  {(escalationData?.trends || []).map((entry: any, index: number) => (
-                    <Cell key={`cell-${index}`} fill={chartColors[(index + 4) % chartColors.length]} />
-                  ))}
-                  <LabelList dataKey="count" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
+            {escalationHasData ? (
+              <ResponsiveContainer width="100%" height={250}>
+                <BarChart data={escalationData?.trends || []}>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                  <XAxis dataKey="week" stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
+                  <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
+                  <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
+                    {(escalationData?.trends || []).map((entry: any, index: number) => (
+                      <Cell key={`cell-${index}`} fill={chartColors[(index + 4) % chartColors.length]} />
+                    ))}
+                    <LabelList dataKey="count" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <EmptyChart height={250} message="No escalations recorded in this 6-week period." />
+            )}
             <div className="mt-6 grid grid-cols-3 gap-4">
               <div className="p-3 bg-muted/30 rounded border-2 border-border">
                 <p className="text-[10px] uppercase  text-muted-foreground mb-1">Weekly Avg</p>
