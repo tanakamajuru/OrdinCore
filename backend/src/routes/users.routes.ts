@@ -94,6 +94,9 @@ router.patch('/:id/password', requireAuth, requireTenant, requireRole('SUPER_ADM
 
 // Admin: per-user "can view all sites" read-scope override (audited).
 router.patch('/:id/site-visibility', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.setSiteVisibility.bind(usersController));
+
+// Admin: set a user's granted roles (multi-role), one marked primary (audited).
+router.patch('/:id/roles', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.setRoles.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:

@@ -12,5 +12,7 @@ router.get('/:id', requireAuth, requireTenant, clustersController.findById.bind(
 
 // Support for promotion via cluster ID in URL
 router.post('/:id/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), risksController.promote.bind(risksController));
+// Dismiss a pattern (requires a written reason)
+router.post('/:id/dismiss', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), clustersController.dismiss.bind(clustersController));
 
 export default router;

@@ -94,6 +94,8 @@ router.post('/refresh', authController.refresh.bind(authController));
  *         description: Success
  */
 router.get('/me', requireAuth, authController.me.bind(authController));
+// Multi-role: switch the active capacity (must be one of the caller's granted roles).
+router.post('/active-role', requireAuth, authController.setActiveRole.bind(authController));
 /**
  * @openapi
  * /api/v1/auth/change-password:

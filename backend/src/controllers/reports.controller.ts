@@ -115,9 +115,11 @@ export class ReportsController {
 
   async downloadGenerated(req: Request, res: Response) {
     try {
-      const { abs, title, format } = await generatedReportsService.getFile(req.params.id, req.user!.company_id!);
-      const safe = title.replace(/[^a-z0-9-_ ]/gi, '').trim().slice(0, 60) || 'report';
-      return res.download(abs, `${safe}.${format}`);
+      // Regenerate the document fresh from stored data — never depends on a disk file.
+      const { buffer, filename, contentType } = await generatedReportsService.renderForDownload(req.params.id, req.user!.company_id!);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(buffer);
     } catch (err: unknown) {
       return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Report not found', errors: [] });
     }

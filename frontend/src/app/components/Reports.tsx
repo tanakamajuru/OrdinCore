@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { BackButton } from "./ui/BackButton";
 import { FileDown, FileText, ShieldAlert, Flag, GitBranch, Loader2, Download, Network, FileCheck2, Sparkles, Trash2 } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
@@ -276,6 +277,7 @@ export function Reports() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 max-w-[1300px]">
+        <BackButton />
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Reports</h1>

@@ -106,10 +106,36 @@ export class AuthController {
   async me(req: Request, res: Response) {
     try {
       const result = await authService.me(req.user!.user_id);
-      return res.json({ success: true, data: result, meta: {} });
+      // Surface the active capacity + grants so the UI renders for the active role and
+      // shows the "acting as" switcher only when the user holds more than one role.
+      const withRoles = {
+        ...(result as any),
+        role: req.user!.role,                 // ACTIVE role drives the interface
+        active_role: req.user!.role,
+        primary_role: req.user!.primary_role,
+        granted_roles: req.user!.granted_roles || [req.user!.role],
+      };
+      return res.json({ success: true, data: withRoles, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to get user';
       return res.status(404).json({ success: false, message, errors: [] });
+    }
+  }
+
+  // "Acting as" switch — change the role the session acts in (must be one of the
+  // caller's granted roles). The middleware reads active_role from the DB each
+  // request, so the change takes effect immediately on the next request.
+  async setActiveRole(req: Request, res: Response) {
+    try {
+      const { role } = req.body || {};
+      if (!role || !(req.user!.granted_roles || []).includes(role)) {
+        return res.status(400).json({ success: false, message: 'You do not hold that role.', errors: [] });
+      }
+      const result = await authService.setActiveRole(req.user!.user_id, role);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to switch role';
+      return res.status(400).json({ success: false, message, errors: [] });
     }
   }
 

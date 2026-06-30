@@ -160,6 +160,11 @@ export function ActionEffectivenessPanels() {
             <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Organisational Trajectory</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
+            {(!dailyTrendWithNumbers || dailyTrendWithNumbers.length === 0) ? (
+              <div className="h-full flex items-center justify-center text-center px-6">
+                <p className="text-sm text-muted-foreground max-w-sm">No effectiveness ratings yet — the trajectory builds as completed actions are reviewed and rated.</p>
+              </div>
+            ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyTrendWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
@@ -178,6 +183,7 @@ export function ActionEffectivenessPanels() {
                 <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Ineffective" />
               </LineChart>
             </ResponsiveContainer>
+            )}
           </CardContent>
         </Card>
       </div>

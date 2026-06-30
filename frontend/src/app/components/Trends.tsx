@@ -154,6 +154,7 @@ export function Trends() {
                       dataKey={house}
                       stroke={chartColors[idx % chartColors.length]}
                       strokeWidth={3}
+                      connectNulls
                       dot={{ fill: chartColors[idx % chartColors.length], r: 4 }}
                       activeDot={{ r: 6, strokeWidth: 0 }}
                       name={house}
@@ -197,6 +198,7 @@ export function Trends() {
                       dataKey={house}
                       stroke={chartColors[(idx + 2) % chartColors.length]}
                       strokeWidth={3}
+                      connectNulls
                       dot={{ fill: chartColors[(idx + 2) % chartColors.length], r: 4 }}
                       name={house}
                     />

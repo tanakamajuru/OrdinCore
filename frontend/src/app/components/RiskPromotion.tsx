@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams, useLocation } from "react-router";
+import { BackButton } from "./ui/BackButton";
 import { 
   ShieldAlert, 
   TrendingUp, 
@@ -170,6 +171,7 @@ export function RiskPromotion() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="max-w-[95%] mx-auto pt-32 p-6">
+        <BackButton />
         
         <div className="mb-8 border-b-8 border-primary pb-6">
           <div className="flex items-center gap-4">

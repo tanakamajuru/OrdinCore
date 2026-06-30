@@ -30,7 +30,16 @@ interface User {
   can_view_all_houses?: boolean;
   view_all_houses_granted_by_name?: string | null;
   view_all_houses_granted_at?: string | null;
+  granted_roles?: string[];
 }
+
+const ALL_ROLES: { value: string; label: string }[] = [
+  { value: 'DIRECTOR', label: 'Director' },
+  { value: 'RESPONSIBLE_INDIVIDUAL', label: 'Responsible Individual' },
+  { value: 'REGISTERED_MANAGER', label: 'Registered Manager' },
+  { value: 'TEAM_LEADER', label: 'Team Leader' },
+  { value: 'ADMIN', label: 'Admin' },
+];
 
 interface House {
   id: string;
@@ -71,6 +80,41 @@ const AdminUserManagement: React.FC = () => {
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [siteVisGrantTarget, setSiteVisGrantTarget] = useState<User | null>(null);
+  const [rolesTarget, setRolesTarget] = useState<User | null>(null);
+  const [rolesDraft, setRolesDraft] = useState<string[]>([]);
+  const [primaryDraft, setPrimaryDraft] = useState<string>('');
+
+  const openRolesDialog = (u: User) => {
+    const current = (u.granted_roles && u.granted_roles.length ? u.granted_roles : [u.role]).map(r => r.toUpperCase().replace(/-/g, '_'));
+    setRolesDraft(current);
+    setPrimaryDraft(u.role.toUpperCase().replace(/-/g, '_'));
+    setRolesTarget(u);
+  };
+
+  const toggleRoleDraft = (role: string) => {
+    setRolesDraft(prev => prev.includes(role) ? prev.filter(r => r !== role) : [...prev, role]);
+  };
+
+  const saveRoles = async () => {
+    if (!rolesTarget) return;
+    if (rolesDraft.length === 0) { toast.error('A user must keep at least one role.'); return; }
+    const primary = rolesDraft.includes(primaryDraft) ? primaryDraft : rolesDraft[0];
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/${rolesTarget.id}/roles`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${localStorage.getItem('authToken')}` },
+        body: JSON.stringify({ roles: rolesDraft, primary }),
+      });
+      if (response.ok) {
+        toast.success('Roles updated');
+        setUsers(prev => prev.map(u => u.id === rolesTarget.id ? { ...u, granted_roles: rolesDraft, role: primary as any } : u));
+        setRolesTarget(null);
+      } else {
+        const e = await response.json().catch(() => ({}));
+        toast.error(e.message || 'Failed to update roles');
+      }
+    } catch { toast.error('Network error occurred'); }
+  };
 
 
   // Form state
@@ -685,6 +729,14 @@ const AdminUserManagement: React.FC = () => {
                         <Button
                           variant="outline"
                           size="sm"
+                          onClick={() => openRolesDialog(user)}
+                          title="Manage Roles"
+                        >
+                          <Users className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
                           onClick={() => openPasswordDialog(user)}
                           title="Reset Password"
                         >
@@ -968,6 +1020,38 @@ const AdminUserManagement: React.FC = () => {
           <DialogFooter>
              <Button variant="outline" onClick={() => setIsPasswordDialogOpen(false)}>Cancel</Button>
              <Button onClick={handleResetPassword} disabled={isSubmitting}>Reset Password</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Manage roles — multi-role grants with one marked primary */}
+      <Dialog open={!!rolesTarget} onOpenChange={(open) => { if (!open) setRolesTarget(null); }}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2"><Users className="w-5 h-5 text-primary" /> Manage Roles</DialogTitle>
+            <DialogDescription>
+              {rolesTarget?.name} can hold more than one role and switch the capacity they act in. Tick every role they hold; mark one primary (their default interface). Separation of duties still applies — they can never validate their own work.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-2 py-2">
+            {ALL_ROLES.map(r => (
+              <div key={r.value} className="flex items-center justify-between gap-3 p-2 border border-border rounded">
+                <label className="flex items-center gap-2 cursor-pointer flex-1">
+                  <Checkbox checked={rolesDraft.includes(r.value)} onCheckedChange={() => toggleRoleDraft(r.value)} />
+                  <span className="text-sm">{r.label}</span>
+                </label>
+                {rolesDraft.includes(r.value) && (
+                  <label className="flex items-center gap-1.5 text-xs text-muted-foreground cursor-pointer">
+                    <input type="radio" name="primaryRole" checked={primaryDraft === r.value} onChange={() => setPrimaryDraft(r.value)} />
+                    Primary
+                  </label>
+                )}
+              </div>
+            ))}
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setRolesTarget(null)}>Cancel</Button>
+            <Button onClick={saveRoles}>Save Roles</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -13,6 +13,9 @@ interface User {
   assigned_house_ids?: string[];
   assigned_house_name?: string;
   pulse_days?: string[];
+  granted_roles?: string[];
+  active_role?: string;
+  primary_role?: string;
   profile?: {
     avatar_url?: string;
     job_title?: string;

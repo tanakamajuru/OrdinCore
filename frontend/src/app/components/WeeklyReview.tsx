@@ -92,7 +92,7 @@ export function WeeklyReview() {
         });
         setStep(0); setDoneStep(0); setStatus("Draft"); setReviewId(null); setValidation(null);
       }
-    } catch { toast.error("Failed to prepare review"); }
+    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to prepare review"); }
     finally { setIsLoading(false); }
   };
 
@@ -150,7 +150,7 @@ export function WeeklyReview() {
         setStatus("Locked");
       }
       navigate("/dashboard");
-    } catch { toast.error("Failed to finalise review"); }
+    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to finalise review"); }
     finally { setIsSaving(false); }
   };
 
@@ -228,7 +228,7 @@ export function WeeklyReview() {
       await apiClient.post(`/weekly-reviews/${id || reviewId}/validate`, { validation_status: vStatus, validation_comment: comment });
       toast.success(`Review ${vStatus.toLowerCase()}`);
       if (houseId) loadReview(houseId);
-    } catch { toast.error("Failed to validate"); }
+    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to validate"); }
     finally { setIsSaving(false); }
   };
 

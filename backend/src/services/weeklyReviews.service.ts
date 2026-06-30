@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { assertIndependent } from '../utils/separationOfDuties';
 import { v4 as uuidv4 } from 'uuid';
 
 // export class WeeklyReviewsService {
@@ -239,16 +240,18 @@ export class WeeklyReviewsService {
     const existing = await this.findById(id, company_id);
     if (!existing) throw new Error('Review not found');
 
-    // 1. Update status to awaiting validation
+    // 1. Update status to awaiting validation — record WHO finalised (for the
+    // separation-of-duties guard in validate()).
     const result = await query(
-      `UPDATE weekly_reviews 
-       SET status = 'pending_validation', 
+      `UPDATE weekly_reviews
+       SET status = 'pending_validation',
            validation_status = 'Pending',
-           rm_finalised_at = NOW(), 
-           updated_at = NOW() 
-       WHERE id = $1 AND company_id = $2 
+           rm_finalised_at = NOW(),
+           rm_finalised_by = $3,
+           updated_at = NOW()
+       WHERE id = $1 AND company_id = $2
        RETURNING *`,
-      [id, company_id]
+      [id, company_id, user_id]
     );
 
     // 2. Notify RI and Directors
@@ -279,6 +282,10 @@ export class WeeklyReviewsService {
   async validate(id: string, company_id: string, user_id: string, data: { validation_status: string; validation_comment: string }) {
     const existing = await this.findById(id, company_id);
     if (!existing) throw new Error('Review not found');
+
+    // Separation of duties: the person who finalised (or authored) this review cannot
+    // also validate it — even if they hold both RM and RI/Director roles.
+    assertIndependent(existing.rm_finalised_by || existing.created_by, user_id, 'validation');
 
     const { validation_status, validation_comment } = data;
     const allowed = ['Approved', 'Challenged', 'Reopened'];

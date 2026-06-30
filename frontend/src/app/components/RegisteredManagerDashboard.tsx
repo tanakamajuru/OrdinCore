@@ -33,9 +33,12 @@ function TrendIcon({ trend }: { trend: string }) {
   return <Minus className="w-4 h-4 text-amber-500" />;
 }
 
-function StatCard({ icon: Icon, label, value, tone, footer }: any) {
+function StatCard({ icon: Icon, label, value, tone, footer, onClick }: any) {
   return (
-    <div className="bg-card border border-border rounded-xl p-4 shadow-sm">
+    <div
+      onClick={onClick}
+      className={`bg-card border border-border rounded-xl p-4 shadow-sm ${onClick ? 'cursor-pointer hover:shadow-md hover:border-primary/40 transition-all' : ''}`}
+    >
       <div className="flex items-start justify-between">
         <div>
           <p className="text-xs text-muted-foreground">{label}</p>
@@ -194,23 +197,29 @@ export function RegisteredManagerDashboard() {
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <StatCard icon={Activity} tone="bg-blue-100 text-blue-600" label="Signals This Month" value={signals.length}
+            onClick={() => navigate("/signals")}
             footer={<span className="text-muted-foreground">recorded</span>} />
           <StatCard icon={Shield} tone="bg-emerald-100 text-emerald-600" label="Strategic Risks" value={openRisks.length}
+            onClick={() => navigate("/risk-register?tab=strategic")}
             footer={<>
               <span className="text-red-600">↑ {risingCount} Rising</span>
               <span className="text-amber-600">→ {stableCount} Stable</span>
               <span className="text-emerald-600">↓ {improvingCount} Improving</span>
             </>} />
           <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Open Escalations" value={openEsc.length}
+            onClick={() => navigate("/escalation-log?status=open")}
             footer={<>
               <span className="text-red-600">● {overdueEsc} Overdue</span>
               <span className="text-emerald-600">● {onTimeEsc} On time</span>
             </>} />
           <StatCard icon={ClipboardCheck} tone="bg-red-100 text-red-600" label="Actions Due" value={actionsDue.length}
+            onClick={() => navigate("/my-actions")}
             footer={<span className="text-muted-foreground">open actions</span>} />
           <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews Due" value={effPending.length}
+            onClick={() => navigate("/effectiveness")}
             footer={<span className="text-muted-foreground">awaiting review</span>} />
           <StatCard icon={CheckCircle2} tone="bg-emerald-100 text-emerald-600" label="Closed This Month" value={closedThisMonth}
+            onClick={() => navigate("/risk-register?tab=closed")}
             footer={<span className="text-muted-foreground">escalations & risks</span>} />
         </div>
 

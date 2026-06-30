@@ -108,7 +108,8 @@ export class EscalationsService {
           p.related_person AS signal_related_person,
           p.risk_domain AS signal_risk_domain,
           p.signal_type AS signal_type,
-          p.created_at AS signal_logged_at
+          p.created_at AS signal_logged_at,
+          pu.first_name || ' ' || pu.last_name AS signal_logged_by_name
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
@@ -116,6 +117,7 @@ export class EscalationsService {
          LEFT JOIN incidents i ON i.id = e.incident_id
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
          LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
+         LEFT JOIN users pu ON pu.id = p.created_by
          WHERE ${where}
          ORDER BY
            CASE
@@ -145,11 +147,13 @@ export class EscalationsService {
         p.related_person AS signal_related_person,
         p.risk_domain AS signal_risk_domain,
         p.signal_type AS signal_type,
-        p.created_at AS signal_logged_at
+        p.created_at AS signal_logged_at,
+        pu.first_name || ' ' || pu.last_name AS signal_logged_by_name
        FROM escalations e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
        LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
+       LEFT JOIN users pu ON pu.id = p.created_by
        WHERE e.id = $1 AND e.company_id = $2`,
       [id, company_id]
     );

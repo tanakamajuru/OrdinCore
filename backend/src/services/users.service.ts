@@ -219,6 +219,62 @@ export class UsersService {
     await usersRepo.update(userId, { password_hash } as any);
   }
 
+  // Multi-role grants: set the full set of roles a user may act as, with one marked
+  // primary (users.role). Admin-guarded, audited, and protects against stripping a
+  // user's last role or self-granting SUPER_ADMIN.
+  async setUserRoles(company_id: string, targetUserId: string, roles: string[], primary: string, actingUserId: string, actingRole: string) {
+    const allowed = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER'];
+    const norm = Array.from(new Set((roles || []).map(r => String(r).toUpperCase().replace(/-/g, '_')))).filter(r => allowed.includes(r));
+    const primaryRole = String(primary || norm[0] || '').toUpperCase().replace(/-/g, '_');
+
+    if (norm.length === 0) throw new Error('A user must keep at least one role.');
+    if (!norm.includes(primaryRole)) throw new Error('The primary role must be one of the granted roles.');
+
+    const u = await usersRepo.findById(targetUserId, company_id);
+    if (!u || u.company_id !== company_id) throw new Error('User not found');
+
+    // Only a SUPER_ADMIN may grant SUPER_ADMIN, and nobody can self-grant it.
+    if (norm.includes('SUPER_ADMIN') && (actingRole !== 'SUPER_ADMIN' || targetUserId === actingUserId)) {
+      throw new Error('You cannot grant the SUPER_ADMIN role.');
+    }
+
+    const current = (await query('SELECT role FROM user_roles WHERE user_id = $1', [targetUserId])).rows.map((r: any) => r.role);
+    const toAdd = norm.filter(r => !current.includes(r));
+    const toRemove = current.filter((r: string) => !norm.includes(r));
+
+    for (const r of toAdd) {
+      await query(
+        `INSERT INTO user_roles (user_id, company_id, role, granted_by) VALUES ($1,$2,$3,$4)
+         ON CONFLICT (user_id, role) DO NOTHING`,
+        [targetUserId, company_id, r, actingUserId]
+      );
+      await this.auditRole(company_id, actingUserId, 'ROLE_GRANTED', targetUserId, r);
+    }
+    for (const r of toRemove) {
+      await query('DELETE FROM user_roles WHERE user_id = $1 AND role = $2', [targetUserId, r]);
+      await this.auditRole(company_id, actingUserId, 'ROLE_REVOKED', targetUserId, r);
+    }
+
+    // Primary role is users.role; if the active role is no longer held, reset to primary.
+    await query(
+      `UPDATE users SET role = $1,
+              active_role = CASE WHEN active_role = ANY($2::text[]) THEN active_role ELSE $1 END,
+              updated_at = NOW()
+        WHERE id = $3`,
+      [primaryRole, norm, targetUserId]
+    );
+
+    return { id: targetUserId, roles: norm, primary: primaryRole };
+  }
+
+  private async auditRole(company_id: string, actor: string, action: string, target: string, role: string) {
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+       VALUES ($1,$2,$3,$4,'user',$5,$6)`,
+      [uuidv4(), company_id, actor, action, target, JSON.stringify({ role })]
+    );
+  }
+
   // Site-visibility override: grant/revoke a user's ability to view signals
   // across ALL company sites. Read-scope widening only — never touches role or
   // permissions. Same-company guarded + audited (CQC: who changed access, when).

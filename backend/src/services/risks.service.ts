@@ -314,8 +314,23 @@ export class RisksService {
       );
     }
 
+    // Build the governance description from the FULL observation text of the linked
+    // signals (attributed + dated), not a fixed template, so the inspector sees what
+    // was actually observed.
+    const sigRows = (await query(
+      `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.severity
+         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE rsl.cluster_id = $1 ORDER BY gp.entry_date ASC, gp.entry_time ASC`,
+      [data.cluster_id]
+    )).rows;
+    const composed = sigRows.length
+      ? `Promoted from pattern detection — ${sigRows.length} linked signal(s):\n` +
+        sigRows.map((s: any) => `• ${s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : ''} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n')
+      : data.description;
+
     const risk = await this.create(company_id, user_id, {
       ...data,
+      description: composed || data.description,
       source_cluster_id: data.cluster_id,
       status: 'Open',
       risk_domain: cluster.risk_domain,
@@ -419,7 +434,7 @@ export class RisksService {
     const domain = Array.isArray(sig.risk_domain) ? (sig.risk_domain[0] || null) : (sig.risk_domain || null);
     const provenance = (data.reason && data.reason.trim().length >= 10)
       ? data.reason.trim()
-      : `Single-signal promotion (${isSafeguarding ? 'safeguarding 1/1' : `${sig.severity} severity`}): ${String(sig.description || '').slice(0, 200)}`;
+      : `Single-signal promotion (${isSafeguarding ? 'safeguarding 1/1' : `${sig.severity} severity`}): ${String(sig.description || '').slice(0, 600)}`;
 
     const risk = await this.create(company_id, user_id, {
       house_id: sig.house_id,
@@ -617,6 +632,7 @@ export class RisksService {
       `SELECT r.id, r.title, r.strategic_theme, r.trajectory, r.trend, r.status, r.severity,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
               r.last_governance_review_at, r.review_due_date, r.house_id,
+              r.closed_at,
               h.name AS service_name,
               (SELECT COUNT(*) FROM risk_signal_links rsl WHERE rsl.risk_id = r.id) AS evidence_count,
               (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id) AS controls_count,
@@ -654,6 +670,8 @@ export class RisksService {
       owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
       service: r.service_name || '—',
       nextReview: r.review_due_date || r.last_governance_review_at || null,
+      closed_at: r.closed_at || null,
+      closed_by: null,
     });
 
     const all = risksRes.rows.map(shape);

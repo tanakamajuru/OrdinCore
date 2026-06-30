@@ -56,40 +56,53 @@ function drawTable(doc: PDFKit.PDFDocument, headers: string[], rows: any[]) {
   }
 }
 
-function renderPdf(
-  filePath: string,
-  opts: { title: string; periodLabel?: string; serviceName?: string; narrative?: string; rows: any[] }
-): Promise<number> {
+type PdfOpts = { title: string; periodLabel?: string; serviceName?: string; narrative?: string; rows: any[] };
+
+function buildPdfDoc(opts: PdfOpts): PDFKit.PDFDocument {
+  const doc = new PDFDocument({ margin: 50, size: 'A4' });
+  doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(opts.title);
+  doc.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#555');
+  if (opts.serviceName) doc.text(`Service: ${opts.serviceName}`);
+  if (opts.periodLabel) doc.text(`Period: ${opts.periodLabel}`);
+  doc.text(`Generated: ${new Date().toLocaleString('en-GB')}`);
+  doc.fillColor('#000').moveDown(1);
+
+  if (opts.narrative && opts.narrative.trim()) {
+    doc.font('Helvetica-Bold').fontSize(12).text('Narrative');
+    doc.moveDown(0.2).font('Helvetica').fontSize(10).text(opts.narrative.trim(), { align: 'left' });
+    doc.moveDown(1);
+  }
+
+  if (opts.rows.length) {
+    doc.font('Helvetica-Bold').fontSize(12).text('Data');
+    doc.moveDown(0.4);
+    const headers = Object.keys(opts.rows[0]).slice(0, 6);
+    drawTable(doc, headers, opts.rows.slice(0, 300));
+  } else {
+    doc.font('Helvetica-Oblique').fontSize(10).text('No tabular data for this report in the selected period.');
+  }
+  return doc;
+}
+
+function renderPdf(filePath: string, opts: PdfOpts): Promise<number> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: 50, size: 'A4' });
+    const doc = buildPdfDoc(opts);
     const stream = fs.createWriteStream(filePath);
     doc.pipe(stream);
-
-    doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(opts.title);
-    doc.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#555');
-    if (opts.serviceName) doc.text(`Service: ${opts.serviceName}`);
-    if (opts.periodLabel) doc.text(`Period: ${opts.periodLabel}`);
-    doc.text(`Generated: ${new Date().toLocaleString('en-GB')}`);
-    doc.fillColor('#000').moveDown(1);
-
-    if (opts.narrative && opts.narrative.trim()) {
-      doc.font('Helvetica-Bold').fontSize(12).text('Narrative');
-      doc.moveDown(0.2).font('Helvetica').fontSize(10).text(opts.narrative.trim(), { align: 'left' });
-      doc.moveDown(1);
-    }
-
-    if (opts.rows.length) {
-      doc.font('Helvetica-Bold').fontSize(12).text('Data');
-      doc.moveDown(0.4);
-      const headers = Object.keys(opts.rows[0]).slice(0, 6);
-      drawTable(doc, headers, opts.rows.slice(0, 300));
-    } else {
-      doc.font('Helvetica-Oblique').fontSize(10).text('No tabular data for this report in the selected period.');
-    }
-
     doc.end();
     stream.on('finish', () => resolve(fs.statSync(filePath).size));
     stream.on('error', reject);
+  });
+}
+
+function renderPdfBuffer(opts: PdfOpts): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const doc = buildPdfDoc(opts);
+    const chunks: Buffer[] = [];
+    doc.on('data', (c: Buffer) => chunks.push(c));
+    doc.on('end', () => resolve(Buffer.concat(chunks)));
+    doc.on('error', reject);
+    doc.end();
   });
 }
 
@@ -119,12 +132,43 @@ export const generatedReportsService = {
 
     const res = await query(
       `INSERT INTO generated_reports
-         (id, company_id, report_key, title, format, period_label, service_name, file_path, size_bytes, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         (id, company_id, report_key, title, format, period_label, service_name, file_path, size_bytes, created_by, data, narrative)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        RETURNING id, report_key, title, format, period_label, service_name, size_bytes, created_at`,
-      [id, company_id, opts.reportKey, opts.title, opts.format, opts.periodLabel || null, opts.serviceName || null, fileName, size, user_id]
+      [id, company_id, opts.reportKey, opts.title, opts.format, opts.periodLabel || null, opts.serviceName || null, fileName, size, user_id,
+       JSON.stringify(opts.data ?? null), opts.narrative || null]
     );
     return res.rows[0];
+  },
+
+  // Regenerate the document fresh from the stored report data at download time, so a
+  // download never depends on a local file a restart may have wiped. Falls back to the
+  // on-disk file for older rows saved before the data was retained.
+  async renderForDownload(id: string, company_id: string): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
+    const r = await query(
+      `SELECT title, format, period_label, service_name, data, narrative, file_path
+         FROM generated_reports WHERE id = $1 AND company_id = $2`,
+      [id, company_id]
+    );
+    const row = r.rows[0];
+    if (!row) throw new Error('Report not found');
+
+    const safe = String(row.title || 'report').replace(/[^a-z0-9-_ ]/gi, '').trim().slice(0, 60) || 'report';
+    const filename = `${safe}.${row.format}`;
+
+    if (row.data !== null && row.data !== undefined) {
+      const rows = extractRows(row.data);
+      if (row.format === 'csv') {
+        return { buffer: Buffer.from(toCsv(rows), 'utf8'), filename, contentType: 'text/csv' };
+      }
+      const buffer = await renderPdfBuffer({ title: row.title, periodLabel: row.period_label, serviceName: row.service_name, narrative: row.narrative, rows });
+      return { buffer, filename, contentType: 'application/pdf' };
+    }
+
+    // Legacy fallback: stream the stored file if present.
+    const abs = path.join(REPORTS_DIR, path.basename(row.file_path));
+    if (!fs.existsSync(abs)) throw new Error('Report data is no longer available');
+    return { buffer: fs.readFileSync(abs), filename, contentType: row.format === 'csv' ? 'text/csv' : 'application/pdf' };
   },
 
   async list(company_id: string) {

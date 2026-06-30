@@ -31,6 +31,7 @@ interface Escalation {
   signal_risk_domain?: string[] | string;
   signal_type?: string;
   signal_logged_at?: string;
+  signal_logged_by_name?: string;
 }
 
 // risk_domain is TEXT[] — render the first element, never the raw {…}.
@@ -358,7 +359,9 @@ export function EscalationLog() {
                           </div>
                         )}
                         {selectedEscalation.signal_logged_at && (
-                          <p className="text-[10px] text-muted-foreground mt-2">Logged {new Date(selectedEscalation.signal_logged_at).toLocaleString('en-GB')}</p>
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            Logged{selectedEscalation.signal_logged_by_name ? ` by ${selectedEscalation.signal_logged_by_name}` : ''} · {new Date(selectedEscalation.signal_logged_at).toLocaleString('en-GB')}
+                          </p>
                         )}
                       </div>
                     )}

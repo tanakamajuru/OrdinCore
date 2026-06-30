@@ -253,6 +253,14 @@ export class AnalyticsService {
         `SELECT created_at FROM escalations WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
         [company_id]
       );
+      // Safeguarding VOLUME is safeguarding-domain SIGNALS (governance_pulses), not the
+      // incidents table — that mis-keying was why "3 recorded, 0 shown".
+      const safeguardingResult = await query(
+        `SELECT created_at FROM governance_pulses
+          WHERE company_id = $1 AND risk_domain::text ILIKE '%Safeguarding%'
+            AND created_at >= NOW() - INTERVAL '42 days'`,
+        [company_id]
+      );
 
       const now = new Date();
       const weeks = Array.from({ length: 6 }, (_, i) => {
@@ -260,7 +268,7 @@ export class AnalyticsService {
         end.setDate(end.getDate() - (5 - i) * 7);
         const start = new Date(end);
         start.setDate(start.getDate() - 7);
-        return { start, end, label: `Week ${i + 1}`, incidents: 0, escalations: 0 };
+        return { start, end, label: `Week ${i + 1}`, incidents: 0, escalations: 0, safeguarding: 0 };
       });
 
       incidentsResult.rows.forEach((row: any) => {
@@ -275,17 +283,23 @@ export class AnalyticsService {
         if (week) week.escalations++;
       });
 
-      const incidentTrends = weeks.map(w => ({ week: w.label, incidents: w.incidents }));
+      safeguardingResult.rows.forEach((row: any) => {
+        const d = new Date(row.created_at);
+        const week = weeks.find(w => d >= w.start && d <= w.end);
+        if (week) week.safeguarding++;
+      });
+
       const escalationTrends = weeks.map(w => ({ week: w.label, count: w.escalations }));
+      const safeguardingTrends = weeks.map(w => ({ week: w.label, incidents: w.safeguarding }));
 
       return {
         crossHouseRisk: multiHouseTrends,
         crossHouseIncidents: multiHouseIncidents,
         safeGuarding: {
-          trends: incidentTrends,
-          currentWeek: incidentTrends[5] ? incidentTrends[5].incidents : 0,
-          total: incidentTrends.reduce((sum, w) => sum + w.incidents, 0),
-          average: parseFloat((incidentTrends.reduce((sum, w) => sum + w.incidents, 0) / 6).toFixed(1))
+          trends: safeguardingTrends,
+          currentWeek: safeguardingTrends[5] ? safeguardingTrends[5].incidents : 0,
+          total: safeguardingTrends.reduce((sum, w) => sum + w.incidents, 0),
+          average: parseFloat((safeguardingTrends.reduce((sum, w) => sum + w.incidents, 0) / 6).toFixed(1))
         },
         escalation: {
           trends: escalationTrends,

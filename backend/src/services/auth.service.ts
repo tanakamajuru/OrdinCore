@@ -110,6 +110,22 @@ export class AuthService {
     };
   }
 
+  // Switch the role the session acts in. Validated against the user's grants, audited.
+  async setActiveRole(userId: string, role: string) {
+    const grant = await query('SELECT 1 FROM user_roles WHERE user_id = $1 AND role = $2', [userId, role]);
+    if (!grant.rows.length) throw new Error('You do not hold that role.');
+
+    const prev = await query('SELECT active_role, company_id FROM users WHERE id = $1', [userId]);
+    await query('UPDATE users SET active_role = $1, updated_at = NOW() WHERE id = $2', [role, userId]);
+
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+       VALUES ($1, $2, $3, 'ROLE_SWITCHED', 'user', $3, $4)`,
+      [uuidv4(), prev.rows[0]?.company_id || null, userId, JSON.stringify({ from: prev.rows[0]?.active_role, to: role })]
+    );
+    return { active_role: role };
+  }
+
   async changePassword(userId: string, currentPassword: string, newPassword: string) {
     const user = await usersRepo.findById(userId);
     if (!user) throw new Error('User not found');

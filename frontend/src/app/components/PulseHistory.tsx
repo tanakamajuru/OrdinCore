@@ -25,6 +25,8 @@ interface PulseRecord {
   entry_date: string;
   entry_time: string;
   description: string;
+  assigned_to?: string | null;
+  assigned_to_name?: string | null;
 }
 
 // The "theme" is the risk domain (e.g. "Mental Health Stability"); signal_type is
@@ -46,12 +48,36 @@ export function PulseHistory() {
   // For a Team Leader, signals split three ways: what they OWN (allocated to me —
   // the work queue), everything at their site(s), and what they personally raised.
   const [view, setView] = useState<'allocated' | 'all' | 'raised'>('allocated');
+  const role = (user?.role || '').toUpperCase().replace('-', '_');
+  const canAllocate = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'TEAM_LEADER'].includes(role);
+  const [teamLeaders, setTeamLeaders] = useState<{ id: string; name: string }[]>([]);
 
   useEffect(() => {
     if (user) {
       loadPulseHistory();
     }
   }, [user, view]);
+
+  useEffect(() => {
+    if (!canAllocate) return;
+    (async () => {
+      try {
+        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
+        const list = (res.data as any).data?.users ?? (res.data as any).data ?? [];
+        setTeamLeaders(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })));
+      } catch { /* picker stays empty */ }
+    })();
+  }, [canAllocate]);
+
+  const allocate = async (pulseId: string, assigned_to: string) => {
+    if (!assigned_to) return;
+    try {
+      await apiClient.patch(`/pulses/${pulseId}/assignee`, { assigned_to });
+      const picked = teamLeaders.find(t => t.id === assigned_to);
+      setPulses(prev => prev.map(p => p.id === pulseId ? { ...p, assigned_to, assigned_to_name: picked?.name || p.assigned_to_name } : p));
+      toast.success('Signal allocated');
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to allocate'); }
+  };
 
   // Reset to the first page whenever the filters change.
   useEffect(() => { setPage(1); }, [searchTerm, searchDate]);
@@ -195,6 +221,7 @@ export function PulseHistory() {
                     <th className="p-4  uppercase text-xs tracking-widest">Client</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Severity</th>
                     <th className="p-4  uppercase text-xs tracking-widest">Status</th>
+                    {canAllocate && <th className="p-4  uppercase text-xs tracking-widest">Allocated To</th>}
                     <th className="p-4  uppercase text-xs tracking-widest text-right">Action</th>
                   </tr>
                 </thead>
@@ -231,6 +258,20 @@ export function PulseHistory() {
                       <td className="p-4">
                         <span className="text-xs  text-muted-foreground uppercase">{pulse.review_status}</span>
                       </td>
+                      {canAllocate && (
+                        <td className="p-4" onClick={(e) => e.stopPropagation()}>
+                          <select
+                            value={pulse.assigned_to || ''}
+                            onChange={(e) => allocate(pulse.id, e.target.value)}
+                            className="text-xs border border-border rounded px-2 py-1 bg-background text-foreground max-w-[160px]"
+                          >
+                            <option value="">{pulse.assigned_to_name ? pulse.assigned_to_name : 'Allocate…'}</option>
+                            {teamLeaders.filter(t => t.id !== pulse.assigned_to).map(t => (
+                              <option key={t.id} value={t.id}>{t.name}</option>
+                            ))}
+                          </select>
+                        </td>
+                      )}
                       <td className="p-4 text-right">
                         <button
                           onClick={(e) => { e.stopPropagation(); openSignal(pulse.id); }}

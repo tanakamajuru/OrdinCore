@@ -45,6 +45,24 @@ export function CrossHousePatternDetection() {
   const [relatedSignals, setRelatedSignals] = useState<any[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [severityFilter, setSeverityFilter] = useState<"all" | "low" | "medium" | "high">("all");
+  const [dismissTarget, setDismissTarget] = useState<RiskPattern | null>(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [dismissing, setDismissing] = useState(false);
+
+  const submitDismiss = async () => {
+    if (!dismissTarget) return;
+    if (dismissReason.trim().length < 10) { toast.error("Please give a reason (at least 10 characters)."); return; }
+    setDismissing(true);
+    try {
+      await apiClient.post(`/clusters/${dismissTarget.id}/dismiss`, { reason: dismissReason.trim() });
+      toast.success("Pattern dismissed");
+      setPatterns(prev => prev.filter(p => p.id !== dismissTarget.id));
+      if (selectedPattern?.id === dismissTarget.id) setSelectedPattern(null);
+      setDismissTarget(null); setDismissReason("");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to dismiss pattern");
+    } finally { setDismissing(false); }
+  };
 
   useEffect(() => {
     loadPatterns();
@@ -358,16 +376,17 @@ export function CrossHousePatternDetection() {
                         const sevClass = (sev === 'Critical' || sev === 'High') ? 'high' : sev === 'Moderate' ? 'medium' : 'low';
                         const theme = Array.isArray(signal.risk_domain) ? signal.risk_domain[0] : (signal.risk_domain || signal.signal_type);
                         return (
-                          <div key={signal.id || index} className="p-3 bg-muted rounded border">
-                            <div className="flex justify-between items-start mb-2">
+                          <div key={signal.id || index} onClick={() => signal.id && navigate(`/signals/${signal.id}`)}
+                            className={`p-3 bg-muted rounded border ${signal.id ? 'cursor-pointer hover:border-primary' : ''}`}>
+                            <div className="flex justify-between items-start mb-2 gap-2">
                               <div className="min-w-0">
                                 <div className="text-foreground text-sm font-medium">{signal.related_person || signal.house_name || 'Signal'}</div>
-                                <div className="text-sm text-muted-foreground truncate">{signal.description}</div>
+                                <div className="text-sm text-muted-foreground">{signal.description}</div>
                               </div>
                               <span className={`px-2 py-1 rounded text-xs border shrink-0 ${getSeverityColor(sevClass)}`}>{sev || '—'}</span>
                             </div>
                             <div className="flex justify-between gap-2 text-xs text-muted-foreground">
-                              <span className="truncate">{theme}</span>
+                              <span>{theme}</span>
                               {signal.pattern_concern && <span className="shrink-0">{signal.pattern_concern}</span>}
                               <span className="shrink-0">{signal.entry_date ? new Date(signal.entry_date).toLocaleDateString('en-GB') : ''}</span>
                             </div>
@@ -415,6 +434,13 @@ export function CrossHousePatternDetection() {
                             : `Forming — needs ${selectedPattern.threshold - selectedPattern.signalCount} more signal${selectedPattern.threshold - selectedPattern.signalCount === 1 ? '' : 's'} (or one Critical) to promote.`}
                         </div>
                       )}
+
+                      {readinessOf(selectedPattern) !== 'promoted' && (
+                        <Button variant="outline" onClick={() => { setDismissReason(""); setDismissTarget(selectedPattern); }}
+                          className="w-full border-destructive/40 text-destructive hover:bg-destructive/5">
+                          Dismiss Pattern
+                        </Button>
+                      )}
                     </div>
                   </CardContent>
                 </Card>
@@ -430,6 +456,34 @@ export function CrossHousePatternDetection() {
           </div>
         </div>
       </div>
+
+      {/* Dismiss pattern — reason required (every dismiss carries a name + reason) */}
+      {dismissTarget && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-background/70 backdrop-blur-sm p-4" onClick={() => !dismissing && setDismissTarget(null)}>
+          <div className="bg-card border-2 border-border rounded-lg w-full max-w-md shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <div className="p-5 border-b border-border">
+              <h3 className="font-semibold text-foreground">Dismiss this pattern?</h3>
+              <p className="text-sm text-muted-foreground mt-1">{dismissTarget.patternType} — {dismissTarget.description}</p>
+            </div>
+            <div className="p-5 space-y-2">
+              <label className="text-xs uppercase tracking-wide text-muted-foreground">Why are you dismissing this pattern? <span className="text-amber-600">(required)</span></label>
+              <textarea
+                value={dismissReason}
+                onChange={(e) => setDismissReason(e.target.value)}
+                placeholder="Record your reasoning — this is stored as the governance justification."
+                className="w-full h-28 bg-input-background border-2 border-border rounded p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
+            </div>
+            <div className="p-5 pt-0 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setDismissTarget(null)} disabled={dismissing}>Cancel</Button>
+              <Button onClick={submitDismiss} disabled={dismissing || dismissReason.trim().length < 10}
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+                {dismissing ? "Dismissing…" : "Dismiss Pattern"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

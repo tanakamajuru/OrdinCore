@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowUpRight, ShieldAlert, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -27,7 +27,9 @@ function TrajIcon({ t }: { t: string }) {
 
 export function RiskRegister() {
   const navigate = useNavigate();
-  const [tab, setTab] = useState<Tab>("active");
+  const [searchParams] = useSearchParams();
+  const initialTab = (["active", "strategic", "emerging", "closed"].includes(searchParams.get("tab") || "") ? searchParams.get("tab") : "active") as Tab;
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -127,7 +129,7 @@ export function RiskRegister() {
                     {tab !== "emerging" && <th className="px-2">Controls</th>}
                     {tab !== "emerging" && <th className="px-2">Effectiveness</th>}
                     {tab !== "emerging" && <th className="px-2">Owner</th>}
-                    {tab !== "emerging" && <th className="px-2">Next Review</th>}
+                    {tab !== "emerging" && <th className="px-2">{tab === "closed" ? "Closed" : "Next Review"}</th>}
                   </tr>
                 </thead>
                 <tbody>
@@ -141,7 +143,16 @@ export function RiskRegister() {
                       {tab !== "emerging" && <td className="px-2 text-muted-foreground">{r.controls}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.effectiveness}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.owner}</td>}
-                      {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.nextReview ? new Date(r.nextReview).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>}
+                      {tab !== "emerging" && (
+                        <td className="px-2 text-xs text-muted-foreground">
+                          {tab === "closed" ? (
+                            (() => { const cd = r.closedAt || r.closed_at; const cb = r.closedBy || r.closed_by;
+                              return cd ? `${new Date(cd).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}${cb ? ` · ${cb}` : ''}` : (cb || "—"); })()
+                          ) : (
+                            r.nextReview ? new Date(r.nextReview).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"
+                          )}
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

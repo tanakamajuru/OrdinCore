@@ -22,6 +22,11 @@ export function IncidentReconstruction() {
   const [houseId, setHouseId] = useState("");
   const [person, setPerson] = useState("");
   const [incidentDate, setIncidentDate] = useState(new Date().toISOString().split("T")[0]);
+  // From date — default 8 weeks before the incident date, editable. Without it the
+  // backend reconstructed from 1970 (the whole history). Keeps incident date as the To.
+  const [fromDate, setFromDate] = useState(() => {
+    const d = new Date(); d.setDate(d.getDate() - 56); return d.toISOString().split("T")[0];
+  });
 
   const [step, setStep] = useState(1);
   const [timeline, setTimeline] = useState<any[]>([]);
@@ -50,16 +55,21 @@ export function IncidentReconstruction() {
     if (!scopeRef) { toast.error(mode === "house" ? "Choose a service" : "Choose a person"); return; }
     setBusy(true);
     try {
-      const r = await apiClient.get(`/reconstruction/${scope}/${encodeURIComponent(scopeRef)}?end=${incidentDate}T23:59:59`);
+      const r = await apiClient.get(`/reconstruction/${scope}/${encodeURIComponent(scopeRef)}?start=${fromDate}T00:00:00&end=${incidentDate}T23:59:59`);
       const data = r.data?.data || {};
       setTimeline(data.timeline || []);
       setCounts(data.counts || {});
-      // Linked risks: by-house = risks on that house; by-person = risks whose domain appears in the timeline
+      // Linked risks: by-house = risks on that house; by-person = risks for THAT person
+      // (not every service's risks in the same domain — that was the cross-service leak).
       try {
         const rr = await apiClient.get(mode === "house" ? `/risks?house_id=${houseId}&limit=100` : `/risks?limit=100`);
         const risks = rr.data?.data || rr.data || [];
-        const domains = new Set((data.timeline || []).map((t: any) => String(t.theme || "")));
-        setLinkedRisks(mode === "house" ? risks : risks.filter((x: any) => domains.has(x.risk_domain || x.domain)));
+        if (mode === "house") {
+          setLinkedRisks(risks.filter((x: any) => !houseId || x.house_id === houseId));
+        } else {
+          const personLc = String(person || "").toLowerCase();
+          setLinkedRisks(risks.filter((x: any) => String(x.linked_person || x.related_person || "").toLowerCase() === personLc));
+        }
       } catch { setLinkedRisks([]); }
       setStage("build"); setStep(1); setLocked(false); setRecordId(null);
     } catch { toast.error("Failed to build reconstruction"); }
@@ -150,9 +160,15 @@ export function IncidentReconstruction() {
                 )}
               </div>
             )}
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1.5">Incident date (reconstruct signals up to and including)</label>
-              <input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} className={area} />
+            <div className="mb-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-sm font-medium mb-1.5">From date</label>
+                <input type="date" value={fromDate} max={incidentDate} onChange={(e) => setFromDate(e.target.value)} className={area} />
+              </div>
+              <div>
+                <label className="block text-sm font-medium mb-1.5">Incident date (up to & including)</label>
+                <input type="date" value={incidentDate} onChange={(e) => setIncidentDate(e.target.value)} className={area} />
+              </div>
             </div>
             <button onClick={generate} disabled={busy} className="w-full justify-center inline-flex items-center gap-2 px-5 py-3 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm font-medium">
               {busy ? "Generating…" : <>Generate reconstruction <ArrowRight size={15} /></>}

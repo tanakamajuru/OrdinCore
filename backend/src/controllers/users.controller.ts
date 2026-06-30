@@ -42,6 +42,22 @@ export class UsersController {
     }
   }
 
+  // Admin: set the full set of roles a user may act as (one marked primary).
+  async setRoles(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { roles, primary } = req.body || {};
+      if (!Array.isArray(roles) || roles.length === 0) {
+        return res.status(400).json({ success: false, message: 'roles[] (non-empty) is required', errors: [] });
+      }
+      const data = await usersService.setUserRoles(company_id, req.params.id, roles, primary, req.user!.user_id, req.user!.role);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update roles';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   // Admin: grant/revoke "can view all sites" for a specific user (read-scope only).
   async setSiteVisibility(req: Request, res: Response) {
     try {

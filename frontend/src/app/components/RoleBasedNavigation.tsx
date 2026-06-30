@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
   Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers,
+  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -19,6 +19,30 @@ export function RoleBasedNavigation() {
 
   const rawRole = user?.role || localStorage.getItem("userRole") || "";
   const userRole = rawRole.toUpperCase().replace(/-/g, "_");
+  const grantedRoles: string[] = ((user as any)?.granted_roles && (user as any).granted_roles.length
+    ? (user as any).granted_roles
+    : [userRole]).map((r: string) => r.toUpperCase().replace(/-/g, "_"));
+  const [switching, setSwitching] = useState(false);
+
+  const roleLabel = (r: string) => ({
+    SUPER_ADMIN: "Super Admin", ADMIN: "Company Admin", REGISTERED_MANAGER: "Registered Manager",
+    RESPONSIBLE_INDIVIDUAL: "Responsible Individual", DIRECTOR: "Director", TEAM_LEADER: "Team Leader",
+  } as Record<string, string>)[r] || r;
+
+  const switchRole = async (role: string) => {
+    if (role === userRole || switching) return;
+    setSwitching(true);
+    try {
+      await apiClient.post("/auth/active-role", { role });
+      toast.success(`Now acting as ${roleLabel(role)}`);
+      // The active role drives the whole interface — reload so every screen, the nav,
+      // and the home route re-render for the new capacity from a fresh /auth/me.
+      window.location.assign("/dashboard");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Failed to switch role");
+      setSwitching(false);
+    }
+  };
 
   const firstName = user?.first_name || "";
   const lastName = user?.last_name || "";
@@ -180,6 +204,25 @@ export function RoleBasedNavigation() {
           );
         })}
       </nav>
+
+      {/* Multi-role: "acting as" switcher — only shown when the user holds >1 role */}
+      {grantedRoles.length > 1 && (
+        <div className="border-t border-slate-800 px-3 py-2 shrink-0">
+          <label className="text-[10px] uppercase tracking-wider text-slate-500 flex items-center gap-1 mb-1">
+            <RefreshCw className="w-3 h-3" /> Acting as
+          </label>
+          <select
+            value={userRole}
+            disabled={switching}
+            onChange={(e) => switchRole(e.target.value)}
+            className="w-full text-sm bg-slate-800 text-white border border-slate-700 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-1 focus:ring-primary disabled:opacity-50"
+          >
+            {grantedRoles.map((r) => (
+              <option key={r} value={r}>{roleLabel(r)}</option>
+            ))}
+          </select>
+        </div>
+      )}
 
       <div className="border-t border-slate-800 p-3 shrink-0">
         <button
