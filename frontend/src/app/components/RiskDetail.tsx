@@ -65,6 +65,9 @@ export function RiskDetail() {
   
   const [showAddAction, setShowAddAction] = useState(false);
   const [risk, setRisk] = useState<RiskDetail | null>(null);
+  const [editField, setEditField] = useState<null | 'impact' | 'mitigation' | 'rootCause'>(null);
+  const [editValue, setEditValue] = useState("");
+  const [savingAssessment, setSavingAssessment] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -141,10 +144,31 @@ export function RiskDetail() {
       .catch(() => setActionTemplates([]));
   }, []);
 
+  const openAssessmentEdit = (field: 'impact' | 'mitigation' | 'rootCause') => {
+    setEditField(field);
+    setEditValue((risk?.metadata?.[field]) || "");
+  };
+
+  const saveAssessment = async () => {
+    if (!risk || !editField) return;
+    setSavingAssessment(true);
+    try {
+      const res = await apiClient.patch(`/risks/${risk.id}/assessment`, { [editField]: editValue.trim() });
+      const updated = (res.data as any).data || (res.data as any);
+      setRisk(prev => prev ? { ...prev, metadata: { ...(prev.metadata || {}), ...(updated?.metadata || { [editField]: editValue.trim() }) } } : prev);
+      toast.success("Assessment updated");
+      setEditField(null);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to update assessment");
+    } finally {
+      setSavingAssessment(false);
+    }
+  };
+
   const loadRiskDetails = async (riskId: string) => {
     try {
       setIsLoading(true);
-      
+
       // Load risk details
       const riskRes = await apiClient.get(`/risks/${riskId}`);
       const riskData = (riskRes.data as any).data || (riskRes.data as any);
@@ -327,6 +351,42 @@ export function RiskDetail() {
     );
   }
 
+  const canEditAssessment = !['closed', 'resolved'].includes((risk.status || '').toLowerCase());
+  const assessmentCard = (field: 'impact' | 'mitigation' | 'rootCause', title: string, placeholder: string) => {
+    const value = risk.metadata?.[field];
+    const isEditing = editField === field;
+    return (
+      <div className="bg-card border-2 border-border p-6">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="text-xl text-foreground">{title}</h2>
+          {canEditAssessment && !isEditing && (
+            <button onClick={() => openAssessmentEdit(field)} className="text-sm text-primary flex items-center gap-1 hover:underline">
+              <Plus className="w-3.5 h-3.5" /> {value ? 'Edit' : 'Add'}
+            </button>
+          )}
+        </div>
+        {isEditing ? (
+          <div className="space-y-2">
+            <textarea
+              value={editValue}
+              onChange={(e) => setEditValue(e.target.value)}
+              placeholder={placeholder}
+              className="w-full h-28 bg-input-background border-2 border-border rounded p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+            />
+            <div className="flex justify-end gap-2">
+              <button onClick={() => setEditField(null)} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted">Cancel</button>
+              <button onClick={saveAssessment} disabled={savingAssessment} className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">
+                {savingAssessment ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        ) : (
+          <p className={value ? 'text-foreground whitespace-pre-wrap' : 'text-muted-foreground italic'}>{value || 'Not yet assessed'}</p>
+        )}
+      </div>
+    );
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
@@ -404,23 +464,14 @@ export function RiskDetail() {
             </div>
           </div>
 
-          {/* Impact & Mitigation */}
+          {/* Impact & Mitigation — editable (CQC analysis fields) */}
           <div className="grid grid-cols-2 gap-6">
-            <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl  mb-3 text-foreground">Impact</h2>
-              <p className="text-foreground">{risk.metadata?.impact || 'No impact assessment available'}</p>
-            </div>
-            <div className="bg-card border-2 border-border p-6">
-              <h2 className="text-xl  mb-3 text-foreground">Mitigation Plan</h2>
-              <p className="text-foreground">{risk.metadata?.mitigation || 'No mitigation plan available'}</p>
-            </div>
+            {assessmentCard('impact', 'Impact', 'What could happen if this risk is not controlled?')}
+            {assessmentCard('mitigation', 'Mitigation Plan', 'What are you doing to control it?')}
           </div>
 
-          {/* Root Cause */}
-          <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl  mb-3 text-foreground">Root Cause Analysis</h2>
-            <p className="text-foreground">{risk.metadata?.rootCause || 'No root cause analysis available'}</p>
-          </div>
+          {/* Root Cause — editable */}
+          {assessmentCard('rootCause', 'Root Cause Analysis', 'Why did this arise? Underlying/contributing factors.')}
 
           {/* Actions */}
           <div className="bg-card border-2 border-border p-6">

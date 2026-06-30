@@ -120,6 +120,17 @@ export class WeeklyReviewsController {
     }
   }
 
+  // Director/RI read-only service-level roll-up of the week's house reviews.
+  async serviceRollup(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await weeklyReviewsService.serviceRollup(company_id, req.query.week_ending as string);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build service roll-up' });
+    }
+  }
+
   async getAcknowledgements(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

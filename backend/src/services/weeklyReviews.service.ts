@@ -381,6 +381,76 @@ export class WeeklyReviewsService {
     return { acknowledged: true };
   }
 
+  // Service-level roll-up (Director/RI, read-only): aggregate the week's per-house
+  // reviews into one organisational picture. Authoring stays at the house; leadership
+  // reads the synthesised whole — no separately authored service review.
+  async serviceRollup(company_id: string, weekEnding?: string) {
+    const weeksRes = await query(
+      `SELECT DISTINCT week_ending FROM weekly_reviews WHERE company_id = $1
+        ORDER BY week_ending DESC LIMIT 26`,
+      [company_id]
+    );
+    const weeks = weeksRes.rows.map((r: any) => r.week_ending);
+    const wk = weekEnding || weeks[0] || null;
+    if (!wk) return { week_ending: null, weeks: [], houses: [], summary: { services_reviewed: 0, services_total: 0, awaiting: [], total_signals: 0, positions: {} } };
+
+    const rows = (await query(
+      `SELECT wr.id, wr.house_id, wr.status, wr.validation_status, wr.content,
+              wr.rm_finalised_at, wr.published_at, h.name AS house_name,
+              u.first_name || ' ' || u.last_name AS created_by_name
+         FROM weekly_reviews wr
+         JOIN houses h ON h.id = wr.house_id
+         LEFT JOIN users u ON u.id = wr.created_by
+        WHERE wr.company_id = $1 AND wr.week_ending = $2
+        ORDER BY h.name`,
+      [company_id, wk]
+    )).rows;
+
+    const allHouses = (await query(
+      `SELECT id, name FROM houses WHERE company_id = $1 AND status != 'closed' ORDER BY name`,
+      [company_id]
+    )).rows;
+    const reviewed = new Set(rows.map((r: any) => r.house_id));
+
+    const houses = rows.map((r: any) => {
+      const c = r.content || {};
+      return {
+        review_id: r.id,
+        house_id: r.house_id,
+        house_name: r.house_name,
+        status: r.status,
+        validation_status: r.validation_status,
+        created_by_name: r.created_by_name,
+        position: c.step14_overall_position || null,
+        interpretation: c.step8_interpretation || null,
+        narrative: c.step15_narrative || null,
+        signals: c.step3_pulse_count ?? (Array.isArray(c.step4_signals) ? c.step4_signals.length : 0),
+        repeats: Array.isArray(c.step5_repeats) ? c.step5_repeats.length : 0,
+        risks: Array.isArray(c.step10_risk_analysis) ? c.step10_risk_analysis.length : 0,
+        finalised: !!r.rm_finalised_at,
+        published: !!r.published_at,
+      };
+    });
+
+    const positions = houses.reduce((acc: Record<string, number>, h: any) => {
+      const p = h.position || 'Not set';
+      acc[p] = (acc[p] || 0) + 1; return acc;
+    }, {});
+
+    return {
+      week_ending: wk,
+      weeks,
+      houses,
+      summary: {
+        services_reviewed: houses.length,
+        services_total: allHouses.length,
+        awaiting: allHouses.filter((h: any) => !reviewed.has(h.id)).map((h: any) => ({ house_id: h.id, house_name: h.name })),
+        total_signals: houses.reduce((s: number, h: any) => s + (Number(h.signals) || 0), 0),
+        positions,
+      },
+    };
+  }
+
   // Roster driving the read-only view's progress + list: who has / hasn't read it.
   async getAcknowledgements(reviewId: string, company_id: string) {
     const rev = await this.findById(reviewId, company_id);

@@ -79,6 +79,31 @@ export class RisksService {
     return updated;
   }
 
+  // Update the risk's CQC analysis fields (impact / mitigation / root cause), merged
+  // into metadata so other keys (provenance, source_pulse_id) are preserved. These are
+  // optional inspector-facing fields; editable while the risk is active.
+  async updateAssessment(id: string, company_id: string, user_id: string, data: { impact?: string; mitigation?: string; rootCause?: string }) {
+    const risk = await risksRepo.findById(id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    if (['closed', 'resolved'].includes((risk.status || '').toLowerCase())) {
+      throw new Error('This record is closed and its assessment can no longer be edited (Governance Integrity Rule Section 7.2).');
+    }
+
+    const patch: Record<string, string> = {};
+    if (typeof data.impact === 'string') patch.impact = data.impact;
+    if (typeof data.mitigation === 'string') patch.mitigation = data.mitigation;
+    if (typeof data.rootCause === 'string') patch.rootCause = data.rootCause;
+    if (Object.keys(patch).length === 0) throw new Error('Nothing to update');
+
+    const result = await query(
+      `UPDATE risks SET metadata = COALESCE(metadata, '{}'::jsonb) || $3::jsonb, updated_at = NOW()
+        WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, JSON.stringify(patch)]
+    );
+    await risksRepo.addEvent(id, company_id, 'assessment_updated', `Risk assessment updated: ${Object.keys(patch).join(', ')}`, user_id);
+    return result.rows[0];
+  }
+
   async delete(id: string, company_id: string, user_id: string) {
     // [GOVERNANCE] No Deletion Implementation
     throw new Error('Hard deletion is prohibited for governance records (Governance Integrity Rule Section 7.1). Please resolve or close the risk instead.');

@@ -7,6 +7,7 @@ import { ForgottenPassword } from "./components/ForgottenPassword";
 import { ResetPassword } from "./components/ResetPassword";
 import { RoleBasedDashboard } from "./components/RoleBasedDashboard";
 import { WeeklyReview } from "./components/WeeklyReview";
+import { ServiceReviewRollup } from "./components/ServiceReviewRollup";
 import { EvidencePackViewer } from "./components/EvidencePackViewer";
 import { SignalCaptureForm } from "./components/SignalCaptureForm";
 import { DailyOversightBoard } from "./components/DailyOversightBoard";
@@ -217,6 +218,11 @@ export default function App() {
           <Route path="/weekly-review/:id" element={
             <ProtectedRoute>
               <WeeklyReview />
+            </ProtectedRoute>
+          } />
+          <Route path="/service-review-rollup" element={
+            <ProtectedRoute>
+              <ServiceReviewRollup />
             </ProtectedRoute>
           } />
           <Route path="/ri-governance/houses/:house_id/evidence-pack" element={

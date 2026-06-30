@@ -140,6 +140,8 @@ router.get('/:id', requireAuth, requireTenant, requireScope, risksController.fin
  *         description: Success
  */
 router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER'), risksController.update.bind(risksController));
+// Edit the CQC analysis fields (impact / mitigation / root cause) — merged into metadata.
+router.patch('/:id/assessment', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateAssessment.bind(risksController));
 
 
 /**
