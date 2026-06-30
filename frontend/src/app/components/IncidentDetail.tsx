@@ -314,7 +314,7 @@ export function IncidentDetail() {
                     <div 
                       key={risk.id} 
                       className="p-3 bg-muted/50 border border-border rounded hover:border-primary/50 cursor-pointer transition-colors"
-                      onClick={() => navigate(`/risks/${risk.id}`)}
+                      onClick={() => navigate(`/risk-register/${risk.id}`)}
                     >
                       <p className="font-bold text-foreground text-sm">{risk.title}</p>
                       <p className="text-xs text-muted-foreground mt-1">{risk.severity} • {risk.status}</p>

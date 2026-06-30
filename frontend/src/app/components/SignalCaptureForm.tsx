@@ -114,7 +114,17 @@ export function SignalCaptureForm() {
         }
       }
       setServices(list);
-      if (list.length > 0) set('service_id', list[0].id);
+      if (list.length > 0) {
+        set('service_id', list[0].id);
+      } else {
+        // A Team Leader with no assigned service cannot record a signal (house_id
+        // is required). Make this explicit rather than leaving the form silently
+        // un-submittable — this is the "some TLs can record, some can't" case.
+        const role = (user?.role || '').toUpperCase().replace('-', '_');
+        if (['TEAM_LEADER', 'TL', 'REGISTERED_MANAGER', 'RM'].includes(role)) {
+          toast.error('You are not assigned to a service yet. Ask an administrator to assign you to a service before recording signals.');
+        }
+      }
     } catch {
       toast.error('Failed to load services');
     }

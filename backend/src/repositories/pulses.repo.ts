@@ -47,7 +47,13 @@ async function resolveDefaultAssignee(house_id: string, created_by: string): Pro
     if (tl.rows[0]) return tl.rows[0].user_id;
 
     const mgr = await query(`SELECT manager_id FROM houses WHERE id = $1`, [house_id]);
-    return mgr.rows[0]?.manager_id || null;
+    const managerId = mgr.rows[0]?.manager_id || null;
+    if (!managerId) return null;
+    // Guard: only return the manager if they still exist as an active user. A stale
+    // manager_id (deleted/disabled user) would otherwise cause an assigned_to
+    // foreign-key violation and block signal capture entirely.
+    const mgrValid = await query(`SELECT 1 FROM users WHERE id = $1 AND status = 'active'`, [managerId]);
+    return mgrValid.rows.length ? managerId : null;
 }
 
 export const pulsesRepo = {

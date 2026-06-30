@@ -18,7 +18,34 @@ export class PulseController {
         try {
             const company_id = requireCompany(req);
             const user_id = req.user!.user_id;
-            const pulse = await pulseService.createPulse(company_id, user_id, req.body);
+
+            // Fallback: if the form omitted the house/service, resolve it from the
+            // recorder's own assignment. This prevents the "some TLs can't record"
+            // failure where a Team Leader with a single assigned house submits without
+            // an explicit service_id. house_id is NOT NULL on governance_pulses, so a
+            // missing value must be resolved or rejected with a clear message — never a
+            // raw database constraint error.
+            const body = { ...req.body };
+            if (!body.house_id && !body.service_id) {
+                const assigned = (req.user!.assigned_house_ids || []).filter(
+                    (h: string) => h && h !== '00000000-0000-0000-0000-000000000000'
+                );
+                if (assigned.length === 1) {
+                    body.house_id = assigned[0];
+                } else if (assigned.length === 0) {
+                    return res.status(422).json({
+                        success: false,
+                        message: 'You are not assigned to a service, so this signal cannot be recorded against a house. Ask an administrator to assign you to a service before recording signals.'
+                    });
+                } else {
+                    return res.status(422).json({
+                        success: false,
+                        message: 'Please choose which service this signal relates to before recording it.'
+                    });
+                }
+            }
+
+            const pulse = await pulseService.createPulse(company_id, user_id, body);
             res.status(201).json({ success: true, data: pulse });
         } catch (err: any) {
             logger.error('Error creating pulse', err);

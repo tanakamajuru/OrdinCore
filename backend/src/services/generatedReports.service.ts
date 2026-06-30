@@ -173,7 +173,8 @@ export const generatedReportsService = {
 
   async list(company_id: string) {
     const r = await query(
-      `SELECT id, report_key, title, format, period_label, service_name, size_bytes, created_at
+      `SELECT id, report_key, title, format, period_label, service_name, size_bytes, created_at,
+              (data IS NOT NULL) AS regenerable
          FROM generated_reports WHERE company_id = $1 ORDER BY created_at DESC LIMIT 200`,
       [company_id]
     );

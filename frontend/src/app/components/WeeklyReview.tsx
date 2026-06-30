@@ -66,7 +66,7 @@ export function WeeklyReview() {
       const weekEnding = new Date().toISOString().split("T")[0];
       const [pv, es] = await Promise.all([
         apiClient.get(`/weekly-reviews/preview?house_id=${hid}&week_ending=${weekEnding}`),
-        apiClient.getEscalationStats().catch(() => ({})),
+        apiClient.get(`/escalations/stats`).catch(() => ({})),
       ]);
       setPreview(pv.data?.data || {});
       setEscStats((es as any)?.data?.data || (es as any)?.data || {});

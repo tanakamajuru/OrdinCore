@@ -91,8 +91,15 @@ export function Reports() {
       const a = document.createElement("a");
       a.href = url; a.download = `${(rep.title || "report").replace(/[^a-z0-9-_ ]/gi, "")}.${rep.format}`; a.click();
       URL.revokeObjectURL(url);
-    } catch {
-      toast.error("Could not download report.");
+    } catch (err: any) {
+      // Reports saved before regenerate-from-data was introduced have no stored data
+      // and cannot be rebuilt. Tell the user to regenerate rather than failing opaquely.
+      const status = err?.response?.status;
+      if (status === 404) {
+        toast.error("This saved report predates the current format and can't be rebuilt. Please generate it again from the cards above.");
+      } else {
+        toast.error("Could not download report. Please try regenerating it from the cards above.");
+      }
     }
   };
 
@@ -366,7 +373,11 @@ export function Reports() {
                     </p>
                   </div>
                   <div className="flex gap-4 shrink-0">
-                    <button onClick={() => downloadSaved(rep)} className="text-sm text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Download</button>
+                    {rep.regenerable === false ? (
+                      <span className="text-xs text-muted-foreground italic" title="Saved before the current format — regenerate it from the cards above to download.">Regenerate to download</span>
+                    ) : (
+                      <button onClick={() => downloadSaved(rep)} className="text-sm text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" /> Download</button>
+                    )}
                     <button onClick={() => deleteSaved(rep.id)} className="text-sm text-muted-foreground hover:text-destructive flex items-center gap-1"><Trash2 className="w-3.5 h-3.5" /> Remove</button>
                   </div>
                 </div>

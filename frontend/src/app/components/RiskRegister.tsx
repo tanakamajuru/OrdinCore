@@ -68,7 +68,7 @@ export function RiskRegister() {
     if (tab === "emerging") {
       navigate(`/risks/promote`, { state: r.source === "cluster" ? { cluster_id: r.id } : { candidate_id: r.id } });
     } else {
-      navigate(`/risks/${r.id}`);
+      navigate(`/risk-register/${r.id}`);
     }
   };
 
