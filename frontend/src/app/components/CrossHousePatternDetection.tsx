@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
+import { useAuth } from "@/hooks/useAuth";
 
 interface RiskPattern {
   id: string;
@@ -39,6 +40,12 @@ const READINESS_WEIGHT: Record<Readiness, number> = { ready: 0, nearly: 1, formi
 
 export function CrossHousePatternDetection() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  // Patterns is the canonical decision surface, but the decision itself is the RM's
+  // ("system proposes, RM decides"). For the Director/RI it is read-only — the promote
+  // and dismiss actions are hidden here and blocked server-side (risks/clusters routes).
+  const userRole = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
+  const canDecide = userRole === "REGISTERED_MANAGER";
   const [patterns, setPatterns] = useState<RiskPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPattern, setSelectedPattern] = useState<RiskPattern | null>(null);
@@ -302,10 +309,14 @@ export function CrossHousePatternDetection() {
                             View risk <ArrowRight className="w-3.5 h-3.5" />
                           </button>
                         ) : readinessOf(pattern) === 'ready' ? (
-                          <button onClick={(e) => { e.stopPropagation(); goToPromote(pattern); }}
-                            className="shrink-0 text-xs font-semibold text-primary-foreground bg-primary rounded px-3 py-1.5 inline-flex items-center gap-1 hover:bg-primary/90">
-                            Promote ‣
-                          </button>
+                          canDecide ? (
+                            <button onClick={(e) => { e.stopPropagation(); goToPromote(pattern); }}
+                              className="shrink-0 text-xs font-semibold text-primary-foreground bg-primary rounded px-3 py-1.5 inline-flex items-center gap-1 hover:bg-primary/90">
+                              Promote ‣
+                            </button>
+                          ) : (
+                            <span className="shrink-0 text-[11px] font-semibold text-success">Ready to promote</span>
+                          )
                         ) : (
                           <span className="shrink-0 text-[11px] text-muted-foreground">Review →</span>
                         )}
@@ -424,9 +435,15 @@ export function CrossHousePatternDetection() {
                           <CheckCircle2 className="w-4 h-4 mr-2" /> Promoted — View Risk
                         </Button>
                       ) : readinessOf(selectedPattern) === 'ready' ? (
-                        <Button onClick={() => goToPromote(selectedPattern)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                          <ShieldAlert className="w-4 h-4 mr-2" /> Promote to Risk
-                        </Button>
+                        canDecide ? (
+                          <Button onClick={() => goToPromote(selectedPattern)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                            <ShieldAlert className="w-4 h-4 mr-2" /> Promote to Risk
+                          </Button>
+                        ) : (
+                          <div className="w-full text-center text-sm text-success bg-success/5 rounded-lg py-2.5 px-3">
+                            Ready to promote — the Registered Manager promotes from here.
+                          </div>
+                        )
                       ) : (
                         <div className="w-full text-center text-sm text-muted-foreground bg-muted rounded-lg py-2.5 px-3">
                           {readinessOf(selectedPattern) === 'nearly'
@@ -435,7 +452,7 @@ export function CrossHousePatternDetection() {
                         </div>
                       )}
 
-                      {readinessOf(selectedPattern) !== 'promoted' && (
+                      {readinessOf(selectedPattern) !== 'promoted' && canDecide && (
                         <Button variant="outline" onClick={() => { setDismissReason(""); setDismissTarget(selectedPattern); }}
                           className="w-full border-destructive/40 text-destructive hover:bg-destructive/5">
                           Dismiss Pattern

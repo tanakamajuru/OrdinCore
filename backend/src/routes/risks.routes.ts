@@ -84,8 +84,13 @@ router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTER
  *       201:
  *         description: Success
  */
-router.post('/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), risksController.promote.bind(risksController));
-router.post('/dismiss', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), risksController.dismissCandidate.bind(risksController));
+// Doctrine: "system proposes, RM decides." Promotion/dismissal of a candidate into the
+// register is the Registered Manager's decision (ADMIN retained as break-glass/support).
+// DIRECTOR is intentionally excluded — Patterns is a read-only oversight surface for the
+// Director; enforced here server-side, not merely hidden in the UI. (RESPONSIBLE_INDIVIDUAL
+// was never in this list.) See also clusters.routes.ts, already REGISTERED_MANAGER-only.
+router.post('/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN'), risksController.promote.bind(risksController));
+router.post('/dismiss', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN'), risksController.dismissCandidate.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks:

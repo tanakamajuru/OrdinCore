@@ -4,6 +4,7 @@ import { useNavigate, useSearchParams } from "react-router";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowUpRight, ShieldAlert, Layers } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { useAuth } from "@/hooks/useAuth";
 
 // Governance Oversight Register (doctrine): shows what leadership is actively
 // overseeing — emerging concerns, active oversight, strategic oversight, closed —
@@ -27,13 +28,27 @@ function TrajIcon({ t }: { t: string }) {
 
 export function RiskRegister() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialTab = (["active", "strategic", "emerging", "closed"].includes(searchParams.get("tab") || "") ? searchParams.get("tab") : "active") as Tab;
   const [tab, setTab] = useState<Tab>(initialTab);
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Patterns is the single canonical cluster/promotion surface. RM & DIR both have a
+  // Patterns nav entry, so their "Emerging Concerns" tab redirects there — one home for
+  // the promotion meter, no divergence. The RI has no Patterns nav route, so redirecting
+  // them would strand them on a screen with no way back; they keep the inline list.
+  const userRole = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
+  const emergingRedirectsToPatterns = userRole === "REGISTERED_MANAGER" || userRole === "DIRECTOR";
+
   useEffect(() => { load(); }, []);
+
+  // If a redirecting role lands on the Emerging tab via a ?tab=emerging link, send them
+  // straight to the canonical surface instead of rendering the (now-removed) inline list.
+  useEffect(() => {
+    if (emergingRedirectsToPatterns && tab === "emerging") navigate("/patterns", { replace: true });
+  }, [emergingRedirectsToPatterns, tab, navigate]);
 
   const load = async () => {
     try {
@@ -102,10 +117,12 @@ export function RiskRegister() {
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-border">
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => setTab(t.key)}
+            <button key={t.key} onClick={() => (t.key === "emerging" && emergingRedirectsToPatterns ? navigate("/patterns") : setTab(t.key))}
               className={`px-4 py-2 text-sm flex items-center gap-2 border-b-2 -mb-px transition-colors ${tab === t.key ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
               <t.icon className="w-4 h-4" /> {t.label}
-              <span className="text-xs bg-muted rounded-full px-2 py-0.5">{t.count}</span>
+              {t.key === "emerging" && emergingRedirectsToPatterns
+                ? <ArrowUpRight className="w-3.5 h-3.5 opacity-60" />
+                : <span className="text-xs bg-muted rounded-full px-2 py-0.5">{t.count}</span>}
             </button>
           ))}
         </div>

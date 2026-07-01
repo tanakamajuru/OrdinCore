@@ -42,7 +42,6 @@ import { AdminLayout } from "./components/AdminLayout";
 import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { ComputationalEngines } from "./components/ComputationalEngines";
 import { PulseHistory } from "./components/PulseHistory";
-import { RegisteredManagerOversightBoard } from "./components/RegisteredManagerOversightBoard";
 import { MyActions } from "./components/MyActions";
 import { AdminServiceUsers } from "./admin/ServiceUsers";
 
@@ -185,11 +184,10 @@ export default function App() {
               <MyActions />
             </ProtectedRoute>
           } />
-          <Route path="/oversight-board" element={
-            <ProtectedRoute>
-              <RegisteredManagerOversightBoard />
-            </ProtectedRoute>
-          } />
+          {/* /oversight-board retired — clusters consolidated to /patterns; its daily
+              governance sign-off moved to /governance-dashboard and its RI-query channel
+              to the RM dashboard. */}
+          <Route path="/oversight-board" element={<Navigate to="/governance-dashboard" replace />} />
           <Route path="/governance-dashboard" element={
             <ProtectedRoute>
               <DailyOversightBoard />

@@ -2,15 +2,12 @@ import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertCircle,
-  TrendingDown,
-  TrendingUp,
-  Minus,
   Zap,
-  CheckCircle,
   Clock,
   ChevronRight,
-  ShieldAlert,
   ArrowRightCircle,
+  Eye,
+  ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -25,18 +22,14 @@ interface DashboardData {
   open_escalations?: number;
 }
 
-// risk_domain is a TEXT[] in the schema — render the first element, never the raw {…}.
-const domainOf = (c: any): string => {
-  const d = c?.risk_domain;
-  if (Array.isArray(d)) return d[0] || c?.cluster_label || "";
-  if (typeof d === "string") return d.replace(/[{}]/g, "").split(",")[0] || c?.cluster_label || "";
-  return c?.cluster_label || "";
-};
-
 export function DailyOversightBoard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [house, setHouse] = useState<any>(null);
+  const [isDeputyCover, setIsDeputyCover] = useState(false);
+  const [dailyNote, setDailyNote] = useState("");
+  const [isSigningOff, setIsSigningOff] = useState(false);
 
   useEffect(() => {
     loadDashboard();
@@ -44,8 +37,17 @@ export function DailyOversightBoard() {
 
   const loadDashboard = async () => {
     try {
-      const res = await apiClient.get('/pulses/dashboard');
-      setData(res.data.data);
+      const user = JSON.parse(localStorage.getItem("user") || "{}");
+      const userId = user.id || user.user_id;
+      const [dashRes, housesRes] = await Promise.all([
+        apiClient.get('/pulses/dashboard'),
+        userId ? apiClient.get(`/users/${userId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
+      ]);
+      setData(dashRes.data.data);
+      const houses = (housesRes as any).data?.data || (housesRes as any).data || [];
+      const myHouse = Array.isArray(houses) ? houses[0] : null;
+      setHouse(myHouse);
+      setIsDeputyCover(!!myHouse && myHouse.deputy_rm_id === userId);
     } catch (err) {
       toast.error("Failed to load oversight board");
     } finally {
@@ -57,13 +59,43 @@ export function DailyOversightBoard() {
   const patterns = data?.pattern_signals ?? [];
   const isReady = (c: any) => (c.signal_count >= THRESHOLD) || c.has_critical;
   const isNearly = (c: any) => !isReady(c) && c.signal_count === THRESHOLD - 1;
-  const goPromote = (c: any) => navigate('/risks/promote', { state: { cluster_id: c.id } });
 
-  // Shape-of-the-day counts — all derived from the same pattern array so they can't disagree.
+  // Shape-of-the-day counts — all derived from the same payload so they can't disagree.
+  // The cluster decision itself lives on Patterns; here we only surface the posture.
   const deterioratingCount = patterns.filter((c) => c.trajectory === 'Deteriorating' || c.trajectory === 'Critical').length;
   const nearlyCount = patterns.filter(isNearly).length;
   const readyCount = patterns.filter(isReady).length;
   const openEsc = data?.open_escalations ?? 0;
+  const highPriority = data?.highPriority ?? [];
+  const actions = data?.actions ?? [];
+  const hasSafeguardingOverride = isDeputyCover && highPriority.length > 0;
+
+  const handleSignOff = async () => {
+    if (!dailyNote.trim()) {
+      toast.error("A daily governance narrative is mandatory for sign-off.");
+      return;
+    }
+    if (!house?.id) {
+      toast.error("Could not determine your service. Please reload.");
+      return;
+    }
+    setIsSigningOff(true);
+    try {
+      const openRes = await apiClient.post('/governance/daily-log/open', { house_id: house.id });
+      const logId = openRes.data?.id || openRes.data?.data?.id;
+      await apiClient.post(`/governance/daily-log/${logId}/complete`, {
+        note: dailyNote,
+        is_deputy_review: isDeputyCover,
+      });
+      toast.success('Daily governance signed off');
+      setDailyNote("");
+      loadDashboard();
+    } catch (err) {
+      toast.error('Sign-off failed');
+    } finally {
+      setIsSigningOff(false);
+    }
+  };
 
   const TriageSignal = ({ signal }: any) => (
     <div className="flex items-center justify-between gap-3 p-4 bg-background border-2 border-border border-l-4 border-l-destructive hover:border-primary transition-all group min-w-0">
@@ -84,66 +116,6 @@ export function DailyOversightBoard() {
       </div>
     </div>
   );
-
-  const TrajectoryChip = ({ trajectory }: { trajectory: string }) => {
-    const t = (trajectory || 'Stable');
-    if (t === 'Deteriorating' || t === 'Critical')
-      return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-destructive"><TrendingDown size={13} /> Deteriorating</span>;
-    if (t === 'Improving')
-      return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success"><TrendingUp size={13} /> Improving</span>;
-    return <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-muted-foreground"><Minus size={13} /> Stable</span>;
-  };
-
-  // 3-segment distance-to-promotion meter.
-  const PromotionMeter = ({ cluster }: any) => {
-    const count = Math.min(cluster.signal_count, THRESHOLD);
-    const ready = isReady(cluster);
-    const nearly = isNearly(cluster);
-    const tone = ready ? 'bg-success' : nearly ? 'bg-amber-500' : 'bg-primary/40';
-    const caption = ready
-      ? (cluster.has_critical && cluster.signal_count < THRESHOLD ? 'Critical signal — ready to promote' : 'Threshold met — ready to promote')
-      : nearly ? `${THRESHOLD - 1} of ${THRESHOLD} — 1 signal from promotion`
-      : `${cluster.signal_count} of ${THRESHOLD} signals`;
-    const captionTone = ready ? 'text-success' : nearly ? 'text-amber-600' : 'text-muted-foreground';
-    return (
-      <div className="mt-3">
-        <div className="flex gap-1 mb-1.5">
-          {Array.from({ length: THRESHOLD }).map((_, i) => (
-            <div key={i} className={`h-1.5 flex-1 rounded-full ${i < count ? tone : 'bg-muted'}`} />
-          ))}
-        </div>
-        <p className={`text-[11px] font-medium ${captionTone}`}>{caption}</p>
-      </div>
-    );
-  };
-
-  const PatternCard = ({ cluster }: any) => {
-    const ready = isReady(cluster);
-    const nearly = isNearly(cluster);
-    const borderTone = ready ? 'border-success/60' : (cluster.trajectory === 'Deteriorating' || cluster.trajectory === 'Critical') ? 'border-destructive/50' : nearly ? 'border-amber-400/60' : 'border-border';
-    return (
-      <div className={`p-4 bg-background border-2 ${borderTone} hover:border-primary transition-all min-w-0 flex flex-col`}>
-        <div className="flex justify-between items-start gap-2 mb-1">
-          <span className="text-[10px] uppercase text-muted-foreground tracking-widest truncate">{domainOf(cluster)}</span>
-          <TrajectoryChip trajectory={cluster.trajectory} />
-        </div>
-        <div className="text-foreground font-medium leading-snug">{cluster.cluster_label}</div>
-        <PromotionMeter cluster={cluster} />
-        <div className="flex justify-between items-center mt-3 pt-3 border-t border-border/50">
-          <span className="text-xs text-muted-foreground">{cluster.signal_count} signal{cluster.signal_count === 1 ? '' : 's'}</span>
-          {ready ? (
-            <button onClick={() => goPromote(cluster)} className="text-xs font-semibold text-success flex items-center gap-1 hover:underline underline-offset-4">
-              Promote <ArrowRightCircle size={14} />
-            </button>
-          ) : (
-            <button onClick={() => goPromote(cluster)} className="text-xs font-medium text-primary flex items-center gap-1 hover:underline underline-offset-4">
-              Review <ChevronRight size={14} />
-            </button>
-          )}
-        </div>
-      </div>
-    );
-  };
 
   const ShapeCell = ({ value, label, tone }: { value: number; label: string; tone?: 'critical' | 'moss' | 'amber' }) => {
     const bg = value > 0 && tone === 'critical' ? 'bg-destructive/5 border-destructive/30'
@@ -175,7 +147,7 @@ export function DailyOversightBoard() {
 
         <div className="mb-6 border-b-2 border-border pb-5">
           <h1 className="text-4xl text-foreground tracking-tighter uppercase">RM Daily Oversight</h1>
-          <p className="text-muted-foreground mt-1">Defensible governance feed — last 48 hours</p>
+          <p className="text-muted-foreground mt-1">Today's actionable slice — last 48 hours. Cluster decisions live in Patterns.</p>
         </div>
 
         {/* Shape of the day — at-a-glance posture, computed from the live payload */}
@@ -184,21 +156,44 @@ export function DailyOversightBoard() {
           <ShapeCell value={deterioratingCount} label="Deteriorating" tone="critical" />
           <ShapeCell value={nearlyCount} label="Nearly promotable" tone="amber" />
           <ShapeCell value={readyCount} label="Ready to promote" tone="moss" />
-          <ShapeCell value={data?.highPriority.length || 0} label="High-priority · 48h" tone="critical" />
+          <ShapeCell value={highPriority.length} label="High-priority · 48h" tone="critical" />
           <ShapeCell value={openEsc} label="Open escalations" tone="critical" />
         </div>
 
+        {/* Patterns hand-off — the single canonical cluster/promotion surface */}
+        <button
+          onClick={() => navigate('/patterns')}
+          className="w-full mb-8 flex items-center justify-between gap-3 p-4 bg-card border-2 border-primary/30 hover:border-primary rounded-lg transition-all text-left"
+        >
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 shrink-0 bg-primary/10 text-primary flex items-center justify-center rounded-lg">
+              <Eye size={20} />
+            </div>
+            <div className="min-w-0">
+              <div className="text-foreground font-medium">
+                {readyCount > 0 ? `${readyCount} cluster${readyCount === 1 ? '' : 's'} ready to promote` : 'Review emerging patterns'}
+              </div>
+              <p className="text-sm text-muted-foreground">
+                Promote, dismiss and track the promotion meter on Patterns — the one place cluster decisions are made.
+              </p>
+            </div>
+          </div>
+          <span className="shrink-0 text-sm font-semibold text-primary flex items-center gap-1">
+            See all patterns <ArrowRightCircle size={16} />
+          </span>
+        </button>
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
 
-          {/* Section A: High Priority Signals */}
+          {/* High Priority Signals — the unique 48h triage feed */}
           <div className="space-y-4 min-w-0">
             <div className="flex items-center gap-2 mb-2">
               <Zap size={20} className="text-destructive fill-destructive" />
               <h2 className="text-xl text-foreground uppercase tracking-tight">High Priority Signals</h2>
             </div>
             <div className="flex flex-col gap-3">
-              {data?.highPriority.map(s => <TriageSignal key={s.id} signal={s} />)}
-              {data?.highPriority.length === 0 && (
+              {highPriority.map((s: any) => <TriageSignal key={s.id} signal={s} />)}
+              {highPriority.length === 0 && (
                 <div className="p-8 border-2 border-dashed border-border text-center text-muted-foreground">
                    No High or Critical signals in the last 48 hours — high-priority signals surface here the moment they're recorded.
                 </div>
@@ -206,62 +201,14 @@ export function DailyOversightBoard() {
             </div>
           </div>
 
-          {/* Section B: Pattern Signals */}
+          {/* Governance Actions due today */}
           <div className="space-y-4 min-w-0">
             <div className="flex items-center gap-2 mb-2">
-              <TrendingDown size={20} className="text-warning" />
-              <h2 className="text-xl text-foreground uppercase tracking-tight">Emerging Patterns</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {patterns.map(c => <PatternCard key={c.id} cluster={c} />)}
-              {patterns.length === 0 && (
-                <div className="md:col-span-2 p-8 border-2 border-dashed border-border text-center text-muted-foreground">
-                   No active patterns — clusters appear here as signals group by theme and person.
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section C: Ready to Promote */}
-          <div className="space-y-4 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <ShieldAlert size={20} className="text-primary" />
-              <h2 className="text-xl text-foreground uppercase tracking-tight">Ready to Promote</h2>
-            </div>
-            <p className="text-xs text-muted-foreground -mt-2">Clusters that crossed the threshold (≥{THRESHOLD} signals, or one Critical). Your decision queue — promote with a reason, or it waits.</p>
-            <div className="bg-card border-2 border-border min-h-[260px]">
-               {data?.risk_candidates.map(c => (
-                 <div key={c.id} className="p-4 border-b-2 border-border last:border-b-0 flex justify-between items-center gap-3 min-w-0">
-                    <div className="min-w-0">
-                      <div className="text-foreground font-medium truncate">{c.cluster_label}</div>
-                      <div className="text-xs text-muted-foreground uppercase mt-1 truncate">
-                        {domainOf(c)} • {c.has_critical && c.signal_count < THRESHOLD ? 'Critical signal' : `${c.signal_count} signals · threshold met`}{c.trajectory === 'Deteriorating' ? ' · deteriorating' : ''}
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => goPromote(c)}
-                      className="bg-primary text-primary-foreground px-4 py-2 text-sm hover:translate-x-1 transition-transform shrink-0 rounded"
-                    >
-                      Promote ‣
-                    </button>
-                 </div>
-               ))}
-               {data?.risk_candidates.length === 0 && (
-                <div className="p-8 text-center text-muted-foreground min-h-[260px] flex items-center justify-center">
-                   No clusters ready for promotion yet. Patterns appear here the moment they reach {THRESHOLD} signals — or instantly if a Critical signal is recorded.
-                </div>
-               )}
-            </div>
-          </div>
-
-          {/* Section D: Actions Panel */}
-          <div className="space-y-4 min-w-0">
-            <div className="flex items-center gap-2 mb-2">
-              <CheckCircle size={20} className="text-success" />
+              <Clock size={20} className="text-warning" />
               <h2 className="text-xl text-foreground uppercase tracking-tight">Governance Actions</h2>
             </div>
             <div className="bg-card border-2 border-border min-h-[260px]">
-               {data?.actions.map(a => (
+               {actions.map((a: any) => (
                  <div key={a.id} className="p-4 border-b-2 border-border last:border-b-0 flex justify-between items-center gap-3 min-w-0">
                     <div className="min-w-0">
                       <div className="text-foreground font-medium truncate">{a.title}</div>
@@ -272,7 +219,7 @@ export function DailyOversightBoard() {
                     </div>
                  </div>
                ))}
-               {data?.actions.length === 0 && (
+               {actions.length === 0 && (
                 <div className="p-8 text-center text-muted-foreground min-h-[260px] flex items-center justify-center">
                    <span className="flex items-center gap-2"><Clock size={15} /> No actions due or overdue today.</span>
                 </div>
@@ -281,6 +228,45 @@ export function DailyOversightBoard() {
           </div>
 
         </div>
+
+        {/* Daily Governance Sign-Off — rehomed from the retired Oversight Board.
+            The mandatory daily narrative is a CQC Well-Led audit point. */}
+        <div className="mt-10 bg-card border-2 border-border p-6">
+          <div className="flex items-center gap-2 mb-4">
+            <ShieldCheck size={20} className="text-primary" />
+            <h2 className="text-xl text-foreground uppercase tracking-tight">Daily Governance Sign-Off</h2>
+          </div>
+
+          {hasSafeguardingOverride && (
+            <div className="p-4 border-2 border-destructive bg-destructive/10 mb-5">
+              <p className="text-destructive font-semibold uppercase text-sm mb-1">Safeguarding override detected</p>
+              <p className="text-sm">
+                High/Critical signals exist while a Deputy RM is reviewing. Signing off will trigger an immediate
+                director notification and flag this log for enhanced oversight.
+              </p>
+            </div>
+          )}
+
+          <label className="block mb-2 text-sm uppercase tracking-widest text-muted-foreground">Daily governance narrative (mandatory)</label>
+          <textarea
+            value={dailyNote}
+            onChange={(e) => setDailyNote(e.target.value)}
+            className="w-full h-40 p-4 border-2 border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary/30 bg-background"
+            placeholder="Considering all triage, patterns and actions above — what is the service position today?"
+          />
+          <div className="mt-4 p-4 border-2 border-border bg-muted/20 text-sm text-muted-foreground">
+            I {isDeputyCover ? 'as Deputy RM ' : ''}certify that I have reviewed today's oversight for {house?.name || 'this service'}.
+            This entry constitutes a forensic audit point for CQC Well-Led inspections.
+          </div>
+          <button
+            onClick={handleSignOff}
+            disabled={isSigningOff || !dailyNote.trim()}
+            className="mt-4 w-full py-4 bg-primary text-primary-foreground uppercase font-semibold tracking-widest hover:bg-primary/90 transition-all disabled:opacity-50 rounded-lg"
+          >
+            {isSigningOff ? 'Signing off…' : 'Sign off daily governance'}
+          </button>
+        </div>
+
       </div>
     </div>
   );
