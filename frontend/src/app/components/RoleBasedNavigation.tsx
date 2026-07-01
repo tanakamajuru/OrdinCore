@@ -110,7 +110,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
-          { path: "/my-actions", label: "My Actions", icon: ClipboardList },
+          { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
           { path: "#support", label: "Contact Support", icon: LifeBuoy, section: "Support", action: "support" },
@@ -151,6 +151,35 @@ export function RoleBasedNavigation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRole]);
 
+  // Actions badge — counts "due this week" the SAME way the Team Leader dashboard card
+  // does (not Complete/Completed/Cancelled AND due_date within the next 7 days, which
+  // also catches overdue), so the badge and the dashboard card can never disagree.
+  const [pendingActions, setPendingActions] = useState(0);
+  useEffect(() => {
+    if (!navItems.some((i) => i.badgeKey === "actions")) return;
+    let active = true;
+    const fetchActions = async () => {
+      try {
+        const res = await apiClient.get<any[]>("/actions/my");
+        const rows = (res as any)?.data?.data ?? (res as any)?.data ?? [];
+        const now = Date.now();
+        const dueSoon = Array.isArray(rows)
+          ? rows.filter((a: any) =>
+              a?.status &&
+              !["Complete", "Completed", "Cancelled"].includes(a.status) &&
+              a.due_date &&
+              new Date(a.due_date).getTime() <= now + 7 * 86400000
+            ).length
+          : 0;
+        if (active) setPendingActions(dueSoon);
+      } catch { /* non-fatal */ }
+    };
+    fetchActions();
+    const interval = setInterval(fetchActions, 60000);
+    return () => { active = false; clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole]);
+
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout? Any unsaved changes may be lost.")) {
       logout();
@@ -180,7 +209,9 @@ export function RoleBasedNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          const showBadge = item.badgeKey === "open" && openEscalations > 0;
+          const badgeCount = item.badgeKey === "open" ? openEscalations : item.badgeKey === "actions" ? pendingActions : 0;
+          const showBadge = !!item.badgeKey && badgeCount > 0;
+          const badgeTone = item.badgeKey === "actions" ? "bg-amber-500" : "bg-red-500";
           const sectionHeader = item.section && item.section !== lastSection ? item.section : null;
           lastSection = item.section;
           return (
@@ -197,8 +228,8 @@ export function RoleBasedNavigation() {
                 <Icon className="w-4 h-4 shrink-0" />
                 <span className="truncate flex-1 text-left">{item.label}</span>
                 {showBadge && (
-                  <span className="bg-red-500 text-white text-[10px] font-semibold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center">
-                    {openEscalations > 9 ? "9+" : openEscalations}
+                  <span className={`${badgeTone} text-white text-[10px] font-semibold min-w-[18px] h-[18px] px-1 rounded-full flex items-center justify-center`}>
+                    {badgeCount > 9 ? "9+" : badgeCount}
                   </span>
                 )}
               </button>

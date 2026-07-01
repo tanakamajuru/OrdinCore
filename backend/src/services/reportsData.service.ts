@@ -37,6 +37,7 @@ export class ReportsDataService {
   async strategicRisks(companyId: string) {
     const rows = await query(
       `SELECT COALESCE(r.strategic_theme, r.title) AS theme,
+              r.risk_domain AS domain, dm.kloe_label, dm.kloe_code,
               r.trend, r.trajectory, r.severity, r.status,
               EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open,
               r.last_governance_review_at,
@@ -45,6 +46,10 @@ export class ReportsDataService {
               h.name AS service_name
        FROM risks r
        LEFT JOIN houses h ON h.id = r.house_id
+       -- Deduplicated domain lookup: one KLOE per name so the sector-duplicated rows
+       -- (SUPPORTED_LIVING + DOMICILIARY) can't multiply the risk or pull a NULL.
+       LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
+                    FROM governance_domains GROUP BY name) dm ON dm.name = r.risk_domain
        WHERE r.company_id = $1 AND r.status NOT IN ('Closed')
        ORDER BY r.created_at DESC`,
       [companyId]
@@ -122,7 +127,10 @@ export class ReportsDataService {
          FROM risks r
          LEFT JOIN houses h ON h.id = r.house_id
          LEFT JOIN signal_clusters sc ON sc.id = r.source_cluster_id
-         LEFT JOIN governance_domains d ON d.name = r.risk_domain
+         -- Deduplicated domain lookup (one KLOE per name) so sector-duplicated rows
+         -- can't duplicate the risk in the pack or pull a NULL CQC domain.
+         LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
+                      FROM governance_domains GROUP BY name) d ON d.name = r.risk_domain
         WHERE r.company_id = $1 AND r.status NOT IN ('Closed')
         ORDER BY r.created_at DESC`,
       [companyId]

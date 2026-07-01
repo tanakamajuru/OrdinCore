@@ -130,7 +130,7 @@ export function RegisteredManagerDashboard() {
         apiClient.getEscalationStats().catch(() => ({})),
         apiClient.getGovernanceReviewQueue().catch(() => ({})),
         apiClient.getPendingEffectiveness().catch(() => ({})),
-        apiClient.get(`/actions/my`).catch(() => ({})),
+        apiClient.get(`/actions/oversight`).catch(() => apiClient.get(`/actions/my`)).catch(() => ({})),
       ]);
 
       setSignals(asArray(unwrap(sig)));

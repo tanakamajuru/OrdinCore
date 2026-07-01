@@ -20,6 +20,8 @@ const router = Router();
 router.patch('/:id/complete', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER'), actionsController.complete.bind(actionsController));
 
 router.get('/my', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionsController.getMyActions.bind(actionsController));
+// Service-scoped oversight: all open actions across the caller's house(s), any assignee.
+router.get('/oversight', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), actionsController.getOversightActions.bind(actionsController));
 
 /**
  * @openapi

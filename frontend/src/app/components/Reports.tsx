@@ -86,15 +86,17 @@ export function Reports() {
 
   const downloadSaved = async (rep: any) => {
     try {
-      const res = await apiClient.get(`/reports/saved/${rep.id}/download`, { responseType: "blob" });
-      const url = URL.createObjectURL(res.data as Blob);
+      // Binary download via getBlob — the default fetch client runs response.json(),
+      // which corrupts the PDF/CSV bytes (that was the "Could not download" cause).
+      const { blob, filename } = await apiClient.getBlob(`/reports/saved/${rep.id}/download`);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
-      a.href = url; a.download = `${(rep.title || "report").replace(/[^a-z0-9-_ ]/gi, "")}.${rep.format}`; a.click();
+      a.href = url; a.download = filename || `${(rep.title || "report").replace(/[^a-z0-9-_ ]/gi, "")}.${rep.format}`; a.click();
       URL.revokeObjectURL(url);
     } catch (err: any) {
       // Reports saved before regenerate-from-data was introduced have no stored data
       // and cannot be rebuilt. Tell the user to regenerate rather than failing opaquely.
-      const status = err?.response?.status;
+      const status = err?.status;
       if (status === 404) {
         toast.error("This saved report predates the current format and can't be rebuilt. Please generate it again from the cards above.");
       } else {

@@ -76,6 +76,29 @@ class ApiClient {
     return this.request<T>(endpoint, { ...options, method: 'GET' });
   }
 
+  // Binary download (PDF/CSV). The default request() forces response.json(), which
+  // corrupts a non-JSON body — use this for any file download.
+  public async getBlob(endpoint: string): Promise<{ blob: Blob; filename: string }> {
+    const token = localStorage.getItem('authToken');
+    const res = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'GET',
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+    if (!res.ok) {
+      if (res.status === 401 && !window.location.pathname.startsWith('/login')) {
+        localStorage.removeItem('authToken');
+        localStorage.removeItem('user');
+        window.location.href = '/login';
+      }
+      const err: any = new Error(`HTTP error! status: ${res.status}`);
+      err.status = res.status; // preserve status for caller branching
+      throw err;
+    }
+    const cd = res.headers.get('Content-Disposition') || '';
+    const filename = /filename="?([^"]+)"?/.exec(cd)?.[1] || '';
+    return { blob: await res.blob(), filename };
+  }
+
   public async post<T>(endpoint: string, data?: any, options: RequestInit = {}): Promise<ApiResponse<T>> {
     return this.request<T>(endpoint, { 
       ...options, 

@@ -164,6 +164,44 @@ export class ActionsController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  // Service-scoped oversight: ALL open actions across the RM/Director's house(s),
+  // regardless of assignee — so the RM dashboard's "Actions Due" agrees with the risk
+  // register (which counts open actions per risk, not per person). This is the correct
+  // lens for the oversight role; /actions/my stays as the Team Leader's personal queue.
+  async getOversightActions(req: Request, res: Response) {
+    const u = (req as any).user;
+    try {
+      const role = String(u.role || '').toUpperCase();
+      const scoped = ['REGISTERED_MANAGER', 'TEAM_LEADER'].includes(role);
+      const params: any[] = [u.company_id];
+      let houseClause = '';
+      if (scoped) {
+        const houseIds = (u.assigned_house_ids || []);
+        params.push(houseIds.length ? houseIds : ['00000000-0000-0000-0000-000000000000']);
+        houseClause = ` AND r.house_id = ANY($${params.length}::uuid[])`;
+      }
+      const actions = await query(
+        `SELECT ra.*, r.title AS risk_title, r.house_id,
+                au.first_name || ' ' || au.last_name AS assigned_to_name,
+                cb.first_name || ' ' || cb.last_name AS assigned_by_name,
+                h.name AS house_name
+           FROM risk_actions ra
+           JOIN risks r ON r.id = ra.risk_id
+           LEFT JOIN users au ON au.id = ra.assigned_to
+           LEFT JOIN users cb ON cb.id = ra.created_by
+           LEFT JOIN houses h ON h.id = r.house_id
+          WHERE ra.company_id = $1
+            AND ra.status NOT IN ('Complete', 'Completed', 'Cancelled')${houseClause}
+          ORDER BY ra.due_date ASC NULLS LAST`,
+        params
+      );
+      res.json({ success: true, data: actions.rows });
+    } catch (err: any) {
+      logger.error('Error fetching oversight actions', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
 }
 
 export const actionsController = new ActionsController();
