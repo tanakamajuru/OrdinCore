@@ -31,21 +31,26 @@ export const governanceDomainsService = {
       ? await this.getSectorForHouse(house_id, company_id)
       : await this.getSector(company_id);
 
+    // A MIXED provider (viewed at company level, i.e. no specific service) draws on
+    // BOTH sector libraries; a single-sector company (or any concrete house) draws
+    // on exactly one. `= ANY($1)` handles both without branching the SQL.
+    const sectors = sector === 'MIXED' ? ['SUPPORTED_LIVING', 'DOMICILIARY'] : [sector];
+
     const [domains, signals, thresholds] = await Promise.all([
       query(
         `SELECT name, description, sort_order FROM governance_domains
-         WHERE sector = $1 AND is_active = true ORDER BY sort_order, name`,
-        [sector]
+         WHERE sector = ANY($1) AND is_active = true ORDER BY sort_order, name`,
+        [sectors]
       ),
       query(
         `SELECT domain_name, signal_label, sort_order FROM signal_library
-         WHERE sector = $1 AND is_active = true ORDER BY domain_name, sort_order, signal_label`,
-        [sector]
+         WHERE sector = ANY($1) AND is_active = true ORDER BY domain_name, sort_order, signal_label`,
+        [sectors]
       ),
       query(
         `SELECT domain_name, trigger_signal_count, window_days, description FROM threshold_rules
-         WHERE sector = $1 AND is_active = true`,
-        [sector]
+         WHERE sector = ANY($1) AND is_active = true`,
+        [sectors]
       ),
     ]);
 
@@ -58,9 +63,14 @@ export const governanceDomainsService = {
       thresholdByDomain[t.domain_name] = { count: t.trigger_signal_count, window_days: t.window_days, description: t.description };
     }
 
+    // For MIXED, the same domain name can exist under both sectors — collapse to one
+    // entry (its signals/threshold are keyed by name, so they already merge above).
+    const seen = new Set<string>();
+    const uniqueDomains = domains.rows.filter((d) => (seen.has(d.name) ? false : (seen.add(d.name), true)));
+
     return {
       sector,
-      domains: domains.rows.map(d => ({
+      domains: uniqueDomains.map(d => ({
         name: d.name,
         description: d.description,
         signals: signalsByDomain[d.name] || [],

@@ -247,7 +247,8 @@ export default function SuperAdminDashboard() {
   const handleSectorChange = async (company: Company, sector: string) => {
     try {
       await apiClient.updateCompany(company.id, { sector } as any);
-      toast.success(`${company.name} sector set to ${sector === 'DOMICILIARY' ? 'Domiciliary Care' : 'Supported Living'}`);
+      const sectorLabel = sector === 'DOMICILIARY' ? 'Domiciliary Care' : sector === 'MIXED' ? 'Both (Supported Living + Domiciliary)' : 'Supported Living';
+      toast.success(`${company.name} sector set to ${sectorLabel}`);
       loadData();
     } catch (err: any) {
       toast.error(err.message || "Failed to update sector");
@@ -389,6 +390,7 @@ export default function SuperAdminDashboard() {
                   >
                     <option value="SUPPORTED_LIVING">Supported Living</option>
                     <option value="DOMICILIARY">Domiciliary Care</option>
+                    <option value="MIXED">Both (SL + Domiciliary)</option>
                   </select>
                 </td>
                 <td className="py-4 px-4">

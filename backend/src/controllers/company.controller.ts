@@ -141,6 +141,45 @@ export class CompanyController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  /**
+   * The caller's own company (id, name, sector, plan). Lets a company Admin read
+   * their tenant's sector without the SUPER_ADMIN-only list/get-by-id endpoints.
+   */
+  async current(req: Request, res: Response) {
+    try {
+      const companyId = (req as any).user?.company_id;
+      if (!companyId) return res.status(400).json({ success: false, message: 'No company on token', errors: [] });
+      const company = await companyService.findById(companyId);
+      if (!company) return res.status(404).json({ success: false, message: 'Company not found', errors: [] });
+      return res.json({ success: true, data: company, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch company';
+      return res.status(500).json({ success: false, message, errors: [] });
+    }
+  }
+
+  /**
+   * Set the caller's OWN company's sector (Supported Living / Domiciliary / both).
+   * Scoped to req.user.company_id and to the sector field only, so a company Admin
+   * can self-serve without the broad SUPER_ADMIN company-update permission.
+   */
+  async updateOwnSector(req: Request, res: Response) {
+    try {
+      const companyId = (req as any).user?.company_id;
+      if (!companyId) return res.status(400).json({ success: false, message: 'No company on token', errors: [] });
+      const sector = String(req.body?.sector || '');
+      const ALLOWED_SECTORS = ['SUPPORTED_LIVING', 'DOMICILIARY', 'MIXED'];
+      if (!ALLOWED_SECTORS.includes(sector)) {
+        return res.status(400).json({ success: false, message: 'sector must be SUPPORTED_LIVING, DOMICILIARY or MIXED', errors: [] });
+      }
+      const company = await companyService.update(companyId, { sector });
+      return res.json({ success: true, data: company, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update sector';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const companyController = new CompanyController();

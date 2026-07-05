@@ -34,6 +34,11 @@ router.post('/', requireAuth, requireRole('SUPER_ADMIN'), companyController.crea
  *         description: Success
  */
 router.get('/', requireAuth, requireRole('SUPER_ADMIN'), companyController.findAll.bind(companyController));
+
+// The caller's OWN company — declared before '/:id' so 'current' isn't read as an id.
+// GET is any authenticated user (reads only their tenant); PATCH sector is Admin self-serve.
+router.get('/current', requireAuth, companyController.current.bind(companyController));
+router.patch('/current/sector', requireAuth, requireRole('ADMIN', 'SUPER_ADMIN'), companyController.updateOwnSector.bind(companyController));
 /**
  * @openapi
  * /api/v1/companies/{id}:

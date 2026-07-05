@@ -82,8 +82,9 @@ export default function CreateOrgModal({
             >
               <option value="SUPPORTED_LIVING">Supported Living</option>
               <option value="DOMICILIARY">Domiciliary Care</option>
+              <option value="MIXED">Both (Supported Living + Domiciliary)</option>
             </select>
-            <p className="text-xs text-muted-foreground mt-1">Determines the governance domains and signal library loaded for this organisation.</p>
+            <p className="text-xs text-muted-foreground mt-1">Determines the governance domains and signal library loaded for this organisation. "Both" lets the provider run services of either type.</p>
           </div>
           <div className="flex gap-3 pt-2">
             <button

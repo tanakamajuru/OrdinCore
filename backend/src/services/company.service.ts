@@ -4,7 +4,11 @@ import { v4 as uuidv4 } from 'uuid';
 export class CompanyService {
   async create(data: { name: string; domain?: string; plan?: string; email?: string; phone?: string; address?: string; sector?: string }) {
     const id = uuidv4();
-    const sector = data.sector === 'DOMICILIARY' ? 'DOMICILIARY' : 'SUPPORTED_LIVING';
+    // A provider may run one sector or both. Sector is applied per-service (house);
+    // MIXED means "this provider operates both libraries" and unlocks both when a
+    // service or company-level view is loaded. Anything unrecognised defaults to SL.
+    const ALLOWED_SECTORS = ['SUPPORTED_LIVING', 'DOMICILIARY', 'MIXED'];
+    const sector = ALLOWED_SECTORS.includes(String(data.sector)) ? String(data.sector) : 'SUPPORTED_LIVING';
     const result = await query(
       `INSERT INTO companies (id, name, domain, plan, email, phone, address, sector)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
@@ -85,7 +89,7 @@ export class CompanyService {
     return result.rows[0] || null;
   }
 
-  async update(id: string, data: Partial<{ name: string; domain: string; status: string; plan: string; email: string; phone: string; address: string }>) {
+  async update(id: string, data: Partial<{ name: string; domain: string; status: string; plan: string; email: string; phone: string; address: string; logo_url: string; sector: string }>) {
     const allowed = ['name', 'domain', 'status', 'plan', 'email', 'phone', 'address', 'logo_url', 'sector'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) { if (key in data) filteredData[key] = (data as Record<string, unknown>)[key]; }

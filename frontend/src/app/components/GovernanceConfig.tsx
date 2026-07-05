@@ -35,6 +35,7 @@ export function GovernanceConfig() {
   const [isLoading, setIsLoading] = useState(true);
   const [adding, setAdding] = useState<any>(null);
   const [domainCounts, setDomainCounts] = useState<Record<string, number>>({});
+  const [companySector, setCompanySector] = useState<string>("");
 
   const activeTab = TABS.find((t) => t.key === tab)!;
 
@@ -52,15 +53,17 @@ export function GovernanceConfig() {
     setIsLoading(true); setAdding(null);
     try {
       if (tab === "services") {
-        const [hs, slD, domD] = await Promise.all([
+        const [hs, slD, domD, co] = await Promise.all([
           apiClient.get(`/houses?limit=200`),
           apiClient.get(`/governance-config/domains?sector=SUPPORTED_LIVING`),
           apiClient.get(`/governance-config/domains?sector=DOMICILIARY`),
+          apiClient.get(`/companies/current`).catch(() => null),
         ]);
         const houses = hs.data?.data || hs.data || [];
         setRows(Array.isArray(houses) ? houses : houses.items || []);
         const count = (arr: any[]) => (arr || []).filter((d: any) => d.is_active).length;
         setDomainCounts({ SUPPORTED_LIVING: count(slD.data?.data), DOMICILIARY: count(domD.data?.data) });
+        setCompanySector((co as any)?.data?.data?.sector || "SUPPORTED_LIVING");
         return;
       }
       const res = await apiClient.get(endpoint());
@@ -75,6 +78,27 @@ export function GovernanceConfig() {
       toast.success(`Sector updated — engine now applies ${sectorValue === "DOMICILIARY" ? "Domiciliary" : "Supported Living"} thresholds`);
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to update sector"); }
+  };
+
+  // Provider-level sector: whether this company runs Supported Living, Domiciliary, or
+  // both. Individual services still carry their own sector; "Both" simply unlocks both
+  // libraries so services of either type can be set up under this provider.
+  const PROVIDER_SECTORS = [
+    { value: "SUPPORTED_LIVING", label: "Supported Living only" },
+    { value: "DOMICILIARY", label: "Domiciliary only" },
+    { value: "MIXED", label: "Both" },
+  ];
+  const setProviderSector = async (value: string) => {
+    const prev = companySector;
+    setCompanySector(value);
+    try {
+      await apiClient.patch(`/companies/current/sector`, { sector: value });
+      toast.success(`Provider set to ${PROVIDER_SECTORS.find((s) => s.value === value)?.label || value}`);
+      load();
+    } catch (e: any) {
+      setCompanySector(prev);
+      toast.error(e?.response?.data?.message || "Failed to update provider sector");
+    }
   };
 
   const patch = async (path: string, body: any, label: string) => {
@@ -193,6 +217,21 @@ export function GovernanceConfig() {
           ) : (
             <div className="overflow-x-auto">
               {tab === "services" && (
+                <>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 border-b border-border bg-muted/20">
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-foreground">This provider runs</p>
+                    <p className="text-xs text-muted-foreground">Choose "Both" to operate Supported Living and Domiciliary services under this organisation. Each service still sets its own sector below.</p>
+                  </div>
+                  {canEditServices ? (
+                    <select value={companySector || "SUPPORTED_LIVING"} onChange={(e) => setProviderSector(e.target.value)}
+                      className="px-3 py-2 bg-input-background border border-border rounded text-sm shrink-0">
+                      {PROVIDER_SECTORS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                    </select>
+                  ) : (
+                    <span className="text-sm font-medium shrink-0">{PROVIDER_SECTORS.find((s) => s.value === companySector)?.label || "Supported Living only"}</span>
+                  )}
+                </div>
                 <table className="w-full">
                   <thead><tr><th className={th}>Service</th><th className={th}>Sector (drives the engine)</th><th className={th}>Domains active</th><th className={th}>Status</th></tr></thead>
                   <tbody>
@@ -216,6 +255,7 @@ export function GovernanceConfig() {
                     })}
                   </tbody>
                 </table>
+                </>
               )}
 
               {tab === "domains" && (
