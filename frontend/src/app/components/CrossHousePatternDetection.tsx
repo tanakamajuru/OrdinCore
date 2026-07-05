@@ -206,8 +206,8 @@ export function CrossHousePatternDetection() {
       <div className="p-6 w-full pt-20">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-3xl  text-foreground mb-2">Cross-Service Pattern Detection</h1>
-          <p className="text-muted-foreground">Identify and analyze recurring risk patterns across all services</p>
+          <h1 className="text-3xl  text-foreground mb-2">Pattern Detection</h1>
+          <p className="text-muted-foreground">Recurring signal patterns by service and person — review a pattern and, when the floor is met, promote it to a risk.</p>
         </div>
 
         {/* Filters */}

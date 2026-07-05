@@ -62,7 +62,10 @@ export const usersRepo = {
     const params: unknown[] = isSuperAdmin ? [] : [company_id];
 
     if (role) {
-      sql += ` AND u.role = $${params.length + 1}`;
+      // Multi-role aware: match the legacy primary column OR any granted role in
+      // user_roles, so a user whose TL/RM role was granted via role-switching still
+      // appears in "list users by role" (e.g. the signal-allocation Team Leader picker).
+      sql += ` AND (u.role = $${params.length + 1} OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = $${params.length + 1}))`;
       params.push(role);
     }
     if (status) {
@@ -83,7 +86,8 @@ export const usersRepo = {
     const params: any[] = isSuperAdmin ? [] : [company_id];
 
     if (role) {
-      sql += ` AND role = $${params.length + 1}`;
+      // Multi-role aware — mirror findByCompany so counts match the listed rows.
+      sql += ` AND (role = $${params.length + 1} OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = users.id AND ur.role = $${params.length + 1}))`;
       params.push(role);
     }
     if (status) {

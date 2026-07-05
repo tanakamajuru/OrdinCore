@@ -25,12 +25,14 @@ export const governanceConfigController = {
   },
   async createDomain(req: Request, res: Response) {
     try {
-      const { sector, name, description, sort_order } = req.body;
+      const { sector, name, description, sort_order, kloe_code, kloe_label } = req.body;
       if (!sector || !name) return fail(res, new Error('sector and name are required'), 400);
+      // Capture the CQC framework mapping on create (mirrors updateDomain) so a new
+      // domain isn't born with a NULL KLOE — which would reopen the gap migration 085 closed.
       const r = await query(
-        `INSERT INTO governance_domains (sector, name, description, sort_order, is_active)
-         VALUES ($1, $2, $3, COALESCE($4, 99), true) RETURNING *`,
-        [sector, name, description || null, sort_order ?? null]
+        `INSERT INTO governance_domains (sector, name, description, sort_order, is_active, kloe_code, kloe_label)
+         VALUES ($1, $2, $3, COALESCE($4, 99), true, $5, $6) RETURNING *`,
+        [sector, name, description || null, sort_order ?? null, kloe_code ?? null, kloe_label ?? null]
       );
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }

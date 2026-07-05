@@ -16,12 +16,20 @@ interface AssignedAction {
   status: string;
   risk_title: string;
   assigned_by_name: string;
+  assigned_to_name?: string;
+  house_name?: string;
   risk_id: string;
 }
 
 export function MyActions() {
   const navigate = useNavigate();
   const { user } = useAuth();
+  // The RM/Director owns no actions of their own — they OVERSEE Team Leader actions.
+  // Oversight roles read every open action across their service(s) (any assignee) and
+  // the view is read-only (completing an action is the assigned TL's act). A Team Leader
+  // reads their own personal queue. This matches the dashboard "Actions Due" count.
+  const role = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
+  const isOversight = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(role);
   const [actions, setActions] = useState<AssignedAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAction, setSelectedAction] = useState<AssignedAction | null>(null);
@@ -42,7 +50,7 @@ export function MyActions() {
   const fetchActions = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.get("/actions/my");
+      const response = await apiClient.get(isOversight ? "/actions/oversight" : "/actions/my");
       // apiClient (@/services/api) returns the parsed body, so response.data is the payload array
       const list: any = response.data;
       setActions(Array.isArray(list) ? list : (list?.data || []));
@@ -106,8 +114,10 @@ export function MyActions() {
             Back to Dashboard
           </Button>
           <div>
-            <h1 className="text-3xl text-foreground uppercase tracking-tighter">My Action Tracker</h1>
-            <p className="text-muted-foreground">Governance implementation and risk mitigation tasks assigned to you.</p>
+            <h1 className="text-3xl text-foreground uppercase tracking-tighter">{isOversight ? "Action Oversight" : "My Action Tracker"}</h1>
+            <p className="text-muted-foreground">{isOversight
+              ? "Open governance actions across your service(s) — who holds each, and where it stands. Completing an action is the assigned Team Leader's task."
+              : "Governance implementation and risk mitigation tasks assigned to you."}</p>
           </div>
         </div>
 
@@ -115,7 +125,7 @@ export function MyActions() {
           {actions.length === 0 ? (
             <div className="bg-card border-2 border-dashed border-border p-12 text-center rounded-lg">
               <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">No active actions assigned to you.</p>
+              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">{isOversight ? "No open actions across your services." : "No active actions assigned to you."}</p>
             </div>
           ) : (
             pagedActions.map((action) => (
@@ -142,7 +152,9 @@ export function MyActions() {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MessageSquare className="w-4 h-4 text-primary" />
-                          <span>Assigned by: {action.assigned_by_name}</span>
+                          <span>{isOversight
+                            ? `Assignee: ${action.assigned_to_name || "Unassigned"}${action.house_name ? ` · ${action.house_name}` : ""}`
+                            : `Assigned by: ${action.assigned_by_name}`}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4 text-primary" />
@@ -152,8 +164,17 @@ export function MyActions() {
                     </div>
 
                     <div className="flex flex-col justify-center gap-3">
-                      {action.status !== 'Completed' ? (
-                        <Button 
+                      {isOversight ? (
+                        <Button
+                          variant="outline"
+                          onClick={() => navigate(`/risk-register/${action.risk_id}`)}
+                          className="border-border hover:bg-muted"
+                        >
+                          View Related Risk
+                          <ChevronRight className="w-4 h-4 ml-2" />
+                        </Button>
+                      ) : action.status !== 'Completed' ? (
+                        <Button
                           onClick={() => handleCompleteClick(action)}
                           className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-lg tracking-tighter"
                         >
@@ -161,8 +182,8 @@ export function MyActions() {
                           COMPLETE ACTION
                         </Button>
                       ) : (
-                        <Button 
-                          variant="outline" 
+                        <Button
+                          variant="outline"
                           onClick={() => navigate(`/risk-register/${action.risk_id}`)}
                           className="border-border hover:bg-muted"
                         >
