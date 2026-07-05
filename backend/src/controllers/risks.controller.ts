@@ -216,6 +216,19 @@ export class RisksController {
     }
   }
 
+  async reassignAction(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { assigned_to } = req.body;
+      if (!assigned_to) return res.status(400).json({ success: false, message: 'assigned_to is required', errors: [] });
+      const action = await risksService.reassignAction(req.params.id, req.params.actionId, company_id, req.user!.user_id, assigned_to);
+      return res.json({ success: true, data: action, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to reassign action';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async verifyAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

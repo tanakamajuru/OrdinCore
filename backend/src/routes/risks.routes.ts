@@ -302,6 +302,8 @@ router.post('/:id/action', requireAuth, requireTenant, risksController.addAction
  *       - BearerAuth: []
  */
 router.patch('/:id/actions/:actionId/status', requireAuth, requireTenant, risksController.updateActionStatus.bind(risksController));
+// Reassign an open action to a different Team Leader — a deliberate, recorded RM/Admin act (Finding F).
+router.patch('/:id/actions/:actionId/assignee', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), risksController.reassignAction.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/actions/{actionId}/verify:

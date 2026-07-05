@@ -215,6 +215,17 @@ export function RiskDetail() {
     }
   };
 
+  const reassignAction = async (actionId: string, assigned_to: string) => {
+    if (!assigned_to || !id) return;
+    try {
+      await apiClient.patch(`/risks/${id}/actions/${actionId}/assignee`, { assigned_to });
+      toast.success("Action reassigned — the Team Leader has been notified.");
+      loadRiskDetails(id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to reassign action");
+    }
+  };
+
   const handleAddAction = async () => {
     if (!newAction.title) {
       toast.error('Please enter an action title');
@@ -546,6 +557,18 @@ export function RiskDetail() {
                                 </button>
                             )}
 
+                            {/* Reassign an open action to a different Team Leader (RM/Admin) — Finding F */}
+                            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && action.status !== 'Complete' && action.status !== 'Completed' && teamLeaders.length > 0 && (
+                                <select
+                                    value=""
+                                    onChange={(e) => reassignAction(action.id, e.target.value)}
+                                    title="Reassign to a Team Leader"
+                                    className="text-[10px] uppercase border-2 border-border bg-card px-1 py-1"
+                                >
+                                    <option value="">Reassign…</option>
+                                    {teamLeaders.map((tl) => <option key={tl.id} value={tl.id}>{tl.first_name} {tl.last_name}</option>)}
+                                </select>
+                            )}
 
                             {/* Verification Button: RM/RI only + Four Eyes */}
                             {(['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && 

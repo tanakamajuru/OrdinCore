@@ -140,7 +140,50 @@ export class RisksService {
       }
     }
 
-    return risksRepo.addAction(risk_id, company_id, { ...data, assigned_to, created_by: user_id });
+    const action = await risksRepo.addAction(risk_id, company_id, { ...data, assigned_to, created_by: user_id });
+    // Notify the Team Leader the action is now theirs — previously they only discovered
+    // it by opening their queue (Finding F).
+    if (assigned_to) {
+      try {
+        await notificationsService.create({
+          company_id, user_id: assigned_to, type: 'action_assigned',
+          title: 'Action assigned to you',
+          body: `${data.title} — ${risk.title || 'risk'}`,
+          link: `/risk-register/${risk_id}?section=actions`,
+        });
+      } catch { /* non-fatal */ }
+    }
+    return action;
+  }
+
+  // Move an open action to a different Team Leader (RM/Admin act). Validates the target
+  // is an active TL (multi-role aware), notifies them, and writes an audit event (Finding F).
+  async reassignAction(risk_id: string, action_id: string, company_id: string, user_id: string, assigned_to: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    const tl = await query(
+      `SELECT id, first_name, last_name FROM users u
+        WHERE u.id = $1 AND u.company_id = $2 AND u.status = 'active'
+          AND (u.role IN ('TEAM_LEADER','TL') OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'TEAM_LEADER'))`,
+      [assigned_to, company_id]
+    );
+    if (!tl.rows[0]) throw new Error('Assignee must be an active Team Leader');
+    const upd = await query(
+      `UPDATE risk_actions SET assigned_to = $1 WHERE id = $2 AND risk_id = $3 AND company_id = $4 RETURNING *`,
+      [assigned_to, action_id, risk_id, company_id]
+    );
+    if (!upd.rows[0]) throw new Error('Action not found');
+    const tlName = `${tl.rows[0].first_name || ''} ${tl.rows[0].last_name || ''}`.trim();
+    await risksRepo.addEvent(risk_id, company_id, 'action_reassigned', `Action reassigned to ${tlName}`, user_id);
+    try {
+      await notificationsService.create({
+        company_id, user_id: assigned_to, type: 'action_reassigned',
+        title: 'Action reassigned to you',
+        body: `${upd.rows[0].title} — ${risk.title || 'risk'}`,
+        link: `/risk-register/${risk_id}?section=actions`,
+      });
+    } catch { /* non-fatal */ }
+    return upd.rows[0];
   }
 
   async getActions(risk_id: string, company_id: string) {

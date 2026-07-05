@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -22,6 +22,29 @@ export function GovernanceReviewModal({ open, onClose, onSubmitted, context, rev
   const [actionRequired, setActionRequired] = useState(false);
   const [evidence, setEvidence] = useState("");
   const [busy, setBusy] = useState(false);
+  const [openEscalations, setOpenEscalations] = useState<any[]>([]);
+  const [openActions, setOpenActions] = useState<any[]>([]);
+
+  // Read the risk's current state on open so the reviewer isn't asked to escalate/act
+  // blind — the modal was previously stateless and always offered fresh, unchecked
+  // decisions even when an escalation was already open (Finding E). Narrowed client-side.
+  useEffect(() => {
+    if (!open || !context.risk_id) { setOpenEscalations([]); setOpenActions([]); return; }
+    let active = true;
+    const notClosed = (s: any) => !["Closed", "Resolved", "closed", "resolved", "Complete", "Completed", "Cancelled"].includes(String(s || ""));
+    (async () => {
+      try {
+        const escRes: any = await (apiClient as any).getEscalations(1, 200).catch(() => ({}));
+        const escList = escRes?.data?.data ?? escRes?.data ?? [];
+        const actRes: any = await apiClient.get("/actions/oversight").catch(() => ({}));
+        const actList = (actRes as any)?.data?.data ?? (actRes as any)?.data ?? [];
+        if (!active) return;
+        setOpenEscalations(Array.isArray(escList) ? escList.filter((e: any) => e.risk_id === context.risk_id && notClosed(e.lifecycle_status || e.status)) : []);
+        setOpenActions(Array.isArray(actList) ? actList.filter((a: any) => a.risk_id === context.risk_id && notClosed(a.status)) : []);
+      } catch { /* non-fatal — fall back to the plain modal */ }
+    })();
+    return () => { active = false; };
+  }, [open, context.risk_id]);
 
   if (!open) return null;
 
@@ -62,6 +85,14 @@ export function GovernanceReviewModal({ open, onClose, onSubmitted, context, rev
         </div>
 
         <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
+          {(openEscalations.length > 0 || openActions.length > 0) && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800 space-y-1">
+              {openEscalations.length > 0 && (
+                <div>⚠ Already escalated — {openEscalations.length} open escalation(s){openEscalations[0]?.escalated_to_name ? ` (to ${openEscalations[0].escalated_to_name})` : ""}.</div>
+              )}
+              {openActions.length > 0 && <div>{openActions.length} open action(s) already assigned on this risk.</div>}
+            </div>
+          )}
           <div>
             <label className="block text-sm font-medium mb-1">What is happening?</label>
             <textarea value={whatIsHappening} onChange={(e) => setWhatIsHappening(e.target.value)} rows={3}
@@ -79,12 +110,15 @@ export function GovernanceReviewModal({ open, onClose, onSubmitted, context, rev
 
           <div className="flex gap-6">
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={actionRequired} onChange={(e) => setActionRequired(e.target.checked)} /> Action required
+              <input type="checkbox" checked={actionRequired} onChange={(e) => setActionRequired(e.target.checked)} /> {openActions.length > 0 ? "Additional action required" : "Action required"}
             </label>
             <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={escalationRequired} onChange={(e) => setEscalationRequired(e.target.checked)} /> Escalation required
+              <input type="checkbox" checked={escalationRequired} onChange={(e) => setEscalationRequired(e.target.checked)} /> {openEscalations.length > 0 ? "Escalate further" : "Escalation required"}
             </label>
           </div>
+          {decision === "Escalate" && openEscalations.length > 0 && (
+            <p className="text-xs text-amber-600 -mt-2">This records escalating further — an escalation is already open, so it won't create a duplicate.</p>
+          )}
 
           <div>
             <label className="block text-sm font-medium mb-1">Evidence / rationale <span className="text-muted-foreground font-normal">(optional)</span></label>

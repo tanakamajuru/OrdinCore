@@ -19,6 +19,7 @@ import { IncidentReconstruction } from "./components/IncidentReconstruction";
 import { Effectiveness } from "./components/Effectiveness";
 import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
+import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -265,6 +266,9 @@ export default function App() {
               <RiskPromotion />
             </ProtectedRoute>
           } />
+          {/* Legacy/notification deep links: /risks/:id -> canonical /risk-register/:id.
+              Static /risks/promote ranks above the param, so it is not shadowed. */}
+          <Route path="/risks/:id" element={<RiskLinkRedirect />} />
           <Route path="/risk-register/:id" element={
             <ProtectedRoute>
               <RiskDetail />
