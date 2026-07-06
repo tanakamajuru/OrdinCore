@@ -70,8 +70,12 @@ export async function signalSeriesForCluster(cluster_id?: string | null): Promis
 /** Recorded control verdicts for a risk, oldest-first (only genuinely-rated actions). */
 export async function effectivenessOutcomesForRisk(risk_id?: string | null): Promise<string[]> {
   if (!risk_id) return [];
+  // effectiveness_outcome is the canonical rated verdict (written by the rating flow);
+  // `effectiveness` (enum) is the mapped fallback. NB: control_effectiveness is NOT a
+  // live column on risk_actions despite the handover pack assuming it — verified against
+  // the DB.
   const r = await query(
-    `SELECT COALESCE(effectiveness_outcome, effectiveness::text, control_effectiveness) AS outcome
+    `SELECT COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
        FROM risk_actions
       WHERE risk_id = $1 AND effectiveness_outcome IS NOT NULL
       ORDER BY COALESCE(effectiveness_reviewed_at, effectiveness_measured_at, completed_at, created_at) ASC`,
