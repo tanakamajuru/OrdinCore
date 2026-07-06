@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { risksService } from '../services/risks.service';
+import { trajectoryForRisk } from '../services/trajectory.service';
 
 export class RisksController {
   async create(req: Request, res: Response) {
@@ -94,6 +95,12 @@ export class RisksController {
           return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
         }
       }
+
+      // Finding K: attach the single computed, explained trajectory so every consumer
+      // of the risk drawer reads one figure (direction + basis + weekly points).
+      try {
+        (risk as any).trajectory_v2 = await trajectoryForRisk(risk.id, (risk as any).source_cluster_id);
+      } catch { /* non-fatal — legacy trend fields remain */ }
 
       return res.json({ success: true, data: risk, meta: {} });
     } catch (err: unknown) {

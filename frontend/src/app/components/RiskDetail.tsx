@@ -422,11 +422,11 @@ export function RiskDetail() {
             >
               {risk.severity}
             </span>
-            <div className="flex items-center gap-2 px-3 py-1 border-2 border-border ">
-                 {risk.trajectory === 'Improving' ? <TrendingUp className="text-success" /> : 
-                  risk.trajectory === 'Deteriorating' || risk.trajectory === 'Critical' ? <TrendingDown className="text-destructive animate-pulse" /> : 
+            <div className="flex items-center gap-2 px-3 py-1 border-2 border-border " title={(risk as any).trajectory_v2?.basis || ''}>
+                 {((risk as any).trajectory_v2?.direction || risk.trajectory) === 'Improving' ? <TrendingUp className="text-success" /> :
+                  ['Deteriorating', 'Critical'].includes((risk as any).trajectory_v2?.direction || risk.trajectory) ? <TrendingDown className="text-destructive animate-pulse" /> :
                   <ArrowRightCircle className="text-muted-foreground" />}
-                 {risk.trajectory}
+                 {(risk as any).trajectory_v2?.direction || risk.trajectory}
             </div>
             <span className="px-3 py-1 bg-primary text-primary-foreground ">
               SCORE: {risk.risk_score}
@@ -448,6 +448,9 @@ export function RiskDetail() {
           <p className="text-muted-foreground  uppercase tracking-widest text-sm">
             {risk.house_name} • Registered {new Date(risk.created_at).toLocaleDateString()} by {risk.created_by_name}
           </p>
+          {(risk as any).trajectory_v2?.basis && (
+            <p className="text-xs text-muted-foreground mt-1 normal-case tracking-normal">Trajectory basis — {(risk as any).trajectory_v2.basis}</p>
+          )}
         </div>
 
         <div className="space-y-6">
