@@ -1,0 +1,128 @@
+/**
+ * rm5.service.ts — read backend-for-frontend for the RM 5-screen interface (Stage 4).
+ * Grounded in the LIVE schema (governance_pulses / risk_signal_links / effectiveness_outcome
+ * / signal_clusters.scope), not the handover pack's assumed names. Trajectory comes from the
+ * one computed source (Finding K). Read-only; mutations/detail reuse existing endpoints.
+ */
+import { query } from '../config/database';
+import { trajectoryForCluster, trajectoryForRisk, Trajectory } from './trajectory.service';
+
+const PROMOTION_THRESHOLD = 3;
+const ACTIVE_CLUSTER = `('Emerging','Escalated','Confirmed')`;
+const OPEN_ACTION = `NOT IN ('Complete','Completed','Cancelled')`;
+const CLOSED_RISK = `('Closed','Resolved')`;
+
+const traj = (t: Trajectory) => ({ dir: t.direction, basis: t.basis, points: t.points });
+
+export const rm5Service = {
+  // TODAY — "What needs me now?"
+  async today(company_id: string) {
+    const todaySignals = (await query(
+      `SELECT p.id, h.name AS house, COALESCE(p.related_person, '—') AS person, p.severity::text AS sev,
+              to_char(COALESCE(p.created_at, p.entry_date), 'DD Mon') AS d, p.description AS note
+         FROM governance_pulses p
+         LEFT JOIN houses h ON h.id = p.house_id
+        WHERE p.company_id = $1 AND p.severity IN ('Critical','High')
+          AND COALESCE(p.created_at, p.entry_date) >= NOW() - INTERVAL '48 hours'
+        ORDER BY COALESCE(p.created_at, p.entry_date) DESC LIMIT 25`,
+      [company_id]
+    )).rows;
+    const actionsDue = (await query(
+      `SELECT a.id, a.risk_id AS "riskId", a.title,
+              COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned') AS assignee,
+              to_char(a.due_date, 'DD Mon') AS due, a.status
+         FROM risk_actions a LEFT JOIN users u ON u.id = a.assigned_to
+        WHERE a.company_id = $1 AND a.status ${OPEN_ACTION}
+        ORDER BY a.due_date ASC NULLS LAST LIMIT 25`,
+      [company_id]
+    )).rows;
+    return { todaySignals, actionsDue };
+  },
+
+  // Ribbon counts
+  async counts(company_id: string) {
+    const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
+    return {
+      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND severity IN ('Critical','High') AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '48 hours'`),
+      patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND scope='person'`),
+      risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
+      actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),
+      effectiveness: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND completed_at IS NOT NULL AND effectiveness_outcome IS NULL`),
+    };
+  },
+
+  // Patterns — within a service + across services (systemic), each with computed trajectory.
+  async patterns(company_id: string) {
+    const rows = (await query(
+      `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
+              c.scope, c.signal_count AS "signalCount", c.linked_risk_id AS "promotedRiskId",
+              h.name AS house_name, c.affected_house_ids,
+              (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names,
+              EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
+                        WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
+         FROM signal_clusters c LEFT JOIN houses h ON h.id = c.house_id
+        WHERE c.company_id = $1 AND c.cluster_status IN ${ACTIVE_CLUSTER}
+        ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
+      [company_id]
+    )).rows;
+    const shape = async (c: any) => ({
+      id: c.id, domain: c.domain, person: c.person,
+      scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
+      houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
+      signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
+      hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
+      trajectory: traj(await trajectoryForCluster(c.id)),
+    });
+    const within: any[] = [], across: any[] = [];
+    for (const c of rows) (c.scope === 'cross_service' ? across : within).push(await shape(c));
+    return { within, across };
+  },
+
+  // Register — risks by type, each with computed trajectory.
+  async register(company_id: string, type: 'active' | 'strategic' | 'closed') {
+    const where = type === 'closed' ? `r.status IN ${CLOSED_RISK}`
+      : type === 'strategic' ? `r.status NOT IN ${CLOSED_RISK} AND r.strategic_theme IS NOT NULL`
+      : `r.status NOT IN ${CLOSED_RISK} AND r.strategic_theme IS NULL`;
+    const rows = (await query(
+      `SELECT r.id, COALESCE(r.strategic_theme, r.title) AS theme, COALESCE(r.linked_person, '—') AS person,
+              h.name AS house, r.source_cluster_id AS "sourceClusterId",
+              (SELECT COUNT(*) FROM risk_actions a WHERE a.risk_id = r.id AND a.status ${OPEN_ACTION}) AS "openActions"
+         FROM risks r LEFT JOIN houses h ON h.id = r.house_id
+        WHERE r.company_id = $1 AND ${where}
+        ORDER BY r.updated_at DESC NULLS LAST`,
+      [company_id]
+    )).rows;
+    return Promise.all(rows.map(async (r: any) => ({
+      id: r.id, theme: r.theme, person: r.person, houses: [r.house].filter(Boolean), type,
+      openActions: Number(r.openActions || 0),
+      trajectory: traj(await trajectoryForRisk(r.id, r.sourceClusterId)),
+    })));
+  },
+
+  // Lenses — views that link back to the owning risk (never a second copy).
+  async actionsLens(company_id: string) {
+    return (await query(
+      `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
+              (COALESCE(r.strategic_theme, r.title) || ' (' || r.id || ') · '
+                || COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned')
+                || ' · due ' || COALESCE(to_char(a.due_date,'DD Mon'),'—')) AS meta, a.status
+         FROM risk_actions a JOIN risks r ON r.id = a.risk_id
+         LEFT JOIN users u ON u.id = a.assigned_to
+        WHERE a.company_id = $1 AND a.status ${OPEN_ACTION}
+        ORDER BY a.due_date ASC NULLS LAST`,
+      [company_id]
+    )).rows;
+  },
+
+  async effectivenessLens(company_id: string) {
+    return (await query(
+      `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
+              (COALESCE(r.strategic_theme, r.title) || ' (' || r.id || ') · completed '
+                || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
+         FROM risk_actions a JOIN risks r ON r.id = a.risk_id
+        WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL
+        ORDER BY a.completed_at ASC`,
+      [company_id]
+    )).rows;
+  },
+};
