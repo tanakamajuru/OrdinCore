@@ -440,6 +440,65 @@ export class WeeklyReviewsService {
     return { reminded: status.unread.length };
   }
 
+  // Finding O: provider-level roll-up for a given week — per-site finalisation + the
+  // provider-wide position (worst-of) + any existing provider sign-off.
+  async providerRollup(company_id: string, week_ending: string) {
+    const sites = (await query(
+      `SELECT h.id AS house_id, h.name AS house,
+              wr.status, wr.validation_status, wr.overall_position AS position,
+              wr.acknowledged_by_name AS rm_signed_by, wr.acknowledged_at AS rm_signed_at
+         FROM houses h
+         LEFT JOIN weekly_reviews wr
+                ON wr.house_id = h.id AND wr.week_ending = $2 AND wr.company_id = $1
+        WHERE h.company_id = $1 AND COALESCE(h.is_active, true) = true
+        ORDER BY h.name`,
+      [company_id, week_ending]
+    )).rows;
+    const FINALISED = ['pending_validation', 'validated', 'published', 'LOCKED'];
+    const sitesData = sites.map((s: any) => ({
+      house_id: s.house_id, house: s.house, status: s.status || 'not started',
+      position: s.position || null, rm_signed: !!s.rm_signed_by, rm_signed_by: s.rm_signed_by || null,
+      finalised: FINALISED.includes(s.status),
+    }));
+    const outstanding = sitesData.filter((s) => !s.finalised).map((s) => s.house);
+    const provider_position =
+      sitesData.some((s) => s.position === 'Not assured') ? 'Not assured'
+      : sitesData.some((s) => s.position === 'Assured with actions') ? 'Assured with actions'
+      : (sitesData.length && sitesData.every((s) => s.position === 'Assured')) ? 'Assured'
+      : 'Mixed';
+    const signoff = (await query(
+      `SELECT position, acknowledged_by_name, acknowledged_at, statement
+         FROM provider_review_signoffs WHERE company_id = $1 AND week_ending = $2`,
+      [company_id, week_ending]
+    )).rows[0] || null;
+    return { week_ending, sites: sitesData, sites_total: sitesData.length, sites_finalised: sitesData.filter((s) => s.finalised).length, outstanding, provider_position, signoff };
+  }
+
+  // Finding O: sign the provider-wide position — gated on every site being finalised,
+  // by a Director/RI (separation of duties from the RM per-site sign-offs).
+  async signProviderRollup(company_id: string, week_ending: string, user_id: string, dto: { position?: string; statement?: string }) {
+    const rollup = await this.providerRollup(company_id, week_ending);
+    if (rollup.outstanding.length > 0) {
+      throw new Error(`Provider sign-off blocked — ${rollup.outstanding.length} site(s) not yet finalised: ${rollup.outstanding.join(', ')}.`);
+    }
+    const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0] || {};
+    const company = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0] || {};
+    const position = dto.position || rollup.provider_position;
+    const statement = dto.statement ||
+      `I, ${me.name} (${me.role}), have reviewed the weekly governance across all ${rollup.sites_total} services of ` +
+      `${company.name} for the week ending ${week_ending} and acknowledge the provider-level position: ${position}.`;
+    const res = await query(
+      `INSERT INTO provider_review_signoffs
+         (company_id, week_ending, position, acknowledged_by, acknowledged_by_name, acknowledged_at, statement)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+       ON CONFLICT (company_id, week_ending) DO UPDATE
+         SET position = $3, acknowledged_by = $4, acknowledged_by_name = $5, acknowledged_at = NOW(), statement = $6
+       RETURNING *`,
+      [company_id, week_ending, position, user_id, me.name, statement]
+    );
+    return res.rows[0];
+  }
+
   // Service-level roll-up (Director/RI, read-only): aggregate the week's per-house
   // reviews into one organisational picture. Authoring stays at the house; leadership
   // reads the synthesised whole — no separately authored service review.

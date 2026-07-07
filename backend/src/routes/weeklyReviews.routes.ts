@@ -24,6 +24,9 @@ router.get('/:id/pdf', requireAuth, requireTenant, weeklyReviewsController.downl
 router.get('/preview', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).
 router.get('/service-rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.serviceRollup.bind(weeklyReviewsController));
+// Finding O: provider-level roll-up + Director/RI sign-off (defined before '/:id').
+router.get('/rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.providerRollup.bind(weeklyReviewsController));
+router.post('/rollup/sign', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.signProviderRollup.bind(weeklyReviewsController));
 router.get('/house/:houseId', requireAuth, requireTenant, weeklyReviewsController.findByHouse);
 router.get('/:id', requireAuth, requireTenant, weeklyReviewsController.findById);
 

@@ -21,8 +21,32 @@ export function ServiceReviewRollup() {
   const [data, setData] = useState<any>(null);
   const [week, setWeek] = useState<string>("");
   const [loading, setLoading] = useState(true);
+  const [rollup, setRollup] = useState<any>(null);
+  const [signing, setSigning] = useState(false);
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const role = String(user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_");
+  const canSign = ["DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "ADMIN", "SUPER_ADMIN"].includes(role);
 
   useEffect(() => { load(week); }, [week]);
+
+  // Finding O: provider-level sign-off, keyed off the resolved week.
+  useEffect(() => {
+    const wk = data?.week_ending;
+    if (!wk) { setRollup(null); return; }
+    apiClient.get(`/weekly-reviews/rollup?week_ending=${wk}`).then((r: any) => setRollup(r.data || null)).catch(() => setRollup(null));
+  }, [data?.week_ending]);
+
+  const signProvider = async () => {
+    if (!data?.week_ending) return;
+    setSigning(true);
+    try {
+      await apiClient.post(`/weekly-reviews/rollup/sign`, { week_ending: data.week_ending });
+      toast.success("Provider position signed.");
+      const r: any = await apiClient.get(`/weekly-reviews/rollup?week_ending=${data.week_ending}`);
+      setRollup(r.data || null);
+    } catch (e: any) { toast.error(e?.message || "Failed to sign provider position"); }
+    finally { setSigning(false); }
+  };
 
   const load = async (wk: string) => {
     try {
@@ -68,6 +92,25 @@ export function ServiceReviewRollup() {
           </div>
         ) : (
           <>
+            {rollup && (
+              <div className="mb-6 bg-card border border-border rounded-xl p-5 shadow-sm">
+                <div className="flex items-center justify-between gap-3 flex-wrap">
+                  <div>
+                    <h3 className="font-semibold text-foreground">Provider-level sign-off</h3>
+                    <p className="text-xs text-muted-foreground">{rollup.sites_finalised} of {rollup.sites_total} sites finalised · provider position: <b>{rollup.provider_position}</b></p>
+                  </div>
+                  {rollup.signoff ? (
+                    <span className="text-sm text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> Signed by {rollup.signoff.acknowledged_by_name}</span>
+                  ) : canSign ? (
+                    <button onClick={signProvider} disabled={signing || (rollup.outstanding?.length > 0)} className="text-sm px-4 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-40">{signing ? "Signing…" : "Sign provider position"}</button>
+                  ) : null}
+                </div>
+                {rollup.outstanding?.length > 0 && (
+                  <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />{rollup.outstanding.length} site(s) not yet finalised: {rollup.outstanding.join(", ")}. Sign-off is disabled until every site is finalised.</div>
+                )}
+                {rollup.signoff && <p className="text-xs text-muted-foreground italic mt-2 border-l-2 border-border pl-3">{rollup.signoff.statement}</p>}
+              </div>
+            )}
             {/* Org summary */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
               <div className="bg-card border border-border rounded-xl p-4">

@@ -55,6 +55,30 @@ export class WeeklyReviewsController {
     }
   }
 
+  async providerRollup(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const week_ending = String(req.query.week_ending || '');
+      if (!week_ending) return res.status(400).json({ success: false, message: 'week_ending is required' });
+      const data = await weeklyReviewsService.providerRollup(company_id, week_ending);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load provider roll-up';
+      return res.status(400).json({ success: false, message });
+    }
+  }
+
+  async signProviderRollup(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await weeklyReviewsService.signProviderRollup(company_id, String(req.body.week_ending || ''), req.user!.user_id, req.body);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to sign provider roll-up';
+      return res.status(400).json({ success: false, message });
+    }
+  }
+
   async prepareReview(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
