@@ -124,6 +124,8 @@ router.get('/', requireAuth, requireTenant, requireScope, risksController.findAl
  *       200:
  *         description: Success
  */
+// Finding B: Resolution Effectiveness Rate KPI (declared before '/:id').
+router.get('/metrics/resolution-effectiveness', requireAuth, requireTenant, risksController.resolutionEffectiveness.bind(risksController));
 router.get('/:id', requireAuth, requireTenant, requireScope, risksController.findById.bind(risksController));
 /**
  * @openapi

@@ -65,7 +65,12 @@ export function SignalDetail() {
         const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
         const list = (res.data as any).data?.users ?? (res.data as any).data ?? [];
         setTeamLeaders(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })));
-      } catch { /* picker just stays empty */ }
+      } catch (e: any) {
+        // Finding C: surface the failure instead of a silent blank menu.
+        console.error('Failed to load Team Leaders', e);
+        toast.error("Couldn't load Team Leaders — check role/status.");
+        setTeamLeaders([]);
+      }
     })();
   }, [canAllocate]);
 
@@ -185,7 +190,7 @@ export function SignalDetail() {
                     {signal.allocation_is_auto ? 'Auto-allocated to house Team Leader' : 'Manually allocated'}
                   </span>
                 )}
-                {canAllocate && (
+                {canAllocate && teamLeaders.length > 0 && (
                   <select
                     disabled={reassigning}
                     value=""
@@ -197,6 +202,9 @@ export function SignalDetail() {
                       <option key={t.id} value={t.id}>{t.name}</option>
                     ))}
                   </select>
+                )}
+                {canAllocate && teamLeaders.length === 0 && (
+                  <p className="mt-2 text-[11px] text-amber-600">No active Team Leaders found for allocation — check a TL is granted the role, active, and mapped to this service (Admin → Users).</p>
                 )}
             </div>
           </div>

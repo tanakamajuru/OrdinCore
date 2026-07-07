@@ -16,7 +16,7 @@ export const governanceConfigController = {
     try {
       const sector = req.query.sector as string | undefined;
       const r = await query(
-        `SELECT id, sector, name, description, sort_order, is_active, kloe_code, kloe_label FROM governance_domains
+        `SELECT id, sector, name, description, sort_order, is_active, kloe_code, kloe_label, key_question, quality_statement FROM governance_domains
          ${sector ? 'WHERE sector = $1' : ''} ORDER BY sector, sort_order, name`,
         sector ? [sector] : []
       );
@@ -25,29 +25,33 @@ export const governanceConfigController = {
   },
   async createDomain(req: Request, res: Response) {
     try {
-      const { sector, name, description, sort_order, kloe_code, kloe_label } = req.body;
+      const { sector, name, description, sort_order, kloe_code, kloe_label, key_question, quality_statement } = req.body;
       if (!sector || !name) return fail(res, new Error('sector and name are required'), 400);
       // Capture the CQC framework mapping on create (mirrors updateDomain) so a new
       // domain isn't born with a NULL KLOE — which would reopen the gap migration 085 closed.
+      // key_question + quality_statement (Finding J) keep the reference configurable across
+      // the CQC framework transition.
       const r = await query(
-        `INSERT INTO governance_domains (sector, name, description, sort_order, is_active, kloe_code, kloe_label)
-         VALUES ($1, $2, $3, COALESCE($4, 99), true, $5, $6) RETURNING *`,
-        [sector, name, description || null, sort_order ?? null, kloe_code ?? null, kloe_label ?? null]
+        `INSERT INTO governance_domains (sector, name, description, sort_order, is_active, kloe_code, kloe_label, key_question, quality_statement)
+         VALUES ($1, $2, $3, COALESCE($4, 99), true, $5, $6, $7, $8) RETURNING *`,
+        [sector, name, description || null, sort_order ?? null, kloe_code ?? null, kloe_label ?? null, key_question ?? null, quality_statement ?? null]
       );
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }
   },
   async updateDomain(req: Request, res: Response) {
     try {
-      const { name, description, sort_order, is_active, kloe_code, kloe_label } = req.body;
+      const { name, description, sort_order, is_active, kloe_code, kloe_label, key_question, quality_statement } = req.body;
       const r = await query(
         `UPDATE governance_domains SET
            name = COALESCE($2, name), description = COALESCE($3, description),
            sort_order = COALESCE($4, sort_order), is_active = COALESCE($5, is_active),
-           kloe_code = COALESCE($6, kloe_code), kloe_label = COALESCE($7, kloe_label)
+           kloe_code = COALESCE($6, kloe_code), kloe_label = COALESCE($7, kloe_label),
+           key_question = COALESCE($8, key_question), quality_statement = COALESCE($9, quality_statement)
          WHERE id = $1 RETURNING *`,
         [req.params.id, name ?? null, description ?? null, sort_order ?? null,
-         typeof is_active === 'boolean' ? is_active : null, kloe_code ?? null, kloe_label ?? null]
+         typeof is_active === 'boolean' ? is_active : null, kloe_code ?? null, kloe_label ?? null,
+         key_question ?? null, quality_statement ?? null]
       );
       if (!r.rows[0]) return fail(res, new Error('Domain not found'), 404);
       return ok(res, r.rows[0]);
