@@ -20,6 +20,7 @@ import { Effectiveness } from "./components/Effectiveness";
 import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
+import { Rm5Interface } from "./components/Rm5Interface";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -322,6 +323,12 @@ export default function App() {
           <Route path="/patterns" element={
             <ProtectedRoute>
               <CrossHousePatternDetection />
+            </ProtectedRoute>
+          } />
+          {/* Stage 4: parallel 5-screen RM interface (pipeline spine) — not the default yet. */}
+          <Route path="/rm5" element={
+            <ProtectedRoute>
+              <Rm5Interface />
             </ProtectedRoute>
           } />
           <Route path="/engines" element={

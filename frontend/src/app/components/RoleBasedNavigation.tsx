@@ -71,6 +71,7 @@ export function RoleBasedNavigation() {
       case "REGISTERED_MANAGER":
         return [
           { path: "/dashboard", label: "Dashboard", icon: Home },
+          { path: "/rm5", label: "Pipeline (beta)", icon: Layers },
           { path: "/governance-dashboard", label: "Daily Oversight", icon: Activity },
           { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
