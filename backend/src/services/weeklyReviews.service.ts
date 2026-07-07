@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { assertIndependent } from '../utils/separationOfDuties';
 import { v4 as uuidv4 } from 'uuid';
+import { trajectoryForRisk } from './trajectory.service';
 
 // export class WeeklyReviewsService {
 export class WeeklyReviewsService {
@@ -110,10 +111,44 @@ export class WeeklyReviewsService {
     parts.push(`5. MANAGEMENT INTERPRETATION:\n${content.step8_interpretation || 'No interpretation provided'}.`);
     parts.push(`DECISIONS & ACTIONS: ${content.step12_decisions || 'No new decisions recorded'}.`);
 
-    // 6. Final Position
+    // 6. Lessons Learnt (Finding L)
+    if (content.lessons_learnt) parts.push(`6. LESSONS LEARNT:\n${content.lessons_learnt}`);
+
+    // 7. Week Ahead — Anticipated Risks (Finding L)
+    const antItems = content.anticipated_risks?.items || [];
+    const antNote = content.anticipated_risks?.rm_note || '';
+    if (antItems.length || antNote) {
+      const list = antItems.map((a: any) => `- ${a.theme} (${a.reason})`).join('\n') || 'None flagged.';
+      parts.push(`7. WEEK AHEAD — ANTICIPATED RISKS:\n${list}${antNote ? `\nManager note: ${antNote}` : ''}`);
+    }
+
+    // Final Position
     parts.push(`OVERALL SERVICE POSITION: ${content.step14_overall_position?.toUpperCase() || 'STABLE'}`);
 
     return parts.join('\n\n');
+  }
+
+  // Finding L: pre-fill the week-ahead watch-list from live data — open risks that are
+  // deteriorating (computed trajectory, Finding K), have an open escalation, or an overdue
+  // action. The RM confirms/edits and adds a note; "what could go wrong" is evidenced.
+  async buildAnticipatedRisks(company_id: string, house_id: string) {
+    const risks = (await query(
+      `SELECT r.id, COALESCE(r.strategic_theme, r.title) AS theme, r.source_cluster_id,
+              EXISTS (SELECT 1 FROM escalations e WHERE e.risk_id = r.id AND COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','closed','resolved')) AS has_open_esc,
+              EXISTS (SELECT 1 FROM risk_actions a WHERE a.risk_id = r.id AND a.status NOT IN ('Complete','Completed','Cancelled') AND a.due_date < NOW()) AS has_overdue
+         FROM risks r
+        WHERE r.house_id = $1 AND r.company_id = $2 AND LOWER(r.status) NOT IN ('closed','resolved')`,
+      [house_id, company_id]
+    )).rows;
+    const out: Array<{ risk_id: string; theme: string; reason: string }> = [];
+    for (const r of risks) {
+      const reasons: string[] = [];
+      try { if ((await trajectoryForRisk(r.id, r.source_cluster_id)).direction === 'Deteriorating') reasons.push('trajectory deteriorating'); } catch { /* non-fatal */ }
+      if (r.has_open_esc) reasons.push('open escalation');
+      if (r.has_overdue) reasons.push('overdue action');
+      if (reasons.length) out.push({ risk_id: r.id, theme: r.theme, reason: reasons.join(', ') });
+    }
+    return out;
   }
 
   async prepareReview(company_id: string, house_id: string, week_ending: string) {
@@ -184,6 +219,7 @@ export class WeeklyReviewsService {
       available_houses: housesRes.rows,
       service_users: serviceUsersRes.rows,
       week_range: { start: startStr, end: endStr },
+      anticipated: await this.buildAnticipatedRisks(company_id, house_id),
       auto_population: {
         pulse_count: signals.length,
         signals: signals,
@@ -254,6 +290,12 @@ export class WeeklyReviewsService {
     const draft = String(content.step15_narrative_draft || '').trim();
     if (narrative.length < 40) throw new Error('A Registered Manager narrative in your own words (at least 40 characters) is required before finalising.');
     if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
+    // Finding L: Lessons Learnt + a week-ahead anticipated-risks decision are required.
+    if (String(content.lessons_learnt || '').trim().length < 20) throw new Error('Lessons Learnt (at least 20 characters) is required before finalising.');
+    const ant = content.anticipated_risks || {};
+    if (!(Array.isArray(ant.items) && ant.items.length) && String(ant.rm_note || '').trim().length < 10) {
+      throw new Error('Record the week-ahead anticipated risks (or a note if none are anticipated) before finalising.');
+    }
 
     const rmRow = (await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [user_id])).rows[0];
     const rmName = rmRow?.name || 'Registered Manager';

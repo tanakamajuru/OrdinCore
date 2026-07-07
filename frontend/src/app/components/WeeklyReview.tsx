@@ -276,16 +276,37 @@ export function WeeklyReview() {
           </div>
         </div>
       );
-      case 12: return (
+      case 12: {
+        const antItems = (form.anticipated_risks?.items ?? preview?.anticipated ?? []) as any[];
+        const setAnt = (items: any[], note?: string) => set("anticipated_risks", { items, rm_note: note ?? (form.anticipated_risks?.rm_note || "") });
+        return (
         <div>
           <p className="text-sm text-muted-foreground mb-2">Finalising locks the record permanently.</p>
           <div className="bg-muted/40 rounded-lg p-4 text-sm leading-7 mb-3">
             This week {auto.pulse_count ?? 0} signals produced {repeats.length} threshold pattern{repeats.length === 1 ? "" : "s"} and {activeRisks.length} register entr{activeRisks.length === 1 ? "y" : "ies"}. Leadership position: <b>{form.step14_overall_position || "—"}</b>.{form.step8_interpretation ? ` Interpretation: "${form.step8_interpretation}"` : ""}
           </div>
-          <label className="block text-sm font-medium mb-2">Governance narrative</label>
+          <label className="block text-sm font-medium mb-2">Governance narrative <span className="text-amber-600 font-normal">(your own words — required)</span></label>
           <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="The defensible account of what leadership understood and decided this week…" />
+
+          <label className="block text-sm font-medium mt-4 mb-2">Lessons learnt <span className="text-amber-600 font-normal">(required)</span></label>
+          <textarea className={area} disabled={locked} value={form.lessons_learnt || ""} onChange={(e) => set("lessons_learnt", e.target.value)} placeholder="What worked, what didn't, what changes next week…" />
+
+          <label className="block text-sm font-medium mt-4 mb-1">Week ahead — anticipated risks</label>
+          <p className="text-xs text-muted-foreground mb-2">Pre-filled from live data (deteriorating trajectory, open escalations, overdue actions). Confirm or remove.</p>
+          <div className="space-y-1 mb-2">
+            {antItems.length === 0 ? (
+              <p className="text-xs text-muted-foreground">None flagged — add a note below if none are anticipated.</p>
+            ) : antItems.map((a: any) => (
+              <div key={a.risk_id} className="flex items-center justify-between border border-border rounded px-3 py-2 text-sm">
+                <span><b>{a.theme}</b> — {a.reason}</span>
+                {!locked && <button type="button" onClick={() => setAnt(antItems.filter((x: any) => x.risk_id !== a.risk_id))} className="text-muted-foreground hover:text-destructive text-xs">Remove</button>}
+              </div>
+            ))}
+          </div>
+          <textarea className={area} disabled={locked} value={form.anticipated_risks?.rm_note || ""} onChange={(e) => setAnt(antItems, e.target.value)} placeholder="Manager note on the week ahead…" />
         </div>
-      );
+        );
+      }
       default: return null;
     }
   };
