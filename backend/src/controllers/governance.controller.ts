@@ -163,7 +163,7 @@ export class GovernanceController {
   async getClusters(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const filters = { house_id: req.query.house_id as string, status: req.query.status as string };
+      const filters = { house_id: req.query.house_id as string, status: req.query.status as string, scope: req.query.scope as string };
       const clusters = await governanceService.getClusters(company_id, filters, req.user!.role);
       return res.json({ success: true, data: clusters });
     } catch (err: unknown) {

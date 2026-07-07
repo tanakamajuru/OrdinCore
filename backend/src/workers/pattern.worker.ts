@@ -276,7 +276,9 @@ async function evaluateCrossServiceRisk(
 ) {
     const affectedRes = await query(
         `SELECT COUNT(DISTINCT gp.house_id)::int AS house_count,
-                ARRAY_AGG(DISTINCT h.name) AS house_names
+                ARRAY_AGG(DISTINCT h.name) AS house_names,
+                ARRAY_AGG(DISTINCT gp.house_id) AS house_ids,
+                COUNT(*)::int AS total_signals
            FROM governance_pulses gp
            JOIN houses h ON h.id = gp.house_id
           WHERE gp.company_id = $1
@@ -286,6 +288,37 @@ async function evaluateCrossServiceRisk(
         [company_id, domain]
     );
     const houseCount: number = affectedRes.rows[0]?.house_count ?? 0;
+
+    // Finding D: maintain ONE persistent cross-service cluster per company+domain so the
+    // systemic pattern is queryable on Patterns (the Director/RI lens), not just a flag.
+    // Retire it if the domain no longer spans >=2 services.
+    try {
+        const houseIds: string[] = (affectedRes.rows[0]?.house_ids || []).filter(Boolean);
+        const totalSignals: number = affectedRes.rows[0]?.total_signals ?? houseCount;
+        const csLabel = `${domain} — systemic (${houseCount} services)`;
+        const existingCs = await query(
+            `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service' LIMIT 1`,
+            [company_id, domain]
+        );
+        if (houseCount >= 2) {
+            if (existingCs.rows[0]) {
+                await query(
+                    `UPDATE signal_clusters SET affected_house_ids = $1, signal_count = $2, cluster_label = $3,
+                            cluster_status = 'Emerging', last_signal_date = CURRENT_DATE WHERE id = $4`,
+                    [houseIds, totalSignals, csLabel, existingCs.rows[0].id]
+                );
+            } else {
+                await query(
+                    `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, cluster_label, cluster_status, signal_count, affected_house_ids, first_signal_date, last_signal_date)
+                     VALUES ($1, NULL, 'cross_service', $2, NULL, $3, 'Emerging', $4, $5, CURRENT_DATE, CURRENT_DATE)`,
+                    [company_id, domain, csLabel, totalSignals, houseIds]
+                );
+            }
+        } else if (existingCs.rows[0]) {
+            await query(`UPDATE signal_clusters SET cluster_status = 'Dismissed' WHERE id = $1`, [existingCs.rows[0].id]);
+        }
+    } catch (e) { logger.error('Cross-service cluster upsert failed', e); }
+
     if (houseCount < 2) return;
 
     const houseNames: string[] = (affectedRes.rows[0]?.house_names || []).filter(Boolean);

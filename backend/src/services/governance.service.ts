@@ -79,6 +79,7 @@ export class GovernanceService {
     // so the Patterns view's readiness states and the backend promote guard never disagree.
     const PROMOTION_THRESHOLD = 3;
     let q = `SELECT sc.*, h.name AS house_name,
+                    (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(sc.affected_house_ids)) AS affected_house_names,
                     EXISTS (
                       SELECT 1 FROM governance_pulses gp
                        WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
@@ -89,6 +90,11 @@ export class GovernanceService {
              LEFT JOIN houses h ON h.id = sc.house_id
              WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
+    // Finding D: ?scope=cross_service returns the systemic (leadership) lens. Anything
+    // else — including no scope — defaults to the per-service clusters, so every existing
+    // screen is unchanged and the systemic tier is strictly opt-in.
+    params.push(filters.scope === 'cross_service' ? 'cross_service' : 'person');
+    q += ` AND sc.scope = $${params.length}`;
     if (filters.house_id) {
       const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);
       params.push(houseIds);
