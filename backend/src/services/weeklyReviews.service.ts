@@ -401,6 +401,45 @@ export class WeeklyReviewsService {
     return { acknowledged: true };
   }
 
+  // Finding M: who has / hasn't read a published review. Mirrors publish()'s recipient
+  // rule exactly so the figures can't drift.
+  async getReadStatus(id: string, company_id: string) {
+    const rev = await this.findById(id, company_id);
+    if (!rev) throw new Error('Review not found');
+    const recipients = (await query(
+      `SELECT DISTINCT u.id, u.first_name || ' ' || u.last_name AS name, u.role
+         FROM users u
+         LEFT JOIN user_houses uh ON uh.user_id = u.id
+        WHERE u.company_id = $1 AND u.status = 'active'
+          AND (uh.house_id = $2 OR u.can_view_all_houses = true)`,
+      [company_id, rev.house_id]
+    )).rows;
+    const acked = new Set((await query(
+      `SELECT user_id FROM weekly_review_acknowledgements WHERE review_id = $1`, [id]
+    )).rows.map((r: any) => r.user_id));
+    const read = recipients.filter((r: any) => acked.has(r.id));
+    const unread = recipients.filter((r: any) => !acked.has(r.id));
+    return { recipients: recipients.length, read: read.length, unread };
+  }
+
+  // Finding M: chase only the recipients who haven't acknowledged.
+  async remindUnacknowledged(id: string, company_id: string, _actor_id: string) {
+    const status = await this.getReadStatus(id, company_id);
+    const rev = await this.findById(id, company_id);
+    const { notificationsService } = require('./notifications.service');
+    for (const u of status.unread) {
+      await notificationsService.create({
+        company_id, user_id: u.id,
+        type: 'weekly_review_reminder',
+        title: 'Reminder: weekly review to read',
+        body: `Please read the weekly governance review for your service (W/E ${rev?.week_ending}).`,
+        link: `/weekly-reviews/${id}`,
+        metadata: { review_id: id },
+      });
+    }
+    return { reminded: status.unread.length };
+  }
+
   // Service-level roll-up (Director/RI, read-only): aggregate the week's per-house
   // reviews into one organisational picture. Authoring stays at the house; leadership
   // reads the synthesised whole — no separately authored service review.

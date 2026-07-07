@@ -17,6 +17,9 @@ router.post('/:id/publish', requireAuth, requireTenant, requireRole('REGISTERED_
 // Any authenticated team member can mark a published review as read.
 router.post('/:id/acknowledge', requireAuth, requireTenant, weeklyReviewsController.acknowledge.bind(weeklyReviewsController));
 router.get('/:id/acknowledgements', requireAuth, requireTenant, weeklyReviewsController.getAcknowledgements.bind(weeklyReviewsController));
+// Finding M: read status (who has/hasn't read) + a targeted reminder to the unread.
+router.get('/:id/read-status', requireAuth, requireTenant, weeklyReviewsController.getReadStatus.bind(weeklyReviewsController));
+router.post('/:id/remind', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.remind.bind(weeklyReviewsController));
 router.get('/:id/pdf', requireAuth, requireTenant, weeklyReviewsController.downloadPdf.bind(weeklyReviewsController));
 router.get('/preview', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).

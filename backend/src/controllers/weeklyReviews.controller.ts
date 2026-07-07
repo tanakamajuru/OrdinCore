@@ -33,6 +33,28 @@ export class WeeklyReviewsController {
     }
   }
 
+  async getReadStatus(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await weeklyReviewsService.getReadStatus(req.params.id, company_id);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load read status';
+      return res.status(400).json({ success: false, message });
+    }
+  }
+
+  async remind(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await weeklyReviewsService.remindUnacknowledged(req.params.id, company_id, req.user!.user_id);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to send reminders';
+      return res.status(400).json({ success: false, message });
+    }
+  }
+
   async prepareReview(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
