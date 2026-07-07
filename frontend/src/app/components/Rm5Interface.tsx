@@ -33,9 +33,9 @@ function GovHead({ q, sub }: { q: string; sub?: string }) {
   return <div className="mb-5"><p className="text-[11px] font-semibold uppercase tracking-widest text-primary mb-1">Governance question</p><h1 className="text-xl font-semibold text-foreground">{q}</h1>{sub && <p className="text-sm text-muted-foreground mt-1">{sub}</p>}</div>;
 }
 
-export function Rm5Interface() {
+export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "today" | "pipeline" }) {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState("today");
+  const [screen, setScreen] = useState<string>(initialScreen);
   const [stage, setStage] = useState("patterns");
   const [counts, setCounts] = useState<any>({});
   const [today, setToday] = useState<any>({ todaySignals: [], actionsDue: [] });
@@ -64,10 +64,6 @@ export function Rm5Interface() {
     load();
   }, [screen, stage, regType]);
 
-  const nav: [string, string, any][] = [
-    ["today", "Today", Home], ["pipeline", "Pipeline", GitBranch],
-    ["weekly", "Weekly review", FileText], ["incidents", "Serious incidents", Ambulance], ["reports", "Reports", FileDown],
-  ];
   const activeStage = screen === "today" ? "signals" : stage;
   const ribbon: [string, string, number, any][] = [
     ["signals", "Signals", counts.signals || 0, Zap], ["patterns", "Patterns", counts.patterns || 0, Layers],
@@ -85,17 +81,7 @@ export function Rm5Interface() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 pt-20 max-w-6xl mx-auto">
-        {/* rail */}
-        <div className="flex flex-wrap gap-1 mb-5">
-          {nav.map(([k, l, I]) => {
-            const on = screen === k;
-            return <button key={k} onClick={() => { setScreen(k); if (k === "pipeline") setStage("patterns"); }}
-              className={`flex items-center gap-2 px-3 py-2 rounded-lg text-sm ${on ? "bg-primary text-primary-foreground" : "hover:bg-muted text-muted-foreground"}`}>
-              <I className="w-4 h-4" />{l}</button>;
-          })}
-        </div>
-
-        {/* ribbon */}
+        {/* ribbon (the pipeline spine) */}
         <div className="bg-card border border-border rounded-xl px-2 py-3 flex items-stretch mb-6 overflow-x-auto">
           {ribbon.map(([k, l, n, I], i) => {
             const on = activeStage === k;
@@ -195,9 +181,6 @@ export function Rm5Interface() {
           </div>
         )}
 
-        {!loading && screen === "weekly" && <LinkOut q="Is the service well-led this week — and have I signed to it?" body="Per site: you author the narrative and sign; lessons learnt and the week-ahead watch-list are captured too." to="/weekly-review" label="Open Weekly Review" navigate={navigate} />}
-        {!loading && screen === "incidents" && <LinkOut q="Did a notifiable event occur, and is it handled?" body="Serious incidents and their reconstruction trail." to="/incidents" label="Open Serious Incidents" navigate={navigate} />}
-        {!loading && screen === "reports" && <LinkOut q="Can I evidence all of this to an inspector?" body="Built from live records — each export carries a headed template, KLOE mapping and a signature block." to="/reports" label="Open Reports" navigate={navigate} />}
       </div>
     </div>
   );
@@ -211,14 +194,10 @@ function PatternCard({ p, onPromote }: { p: any; onPromote: (p: any) => void }) 
       <div className="text-sm font-medium text-foreground mt-0.5">{p.person !== "—" ? `${p.person} · ` : ""}{p.scope === "cross_service" ? `${p.houses.length} services` : (p.houses[0] || "—")}</div>
       {p.scope === "cross_service" && <div className="text-[11px] text-indigo-600 mt-0.5 flex items-center gap-1"><Network className="w-3 h-3" />{p.houses.join(" · ")}</div>}
       <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: p.threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(p.signalCount, p.threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
-      <p className="text-[11px] text-muted-foreground mb-2">{p.hasCritical && p.signalCount < p.threshold ? "Critical — ready" : ready ? "Threshold met — ready to promote" : `${p.signalCount} of ${p.threshold} signals`}</p>
+      <p className="text-[11px] text-muted-foreground mb-2">{p.hasCritical && p.signalCount < p.threshold ? "Critical — ready" : ready ? "Threshold met — ready to promote" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} signals`}</p>
       <button onClick={() => onPromote(p)} className="w-full text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">{p.promotedRiskId ? "View risk" : "Promote to risk"}</button>
     </div>
   );
-}
-
-function LinkOut({ q, body, to, label, navigate }: any) {
-  return <div><GovHead q={q} sub={body} /><button onClick={() => navigate(to)} className="text-sm font-medium text-primary-foreground bg-primary rounded-lg px-4 py-2 hover:bg-primary/90">{label} →</button></div>;
 }
 
 export default Rm5Interface;

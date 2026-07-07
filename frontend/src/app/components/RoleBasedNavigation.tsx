@@ -69,15 +69,13 @@ export function RoleBasedNavigation() {
           { path: "/governance-config", label: "Governance Config", icon: ClipboardList },
         ];
       case "REGISTERED_MANAGER":
+        // Stage 4 spine rail (10 -> 5). Today · Pipeline · Weekly review · Serious
+        // incidents · Reports. Patterns/Register/Actions/Effectiveness are reached through
+        // the pipeline ribbon; Escalations via the risk and /escalation-log (deep links
+        // survive — nothing is route-deleted).
         return [
-          { path: "/dashboard", label: "Dashboard", icon: Home },
-          { path: "/rm5", label: "Pipeline (beta)", icon: Layers },
-          { path: "/governance-dashboard", label: "Daily Oversight", icon: Activity },
-          { path: "/patterns", label: "Patterns", icon: Eye },
-          { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
-          { path: "/my-actions", label: "Actions", icon: ClipboardList },
-          { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
-          { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/dashboard", label: "Today", icon: Home },
+          { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },

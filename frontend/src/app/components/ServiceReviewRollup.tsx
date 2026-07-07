@@ -48,6 +48,14 @@ export function ServiceReviewRollup() {
     finally { setSigning(false); }
   };
 
+  // Finding M: chase the unread Team Leaders for a published site review.
+  const remindUnread = async (reviewId: string) => {
+    try {
+      const r: any = await apiClient.post(`/weekly-reviews/${reviewId}/remind`, {});
+      toast.success(`Reminder sent to ${r.data?.reminded ?? 0} unread.`);
+    } catch (e: any) { toast.error(e?.message || "Failed to send reminders"); }
+  };
+
   const load = async (wk: string) => {
     try {
       setLoading(true);
@@ -109,6 +117,16 @@ export function ServiceReviewRollup() {
                   <div className="mt-3 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 flex items-start gap-2"><AlertTriangle className="w-4 h-4 mt-0.5 shrink-0" />{rollup.outstanding.length} site(s) not yet finalised: {rollup.outstanding.join(", ")}. Sign-off is disabled until every site is finalised.</div>
                 )}
                 {rollup.signoff && <p className="text-xs text-muted-foreground italic mt-2 border-l-2 border-border pl-3">{rollup.signoff.statement}</p>}
+                {rollup.sites?.some((s: any) => s.published) && (
+                  <div className="mt-3 pt-3 border-t border-border/50">
+                    <p className="text-[11px] text-muted-foreground mb-1">Chase unread on published sites:</p>
+                    <div className="flex flex-wrap gap-2">
+                      {rollup.sites.filter((s: any) => s.published && s.review_id).map((s: any) => (
+                        <button key={s.review_id} onClick={() => remindUnread(s.review_id)} className="text-[11px] px-2 py-1 rounded border border-border hover:bg-muted">Remind — {s.house}</button>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             {/* Org summary */}

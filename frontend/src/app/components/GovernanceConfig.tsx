@@ -276,7 +276,18 @@ export function GovernanceConfig() {
                       <tr key={r.id}>
                         <td className={td + " font-medium"}>{r.name}</td>
                         <td className={td + " text-muted-foreground"}>{r.description || "—"}</td>
-                        <td className={td}>{r.kloe_code ? <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5">{r.kloe_label} · {r.kloe_code}</span> : <span className="text-muted-foreground">—</span>}</td>
+                        <td className={td}>
+                          {r.kloe_code ? <span className="text-[11px] font-semibold text-primary bg-primary/10 rounded px-2 py-0.5">{r.kloe_label} · {r.kloe_code}</span> : <span className="text-muted-foreground">—</span>}
+                          {isSuper ? (
+                            <div className="mt-1 flex flex-col gap-1">
+                              <select value={r.key_question || ""} onChange={(e) => patch(`domains/${r.id}`, { key_question: e.target.value }, "Domain")} className="text-[11px] border border-border rounded px-1 py-0.5 bg-input-background" title="CQC key question">
+                                <option value="">Key question…</option>
+                                {["Safe", "Effective", "Caring", "Responsive", "Well-led"].map((k) => <option key={k} value={k}>{k}</option>)}
+                              </select>
+                              <input defaultValue={r.quality_statement || ""} onBlur={(e) => { if (e.target.value !== (r.quality_statement || "")) patch(`domains/${r.id}`, { quality_statement: e.target.value }, "Domain"); }} placeholder="Quality statement…" className="text-[11px] border border-border rounded px-1 py-0.5 bg-input-background w-40" title="CQC Quality Statement (current framework)" />
+                            </div>
+                          ) : (r.key_question ? <span className="block text-[10px] text-muted-foreground mt-0.5">{r.key_question}{r.quality_statement ? ` · ${r.quality_statement}` : ""}</span> : null)}
+                        </td>
                         <td className={td}>{r.sort_order}</td>
                         <td className={td}><ActiveToggle active={r.is_active} onToggle={() => patch(`domains/${r.id}`, { is_active: !r.is_active }, "Domain")} /></td>
                       </tr>

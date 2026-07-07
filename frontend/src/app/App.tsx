@@ -325,10 +325,10 @@ export default function App() {
               <CrossHousePatternDetection />
             </ProtectedRoute>
           } />
-          {/* Stage 4: parallel 5-screen RM interface (pipeline spine) — not the default yet. */}
+          {/* Stage 4: the pipeline spine. /dashboard renders it as Today (home); /rm5 opens it at Pipeline. */}
           <Route path="/rm5" element={
             <ProtectedRoute>
-              <Rm5Interface />
+              <Rm5Interface initialScreen="pipeline" />
             </ProtectedRoute>
           } />
           <Route path="/engines" element={

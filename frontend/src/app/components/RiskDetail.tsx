@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, TrendingUp, TrendingDown, ArrowRightCircle } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -233,6 +233,18 @@ export function RiskDetail() {
       toast.error(e?.response?.data?.message || "Failed to close risk");
     } finally { setIsClosing(false); }
   };
+
+  const [searchParams] = useSearchParams();
+  // Deep-link deep-scroll: a /risk-register/:id?section=… link (or the /risks/:id redirect)
+  // lands on the right sub-section instead of the top of the record (Migration-Map Phase 2).
+  useEffect(() => {
+    const section = searchParams.get("section");
+    if (!risk || !section) return;
+    const map: Record<string, string> = { actions: "rd-actions", effectiveness: "rd-actions", origin: "rd-origin", reviews: "rd-reviews", escalations: "rd-reviews" };
+    const el = document.getElementById(map[section] || `rd-${section}`);
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [risk, searchParams]);
 
   const reassignAction = async (actionId: string, assigned_to: string) => {
     if (!assigned_to || !id) return;
@@ -488,7 +500,7 @@ export function RiskDetail() {
                 <p className="text-lg  leading-relaxed">{risk.description}</p>
             </div>
             <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
-                <h2 className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
+                <h2 id="rd-origin" className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
                 {risk.source_cluster_id ? (
                     <div className="space-y-4">
                         <div className=" text-primary">Source Cluster: {risk.source_cluster_name}</div>
@@ -517,7 +529,7 @@ export function RiskDetail() {
           {/* Actions */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl  text-foreground">Controls &amp; Effectiveness</h2>
+              <h2 id="rd-actions" className="text-xl  text-foreground">Controls &amp; Effectiveness</h2>
               <button
                 onClick={() => setShowAddAction(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
@@ -632,7 +644,7 @@ export function RiskDetail() {
           {/* Timeline */}
           <div className="bg-card border-2 border-border p-6">
             <div className="flex justify-between items-center mb-4">
-              <h2 className="text-xl  text-foreground">Leadership Decision Log</h2>
+              <h2 id="rd-reviews" className="text-xl  text-foreground">Leadership Decision Log</h2>
               <button
                 onClick={() => setShowAddEvent(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"

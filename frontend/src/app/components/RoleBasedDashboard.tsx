@@ -1,9 +1,9 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router";
-import { RegisteredManagerDashboard } from "./RegisteredManagerDashboard";
 import { ResponsibleIndividualDashboard } from "./ResponsibleIndividualDashboard";
 import { DirectorDashboard } from "./DirectorDashboard";
 import { TeamLeaderDashboard } from "./TeamLeaderDashboard";
+import { Rm5Interface } from "./Rm5Interface";
 
 export function RoleBasedDashboard() {
   const navigate = useNavigate();
@@ -28,12 +28,13 @@ export function RoleBasedDashboard() {
     case 'TEAM_LEADER':
       return <TeamLeaderDashboard />;
     case 'REGISTERED_MANAGER':
-      return <RegisteredManagerDashboard />;
+      // Stage 4: the RM lands on the 5-screen pipeline spine (Today as home).
+      return <Rm5Interface initialScreen="today" />;
     case 'RESPONSIBLE_INDIVIDUAL':
       return <ResponsibleIndividualDashboard />;
     case 'DIRECTOR':
       return <DirectorDashboard />;
     default:
-      return <RegisteredManagerDashboard />;
+      return <Rm5Interface initialScreen="today" />;
   }
 }
