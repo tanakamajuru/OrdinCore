@@ -48,9 +48,11 @@ export class WeeklyReviewsService {
       }
     }
 
-    // 3. Narrative Generation (Step 15)
-    if (targetStep === 15 && !mergedContent.step15_narrative) {
-      mergedContent.step15_narrative = this.generateNarrative(mergedContent);
+    // 3. Narrative (Step 15). Finding G: the machine text is only ever a DRAFT — never
+    // silently promoted to the final narrative. The RM must author step15_narrative in
+    // their own words; finalise() gates on it.
+    if (targetStep === 15 && !mergedContent.step15_narrative_draft) {
+      mergedContent.step15_narrative_draft = this.generateNarrative(mergedContent);
     }
 
     const id = existing.rows[0]?.id || uuidv4();
@@ -240,23 +242,41 @@ export class WeeklyReviewsService {
     const existing = await this.findById(id, company_id);
     if (!existing) throw new Error('Review not found');
 
-    // 1. Update status to awaiting validation — record WHO finalised (for the
-    // separation-of-duties guard in validate()).
+    const houseRes = await query('SELECT name FROM houses WHERE id = $1', [existing.house_id]);
+    const houseName = houseRes.rows[0]?.name || 'Service';
+
+    // Finding G: gate on an overall position and an RM-authored narrative (own words,
+    // >=40 chars, not the machine draft), and capture a signed acknowledgement.
+    const content = existing.content || {};
+    const position = existing.overall_position || content.step14_overall_position;
+    if (!position) throw new Error('An overall service position is required before finalising.');
+    const narrative = String(content.step15_narrative || '').trim();
+    const draft = String(content.step15_narrative_draft || '').trim();
+    if (narrative.length < 40) throw new Error('A Registered Manager narrative in your own words (at least 40 characters) is required before finalising.');
+    if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
+
+    const rmRow = (await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [user_id])).rows[0];
+    const rmName = rmRow?.name || 'Registered Manager';
+    const ackStatement = `I, ${rmName} (Registered Manager), have reviewed the governance for ${houseName} for the week ending ${existing.week_ending} and acknowledge the overall position (${position}) and the trajectory narrative recorded above.`;
+
+    // Update status to awaiting validation — record WHO finalised (separation-of-duties
+    // guard in validate()) plus the signed acknowledgement and the RM-authored narrative.
     const result = await query(
       `UPDATE weekly_reviews
        SET status = 'pending_validation',
            validation_status = 'Pending',
            rm_finalised_at = NOW(),
            rm_finalised_by = $3,
+           acknowledged_by = $3,
+           acknowledged_by_name = $4,
+           acknowledged_at = NOW(),
+           acknowledgement_statement = $5,
+           governance_narrative = $6,
            updated_at = NOW()
        WHERE id = $1 AND company_id = $2
        RETURNING *`,
-      [id, company_id, user_id]
+      [id, company_id, user_id, rmName, ackStatement, narrative]
     );
-
-    // 2. Notify RI and Directors
-    const houseRes = await query('SELECT name FROM houses WHERE id = $1', [existing.house_id]);
-    const houseName = houseRes.rows[0]?.name || 'Service';
 
     const seniorUsers = await query(
       "SELECT id FROM users WHERE company_id = $1 AND role IN ('DIRECTOR', 'ADMIN', 'SUPER_ADMIN')",
