@@ -301,6 +301,56 @@ export class RisksService {
     return updated;
   }
 
+  // Finding B — evidence-gated closure. A risk closes only with a verdict + rationale;
+  // "controls effective" is refused unless a control was actually rated effective, and a
+  // 60-day recurrence window is stamped (read by recurrenceWatch.worker).
+  async closeRisk(risk_id: string, company_id: string, user_id: string, opts: { verdict: string; reason: string }) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    const VERDICTS = ['Resolved — controls effective', 'Resolved — no longer applicable', 'Tolerated — risk accepted'];
+    const verdict = String(opts?.verdict || '');
+    if (!VERDICTS.includes(verdict)) throw new Error('A resolution verdict is required.');
+    const reason = String(opts?.reason || '').trim();
+    if (reason.length < 20) throw new Error('A closure rationale of at least 20 characters is required.');
+    if (verdict === 'Resolved — controls effective') {
+      const rated = await query(
+        `SELECT 1 FROM risk_actions
+          WHERE risk_id = $1 AND (effectiveness_outcome IN ('Effective','Partially Effective') OR effectiveness IN ('Effective','Neutral'))
+          LIMIT 1`,
+        [risk_id]
+      );
+      if (!rated.rows[0]) {
+        throw new Error("Cannot close as 'controls effective' — no control on this risk has been rated effective. Rate the control first, or choose another verdict.");
+      }
+    }
+    const updated = await query(
+      `UPDATE risks
+          SET status = 'Closed', closed_at = NOW(), resolved_at = NOW(),
+              resolution_outcome = $1, resolution_reason = $2, resolved_by = $3,
+              recurrence_window_until = NOW() + INTERVAL '60 days'
+        WHERE id = $4 AND company_id = $5 RETURNING *`,
+      [verdict, reason, user_id, risk_id, company_id]
+    );
+    if (!updated.rows[0]) throw new Error('Risk not found');
+    await risksRepo.addEvent(risk_id, company_id, 'risk_closed', `Closed — ${verdict}: ${reason}`, user_id);
+    return updated.rows[0];
+  }
+
+  // Resolution Effectiveness Rate — of risks closed as Resolved, how many stayed resolved
+  // (no reopen inside the recurrence window). The real Well-Led test: did it hold? (Finding B)
+  async resolutionEffectivenessRate(company_id: string) {
+    const r = await query(
+      `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%')::int AS resolved,
+              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%' AND reopened_at IS NULL)::int AS stayed
+         FROM risks
+        WHERE company_id = $1 AND resolution_outcome IS NOT NULL`,
+      [company_id]
+    );
+    const resolved = Number(r.rows[0]?.resolved || 0);
+    const stayed = Number(r.rows[0]?.stayed || 0);
+    return { resolved, stayed, rate: resolved ? Math.round((stayed / resolved) * 100) : null };
+  }
+
   async updateActionStatus(action_id: string, risk_id: string, company_id: string, user_id: string, status: string) {
     const action = await risksRepo.getActionById(action_id, company_id);
     if (!action || action.risk_id !== risk_id) throw new Error('Action not found');

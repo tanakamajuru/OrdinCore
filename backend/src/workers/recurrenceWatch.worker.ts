@@ -9,10 +9,16 @@ export const startRecurrenceWatchWorker = () => {
     const worker = new Worker('recurrence-watch', async (job: Job) => {
         logger.info(`Running Recurrence Watch (Rule 5)`);
         
-        // Find risks closed within the last 14 days
+        // Finding B: watch each closed risk for the duration of its explicit recurrence
+        // window (stamped at closure, default 60 days). Legacy closes without a window
+        // fall back to the historical 14-day behaviour.
         const closedRisksRes = await query(`
-            SELECT * FROM risks 
-            WHERE status = 'Closed' AND closed_at >= NOW() - INTERVAL '14 days'
+            SELECT * FROM risks
+            WHERE status = 'Closed'
+              AND (
+                (recurrence_window_until IS NOT NULL AND recurrence_window_until >= NOW())
+                OR (recurrence_window_until IS NULL AND closed_at >= NOW() - INTERVAL '14 days')
+              )
         `);
 
         for (const risk of closedRisksRes.rows) {

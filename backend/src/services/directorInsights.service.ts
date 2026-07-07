@@ -1,26 +1,38 @@
 import { query } from '../config/database';
+import { trajectoryForRisk } from './trajectory.service';
 
 // Director/RI cross-site insight endpoints (spec section 9: API changes).
 export class DirectorInsightsService {
   // Long-format heat map: one row per service × theme with the worst trend.
+  // Finding N: reads the SAME computed trajectory the RM sees (Finding K), aggregating
+  // the worst per service × theme — so leadership never quotes a stale trend. The
+  // heat-map vocabulary keeps "Rising" for a deteriorating direction (frontend contract).
   async crossSiteHeatmap(companyId: string) {
-    const res = await query(
+    const rows = (await query(
       `SELECT h.id AS service_id, h.name AS service_name,
               COALESCE(r.strategic_theme, r.risk_domain, r.title) AS theme,
-              CASE
-                WHEN bool_or(COALESCE(r.trend, r.trajectory::text) IN ('Rising','Deteriorating','Critical')) THEN 'Rising'
-                WHEN bool_or(COALESCE(r.trend, r.trajectory::text) = 'Improving') THEN 'Improving'
-                ELSE 'Stable'
-              END AS trend,
-              COUNT(*)::int AS risk_count
-       FROM houses h
-       JOIN risks r ON r.house_id = h.id AND LOWER(r.status) <> 'closed'
-       WHERE h.company_id = $1
-       GROUP BY h.id, h.name, theme
-       ORDER BY h.name`,
+              r.id AS risk_id, r.source_cluster_id
+         FROM houses h
+         JOIN risks r ON r.house_id = h.id AND LOWER(r.status) <> 'closed'
+        WHERE h.company_id = $1
+        ORDER BY h.name`,
       [companyId]
-    );
-    return res.rows;
+    )).rows;
+
+    const rank: Record<string, number> = { Rising: 2, Stable: 1, Improving: 0 };
+    const cells = new Map<string, any>();
+    for (const row of rows) {
+      const tr = await trajectoryForRisk(row.risk_id, row.source_cluster_id);
+      const trend = tr.direction === 'Deteriorating' ? 'Rising' : tr.direction; // vocab map
+      const key = `${row.service_id}|||${row.theme}`;
+      const cur = cells.get(key) || { service_id: row.service_id, service_name: row.service_name, theme: row.theme, trend: 'Improving', risk_count: 0 };
+      cur.risk_count += 1;
+      if ((rank[trend] ?? 1) > (rank[cur.trend] ?? 1)) cur.trend = trend;
+      cells.set(key, cur);
+    }
+    return [...cells.values()];
+    // NB: computes trajectory per open risk (N+1). Fine at current scale; batch by
+    // cluster if a company grows past a few hundred open risks.
   }
 
   async effectivenessByService(companyId: string) {
@@ -70,6 +82,17 @@ export class DirectorInsightsService {
       [companyId]
     );
 
+    // Finding B/N: Resolution Effectiveness Rate — of risks closed as Resolved, how many
+    // stayed resolved (no reopen). The RI reads the same closure KPI the RM/Director do.
+    const rer = await query(
+      `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%')::int AS resolved,
+              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%' AND reopened_at IS NULL)::int AS stayed
+         FROM risks WHERE company_id = $1 AND resolution_outcome IS NOT NULL`,
+      [companyId]
+    );
+    const rerResolved = Number(rer.rows[0]?.resolved || 0);
+    const rerStayed = Number(rer.rows[0]?.stayed || 0);
+
     const e = esc.rows[0], r = risks.rows[0], a = acts.rows[0], c = closures.rows[0];
     const overdue = Number(e.overdue), openRisks = Number(r.open), evidenceBased = Number(r.evidence_based);
     const reopened = Number(r.reopened) + Number(e.reopened);
@@ -84,6 +107,8 @@ export class DirectorInsightsService {
       closures_evidenced: rag(Number(c.closure_reviews) > 0 || openRisks > 0, true),
       reopened_risks: reopened,
       overdue_reviews: overdue,
+      resolution_effectiveness_rate: rerResolved ? Math.round((rerStayed / rerResolved) * 100) : null,
+      resolved_total: rerResolved,
     };
   }
 }

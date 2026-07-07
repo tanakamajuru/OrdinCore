@@ -90,6 +90,10 @@ export function RiskDetail() {
   });
   const [isEscalating, setIsEscalating] = useState(false);
   const [showEscalateModal, setShowEscalateModal] = useState(false);
+  const [showCloseModal, setShowCloseModal] = useState(false);
+  const [closeVerdict, setCloseVerdict] = useState("");
+  const [closeReason, setCloseReason] = useState("");
+  const [isClosing, setIsClosing] = useState(false);
   const [escalationReason, setEscalationReason] = useState("");
   const [showVerifyAction, setShowVerifyAction] = useState<string | null>(null);
   const [verificationNotes, setVerificationNotes] = useState("");
@@ -213,6 +217,21 @@ export function RiskDetail() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const handleCloseRisk = async () => {
+    if (!id) return;
+    if (!closeVerdict) { toast.error("Choose a resolution verdict."); return; }
+    if (closeReason.trim().length < 20) { toast.error("A closure rationale of at least 20 characters is required."); return; }
+    setIsClosing(true);
+    try {
+      await apiClient.post(`/risks/${id}/close`, { verdict: closeVerdict, reason: closeReason.trim() });
+      toast.success("Risk closed with a resolution verdict. Recurrence monitoring started (60 days).");
+      setShowCloseModal(false); setCloseVerdict(""); setCloseReason("");
+      loadRiskDetails(id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to close risk");
+    } finally { setIsClosing(false); }
   };
 
   const reassignAction = async (actionId: string, assigned_to: string) => {
@@ -442,6 +461,14 @@ export function RiskDetail() {
                 className="px-3 py-1 bg-destructive text-primary-foreground hover:bg-destructive/80 transition-colors uppercase font-medium"
               >
                 Escalate
+              </button>
+            )}
+            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
+              <button
+                onClick={() => setShowCloseModal(true)}
+                className="px-3 py-1 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors uppercase font-medium"
+              >
+                Close Risk
               </button>
             )}
           </div>
@@ -971,6 +998,57 @@ export function RiskDetail() {
                 className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors disabled:opacity-50"
               >
                 {isEscalating ? 'Escalating...' : 'Submit'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showCloseModal && (
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+            <h2 className="text-xl mb-1 text-foreground font-semibold">Close Risk</h2>
+            <p className="text-xs text-muted-foreground mb-4">Closing requires a resolution verdict. A 60-day recurrence window opens automatically — if the theme returns, the risk re-surfaces.</p>
+            <div className="space-y-4">
+              <div>
+                <label className="block mb-2 text-foreground text-sm">Resolution verdict</label>
+                <select
+                  value={closeVerdict}
+                  onChange={(e) => setCloseVerdict(e.target.value)}
+                  className="w-full px-3 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
+                >
+                  <option value="">Choose a verdict…</option>
+                  <option value="Resolved — controls effective">Resolved — controls effective</option>
+                  <option value="Resolved — no longer applicable">Resolved — no longer applicable</option>
+                  <option value="Tolerated — risk accepted">Tolerated — risk accepted</option>
+                </select>
+                {closeVerdict === "Resolved — controls effective" && (
+                  <p className="text-[11px] text-amber-600 mt-1">Allowed only if a control on this risk has been rated Effective.</p>
+                )}
+              </div>
+              <div>
+                <label className="block mb-2 text-foreground text-sm">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
+                <textarea
+                  value={closeReason}
+                  onChange={(e) => setCloseReason(e.target.value)}
+                  className="w-full h-24 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
+                  placeholder="Why is this risk being closed, and how do you know it is resolved?"
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => { setShowCloseModal(false); setCloseVerdict(""); setCloseReason(""); }}
+                className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleCloseRisk}
+                disabled={isClosing || !closeVerdict || closeReason.trim().length < 20}
+                className="px-4 py-2 bg-success text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+              >
+                {isClosing ? 'Closing…' : 'Close with verdict'}
               </button>
             </div>
           </div>

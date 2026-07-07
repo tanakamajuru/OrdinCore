@@ -223,6 +223,17 @@ export class RisksController {
     }
   }
 
+  async closeRisk(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const risk = await risksService.closeRisk(req.params.id, company_id, req.user!.user_id, { verdict: req.body.verdict, reason: req.body.reason });
+      return res.json({ success: true, data: risk, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to close risk';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async reassignAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
