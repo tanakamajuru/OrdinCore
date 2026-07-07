@@ -56,32 +56,71 @@ function drawTable(doc: PDFKit.PDFDocument, headers: string[], rows: any[]) {
   }
 }
 
-type PdfOpts = { title: string; periodLabel?: string; serviceName?: string; narrative?: string; rows: any[] };
+type PdfOpts = {
+  title: string; periodLabel?: string; serviceName?: string; narrative?: string; rows: any[];
+  providerName?: string;
+  kloe?: Array<{ code: string; label?: string }>;
+  signatory?: { name?: string; role?: string; date?: string };
+  acknowledgement?: string;
+};
 
+// Finding H: every report flows through one defensible template — provider header,
+// visible CQC KLOE mapping, governance narrative, evidence table, acknowledgement, and a
+// "prepared and signed" block with a provenance line.
 function buildPdfDoc(opts: PdfOpts): PDFKit.PDFDocument {
   const doc = new PDFDocument({ margin: 50, size: 'A4' });
+
+  if (opts.providerName) doc.font('Helvetica-Bold').fontSize(9).fillColor('#0e7490').text(opts.providerName.toUpperCase());
   doc.font('Helvetica-Bold').fontSize(18).fillColor('#0f172a').text(opts.title);
   doc.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#555');
-  if (opts.serviceName) doc.text(`Service: ${opts.serviceName}`);
+  if (opts.serviceName) doc.text(`Scope: ${opts.serviceName}`);
   if (opts.periodLabel) doc.text(`Period: ${opts.periodLabel}`);
   doc.text(`Generated: ${new Date().toLocaleString('en-GB')}`);
-  doc.fillColor('#000').moveDown(1);
+  if (opts.kloe && opts.kloe.length) {
+    const mapping = opts.kloe.map((k) => (k.label ? `${k.code} · ${k.label}` : k.code)).join('    ');
+    doc.moveDown(0.4).font('Helvetica-Bold').fontSize(9).fillColor('#0e7490')
+      .text('CQC key lines of enquiry: ', { continued: true })
+      .font('Helvetica').fillColor('#333').text(mapping);
+  }
+  doc.fillColor('#000').moveDown(0.5);
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#cccccc');
+  doc.moveDown(1);
 
   if (opts.narrative && opts.narrative.trim()) {
-    doc.font('Helvetica-Bold').fontSize(12).text('Narrative');
-    doc.moveDown(0.2).font('Helvetica').fontSize(10).text(opts.narrative.trim(), { align: 'left' });
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Governance narrative');
+    doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#000').text(opts.narrative.trim(), { align: 'left' });
     doc.moveDown(1);
   }
 
   if (opts.rows.length) {
-    doc.font('Helvetica-Bold').fontSize(12).text('Data');
-    doc.moveDown(0.4);
+    doc.font('Helvetica-Bold').fontSize(12).fillColor('#0f172a').text('Evidence');
+    doc.moveDown(0.4).fillColor('#000');
     const headers = Object.keys(opts.rows[0]).slice(0, 6);
     drawTable(doc, headers, opts.rows.slice(0, 300));
   } else {
     doc.font('Helvetica-Oblique').fontSize(10).text('No tabular data for this report in the selected period.');
   }
+
+  if (opts.acknowledgement && opts.acknowledgement.trim()) {
+    doc.moveDown(1).font('Helvetica-Bold').fontSize(11).fillColor('#0f172a').text('Acknowledgement');
+    doc.moveDown(0.2).font('Helvetica-Oblique').fontSize(9).fillColor('#333').text(opts.acknowledgement.trim());
+  }
+
+  doc.moveDown(1.5).fillColor('#000');
+  doc.moveTo(50, doc.y).lineTo(545, doc.y).stroke('#cccccc');
+  doc.moveDown(0.5).font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text('Prepared and signed');
+  const sig = opts.signatory || {};
+  doc.font('Helvetica').fontSize(9).fillColor('#333')
+    .text(`${sig.name || '—'}${sig.role ? ` · ${String(sig.role).replace(/_/g, ' ')}` : ''}${sig.date ? ` · ${sig.date}` : ''}`);
+  doc.fillColor('#777').fontSize(8).text('Traceable to source signal, decision and reason.');
   return doc;
+}
+
+// Map the KLOE codes a report already carries into {code,label} for the template.
+function kloeFromData(data: any): Array<{ code: string; label?: string }> {
+  const codes: string[] = Array.isArray(data?.kloe) ? data.kloe : [];
+  const labels: Record<string, string> = data?.kloe_labels || {};
+  return codes.map((c) => ({ code: c, label: labels[c] }));
 }
 
 function renderPdf(filePath: string, opts: PdfOpts): Promise<number> {
@@ -124,9 +163,15 @@ export const generatedReportsService = {
       fs.writeFileSync(filePath, csv, 'utf8');
       size = Buffer.byteLength(csv);
     } else {
+      const provider = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0];
+      const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0];
       size = await renderPdf(filePath, {
         title: opts.title, periodLabel: opts.periodLabel, serviceName: opts.serviceName,
         narrative: opts.narrative, rows,
+        providerName: provider?.name,
+        kloe: kloeFromData(opts.data),
+        signatory: { name: me?.name, role: me?.role, date: new Date().toLocaleDateString('en-GB') },
+        acknowledgement: opts.data?.acknowledgement_statement,
       });
     }
 
@@ -146,12 +191,14 @@ export const generatedReportsService = {
   // on-disk file for older rows saved before the data was retained.
   async renderForDownload(id: string, company_id: string): Promise<{ buffer: Buffer; filename: string; contentType: string }> {
     const r = await query(
-      `SELECT title, format, period_label, service_name, data, narrative, file_path
+      `SELECT title, format, period_label, service_name, data, narrative, file_path, created_by, created_at
          FROM generated_reports WHERE id = $1 AND company_id = $2`,
       [id, company_id]
     );
     const row = r.rows[0];
     if (!row) throw new Error('Report not found');
+    const provider = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0];
+    const me = row.created_by ? (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [row.created_by])).rows[0] : null;
 
     const safe = String(row.title || 'report').replace(/[^a-z0-9-_ ]/gi, '').trim().slice(0, 60) || 'report';
     const filename = `${safe}.${row.format}`;
@@ -161,7 +208,13 @@ export const generatedReportsService = {
       if (row.format === 'csv') {
         return { buffer: Buffer.from(toCsv(rows), 'utf8'), filename, contentType: 'text/csv' };
       }
-      const buffer = await renderPdfBuffer({ title: row.title, periodLabel: row.period_label, serviceName: row.service_name, narrative: row.narrative, rows });
+      const buffer = await renderPdfBuffer({
+        title: row.title, periodLabel: row.period_label, serviceName: row.service_name, narrative: row.narrative, rows,
+        providerName: provider?.name,
+        kloe: kloeFromData(row.data),
+        signatory: { name: me?.name, role: me?.role, date: row.created_at ? new Date(row.created_at).toLocaleDateString('en-GB') : undefined },
+        acknowledgement: row.data?.acknowledgement_statement,
+      });
       return { buffer, filename, contentType: 'application/pdf' };
     }
 
