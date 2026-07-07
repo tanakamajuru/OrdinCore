@@ -121,19 +121,24 @@ export class RisksService {
 
     let assigned_to = data.assigned_to;
     if (!assigned_to) {
-      // Find Team Leader(s) assigned to this house
+      // Find Team Leader(s) mapped to this house — prefer an AVAILABLE one (Finding F),
+      // falling back to any house TL, then any company TL.
       const tlRes = await query(
         `SELECT u.id FROM users u
          JOIN user_houses uh ON uh.user_id = u.id
          WHERE uh.house_id = $1 AND u.role IN ('TEAM_LEADER', 'TL') AND u.company_id = $2
+           AND COALESCE(u.status,'active') = 'active'
+         ORDER BY COALESCE(u.is_available, true) DESC
          LIMIT 1`,
         [risk.house_id, company_id]
       );
       assigned_to = tlRes.rows[0]?.id || null;
       if (!assigned_to) {
-        // Fallback to any TEAM_LEADER in the company if no TL is assigned to this house
+        // Fallback to any available TEAM_LEADER in the company if no house TL is mapped.
         const fallbackRes = await query(
-          `SELECT id FROM users WHERE role IN ('TEAM_LEADER', 'TL') AND company_id = $1 LIMIT 1`,
+          `SELECT id FROM users WHERE role IN ('TEAM_LEADER', 'TL') AND company_id = $1
+             AND COALESCE(status,'active') = 'active'
+           ORDER BY COALESCE(is_available, true) DESC LIMIT 1`,
           [company_id]
         );
         assigned_to = fallbackRes.rows[0]?.id || null;

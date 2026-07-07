@@ -111,6 +111,9 @@ export class GovernanceService {
     const anonymize = userRole === 'RESPONSIBLE_INDIVIDUAL' || userRole === 'DIRECTOR';
     return res.rows.map(cluster => {
       const c = { ...cluster, promotion_threshold: PROMOTION_THRESHOLD };
+      // Finding D (display floor): a single-signal cluster is a "watch", not yet a pattern —
+      // let the UI badge/soften it so the board isn't crowded with one-signal cards.
+      c.is_watch = (Number(cluster.signal_count) || 0) < 2;
       if (anonymize && c.linked_person) {
         c.linked_person = 'Service user (Redacted)';
       }

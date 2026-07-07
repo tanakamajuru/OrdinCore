@@ -88,6 +88,8 @@ export class EscalationsService {
     // Match either the lifecycle status (Open/Under Review/Closed…) or the legacy
     // status (Pending/Acknowledged/Resolved…) so dashboard filters work regardless.
     if (filters.status) { conditions.push(`(e.lifecycle_status::text = $${idx} OR e.status = $${idx})`); params.push(filters.status); idx++; }
+    // Finding E: narrow to a single risk server-side (governance-review modal).
+    if (filters.risk_id) { conditions.push(`e.risk_id = $${idx}`); params.push(filters.risk_id); idx++; }
     const where = conditions.join(' AND ');
 
     const [esc, countResult] = await Promise.all([

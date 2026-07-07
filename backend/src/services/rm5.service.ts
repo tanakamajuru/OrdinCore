@@ -70,6 +70,7 @@ export const rm5Service = {
       scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
       houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
       signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
+      isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
       hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
       trajectory: traj(await trajectoryForCluster(c.id)),
     });

@@ -486,7 +486,7 @@ export class WeeklyReviewsService {
   // provider-wide position (worst-of) + any existing provider sign-off.
   async providerRollup(company_id: string, week_ending: string) {
     const sites = (await query(
-      `SELECT h.id AS house_id, h.name AS house,
+      `SELECT h.id AS house_id, h.name AS house, wr.id AS review_id,
               wr.status, wr.validation_status, wr.overall_position AS position,
               wr.acknowledged_by_name AS rm_signed_by, wr.acknowledged_at AS rm_signed_at
          FROM houses h
@@ -498,7 +498,8 @@ export class WeeklyReviewsService {
     )).rows;
     const FINALISED = ['pending_validation', 'validated', 'published', 'LOCKED'];
     const sitesData = sites.map((s: any) => ({
-      house_id: s.house_id, house: s.house, status: s.status || 'not started',
+      house_id: s.house_id, house: s.house, review_id: s.review_id || null,
+      status: s.status || 'not started', published: s.status === 'published',
       position: s.position || null, rm_signed: !!s.rm_signed_by, rm_signed_by: s.rm_signed_by || null,
       finalised: FINALISED.includes(s.status),
     }));

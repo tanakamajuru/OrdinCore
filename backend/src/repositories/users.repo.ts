@@ -42,6 +42,7 @@ export const usersRepo = {
       SELECT u.id, u.email, u.first_name, u.last_name, u.company_id,
              (u.first_name || ' ' || u.last_name) as name,
              u.role, u.status, (u.status = 'active') as is_active,
+             COALESCE(u.is_available, true) AS is_available,
              u.created_at, u.updated_at,
              u.pulse_days,
              u.can_view_all_houses,

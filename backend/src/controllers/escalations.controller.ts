@@ -7,7 +7,7 @@ export class EscalationsController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const filters = { status: req.query.status };
+      const filters = { status: req.query.status, risk_id: req.query.risk_id };
       const result = await escalationsService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.escalations, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {
