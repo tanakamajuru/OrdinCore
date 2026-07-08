@@ -232,7 +232,18 @@ export class EscalationsService {
 
   async acknowledge(id: string, company_id: string, user_id: string) {
     const res = await query(
-      `UPDATE escalations SET status = 'Acknowledged', acknowledged_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING *`,
+      `UPDATE escalations
+          SET status = 'Acknowledged',
+              acknowledged_at = NOW(),
+              -- Keep the lifecycle state machine in step: an acknowledged escalation is no
+              -- longer 'Open' (the triage queue buckets on lifecycle_status, so leaving it
+              -- 'Open' mis-files an in-hand item back under "Needs action").
+              lifecycle_status = CASE WHEN lifecycle_status = 'Open'
+                                      THEN 'Under Review'::escalation_lifecycle_status
+                                      ELSE lifecycle_status END,
+              reviewed_at = COALESCE(reviewed_at, NOW()),
+              updated_at = NOW()
+        WHERE id = $1 AND company_id = $2 RETURNING *`,
       [id, company_id]
     );
     const escalation = res.rows[0];
@@ -438,6 +449,12 @@ export class EscalationsService {
     await query(
       `UPDATE escalations
           SET escalated_to = $1, due_by = $2, status = 'In Progress',
+              -- Same rule as acknowledge: escalating up means it's being worked, so it must
+              -- leave 'Open' or the triage queue keeps it under "Needs action".
+              lifecycle_status = CASE WHEN lifecycle_status = 'Open'
+                                      THEN 'Under Review'::escalation_lifecycle_status
+                                      ELSE lifecycle_status END,
+              reviewed_at = COALESCE(reviewed_at, NOW()),
               priority = CASE WHEN priority = 'Critical' THEN priority ELSE 'Urgent' END,
               updated_at = NOW()
         WHERE id = $3`,

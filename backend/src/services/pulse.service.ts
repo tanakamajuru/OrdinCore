@@ -5,6 +5,7 @@ import logger from '../utils/logger';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
 
 const patternQueue = new Queue('pattern-detection', { connection: redis });
@@ -149,14 +150,17 @@ export class PulseService {
     async getDashboardFeed(company_id: string, house_ids: string[]) {
         // Single source of truth for the promotion gate (≥ this many signals, or one
         // Critical). Exposed in the payload so the board's meter and the backend agree.
-        const PROMOTION_THRESHOLD = 3;
+        // SSOT: shared constant (config/governance.constants).
         if (house_ids.length === 0) return { highPriority: [], pattern_signals: [], risk_candidates: [], actions: [], promotion_threshold: PROMOTION_THRESHOLD, open_escalations: 0 };
 
-        // 1. High Priority Signals: severity=High/Critical or escalation!=None, last 48h
+        // 1. High Priority Signals: severity=High/Critical or escalation!=None, last 48h.
+        // Once a signal is Linked (promoted to a risk), Closed, or Reviewed (triaged and not
+        // promoted) it has been dealt with — it drops off the live board instead of looping.
         const highPriority = await pulsesRepo.findAll(company_id, {
             house_id: house_ids,
             start_date: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0],
-            severity: ['High', 'Critical']
+            severity: ['High', 'Critical'],
+            exclude_review_status: ['Linked', 'Closed', 'Reviewed']
         });
 
         // 2. Pattern Signals: Active clusters (Emerging, Confirmed, Escalated).

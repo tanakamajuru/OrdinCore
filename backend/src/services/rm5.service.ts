@@ -6,8 +6,8 @@
  */
 import { query } from '../config/database';
 import { trajectoryForCluster, trajectoryForRisk, Trajectory } from './trajectory.service';
+import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
-const PROMOTION_THRESHOLD = 3;
 const ACTIVE_CLUSTER = `('Emerging','Escalated','Confirmed')`;
 const OPEN_ACTION = `NOT IN ('Complete','Completed','Cancelled')`;
 const CLOSED_RISK = `('Closed','Resolved')`;
@@ -65,15 +65,22 @@ export const rm5Service = {
         ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
       [company_id]
     )).rows;
-    const shape = async (c: any) => ({
-      id: c.id, domain: c.domain, person: c.person,
-      scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
-      houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
-      signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
-      isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
-      hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
-      trajectory: traj(await trajectoryForCluster(c.id)),
-    });
+    const shape = async (c: any) => {
+      // Same safety floor the cluster board applies: a Safeguarding theme or an in-window
+      // Critical can never read calmer than Deteriorating.
+      const tr0 = await trajectoryForCluster(c.id);
+      const floored = (c.hasCritical || String(c.domain || '').toLowerCase().includes('safeguard'))
+        ? 'Deteriorating' : tr0.direction;
+      return {
+        id: c.id, domain: c.domain, person: c.person,
+        scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
+        houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
+        signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
+        isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
+        hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
+        trajectory: { dir: floored, basis: tr0.basis, points: tr0.points },
+      };
+    };
     const within: any[] = [], across: any[] = [];
     for (const c of rows) (c.scope === 'cross_service' ? across : within).push(await shape(c));
     return { within, across };

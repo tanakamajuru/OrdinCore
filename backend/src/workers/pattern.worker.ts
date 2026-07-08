@@ -4,6 +4,7 @@ import { query } from '../config/database';
 import { notificationsService } from '../services/notifications.service';
 import { thresholdEventsRepo } from '../repositories/thresholdEvents.repo';
 import { runImmediateDetection } from './immediateDetection';
+import { trajectoryForCluster, trajectoryForRisk } from '../services/trajectory.service';
 import logger from '../utils/logger';
 
 // Cross-service detection uses this rule slot (rules 8–10 are descoped for the pilot).
@@ -249,12 +250,34 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         );
     }
 
+    // SSOT (Finding K): store the ONE computed engine trajectory, not the local heuristic, so
+    // every stored-column reader (Patterns list, risk candidates, oversight) matches the engine.
+    // Keep the safety floor — a Safeguarding theme, or an in-window Critical, can never read
+    // calmer than Deteriorating on the boards.
+    let storedTrajectory = trajectory;
+    try {
+        const trc = await trajectoryForCluster(cluster_id);
+        storedTrajectory = (domain === 'Safeguarding' || hasHighCritical) ? 'Deteriorating' : trc.direction;
+    } catch (e) { logger.error('Cluster trajectory compute failed', e); }
+
     // Finalize Cluster Update
     await query(
         `UPDATE signal_clusters SET cluster_status = $1, trajectory = $2, signal_count = $3, last_signal_date = NOW()
          WHERE id = $4`,
-        [cluster_status, trajectory, signal_count, cluster_id]
+        [cluster_status, storedTrajectory, signal_count, cluster_id]
     );
+
+    // SSOT: if this cluster is already promoted to a risk, refresh that risk's cached
+    // trajectory from the engine too — new signals change the series, and the register /
+    // reports read the cache, so it must follow without waiting for the next effectiveness rating.
+    try {
+        const lr = await query(`SELECT linked_risk_id FROM signal_clusters WHERE id = $1`, [cluster_id]);
+        const riskId = lr.rows[0]?.linked_risk_id;
+        if (riskId) {
+            const trr = await trajectoryForRisk(riskId, cluster_id);
+            await query(`UPDATE risks SET trajectory = $1, updated_at = NOW() WHERE id = $2`, [trr.direction, riskId]);
+        }
+    } catch (e) { logger.error('Linked-risk trajectory refresh failed', e); }
 
     // FR3.5 / FR8.2 — Cross-service (System-Level) Risk, evaluated live in the sweep.
     await evaluateCrossServiceRisk(company_id, house_id, domain, pulse_id, cluster_id);

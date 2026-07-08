@@ -1,5 +1,6 @@
 import { auditChecklistService } from './auditChecklist.service';
 import { query } from '../config/database';
+import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
 export class GovernanceService {
   async createPulse(company_id: string, data: any) {
@@ -77,7 +78,7 @@ export class GovernanceService {
   async getClusters(company_id: string, filters: any, userRole?: string) {
     // Promotion threshold (≥ this many signals, or one Critical) — exposed on each row
     // so the Patterns view's readiness states and the backend promote guard never disagree.
-    const PROMOTION_THRESHOLD = 3;
+    // SSOT: shared constant (config/governance.constants).
     let q = `SELECT sc.*, h.name AS house_name,
                     (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(sc.affected_house_ids)) AS affected_house_names,
                     EXISTS (

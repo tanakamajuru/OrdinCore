@@ -124,11 +124,19 @@ export const pulsesRepo = {
             conditions.push(Array.isArray(filters.house_id) ? `gp.house_id = ANY($${idx++}::uuid[])` : `gp.house_id = $${idx++}`); 
             params.push(filters.house_id); 
         }
-        if (filters.review_status) { 
-            conditions.push(Array.isArray(filters.review_status) ? `gp.review_status = ANY($${idx++}::review_status[])` : `gp.review_status = $${idx++}`); 
-            params.push(filters.review_status); 
+        if (filters.review_status) {
+            conditions.push(Array.isArray(filters.review_status) ? `gp.review_status = ANY($${idx++}::review_status[])` : `gp.review_status = $${idx++}`);
+            params.push(filters.review_status);
         }
-        if (filters.severity) { 
+        // Exclude terminal / already-decided states so a signal that has been linked to a
+        // risk, closed, or reviewed-and-not-promoted stops re-appearing on the live queues.
+        // NULL-safe: a NULL review_status is treated as still-active. (Signal-flow closure.)
+        if (filters.exclude_review_status) {
+            const arr = Array.isArray(filters.exclude_review_status) ? filters.exclude_review_status : [filters.exclude_review_status];
+            conditions.push(`(gp.review_status IS NULL OR gp.review_status <> ALL($${idx++}::review_status[]))`);
+            params.push(arr);
+        }
+        if (filters.severity) {
             let severityValues = filters.severity;
             if (typeof severityValues === 'string' && severityValues.includes(',')) {
                 severityValues = severityValues.split(',');

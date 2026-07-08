@@ -4,6 +4,8 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
+import { trajectoryForRisk } from './trajectory.service';
+import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
 export class RisksService {
   async create(company_id: string, created_by: string, data: {
@@ -430,10 +432,10 @@ export class RisksService {
     );
     const hasCritical = criticalRes.rows.length > 0;
     const isSafeguarding = String(cluster.risk_domain || '').toLowerCase().includes('safeguard');
-    if (linkedSignals < 3 && !hasCritical && !isSafeguarding) {
+    if (linkedSignals < PROMOTION_THRESHOLD && !hasCritical && !isSafeguarding) {
       throw new Error(
         `Cluster does not meet the promotion threshold: ${linkedSignals} signal(s) and no Critical signal. ` +
-        `A risk requires at least 3 linked signals, or one Critical signal (Governance Integrity §9).`
+        `A risk requires at least ${PROMOTION_THRESHOLD} linked signals, or one Critical signal (Governance Integrity §9).`
       );
     }
 
@@ -466,7 +468,27 @@ export class RisksService {
       ['Escalated', risk.id, data.cluster_id]);
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Signal Cluster ${data.cluster_id}`, user_id);
-    
+
+    // Close the loop back to the raw signals: every pulse behind this cluster is now evidence
+    // on a formal risk, so mark it Linked — removing it from the daily oversight / governance
+    // queues (which exclude Linked). One signal, one live home. (Signal-flow closure.)
+    await query(
+      `UPDATE governance_pulses gp
+          SET review_status = 'Linked', updated_at = NOW()
+        FROM risk_signal_links rsl
+        WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
+          AND gp.company_id = $2
+          AND (gp.review_status IS NULL OR gp.review_status <> 'Closed')`,
+      [data.cluster_id, company_id]
+    );
+
+    // Seed the risk's cached trajectory from the engine at birth, so the register/reports
+    // (which read the cache) match the RM detail (live engine) immediately, not on the next signal.
+    try {
+      const tr = await trajectoryForRisk(risk.id, data.cluster_id);
+      await risksRepo.update(risk.id, company_id, { trajectory: tr.direction });
+    } catch { /* best-effort cache seed */ }
+
     return risk;
   }
 
@@ -591,18 +613,35 @@ export class RisksService {
 
   async dismissCandidate(company_id: string, user_id: string, candidate_id: string, reason: string) {
     const candidateRes = await query(
-      `SELECT id FROM risk_candidates 
+      `SELECT id, cluster_id FROM risk_candidates
        WHERE id = $1 AND company_id = $2`,
       [candidate_id, company_id]
     );
     if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
 
     await query(
-      `UPDATE risk_candidates 
+      `UPDATE risk_candidates
        SET status = 'Dismissed', dismissal_reason = $1
        WHERE id = $2`,
       [reason, candidate_id]
     );
+
+    // Record the decision on the underlying signals: reviewed and deliberately NOT promoted.
+    // They move off the live decision queues (which exclude Reviewed) but are NOT hard-closed —
+    // they remain in history and can still contribute to a future pattern. Only touch signals
+    // still 'New' so we never overwrite a Linked/Closed state. (Signal-flow closure.)
+    const clusterId = candidateRes.rows[0].cluster_id;
+    if (clusterId) {
+      await query(
+        `UPDATE governance_pulses gp
+            SET review_status = 'Reviewed', updated_at = NOW()
+          FROM risk_signal_links rsl
+          WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
+            AND gp.company_id = $2
+            AND (gp.review_status IS NULL OR gp.review_status = 'New')`,
+        [clusterId, company_id]
+      );
+    }
   }
 
   private async checkAutoEscalation(risk: any) {
@@ -701,43 +740,42 @@ export class RisksService {
   }
 
   async updateTrajectoryFromActions(risk_id: string, company_id: string) {
+    // SSOT (Finding K): the stored risks.trajectory is only ever a CACHE of the one computed
+    // engine (trajectory.service), which reads effectiveness_outcome (canonical, migration 096)
+    // plus the signal series. So the register / reports / oversight (stored column) can never
+    // diverge from the RM detail / rm5 (live engine). The old two-rating heuristic that read the
+    // legacy `effectiveness` enum only — and produced the split-brain — is gone.
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) return;
 
-    // 1. Fetch last 2 effective/ineffective ratings for COMPLETED actions
-    const ratings = await query(
-      `SELECT effectiveness FROM risk_actions 
-       WHERE risk_id = $1 AND company_id = $2 
-       AND status = 'Completed' AND effectiveness IS NOT NULL
-       ORDER BY completed_at DESC LIMIT 2`,
-      [risk_id, company_id]
+    const tr = await trajectoryForRisk(risk_id, (risk as any).source_cluster_id);
+    await risksRepo.update(risk_id, company_id, { trajectory: tr.direction });
+    await risksRepo.addEvent(
+      risk_id, company_id, 'trajectory_auto_update',
+      `Trajectory updated to ${tr.direction} based on action effectiveness. ${tr.basis}`,
+      risk.created_by
     );
 
-    if (ratings.rows.length < 1) return;
-
-    const r1 = ratings.rows[0].effectiveness;
-    const r2 = ratings.rows[1]?.effectiveness; // Optional second rating
-
-    let newTrajectory: string | null = null;
-    let governanceNote: string | null = null;
-
-    if (r1 === 'Effective') {
-      newTrajectory = 'Improving';
-    } else if (r1 === 'Ineffective') {
-      newTrajectory = 'Deteriorating';
-      if (r2 === 'Ineffective') {
-        governanceNote = 'Critical Governance Concern: Two consecutive ineffective control actions detected.';
-      }
-    }
-
-    if (newTrajectory) {
-      await risksRepo.update(risk_id, company_id, { trajectory: newTrajectory });
-      const risk = await risksRepo.findById(risk_id, company_id);
-      await risksRepo.addEvent(risk_id, company_id, 'trajectory_auto_update', 
-        `Trajectory automatically updated to ${newTrajectory} based on action effectiveness.${governanceNote ? ' ' + governanceNote : ''}`, 
-        risk.created_by);
-      
-      if (governanceNote) {
-        await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, { risk_id, company_id, note: governanceNote });
-      }
+    // Separate safeguard (unchanged intent): two consecutive ineffective control ratings is a
+    // governance concern in its own right, regardless of the netted direction. Reads the
+    // canonical effectiveness_outcome, falling back to the legacy enum.
+    const recent = await query(
+      `SELECT COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
+         FROM risk_actions
+        WHERE risk_id = $1 AND company_id = $2 AND status = 'Completed'
+          AND (effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)
+        ORDER BY COALESCE(effectiveness_reviewed_at, completed_at, created_at) DESC
+        LIMIT 2`,
+      [risk_id, company_id]
+    );
+    const isIneffective = (o: string) => {
+      const v = String(o || '').toLowerCase();
+      return v.includes('not effective') || v === 'ineffective';
+    };
+    if (recent.rows.length === 2 && recent.rows.every((r: any) => isIneffective(r.outcome))) {
+      const note = 'Critical Governance Concern: Two consecutive ineffective control actions detected.';
+      await risksRepo.addEvent(risk_id, company_id, 'governance_concern', note, risk.created_by);
+      await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, { risk_id, company_id, note });
     }
   }
 
