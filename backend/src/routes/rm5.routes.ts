@@ -15,4 +15,7 @@ router.get('/register', ...rm, rm5Controller.register);         // ?type=active|
 router.get('/actions', ...rm, rm5Controller.actions);
 router.get('/effectiveness', ...rm, rm5Controller.effectiveness);
 
+// Deciding is the RM's call — promote is gated tighter than the read BFF.
+router.post('/patterns/:id/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), rm5Controller.promotePattern);
+
 export default router;

@@ -7,6 +7,7 @@
 import { query } from '../config/database';
 import { trajectoryForCluster, trajectoryForRisk, Trajectory } from './trajectory.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
+import { risksService } from './risks.service';
 
 const ACTIVE_CLUSTER = `('Emerging','Escalated','Confirmed')`;
 const OPEN_ACTION = `NOT IN ('Complete','Completed','Cancelled')`;
@@ -132,5 +133,34 @@ export const rm5Service = {
         ORDER BY a.completed_at ASC`,
       [company_id]
     )).rows;
+  },
+
+  // Promote a person-level cluster to a formal risk from mobile. The server owns the cluster's
+  // data; risksService.promoteFromCluster enforces the promotion floor (>=3 signals or one
+  // Critical) and carries the signals across as evidence. The RM's reason is recorded as an event.
+  async promotePattern(company_id: string, user_id: string, cluster_id: string, reason?: string) {
+    const cl = (await query(
+      `SELECT id, risk_domain, linked_person, house_id, scope, cluster_label FROM signal_clusters
+        WHERE id = $1 AND company_id = $2`,
+      [cluster_id, company_id]
+    )).rows[0];
+    if (!cl) throw new Error('Pattern not found.');
+    if (cl.scope === 'cross_service') throw new Error('Systemic (cross-service) patterns are promoted on the web.');
+    if (!cl.house_id) throw new Error('This pattern has no service and cannot be promoted here.');
+
+    const person = cl.linked_person && String(cl.linked_person).toLowerCase() !== 'null' ? cl.linked_person : null;
+    const title = cl.cluster_label || `${cl.risk_domain}${person ? ` — ${person}` : ''}`;
+
+    const risk = await risksService.promoteFromCluster(company_id, user_id, {
+      cluster_id, title, severity: 'Medium', trajectory: 'Stable',
+      description: 'Promoted from pattern (mobile).', house_id: cl.house_id,
+      category_id: undefined as any, likelihood: 3, impact: 3,
+    });
+
+    const r = String(reason || '').trim();
+    if (r) {
+      try { await risksService.addEvent(risk.id, company_id, user_id, { event_type: 'promotion_reason', description: `RM reason (mobile): ${r}` }); } catch { /* non-fatal */ }
+    }
+    return risk;
   },
 };

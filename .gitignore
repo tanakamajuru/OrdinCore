@@ -16,3 +16,6 @@ scratch/
 backend/scratch/
 landing-page/dist/
 landing-page/.env
+
+# Mobile app (Expo / React Native) — kept out of the repo for now
+mobile/

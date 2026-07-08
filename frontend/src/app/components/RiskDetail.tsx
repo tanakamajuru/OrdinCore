@@ -134,11 +134,15 @@ export function RiskDetail() {
   useEffect(() => {
     const loadTeamLeaders = async () => {
       try {
-        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100');
+        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
         const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
         setTeamLeaders(list);
       } catch (err) {
+        // Finding C parity (mirror SignalDetail/PulseHistory): surface the failure
+        // instead of leaving the RM with an empty allocation menu and no explanation.
         console.error('Failed to load team leaders for assignment', err);
+        toast.error("Couldn't load Team Leaders — check role/status.");
+        setTeamLeaders([]);
       }
     };
     loadTeamLeaders();
@@ -612,6 +616,16 @@ export function RiskDetail() {
                                 </select>
                             )}
 
+                            {/* No Team Leaders loaded — explain the empty control instead of hiding it silently (Finding C parity). */}
+                            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && action.status !== 'Complete' && action.status !== 'Completed' && teamLeaders.length === 0 && (
+                                <span
+                                    className="text-[10px] uppercase text-amber-600 self-center"
+                                    title="No active Team Leaders found to reassign to — ensure a TL is granted the role, active, and mapped to this service (Admin → Users)."
+                                >
+                                    No TLs to reassign
+                                </span>
+                            )}
+
                             {/* Verification Button: RM/RI only + Four Eyes */}
                             {(['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && 
                               action.created_by !== currentUserId && 
@@ -767,6 +781,9 @@ export function RiskDetail() {
                     </option>
                   ))}
                 </select>
+                {teamLeaders.length === 0 && (
+                  <p className="mt-2 text-[11px] text-amber-600">No named Team Leaders available — the action will auto-assign to the service Team Leader. To pick a specific person, ensure a TL is granted the role, active, and mapped to this service (Admin → Users).</p>
+                )}
               </div>
 
               <div>

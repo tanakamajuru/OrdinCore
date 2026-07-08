@@ -280,6 +280,12 @@ export default function App() {
               <EscalationLog />
             </ProtectedRoute>
           } />
+          {/* There is no standalone escalation-detail view. "Linked Escalations" cards
+              (IncidentDetail) and any notification deep links point at /escalations/:id;
+              redirect them to the escalation log instead of falling through to the
+              catch-all. Mirrors the /risks/:id shim. */}
+          <Route path="/escalations/:id" element={<Navigate to="/escalation-log" replace />} />
+          <Route path="/escalations" element={<Navigate to="/escalation-log" replace />} />
           <Route path="/trends" element={
             <ProtectedRoute>
               <Trends />
