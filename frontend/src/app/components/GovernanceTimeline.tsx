@@ -57,6 +57,9 @@ export function GovernanceTimeline() {
   const [isLoading, setIsLoading] = useState(true);
   const eventsLoadedRef = useRef(false);
   const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const [showCommentary, setShowCommentary] = useState(false);
+  const [commentary, setCommentary] = useState("");
+  const [savingCommentary, setSavingCommentary] = useState(false);
 
   useEffect(() => {
     console.log('GovernanceTimeline useEffect triggered');
@@ -175,6 +178,36 @@ export function GovernanceTimeline() {
     return date.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
   };
 
+  // Export the reconstructed timeline as a CSV the user can download and attach to a report.
+  const exportTimeline = () => {
+    if (!events.length) { toast.error('No timeline events to export.'); return; }
+    const esc = (v: any) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+    const header = ['Timestamp', 'Type', 'Event', 'Detail', 'Actor', 'Role', 'Gap'];
+    const rows = events.map((e) => [e.timestamp, e.sourceType, e.label, e.detail, e.actor, e.actorRole, e.gapFlag ? 'GAP' : ''].map(esc).join(','));
+    const csv = [header.map(esc).join(','), ...rows].join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv;charset=utf-8;' }));
+    const a = document.createElement('a');
+    a.href = url; a.download = `governance-timeline-${incidentId || 'incident'}.csv`; a.click();
+    URL.revokeObjectURL(url);
+    toast.success('Timeline exported.');
+  };
+
+  // Persist a Registered Manager / leadership commentary onto the incident record.
+  const saveCommentary = async () => {
+    if (commentary.trim().length < 5) { toast.error('Please enter your commentary.'); return; }
+    setSavingCommentary(true);
+    try {
+      await apiClient.patch(`/incidents/${incidentId}`, { leadership_commentary: commentary.trim() });
+      toast.success('Leadership commentary saved.');
+      setShowCommentary(false);
+      setCommentary('');
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to save commentary.');
+    } finally {
+      setSavingCommentary(false);
+    }
+  };
+
 
   if (isLoading) {
     return (
@@ -266,9 +299,9 @@ export function GovernanceTimeline() {
           </CardContent>
         </Card>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 items-start">
           {/* Timeline */}
-          <div className="lg:col-span-2">
+          <div>
             <Card className="border-2 border-border">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
@@ -419,6 +452,7 @@ export function GovernanceTimeline() {
                   </Button>
                   <Button
                     variant="outline"
+                    onClick={exportTimeline}
                     className="w-full border-border hover:bg-primary hover:text-primary-foreground"
                   >
                     <FileText className="w-4 h-4 mr-2" />
@@ -426,6 +460,7 @@ export function GovernanceTimeline() {
                   </Button>
                   <Button
                     variant="outline"
+                    onClick={() => setShowCommentary(true)}
                     className="w-full border-border hover:bg-primary hover:text-primary-foreground"
                   >
                     <Users className="w-4 h-4 mr-2" />
@@ -437,6 +472,26 @@ export function GovernanceTimeline() {
           </div>
         </div>
       </div>
+
+      {showCommentary && (
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-lg rounded-xl">
+            <h2 className="text-xl font-semibold text-foreground mb-1">Leadership Commentary</h2>
+            <p className="text-sm text-muted-foreground mb-4">Record the leadership interpretation of this reconstruction — it is saved to the incident record.</p>
+            <textarea
+              value={commentary}
+              onChange={(e) => setCommentary(e.target.value)}
+              rows={6}
+              placeholder="What does leadership conclude from this timeline? Contributing factors, oversight judgement, and next steps."
+              className="w-full border-2 border-border bg-card p-3 text-sm mb-4 rounded focus:outline-none focus:border-primary"
+            />
+            <div className="flex justify-end gap-3">
+              <button onClick={() => { setShowCommentary(false); setCommentary(''); }} className="px-5 py-2 border-2 border-border rounded text-foreground hover:bg-muted">Cancel</button>
+              <button onClick={saveCommentary} disabled={savingCommentary || commentary.trim().length < 5} className="px-5 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">{savingCommentary ? 'Saving…' : 'Save Commentary'}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

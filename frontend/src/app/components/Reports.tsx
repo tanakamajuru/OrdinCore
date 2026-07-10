@@ -285,7 +285,7 @@ export function Reports() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 max-w-[1300px]">
+      <div className="p-6 w-full">
         <BackButton />
         <div className="mb-6 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
           <div>

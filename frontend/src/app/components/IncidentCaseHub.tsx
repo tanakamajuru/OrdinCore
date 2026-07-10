@@ -57,6 +57,7 @@ export function IncidentCaseHub() {
   const [allHouses, setAllHouses] = useState<any[]>([]);
   const [allRisks, setAllRisks] = useState<any[]>([]);
   const [allEscalations, setAllEscalations] = useState<any[]>([]);
+  const [people, setPeople] = useState<{ name: string; kind: string }[]>([]);
 
   const userString = localStorage.getItem('user') || '{}';
   const user = JSON.parse(userString);
@@ -107,6 +108,22 @@ export function IncidentCaseHub() {
       const eData = (escalationsRes.data as any).data || (escalationsRes.data as any) || [];
       const escalationsList = Array.isArray(eData) ? eData : (eData.escalations || eData.items || []);
       setAllEscalations(escalationsList);
+
+      // People Involved picker: system users (staff) + service users (patients).
+      try {
+        const [usersRes, suRes] = await Promise.all([
+          apiClient.get('/users?limit=200'),
+          apiClient.get('/service-users?limit=200'),
+        ]);
+        const uData = (usersRes.data as any).data || (usersRes.data as any) || [];
+        const uList = Array.isArray(uData) ? uData : (uData.users || uData.items || []);
+        const sData = (suRes.data as any).data || (suRes.data as any) || [];
+        const sList = Array.isArray(sData) ? sData : (sData.serviceUsers || sData.service_users || sData.items || []);
+        const nameOf = (p: any) => (p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.full_name || '').trim();
+        const staff = uList.map((u: any) => ({ name: nameOf(u), kind: 'Staff' })).filter((p: any) => p.name);
+        const patients = sList.map((s: any) => ({ name: nameOf(s), kind: 'Service User' })).filter((p: any) => p.name);
+        setPeople([...patients, ...staff]);
+      } catch { /* people picker is best-effort */ }
 
       let houseId: string | null = null;
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
@@ -165,7 +182,7 @@ export function IncidentCaseHub() {
         location: incidentForm.location,
         immediate_action: incidentForm.immediate_action,
         source_pulse_id: incidentForm.source_pulse_id || undefined,
-        persons_involved: incidentForm.persons_involved ? [incidentForm.persons_involved] : [],
+        persons_involved: incidentForm.persons_involved ? incidentForm.persons_involved.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
         follow_up_required: true,
         linked_risks: incidentForm.linked_risks || [],
         linked_escalations: incidentForm.linked_escalations || [],
@@ -696,12 +713,21 @@ export function IncidentCaseHub() {
                       </div>
                       <div>
                         <label className="block text-sm  text-foreground mb-1">People Involved</label>
-                        <Input
+                        <input
+                          list="people-involved-options"
                           value={incidentForm.persons_involved}
                           onChange={(e) => setIncidentForm({ ...incidentForm, persons_involved: e.target.value })}
-                          placeholder="Names of residents, staff, or others involved (if applicable)"
-                          className="border-border"
+                          placeholder="Pick a service user or staff member — or type others; separate multiple with commas"
+                          className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
+                        <datalist id="people-involved-options">
+                          {people.map((p, i) => (
+                            <option key={i} value={p.name}>{p.kind}</option>
+                          ))}
+                        </datalist>
+                        {people.length > 0 && (
+                          <p className="text-[11px] text-muted-foreground mt-1">{people.filter(p => p.kind === 'Service User').length} service users · {people.filter(p => p.kind === 'Staff').length} staff available</p>
+                        )}
                       </div>
                       <div>
                         <label className="block text-sm  text-foreground mb-1">Place of occurence</label>

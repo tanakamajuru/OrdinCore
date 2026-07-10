@@ -66,7 +66,7 @@ export function RiskRegister() {
   const rows: any[] = data?.[tab] || [];
 
   const [page, setPage] = useState(1);
-  const PAGE_SIZE = 15;
+  const PAGE_SIZE = 5;
   useEffect(() => { setPage(1); }, [tab]);
   const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
@@ -97,7 +97,7 @@ export function RiskRegister() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-7xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <div className="mb-5">
           <h1 className="text-3xl text-foreground font-semibold">Risk Register</h1>
           <p className="text-muted-foreground mt-1">What leadership is actively overseeing — emerging concerns, active and strategic risks, and closed items. Promote an emerging concern to a risk to act on it.</p>
@@ -176,7 +176,7 @@ export function RiskRegister() {
               </table>
             </div>
           )}
-          {rows.length > PAGE_SIZE && (
+          {rows.length > 0 && (
             <div className="flex items-center justify-between gap-4 px-3 py-3 border-t border-border">
               <span className="text-xs text-muted-foreground">Showing {(safePage - 1) * PAGE_SIZE + 1}–{Math.min(safePage * PAGE_SIZE, rows.length)} of {rows.length}</span>
               <div className="flex items-center gap-2">

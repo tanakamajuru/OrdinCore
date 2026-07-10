@@ -33,14 +33,6 @@ const ROLE_LABELS: Record<string, string> = {
   SUPER_ADMIN: 'Super Admin',
 };
 
-const RM_PERMISSIONS = [
-  'Dashboard Access',
-  'Governance Pulse Submission',
-  'Risk Register Management',
-  'Serious Incident Reporting',
-  'Reports & Analytics',
-];
-
 export function Profile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [houses, setHouses] = useState<HouseInfo[]>([]);
@@ -162,7 +154,7 @@ export function Profile() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-3xl">
+      <div className="p-6 w-full pt-20">
         <div className="mb-6">
           <h1 className="text-3xl  text-foreground">Profile</h1>
           <p className="text-muted-foreground mt-1">Your account information and settings</p>
@@ -248,18 +240,6 @@ export function Profile() {
               <div className="px-4 py-2 bg-muted border border-border text-foreground">
                 {formatDate(displayUser.last_login)}
               </div>
-            </div>
-          </div>
-
-          <div className="bg-card border-2 border-border p-6">
-            <h2 className="text-xl  mb-4 text-foreground">Permissions</h2>
-            <div className="space-y-2">
-              {RM_PERMISSIONS.map(perm => (
-                <div key={perm} className="flex items-center justify-between p-3 border border-border">
-                  <span className="text-foreground">{perm}</span>
-                  <span className="text-green-600 ">✓ Granted</span>
-                </div>
-              ))}
             </div>
           </div>
 

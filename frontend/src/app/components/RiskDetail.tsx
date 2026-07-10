@@ -101,6 +101,8 @@ export function RiskDetail() {
   
   const [showEffectivenessAction, setShowEffectivenessAction] = useState<string | null>(null);
   const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Ineffective">("Effective");
+  const [effectivenessEvidence, setEffectivenessEvidence] = useState("");
+  const [effectivenessFile, setEffectivenessFile] = useState<File | null>(null);
   const [isRating, setIsRating] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState<{ id: string; title: string } | null>(null);
 
@@ -354,13 +356,39 @@ export function RiskDetail() {
 
   const handleRateEffectiveness = async () => {
     if (!showEffectivenessAction) return;
+    if (effectivenessEvidence.trim().length < 20) {
+      toast.error('Please provide at least 20 characters of evidence.');
+      return;
+    }
     setIsRating(true);
     try {
-      await apiClient.post(`/risks/${id}/actions/${showEffectivenessAction}/effectiveness`, { 
-        effectiveness: effectivenessRating 
+      await apiClient.post(`/risks/${id}/actions/${showEffectivenessAction}/effectiveness`, {
+        effectiveness: effectivenessRating,
+        evidence: effectivenessEvidence.trim(),
       });
+      // Optional supporting document (JPG/PDF) → stored as an evidence attachment on the risk.
+      if (effectivenessFile) {
+        try {
+          const dataUrl: string = await new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(String(reader.result));
+            reader.onerror = reject;
+            reader.readAsDataURL(effectivenessFile);
+          });
+          await apiClient.post(`/risks/${id}/attachments`, {
+            file_name: effectivenessFile.name,
+            file_url: dataUrl,
+            file_type: effectivenessFile.type,
+            file_size: effectivenessFile.size,
+          });
+        } catch {
+          toast.error('Rating saved, but the evidence file could not be attached.');
+        }
+      }
       toast.success('Effectiveness rated successfully');
       setShowEffectivenessAction(null);
+      setEffectivenessEvidence("");
+      setEffectivenessFile(null);
       if (id) loadRiskDetails(id);
     } catch (error: any) {
       toast.error(error.response?.data?.message || 'Failed to rate effectiveness');
@@ -964,17 +992,38 @@ export function RiskDetail() {
                     Ineffective
                 </button>
             </div>
-            
+
+            <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Evidence <span className="text-destructive">*</span></label>
+            <textarea
+              value={effectivenessEvidence}
+              onChange={(e) => setEffectivenessEvidence(e.target.value)}
+              rows={4}
+              placeholder="What evidence shows this control worked (or didn't)? e.g. MAR audit over 7 days, zero recurrences."
+              className="w-full border-2 border-border bg-card p-3 text-sm mb-1 focus:outline-none focus:border-primary"
+            />
+            <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
+              {effectivenessEvidence.trim().length}/20 characters minimum
+            </p>
+
+            <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Supporting document <span className="text-muted-foreground normal-case tracking-normal">(optional · JPG or PDF)</span></label>
+            <input
+              type="file"
+              accept=".jpg,.jpeg,.pdf,image/jpeg,application/pdf"
+              onChange={(e) => setEffectivenessFile(e.target.files?.[0] || null)}
+              className="w-full text-sm mb-1 file:mr-3 file:py-2 file:px-4 file:border-0 file:bg-primary file:text-primary-foreground file:uppercase file:tracking-widest file:text-xs hover:file:bg-primary/90"
+            />
+            {effectivenessFile && <p className="text-[11px] text-muted-foreground mb-6">{effectivenessFile.name} · {(effectivenessFile.size / 1024).toFixed(0)} KB</p>}
+
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setShowEffectivenessAction(null)}
+                onClick={() => { setShowEffectivenessAction(null); setEffectivenessEvidence(""); setEffectivenessFile(null); }}
                 className="px-6 py-2 bg-card text-foreground  uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRateEffectiveness}
-                disabled={isRating}
+                disabled={isRating || effectivenessEvidence.trim().length < 20}
                 className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}

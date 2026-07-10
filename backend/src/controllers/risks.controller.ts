@@ -87,11 +87,14 @@ export class RisksController {
       const company_id = req.user!.company_id!;
       const risk = await risksService.findById(req.params.id, company_id);
       
-      // Enforce house scope restriction for service-level roles
+      // Enforce house scope restriction for service-level roles. Block only risks that are
+      // scoped to ANOTHER site; company-level risks with no single house (strategic /
+      // cross-service) carry house_id = null and are surfaced to the RM in the register,
+      // so they stay openable — company_id isolation already applies via findById above.
       const userRole = req.user!.role?.toUpperCase() || '';
       if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(userRole)) {
         const userHouseIds = req.user!.assigned_house_ids || [];
-        if (!userHouseIds.includes(risk.house_id)) {
+        if (risk.house_id && !userHouseIds.includes(risk.house_id)) {
           return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
         }
       }

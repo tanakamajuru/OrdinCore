@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import {
-  Home, GitBranch, FileText, Ambulance, FileDown, ChevronRight, Zap, Layers,
+  Home, GitBranch, FileText, Ambulance, FileDown, ChevronRight, ChevronLeft, Zap, Layers,
   ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { apiClient } from "@/services/api";
@@ -22,6 +22,19 @@ const SEV: Record<string, string> = {
   Medium: "bg-amber-50 text-amber-700", Moderate: "bg-amber-50 text-amber-700", Low: "bg-emerald-50 text-emerald-700",
 };
 const unwrap = (r: any) => r?.data?.data ?? r?.data ?? r;
+const PAGE = 5; // rows/cards per page across every RM5 list
+
+// Shared Prev/Next footer — hidden when everything fits on one page.
+function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {
+  if (pages <= 1) return null;
+  return (
+    <div className="flex items-center justify-between mt-3">
+      <button onClick={() => onPage(Math.max(1, page - 1))} disabled={page <= 1} className="inline-flex items-center gap-1 text-sm text-primary disabled:opacity-40 disabled:cursor-not-allowed"><ChevronLeft className="w-4 h-4" />Prev</button>
+      <span className="text-xs text-muted-foreground">Page {page} of {pages} · {total} items</span>
+      <button onClick={() => onPage(Math.min(pages, page + 1))} disabled={page >= pages} className="inline-flex items-center gap-1 text-sm text-primary disabled:opacity-40 disabled:cursor-not-allowed">Next<ChevronRight className="w-4 h-4" /></button>
+    </div>
+  );
+}
 
 function Traj({ t }: { t: any }) {
   const x = TRAJ[t?.dir] || TRAJ.Stable; const I = x.I;
@@ -43,6 +56,12 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [regType, setRegType] = useState<"active" | "strategic" | "closed">("active");
   const [lens, setLens] = useState<any[]>([]);
+  const [lensPage, setLensPage] = useState(1);
+  const [sigPage, setSigPage] = useState(1);
+  const [duePage, setDuePage] = useState(1);
+  const [patWPage, setPatWPage] = useState(1);
+  const [patAPage, setPatAPage] = useState(1);
+  const [regPage, setRegPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -64,6 +83,11 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
     load();
   }, [screen, stage, regType]);
 
+  // Reset the paginators whenever we switch into a different list.
+  useEffect(() => { setLensPage(1); setPatWPage(1); setPatAPage(1); }, [screen, stage]);
+  useEffect(() => { setSigPage(1); setDuePage(1); }, [screen]);
+  useEffect(() => { setRegPage(1); }, [regType, screen, stage]);
+
   const activeStage = screen === "today" ? "signals" : stage;
   const ribbon: [string, string, number, any][] = [
     ["signals", "Signals", counts.signals || 0, Zap], ["patterns", "Patterns", counts.patterns || 0, Layers],
@@ -77,10 +101,38 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const openRisk = (id: string) => id && navigate(`/risk-register/${id}`);
   const promote = (p: any) => p.promotedRiskId ? openRisk(p.promotedRiskId) : navigate(`/risks/promote?cluster_id=${p.id}`, { state: { cluster_id: p.id } });
 
+  const lensTotalPages = Math.max(1, Math.ceil(lens.length / PAGE));
+  const lensPageSafe = Math.min(lensPage, lensTotalPages);
+  const pagedLens = lens.slice((lensPageSafe - 1) * PAGE, lensPageSafe * PAGE);
+
+  const sigList: any[] = today.todaySignals || [];
+  const sigPages = Math.max(1, Math.ceil(sigList.length / PAGE));
+  const sigSafe = Math.min(sigPage, sigPages);
+  const pagedSignals = sigList.slice((sigSafe - 1) * PAGE, sigSafe * PAGE);
+
+  const dueList: any[] = today.actionsDue || [];
+  const duePages = Math.max(1, Math.ceil(dueList.length / PAGE));
+  const dueSafe = Math.min(duePage, duePages);
+  const pagedDue = dueList.slice((dueSafe - 1) * PAGE, dueSafe * PAGE);
+
+  const withinList: any[] = patterns.within || [];
+  const withinPages = Math.max(1, Math.ceil(withinList.length / PAGE));
+  const withinSafe = Math.min(patWPage, withinPages);
+  const pagedWithin = withinList.slice((withinSafe - 1) * PAGE, withinSafe * PAGE);
+
+  const acrossList: any[] = patterns.across || [];
+  const acrossPages = Math.max(1, Math.ceil(acrossList.length / PAGE));
+  const acrossSafe = Math.min(patAPage, acrossPages);
+  const pagedAcross = acrossList.slice((acrossSafe - 1) * PAGE, acrossSafe * PAGE);
+
+  const regPages = Math.max(1, Math.ceil(registerRows.length / PAGE));
+  const regSafe = Math.min(regPage, regPages);
+  const pagedReg = registerRows.slice((regSafe - 1) * PAGE, regSafe * PAGE);
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 pt-20 max-w-6xl mx-auto">
+      <div className="p-6 pt-20 w-full">
         {/* ribbon (the pipeline spine) */}
         <div className="bg-card border border-border rounded-xl px-2 py-3 flex items-stretch mb-6 overflow-x-auto">
           {ribbon.map(([k, l, n, I], i) => {
@@ -104,26 +156,28 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
               <div>
                 <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-red-600" />High-priority signals</h2>
                 <div className="bg-card border border-border rounded-xl divide-y divide-border">
-                  {today.todaySignals.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No High/Critical signals in the last 48 hours.</div>}
-                  {today.todaySignals.map((s: any) => (
+                  {sigList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No High/Critical signals in the last 48 hours.</div>}
+                  {pagedSignals.map((s: any) => (
                     <div key={s.id} className="px-4 py-3 flex items-center justify-between gap-3">
                       <div className="min-w-0"><div className="text-sm text-foreground truncate">{s.house} · {s.person}</div><div className="text-xs text-muted-foreground truncate">{s.note}</div></div>
                       <div className="flex items-center gap-2 shrink-0"><Sev s={s.sev} /><span className="text-xs text-muted-foreground">{s.d}</span></div>
                     </div>
                   ))}
                 </div>
+                <Pager page={sigSafe} pages={sigPages} total={sigList.length} onPage={setSigPage} />
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" />Actions due (all assignees)</h2>
                 <div className="bg-card border border-border rounded-xl divide-y divide-border">
-                  {today.actionsDue.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No open actions.</div>}
-                  {today.actionsDue.map((a: any) => (
+                  {dueList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No open actions.</div>}
+                  {pagedDue.map((a: any) => (
                     <button key={a.id} onClick={() => openRisk(a.riskId)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                       <div className="min-w-0"><div className="text-sm text-foreground truncate">{a.title}</div><div className="text-xs text-muted-foreground">{a.assignee} · due {a.due}</div></div>
                       <span className={`text-[10px] uppercase px-2 py-1 rounded ${a.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{a.status}</span>
                     </button>
                   ))}
                 </div>
+                <Pager page={dueSafe} pages={duePages} total={dueList.length} onPage={setDuePage} />
               </div>
             </div>
           </div>
@@ -133,16 +187,18 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
           <div>
             <GovHead q="Which patterns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
             <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 mb-6">
-              {patterns.within.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
-              {patterns.within.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+              {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
+              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
             </div>
-            <h2 className="text-sm font-semibold text-foreground mb-1 flex items-center gap-2"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
+            <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
+            <h2 className="text-sm font-semibold text-foreground mb-1 mt-6 flex items-center gap-2"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
             <p className="text-xs text-muted-foreground mb-2">The same theme in more than one service — what an inspector means by systemic.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {patterns.across.length === 0 && <p className="text-sm text-muted-foreground">No cross-service patterns detected.</p>}
-              {patterns.across.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
+              {acrossList.length === 0 && <p className="text-sm text-muted-foreground">No cross-service patterns detected.</p>}
+              {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
             </div>
+            <Pager page={acrossSafe} pages={acrossPages} total={acrossList.length} onPage={setPatAPage} />
           </div>
         )}
 
@@ -156,13 +212,14 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
             </div>
             <div className="space-y-2">
               {registerRows.length === 0 && <div className="bg-card border border-border rounded-xl p-8 text-center text-sm text-muted-foreground">Nothing here.</div>}
-              {registerRows.map((r: any) => (
+              {pagedReg.map((r: any) => (
                 <button key={r.id} onClick={() => openRisk(r.id)} className="w-full text-left bg-card border border-border rounded-xl p-4 flex items-center justify-between gap-4 hover:border-primary/40">
                   <div className="min-w-0"><div className="text-sm font-medium text-foreground truncate">{r.theme}{r.person !== "—" ? ` · ${r.person}` : ""}</div><div className="text-xs text-muted-foreground">{r.houses.join(", ") || "—"} · {r.openActions} open action(s)</div></div>
                   <div className="flex items-center gap-3 shrink-0"><Traj t={r.trajectory} /><ChevronRight className="w-4 h-4 text-muted-foreground/40" /></div>
                 </button>
               ))}
             </div>
+            <Pager page={regSafe} pages={regPages} total={registerRows.length} onPage={setRegPage} />
           </div>
         )}
 
@@ -171,13 +228,14 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
             <GovHead q={stage === "actions" ? "Is delegated work getting done across my services?" : "Which controls are due a verdict — and are they working?"} sub="A view, not a second copy — each item belongs to a risk. Open it there." />
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
               {lens.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nothing here.</div>}
-              {lens.map((row: any) => (
+              {pagedLens.map((row: any) => (
                 <button key={row.key} onClick={() => openRisk(row.riskId)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                   <div className="min-w-0"><div className="text-sm text-foreground truncate">{row.title}</div><div className="text-xs text-muted-foreground truncate">{row.meta}</div></div>
                   {stage === "actions" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.status}</span> : <span className="text-xs text-primary">Rate →</span>}
                 </button>
               ))}
             </div>
+            <Pager page={lensPageSafe} pages={lensTotalPages} total={lens.length} onPage={setLensPage} />
           </div>
         )}
 

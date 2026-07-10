@@ -314,7 +314,7 @@ export function WeeklyReview() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="max-w-4xl mx-auto pt-28 p-6">
+      <div className="w-full pt-28 p-6">
         <div className="flex items-center gap-3 mb-5">
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
           <div>
