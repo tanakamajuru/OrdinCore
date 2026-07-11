@@ -461,8 +461,8 @@ export function IncidentDetail() {
             <h2 className="text-xl  mb-4 text-foreground">Incident Information</h2>
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Incident ID</p>
-                <p className="text-foreground">{incident.id}</p>
+                <p className="text-sm text-muted-foreground mb-1">Reference</p>
+                <p className="text-foreground">#{(incident.id || '').slice(0, 8).toUpperCase()}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Service ID</p>

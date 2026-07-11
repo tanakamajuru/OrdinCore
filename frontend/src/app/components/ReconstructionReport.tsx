@@ -171,7 +171,7 @@ export function ReconstructionReport() {
       const res = await apiClient.post('/reports/request', requestPayload);
       const data = (res.data as any).data || (res.data as any);
       
-      alert(`Report generation requested! You can download it from the Reports page once ready. (ID: ${data.id || 'N/A'})`);
+      alert(`Report generation requested! You can download it from the Reports page once ready.`);
       navigate('/reports');
     } catch (err: any) {
       console.error('Failed to request report:', err);
@@ -262,7 +262,7 @@ export function ReconstructionReport() {
             </Button>
             <div>
               <h1 className="text-3xl  text-foreground">Governance Reconstruction Report</h1>
-              <p className="text-muted-foreground">Official oversight documentation for {incident.id}</p>
+              <p className="text-muted-foreground">Official oversight documentation for {incident.title || 'this incident'}</p>
             </div>
           </div>
           

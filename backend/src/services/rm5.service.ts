@@ -112,7 +112,7 @@ export const rm5Service = {
   async actionsLens(company_id: string) {
     return (await query(
       `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
-              (COALESCE(r.strategic_theme, r.title) || ' (' || r.id || ') · '
+              (COALESCE(r.strategic_theme, r.title) || ' · '
                 || COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned')
                 || ' · due ' || COALESCE(to_char(a.due_date,'DD Mon'),'—')) AS meta, a.status
          FROM risk_actions a JOIN risks r ON r.id = a.risk_id
@@ -126,7 +126,7 @@ export const rm5Service = {
   async effectivenessLens(company_id: string) {
     return (await query(
       `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
-              (COALESCE(r.strategic_theme, r.title) || ' (' || r.id || ') · completed '
+              (COALESCE(r.strategic_theme, r.title) || ' · completed '
                 || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
          FROM risk_actions a JOIN risks r ON r.id = a.risk_id
         WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL

@@ -372,7 +372,6 @@ const PatientDrawer = ({
                       <p className="text-sm font-medium text-foreground">
                         {p.display_name || `${p.first_name} ${p.last_name}`}
                       </p>
-                      <p className="text-xs text-muted-foreground">ID: {p.id.slice(0, 8)}…</p>
                     </div>
                   </div>
                   <button
