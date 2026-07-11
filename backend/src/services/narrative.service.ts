@@ -44,9 +44,8 @@ function templateFallback(req: NarrativeRequest): string {
   const json = JSON.stringify(req.data ?? {}, null, 2);
   return (
     `${req.reportTitle}${scope}${period}.\n\n` +
-    `An AI narrative is not configured on this server (set NARRATIVE_API_KEY to enable ` +
-    `auto-drafted prose). The structured data below is provided for the registered ` +
-    `manager to summarise manually:\n\n${json}`
+    `Auto-drafted narrative is not available for this report. The structured governance ` +
+    `data below is provided for the registered manager to review and summarise:\n\n${json}`
   );
 }
 
