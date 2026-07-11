@@ -421,7 +421,11 @@ export class RisksService {
       `SELECT COUNT(*)::int AS count FROM risk_signal_links WHERE cluster_id = $1`,
       [data.cluster_id]
     );
-    const linkedSignals = linkCountRes.rows[0]?.count ?? Number(cluster.signal_count) ?? 0;
+    // COUNT() returns 0 (not null) when a cluster has no direct risk_signal_links — which
+    // is the case for a cross-service (systemic) cluster whose evidence lives on its
+    // per-service child clusters. Fall back to the cluster's own signal_count (the figure
+    // the RM actually sees) so a genuine cross-service pattern isn't blocked as "0 signals".
+    const linkedSignals = linkCountRes.rows[0]?.count || Number(cluster.signal_count) || 0;
     const criticalRes = await query(
       `SELECT 1
          FROM risk_signal_links rsl
@@ -443,14 +447,21 @@ export class RisksService {
     // signals (attributed + dated), not a fixed template, so the inspector sees what
     // was actually observed.
     const sigRows = (await query(
-      `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.severity
+      `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.entry_time, gp.severity
          FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
         WHERE rsl.cluster_id = $1 ORDER BY gp.entry_date ASC, gp.entry_time ASC`,
       [data.cluster_id]
     )).rows;
+    // Each point carries date AND time, and points are blank-line separated so the
+    // governance description reads clearly rather than as one crowded block.
+    const stamp = (s: any) => {
+      const d = s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : '';
+      const t = s.entry_time ? String(s.entry_time).slice(0, 5) : '';
+      return [d, t].filter(Boolean).join(' ');
+    };
     const composed = sigRows.length
-      ? `Promoted from pattern detection — ${sigRows.length} linked signal(s):\n` +
-        sigRows.map((s: any) => `• ${s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : ''} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n')
+      ? `Promoted from pattern detection — ${sigRows.length} linked signal(s):\n\n` +
+        sigRows.map((s: any) => `• ${stamp(s)} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n\n')
       : data.description;
 
     const risk = await this.create(company_id, user_id, {
@@ -467,7 +478,9 @@ export class RisksService {
     await query('UPDATE signal_clusters SET cluster_status = $1, linked_risk_id = $2, promoted_at = NOW() WHERE id = $3',
       ['Escalated', risk.id, data.cluster_id]);
 
-    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Signal Cluster ${data.cluster_id}`, user_id);
+    await risksRepo.addEvent(risk.id, company_id, 'Promotion',
+      `Promoted from signal pattern${cluster.risk_domain ? ` — ${cluster.risk_domain}` : ''}${cluster.linked_person ? ` (${cluster.linked_person})` : ''}`,
+      user_id);
 
     // Close the loop back to the raw signals: every pulse behind this cluster is now evidence
     // on a formal risk, so mark it Linked — removing it from the daily oversight / governance

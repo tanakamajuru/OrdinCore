@@ -24,6 +24,7 @@ export function WeeklyReview() {
 
   const [houses, setHouses] = useState<any[]>([]);
   const [houseId, setHouseId] = useState("");
+  const [weekEnding, setWeekEnding] = useState(new Date().toISOString().split("T")[0]);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -47,7 +48,7 @@ export function WeeklyReview() {
   const myAck = acks?.roster?.find((r: any) => r.id === myId);
 
   useEffect(() => { loadHouses(); }, []);
-  useEffect(() => { if (houseId) loadReview(houseId); }, [houseId, id]);
+  useEffect(() => { if (houseId) loadReview(houseId); }, [houseId, id, weekEnding]);
 
   const loadHouses = async () => {
     try {
@@ -63,7 +64,6 @@ export function WeeklyReview() {
   const loadReview = async (hid: string) => {
     try {
       setIsLoading(true);
-      const weekEnding = new Date().toISOString().split("T")[0];
       const [pv, es] = await Promise.all([
         apiClient.get(`/weekly-reviews/preview?house_id=${hid}&week_ending=${weekEnding}`),
         apiClient.get(`/escalations/stats`).catch(() => ({})),
@@ -109,7 +109,7 @@ export function WeeklyReview() {
   const persist = async (nextStep: number, extra: any = {}) => {
     const res = await apiClient.post(`/weekly-reviews`, {
       house_id: houseId,
-      week_ending: new Date().toISOString().split("T")[0],
+      week_ending: weekEnding,
       content: form,
       step_reached: nextStep + 1,
       ...extra,
@@ -242,11 +242,20 @@ export function WeeklyReview() {
     switch (step) {
       case 0: return (
         <div>
-          <label className="block text-sm font-medium mb-2">Service scope</label>
-          <select value={houseId} onChange={(e) => setHouseId(e.target.value)} disabled={locked}
-            className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary">
-            {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-          </select>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium mb-2">Service scope</label>
+              <select value={houseId} onChange={(e) => setHouseId(e.target.value)} disabled={locked}
+                className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary">
+                {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm font-medium mb-2">Week ending</label>
+              <input type="date" value={weekEnding} onChange={(e) => setWeekEnding(e.target.value)} disabled={locked}
+                className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary" />
+            </div>
+          </div>
           {preview?.week_range && <p className="text-xs text-muted-foreground mt-2">Reviewing {preview.week_range.start} → {preview.week_range.end}.</p>}
         </div>
       );

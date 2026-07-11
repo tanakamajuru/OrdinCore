@@ -152,14 +152,21 @@ export function RiskPromotion() {
 
     setIsSubmitting(true);
     try {
-      await apiClient.post('/risks/dismiss', {
-        candidate_id: candidateId,
-        reason: formData.reason
-      });
-      toast.success("Risk candidate dismissed");
-      navigate('/governance-dashboard');
+      // A candidate is dismissed via /risks/dismiss; a signal cluster has no candidate_id
+      // and is dismissed via /clusters/:id/dismiss. Sending candidate_id for a cluster
+      // returned "candidate_id and reason are required".
+      if (candidateId) {
+        await apiClient.post('/risks/dismiss', { candidate_id: candidateId, reason: formData.reason });
+      } else if (clusterId) {
+        await apiClient.post(`/clusters/${clusterId}/dismiss`, { reason: formData.reason });
+      } else {
+        toast.error("No source to dismiss (candidate_id or cluster_id).");
+        return;
+      }
+      toast.success("Pattern dismissed");
+      navigate('/rm5');
     } catch (err: any) {
-      toast.error(err.data?.message || "Failed to dismiss candidate");
+      toast.error(err?.data?.message || err?.message || "Failed to dismiss");
     } finally {
       setIsSubmitting(false);
     }

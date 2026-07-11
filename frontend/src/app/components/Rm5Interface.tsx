@@ -253,7 +253,17 @@ function PatternCard({ p, onPromote }: { p: any; onPromote: (p: any) => void }) 
       {p.scope === "cross_service" && <div className="text-[11px] text-indigo-600 mt-0.5 flex items-center gap-1"><Network className="w-3 h-3" />{p.houses.join(" · ")}</div>}
       <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: p.threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(p.signalCount, p.threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
       <p className="text-[11px] text-muted-foreground mb-2">{p.hasCritical && p.signalCount < p.threshold ? "Critical — ready" : ready ? "Threshold met — ready to promote" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} signals`}</p>
-      <button onClick={() => onPromote(p)} className="w-full text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">{p.promotedRiskId ? "View risk" : "Promote to risk"}</button>
+      {p.promotedRiskId ? (
+        <div className="flex gap-2">
+          <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary bg-primary/10 rounded px-2.5 py-1.5 hover:bg-primary/20">View risk</button>
+        </div>
+      ) : ready ? (
+        <div className="flex gap-2">
+          <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Promote to risk</button>
+        </div>
+      ) : (
+        <button disabled className="w-full text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
+      )}
     </div>
   );
 }

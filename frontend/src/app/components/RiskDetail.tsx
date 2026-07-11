@@ -48,6 +48,7 @@ interface Action {
   verified_at_ri?: string;
   verification_notes?: string;
   effectiveness?: string;
+  effectiveness_outcome?: string;
 }
 
 interface TimelineEntry {
@@ -100,7 +101,7 @@ export function RiskDetail() {
   const [isVerifying, setIsVerifying] = useState(false);
   
   const [showEffectivenessAction, setShowEffectivenessAction] = useState<string | null>(null);
-  const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Ineffective">("Effective");
+  const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Partially Effective" | "Not Effective">("Effective");
   const [effectivenessEvidence, setEffectivenessEvidence] = useState("");
   const [effectivenessFile, setEffectivenessFile] = useState<File | null>(null);
   const [isRating, setIsRating] = useState(false);
@@ -376,7 +377,7 @@ export function RiskDetail() {
     setIsRating(true);
     try {
       await apiClient.post(`/risks/${id}/actions/${showEffectivenessAction}/effectiveness`, {
-        effectiveness: effectivenessRating,
+        outcome: effectivenessRating,
         evidence: effectivenessEvidence.trim(),
       });
       // Optional supporting document (JPG/PDF) → stored as an evidence attachment on the risk.
@@ -542,7 +543,7 @@ export function RiskDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-card border-2 border-border p-6 shadow-sm">
                 <h2 className="text-xs  uppercase text-muted-foreground mb-4 tracking-widest">Governance Description</h2>
-                <p className="text-lg  leading-relaxed">{risk.description}</p>
+                <p className="text-base leading-relaxed whitespace-pre-line">{risk.description}</p>
             </div>
             <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
                 <h2 id="rd-origin" className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
@@ -550,7 +551,7 @@ export function RiskDetail() {
                     <div className="space-y-4">
                         <div className=" text-primary">Source Cluster: {risk.source_cluster_name}</div>
                         <p className="text-sm text-muted-foreground ">"Evidence promoted from Signal Cluster via RM Decision Protocol."</p>
-                        <button onClick={() => navigate(`/patterns`)} className="text-xs  uppercase text-primary underline underline-offset-4">
+                        <button onClick={() => navigate(`/rm5`)} className="text-xs  uppercase text-primary underline underline-offset-4">
                             View Source Pattern
                         </button>
                     </div>
@@ -562,14 +563,10 @@ export function RiskDetail() {
             </div>
           </div>
 
-          {/* Impact & Mitigation — editable (CQC analysis fields) */}
-          <div className="grid grid-cols-2 gap-6">
+          {/* Impact — editable (CQC analysis field) */}
+          <div className="grid grid-cols-1 gap-6">
             {assessmentCard('impact', 'Impact', 'What could happen if this risk is not controlled?')}
-            {assessmentCard('mitigation', 'Mitigation Plan', 'What are you doing to control it?')}
           </div>
-
-          {/* Root Cause — editable */}
-          {assessmentCard('rootCause', 'Root Cause Analysis', 'Why did this arise? Underlying/contributing factors.')}
 
           {/* Actions */}
           <div className="bg-card border-2 border-border p-6">
@@ -621,9 +618,14 @@ export function RiskDetail() {
                                     RI VERIFIED
                                 </div>
                             )}
-                            {action.effectiveness && (
-                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs  uppercase   ${action.effectiveness === 'Effective' ? 'bg-success text-primary-foreground' : 'bg-destructive text-primary-foreground'}`}>
-                                    {action.effectiveness}
+                            {(action.effectiveness_outcome || action.effectiveness) && (
+                                <div className={`flex items-center gap-1.5 px-2 py-1 text-xs  uppercase   ${(() => {
+                                    const e = (action.effectiveness_outcome || action.effectiveness || '').toLowerCase();
+                                    return e === 'effective' ? 'bg-success text-primary-foreground'
+                                      : (e.includes('partial') || e === 'neutral') ? 'bg-amber-500 text-white'
+                                      : 'bg-destructive text-primary-foreground';
+                                })()}`}>
+                                    {action.effectiveness_outcome || action.effectiveness}
                                 </div>
                             )}
                         </div>
@@ -724,9 +726,13 @@ export function RiskDetail() {
                     </div>
                     <div className="flex-1 pb-6">
                       <p className="text-sm text-muted-foreground">
-                        {entry.created_at ? new Date(entry.created_at).toLocaleDateString('en-GB') : 'N/A'}
+                        {entry.created_at ? new Date(entry.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
                       </p>
-                      <p className="text-foreground">{entry.description}</p>
+                      <p className="text-foreground">{(entry.description || '')
+                        .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
+                        .replace(/signal cluster/i, 'signal pattern')
+                        .replace(/\s{2,}/g, ' ')
+                        .trim()}</p>
                       <p className="text-sm text-muted-foreground">{entry.created_by_name || 'Unknown'}</p>
                     </div>
                   </div>
@@ -987,22 +993,30 @@ export function RiskDetail() {
                 Did this action effectively mitigate the risk or prevent recurrence?
             </p>
 
-            <div className="flex gap-4 mb-8">
+            <div className="flex gap-3 mb-8">
                 <button
                     onClick={() => setEffectivenessRating('Effective')}
-                    className={`flex-1 py-3  uppercase tracking-widest border-2 transition-all ${
+                    className={`flex-1 py-3 text-sm uppercase tracking-wide border-2 transition-all ${
                         effectivenessRating === 'Effective' ? 'bg-success text-primary-foreground border-success' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
                     Effective
                 </button>
                 <button
-                    onClick={() => setEffectivenessRating('Ineffective')}
-                    className={`flex-1 py-3  uppercase tracking-widest border-2 transition-all ${
-                        effectivenessRating === 'Ineffective' ? 'bg-destructive text-primary-foreground border-destructive' : 'bg-card text-foreground border-border hover:bg-muted'
+                    onClick={() => setEffectivenessRating('Partially Effective')}
+                    className={`flex-1 py-3 text-sm uppercase tracking-wide border-2 transition-all ${
+                        effectivenessRating === 'Partially Effective' ? 'bg-amber-500 text-white border-amber-500' : 'bg-card text-foreground border-border hover:bg-muted'
                     }`}
                 >
-                    Ineffective
+                    Partially
+                </button>
+                <button
+                    onClick={() => setEffectivenessRating('Not Effective')}
+                    className={`flex-1 py-3 text-sm uppercase tracking-wide border-2 transition-all ${
+                        effectivenessRating === 'Not Effective' ? 'bg-destructive text-primary-foreground border-destructive' : 'bg-card text-foreground border-border hover:bg-muted'
+                    }`}
+                >
+                    Not Effective
                 </button>
             </div>
 
