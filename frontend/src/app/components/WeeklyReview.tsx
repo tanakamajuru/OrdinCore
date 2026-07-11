@@ -11,7 +11,7 @@ import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, User
 const STEPS = [
   "Scope", "Signal Volume", "Pattern Summary", "Cluster Review", "Risk Touchpoint",
   "Action Effectiveness", "Escalations", "Safeguarding", "Medication", "Workforce",
-  "Leadership Interpretation", "Overall Position", "Narrative",
+  "Overall Position", "Narrative",
 ];
 const POSITIONS = ["Stable", "Watch", "Concern", "Escalating", "Serious Concern"];
 
@@ -120,8 +120,7 @@ export function WeeklyReview() {
   };
 
   const validateStep = (s: number): string | null => {
-    if (s === 10 && !form.step8_interpretation?.trim()) return "Add your leadership interpretation.";
-    if (s === 11 && !form.step14_overall_position) return "Choose an overall governance position.";
+    if (s === 10 && !form.step14_overall_position) return "Choose an overall governance position.";
     return null;
   };
 
@@ -130,7 +129,7 @@ export function WeeklyReview() {
     if (err) { toast.error(err); return; }
     setIsSaving(true);
     try {
-      if (step < 12) { await persist(step + 1); setStep(step + 1); setDoneStep(Math.max(doneStep, step + 1)); window.scrollTo(0, 0); }
+      if (step < 11) { await persist(step + 1); setStep(step + 1); setDoneStep(Math.max(doneStep, step + 1)); window.scrollTo(0, 0); }
     } catch { toast.error("Failed to save progress"); }
     finally { setIsSaving(false); }
   };
@@ -270,12 +269,6 @@ export function WeeklyReview() {
       case 9: return <p className="text-sm leading-7"><b>{domainCount("workforce") + domainCount("staffing")}</b> workforce / staffing signal{(domainCount("workforce") + domainCount("staffing")) === 1 ? "" : "s"} recorded.</p>;
       case 10: return (
         <div>
-          <label className="block text-sm font-medium mb-2">Leadership interpretation (your words)</label>
-          <textarea className={area} disabled={locked} value={form.step8_interpretation || ""} onChange={(e) => set("step8_interpretation", e.target.value)} placeholder="What does this week mean for safety and quality?" />
-        </div>
-      );
-      case 11: return (
-        <div>
           <label className="block text-sm font-medium mb-2">Overall governance position</label>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {POSITIONS.map((p) => (
@@ -285,14 +278,14 @@ export function WeeklyReview() {
           </div>
         </div>
       );
-      case 12: {
+      case 11: {
         const antItems = (form.anticipated_risks?.items ?? preview?.anticipated ?? []) as any[];
         const setAnt = (items: any[], note?: string) => set("anticipated_risks", { items, rm_note: note ?? (form.anticipated_risks?.rm_note || "") });
         return (
         <div>
           <p className="text-sm text-muted-foreground mb-2">Finalising locks the record permanently.</p>
           <div className="bg-muted/40 rounded-lg p-4 text-sm leading-7 mb-3">
-            This week {auto.pulse_count ?? 0} signals produced {repeats.length} threshold pattern{repeats.length === 1 ? "" : "s"} and {activeRisks.length} register entr{activeRisks.length === 1 ? "y" : "ies"}. Leadership position: <b>{form.step14_overall_position || "—"}</b>.{form.step8_interpretation ? ` Interpretation: "${form.step8_interpretation}"` : ""}
+            This week {auto.pulse_count ?? 0} signals produced {repeats.length} threshold pattern{repeats.length === 1 ? "" : "s"} and {activeRisks.length} register entr{activeRisks.length === 1 ? "y" : "ies"}. Leadership position: <b>{form.step14_overall_position || "—"}</b>.
           </div>
           <label className="block text-sm font-medium mb-2">Governance narrative <span className="text-amber-600 font-normal">(your own words — required)</span></label>
           <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="The defensible account of what leadership understood and decided this week…" />
@@ -453,7 +446,7 @@ export function WeeklyReview() {
 
           {/* Step body */}
           <div className={`${card} flex-1`}>
-            <div className="text-xs text-muted-foreground mb-1">Step {step + 1} of 13</div>
+            <div className="text-xs text-muted-foreground mb-1">Step {step + 1} of 12</div>
             <h2 className="text-xl text-foreground font-semibold mb-3">{STEPS[step]}</h2>
             {isAuto && <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded px-2 py-1 mb-3"><Activity size={12} /> Auto-populated from this week's data</div>}
             <div className="mb-4">{stepBody()}</div>
@@ -466,8 +459,8 @@ export function WeeklyReview() {
                     <button onClick={() => doValidate("Approved")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm">Approve</button>
                   </>
                 )}
-                {!locked && step < 12 && <button onClick={advance} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">Confirm & continue <ArrowRight size={14} /></button>}
-                {!locked && step === 12 && <button onClick={finalise} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">{userRole === "REGISTERED_MANAGER" ? "Finalise & lock" : "Lock & publish"} <Lock size={14} /></button>}
+                {!locked && step < 11 && <button onClick={advance} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">Confirm & continue <ArrowRight size={14} /></button>}
+                {!locked && step === 11 && <button onClick={finalise} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">{userRole === "REGISTERED_MANAGER" ? "Finalise & lock" : "Lock & publish"} <Lock size={14} /></button>}
                 {locked && <span className="text-sm text-emerald-700 flex items-center gap-1.5"><Check size={16} /> {status === "pending_validation" ? "Finalised — awaiting validation" : "Locked"}</span>}
               </div>
             </div>

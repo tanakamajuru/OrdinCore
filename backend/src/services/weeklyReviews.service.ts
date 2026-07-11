@@ -15,8 +15,9 @@ export class WeeklyReviewsService {
       step15_narrative: 'Governance Narrative',
     };
     const mandatoryFields: Record<number, string[]> = {
-      11: ['step8_interpretation'],    // required before leaving step 11
-      12: ['step14_overall_position'], // required before leaving step 12
+      // Leadership Interpretation was retired from the review; only the overall position
+      // is gated now, required before the narrative / finalise step.
+      11: ['step14_overall_position'],
     };
 
     const required = mandatoryFields[targetStep - 1] || [];
