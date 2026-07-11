@@ -87,12 +87,15 @@ export class RisksController {
       const company_id = req.user!.company_id!;
       const risk = await risksService.findById(req.params.id, company_id);
       
-      // Enforce house scope restriction for service-level roles. Block only risks that are
-      // scoped to ANOTHER site; company-level risks with no single house (strategic /
-      // cross-service) carry house_id = null and are surfaced to the RM in the register,
-      // so they stay openable — company_id isolation already applies via findById above.
+      // House-scope restriction applies to TEAM_LEADER only. The Registered Manager is a
+      // company-level, cross-service oversight role in OrdinCore: the RM5 register, pipeline
+      // and weekly review are all company-scoped and surface risks across every service the
+      // RM governs (including strategic / cross-service risks with house_id = null). Since
+      // the register already lists those risks to the RM, blocking the detail view would be
+      // inconsistent and produced spurious 404s — company_id isolation (enforced in findById
+      // above) is the real tenant boundary. Team Leaders remain restricted to their sites.
       const userRole = req.user!.role?.toUpperCase() || '';
-      if (['TEAM_LEADER', 'REGISTERED_MANAGER'].includes(userRole)) {
+      if (userRole === 'TEAM_LEADER') {
         const userHouseIds = req.user!.assigned_house_ids || [];
         if (risk.house_id && !userHouseIds.includes(risk.house_id)) {
           return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
