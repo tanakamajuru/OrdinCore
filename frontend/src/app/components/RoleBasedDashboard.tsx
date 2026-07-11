@@ -4,7 +4,6 @@ import { ResponsibleIndividualDashboard } from "./ResponsibleIndividualDashboard
 import { DirectorDashboard } from "./DirectorDashboard";
 import { TeamLeaderDashboard } from "./TeamLeaderDashboard";
 import { Rm5Interface } from "./Rm5Interface";
-import { RegisteredManagerDashboard } from "./RegisteredManagerDashboard";
 
 export function RoleBasedDashboard() {
   const navigate = useNavigate();
@@ -29,9 +28,8 @@ export function RoleBasedDashboard() {
     case 'TEAM_LEADER':
       return <TeamLeaderDashboard />;
     case 'REGISTERED_MANAGER':
-      // The RM lands on the metrics dashboard (live, system-wide cards). The 5-screen
-      // pipeline spine remains available at /rm5.
-      return <RegisteredManagerDashboard />;
+      // The RM lands on the 5-screen pipeline spine (Today as home).
+      return <Rm5Interface initialScreen="today" />;
     case 'RESPONSIBLE_INDIVIDUAL':
       return <ResponsibleIndividualDashboard />;
     case 'DIRECTOR':

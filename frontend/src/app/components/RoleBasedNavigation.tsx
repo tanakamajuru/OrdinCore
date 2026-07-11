@@ -74,7 +74,6 @@ export function RoleBasedNavigation() {
         // the pipeline ribbon; Escalations via the risk and /escalation-log (deep links
         // survive — nothing is route-deleted).
         return [
-          { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },

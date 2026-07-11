@@ -178,10 +178,23 @@ export function RiskDetail() {
   const loadRiskDetails = async (riskId: string) => {
     try {
       setIsLoading(true);
+      // Clear any detail from a previously-viewed risk so stale data can never
+      // bleed through while the new risk loads (or if a load fails).
+      setRisk(null);
+      setActions([]);
+      setTimeline([]);
 
       // Load risk details
       const riskRes = await apiClient.get(`/risks/${riskId}`);
       const riskData = (riskRes.data as any).data || (riskRes.data as any);
+      // Guard: only accept the response if it is the risk we asked for — never
+      // render a different risk than the one in the URL.
+      if (riskData && riskData.id && String(riskData.id) !== String(riskId)) {
+        console.error(`RiskDetail id mismatch: requested ${riskId}, got ${riskData.id}`);
+        toast.error('Loaded the wrong risk — please retry.');
+        setRisk(null);
+        return;
+      }
       setRisk(riskData);
       
       // Load actions for this risk
