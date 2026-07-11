@@ -57,6 +57,21 @@ npm install --legacy-peer-deps
 chmod -R 755 node_modules/.bin
 npm run build
 
+# Publish the built SPA to the live Apache docroot. The build lands in
+# frontend/dist, but Apache serves the app from FRONTEND_DOCROOT — copying is
+# what actually makes a frontend change go live. Only index.html + assets are
+# replaced; .htaccess (SPA rewrite + API proxy) and .well-known are preserved.
+FRONTEND_DOCROOT="/home/ordin/public_html/work.ordincore.co.uk"
+if [[ -d "$FRONTEND_DOCROOT" ]]; then
+  log "Frontend: publish to live docroot ($FRONTEND_DOCROOT)"
+  rm -rf "$FRONTEND_DOCROOT/assets"
+  cp -a dist/assets "$FRONTEND_DOCROOT/assets"
+  cp -af dist/index.html "$FRONTEND_DOCROOT/index.html"
+  chown -R ordin:ordin "$FRONTEND_DOCROOT/assets" "$FRONTEND_DOCROOT/index.html"
+else
+  echo "WARNING: $FRONTEND_DOCROOT not found — frontend NOT published."
+fi
+
 # ---------- Landing page ----------
 log "Landing page: install + build + publish"
 cd "$APP_ROOT/landing-page"
@@ -66,9 +81,15 @@ npm run build
 mkdir -p "$LANDING_DIST"
 cp -rf dist/* "$LANDING_DIST/"
 
-# ---------- Nginx ----------
-log "Reloading nginx"
-nginx -t && systemctl reload nginx
+# ---------- Web server reload (best-effort) ----------
+# This box serves via Apache (httpd), not nginx. A code deploy changes no web
+# config, so a reload isn't strictly required (static files + pm2 already
+# updated) — do it best-effort and never fail the deploy on it.
+log "Reloading web server (best-effort)"
+( httpd -t 2>/dev/null && systemctl reload httpd 2>/dev/null && echo "httpd reloaded" ) \
+  || ( apachectl -t 2>/dev/null && apachectl graceful 2>/dev/null && echo "apache gracefully reloaded" ) \
+  || ( nginx -t 2>/dev/null && systemctl reload nginx 2>/dev/null && echo "nginx reloaded" ) \
+  || echo "web server reload skipped (static files are served directly)"
 
 log "Done. Quick health check:"
 pm2 list
