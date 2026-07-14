@@ -5,12 +5,20 @@ import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History } from "lucide-react";
 
-// 13-step Weekly Governance Review wizard (per the doctrine/JSX MVP). Steps unlock in
-// order; steps 2–10 auto-populate from the week's data; the RM supplies interpretation,
-// overall position and narrative, then finalises (locks) for RI/Director validation.
-const STEPS = [
+// 12-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
+// auto-populate from the week's data; the RM supplies overall position and
+// narrative, then finalises (locks) for RI/Director validation.
+//
+// The three "domain spotlight" steps (8–10) are sector-aware: a Supported Living
+// service reviews Safeguarding / Medication / Workforce, while a Domiciliary round
+// reviews Safeguarding / Visit Reliability / Care Continuity — the domains its
+// sector-specific signal library actually captures.
+const buildSteps = (isDomiciliary: boolean) => [
   "Scope", "Signal Volume", "Pattern Summary", "Cluster Review", "Risk Touchpoint",
-  "Action Effectiveness", "Escalations", "Safeguarding", "Medication", "Workforce",
+  "Action Effectiveness", "Escalations",
+  "Safeguarding",
+  isDomiciliary ? "Visit Reliability" : "Medication",
+  isDomiciliary ? "Care Continuity" : "Workforce",
   "Overall Position", "Narrative",
 ];
 const POSITIONS = ["Stable", "Watch", "Concern", "Escalating", "Serious Concern"];
@@ -105,6 +113,13 @@ export function WeeklyReview() {
     const ds = Array.isArray(s.risk_domain) ? s.risk_domain : [s.risk_domain];
     return ds.some((d: any) => String(d || "").toLowerCase().includes(needle));
   }).length;
+
+  // The selected service's sector drives the sector-aware step labels and the three
+  // domain spotlight steps. Domiciliary rounds and Supported Living houses both live in
+  // the houses list, distinguished by house.sector.
+  const selectedSector = String(houses.find((h) => h.id === houseId)?.sector || "SUPPORTED_LIVING").toUpperCase();
+  const isDomiciliary = selectedSector === "DOMICILIARY";
+  const STEPS = buildSteps(isDomiciliary);
 
   const persist = async (nextStep: number, extra: any = {}) => {
     const res = await apiClient.post(`/weekly-reviews`, {
@@ -246,7 +261,19 @@ export function WeeklyReview() {
               <label className="block text-sm font-medium mb-2">Service scope</label>
               <select value={houseId} onChange={(e) => setHouseId(e.target.value)} disabled={locked}
                 className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary">
-                {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                {(() => {
+                  const dom = houses.filter((h: any) => String(h.sector || "").toUpperCase() === "DOMICILIARY");
+                  const sl = houses.filter((h: any) => String(h.sector || "SUPPORTED_LIVING").toUpperCase() !== "DOMICILIARY");
+                  // Group only when the company runs both sectors; a single-sector provider
+                  // just gets a flat list (no redundant single-group header).
+                  if (dom.length && sl.length) return (
+                    <>
+                      <optgroup label="Supported Living">{sl.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}</optgroup>
+                      <optgroup label="Domiciliary Care">{dom.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>)}</optgroup>
+                    </>
+                  );
+                  return houses.map((h: any) => <option key={h.id} value={h.id}>{h.name}</option>);
+                })()}
               </select>
             </div>
             <div>
@@ -265,8 +292,12 @@ export function WeeklyReview() {
       case 5: return <p className="text-sm leading-7">Action effectiveness is rated in the Action Tracker; two consecutive Ineffective ratings push a risk back into escalation. {activeRisks.length} risk{activeRisks.length === 1 ? "" : "s"} have linked actions.</p>;
       case 6: return <p className="text-sm leading-7"><b>{escStats?.open ?? escStats?.total ?? 0}</b> open escalation{(escStats?.open ?? 0) === 1 ? "" : "s"}, each carrying an SLA due date and swept for overdue.</p>;
       case 7: return <p className="text-sm leading-7"><b>{domainCount("safeguard")}</b> safeguarding signal{domainCount("safeguard") === 1 ? "" : "s"}. Any single safeguarding signal triggers immediate review.</p>;
-      case 8: return <p className="text-sm leading-7"><b>{domainCount("medication")}</b> medication governance signal{domainCount("medication") === 1 ? "" : "s"} this week.</p>;
-      case 9: return <p className="text-sm leading-7"><b>{domainCount("workforce") + domainCount("staffing")}</b> workforce / staffing signal{(domainCount("workforce") + domainCount("staffing")) === 1 ? "" : "s"} recorded.</p>;
+      case 8: return isDomiciliary
+        ? <p className="text-sm leading-7"><b>{domainCount("visit")}</b> visit-reliability signal{domainCount("visit") === 1 ? "" : "s"} (missed, late or short calls) this week. Any pattern here is a direct risk to people receiving care at home.</p>
+        : <p className="text-sm leading-7"><b>{domainCount("medication")}</b> medication governance signal{domainCount("medication") === 1 ? "" : "s"} this week.</p>;
+      case 9: return isDomiciliary
+        ? <p className="text-sm leading-7"><b>{domainCount("continuity")}</b> care-continuity signal{domainCount("continuity") === 1 ? "" : "s"} (care plan not followed, handover gaps, missed double-ups) recorded.</p>
+        : <p className="text-sm leading-7"><b>{domainCount("workforce") + domainCount("staffing")}</b> workforce / staffing signal{(domainCount("workforce") + domainCount("staffing")) === 1 ? "" : "s"} recorded.</p>;
       case 10: return (
         <div>
           <label className="block text-sm font-medium mb-2">Overall governance position</label>
@@ -321,7 +352,7 @@ export function WeeklyReview() {
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
-            <p className="text-sm text-muted-foreground">13 sequential steps · sections 2–10 auto-populate · locked after finalisation.</p>
+            <p className="text-sm text-muted-foreground">12 sequential steps · sections 2–10 auto-populate · locked after finalisation.{isDomiciliary ? " Domiciliary care service." : ""}</p>
           </div>
         </div>
 
