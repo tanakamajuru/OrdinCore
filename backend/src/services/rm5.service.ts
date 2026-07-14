@@ -49,6 +49,7 @@ export const rm5Service = {
       risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
       actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),
       effectiveness: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND completed_at IS NOT NULL AND effectiveness_outcome IS NULL`),
+      escalations: await one(`SELECT COUNT(*) n FROM escalations WHERE company_id=$1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')`),
     };
   },
 
@@ -131,6 +132,29 @@ export const rm5Service = {
          FROM risk_actions a JOIN risks r ON r.id = a.risk_id
         WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL
         ORDER BY a.completed_at ASC`,
+      [company_id]
+    )).rows;
+  },
+
+  // Escalations lens — open escalations the RM must resolve, each linking back to its risk.
+  async escalationsLens(company_id: string) {
+    return (await query(
+      `SELECT e.id AS key, e.risk_id AS "riskId",
+              COALESCE(r.strategic_theme, r.title, i.title, 'Escalation') AS title,
+              (COALESCE(h.name, '—')
+                || ' · ' || COALESCE(NULLIF(e.priority,''), 'Standard')
+                || ' · raised ' || COALESCE(to_char(e.created_at,'DD Mon'),'—')
+                || COALESCE(' · ' || NULLIF(u.first_name || ' ' || u.last_name, ' '), '')) AS meta,
+              COALESCE(e.lifecycle_status::text, e.status) AS status,
+              (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue
+         FROM escalations e
+         LEFT JOIN risks r ON r.id = e.risk_id
+         LEFT JOIN incidents i ON i.id = e.incident_id
+         LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
+         LEFT JOIN users u ON u.id = e.escalated_to
+        WHERE e.company_id = $1
+          AND COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','resolved','closed')
+        ORDER BY (e.due_by IS NOT NULL AND e.due_by < NOW()) DESC, e.created_at DESC`,
       [company_id]
     )).rows;
   },

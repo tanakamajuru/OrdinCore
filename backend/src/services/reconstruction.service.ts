@@ -38,19 +38,26 @@ export class ReconstructionService {
       [companyId, id, startTs, endTs]
     );
 
-    // Governance reviews + escalations + closures are scoped by service where
-    // a direct link exists; theme/client scopes fall back to time window.
+    // Governance reviews are service-level, not person-level. For a by-service
+    // reconstruction they are matched on the service; for by-theme/incident they fall
+    // back to the time window; for by-CLIENT they are excluded, because a service-wide
+    // review concerns every person in the service and would otherwise leak other people
+    // into one person's account.
     const reviews = await query(
       `SELECT 'review' AS item_type, gr.review_date AS event_time,
               gr.review_type AS theme, gr.what_is_happening AS description,
               gr.decision AS status, NULL::text AS related_person, gr.service_id AS house_id
        FROM governance_reviews gr
        WHERE gr.company_id = $1
-         AND ($2::text IS NULL OR gr.service_id::text = $2 OR $5 <> 'service')
+         AND (CASE WHEN $5 = 'service' THEN gr.service_id::text = $2
+                   WHEN $5 = 'client'  THEN FALSE
+                   ELSE TRUE END)
          AND gr.review_date BETWEEN $3 AND $4`,
       [companyId, scope === 'service' ? id : null, startTs, endTs, scope]
     );
 
+    // Escalations: by-service match the house; by-CLIENT restrict to escalations whose
+    // originating signal or linked risk names THAT person (never the whole company).
     const escalations = await query(
       `SELECT 'escalation' AS item_type, e.created_at AS event_time,
               e.reason AS theme,
@@ -58,10 +65,14 @@ export class ReconstructionService {
               COALESCE(e.lifecycle_status::text, e.status) AS status,
               NULL::text AS related_person, e.house_id
        FROM escalations e
+       LEFT JOIN governance_pulses ep ON ep.id = e.source_pulse_id
+       LEFT JOIN risks er ON er.id = e.risk_id
        WHERE e.company_id = $1
-         AND (CASE WHEN $5 = 'service' THEN e.house_id::text = $2 ELSE TRUE END)
+         AND (CASE WHEN $5 = 'service' THEN e.house_id::text = $2
+                   WHEN $5 = 'client'  THEN (ep.related_person::text = $6 OR er.linked_person::text = $6)
+                   ELSE TRUE END)
          AND e.created_at BETWEEN $3 AND $4`,
-      [companyId, id, startTs, endTs, scope]
+      [companyId, scope === 'service' ? id : null, startTs, endTs, scope, scope === 'client' ? id : null]
     );
 
     const timeline = [...signals.rows, ...reviews.rows, ...escalations.rows]

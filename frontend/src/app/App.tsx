@@ -31,7 +31,6 @@ import { IncidentDetail } from "./components/IncidentDetail";
 import { PulseDetail } from "./components/PulseDetail";
 import { GovernanceTimeline } from "./components/GovernanceTimeline";
 import { ReconstructionReport } from "./components/ReconstructionReport";
-import { CrossHousePatternDetection } from "./components/CrossHousePatternDetection";
 import { SignalDetail } from "./components/SignalDetail";
 import AdminDashboard from "./components/AdminDashboard";
 import AdminDashboardSimple from "./components/AdminDashboardSimple";
@@ -326,11 +325,9 @@ export default function App() {
               <ReconstructionReport />
             </ProtectedRoute>
           } />
-          <Route path="/patterns" element={
-            <ProtectedRoute>
-              <CrossHousePatternDetection />
-            </ProtectedRoute>
-          } />
+          {/* The standalone Patterns screen was retired — patterns now live inside the RM
+              pipeline (/rm5). Any old link or nav entry lands there. */}
+          <Route path="/patterns" element={<Navigate to="/rm5" replace />} />
           {/* Stage 4: the pipeline spine. /dashboard renders it as Today (home); /rm5 opens it at Pipeline. */}
           <Route path="/rm5" element={
             <ProtectedRoute>

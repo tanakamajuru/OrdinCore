@@ -211,6 +211,20 @@ export class RisksService {
       throw new Error('Risk is already escalated');
     }
 
+    // Belt-and-braces: never raise a second live escalation for a risk that already has an
+    // open one (guards against the status field drifting out of sync with the escalations
+    // table). A resolved/closed escalation does not block re-escalation.
+    const openEsc = await query(
+      `SELECT 1 FROM escalations
+        WHERE risk_id = $1 AND company_id = $2
+          AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')
+        LIMIT 1`,
+      [risk_id, company_id]
+    );
+    if (openEsc.rows.length) {
+      throw new Error('An open escalation already exists for this risk.');
+    }
+
     // Find default target if missing
     let target = data.escalated_to;
     if (!target) {

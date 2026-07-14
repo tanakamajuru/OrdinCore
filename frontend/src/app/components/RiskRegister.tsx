@@ -47,7 +47,7 @@ export function RiskRegister() {
   // If a redirecting role lands on the Emerging tab via a ?tab=emerging link, send them
   // straight to the canonical surface instead of rendering the (now-removed) inline list.
   useEffect(() => {
-    if (emergingRedirectsToPatterns && tab === "emerging") navigate("/patterns", { replace: true });
+    if (emergingRedirectsToPatterns && tab === "emerging") navigate("/rm5", { replace: true });
   }, [emergingRedirectsToPatterns, tab, navigate]);
 
   const load = async () => {
@@ -117,7 +117,7 @@ export function RiskRegister() {
         {/* Tabs */}
         <div className="flex flex-wrap gap-2 mb-4 border-b border-border">
           {tabs.map((t) => (
-            <button key={t.key} onClick={() => (t.key === "emerging" && emergingRedirectsToPatterns ? navigate("/patterns") : setTab(t.key))}
+            <button key={t.key} onClick={() => (t.key === "emerging" && emergingRedirectsToPatterns ? navigate("/rm5") : setTab(t.key))}
               className={`px-4 py-2 text-sm flex items-center gap-2 border-b-2 -mb-px transition-colors ${tab === t.key ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
               <t.icon className="w-4 h-4" /> {t.label}
               {t.key === "emerging" && emergingRedirectsToPatterns
@@ -166,7 +166,17 @@ export function RiskRegister() {
                             (() => { const cd = r.closedAt || r.closed_at; const cb = r.closedBy || r.closed_by;
                               return cd ? `${new Date(cd).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}${cb ? ` · ${cb}` : ''}` : (cb || "—"); })()
                           ) : (
-                            r.nextReview ? new Date(r.nextReview).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"
+                            r.nextReview ? (() => {
+                              const due = new Date(r.nextReview);
+                              const label = due.toLocaleDateString("en-GB", { day: "2-digit", month: "short" });
+                              const days = Math.floor((Date.now() - due.getTime()) / 86400000);
+                              return (
+                                <span className="inline-flex items-center gap-1.5">
+                                  {label}
+                                  {days > 0 && <span className="text-[10px] font-medium rounded px-1.5 py-0.5 bg-red-100 text-red-700">{days}d overdue</span>}
+                                </span>
+                              );
+                            })() : "—"
                           )}
                         </td>
                       )}

@@ -41,6 +41,9 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
         pattern_reduced: patternReduced,
         actions_completed: actionsOk,
         effectiveness_reviewed: effOk,
+        // Closing means the concern is resolved here — by definition no further escalation
+        // is required (raising it higher is the separate "Escalate further" action).
+        further_escalation_required: false,
         closure_reason: "Closed after evidence-based review",
         evidence: evidence.trim(),
       };

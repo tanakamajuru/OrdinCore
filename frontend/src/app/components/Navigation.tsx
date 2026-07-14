@@ -32,7 +32,6 @@ export function Navigation() {
     { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
     { path: "/escalation-log", label: "Escalation Log", icon: Users },
     { path: "/incidents", label: "Incidents", icon: Shield },
-    { path: "/patterns", label: "Patterns", icon: Network },
     { path: "/trends", label: "Trends", icon: TrendingUp },
 
     { path: "/reports", label: "Reports", icon: FileDown },

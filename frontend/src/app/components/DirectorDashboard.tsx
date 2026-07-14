@@ -151,8 +151,8 @@ export function DirectorDashboard() {
   heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; });
   const heatThemes = heatmap.length
     ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map()).entries())
-        .sort((a, b) => b[1] - a[1]).slice(0, 5).map((e) => e[0])
-    : topThemes;
+        .sort((a, b) => b[1] - a[1]).slice(0, 6).map((e) => e[0])
+    : topThemes.slice(0, 6);
   const heatServices = heatmap.length
     ? Array.from(new Map(heatmap.map((h: any) => [h.service_id, { id: h.service_id, name: h.service_name }])).values()).slice(0, 7)
     : servicesWithRisk;
@@ -187,24 +187,24 @@ export function DirectorDashboard() {
             footer={<span className="text-muted-foreground">rising risk</span>} />
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-xs">
-                <thead>
-                  <tr><th className="text-left p-2 text-muted-foreground">Service</th>{heatThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
-                </thead>
-                <tbody>
-                  {heatServices.map(s => (
-                    <tr key={s.id}><td className="p-2 font-medium whitespace-nowrap">{s.name}</td>{heatThemes.map(t => <HeatCell key={t} trend={trendFor(s.id, t)} />)}</tr>
-                  ))}
-                  {heatServices.length === 0 && <tr><td colSpan={heatThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
+        {/* Risk Heat Map — full width so every service row and theme column is visible
+            at once, without horizontal scrolling. */}
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
+          <h3 className="font-semibold mb-4">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
+          <table className="w-full text-xs table-fixed">
+            <thead>
+              <tr><th className="text-left p-2 text-muted-foreground w-40">Service</th>{heatThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
+            </thead>
+            <tbody>
+              {heatServices.map(s => (
+                <tr key={s.id}><td className="p-2 font-medium truncate">{s.name}</td>{heatThemes.map(t => <HeatCell key={t} trend={trendFor(s.id, t)} />)}</tr>
+              ))}
+              {heatServices.length === 0 && <tr><td colSpan={heatThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
+            </tbody>
+          </table>
+        </div>
 
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold mb-4">Risks by Trend</h3>
             <Donut data={[

@@ -49,6 +49,10 @@ interface Action {
   verification_notes?: string;
   effectiveness?: string;
   effectiveness_outcome?: string;
+  completion_outcome?: string;
+  completion_rationale?: string;
+  completion_note?: string;
+  completed_at?: string;
 }
 
 interface TimelineEntry {
@@ -950,6 +954,14 @@ export function RiskDetail() {
                 I confirm that I have reviewed the evidence for this action and verified it has been implemented correctly in accordance with company policy.
             </p>
 
+            {(() => { const a = actions.find(x => x.id === showVerifyAction); return a && (a.completion_rationale || a.completion_note) ? (
+              <div className="mb-6 p-4 bg-muted/40 border border-border rounded-lg">
+                <p className="text-[10px] uppercase text-muted-foreground mb-1.5 tracking-widest">Team leader's account{a.completion_outcome ? ` · ${a.completion_outcome}` : ''}{a.completed_at ? ` · ${new Date(a.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''}</p>
+                {a.completion_rationale && <p className="text-sm text-foreground whitespace-pre-line">{a.completion_rationale}</p>}
+                {a.completion_note && <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{a.completion_note}</p>}
+              </div>
+            ) : null; })()}
+
             <div className="space-y-4">
               <div>
                 <label className="block text-[10px]  uppercase text-muted-foreground mb-1 tracking-widest">Verification Notes</label>
@@ -992,6 +1004,14 @@ export function RiskDetail() {
             <p className="text-sm  mb-6">
                 Did this action effectively mitigate the risk or prevent recurrence?
             </p>
+
+            {(() => { const a = actions.find(x => x.id === showEffectivenessAction); return a && (a.completion_rationale || a.completion_note) ? (
+              <div className="mb-6 p-4 bg-muted/40 border border-border rounded-lg">
+                <p className="text-[10px] uppercase text-muted-foreground mb-1.5 tracking-widest">Team leader's account{a.completion_outcome ? ` · ${a.completion_outcome}` : ''}{a.completed_at ? ` · ${new Date(a.completed_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''}</p>
+                {a.completion_rationale && <p className="text-sm text-foreground whitespace-pre-line">{a.completion_rationale}</p>}
+                {a.completion_note && <p className="text-sm text-muted-foreground mt-2 whitespace-pre-line">{a.completion_note}</p>}
+              </div>
+            ) : null; })()}
 
             <div className="flex gap-3 mb-8">
                 <button

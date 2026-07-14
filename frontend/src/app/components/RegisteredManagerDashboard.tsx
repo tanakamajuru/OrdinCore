@@ -142,7 +142,7 @@ export function RegisteredManagerDashboard() {
 
   const jumpTo: { icon: any; label: string; path: string; tone: string }[] = [
     { icon: Activity, label: "Daily Oversight", path: "/governance-dashboard", tone: "text-blue-600" },
-    { icon: Eye, label: "Patterns", path: "/patterns", tone: "text-indigo-600" },
+    { icon: Eye, label: "Pipeline", path: "/rm5", tone: "text-indigo-600" },
     { icon: AlertTriangle, label: "Oversight Register", path: "/risk-register", tone: "text-emerald-600" },
     { icon: ClipboardCheck, label: "Actions", path: "/my-actions", tone: "text-red-600" },
     { icon: TrendingUp, label: "Effectiveness", path: "/effectiveness", tone: "text-violet-600" },

@@ -162,7 +162,7 @@ export function DailyOversightBoard() {
 
         {/* Patterns hand-off — the single canonical cluster/promotion surface */}
         <button
-          onClick={() => navigate('/patterns')}
+          onClick={() => navigate('/rm5')}
           className="w-full mb-8 flex items-center justify-between gap-3 p-4 bg-card border-2 border-primary/30 hover:border-primary rounded-lg transition-all text-left"
         >
           <div className="flex items-center gap-3 min-w-0">

@@ -100,7 +100,6 @@ export function RoleBasedNavigation() {
           { path: "/service-review-rollup", label: "Review Roll-up", icon: Layers },
           { path: "/reconstruction", label: "Reconstruction", icon: Layers },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
-          { path: "/patterns", label: "Patterns", icon: Eye },
           { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },

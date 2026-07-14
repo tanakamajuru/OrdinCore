@@ -77,6 +77,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         else if (screen === "pipeline" && stage === "register") setRegisterRows(unwrap(await apiClient.get(`/rm/register?type=${regType}`)) || []);
         else if (screen === "pipeline" && stage === "actions") setLens(unwrap(await apiClient.get("/rm/actions")) || []);
         else if (screen === "pipeline" && stage === "effectiveness") setLens(unwrap(await apiClient.get("/rm/effectiveness")) || []);
+        else if (screen === "pipeline" && stage === "escalations") setLens(unwrap(await apiClient.get("/rm/escalations")) || []);
       } catch { toast.error("Failed to load"); }
       finally { setLoading(false); }
     };
@@ -93,12 +94,14 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
     ["signals", "Signals", counts.signals || 0, Zap], ["patterns", "Patterns", counts.patterns || 0, Layers],
     ["risks", "Risks", counts.risks || 0, ShieldAlert], ["actions", "Actions", counts.actions || 0, ClipboardList],
     ["effectiveness", "Effectiveness", counts.effectiveness || 0, TrendingUp],
+    ["escalations", "Escalations", counts.escalations || 0, Ambulance],
   ];
   const ribbonGo = (k: string) => {
     if (k === "signals") { setScreen("today"); return; }
     setScreen("pipeline"); setStage(k === "risks" ? "register" : k);
   };
   const openRisk = (id: string) => id && navigate(`/risk-register/${id}`);
+  const openSignal = (id: string) => id && navigate(`/governance-pulse/${id}`);
   const promote = (p: any) => p.promotedRiskId ? openRisk(p.promotedRiskId) : navigate(`/risks/promote?cluster_id=${p.id}`, { state: { cluster_id: p.id } });
 
   const lensTotalPages = Math.max(1, Math.ceil(lens.length / PAGE));
@@ -151,17 +154,17 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
         {!loading && screen === "today" && (
           <div>
-            <GovHead q="What needs me now?" sub="Today's high-priority signals (48h) and everything open against me — each links to its risk." />
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <GovHead q="What needs me now?" sub="Today's high-priority signals (48h) and everything open against me — open a signal to read it, or an action to jump to its risk." />
+            <div className="space-y-6">
               <div>
                 <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-red-600" />High-priority signals</h2>
                 <div className="bg-card border border-border rounded-xl divide-y divide-border">
                   {sigList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No High/Critical signals in the last 48 hours.</div>}
                   {pagedSignals.map((s: any) => (
-                    <div key={s.id} className="px-4 py-3 flex items-center justify-between gap-3">
+                    <button key={s.id} onClick={() => openSignal(s.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                       <div className="min-w-0"><div className="text-sm text-foreground truncate">{s.house} · {s.person}</div><div className="text-xs text-muted-foreground truncate">{s.note}</div></div>
-                      <div className="flex items-center gap-2 shrink-0"><Sev s={s.sev} /><span className="text-xs text-muted-foreground">{s.d}</span></div>
-                    </div>
+                      <div className="flex items-center gap-2 shrink-0"><Sev s={s.sev} /><span className="text-xs text-muted-foreground">{s.d}</span><ChevronRight className="w-4 h-4 text-muted-foreground/40" /></div>
+                    </button>
                   ))}
                 </div>
                 <Pager page={sigSafe} pages={sigPages} total={sigList.length} onPage={setSigPage} />
@@ -223,15 +226,23 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
           </div>
         )}
 
-        {!loading && screen === "pipeline" && (stage === "actions" || stage === "effectiveness") && (
+        {!loading && screen === "pipeline" && (stage === "actions" || stage === "effectiveness" || stage === "escalations") && (
           <div>
-            <GovHead q={stage === "actions" ? "Is delegated work getting done across my services?" : "Which controls are due a verdict — and are they working?"} sub="A view, not a second copy — each item belongs to a risk. Open it there." />
+            <GovHead
+              q={stage === "actions" ? "Is delegated work getting done across my services?"
+                : stage === "effectiveness" ? "Which controls are due a verdict — and are they working?"
+                : "What has been escalated and still needs resolving?"}
+              sub={stage === "escalations"
+                ? "Open one to see its risk — logs, controls and effectiveness are all on the risk record."
+                : "A view, not a second copy — each item belongs to a risk. Open it there."} />
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
               {lens.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nothing here.</div>}
               {pagedLens.map((row: any) => (
-                <button key={row.key} onClick={() => openRisk(row.riskId)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
+                <button key={row.key} onClick={() => row.riskId ? openRisk(row.riskId) : navigate("/escalation-log")} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                   <div className="min-w-0"><div className="text-sm text-foreground truncate">{row.title}</div><div className="text-xs text-muted-foreground truncate">{row.meta}</div></div>
-                  {stage === "actions" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.status}</span> : <span className="text-xs text-primary">Rate →</span>}
+                  {stage === "actions" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.status}</span>
+                    : stage === "escalations" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.overdue ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.overdue ? "Overdue" : row.status}</span>
+                    : <span className="text-xs text-primary">Rate →</span>}
                 </button>
               ))}
             </div>

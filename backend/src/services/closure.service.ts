@@ -39,8 +39,8 @@ export class ClosureService {
         (company_id, escalation_id, reviewed_by, pattern_reduced, actions_completed,
          effectiveness_reviewed, further_escalation_required, closure_decision, evidence)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'Close',$8)`,
-      [companyId, escalationId, userId, input.pattern_reduced, input.actions_completed,
-       input.effectiveness_reviewed, input.further_escalation_required, input.evidence]
+      [companyId, escalationId, userId, !!input.pattern_reduced, !!input.actions_completed,
+       !!input.effectiveness_reviewed, !!input.further_escalation_required, input.evidence]
     );
 
     const result = await query(
@@ -74,8 +74,8 @@ export class ClosureService {
         (company_id, risk_id, reviewed_by, pattern_reduced, actions_completed,
          effectiveness_reviewed, further_escalation_required, closure_decision, evidence)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'Close',$8)`,
-      [companyId, riskId, userId, input.pattern_reduced, input.actions_completed,
-       input.effectiveness_reviewed, input.further_escalation_required, input.evidence]
+      [companyId, riskId, userId, !!input.pattern_reduced, !!input.actions_completed,
+       !!input.effectiveness_reviewed, !!input.further_escalation_required, input.evidence]
     );
 
     const result = await query(

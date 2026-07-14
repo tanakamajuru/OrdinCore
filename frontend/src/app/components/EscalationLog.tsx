@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity } from "lucide-react";
 import { Button } from "./ui/button";
@@ -42,6 +42,7 @@ const firstDomain = (d?: string[] | string): string => {
 };
 
 export function EscalationLog() {
+  const navigate = useNavigate();
   const [escalations, setEscalations] = useState<Escalation[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEscalation, setSelectedEscalation] = useState<Escalation | null>(null);
@@ -323,6 +324,13 @@ export function EscalationLog() {
                       <label className="text-xs  uppercase text-muted-foreground block mb-1">Risk Context</label>
                       <h4 className=" text-primary">{selectedEscalation.risk_title}</h4>
                       <p className="text-sm text-muted-foreground mt-1">{selectedEscalation.risk_description}</p>
+                      {selectedEscalation.risk_id && (
+                        <button
+                          onClick={() => navigate(`/risk-register/${selectedEscalation.risk_id}`)}
+                          className="mt-2 inline-flex items-center gap-1.5 text-sm text-primary font-medium hover:underline">
+                          View full risk record — controls, action logs & effectiveness <ChevronRight className="w-4 h-4" />
+                        </button>
+                      )}
                     </div>
 
                     <div>
