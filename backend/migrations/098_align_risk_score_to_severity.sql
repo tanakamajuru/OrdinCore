@@ -9,17 +9,17 @@
 -- Idempotent: only rewrites rows still sitting on the legacy default (likelihood = impact = 3)
 -- so any risk that was manually scored is left untouched.
 UPDATE risks
-   SET likelihood = CASE lower(severity)
+   SET likelihood = CASE lower(severity::text)
                       WHEN 'critical' THEN 5
                       WHEN 'high'     THEN 4
                       WHEN 'low'      THEN 2
                       ELSE 3
                     END,
-       impact     = CASE lower(severity)
+       impact     = CASE lower(severity::text)
                       WHEN 'critical' THEN 5
                       WHEN 'high'     THEN 4
                       WHEN 'low'      THEN 2
                       ELSE 3
                     END
  WHERE likelihood = 3 AND impact = 3
-   AND lower(severity) IN ('critical','high','low');
+   AND lower(severity::text) IN ('critical','high','low');
