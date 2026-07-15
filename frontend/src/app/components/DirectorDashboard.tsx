@@ -115,6 +115,14 @@ export function DirectorDashboard() {
   );
 
   const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
+  // A risk's theme is its governance domain (risk_domain may be a text[] — take the first),
+  // falling back to an explicit strategic theme, then the title. Grouping by this makes the
+  // panel aggregate real themes rather than one bucket per unique risk title.
+  const themeOf = (r: any) => {
+    const d = r.risk_domain;
+    const domain = Array.isArray(d) ? d[0] : d;
+    return (r.strategic_theme || domain || r.title || "").toString().trim();
+  };
   const trendOf = (r: any) => r.trend || r.trajectory || "Stable";
   const rising = openRisks.filter(r => isRising(trendOf(r))).length;
   const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
@@ -133,10 +141,10 @@ export function DirectorDashboard() {
   const actionsDue = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
 
   const themeCount: Record<string, number> = {};
-  openRisks.forEach(r => { const t = r.strategic_theme || r.risk_domain || r.title; if (t) themeCount[t] = (themeCount[t] || 0) + 1; });
+  openRisks.forEach(r => { const t = themeOf(r); if (t) themeCount[t] = (themeCount[t] || 0) + 1; });
   const topThemes = Object.entries(themeCount).sort((a, b) => b[1] - a[1]).slice(0, 5).map(([t]) => t);
   const worstTrend = (svcId: string, theme: string) => {
-    const rs = openRisks.filter(r => r.house_id === svcId && (r.strategic_theme || r.risk_domain || r.title) === theme);
+    const rs = openRisks.filter(r => r.house_id === svcId && themeOf(r) === theme);
     if (rs.length === 0) return undefined;
     if (rs.some(r => isRising(trendOf(r)))) return "Rising";
     if (rs.some(r => trendOf(r) === "Stable")) return "Stable";
@@ -245,8 +253,8 @@ export function DirectorDashboard() {
             <h3 className="font-semibold mb-4">Top Risk Themes <span className="text-xs text-muted-foreground font-normal">(by services affected)</span></h3>
             <div className="space-y-2">
               {topThemes.map(t => {
-                const svcs = new Set(openRisks.filter(r => (r.strategic_theme || r.risk_domain || r.title) === t).map(r => r.house_id)).size;
-                const trend = openRisks.some(r => (r.strategic_theme || r.risk_domain || r.title) === t && isRising(trendOf(r))) ? "Rising" : "Stable";
+                const svcs = new Set(openRisks.filter(r => themeOf(r) === t).map(r => r.house_id)).size;
+                const trend = openRisks.some(r => themeOf(r) === t && isRising(trendOf(r))) ? "Rising" : "Stable";
                 return (
                   <div key={t} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
                     <div><div className="font-medium">{t}</div><div className="text-xs text-muted-foreground">{svcs} service{svcs !== 1 ? "s" : ""}</div></div>

@@ -93,5 +93,35 @@ export async function trajectoryForRisk(risk_id?: string | null, source_cluster_
     signalSeriesForCluster(source_cluster_id),
     effectivenessOutcomesForRisk(risk_id),
   ]);
-  return computeTrajectory(points, outcomes);
+  const t = computeTrajectory(points, outcomes);
+
+  // Safety floor — identical to the one the pattern board applies to clusters, so the SAME
+  // concern never reads calmer on the risk detail / register than it does as a pattern. An
+  // OPEN risk that carries a Critical signal or sits in the Safeguarding domain can never
+  // show better than Deteriorating. Closed/Resolved risks are left as computed (a resolved
+  // safeguarding risk should be allowed to read Improving).
+  if (risk_id && t.direction !== 'Deteriorating') {
+    try {
+      const f = (await query(
+        `SELECT
+           (r.status NOT IN ('Closed','Resolved')) AS open,
+           (r.risk_domain::text ILIKE '%safeguard%') AS is_safeguarding,
+           EXISTS (SELECT 1 FROM risk_signal_links rsl
+                     JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+                    WHERE rsl.risk_id = r.id AND gp.severity = 'Critical') AS has_critical
+           FROM risks r WHERE r.id = $1`,
+        [risk_id]
+      )).rows[0];
+      if (f && f.open && (f.has_critical || f.is_safeguarding)) {
+        return {
+          direction: 'Deteriorating',
+          basis: f.has_critical
+            ? 'Critical signal on this risk — held at Deteriorating until controlled.'
+            : 'Safeguarding domain — held at Deteriorating until controlled.',
+          points: t.points,
+        };
+      }
+    } catch { /* floor is best-effort — never let it break a trajectory read */ }
+  }
+  return t;
 }

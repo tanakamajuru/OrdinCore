@@ -285,7 +285,7 @@ export const risksRepo = {
   async addAttachment(risk_id: string, company_id: string, data: { file_name: string; file_url: string; file_type?: string; file_size?: number; uploaded_by: string }) {
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO risk_attachments (id, risk_id, company_id, file_name, file_url, file_type, file_size, uploaded_by)
+      `INSERT INTO risk_attachments (id, risk_id, company_id, file_name, file_url, mime_type, file_size, uploaded_by)
        VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
       [id, risk_id, company_id, data.file_name, data.file_url, data.file_type || null, data.file_size || 0, data.uploaded_by]
     );

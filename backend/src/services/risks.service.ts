@@ -7,6 +7,18 @@ import { notificationsService } from './notifications.service';
 import { trajectoryForRisk } from './trajectory.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
+// Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
+// (likelihood × impact) always agrees with the severity badge: Critical→25, High→16,
+// Medium/Moderate→9, Low→4. Used at promotion so a Critical risk never scores like a Low one.
+export function severityToScore(severity?: string): { likelihood: number; impact: number } {
+  switch (String(severity || '').toLowerCase()) {
+    case 'critical': return { likelihood: 5, impact: 5 };
+    case 'high': return { likelihood: 4, impact: 4 };
+    case 'low': return { likelihood: 2, impact: 2 };
+    default: return { likelihood: 3, impact: 3 }; // Medium / Moderate
+  }
+}
+
 export class RisksService {
   async create(company_id: string, created_by: string, data: {
     house_id: string; title: string; description?: string; severity?: string; category_id?: string;
@@ -478,8 +490,26 @@ export class RisksService {
         sigRows.map((s: any) => `• ${stamp(s)} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n\n')
       : data.description;
 
+    // Make severity, likelihood/impact and the derived risk_score agree from the outset.
+    // Previously every promotion hard-coded likelihood=impact=3 (score 9) regardless of the
+    // signal severity, and the mobile path hard-coded severity 'Medium' — so a Critical and a
+    // Low risk both scored 9. Derive severity from the evidence (a Critical signal wins; else
+    // the strongest linked signal), then set likelihood/impact from that severity so the
+    // score band matches the badge.
+    const sevRank: Record<string, number> = { critical: 4, high: 3, medium: 2, moderate: 2, low: 1 };
+    const maxSev = sigRows.reduce((m: number, s: any) => Math.max(m, sevRank[String(s.severity || '').toLowerCase()] || 0), 0);
+    const effectiveSeverity = hasCritical ? 'Critical'
+      : maxSev >= 3 ? 'High'
+      : (data.severity && data.severity !== 'Medium') ? data.severity
+      : maxSev === 2 ? 'Medium'
+      : (data.severity || 'Medium');
+    const li = severityToScore(effectiveSeverity);
+
     const risk = await this.create(company_id, user_id, {
       ...data,
+      severity: effectiveSeverity,
+      likelihood: li.likelihood,
+      impact: li.impact,
       description: composed || data.description,
       source_cluster_id: data.cluster_id,
       status: 'Open',
@@ -608,15 +638,18 @@ export class RisksService {
       ? data.reason.trim()
       : `Single-signal promotion (${isSafeguarding ? 'safeguarding 1/1' : `${sig.severity} severity`}): ${String(sig.description || '').slice(0, 600)}`;
 
+    const effectiveSeverity = data.severity || sig.severity || 'High';
+    const li = severityToScore(effectiveSeverity);
     const risk = await this.create(company_id, user_id, {
       house_id: sig.house_id,
       title: data.title || `Risk: ${domain || sig.signal_type || 'Signal'}${sig.related_person ? ' — ' + sig.related_person : ''}`,
       description: data.description || sig.description,
-      severity: data.severity || sig.severity || 'High',
+      severity: effectiveSeverity,
       trajectory: data.trajectory || 'Stable',
       category_id: data.category_id,
-      likelihood: data.likelihood,
-      impact: data.impact,
+      // Score follows severity (5×5 matrix) unless the caller supplied explicit figures.
+      likelihood: data.likelihood ?? li.likelihood,
+      impact: data.impact ?? li.impact,
       status: 'Open',
       risk_domain: domain || undefined,
       linked_person: sig.related_person || undefined,

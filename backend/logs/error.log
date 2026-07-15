@@ -6221,3 +6221,19 @@
     at Worker.bullmq_1.Worker.connection [as processFn] (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\src\workers\riAssurance.worker.ts:19:17)
     at Worker.processJob (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:741:22)
     at Worker.retryIfFailed (C:\Users\tanaka.majuru\Downloads\SAAS DOCS\Governance SaaS Application\backend\node_modules\bullmq\src\classes\worker.ts:944:16)
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779437754113 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for Maple Court to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for Rose House to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for Oak Lodge to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779437927188 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779438175292 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779438614935 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779439037878 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779439833920 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779440322991 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779440568772 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779440844275 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779441108356 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779441294152 to Director
+[OrdinCore] 2026-07-15 08:00:00 [error]: Escalating 72h absence for E2E House 1779441875730 to Director
