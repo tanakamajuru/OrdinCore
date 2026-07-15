@@ -66,17 +66,29 @@ export function RiskPromotion() {
         apiClient.get('/users')
       ]);
 
-      setCategories((catRes as any).data || catRes || []);
-      setUsers((uRes as any).data || uRes || []);
+      // Coerce to an array no matter what envelope the API returns ({data:[…]},
+      // {data:{items:[…]}}, {data:{users:[…]}} or a raw array) so a stray object can never
+      // crash a `.map`/`.filter` in render.
+      const toArr = (v: any): any[] =>
+        Array.isArray(v) ? v
+        : Array.isArray(v?.data) ? v.data
+        : Array.isArray(v?.users) ? v.users
+        : Array.isArray(v?.items) ? v.items
+        : Array.isArray(v?.data?.users) ? v.data.users
+        : Array.isArray(v?.data?.items) ? v.data.items
+        : [];
+      setCategories(toArr(catRes));
+      setUsers(toArr(uRes));
 
       if (candidateId) {
         const cRes = await apiClient.get(`/governance/risk-candidates?id=${candidateId}`);
         const candidate = (cRes as any).data?.[0];
         if (candidate) {
           setSourceData(candidate);
-          const matchedCategory = categories.find(c => 
-            c.name.toLowerCase().includes(candidate.risk_domain.toLowerCase()) || 
-            candidate.risk_domain.toLowerCase().includes(c.name.toLowerCase())
+          const candDomain = String(Array.isArray(candidate.risk_domain) ? candidate.risk_domain[0] : candidate.risk_domain || '');
+          const matchedCategory = categories.find(c =>
+            c.name.toLowerCase().includes(candDomain.toLowerCase()) ||
+            candDomain.toLowerCase().includes(c.name.toLowerCase())
           );
           
           setFormData(prev => ({ 
@@ -102,9 +114,10 @@ export function RiskPromotion() {
         }
         if (cluster) {
           setSourceData(cluster);
-          const matchedCategory = categories.find(c => 
-            c.name.toLowerCase().includes(cluster.risk_domain.toLowerCase()) || 
-            cluster.risk_domain.toLowerCase().includes(c.name.toLowerCase())
+          const clDomain = String(Array.isArray(cluster.risk_domain) ? cluster.risk_domain[0] : cluster.risk_domain || '');
+          const matchedCategory = categories.find(c =>
+            c.name.toLowerCase().includes(clDomain.toLowerCase()) ||
+            clDomain.toLowerCase().includes(c.name.toLowerCase())
           );
 
           setFormData(prev => ({ 

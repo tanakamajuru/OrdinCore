@@ -62,8 +62,10 @@ export function SignalDetail() {
     if (!canAllocate) return;
     (async () => {
       try {
-        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
-        const list = (res.data as any).data?.users ?? (res.data as any).data ?? [];
+        const res: any = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
+        const list: any[] = Array.isArray(res?.data?.users) ? res.data.users
+          : Array.isArray(res?.data) ? res.data
+          : Array.isArray(res) ? res : [];
         setTeamLeaders(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })));
       } catch (e: any) {
         // Finding C: surface the failure instead of a silent blank menu.

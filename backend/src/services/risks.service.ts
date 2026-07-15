@@ -430,12 +430,18 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
   }) {
     const clusterRes = await query(
-      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person FROM signal_clusters
+      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person, linked_risk_id FROM signal_clusters
        WHERE id = $1 AND company_id = $2`,
       [data.cluster_id, company_id]
     );
     if (clusterRes.rows.length === 0) throw new Error('Source cluster not found');
     const cluster = clusterRes.rows[0];
+
+    // Idempotency: a pattern that has already been promoted must not spawn a second risk.
+    // Point the caller at the existing risk instead of silently duplicating it.
+    if (cluster.linked_risk_id) {
+      throw new Error('This pattern has already been promoted to a risk — open it from "View risk".');
+    }
 
     // [GOVERNANCE] Promotion evidentiary floor (Doctrine §9 / correction.md §2.1):
     // a cluster may only be promoted to a formal risk if it has ≥3 linked signals,
