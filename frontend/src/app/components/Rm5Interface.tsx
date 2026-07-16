@@ -104,6 +104,22 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const openSignal = (id: string) => id && navigate(`/signals/${id}`);
   const promote = (p: any) => p.promotedRiskId ? openRisk(p.promotedRiskId) : navigate(`/risks/promote?cluster_id=${p.id}`, { state: { cluster_id: p.id } });
 
+  // Decide-on-the-board: an RM can dismiss a pattern (with a governance reason) without
+  // leaving the pipeline. The dismissed cluster drops off the board on reload.
+  const dismissPattern = async (p: any) => {
+    const reason = window.prompt(`Dismiss the ${p.domain} pattern${p.person && p.person !== "—" ? ` for ${p.person}` : ""}? Give a brief governance reason (min 10 characters):`);
+    if (reason === null) return;
+    if (reason.trim().length < 10) { toast.error("A dismissal reason of at least 10 characters is required."); return; }
+    try {
+      await apiClient.post(`/clusters/${p.id}/dismiss`, { reason: reason.trim() });
+      toast.success("Pattern dismissed");
+      setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
+      apiClient.get("/rm/counts").then((r) => setCounts(unwrap(r) || {})).catch(() => {});
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to dismiss pattern");
+    }
+  };
+
   const lensTotalPages = Math.max(1, Math.ceil(lens.length / PAGE));
   const lensPageSafe = Math.min(lensPage, lensTotalPages);
   const pagedLens = lens.slice((lensPageSafe - 1) * PAGE, lensPageSafe * PAGE);
@@ -192,14 +208,14 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
             <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
-              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
+              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} />)}
             </div>
             <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
             <h2 className="text-sm font-semibold text-foreground mb-1 mt-6 flex items-center gap-2"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
             <p className="text-xs text-muted-foreground mb-2">The same theme in more than one service — what an inspector means by systemic.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {acrossList.length === 0 && <p className="text-sm text-muted-foreground">No cross-service patterns detected.</p>}
-              {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} />)}
+              {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} />)}
             </div>
             <Pager page={acrossSafe} pages={acrossPages} total={acrossList.length} onPage={setPatAPage} />
           </div>
@@ -255,7 +271,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   );
 }
 
-function PatternCard({ p, onPromote }: { p: any; onPromote: (p: any) => void }) {
+function PatternCard({ p, onPromote, onDismiss }: { p: any; onPromote: (p: any) => void; onDismiss?: (p: any) => void }) {
   const ready = p.signalCount >= p.threshold || p.hasCritical;
   return (
     <div className="bg-card border-2 rounded-xl p-4" style={{ borderColor: p.scope === "cross_service" ? "#c7d2fe" : ready ? "#6ee7b7" : "var(--border, #e2e8f0)" }}>
@@ -271,9 +287,13 @@ function PatternCard({ p, onPromote }: { p: any; onPromote: (p: any) => void }) 
       ) : ready ? (
         <div className="flex gap-2">
           <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Promote to risk</button>
+          {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
         </div>
       ) : (
-        <button disabled className="w-full text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
+        <div className="flex gap-2">
+          <button disabled className="flex-1 text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
+          {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
+        </div>
       )}
     </div>
   );
