@@ -37,34 +37,44 @@ export class AnalyticsService {
 
   async getMultiHouseRiskTrends(company_id: string, days = 42) {
     try {
+      // Pivoting by the exact creation DAY left each house with data only on the odd day it
+      // happened to create a risk — so every service but the busiest rendered as isolated
+      // dots, not a line. Instead build a continuous CUMULATIVE weekly series: every service
+      // that has any risk in the window gets a value at every week (its running total), so
+      // each one plots as a proper trajectory line.
       const result = await query(
-        `SELECT 
-          r.created_at::date AS date,
-          h.name AS house_name,
-          COUNT(*) AS count
-         FROM risks r
-         JOIN houses h ON h.id = r.house_id
-         WHERE r.company_id = $1 AND r.created_at >= NOW() - INTERVAL '${days} days'
-         GROUP BY r.created_at::date, h.name
-         ORDER BY date, house_name`,
+        `SELECT r.created_at::date AS date, h.name AS house_name
+           FROM risks r
+           JOIN houses h ON h.id = r.house_id
+          WHERE r.company_id = $1 AND r.created_at >= NOW() - INTERVAL '${days} days'`,
         [company_id]
       );
 
-      const pivotedData: any[] = [];
-      const dateMap = new Map<string, any>();
-
-      result.rows.forEach((row: any) => {
-        const dateStr = (row.date instanceof Date ? row.date : new Date(row.date)).toISOString().split('T')[0];
-        if (!dateMap.has(dateStr)) {
-          dateMap.set(dateStr, { date: dateStr });
-          pivotedData.push(dateMap.get(dateStr));
-        }
-        const dateObj = dateMap.get(dateStr);
-        dateObj[row.house_name] = parseInt(row.count);
+      const weekCount = Math.max(1, Math.round(days / 7));
+      const now = new Date();
+      const weeks = Array.from({ length: weekCount }, (_, i) => {
+        const end = new Date(now);
+        end.setDate(now.getDate() - (weekCount - 1 - i) * 7);
+        const start = new Date(end);
+        start.setDate(end.getDate() - 6);
+        return { start, end, label: end.toISOString().split('T')[0] };
       });
 
       const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));
-      return { trends: pivotedData, houses: houseNames };
+      const cumulative: Record<string, number> = {};
+      houseNames.forEach((n) => { cumulative[n] = 0; });
+
+      const trends = weeks.map((w) => {
+        for (const row of result.rows) {
+          const d = row.date instanceof Date ? row.date : new Date(row.date);
+          if (d >= w.start && d <= w.end) cumulative[row.house_name] = (cumulative[row.house_name] || 0) + 1;
+        }
+        const point: any = { date: w.label };
+        houseNames.forEach((n) => { point[n] = cumulative[n]; });
+        return point;
+      });
+
+      return { trends, houses: houseNames };
     } catch (err) {
       logger.error('AnalyticsService.getMultiHouseRiskTrends failed:', err);
       throw err;

@@ -12,13 +12,15 @@ interface Props {
   // gate is shown as system-confirmed and locked, rather than a self-attest checkbox.
   derivedActionsComplete?: boolean;
   derivedEffectivenessReviewed?: boolean;
+  // The decision/notes the closer already wrote on the escalation — reused as the closure
+  // evidence so they don't have to type the same thing twice.
+  evidence?: string;
 }
 
-export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed }: Props) {
+export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, evidence }: Props) {
   const [patternReduced, setPatternReduced] = useState(false);
   const [actionsCompleted, setActionsCompleted] = useState(false);
   const [effectivenessReviewed, setEffectivenessReviewed] = useState(false);
-  const [evidence, setEvidence] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!open) return null;
@@ -30,13 +32,15 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
   const blocked =
     !actionsOk ? "All required actions must be complete." :
     !effOk ? "Effectiveness must be reviewed before closure." :
-    evidence.trim().length < 20 ? "Add closure evidence (at least 20 characters)." :
     null;
 
   const submit = async () => {
     if (blocked) { toast.error(blocked); return; }
     setBusy(true);
     try {
+      // Reuse the decision & notes already recorded on the escalation as the closure
+      // evidence; fall back to a standard phrase if none was written.
+      const evidenceText = (evidence || "").trim() || "Closed after evidence-based review — see decision & notes.";
       const payload = {
         pattern_reduced: patternReduced,
         actions_completed: actionsOk,
@@ -45,7 +49,7 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
         // is required (raising it higher is the separate "Escalate further" action).
         further_escalation_required: false,
         closure_reason: "Closed after evidence-based review",
-        evidence: evidence.trim(),
+        evidence: evidenceText,
       };
       if (target.type === "escalation") await apiClient.closeEscalation(target.id, payload);
       else await apiClient.closeRisk(target.id, payload);
@@ -99,12 +103,16 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
             <input type="checkbox" checked={patternReduced} onChange={(e) => setPatternReduced(e.target.checked)} className="mt-0.5" />
             <span>The pattern has reduced and the concern is resolved.</span>
           </label>
-          <div className="mt-3">
-            <label className="block text-sm font-medium mb-1">Closure evidence</label>
-            <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3} spellCheck
-              placeholder="Describe why closure is justified (min 20 characters)…"
-              className="w-full border border-border rounded-lg p-3 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary resize-none" />
-          </div>
+          {/* Evidence is taken from the "Decision & notes" already recorded on the escalation —
+              no need to write it a second time. Tick the gates and close. */}
+          {(evidence || "").trim() ? (
+            <div className="mt-3 bg-muted/40 border border-border rounded-lg p-3">
+              <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Closure evidence — from your decision &amp; notes</p>
+              <p className="text-sm text-foreground whitespace-pre-line">{evidence}</p>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-muted-foreground">Your decision &amp; notes on the escalation will be recorded as the closure evidence.</p>
+          )}
         </div>
 
         <div className="px-5 py-4 border-t border-border">

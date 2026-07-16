@@ -522,15 +522,18 @@ export class WeeklyReviewsService {
   // by a Director/RI (separation of duties from the RM per-site sign-offs).
   async signProviderRollup(company_id: string, week_ending: string, user_id: string, dto: { position?: string; statement?: string }) {
     const rollup = await this.providerRollup(company_id, week_ending);
-    if (rollup.outstanding.length > 0) {
-      throw new Error(`Provider sign-off blocked — ${rollup.outstanding.length} site(s) not yet finalised: ${rollup.outstanding.join(', ')}.`);
-    }
     const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0] || {};
     const company = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0] || {};
     const position = dto.position || rollup.provider_position;
+    // Sign-off is no longer hard-blocked by outstanding sites — leadership may sign the
+    // provider position at their discretion. The statement stays honest: it records how many
+    // sites were finalised at the time of sign-off and names any that were not.
+    const coverage = rollup.outstanding.length > 0
+      ? `${rollup.sites_finalised} of ${rollup.sites_total} services finalised (outstanding: ${rollup.outstanding.join(', ')})`
+      : `all ${rollup.sites_total} services finalised`;
     const statement = dto.statement ||
-      `I, ${me.name} (${me.role}), have reviewed the weekly governance across all ${rollup.sites_total} services of ` +
-      `${company.name} for the week ending ${week_ending} and acknowledge the provider-level position: ${position}.`;
+      `I, ${me.name} (${me.role}), have reviewed the weekly governance of ${company.name} for the week ending ` +
+      `${week_ending} — ${coverage} — and acknowledge the provider-level position: ${position}.`;
     const res = await query(
       `INSERT INTO provider_review_signoffs
          (company_id, week_ending, position, acknowledged_by, acknowledged_by_name, acknowledged_at, statement)

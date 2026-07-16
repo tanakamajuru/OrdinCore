@@ -120,10 +120,19 @@ export function RiskPromotion() {
             clDomain.toLowerCase().includes(c.name.toLowerCase())
           );
 
-          setFormData(prev => ({ 
-              ...prev, 
-              title: cluster.linked_person ? `${cluster.risk_domain}: ${cluster.linked_person}` : `Risk: ${cluster.cluster_label}`,
-              description: `Identified via OrdinCore pattern detection${cluster.linked_person ? ' for ' + cluster.linked_person : ''}. Includes ${cluster.signal_count} recent signals in ${cluster.risk_domain}.`,
+          const affectedNames: string[] = Array.isArray(cluster.affected_house_names) ? cluster.affected_house_names : [];
+          const isCrossService = cluster.scope === 'cross_service' || affectedNames.length > 1;
+          const scopeText = isCrossService
+            ? `across ${affectedNames.length || (cluster.affected_house_ids?.length ?? 0)} services${affectedNames.length ? ` (${affectedNames.join(', ')})` : ''}`
+            : `in ${cluster.house_name || 'this service'}`;
+          setFormData(prev => ({
+              ...prev,
+              title: isCrossService
+                ? `Systemic ${clDomain || cluster.cluster_label}`
+                : cluster.linked_person ? `${cluster.risk_domain}: ${cluster.linked_person}` : `Risk: ${cluster.cluster_label}`,
+              description: `Identified via OrdinCore pattern detection${cluster.linked_person ? ' for ' + cluster.linked_person : ''}. ` +
+                `Includes ${cluster.signal_count} recent ${clDomain || cluster.risk_domain} signal(s) ${scopeText}.` +
+                (isCrossService ? ' This is a systemic (cross-service) pattern — the same theme recurring in more than one service.' : ''),
               severity: cluster.severity || prev.severity,
               trajectory: cluster.trajectory || prev.trajectory,
               category_id: cluster.category_id || matchedCategory?.id || prev.category_id

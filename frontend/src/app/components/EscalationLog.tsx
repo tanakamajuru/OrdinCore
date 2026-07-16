@@ -234,9 +234,9 @@ export function EscalationLog() {
           <p className="text-muted-foreground">Cross-site oversight of high-risk escalations requiring RI attention</p>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 [&>*]:min-w-0">
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 [&>*]:min-w-0">
           {/* List Section */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="xl:col-span-3 space-y-4">
             {/* Filter tabs — organise the queue by what needs doing */}
             <div className="flex flex-wrap gap-2 mb-4">
               {([
@@ -312,9 +312,9 @@ export function EscalationLog() {
           </div>
 
           {/* Details & Actions Section */}
-          <div className="lg:col-span-1">
+          <div className="xl:col-span-2">
             {selectedEscalation ? (
-              <div className="sticky top-24 space-y-6">
+              <div className="sticky top-6 space-y-6">
                 <Card className="border-2 border-border shadow-xl">
                   <CardHeader className="bg-primary text-primary-foreground">
                     <CardTitle className="text-lg">Escalation Details</CardTitle>
@@ -509,6 +509,7 @@ export function EscalationLog() {
       <ClosureReviewModal
         open={!!closeTarget}
         target={{ type: "escalation", id: closeTarget?.id || "", title: closeTarget?.title }}
+        evidence={resolutionNotes}
         derivedActionsComplete={
           ["actions implemented", "monitoring effectiveness"].includes((((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase())
           || !((selectedEscalation as any)?.risk_id) /* no linked risk -> no remediation actions to complete (vacuous) */

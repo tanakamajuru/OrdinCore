@@ -41,7 +41,10 @@ export class ClustersController {
       const cluster_id = req.params.id;
 
       const clusterRes = await query(
-        `SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2`,
+        `SELECT c.*, h.name AS house_name,
+                (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names
+           FROM signal_clusters c LEFT JOIN houses h ON h.id = c.house_id
+          WHERE c.id = $1 AND c.company_id = $2`,
         [cluster_id, company_id]
       );
 

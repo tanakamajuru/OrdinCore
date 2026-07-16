@@ -256,10 +256,11 @@ export function DirectorDashboard() {
                 const svcs = new Set(openRisks.filter(r => themeOf(r) === t).map(r => r.house_id)).size;
                 const trend = openRisks.some(r => themeOf(r) === t && isRising(trendOf(r))) ? "Rising" : "Stable";
                 return (
-                  <div key={t} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
+                  <button key={t} onClick={() => navigate(`/risk-register?theme=${encodeURIComponent(t)}`)}
+                    className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
                     <div><div className="font-medium">{t}</div><div className="text-xs text-muted-foreground">{svcs} service{svcs !== 1 ? "s" : ""}</div></div>
                     <span className={`text-xs rounded px-2 py-0.5 ${trend === "Rising" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{trend}</span>
-                  </div>
+                  </button>
                 );
               })}
               {topThemes.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No themes</p>}
@@ -274,10 +275,11 @@ export function DirectorDashboard() {
                 const risingN = sr.filter(r => isRising(trendOf(r))).length;
                 const level = risingN >= 2 ? "High" : risingN === 1 ? "Medium" : "Low";
                 return (
-                  <div key={s.id} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
+                  <button key={s.id} onClick={() => navigate(`/risk-register?house=${s.id}`)}
+                    className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
                     <span className="font-medium">{s.name}</span>
                     <span className={`text-xs rounded px-2 py-0.5 ${level === "High" ? "bg-red-100 text-red-700" : level === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{level}</span>
-                  </div>
+                  </button>
                 );
               })}
               {servicesWithRisk.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No services</p>}

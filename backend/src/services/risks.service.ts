@@ -430,7 +430,8 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
   }) {
     const clusterRes = await query(
-      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person, linked_risk_id FROM signal_clusters
+      `SELECT id, signal_count, first_signal_date, last_signal_date, risk_domain, linked_person, linked_risk_id,
+              scope, house_id, affected_house_ids FROM signal_clusters
        WHERE id = $1 AND company_id = $2`,
       [data.cluster_id, company_id]
     );
@@ -511,8 +512,15 @@ export class RisksService {
       : (data.severity || 'Medium');
     const li = severityToScore(effectiveSeverity);
 
+    // A systemic (cross-service) pattern spans several services, so its risk belongs to the
+    // organisation, not one house — carry house_id = null and mark it strategic. A
+    // within-service pattern uses the cluster's own house.
+    const affectedIds: string[] = Array.isArray(cluster.affected_house_ids) ? cluster.affected_house_ids : [];
+    const isCrossService = cluster.scope === 'cross_service' || affectedIds.length > 1;
+
     const risk = await this.create(company_id, user_id, {
       ...data,
+      house_id: (cluster.house_id ?? (isCrossService ? null : data.house_id) ?? null) as any,
       severity: effectiveSeverity,
       likelihood: li.likelihood,
       impact: li.impact,
@@ -522,6 +530,16 @@ export class RisksService {
       risk_domain: cluster.risk_domain,
       linked_person: cluster.linked_person
     });
+
+    // Stamp the systemic reach so the register/dashboards read it as a Strategic risk
+    // (services_affected_count > 1) themed on its domain, rather than an operational one.
+    if (isCrossService) {
+      await query(
+        `UPDATE risks SET services_affected_count = $1, strategic_theme = COALESCE(strategic_theme, $2)
+          WHERE id = $3 AND company_id = $4`,
+        [Math.max(2, affectedIds.length), cluster.risk_domain, risk.id, company_id]
+      );
+    }
 
     // Update cluster status to 'Escalated' and stamp the promotion (link + time) so
     // the Patterns view can show "Promoted ✓ · View risk" instead of re-offering it.

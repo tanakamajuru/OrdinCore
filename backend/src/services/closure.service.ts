@@ -21,9 +21,9 @@ export class ClosureService {
     if (!input.actions_completed) throw new Error('Closure blocked: actions are not complete.');
     if (!input.effectiveness_reviewed) throw new Error('Closure blocked: effectiveness has not been reviewed.');
     if (input.further_escalation_required) throw new Error('Closure blocked: further escalation is required.');
-    if (!input.evidence || input.evidence.trim().length < 20) {
-      throw new Error('Closure evidence is required (at least 20 characters).');
-    }
+    // Evidence is reused from the decision & notes already recorded on the escalation, so a
+    // separate long-form justification is no longer demanded here. The service still records
+    // whatever evidence text is supplied (the caller falls back to a standard phrase).
   }
 
   async closeEscalation(companyId: string, escalationId: string, userId: string, input: ClosureReviewInput) {

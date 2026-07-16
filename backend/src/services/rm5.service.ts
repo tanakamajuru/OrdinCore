@@ -64,6 +64,9 @@ export const rm5Service = {
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
          FROM signal_clusters c LEFT JOIN houses h ON h.id = c.house_id
         WHERE c.company_id = $1 AND c.cluster_status IN ${ACTIVE_CLUSTER}
+          -- Decision board = patterns still awaiting a decision. Once a pattern is promoted
+          -- to a risk it lives in the register; keeping it here just clogs the board.
+          AND c.linked_risk_id IS NULL
         ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
       [company_id]
     )).rows;
