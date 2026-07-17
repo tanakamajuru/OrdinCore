@@ -184,10 +184,18 @@ export class WeeklyReviewsService {
        HAVING COUNT(*) >= 2`,
       [house_id, company_id, startStr, endStr]
     );
+    // Return repeats as an ARRAY (the UI lists them and counts them). It used to be a single
+    // joined string, which the review wizard then tried to .map() over — crashing the whole
+    // page. Each entry carries a human label plus its parts.
     const repeats = clustersRes.rows.map(r => {
-      const concernsList = Array.isArray(r.concerns) ? r.concerns.join('/') : (r.concerns || '');
-      return `${r.risk_domain} (${r.count} signals, ${concernsList})`;
-    }).join('; ');
+      const concernsList = Array.isArray(r.concerns) ? r.concerns.filter(Boolean).join('/') : (r.concerns || '');
+      return {
+        risk_domain: Array.isArray(r.risk_domain) ? r.risk_domain[0] : r.risk_domain,
+        count: Number(r.count) || 0,
+        concern: concernsList,
+        label: `${Array.isArray(r.risk_domain) ? r.risk_domain[0] : r.risk_domain} (${r.count} signals${concernsList ? ', ' + concernsList : ''})`,
+      };
+    });
 
     // Step 6: Worsening (Escalating or Severity Increase)
     const worsening = signals.filter(s => s.pattern_concern === 'Escalating' || s.severity === 'Critical' || s.severity === 'High')

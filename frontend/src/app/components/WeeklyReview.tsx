@@ -105,10 +105,15 @@ export function WeeklyReview() {
   };
 
   const auto = preview?.auto_population || {};
-  const signals: any[] = auto.signals || form.step4_signals || [];
+  // Every one of these MUST be an array before it reaches a .map/.filter in render. The
+  // backend returns some auto-population fields (repeats/worsening/improvements) as summary
+  // STRINGS, and the form persists whatever it was given — so guard against a string slipping
+  // through as `repeats`, which previously crashed the whole review with "map is not a function".
+  const asArr = (...cands: any[]): any[] => { for (const c of cands) if (Array.isArray(c)) return c; return []; };
+  const signals: any[] = asArr(auto.signals, form.step4_signals);
   const hi = signals.filter((s) => ["High", "Critical"].includes(s.severity)).length;
-  const repeats: any[] = Array.isArray(auto.repeats) ? auto.repeats : (form.step5_repeats || []);
-  const activeRisks: any[] = auto.active_risks || form.step10_risk_analysis || [];
+  const repeats: any[] = asArr(auto.repeats, form.step5_repeats);
+  const activeRisks: any[] = asArr(auto.active_risks, form.step10_risk_analysis);
   const domainCount = (needle: string) => signals.filter((s) => {
     const ds = Array.isArray(s.risk_domain) ? s.risk_domain : [s.risk_domain];
     return ds.some((d: any) => String(d || "").toLowerCase().includes(needle));
@@ -287,7 +292,7 @@ export function WeeklyReview() {
       );
       case 1: return <p className="text-sm leading-7"><b>{auto.pulse_count ?? signals.length ?? 0} signals</b> captured this week, of which <b>{hi}</b> were High or Critical.</p>;
       case 2: return <p className="text-sm leading-7">The engine identified <b>{repeats.length}</b> repeat pattern{repeats.length === 1 ? "" : "s"} reaching review.</p>;
-      case 3: return repeats.length ? <ul className="text-sm space-y-2">{repeats.map((r, i) => <li key={i} className="border-b border-border/50 pb-2">{typeof r === "string" ? r : (r.risk_domain || JSON.stringify(r))}</li>)}</ul> : <p className="text-sm text-muted-foreground">No clusters reached threshold this week.</p>;
+      case 3: return repeats.length ? <ul className="text-sm space-y-2">{repeats.map((r, i) => <li key={i} className="border-b border-border/50 pb-2">{typeof r === "string" ? r : (r.label || r.risk_domain || JSON.stringify(r))}</li>)}</ul> : <p className="text-sm text-muted-foreground">No clusters reached threshold this week.</p>;
       case 4: return <p className="text-sm leading-7"><b>{activeRisks.length}</b> active risk{activeRisks.length === 1 ? "" : "s"} on the register, each traceable to a promoted cluster.</p>;
       case 5: return <p className="text-sm leading-7">Action effectiveness is rated in the Action Tracker; two consecutive Ineffective ratings push a risk back into escalation. {activeRisks.length} risk{activeRisks.length === 1 ? "" : "s"} have linked actions.</p>;
       case 6: return <p className="text-sm leading-7"><b>{escStats?.open ?? escStats?.total ?? 0}</b> open escalation{(escStats?.open ?? 0) === 1 ? "" : "s"}, each carrying an SLA due date and swept for overdue.</p>;

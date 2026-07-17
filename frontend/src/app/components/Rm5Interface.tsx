@@ -170,12 +170,12 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
         {!loading && screen === "today" && (
           <div>
-            <GovHead q="What needs me now?" sub="Today's high-priority signals (48h) and everything open against me — open a signal to read it, or an action to jump to its risk." />
+            <GovHead q="What needs me now?" sub="The week's signals (highest severity first) and everything open against me — open a signal to read it, or an action to jump to its risk. Signals build into patterns; nothing promotes itself." />
             <div className="space-y-6">
               <div>
-                <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-red-600" />High-priority signals</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Zap className="w-4 h-4 text-red-600" />Recent signals <span className="text-xs font-normal text-muted-foreground">(last 7 days · severest first)</span></h2>
                 <div className="bg-card border border-border rounded-xl divide-y divide-border">
-                  {sigList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No High/Critical signals in the last 48 hours.</div>}
+                  {sigList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No signals recorded in the last 7 days.</div>}
                   {pagedSignals.map((s: any) => (
                     <button key={s.id} onClick={() => openSignal(s.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                       <div className="min-w-0"><div className="text-sm text-foreground truncate">{s.house} · {s.person}</div><div className="text-xs text-muted-foreground truncate">{s.note}</div></div>

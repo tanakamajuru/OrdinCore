@@ -18,14 +18,21 @@ const traj = (t: Trajectory) => ({ dir: t.direction, basis: t.basis, points: t.p
 export const rm5Service = {
   // TODAY — "What needs me now?"
   async today(company_id: string) {
+    // Show the whole recent signal inflow (last 7 days, ALL severities), not just High/Critical
+    // — every signal should be viewable in the pipeline before/as it forms a pattern, so the
+    // RM can see them arriving rather than only discovering them once they cluster. High and
+    // Critical are ordered to the top (and carry their severity badge in the UI).
     const todaySignals = (await query(
       `SELECT p.id, h.name AS house, COALESCE(p.related_person, '—') AS person, p.severity::text AS sev,
               to_char(COALESCE(p.created_at, p.entry_date), 'DD Mon') AS d, p.description AS note
          FROM governance_pulses p
          LEFT JOIN houses h ON h.id = p.house_id
-        WHERE p.company_id = $1 AND p.severity IN ('Critical','High')
-          AND COALESCE(p.created_at, p.entry_date) >= NOW() - INTERVAL '48 hours'
-        ORDER BY COALESCE(p.created_at, p.entry_date) DESC LIMIT 25`,
+        WHERE p.company_id = $1
+          AND COALESCE(p.created_at, p.entry_date) >= NOW() - INTERVAL '7 days'
+        ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
+                   WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
+                 COALESCE(p.created_at, p.entry_date) DESC
+        LIMIT 50`,
       [company_id]
     )).rows;
     const actionsDue = (await query(
@@ -44,7 +51,7 @@ export const rm5Service = {
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
     return {
-      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND severity IN ('Critical','High') AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '48 hours'`),
+      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days'`),
       patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND scope='person'`),
       risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
       actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),
