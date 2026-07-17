@@ -188,7 +188,15 @@ export class WeeklyReviewsService {
     // joined string, which the review wizard then tried to .map() over — crashing the whole
     // page. Each entry carries a human label plus its parts.
     const repeats = clustersRes.rows.map(r => {
-      const concernsList = Array.isArray(r.concerns) ? r.concerns.filter(Boolean).join('/') : (r.concerns || '');
+      // r.concerns is a Postgres array_agg — it can arrive as a JS array ([null]) or as the
+      // raw literal '{NULL}'. Normalise both, drop NULL/empty entries so the label reads clean.
+      const concernArr: any[] = Array.isArray(r.concerns)
+        ? r.concerns
+        : typeof r.concerns === 'string' ? r.concerns.replace(/[{}]/g, '').split(',') : [];
+      const concernsList = concernArr
+        .map((c: any) => String(c ?? '').trim())
+        .filter((c: string) => c && c.toUpperCase() !== 'NULL')
+        .join('/');
       return {
         risk_domain: Array.isArray(r.risk_domain) ? r.risk_domain[0] : r.risk_domain,
         count: Number(r.count) || 0,
