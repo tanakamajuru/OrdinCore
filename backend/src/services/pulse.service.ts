@@ -108,6 +108,29 @@ export class PulseService {
         return pulsesRepo.updateReview(id, company_id, user_id, data);
     }
 
+    // Update a signal's observation note. The edit is APPENDED as a new version (who + when)
+    // and becomes the current observation; earlier versions are preserved for the trail.
+    // Only the reporter who logged it, or a Registered Manager / admin, may edit.
+    async updateNote(pulse_id: string, company_id: string, user_id: string, role: string, note: string) {
+        if (!note || !note.trim()) throw new Error('The note cannot be empty.');
+        const cur = await query('SELECT created_by, assigned_to FROM governance_pulses WHERE id = $1 AND company_id = $2', [pulse_id, company_id]);
+        if (!cur.rows[0]) throw new Error('Signal not found');
+        const r = String(role || '').toUpperCase();
+        const isPrivileged = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'].includes(r);
+        const isOwner = cur.rows[0].created_by === user_id || cur.rows[0].assigned_to === user_id;
+        if (!isPrivileged && !isOwner) throw new Error('You can only edit a note you logged.');
+
+        await query(
+            `INSERT INTO governance_pulse_notes (pulse_id, company_id, note, edited_by) VALUES ($1, $2, $3, $4)`,
+            [pulse_id, company_id, note.trim(), user_id]
+        );
+        await query(
+            `UPDATE governance_pulses SET description = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+            [note.trim(), pulse_id, company_id]
+        );
+        return pulsesRepo.findById(pulse_id, company_id);
+    }
+
     // Reassign a signal to a different Team Leader (deliberate human allocation).
     // Validates the target is an active staff member in the same company, logs the
     // change, and notifies the new owner.

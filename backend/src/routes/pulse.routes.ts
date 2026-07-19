@@ -70,6 +70,8 @@ router.post('/:id/link-risk', requireAuth, requireTenant, requireRole('REGISTERE
  *     summary: Reassign a signal to a different Team Leader
  */
 router.patch('/:id/assignee', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.reassignSignal.bind(pulseController));
+// Edit the observation note — appended as a new attributed version (TL who logged it, or RM/admin).
+router.patch('/:id/note', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updateNote.bind(pulseController));
 
 // Alias for singular /pulse to reuse existing /pulses logic
 router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));

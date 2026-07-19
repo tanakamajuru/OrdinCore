@@ -125,6 +125,18 @@ export class PulseController {
         }
     }
 
+    async updateNote(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { note } = req.body || {};
+            const updated = await pulseService.updateNote(id, company_id, req.user!.user_id, req.user!.role || '', note);
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async getDashboardFeed(req: Request, res: Response) {
         try {
             const company_id = requireCompany(req);

@@ -28,6 +28,8 @@ interface SignalDetail {
   assigned_to_name?: string | null;
   allocation_is_auto?: boolean;
   prior_occurrences?: number;
+  created_by?: string;
+  note_versions?: { id: string; note: string; created_at: string; edited_by_name: string }[];
 }
 
 interface TeamLeaderOption {
@@ -44,6 +46,30 @@ export function SignalDetail() {
   const [teamLeaders, setTeamLeaders] = useState<TeamLeaderOption[]>([]);
   const [reassigning, setReassigning] = useState(false);
   const [promoting, setPromoting] = useState(false);
+  const [editingNote, setEditingNote] = useState(false);
+  const [noteDraft, setNoteDraft] = useState("");
+  const [savingNote, setSavingNote] = useState(false);
+  const currentUserId = JSON.parse(localStorage.getItem("user") || "{}").id;
+  const canEditNote = !!signal && (
+    signal.created_by === currentUserId ||
+    signal.assigned_to === currentUserId ||
+    ["REGISTERED_MANAGER", "ADMIN", "SUPER_ADMIN", "DIRECTOR"].includes(String(user?.role || "").toUpperCase())
+  );
+
+  const saveNote = async () => {
+    if (!signal || !noteDraft.trim()) { toast.error("The note cannot be empty."); return; }
+    setSavingNote(true);
+    try {
+      await apiClient.patch(`/pulses/${signal.id}/note`, { note: noteDraft.trim() });
+      toast.success("Observation updated");
+      setEditingNote(false);
+      loadSignalDetails(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to update note");
+    } finally {
+      setSavingNote(false);
+    }
+  };
   // Eligibility for direct single-signal promotion: High/Critical, or Safeguarding.
   const domainLabel = signal ? (Array.isArray(signal.risk_domain) ? signal.risk_domain[0] : signal.risk_domain) : '';
   const promotable = !!signal && (
@@ -143,7 +169,7 @@ export function SignalDetail() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-4xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <button
           onClick={() => navigate(-1)}
           className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline "
@@ -236,13 +262,54 @@ export function SignalDetail() {
 
         <div className="space-y-6 pb-20">
             <div className="bg-card border-2 border-border p-6">
-                <h2 className="text-xl  flex items-center gap-2 mb-4">
-                    <Shield className="w-5 h-5 text-primary" />
-                    Observation Details
-                </h2>
-                <div className="bg-muted p-4 border-l-4 border-primary">
-                    <p className="text-foreground text-lg">{signal.description}</p>
+                <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-xl  flex items-center gap-2">
+                        <Shield className="w-5 h-5 text-primary" />
+                        Observation Details
+                    </h2>
+                    {canEditNote && !editingNote && (
+                        <button onClick={() => { setNoteDraft(signal.description || ""); setEditingNote(true); }}
+                            className="text-sm text-primary font-medium hover:underline">Edit note</button>
+                    )}
                 </div>
+
+                {editingNote ? (
+                    <div>
+                        <textarea value={noteDraft} onChange={(e) => setNoteDraft(e.target.value)} rows={5}
+                            className="w-full border-2 border-primary bg-background p-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button onClick={() => setEditingNote(false)} className="px-4 py-2 border-2 border-border text-sm hover:bg-muted">Cancel</button>
+                            <button onClick={saveNote} disabled={savingNote} className="px-4 py-2 bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50">{savingNote ? "Saving…" : "Save update"}</button>
+                        </div>
+                        <p className="text-xs text-muted-foreground mt-1">Your update is added on top; the previous note is kept below as history.</p>
+                    </div>
+                ) : (
+                    <>
+                        {/* Current observation — the latest version, blue-highlighted. */}
+                        <div className="bg-blue-50 dark:bg-blue-950/30 p-4 border-l-4 border-blue-500 rounded-r">
+                            <p className="text-foreground text-lg whitespace-pre-line">{signal.description}</p>
+                            {signal.note_versions && signal.note_versions.length > 0 && (
+                                <p className="text-[11px] text-muted-foreground mt-2">
+                                    {signal.note_versions[0].edited_by_name} · {new Date(signal.note_versions[0].created_at).toLocaleString('en-GB')}
+                                    {signal.note_versions.length > 1 ? ' · current version' : ''}
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Previous versions — greyed history trail (newest first). */}
+                        {signal.note_versions && signal.note_versions.length > 1 && (
+                            <div className="mt-4 space-y-2">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Previous versions</p>
+                                {signal.note_versions.slice(1).map((v) => (
+                                    <div key={v.id} className="bg-muted/40 p-3 border-l-4 border-border rounded-r opacity-70">
+                                        <p className="text-sm text-muted-foreground whitespace-pre-line line-through decoration-muted-foreground/40">{v.note}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">Edited by {v.edited_by_name} · {new Date(v.created_at).toLocaleString('en-GB')}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
 
             {signal.immediate_action && (

@@ -190,7 +190,19 @@ export const pulsesRepo = {
              WHERE gp.id = $1 AND gp.company_id = $2`,
             [id, company_id]
         );
-        return result.rows[0] || null;
+        const pulse = result.rows[0] || null;
+        if (pulse) {
+            // Full version trail for the observation note (newest first), each attributed.
+            const notes = await query(
+                `SELECT n.id, n.note, n.created_at,
+                        COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') AS edited_by_name
+                   FROM governance_pulse_notes n LEFT JOIN users u ON u.id = n.edited_by
+                  WHERE n.pulse_id = $1 ORDER BY n.created_at DESC`,
+                [id]
+            );
+            pulse.note_versions = notes.rows;
+        }
+        return pulse;
     },
 
     async updateReview(id: string, company_id: string, user_id: string, data: any) {
