@@ -877,7 +877,12 @@ export class RisksService {
       `SELECT r.id, r.title, r.strategic_theme, r.trajectory, r.trend, r.status, r.severity,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
               r.last_governance_review_at, r.review_due_date, r.house_id,
-              r.closed_at,
+              r.closed_at, r.updated_at,
+              -- Next review tracks the next open action's due date (the concrete thing that
+              -- moves the risk forward), falling back to any explicit review date.
+              (SELECT MIN(ra.due_date) FROM risk_actions ra
+                 WHERE ra.risk_id = r.id AND ra.due_date IS NOT NULL
+                   AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS next_action_date,
               h.name AS service_name,
               (SELECT COUNT(*) FROM risk_signal_links rsl WHERE rsl.risk_id = r.id) AS evidence_count,
               (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id) AS controls_count,
@@ -914,7 +919,8 @@ export class RisksService {
       effectiveness: r.latest_effectiveness || 'Not yet reviewed',
       owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
       service: r.service_name || '—',
-      nextReview: r.review_due_date || r.last_governance_review_at || null,
+      nextReview: r.next_action_date || r.review_due_date || null,
+      lastUpdated: r.updated_at || null,
       closed_at: r.closed_at || null,
       closed_by: null,
     });

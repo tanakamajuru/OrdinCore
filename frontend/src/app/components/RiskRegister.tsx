@@ -104,14 +104,13 @@ export function RiskRegister() {
         </div>
 
         {/* Summary banner */}
-        <div className="grid grid-cols-3 sm:grid-cols-7 gap-2 mb-5">
+        <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
           <Stat label="Active Oversight" value={banner.activeOversight} />
           <Stat label="Escalating" value={banner.escalating} tone="text-orange-600" />
           <Stat label="Critical" value={banner.critical} tone="text-red-600" />
           <Stat label="Stable" value={banner.stable} tone="text-sky-600" />
           <Stat label="Improving" value={banner.improving} tone="text-emerald-600" />
           <Stat label="Control Failures" value={banner.controlFailures} tone="text-red-600" />
-          <Stat label="Last Review" value={banner.lastReviewAt ? new Date(banner.lastReviewAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"} />
         </div>
 
         {/* Tabs */}
@@ -146,6 +145,7 @@ export function RiskRegister() {
                     {tab !== "emerging" && <th className="px-2">Controls</th>}
                     {tab !== "emerging" && <th className="px-2">Effectiveness</th>}
                     {tab !== "emerging" && <th className="px-2">Owner</th>}
+                    {tab !== "emerging" && tab !== "closed" && <th className="px-2">Last Updated</th>}
                     {tab !== "emerging" && <th className="px-2">{tab === "closed" ? "Closed" : "Next Review"}</th>}
                   </tr>
                 </thead>
@@ -160,6 +160,7 @@ export function RiskRegister() {
                       {tab !== "emerging" && <td className="px-2 text-muted-foreground">{r.controls}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.effectiveness}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.owner}</td>}
+                      {tab !== "emerging" && tab !== "closed" && <td className="px-2 text-xs text-muted-foreground">{r.lastUpdated ? new Date(r.lastUpdated).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>}
                       {tab !== "emerging" && (
                         <td className="px-2 text-xs text-muted-foreground">
                           {tab === "closed" ? (

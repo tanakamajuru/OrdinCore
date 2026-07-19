@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import {
-  Home, GitBranch, FileText, Ambulance, FileDown, ChevronRight, ChevronLeft, Zap, Layers,
+  Home, GitBranch, FileText, Ambulance, FileDown, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers,
   ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { apiClient } from "@/services/api";
@@ -53,6 +53,8 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [counts, setCounts] = useState<any>({});
   const [today, setToday] = useState<any>({ todaySignals: [], actionsDue: [] });
   const [patterns, setPatterns] = useState<any>({ within: [], across: [] });
+  const [dismissed, setDismissed] = useState<any[]>([]);
+  const [showDismissed, setShowDismissed] = useState(false);
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [regType, setRegType] = useState<"active" | "strategic" | "closed">("active");
   const [lens, setLens] = useState<any[]>([]);
@@ -73,7 +75,10 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
     const load = async () => {
       try {
         if (screen === "today") setToday(unwrap(await apiClient.get("/rm/today")) || { todaySignals: [], actionsDue: [] });
-        else if (screen === "pipeline" && stage === "patterns") setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
+        else if (screen === "pipeline" && stage === "patterns") {
+          setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
+          apiClient.get("/rm/dismissed").then((r) => setDismissed(unwrap(r) || [])).catch(() => setDismissed([]));
+        }
         else if (screen === "pipeline" && stage === "register") setRegisterRows(unwrap(await apiClient.get(`/rm/register?type=${regType}`)) || []);
         else if (screen === "pipeline" && stage === "actions") setLens(unwrap(await apiClient.get("/rm/actions")) || []);
         else if (screen === "pipeline" && stage === "effectiveness") setLens(unwrap(await apiClient.get("/rm/effectiveness")) || []);
@@ -218,6 +223,38 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
               {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} />)}
             </div>
             <Pager page={acrossSafe} pages={acrossPages} total={acrossList.length} onPage={setPatAPage} />
+
+            {/* Dismissed patterns — the audit trail: what was set aside, by whom, when and why. */}
+            <div className="mt-8 border-t border-border pt-4">
+              <button onClick={() => setShowDismissed((v) => !v)} className="text-sm font-semibold text-foreground flex items-center gap-2 hover:text-primary">
+                {showDismissed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                Dismissed patterns <span className="text-xs font-normal text-muted-foreground">({dismissed.length})</span>
+              </button>
+              {showDismissed && (
+                dismissed.length === 0 ? (
+                  <p className="text-sm text-muted-foreground mt-3">No patterns have been dismissed.</p>
+                ) : (
+                  <div className="mt-3 bg-card border border-border rounded-xl overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead><tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
+                        <th className="py-2.5 px-3">Pattern</th><th className="px-2">Service</th><th className="px-2">Reason</th><th className="px-2">Dismissed by</th><th className="px-2 whitespace-nowrap">Date &amp; time</th>
+                      </tr></thead>
+                      <tbody>
+                        {dismissed.map((d: any) => (
+                          <tr key={d.id} className="border-b border-border/50">
+                            <td className="py-2.5 px-3 font-medium">{d.domain}{d.person && d.person !== "—" ? ` · ${d.person}` : ""}</td>
+                            <td className="px-2 text-muted-foreground">{d.house || (d.scope === "cross_service" ? "Cross-service" : "—")}</td>
+                            <td className="px-2 text-muted-foreground max-w-[280px]">{d.reason || "—"}</td>
+                            <td className="px-2 text-muted-foreground">{d.dismissedBy}</td>
+                            <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedAt ? new Date(d.dismissedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )
+              )}
+            </div>
           </div>
         )}
 

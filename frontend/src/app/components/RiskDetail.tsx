@@ -481,6 +481,10 @@ export function RiskDetail() {
     );
   };
 
+  // Impact is the analytical spine of a risk: you cannot judge whether a control worked, or
+  // escalate the risk up the ladder, until leadership has recorded what could actually happen.
+  const hasImpact = !!(risk.impact && String(risk.impact).trim());
+
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
@@ -521,8 +525,10 @@ export function RiskDetail() {
             )}
             {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
               <button
-                onClick={() => setShowEscalateModal(true)}
-                className="px-3 py-1 bg-destructive text-primary-foreground hover:bg-destructive/80 transition-colors uppercase font-medium"
+                onClick={() => hasImpact ? setShowEscalateModal(true) : (openAssessmentEdit('impact'), toast.error('Record the risk impact before escalating.'))}
+                disabled={!hasImpact}
+                title={hasImpact ? 'Escalate this risk' : 'Record the risk impact first'}
+                className="px-3 py-1 bg-destructive text-primary-foreground hover:bg-destructive/80 transition-colors uppercase font-bold disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Escalate
               </button>
@@ -530,7 +536,7 @@ export function RiskDetail() {
             {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
               <button
                 onClick={() => setShowCloseModal(true)}
-                className="px-3 py-1 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors uppercase font-medium"
+                className="px-3 py-1 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors uppercase font-bold"
               >
                 Close Risk
               </button>
@@ -720,9 +726,11 @@ export function RiskDetail() {
                             )}
 
                             {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
-                                <button 
-                                    onClick={() => setShowEffectivenessAction(action.id)}
-                                    className="text-[10px]  uppercase bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all"
+                                <button
+                                    onClick={() => hasImpact ? setShowEffectivenessAction(action.id) : (openAssessmentEdit('impact'), toast.error('Record the risk impact before reviewing effectiveness.'))}
+                                    disabled={!hasImpact}
+                                    title={hasImpact ? 'Rate this control’s effectiveness' : 'Record the risk impact first'}
+                                    className="text-[10px]  uppercase font-bold bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
                                     Rate Effectiveness
                                 </button>

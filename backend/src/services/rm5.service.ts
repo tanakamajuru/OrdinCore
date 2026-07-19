@@ -98,6 +98,24 @@ export const rm5Service = {
     return { within, across };
   },
 
+  // Dismissed patterns — the audit trail: what was dismissed, by whom, when, and why.
+  async dismissedPatterns(company_id: string) {
+    return (await query(
+      `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
+              c.scope, c.signal_count AS "signalCount", h.name AS house,
+              c.dismiss_reason AS reason,
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') AS "dismissedBy",
+              c.updated_at AS "dismissedAt"
+         FROM signal_clusters c
+         LEFT JOIN houses h ON h.id = c.house_id
+         LEFT JOIN users u ON u.id = c.dismissed_by
+        WHERE c.company_id = $1 AND c.cluster_status = 'Dismissed'
+        ORDER BY c.updated_at DESC
+        LIMIT 200`,
+      [company_id]
+    )).rows;
+  },
+
   // Register — risks by type, each with computed trajectory.
   async register(company_id: string, type: 'active' | 'strategic' | 'closed') {
     const where = type === 'closed' ? `r.status IN ${CLOSED_RISK}`
