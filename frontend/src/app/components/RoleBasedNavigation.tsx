@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
   Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target,
+  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -206,6 +206,19 @@ export function RoleBasedNavigation() {
           <p className="text-white font-semibold text-sm tracking-wide">ORDIN CORE</p>
           <p className="text-[10px] text-slate-400">Governance. Evidence. Assurance.</p>
         </div>
+        {/* Attention bell: amber (pulsing) when something needs attention — open escalations or
+            actions due; green when all clear. */}
+        {(() => {
+          const needsAttention = openEscalations > 0 || pendingActions > 0;
+          return (
+            <span
+              title={needsAttention ? `${openEscalations} open escalation(s), ${pendingActions} action(s) due — attention needed` : "All clear — nothing needs attention"}
+              className={`ml-auto relative ${needsAttention ? "text-amber-400 animate-pulse" : "text-emerald-400"}`}>
+              <Bell className="w-5 h-5" />
+              {needsAttention && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400" />}
+            </span>
+          );
+        })()}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">

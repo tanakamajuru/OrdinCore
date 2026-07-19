@@ -76,8 +76,27 @@ export function WeeklyReview() {
   const myId = user.id || user.user_id;
   const myAck = acks?.roster?.find((r: any) => r.id === myId);
 
-  useEffect(() => { loadHouses(); }, []);
-  useEffect(() => { if (houseId) loadReview(houseId); }, [houseId, id, weekEnding]);
+  useEffect(() => { if (!isTeamLeader) loadHouses(); else setIsLoading(false); }, [isTeamLeader]);
+  // Authoring loader (preview + wizard) is RM/DIR/RI only — never fire it for a Team Leader,
+  // whose /preview call is access-denied. They get a read-only view instead.
+  useEffect(() => { if (houseId && !isTeamLeader) loadReview(houseId); }, [houseId, id, weekEnding, isTeamLeader]);
+
+  // Team Leader opening a specific published review: load it READ-ONLY (no preview), so they
+  // can read it and acknowledge — never the authoring wizard.
+  useEffect(() => {
+    if (!isTeamLeader || !id || id === "new") return;
+    (async () => {
+      try {
+        setIsLoading(true);
+        const rv = (await apiClient.get(`/weekly-reviews/${id}`)).data?.data;
+        setReviewId(rv.id);
+        setForm(rv.content || {});
+        setStatus(rv.status || "Draft");
+        setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
+      } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to load review"); }
+      finally { setIsLoading(false); }
+    })();
+  }, [isTeamLeader, id]);
 
   const loadHouses = async () => {
     try {
@@ -317,6 +336,60 @@ export function WeeklyReview() {
       </div>
     </div>
   );
+
+  // Team Leader reading a specific published review — read-only, plus acknowledge. Never the wizard.
+  if (isTeamLeader && id && id !== "new") {
+    const c = form || {};
+    const antTL = (c.anticipated_risks?.items ?? []) as any[];
+    return (
+      <div className="min-h-screen bg-background">
+        <RoleBasedNavigation />
+        <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
+          <button onClick={() => navigate("/weekly-review")} className="text-sm text-primary hover:underline mb-4 inline-flex items-center gap-1"><ArrowLeft size={14} /> All reviews</button>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
+              <p className="text-sm text-muted-foreground">Leadership position: <b>{c.step14_overall_position || "—"}</b> · published for your service.</p>
+            </div>
+          </div>
+
+          {myAck?.acknowledged ? (
+            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
+              <Check size={16} /> You acknowledged this review{myAck.acknowledged_at ? ` · ${new Date(myAck.acknowledged_at).toLocaleString("en-GB")}` : ""}
+            </div>
+          ) : (
+            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
+              <span className="text-sm text-amber-800 flex items-center gap-1.5"><Clock size={14} /> Please read this review and mark it as read.</span>
+              <button onClick={acknowledge} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm">Mark as read</button>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className={card}>
+              <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Governance narrative</h2>
+              <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.step15_narrative || "—"}</p>
+            </div>
+            {c.lessons_learnt && (
+              <div className={card}>
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Lessons learnt</h2>
+                <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.lessons_learnt}</p>
+              </div>
+            )}
+            {(antTL.length > 0 || c.anticipated_risks?.rm_note) && (
+              <div className={card}>
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Week ahead — anticipated risks</h2>
+                <ul className="text-sm space-y-1 mb-2">
+                  {antTL.map((a: any, i: number) => <li key={i}><b>{a.theme}</b> — {a.reason}</li>)}
+                </ul>
+                {c.anticipated_risks?.rm_note && <p className="text-sm text-muted-foreground">{c.anticipated_risks.rm_note}</p>}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const stepBody = () => {
     switch (step) {

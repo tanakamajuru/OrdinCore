@@ -185,13 +185,17 @@ export const interventionsService = {
     );
     const intv = res.rows[0];
 
-    // Make the intervention DO something: when it starts, raise a real risk action (task) on
-    // the theme's top open risk, assigned to the owner, so it lands in their My Actions and can
-    // be completed + rated. Only once per intervention (guarded by linked_action_id).
+    // An intervention responds to the SYSTEMIC (cross-house) pattern, so its control/task must
+    // sit on the systemic risk — never an individual client's risk (that carries its own
+    // separate control, oversight and trajectory, and must stay open). Only attach when a
+    // cross-service risk exists for the theme (services_affected_count > 1); otherwise the
+    // intervention is a standalone systemic control (status + auto-effectiveness), touching no
+    // individual client risk.
     if (starting && intv && !intv.linked_action_id) {
       const topRisk = (await query(
         `SELECT id FROM risks
           WHERE company_id = $1 AND LOWER(status::text) NOT IN ('closed','resolved')
+            AND COALESCE(services_affected_count, 1) > 1
             AND COALESCE(NULLIF(TRIM(risk_domain), ''), NULLIF(TRIM(strategic_theme), ''), title) = $2
           ORDER BY COALESCE(risk_index, 0) DESC LIMIT 1`,
         [company_id, String(data.theme).trim()]
