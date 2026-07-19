@@ -23,6 +23,16 @@ export class WeeklyReviewsController {
     }
   }
 
+  async publishedForMe(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const reviews = await weeklyReviewsService.publishedForUser(company_id, req.user!.user_id);
+      return res.json({ success: true, data: reviews });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch published reviews' });
+    }
+  }
+
   async findById(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

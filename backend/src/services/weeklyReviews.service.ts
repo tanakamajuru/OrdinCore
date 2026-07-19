@@ -632,7 +632,25 @@ export class WeeklyReviewsService {
     };
   }
 
-  // Roster driving the read-only view's progress + list: who has / hasn't read it.
+  // Published reviews the current user is entitled to READ (their assigned houses, or all if
+  // can_view_all_houses). Powers the Team Leader / viewer "view by date & house" list.
+  async publishedForUser(company_id: string, user_id: string) {
+    return (await query(
+      `SELECT wr.id, wr.week_ending, wr.house_id, h.name AS house_name, wr.published_at,
+              (wr.content->>'step14_overall_position') AS position,
+              EXISTS (SELECT 1 FROM weekly_review_acknowledgements a WHERE a.review_id = wr.id AND a.user_id = $2) AS acknowledged
+         FROM weekly_reviews wr
+         JOIN houses h ON h.id = wr.house_id
+        WHERE wr.company_id = $1 AND wr.status = 'published'
+          AND (
+            EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = $2 AND uh.house_id = wr.house_id)
+            OR EXISTS (SELECT 1 FROM users u WHERE u.id = $2 AND u.can_view_all_houses = true)
+          )
+        ORDER BY wr.week_ending DESC, h.name ASC`,
+      [company_id, user_id]
+    )).rows;
+  }
+
   async getAcknowledgements(reviewId: string, company_id: string) {
     const rev = await this.findById(reviewId, company_id);
     if (!rev) throw new Error('Review not found');

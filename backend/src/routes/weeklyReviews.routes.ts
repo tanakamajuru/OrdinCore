@@ -22,6 +22,8 @@ router.get('/:id/read-status', requireAuth, requireTenant, weeklyReviewsControll
 router.post('/:id/remind', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.remind.bind(weeklyReviewsController));
 router.get('/:id/pdf', requireAuth, requireTenant, weeklyReviewsController.downloadPdf.bind(weeklyReviewsController));
 router.get('/preview', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
+// Published reviews the caller may READ (their houses) — view by date & house.
+router.get('/for-me', requireAuth, requireTenant, weeklyReviewsController.publishedForMe.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).
 router.get('/service-rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.serviceRollup.bind(weeklyReviewsController));
 // Finding O: provider-level roll-up + Director/RI sign-off (defined before '/:id').

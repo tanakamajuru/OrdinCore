@@ -683,16 +683,18 @@ export class RisksService {
     if (sigRes.rows.length === 0) throw new Error('Source signal not found');
     const sig = sigRes.rows[0];
 
-    // Eligibility: only a High/Critical signal, or a Safeguarding concern, may bypass
-    // the pattern route. Everything else must build toward its cluster.
+    // Eligibility is deliberately narrow: only a CRITICAL signal, or a Safeguarding concern
+    // (which cannot wait for a pattern), may bypass the pattern route. A single HIGH signal is
+    // NOT enough — it must build toward its cluster first; otherwise every High becomes a
+    // trajectory-less risk (register noise) that distorts every downstream metric.
     const severity = String(sig.severity || '').toLowerCase();
     const domainStr = (Array.isArray(sig.risk_domain) ? sig.risk_domain.join(' ') : String(sig.risk_domain || '')).toLowerCase();
     const isSafeguarding = domainStr.includes('safeguard') || String(sig.signal_type || '').toLowerCase().includes('safeguard');
-    const isSerious = severity === 'high' || severity === 'critical';
-    if (!isSerious && !isSafeguarding) {
+    const isCritical = severity === 'critical';
+    if (!isCritical && !isSafeguarding) {
       throw new Error(
-        'This signal is not eligible for direct promotion. Only a High/Critical signal, or a Safeguarding concern, ' +
-        'may become a risk on its own — other signals build toward a pattern (cluster) first.'
+        'This signal is not eligible for direct promotion. Only a Critical signal, or a Safeguarding concern, ' +
+        'may become a risk on its own — a High signal (and everything else) must build toward a pattern (cluster) first.'
       );
     }
 

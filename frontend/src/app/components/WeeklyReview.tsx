@@ -50,21 +50,23 @@ export function WeeklyReview() {
 
   const isTeamLeader = userRole === "TEAM_LEADER";
 
-  // A Team Leader doesn't author reviews — they read the one published for their service and
-  // acknowledge it. Landing on /weekly-review (no id), send them to the latest PUBLISHED review
-  // for their house; if none exists yet, show an empty state instead of the authoring wizard.
+  const [tlReviews, setTlReviews] = useState<any[]>([]);
+
+  // A Team Leader doesn't author reviews — they READ the ones published for their service(s)
+  // and acknowledge them. Landing on /weekly-review (no id), show a list of published reviews
+  // to view (by date & house); an empty state if none exist yet.
   useEffect(() => {
-    if (!isTeamLeader || !houseId || (id && id !== "new")) { setTlNoReview(false); return; }
+    if (!isTeamLeader || (id && id !== "new")) { setTlNoReview(false); return; }
     (async () => {
       try {
-        const res: any = await apiClient.get(`/weekly-reviews/house/${houseId}`);
+        const res: any = await apiClient.get(`/weekly-reviews/for-me`);
         const list: any[] = res.data?.data || res.data || [];
-        const published = (Array.isArray(list) ? list : []).find((r: any) => String(r.status || "").toLowerCase() === "published");
-        if (published?.id) { navigate(`/weekly-review/${published.id}`, { replace: true }); setTlNoReview(false); }
-        else { setTlNoReview(true); setIsLoading(false); }
-      } catch { setTlNoReview(true); setIsLoading(false); }
+        setTlReviews(Array.isArray(list) ? list : []);
+        setTlNoReview((Array.isArray(list) ? list : []).length === 0);
+      } catch { setTlReviews([]); setTlNoReview(true); }
+      finally { setIsLoading(false); }
     })();
-  }, [isTeamLeader, houseId, id]);
+  }, [isTeamLeader, id]);
 
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
   const statusU = (status || "").toUpperCase();
@@ -104,8 +106,8 @@ export function WeeklyReview() {
         setReviewId(rv.id);
         setForm(rv.content || {});
         setStatus(rv.status || "Draft");
-        setStep((rv.step_reached ? rv.step_reached - 1 : 0));
-        setDoneStep((rv.step_reached ? rv.step_reached - 1 : 0));
+        setStep(Math.min(11, rv.step_reached ? rv.step_reached - 1 : 0));
+        setDoneStep(Math.min(11, rv.step_reached ? rv.step_reached - 1 : 0));
         setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
       } else {
         setForm({
@@ -176,14 +178,17 @@ export function WeeklyReview() {
   const finalise = async () => {
     setIsSaving(true);
     try {
-      const saved = await persist(12);
+      // The wizard has 12 steps (index 0–11). Finalising from the last step marks all 12 done
+      // → step_reached = 12 (persist adds 1). Passing 12 here produced step_reached 13 → the
+      // "Step 13 of 12" glitch.
+      const saved = await persist(11);
       const activeId = id && id !== "new" ? id : (reviewId || saved?.id);
       if (userRole === "REGISTERED_MANAGER") {
         await apiClient.post(`/weekly-reviews/${activeId}/finalise`, {});
         toast.success("Weekly Review finalised & sent for RI validation");
         setStatus("pending_validation");
       } else {
-        await persist(12, { status: "LOCKED" });
+        await persist(11, { status: "LOCKED" });
         toast.success("Weekly Review locked & published");
         setStatus("Locked");
       }
@@ -276,13 +281,39 @@ export function WeeklyReview() {
 
   if (isLoading) return <div className="min-h-screen bg-background"><RoleBasedNavigation /><div className="pt-28 text-center text-muted-foreground">Preparing review…</div></div>;
 
-  if (isTeamLeader && tlNoReview) return (
+  // Team Leaders (and viewers) landing without a specific review see the READ list, by date &
+  // house — never the authoring wizard.
+  if (isTeamLeader && (!id || id === "new")) return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="w-full pt-28 p-6 max-w-2xl mx-auto text-center">
-        <div className="inline-flex p-3 bg-primary/10 rounded-xl text-primary mb-4"><Shield size={28} /></div>
-        <h1 className="text-2xl font-semibold text-foreground mb-2">Weekly Governance Review</h1>
-        <p className="text-muted-foreground">No weekly review has been published for your service yet. When your Registered Manager finalises and publishes it, it will appear here for you to read and acknowledge.</p>
+      <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
+        <div className="flex items-center gap-3 mb-5">
+          <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
+            <p className="text-sm text-muted-foreground">Published reviews for your service — open one to read and acknowledge.</p>
+          </div>
+        </div>
+        {tlReviews.length === 0 ? (
+          <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground">
+            No weekly review has been published for your service yet. When your Registered Manager finalises and publishes it, it will appear here to read and acknowledge.
+          </div>
+        ) : (
+          <div className="bg-card border border-border rounded-xl divide-y divide-border">
+            {tlReviews.map((r: any) => (
+              <button key={r.id} onClick={() => navigate(`/weekly-review/${r.id}`)}
+                className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground">Week ending {r.week_ending ? new Date(r.week_ending).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}</div>
+                  <div className="text-xs text-muted-foreground">{r.house_name}{r.position ? ` · ${r.position}` : ""}</div>
+                </div>
+                {r.acknowledged
+                  ? <span className="text-[11px] text-emerald-700 flex items-center gap-1"><Check size={13} /> Read</span>
+                  : <span className="text-[11px] text-amber-700 flex items-center gap-1"><Clock size={13} /> Not read</span>}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -365,9 +396,8 @@ export function WeeklyReview() {
             {antItems.length === 0 ? (
               <p className="text-xs text-muted-foreground">None flagged — add a note below if none are anticipated.</p>
             ) : antItems.map((a: any) => (
-              <div key={a.risk_id} className="flex items-center justify-between border border-border rounded px-3 py-2 text-sm">
+              <div key={a.risk_id} className="border border-border rounded px-3 py-2 text-sm">
                 <span><b>{a.theme}</b> — {a.reason}</span>
-                {!locked && <button type="button" onClick={() => setAnt(antItems.filter((x: any) => x.risk_id !== a.risk_id))} className="text-muted-foreground hover:text-destructive text-xs">Remove</button>}
               </div>
             ))}
           </div>

@@ -84,7 +84,7 @@ export function ServiceUsers() {
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Users size={22} /></div>
           <div>
             <h1 className="text-3xl text-foreground font-semibold">Service Users</h1>
-            <p className="text-muted-foreground mt-0.5">Anonymised references used in signal capture, across your services.</p>
+            <p className="text-muted-foreground mt-0.5">The people you protect. Record each person's <b>vulnerability</b> (1–5) — the one clinical judgement the Risk Index can't compute. It weights <i>every</i> risk about that person (the V in the score), so a concern about a highly vulnerable person scores higher than the same concern about a resilient one.</p>
           </div>
         </div>
 

@@ -70,10 +70,13 @@ export function SignalDetail() {
       setSavingNote(false);
     }
   };
-  // Eligibility for direct single-signal promotion: High/Critical, or Safeguarding.
+  // Eligibility for direct single-signal promotion is deliberately NARROW: only a lone
+  // Critical, or a Safeguarding concern (which cannot wait for a pattern), may become a risk on
+  // its own. A single HIGH signal must build toward a pattern first — otherwise every High
+  // becomes register noise with no trajectory, which distorts every downstream metric.
   const domainLabel = signal ? (Array.isArray(signal.risk_domain) ? signal.risk_domain[0] : signal.risk_domain) : '';
   const promotable = !!signal && (
-    ['High', 'Critical'].includes(signal.severity) ||
+    signal.severity === 'Critical' ||
     String(domainLabel || '').toLowerCase().includes('safeguard') ||
     String(signal.signal_type || '').toLowerCase().includes('safeguard')
   );
@@ -401,7 +404,7 @@ export function SignalDetail() {
                 ) : (
                   <div className="text-right max-w-sm">
                     <p className="text-sm text-muted-foreground">
-                      This signal builds toward its <span className="font-medium text-foreground">pattern</span>. Promote from the cluster once it reaches the threshold — only High/Critical or Safeguarding signals can become a risk on their own.
+                      This signal builds toward its <span className="font-medium text-foreground">pattern</span>. Promote from the cluster once it reaches the threshold — only a <span className="font-medium text-foreground">Critical</span> signal or a <span className="font-medium text-foreground">Safeguarding</span> concern can become a risk on its own. A High signal must form a pattern first.
                     </p>
                   </div>
                 )}
