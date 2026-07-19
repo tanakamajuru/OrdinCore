@@ -77,6 +77,7 @@ export function RoleBasedNavigation() {
           { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
           { path: "/interventions", label: "Interventions", icon: Target },
+          { path: "/service-users", label: "Service Users", icon: Users },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },

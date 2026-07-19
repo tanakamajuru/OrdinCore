@@ -246,21 +246,6 @@ export function RiskDetail() {
     }
   };
 
-  const [savingSeverity, setSavingSeverity] = useState(false);
-  const handleSeverityChange = async (severity: string) => {
-    if (!id || !risk || severity === risk.severity) return;
-    setSavingSeverity(true);
-    try {
-      await apiClient.patch(`/risks/${id}/severity`, { severity });
-      toast.success(`Current severity updated to ${severity}`);
-      loadRiskDetails(id);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Failed to update severity');
-    } finally {
-      setSavingSeverity(false);
-    }
-  };
-
   const handleCloseRisk = async () => {
     if (!id) return;
     if (!closeVerdict) { toast.error("Choose a resolution verdict."); return; }
@@ -516,25 +501,17 @@ export function RiskDetail() {
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
             <h1 className="text-3xl  text-foreground  uppercase tracking-tighter">{risk.title}</h1>
-            {['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) ? (
-              <div className="flex items-center gap-2">
-                <select
-                  value={risk.severity}
-                  disabled={savingSeverity}
-                  onChange={(e) => handleSeverityChange(e.target.value)}
-                  title="Current severity — change as the picture evolves (updates the risk score)"
-                  className={`px-3 py-1 text-sm font-bold uppercase rounded cursor-pointer ${risk.severity === "High" || risk.severity === "Critical" ? "bg-destructive text-primary-foreground" : "border-2 border-primary bg-card text-foreground"}`}
-                >
-                  {Array.from(new Set(["Low", "Medium", "High", "Critical", risk.severity].filter(Boolean))).map((s) => <option key={s} value={s}>{s}</option>)}
-                </select>
-                {risk.initial_severity && risk.initial_severity !== risk.severity && (
-                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">initial: {risk.initial_severity}</span>
-                )}
-              </div>
-            ) : (
-              <span className={`px-3 py-1  ${risk.severity === "High" || risk.severity === "Critical" ? "bg-destructive text-primary-foreground" : "border-2 border-primary"}`}>
-                {risk.severity}
-              </span>
+            {/* Authoritative grade — computed by the Risk Index engine (no manual scoring).
+                Severity is kept in step with the computed grade, so this badge IS the model's
+                current figure. */}
+            <span
+              title="Grade computed from the Risk Index — the system sets this, not a manager."
+              className={`px-3 py-1 uppercase font-bold ${risk.severity === "High" || risk.severity === "Critical" ? "bg-destructive text-primary-foreground" : "border-2 border-primary"}`}
+            >
+              {(risk as any).metrics?.grade || risk.severity}
+            </span>
+            {risk.initial_severity && risk.initial_severity !== ((risk as any).metrics?.grade || risk.severity) && (
+              <span className="text-[10px] text-muted-foreground uppercase tracking-wide">initial: {risk.initial_severity}</span>
             )}
             <div className="flex items-center gap-2 px-3 py-1 border-2 border-border " title={(risk as any).trajectory_v2?.basis || ''}>
                  {((risk as any).trajectory_v2?.direction || risk.trajectory) === 'Improving' ? <TrendingUp className="text-success" /> :
@@ -543,7 +520,7 @@ export function RiskDetail() {
                  {(risk as any).trajectory_v2?.direction || risk.trajectory}
             </div>
             <span className="px-3 py-1 bg-primary text-primary-foreground ">
-              SCORE: {risk.risk_score}
+              RISK INDEX: {(risk as any).metrics?.riskIndex ?? risk.risk_score}
             </span>
             {risk.status?.toLowerCase() === 'escalated' && (
               <span className="px-3 py-1 bg-destructive text-primary-foreground">

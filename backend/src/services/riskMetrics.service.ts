@@ -69,14 +69,55 @@ function trajectoryScoreOf(grade: string): number {
 }
 const clamp = (n: number, lo: number, hi: number) => Math.max(lo, Math.min(hi, n));
 
+// Severity band → likelihood/impact so the legacy generated risk_score stays consistent
+// with the computed grade.
+function gradeToScore(grade: string): { likelihood: number; impact: number } {
+  switch (grade) {
+    case 'Critical': return { likelihood: 5, impact: 5 };
+    case 'High': return { likelihood: 4, impact: 4 };
+    case 'Low': return { likelihood: 2, impact: 2 };
+    default: return { likelihood: 3, impact: 3 }; // Medium
+  }
+}
+
 export const riskMetricsService = {
+  // Compute AND persist: the authoritative grade (from the Risk Index) is written back to the
+  // risk's severity, with likelihood/impact and the stored risk_index kept in step. Called on
+  // the events that move a risk (promotion, effectiveness verdict, action completion) so the
+  // register/escalation always read the system's figure, never a hand-set one.
+  async recompute(risk_id: string, company_id: string) {
+    const m = await this.forRisk(risk_id, company_id);
+    if (!m) return null;
+    const li = gradeToScore(m.grade);
+    await query(
+      `UPDATE risks SET severity = $1, likelihood = $2, impact = $3, risk_index = $4, updated_at = NOW()
+        WHERE id = $5 AND company_id = $6 AND LOWER(status::text) NOT IN ('closed','resolved')`,
+      [m.grade, li.likelihood, li.impact, m.riskIndex, risk_id, company_id]
+    );
+    return m;
+  },
+
   async forRisk(risk_id: string, company_id: string) {
     const r = (await query(
-      `SELECT id, severity, source_cluster_id FROM risks WHERE id = $1 AND company_id = $2`,
+      `SELECT id, severity, source_cluster_id, linked_person FROM risks WHERE id = $1 AND company_id = $2`,
       [risk_id, company_id]
     )).rows[0];
     if (!r) return null;
     const cluster = r.source_cluster_id;
+
+    // V (Vulnerability) — the one non-automatic input: read the linked service user's assessed
+    // vulnerability (1–5). Falls back to the neutral default when the person isn't matched/assessed.
+    let V = VULNERABILITY_DEFAULT;
+    let vulnerabilityAssumed = true;
+    if (r.linked_person && String(r.linked_person).trim()) {
+      const su = (await query(
+        `SELECT su.vulnerability FROM service_users su JOIN houses h ON h.id = su.house_id
+          WHERE h.company_id = $1 AND su.display_name ILIKE $2 AND su.vulnerability IS NOT NULL
+          LIMIT 1`,
+        [company_id, String(r.linked_person).trim()]
+      )).rows[0];
+      if (su && su.vulnerability != null) { V = Number(su.vulnerability); vulnerabilityAssumed = false; }
+    }
 
     // Signals behind the risk (via its source cluster's links).
     const sigCount = Number((await query(
@@ -100,7 +141,6 @@ export const riskMetricsService = {
 
     const S = Math.max(severityToS(r.severity), maxSev >= 1 ? Math.min(5, maxSev) : 1);
     const F = frequencyToF(sigCount);
-    const V = VULNERABILITY_DEFAULT;
     const C = controlToC(ctl?.latest, Number(ctl?.total) > 0);
     const riskIndex = Math.round((0.40 * S + 0.25 * F + 0.20 * V + 0.15 * C) * 20);
     const grade = gradeOf(riskIndex);
@@ -134,7 +174,7 @@ export const riskMetricsService = {
       riskIndex, grade,
       trajectoryPct, trajectoryGrade,
       priority, confidence, overduePct,
-      inputs: { S, F, V, C, vulnerabilityAssumed: true },
+      inputs: { S, F, V, C, vulnerabilityAssumed },
       formula: 'RiskIndex = (0.40·S + 0.25·F + 0.20·V + 0.15·C) × 20',
     };
   },

@@ -12,7 +12,11 @@ interface ServiceUser {
   is_active: boolean;
   house_id: string;
   house_name: string;
+  vulnerability?: number;
 }
+
+const VULN_LABEL: Record<number, string> = { 1: "1 · Low", 2: "2", 3: "3 · Neutral", 4: "4", 5: "5 · High" };
+const VULN_TONE: Record<number, string> = { 1: "text-emerald-600", 2: "text-emerald-600", 3: "text-amber-600", 4: "text-orange-600", 5: "text-red-600" };
 
 export function ServiceUsers() {
   const [users, setUsers] = useState<ServiceUser[]>([]);
@@ -51,6 +55,17 @@ export function ServiceUsers() {
       toast.error("Failed to load service users");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const setVulnerability = async (u: ServiceUser, v: number) => {
+    setUsers((prev) => prev.map((x) => x.id === u.id ? { ...x, vulnerability: v } : x));
+    try {
+      await apiClient.patch(`/service-users/${u.id}`, { vulnerability: v });
+      toast.success(`Vulnerability for ${u.display_name} set to ${v}`);
+    } catch {
+      toast.error("Failed to update vulnerability");
+      load();
     }
   };
 
@@ -110,6 +125,7 @@ export function ServiceUsers() {
                 <tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
                   <th className="py-2.5 px-4">Service User</th>
                   <th className="px-3">Site / Service</th>
+                  <th className="px-3">Vulnerability</th>
                   <th className="px-3">Status</th>
                 </tr>
               </thead>
@@ -119,6 +135,16 @@ export function ServiceUsers() {
                     <tr key={u.id} className="border-b border-border/50 hover:bg-muted/20">
                       <td className="py-2.5 px-4 font-medium">{u.display_name || `${u.first_name || ""} ${u.last_name || ""}`.trim() || "—"}</td>
                       <td className="px-3 text-muted-foreground">{i === 0 ? <span className="font-medium text-foreground">{g.name}</span> : g.name}</td>
+                      <td className="px-3">
+                        <select
+                          value={u.vulnerability ?? 3}
+                          onChange={(e) => setVulnerability(u, Number(e.target.value))}
+                          title="Per-person vulnerability (1–5) — feeds the computed Risk Index"
+                          className={`text-xs border border-border rounded px-2 py-1 bg-background font-medium ${VULN_TONE[u.vulnerability ?? 3]}`}
+                        >
+                          {[1, 2, 3, 4, 5].map((v) => <option key={v} value={v}>{VULN_LABEL[v]}</option>)}
+                        </select>
+                      </td>
                       <td className="px-3">
                         <span className={`text-xs rounded px-2 py-0.5 ${u.is_active ? "bg-emerald-100 text-emerald-700" : "bg-muted text-muted-foreground"}`}>
                           {u.is_active ? "Active" : "Inactive"}

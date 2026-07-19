@@ -5,6 +5,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
 import { trajectoryForRisk } from './trajectory.service';
+import { riskMetricsService } from './riskMetrics.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
 // Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
@@ -605,6 +606,9 @@ export class RisksService {
       await risksRepo.update(risk.id, company_id, { trajectory: tr.direction });
     } catch { /* best-effort cache seed */ }
 
+    // Authoritative scoring: set the grade from the computed Risk Index (no manual scoring).
+    try { await riskMetricsService.recompute(risk.id, company_id); } catch { /* non-fatal */ }
+
     return risk;
   }
 
@@ -874,6 +878,9 @@ export class RisksService {
       `Trajectory updated to ${tr.direction} based on action effectiveness. ${tr.basis}`,
       risk.created_by
     );
+
+    // Control effectiveness feeds C in the Risk Index — recompute the authoritative grade too.
+    try { await riskMetricsService.recompute(risk_id, company_id); } catch { /* non-fatal */ }
 
     // Separate safeguard (unchanged intent): two consecutive ineffective control ratings is a
     // governance concern in its own right, regardless of the netted direction. Reads the

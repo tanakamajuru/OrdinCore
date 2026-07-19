@@ -32,7 +32,7 @@ export class ServiceUsersController {
 
       const result = await query(
         `SELECT su.id, su.first_name, su.last_name, su.display_name, su.is_active,
-                su.house_id, h.name AS house_name
+                su.house_id, h.name AS house_name, COALESCE(su.vulnerability, 3) AS vulnerability
            FROM service_users su
            JOIN houses h ON h.id = su.house_id
           WHERE ${conditions.join(' AND ')}
@@ -48,11 +48,23 @@ export class ServiceUsersController {
 
   async update(req: Request, res: Response) {
     try {
+      const sets: string[] = [];
+      const params: unknown[] = [];
+      let idx = 1;
+      if (req.body.is_active !== undefined) { sets.push(`is_active = $${idx++}`); params.push(req.body.is_active); }
+      if (req.body.vulnerability !== undefined) {
+        const v = Math.round(Number(req.body.vulnerability));
+        if (!(v >= 1 && v <= 5)) return res.status(400).json({ success: false, message: 'Vulnerability must be 1–5.', errors: [] });
+        sets.push(`vulnerability = $${idx++}`); params.push(v);
+      }
+      if (sets.length === 0) return res.status(400).json({ success: false, message: 'Nothing to update.', errors: [] });
+      sets.push('updated_at = NOW()');
+      params.push(req.params.id);
       const result = await query(
-        `UPDATE service_users SET is_active = $1 WHERE id = $2 RETURNING *`,
-        [req.body.is_active, req.params.id]
+        `UPDATE service_users SET ${sets.join(', ')} WHERE id = $${idx} RETURNING *`,
+        params
       );
-      
+
       if (result.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Service user not found', errors: [] });
       }
