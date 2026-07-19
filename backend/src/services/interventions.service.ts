@@ -192,7 +192,7 @@ export const interventionsService = {
     // intervention is a standalone systemic control (status + auto-effectiveness), touching no
     // individual client risk.
     if (starting && intv && !intv.linked_action_id) {
-      const topRisk = (await query(
+      let topRisk = (await query(
         `SELECT id FROM risks
           WHERE company_id = $1 AND LOWER(status::text) NOT IN ('closed','resolved')
             AND COALESCE(services_affected_count, 1) > 1
@@ -200,6 +200,33 @@ export const interventionsService = {
           ORDER BY COALESCE(risk_index, 0) DESC LIMIT 1`,
         [company_id, String(data.theme).trim()]
       )).rows[0];
+
+      // Doctrine (Signal → Pattern → Risk): risks are never conjured. If there's no systemic
+      // risk yet, promote from an existing CROSS-SERVICE cluster (a genuinely-detected systemic
+      // pattern) — only if it meets the promotion floor. If none qualifies, the intervention
+      // stays a standalone systemic control; we never fabricate a risk without provenance.
+      if (!topRisk) {
+        const cluster = (await query(
+          `SELECT id FROM signal_clusters
+            WHERE company_id = $1 AND scope = 'cross_service' AND linked_risk_id IS NULL
+              AND cluster_status <> 'Dismissed'
+              AND risk_domain::text = $2
+            ORDER BY signal_count DESC NULLS LAST LIMIT 1`,
+          [company_id, String(data.theme).trim()]
+        )).rows[0];
+        if (cluster) {
+          try {
+            const promoted = await risksService.promoteFromCluster(company_id, user_id, {
+              cluster_id: cluster.id, title: `Systemic ${String(data.theme).trim()}`,
+              severity: 'Medium', trajectory: 'Stable',
+              description: `Systemic (cross-service) risk promoted while setting a leadership intervention for the ${data.theme} theme.`,
+              house_id: null as any, category_id: undefined as any, likelihood: 3, impact: 3,
+            });
+            if (promoted?.id) topRisk = { id: promoted.id };
+          } catch { /* floor not met — leave the intervention standalone (doctrine-safe) */ }
+        }
+      }
+
       if (topRisk) {
         try {
           const action = await risksService.addAction(topRisk.id, company_id, user_id, {
