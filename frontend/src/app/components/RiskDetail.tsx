@@ -53,6 +53,8 @@ interface Action {
   completion_rationale?: string;
   completion_note?: string;
   completed_at?: string;
+  completed_by_name?: string;
+  assigned_to_name?: string;
 }
 
 interface TimelineEntry {
@@ -547,7 +549,31 @@ export function RiskDetail() {
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-card border-2 border-border p-6 shadow-sm">
                 <h2 className="text-xs  uppercase text-muted-foreground mb-4 tracking-widest">Governance Description</h2>
-                <p className="text-base leading-relaxed whitespace-pre-line">{risk.description}</p>
+                {(() => {
+                  const desc = risk.description || "";
+                  const parts = desc.split(/\n\n+/).map((s) => s.trim()).filter(Boolean);
+                  const notes = parts.filter((p) => p.startsWith("•"));
+                  const header = parts.filter((p) => !p.startsWith("•"));
+                  if (notes.length === 0) return <p className="text-base leading-relaxed whitespace-pre-line">{desc}</p>;
+                  return (
+                    <div className="space-y-3">
+                      {header.map((h, i) => <p key={`h${i}`} className="text-sm text-muted-foreground">{h}</p>)}
+                      {notes.map((n, i) => {
+                        const body = n.replace(/^•\s*/, "");
+                        const m = body.search(/—\s*Immediate action:/i);
+                        const main = m >= 0 ? body.slice(0, m).trim() : body;
+                        const ia = m >= 0 ? body.slice(m).replace(/^—\s*/, "").replace(/^Immediate action:\s*/i, "").trim() : "";
+                        // Each signal note gets a blue highlight; the immediate action taken is bolded.
+                        return (
+                          <div key={`n${i}`} className="border-l-4 border-blue-400 bg-blue-50 dark:bg-blue-950/30 rounded-r-lg p-3">
+                            <p className="text-sm text-foreground whitespace-pre-line">{main}</p>
+                            {ia && <p className="text-sm text-foreground mt-2"><span className="font-bold">Immediate action taken:</span> <span className="font-bold">{ia}</span></p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
             </div>
             <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
                 <h2 id="rd-origin" className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
@@ -610,7 +636,15 @@ export function RiskDetail() {
                             </span>
                         </div>
                         <p className="text-sm text-muted-foreground mb-3">{action.description}</p>
-                        
+
+                        {(action.status === 'Complete' || action.status === 'Completed') && (action.completed_by_name || action.completed_at || action.assigned_to_name) && (
+                          <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                            <span className="font-medium text-foreground">Completed</span>
+                            {(action.completed_by_name || action.assigned_to_name) ? ` by ${action.completed_by_name || action.assigned_to_name}` : ''}
+                            {action.completed_at ? ` · ${new Date(action.completed_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })}` : ''}
+                          </p>
+                        )}
+
                         <div className="flex flex-wrap gap-2">
                             {action.verified_by_rm && (
                                 <div className="flex items-center gap-1.5 px-2 py-1 bg-primary text-primary-foreground text-xs  uppercase ">

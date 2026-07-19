@@ -46,6 +46,25 @@ export function WeeklyReview() {
   const [acks, setAcks] = useState<{ total: number; acknowledged: number; roster: any[] } | null>(null);
   const [priorWeeks, setPriorWeeks] = useState<any[]>([]);
   const [showPrior, setShowPrior] = useState(false);
+  const [tlNoReview, setTlNoReview] = useState(false);
+
+  const isTeamLeader = userRole === "TEAM_LEADER";
+
+  // A Team Leader doesn't author reviews — they read the one published for their service and
+  // acknowledge it. Landing on /weekly-review (no id), send them to the latest PUBLISHED review
+  // for their house; if none exists yet, show an empty state instead of the authoring wizard.
+  useEffect(() => {
+    if (!isTeamLeader || !houseId || (id && id !== "new")) { setTlNoReview(false); return; }
+    (async () => {
+      try {
+        const res: any = await apiClient.get(`/weekly-reviews/house/${houseId}`);
+        const list: any[] = res.data?.data || res.data || [];
+        const published = (Array.isArray(list) ? list : []).find((r: any) => String(r.status || "").toLowerCase() === "published");
+        if (published?.id) { navigate(`/weekly-review/${published.id}`, { replace: true }); setTlNoReview(false); }
+        else { setTlNoReview(true); setIsLoading(false); }
+      } catch { setTlNoReview(true); setIsLoading(false); }
+    })();
+  }, [isTeamLeader, houseId, id]);
 
   const set = (k: string, v: any) => setForm((p: any) => ({ ...p, [k]: v }));
   const statusU = (status || "").toUpperCase();
@@ -256,6 +275,17 @@ export function WeeklyReview() {
   const isAuto = step >= 1 && step <= 9;
 
   if (isLoading) return <div className="min-h-screen bg-background"><RoleBasedNavigation /><div className="pt-28 text-center text-muted-foreground">Preparing review…</div></div>;
+
+  if (isTeamLeader && tlNoReview) return (
+    <div className="min-h-screen bg-background">
+      <RoleBasedNavigation />
+      <div className="w-full pt-28 p-6 max-w-2xl mx-auto text-center">
+        <div className="inline-flex p-3 bg-primary/10 rounded-xl text-primary mb-4"><Shield size={28} /></div>
+        <h1 className="text-2xl font-semibold text-foreground mb-2">Weekly Governance Review</h1>
+        <p className="text-muted-foreground">No weekly review has been published for your service yet. When your Registered Manager finalises and publishes it, it will appear here for you to read and acknowledge.</p>
+      </div>
+    </div>
+  );
 
   const stepBody = () => {
     switch (step) {

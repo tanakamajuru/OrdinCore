@@ -173,14 +173,18 @@ export const risksRepo = {
 
   async getActions(risk_id: string, company_id: string) {
     const result = await query(
-      `SELECT ra.*, 
+      `SELECT ra.*,
         u1.first_name || ' ' || u1.last_name AS created_by_name,
         u2.first_name || ' ' || u2.last_name AS verified_by_rm_name,
-        u3.first_name || ' ' || u3.last_name AS verified_by_ri_name
+        u3.first_name || ' ' || u3.last_name AS verified_by_ri_name,
+        u4.first_name || ' ' || u4.last_name AS completed_by_name,
+        u5.first_name || ' ' || u5.last_name AS assigned_to_name
        FROM risk_actions ra
        JOIN users u1 ON u1.id = ra.created_by
        LEFT JOIN users u2 ON u2.id = ra.verified_by_rm
        LEFT JOIN users u3 ON u3.id = ra.verified_by_ri
+       LEFT JOIN users u4 ON u4.id = ra.completed_by
+       LEFT JOIN users u5 ON u5.id = ra.assigned_to
        WHERE ra.risk_id = $1 AND ra.company_id = $2
        ORDER BY ra.created_at DESC`,
       [risk_id, company_id]

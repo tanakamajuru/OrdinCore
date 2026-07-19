@@ -109,6 +109,7 @@ export function RoleBasedNavigation() {
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
+          { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
           { path: "#support", label: "Contact Support", icon: LifeBuoy, section: "Support", action: "support" },

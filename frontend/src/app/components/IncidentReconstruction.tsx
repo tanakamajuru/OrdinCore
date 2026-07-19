@@ -126,7 +126,7 @@ export function IncidentReconstruction() {
     return (
       <div className="min-h-screen bg-background">
         <RoleBasedNavigation />
-        <div className="p-6 w-full pt-20 max-w-3xl mx-auto">
+        <div className="p-6 w-full pt-20">
           <Header sub="Reconstruct the signal history before an incident — by house or by person — for a CQC-defensible account (FR9)." />
           <div className={card}>
             <h2 className="text-lg font-semibold mb-1">1 · Scope the reconstruction</h2>
@@ -195,7 +195,7 @@ export function IncidentReconstruction() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full pt-20 max-w-4xl mx-auto">
+      <div className="p-6 w-full pt-20">
         <Header sub={`${mode === "house" ? "House" : "Person"} reconstruction · ${scopeLabel} · up to ${incidentDate}`} />
         <div className="flex justify-end mb-3">
           <button onClick={() => { setStage("setup"); setLocked(false); setStep(1); setRecordId(null); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/40 text-sm"><ArrowLeft size={14} /> New reconstruction</button>

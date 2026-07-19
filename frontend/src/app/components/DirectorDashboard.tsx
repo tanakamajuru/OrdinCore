@@ -78,6 +78,7 @@ export function DirectorDashboard() {
   const [effPending, setEffPending] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [heatmap, setHeatmap] = useState<any[]>([]);
+  const [escPage, setEscPage] = useState(1);
 
   useEffect(() => { load(); }, []);
 
@@ -214,25 +215,14 @@ export function DirectorDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Risks by Trend</h3>
+            <h3 className="font-semibold mb-4">Risks by Trend <span className="text-xs text-muted-foreground font-normal">({openRisks.length} open)</span></h3>
             <Donut data={[
-              { name: "Rising", value: rising, color: "#ef4444" },
+              { name: "Rising / Deteriorating", value: rising, color: "#ef4444" },
               { name: "Stable", value: Math.max(stable, 0), color: "#f59e0b" },
               { name: "Improving", value: improving, color: "#10b981" },
             ]} />
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Action Effectiveness <span className="text-xs text-muted-foreground font-normal">(All Services)</span></h3>
-            <Donut centerLabel={`${effPct}%`} data={[
-              { name: "Effective", value: effEffective, color: "#10b981" },
-              { name: "Partially Effective", value: effPartial, color: "#f59e0b" },
-              { name: "Not Effective", value: effNot, color: "#ef4444" },
-            ]} />
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
             <h3 className="font-semibold mb-4">Escalations by Status</h3>
             <ResponsiveContainer width="100%" height={180}>
@@ -295,7 +285,7 @@ export function DirectorDashboard() {
                 <th className="py-2 pr-2">Escalation</th><th className="px-2">Service</th><th className="px-2">Escalated On</th><th className="px-2">Due By</th><th className="px-2">Status</th>
               </tr></thead>
               <tbody>
-                {escalations.slice(0, 8).map(e => (
+                {escalations.slice((Math.min(escPage, Math.max(1, Math.ceil(escalations.length / 5))) - 1) * 5, (Math.min(escPage, Math.max(1, Math.ceil(escalations.length / 5)))) * 5).map(e => (
                   <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
                     <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
                     <td className="px-2">{e.service_name || e.house_name || "—"}</td>
@@ -308,6 +298,17 @@ export function DirectorDashboard() {
               </tbody>
             </table>
           </div>
+          {escalations.length > 5 && (() => {
+            const pages = Math.max(1, Math.ceil(escalations.length / 5));
+            const safe = Math.min(escPage, pages);
+            return (
+              <div className="flex items-center justify-between mt-3 text-sm">
+                <button onClick={() => setEscPage(p => Math.max(1, p - 1))} disabled={safe <= 1} className="px-3 py-1.5 border border-border rounded hover:bg-muted disabled:opacity-40">Previous</button>
+                <span className="text-xs text-muted-foreground">Page {safe} of {pages} · {escalations.length} total</span>
+                <button onClick={() => setEscPage(p => Math.min(pages, p + 1))} disabled={safe >= pages} className="px-3 py-1.5 border border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
+              </div>
+            );
+          })()}
         </div>
       </div>
     </div>

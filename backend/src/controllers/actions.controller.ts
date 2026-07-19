@@ -40,9 +40,9 @@ export class ActionsController {
       const updated = await risksService.updateActionStatus(id, action.rows[0].risk_id, company_id, user_id, 'Completed');
       const completedRes = await query(
         `UPDATE risk_actions
-         SET completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW()
+         SET completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW(), completed_by = $6
          WHERE id = $4 AND company_id = $5 RETURNING *`,
-        [completion_note || null, completion_outcome, completion_rationale, id, company_id]
+        [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
       const completedAction = completedRes.rows[0] || updated;
 

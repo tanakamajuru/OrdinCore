@@ -636,16 +636,19 @@ export class WeeklyReviewsService {
   async getAcknowledgements(reviewId: string, company_id: string) {
     const rev = await this.findById(reviewId, company_id);
     if (!rev) throw new Error('Review not found');
+    // EXISTS (not a JOIN on user_houses) so a user assigned to several houses — or one with
+    // can_view_all_houses and multiple assignments — appears exactly ONCE. The old JOIN emitted
+    // a roster row per house assignment, which duplicated the team acknowledgement list.
     const result = await query(
       `SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.role,
               a.acknowledged_at,
               (a.id IS NOT NULL) AS acknowledged
          FROM users u
-         LEFT JOIN user_houses uh ON uh.user_id = u.id
          LEFT JOIN weekly_review_acknowledgements a
            ON a.user_id = u.id AND a.review_id = $1
         WHERE u.company_id = $2 AND u.status = 'active'
-          AND (uh.house_id = $3 OR u.can_view_all_houses = true)
+          AND (u.can_view_all_houses = true
+               OR EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = u.id AND uh.house_id = $3))
         ORDER BY acknowledged DESC, u.first_name`,
       [reviewId, company_id, rev.house_id]
     );
