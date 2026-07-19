@@ -21,6 +21,7 @@ import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
 import { Rm5Interface } from "./components/Rm5Interface";
+import { InterventionPanel } from "./components/InterventionPanel";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -332,6 +333,11 @@ export default function App() {
           <Route path="/rm5" element={
             <ProtectedRoute>
               <Rm5Interface initialScreen="pipeline" />
+            </ProtectedRoute>
+          } />
+          <Route path="/interventions" element={
+            <ProtectedRoute>
+              <InterventionPanel />
             </ProtectedRoute>
           } />
           <Route path="/engines" element={
