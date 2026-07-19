@@ -60,7 +60,15 @@ export class AnalyticsService {
         return { start, end, label: end.toISOString().split('T')[0] };
       });
 
-      const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));
+      // Include EVERY active service (all sectors — Supported Living and Domiciliary), not just
+      // ones that happen to have a promoted risk in the window. A service with no risks plots a
+      // flat line at zero, which is honest ("no promoted risks yet") and — importantly — makes
+      // domiciliary services appear on the cross-house chart instead of silently dropping off.
+      const activeHouses = (await query(
+        `SELECT name FROM houses WHERE company_id = $1 AND status <> 'closed' ORDER BY name`,
+        [company_id]
+      )).rows.map((r: any) => r.name);
+      const houseNames = Array.from(new Set([...activeHouses, ...result.rows.map((row: any) => row.house_name)]));
       const cumulative: Record<string, number> = {};
       houseNames.forEach((n) => { cumulative[n] = 0; });
 

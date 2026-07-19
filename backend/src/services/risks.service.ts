@@ -497,12 +497,29 @@ export class RisksService {
     // Build the governance description from the FULL observation text of the linked
     // signals (attributed + dated), not a fixed template, so the inspector sees what
     // was actually observed.
-    const sigRows = (await query(
-      `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.entry_time, gp.severity
+    let sigRows = (await query(
+      `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.entry_time, gp.severity, h.name AS house
          FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+         LEFT JOIN houses h ON h.id = gp.house_id
         WHERE rsl.cluster_id = $1 ORDER BY gp.entry_date ASC, gp.entry_time ASC`,
       [data.cluster_id]
     )).rows;
+
+    // A systemic (cross-service) cluster has no direct risk_signal_links — its evidence lives
+    // on the per-service child clusters. Gather the actual signals by domain across the
+    // affected houses so the description lists them in detail (not just "includes N signals").
+    if (sigRows.length === 0 && Array.isArray(cluster.affected_house_ids) && cluster.affected_house_ids.length) {
+      sigRows = (await query(
+        `SELECT gp.description, gp.immediate_action, gp.related_person, gp.entry_date, gp.entry_time, gp.severity, h.name AS house
+           FROM governance_pulses gp LEFT JOIN houses h ON h.id = gp.house_id
+          WHERE gp.company_id = $1
+            AND gp.risk_domain && ARRAY[$2]::text[]
+            AND gp.house_id = ANY($3::uuid[])
+          ORDER BY gp.entry_date ASC, gp.entry_time ASC
+          LIMIT 30`,
+        [company_id, cluster.risk_domain, cluster.affected_house_ids]
+      )).rows;
+    }
     // Each point carries date AND time, and points are blank-line separated so the
     // governance description reads clearly rather than as one crowded block.
     const stamp = (s: any) => {
@@ -512,7 +529,7 @@ export class RisksService {
     };
     const composed = sigRows.length
       ? `Promoted from pattern detection — ${sigRows.length} linked signal(s):\n\n` +
-        sigRows.map((s: any) => `• ${stamp(s)} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n\n')
+        sigRows.map((s: any) => `• ${stamp(s)} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}${s.house ? ', ' + s.house : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n\n')
       : data.description;
 
     // Make severity, likelihood/impact and the derived risk_score agree from the outset.
@@ -888,7 +905,10 @@ export class RisksService {
    */
   async getOversightSummary(company_id: string, houseIds?: string[]) {
     const hasHouseFilter = Array.isArray(houseIds) && houseIds.length > 0;
-    const houseClause = hasHouseFilter ? ' AND r.house_id = ANY($2::uuid[])' : '';
+    // Scoped roles (RM/TL) see their own sites' risks PLUS strategic / cross-service risks,
+    // which have house_id = null — those belong to every service the RM governs, so they must
+    // surface on the register (and be actionable), not vanish because they have no single house.
+    const houseClause = hasHouseFilter ? ' AND (r.house_id = ANY($2::uuid[]) OR r.house_id IS NULL)' : '';
     const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
 
     const risksRes = await query(

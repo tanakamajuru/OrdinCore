@@ -263,7 +263,11 @@ export function DirectorDashboard() {
               {servicesWithRisk.map(s => {
                 const sr = openRisks.filter(r => r.house_id === s.id);
                 const risingN = sr.filter(r => isRising(trendOf(r))).length;
-                const level = risingN >= 2 ? "High" : risingN === 1 ? "Medium" : "Low";
+                // Level reflects both trajectory AND open-risk load, so a service that carries
+                // real risks is never shown as "Low" just because none are currently rising.
+                const level = (risingN >= 2 || sr.length >= 5) ? "High"
+                  : (risingN >= 1 || sr.length >= 2) ? "Medium"
+                  : sr.length > 0 ? "Low" : "Low";
                 return (
                   <button key={s.id} onClick={() => navigate(`/risk-register?house=${s.id}`)}
                     className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
