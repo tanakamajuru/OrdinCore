@@ -191,7 +191,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                 <Pager page={sigSafe} pages={sigPages} total={sigList.length} onPage={setSigPage} />
               </div>
               <div>
-                <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" />Actions due (all assignees)</h2>
+                <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" />Actions due <span className="text-xs font-normal text-muted-foreground">(all assignees)</span></h2>
                 <div className="bg-card border border-border rounded-xl divide-y divide-border">
                   {dueList.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No open actions.</div>}
                   {pagedDue.map((a: any) => (
