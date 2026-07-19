@@ -226,8 +226,19 @@ export class WeeklyReviewsService {
 
     // Fetch service users (residents) from pulses to populate the dropdown
     const serviceUsersRes = await query(
-      `SELECT display_name as name FROM service_users WHERE house_id = $1 AND is_active = true ORDER BY display_name`, 
+      `SELECT display_name as name FROM service_users WHERE house_id = $1 AND is_active = true ORDER BY display_name`,
       [house_id]
+    );
+
+    // Active leadership interventions — so the review evidences what is being DONE about the
+    // recurring themes, not just what was observed.
+    const interventionsRes = await query(
+      `SELECT i.theme, i.intervention, i.status, i.review_date,
+              (u.first_name || ' ' || u.last_name) AS owner_name
+         FROM interventions i LEFT JOIN users u ON u.id = i.owner_id
+        WHERE i.company_id = $1 AND i.status <> 'Complete'
+        ORDER BY i.updated_at DESC LIMIT 20`,
+      [company_id]
     );
 
     return {
@@ -248,7 +259,8 @@ export class WeeklyReviewsService {
           title: r.title,
           current_trajectory: r.trajectory,
           last_effectiveness: r.last_effectiveness || 'Unknown'
-        }))
+        })),
+        interventions: interventionsRes.rows,
       }
     };
   }

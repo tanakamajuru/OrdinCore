@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { computeTrajectory } from './trajectory.service';
+import { risksService } from './risks.service';
 
 /**
  * Intervention Panel — trajectory-based governance for each theme (risk domain).
@@ -113,6 +114,8 @@ export const interventionsService = {
           review_date: intv.review_date,
           started_at: intv.started_at,
           risk_index_before: intv.risk_index_before,
+          linked_risk_id: intv.linked_risk_id,
+          linked_action_id: intv.linked_action_id,
           // Effectiveness = (before − after) / before × 100. Positive = risk reduced.
           effectiveness: (intv.risk_index_before && intv.risk_index_before > 0)
             ? Math.round(((intv.risk_index_before - (await themeRiskIndex(company_id, t.theme))) / intv.risk_index_before) * 100)
@@ -180,6 +183,33 @@ export const interventionsService = {
       [company_id, String(data.theme).trim(), data.house_id || null, data.owner_id || null, data.owner_role || null,
        String(data.intervention).trim(), status, data.expected_outcome || null, data.review_date || null, startedAt, before, user_id]
     );
-    return res.rows[0];
+    const intv = res.rows[0];
+
+    // Make the intervention DO something: when it starts, raise a real risk action (task) on
+    // the theme's top open risk, assigned to the owner, so it lands in their My Actions and can
+    // be completed + rated. Only once per intervention (guarded by linked_action_id).
+    if (starting && intv && !intv.linked_action_id) {
+      const topRisk = (await query(
+        `SELECT id FROM risks
+          WHERE company_id = $1 AND LOWER(status::text) NOT IN ('closed','resolved')
+            AND COALESCE(NULLIF(TRIM(risk_domain), ''), NULLIF(TRIM(strategic_theme), ''), title) = $2
+          ORDER BY COALESCE(risk_index, 0) DESC LIMIT 1`,
+        [company_id, String(data.theme).trim()]
+      )).rows[0];
+      if (topRisk) {
+        try {
+          const action = await risksService.addAction(topRisk.id, company_id, user_id, {
+            title: `Intervention: ${String(data.intervention).trim()}`,
+            description: data.expected_outcome ? `Expected outcome: ${data.expected_outcome}` : `Leadership intervention for the ${data.theme} theme.`,
+            assigned_to: data.owner_id || undefined,
+            due_date: data.review_date ? new Date(data.review_date) : undefined,
+          });
+          await query(`UPDATE interventions SET linked_risk_id = $1, linked_action_id = $2 WHERE id = $3`, [topRisk.id, action.id, intv.id]);
+          intv.linked_risk_id = topRisk.id;
+          intv.linked_action_id = action.id;
+        } catch { /* non-fatal — intervention still saved */ }
+      }
+    }
+    return intv;
   },
 };

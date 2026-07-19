@@ -80,8 +80,10 @@ export function DirectorDashboard() {
   const [heatmap, setHeatmap] = useState<any[]>([]);
   const [escPage, setEscPage] = useState(1);
   const [health, setHealth] = useState<any>(null);
+  const [themeTrends, setThemeTrends] = useState<any[]>([]);
 
   useEffect(() => { apiClient.get("/interventions/governance-health").then((r: any) => setHealth(r?.data ?? null)).catch(() => setHealth(null)); }, []);
+  useEffect(() => { apiClient.get("/interventions/themes").then((r: any) => setThemeTrends(Array.isArray(r?.data) ? r.data : [])).catch(() => setThemeTrends([])); }, []);
 
   useEffect(() => { load(); }, []);
 
@@ -269,20 +271,26 @@ export function DirectorDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Top Risk Themes <span className="text-xs text-muted-foreground font-normal">(by services affected)</span></h3>
+            <h3 className="font-semibold mb-1">Top Risk Themes <span className="text-xs text-muted-foreground font-normal">(direction of travel)</span></h3>
+            <p className="text-[11px] text-muted-foreground mb-3">Each theme tells a story — is it improving, holding, or getting worse? Open the Intervention Panel to act.</p>
             <div className="space-y-2">
-              {topThemes.map(t => {
-                const svcs = new Set(openRisks.filter(r => themeOf(r) === t).map(r => r.house_id)).size;
-                const trend = openRisks.some(r => themeOf(r) === t && isRising(trendOf(r))) ? "Rising" : "Stable";
+              {(themeTrends.length ? themeTrends : []).slice(0, 6).map((t: any) => {
+                const dir = t.trajectory?.label || "Stable";
+                const arrow = dir === "Increasing" ? "↗" : dir === "Reducing" ? "↘" : "→";
+                const dirTone = dir === "Increasing" ? "text-red-600" : dir === "Reducing" ? "text-emerald-600" : "text-amber-600";
+                const concernTone = ["Attention", "Review required"].includes(t.concern) ? "bg-red-100 text-red-700" : t.concern === "Controlled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700";
                 return (
-                  <button key={t} onClick={() => navigate(`/risk-register?theme=${encodeURIComponent(t)}`)}
+                  <button key={t.theme} onClick={() => navigate("/interventions")}
                     className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
-                    <div><div className="font-medium">{t}</div><div className="text-xs text-muted-foreground">{svcs} service{svcs !== 1 ? "s" : ""}</div></div>
-                    <span className={`text-xs rounded px-2 py-0.5 ${trend === "Rising" ? "bg-red-100 text-red-700" : "bg-amber-100 text-amber-700"}`}>{trend}</span>
+                    <div className="min-w-0">
+                      <div className="font-medium truncate">{t.theme}</div>
+                      <div className={`text-xs font-medium ${dirTone}`}>{arrow} {dir} · <span className="text-muted-foreground font-normal">{t.services} service{t.services !== 1 ? "s" : ""}{t.intervention ? " · intervention set" : ""}</span></div>
+                    </div>
+                    <span className={`text-xs rounded px-2 py-0.5 shrink-0 ${concernTone}`}>{t.concern}</span>
                   </button>
                 );
               })}
-              {topThemes.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No themes</p>}
+              {themeTrends.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No themes</p>}
             </div>
           </div>
 

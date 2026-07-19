@@ -384,6 +384,20 @@ export function WeeklyReview() {
           <div className="bg-muted/40 rounded-lg p-4 text-sm leading-7 mb-3">
             This week {auto.pulse_count ?? 0} signals produced {repeats.length} threshold pattern{repeats.length === 1 ? "" : "s"} and {activeRisks.length} register entr{activeRisks.length === 1 ? "y" : "ies"}. Leadership position: <b>{form.step14_overall_position || "—"}</b>.
           </div>
+          {Array.isArray(auto.interventions) && auto.interventions.length > 0 && (
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-3 mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-primary mb-1.5">Leadership interventions in progress</p>
+              <ul className="text-sm space-y-1">
+                {auto.interventions.map((iv: any, i: number) => (
+                  <li key={i} className="flex items-start justify-between gap-2">
+                    <span><b>{iv.theme}</b> — {iv.intervention}{iv.owner_name ? ` (${iv.owner_name})` : ""}</span>
+                    <span className="text-[11px] text-muted-foreground shrink-0">{iv.status}</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-[11px] text-muted-foreground mt-1.5">Evidence of what leadership is <i>doing</i> about the recurring themes — carried into this review.</p>
+            </div>
+          )}
           <label className="block text-sm font-medium mb-2">Governance narrative <span className="text-amber-600 font-normal">(your own words — required)</span></label>
           <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="The defensible account of what leadership understood and decided this week…" />
 

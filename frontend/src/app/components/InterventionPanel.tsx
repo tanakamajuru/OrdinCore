@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from "react";
+import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight } from "lucide-react";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
@@ -56,6 +57,7 @@ function Timeline({ weeks }: { weeks: any[] }) {
 }
 
 export function InterventionPanel() {
+  const navigate = useNavigate();
   const [themes, setThemes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
@@ -88,7 +90,7 @@ export function InterventionPanel() {
     setSaving(true);
     try {
       const owner = users.find((u) => u.id === edit.owner_id);
-      await apiClient.post("/interventions", {
+      const res: any = await apiClient.post("/interventions", {
         theme: edit.theme,
         intervention: edit.intervention.trim(),
         status: edit.status,
@@ -97,9 +99,16 @@ export function InterventionPanel() {
         expected_outcome: edit.expected_outcome?.trim() || null,
         review_date: edit.review_date || null,
       });
-      toast.success("Intervention saved");
+      const saved = res?.data ?? res;
       setEdit(null);
-      load();
+      // If starting the intervention raised a task on a risk, offer to go action it.
+      if (saved?.linked_risk_id) {
+        toast.success("Intervention saved — a task was raised on its risk.");
+        navigate(`/risk-register/${saved.linked_risk_id}`);
+      } else {
+        toast.success("Intervention saved");
+        load();
+      }
     } catch (e: any) { toast.error(e?.message || "Failed to save intervention"); }
     finally { setSaving(false); }
   };
@@ -170,9 +179,18 @@ export function InterventionPanel() {
                     )}
                   </div>
 
-                  <button onClick={() => openEdit(t)} className="mt-3 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
-                    {intv ? "Update intervention" : "Set intervention"}
-                  </button>
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
+                      {intv ? "Update intervention" : "Set intervention"}
+                    </button>
+                    {intv?.linked_risk_id && (
+                      <button onClick={() => navigate(`/risk-register/${intv.linked_risk_id}`)}
+                        title="Open the risk to complete the action and rate its effectiveness"
+                        className="text-sm font-medium text-primary-foreground bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 flex items-center gap-1 whitespace-nowrap">
+                        Action <ArrowRight className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}
