@@ -577,6 +577,37 @@ export function RiskDetail() {
           )}
         </div>
 
+        {/* Computed governance metrics — mathematically-defensible, derived by the system
+            (no manual scoring). Each answers a different governance question. */}
+        {(risk as any).metrics && (() => {
+          const m = (risk as any).metrics;
+          const gradeTone: Record<string, string> = { Low: "text-emerald-600", Medium: "text-amber-600", High: "text-orange-600", Critical: "text-red-600" };
+          const trajTone = m.trajectoryPct > 10 ? "text-red-600" : m.trajectoryPct < -10 ? "text-emerald-600" : "text-amber-600";
+          const Metric = ({ label, value, sub, tone }: any) => (
+            <div className="bg-card border-2 border-border p-4 shadow-sm">
+              <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{label}</div>
+              <div className={`text-2xl font-semibold ${tone || "text-foreground"}`}>{value}</div>
+              {sub && <div className="text-[11px] text-muted-foreground mt-0.5">{sub}</div>}
+            </div>
+          );
+          return (
+            <div className="mb-6">
+              <div className="flex items-center justify-between mb-2">
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground">Computed governance metrics</h2>
+                <span className="text-[10px] text-muted-foreground" title={m.formula}>System-computed · no manual scoring</span>
+              </div>
+              <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                <Metric label="Risk Index" value={m.riskIndex} sub={`Grade: ${m.grade}`} tone={gradeTone[m.grade]} />
+                <Metric label="Trajectory" value={`${m.trajectoryPct > 0 ? "+" : ""}${m.trajectoryPct}%`} sub={m.trajectoryGrade} tone={trajTone} />
+                <Metric label="Priority" value={m.priority} sub="of 100" />
+                <Metric label="Overdue actions" value={`${m.overduePct}%`} />
+                <Metric label="Confidence" value={`${m.confidence}%`} sub="data reliability" />
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-1.5">{m.formula} · S={m.inputs.S} F={m.inputs.F} V={m.inputs.V}{m.inputs.vulnerabilityAssumed ? " (assumed)" : ""} C={m.inputs.C}</p>
+            </div>
+          );
+        })()}
+
         <div className="space-y-6">
           {/* Description & Evidence */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

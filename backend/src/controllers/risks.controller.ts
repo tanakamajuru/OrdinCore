@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { risksService } from '../services/risks.service';
 import { trajectoryForRisk } from '../services/trajectory.service';
+import { riskMetricsService } from '../services/riskMetrics.service';
 
 export class RisksController {
   async create(req: Request, res: Response) {
@@ -107,6 +108,12 @@ export class RisksController {
       try {
         (risk as any).trajectory_v2 = await trajectoryForRisk(risk.id, (risk as any).source_cluster_id);
       } catch { /* non-fatal — legacy trend fields remain */ }
+
+      // Fully-computed, regulator-defensible metrics (Risk Index / Trajectory% / Priority /
+      // Confidence) — derived by the system, no manual scoring.
+      try {
+        (risk as any).metrics = await riskMetricsService.forRisk(risk.id, company_id);
+      } catch { /* non-fatal */ }
 
       return res.json({ success: true, data: risk, meta: {} });
     } catch (err: unknown) {
