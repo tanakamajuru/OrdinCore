@@ -27,6 +27,7 @@ interface SignalDetail {
   assigned_to?: string | null;
   assigned_to_name?: string | null;
   allocation_is_auto?: boolean;
+  prior_occurrences?: number;
 }
 
 interface TeamLeaderOption {
@@ -261,7 +262,11 @@ export function SignalDetail() {
                </div>
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Happened Before</h3>
-                  <p className="text-lg ">{signal.has_happened_before || "No"}</p>
+                  {(signal.prior_occurrences ?? 0) > 0 ? (
+                    <p className="text-lg text-amber-600 font-semibold">Yes — {signal.prior_occurrences} prior signal{signal.prior_occurrences === 1 ? "" : "s"}</p>
+                  ) : (
+                    <p className="text-lg ">{signal.has_happened_before || "No"}<span className="text-xs text-muted-foreground ml-1">(no earlier signals on record)</span></p>
+                  )}
                </div>
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Risk Domains</h3>

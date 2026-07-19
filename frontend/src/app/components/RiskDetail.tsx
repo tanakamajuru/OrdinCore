@@ -13,6 +13,7 @@ interface RiskDetail {
   title: string;
   description: string;
   severity: string;
+  initial_severity?: string;
   status: string;
   created_at: string;
   created_by_name: string;
@@ -242,6 +243,21 @@ export function RiskDetail() {
       toast.error('Failed to load risk details');
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const [savingSeverity, setSavingSeverity] = useState(false);
+  const handleSeverityChange = async (severity: string) => {
+    if (!id || !risk || severity === risk.severity) return;
+    setSavingSeverity(true);
+    try {
+      await apiClient.patch(`/risks/${id}/severity`, { severity });
+      toast.success(`Current severity updated to ${severity}`);
+      loadRiskDetails(id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || 'Failed to update severity');
+    } finally {
+      setSavingSeverity(false);
     }
   };
 
@@ -500,15 +516,26 @@ export function RiskDetail() {
         <div className="mb-6">
           <div className="flex items-center gap-4 mb-2">
             <h1 className="text-3xl  text-foreground  uppercase tracking-tighter">{risk.title}</h1>
-            <span
-              className={`px-3 py-1  ${
-                risk.severity === "High" || risk.severity === "Critical"
-                  ? "bg-destructive text-primary-foreground"
-                  : "border-2 border-primary"
-              }`}
-            >
-              {risk.severity}
-            </span>
+            {['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) ? (
+              <div className="flex items-center gap-2">
+                <select
+                  value={risk.severity}
+                  disabled={savingSeverity}
+                  onChange={(e) => handleSeverityChange(e.target.value)}
+                  title="Current severity — change as the picture evolves (updates the risk score)"
+                  className={`px-3 py-1 text-sm font-bold uppercase rounded cursor-pointer ${risk.severity === "High" || risk.severity === "Critical" ? "bg-destructive text-primary-foreground" : "border-2 border-primary bg-card text-foreground"}`}
+                >
+                  {Array.from(new Set(["Low", "Medium", "High", "Critical", risk.severity].filter(Boolean))).map((s) => <option key={s} value={s}>{s}</option>)}
+                </select>
+                {risk.initial_severity && risk.initial_severity !== risk.severity && (
+                  <span className="text-[10px] text-muted-foreground uppercase tracking-wide">initial: {risk.initial_severity}</span>
+                )}
+              </div>
+            ) : (
+              <span className={`px-3 py-1  ${risk.severity === "High" || risk.severity === "Critical" ? "bg-destructive text-primary-foreground" : "border-2 border-primary"}`}>
+                {risk.severity}
+              </span>
+            )}
             <div className="flex items-center gap-2 px-3 py-1 border-2 border-border " title={(risk as any).trajectory_v2?.basis || ''}>
                  {((risk as any).trajectory_v2?.direction || risk.trajectory) === 'Improving' ? <TrendingUp className="text-success" /> :
                   ['Deteriorating', 'Critical'].includes((risk as any).trajectory_v2?.direction || risk.trajectory) ? <TrendingDown className="text-destructive animate-pulse" /> :

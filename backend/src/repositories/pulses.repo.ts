@@ -170,7 +170,18 @@ export const pulsesRepo = {
         const result = await query(
             `SELECT gp.*, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name,
                     rb.first_name || ' ' || rb.last_name as reviewed_by_name,
-                    au.first_name || ' ' || au.last_name as assigned_to_name
+                    au.first_name || ' ' || au.last_name as assigned_to_name,
+                    -- Whether this concern has ACTUALLY happened before: earlier signals for the
+                    -- same person on an overlapping risk domain. Lets the UI show the truth from
+                    -- history, not only the reporter's manual yes/no answer.
+                    (SELECT COUNT(*) FROM governance_pulses p2
+                       WHERE p2.company_id = gp.company_id
+                         AND p2.id <> gp.id
+                         AND gp.related_person IS NOT NULL
+                         AND COALESCE(p2.related_person,'') = COALESCE(gp.related_person,'')
+                         AND p2.risk_domain && gp.risk_domain
+                         AND COALESCE(p2.created_at, p2.entry_date::timestamptz) < COALESCE(gp.created_at, gp.entry_date::timestamptz)
+                    )::int AS prior_occurrences
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by

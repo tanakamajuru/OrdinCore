@@ -149,6 +149,8 @@ router.get('/:id', requireAuth, requireTenant, requireScope, risksController.fin
 router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER'), risksController.update.bind(risksController));
 // Edit the CQC analysis fields (impact / mitigation / root cause) — merged into metadata.
 router.patch('/:id/assessment', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateAssessment.bind(risksController));
+// Change the current severity (RM + Director) — initial severity is preserved.
+router.patch('/:id/severity', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateSeverity.bind(risksController));
 
 
 /**

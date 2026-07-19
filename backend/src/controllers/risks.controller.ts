@@ -126,6 +126,17 @@ export class RisksController {
     }
   }
 
+  async updateSeverity(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const risk = await risksService.updateSeverity(req.params.id, company_id, req.user!.user_id, req.body?.severity);
+      return res.json({ success: true, data: risk, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to update severity';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async updateAssessment(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

@@ -93,6 +93,24 @@ export class RisksService {
     return updated;
   }
 
+  // Change the CURRENT severity (leadership judgement as the picture evolves). The initial
+  // severity the risk was promoted at is preserved separately. Keeps likelihood/impact — and
+  // therefore the generated risk_score — aligned to the new band, and logs the change.
+  async updateSeverity(id: string, company_id: string, user_id: string, severity: string) {
+    const risk = await risksRepo.findById(id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    if (['closed', 'resolved'].includes((risk.status || '').toLowerCase())) {
+      throw new Error('This record is closed and its severity can no longer be changed.');
+    }
+    const allowed = ['Low', 'Medium', 'Moderate', 'High', 'Critical'];
+    const next = allowed.find((s) => s.toLowerCase() === String(severity || '').toLowerCase());
+    if (!next) throw new Error('Severity must be Low, Medium, High or Critical.');
+    const li = severityToScore(next);
+    const updated = await risksRepo.update(id, company_id, { severity: next, likelihood: li.likelihood, impact: li.impact });
+    await risksRepo.addEvent(id, company_id, 'severity_changed', `Current severity changed from ${risk.severity} to ${next}.`, user_id);
+    return updated;
+  }
+
   // Update the risk's CQC analysis fields (impact / mitigation / root cause), merged
   // into metadata so other keys (provenance, source_pulse_id) are preserved. These are
   // optional inspector-facing fields; editable while the risk is active.
