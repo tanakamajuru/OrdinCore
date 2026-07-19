@@ -112,6 +112,19 @@ export class RisksService {
     return updated;
   }
 
+  // Set the compulsory human Impact rating (High/Medium/Low). This is the consequence-if-it-
+  // happens judgement — it drives S in the Risk Index, so the authoritative grade is recomputed.
+  async updateImpactRating(id: string, company_id: string, user_id: string, rating: string) {
+    const next = ['High', 'Medium', 'Low'].find((a) => a.toLowerCase() === String(rating || '').toLowerCase());
+    if (!next) throw new Error('Impact must be High, Medium or Low.');
+    const risk = await risksRepo.findById(id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    await query(`UPDATE risks SET impact_rating = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`, [next, id, company_id]);
+    await risksRepo.addEvent(id, company_id, 'impact_rated', `Impact rated ${next} (consequence if the risk materialises).`, user_id);
+    try { await riskMetricsService.recompute(id, company_id); } catch { /* non-fatal */ }
+    return risksRepo.findById(id, company_id);
+  }
+
   // Update the risk's CQC analysis fields (impact / mitigation / root cause), merged
   // into metadata so other keys (provenance, source_pulse_id) are preserved. These are
   // optional inspector-facing fields; editable while the risk is active.
@@ -922,6 +935,7 @@ export class RisksService {
 
     const risksRes = await query(
       `SELECT r.id, r.title, r.strategic_theme, r.trajectory, r.trend, r.status, r.severity,
+              r.impact_rating, r.risk_index,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
               r.last_governance_review_at, r.review_due_date, r.house_id,
               r.closed_at, r.updated_at,
@@ -961,6 +975,8 @@ export class RisksService {
       position: positionOf(r),
       trajectory: r.trajectory || r.trend || 'Stable',
       severity: r.severity,
+      impact: r.impact_rating || null,
+      riskIndex: r.risk_index ?? null,
       evidence: Number(r.evidence_count) || 0,
       controls: Number(r.controls_count) || 0,
       effectiveness: r.latest_effectiveness || 'Not yet reviewed',

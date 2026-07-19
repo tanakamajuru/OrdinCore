@@ -139,7 +139,8 @@ export function RiskRegister() {
                   <tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
                     <th className="py-2.5 px-3">Concern</th>
                     <th className="px-2">Type</th>
-                    <th className="px-2">Position</th>
+                    <th className="px-2">Impact</th>
+                    <th className="px-2">Risk</th>
                     <th className="px-2">Trajectory</th>
                     <th className="px-2">Evidence</th>
                     {tab !== "emerging" && <th className="px-2">Controls</th>}
@@ -154,7 +155,14 @@ export function RiskRegister() {
                     <tr key={r.id} onClick={() => openRow(r)} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer">
                       <td className="py-2.5 px-3 font-medium max-w-[260px] truncate">{r.concern}</td>
                       <td className="px-2"><span className="text-xs text-muted-foreground">{r.type}</span></td>
-                      <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${POSITION_TONE[r.position] || "bg-muted"}`}>{r.position}</span></td>
+                      <td className="px-2">
+                        {r.impact
+                          ? <span className={`text-xs font-medium rounded px-2 py-0.5 ${r.impact === "High" ? "bg-red-100 text-red-700" : r.impact === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{r.impact}</span>
+                          : <span className="text-[10px] font-medium rounded px-2 py-0.5 bg-amber-100 text-amber-700" title="Impact not yet set — open the risk to rate it">Set</span>}
+                      </td>
+                      <td className="px-2">
+                        <span className={`text-xs rounded px-2 py-0.5 ${POSITION_TONE[r.position] || "bg-muted"}`}>{r.riskIndex != null ? `${r.riskIndex} · ` : ""}{r.position}</span>
+                      </td>
                       <td className="px-2"><div className="flex items-center gap-1"><TrajIcon t={r.trajectory} /><span className="text-xs text-muted-foreground">{r.trajectory}</span></div></td>
                       <td className="px-2 text-muted-foreground">{r.evidence} signals</td>
                       {tab !== "emerging" && <td className="px-2 text-muted-foreground">{r.controls}</td>}

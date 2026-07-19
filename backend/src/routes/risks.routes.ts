@@ -151,6 +151,8 @@ router.patch('/:id', requireAuth, requireTenant, requireScope, requireRole('REGI
 router.patch('/:id/assessment', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateAssessment.bind(risksController));
 // Change the current severity (RM + Director) — initial severity is preserved.
 router.patch('/:id/severity', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateSeverity.bind(risksController));
+// Set the compulsory human Impact rating (High/Medium/Low) — drives S in the Risk Index.
+router.patch('/:id/impact-rating', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateImpactRating.bind(risksController));
 
 
 /**

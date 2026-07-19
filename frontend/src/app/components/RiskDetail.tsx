@@ -14,6 +14,7 @@ interface RiskDetail {
   description: string;
   severity: string;
   initial_severity?: string;
+  impact_rating?: string;
   status: string;
   created_at: string;
   created_by_name: string;
@@ -482,9 +483,17 @@ export function RiskDetail() {
     );
   };
 
-  // Impact is the analytical spine of a risk: you cannot judge whether a control worked, or
-  // escalate the risk up the ladder, until leadership has recorded what could actually happen.
-  const hasImpact = !!(risk.impact && String(risk.impact).trim());
+  // Impact (High/Medium/Low) is the compulsory human judgement of consequence. It drives S in
+  // the Risk Index, and you cannot escalate or rate control effectiveness until it's recorded.
+  const hasImpact = !!risk.impact_rating;
+  const rateImpact = async (impact_rating: string) => {
+    if (!id) return;
+    try {
+      await apiClient.patch(`/risks/${id}/impact-rating`, { impact_rating });
+      toast.success(`Impact set to ${impact_rating}`);
+      loadRiskDetails(id);
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to set impact'); }
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -529,7 +538,7 @@ export function RiskDetail() {
             )}
             {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
               <button
-                onClick={() => hasImpact ? setShowEscalateModal(true) : (openAssessmentEdit('impact'), toast.error('Record the risk impact before escalating.'))}
+                onClick={() => hasImpact ? setShowEscalateModal(true) : (window.scrollTo({ top: 0, behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — see the required banner at the top.'))}
                 disabled={!hasImpact}
                 title={hasImpact ? 'Escalate this risk' : 'Record the risk impact first'}
                 className="px-3 py-1 bg-destructive text-primary-foreground hover:bg-destructive/80 transition-colors uppercase font-bold disabled:opacity-50 disabled:cursor-not-allowed"
@@ -553,6 +562,27 @@ export function RiskDetail() {
             <p className="text-xs text-muted-foreground mt-1 normal-case tracking-normal">Trajectory basis — {(risk as any).trajectory_v2.basis}</p>
           )}
         </div>
+
+        {/* Impact — the compulsory human judgement (consequence if it happens). Feeds S in the
+            Risk Index. Shown as a required prompt until set. */}
+        {!['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
+          <div className={`mb-6 rounded-xl border-2 p-4 flex flex-col sm:flex-row sm:items-center gap-3 ${hasImpact ? 'border-border bg-card' : 'border-amber-400 bg-amber-50'}`}>
+            <div className="flex-1">
+              <div className="text-sm font-semibold text-foreground">Impact {hasImpact ? '' : <span className="text-amber-700">· required</span>}</div>
+              <div className="text-xs text-muted-foreground">The consequence if this risk materialises — your clinical judgement. Drives the Risk Index.</div>
+            </div>
+            <div className="flex gap-2">
+              {['High', 'Medium', 'Low'].map((lvl) => (
+                <button key={lvl} onClick={() => rateImpact(lvl)}
+                  className={`px-4 py-2 rounded-lg text-sm font-bold uppercase border-2 transition-colors ${risk.impact_rating === lvl
+                    ? (lvl === 'High' ? 'bg-red-600 text-white border-red-600' : lvl === 'Medium' ? 'bg-amber-500 text-white border-amber-500' : 'bg-emerald-600 text-white border-emerald-600')
+                    : 'bg-card border-border hover:border-primary text-foreground'}`}>
+                  {lvl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Computed governance metrics — mathematically-defensible, derived by the system
             (no manual scoring). Each answers a different governance question. */}
@@ -762,7 +792,7 @@ export function RiskDetail() {
 
                             {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
                                 <button
-                                    onClick={() => hasImpact ? setShowEffectivenessAction(action.id) : (openAssessmentEdit('impact'), toast.error('Record the risk impact before reviewing effectiveness.'))}
+                                    onClick={() => hasImpact ? setShowEffectivenessAction(action.id) : (window.scrollTo({ top: 0, behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — see the required banner at the top.'))}
                                     disabled={!hasImpact}
                                     title={hasImpact ? 'Rate this control’s effectiveness' : 'Record the risk impact first'}
                                     className="text-[10px]  uppercase font-bold bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"

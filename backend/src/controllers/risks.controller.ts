@@ -144,6 +144,17 @@ export class RisksController {
     }
   }
 
+  async updateImpactRating(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const risk = await risksService.updateImpactRating(req.params.id, company_id, req.user!.user_id, req.body?.impact_rating);
+      return res.json({ success: true, data: risk, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to set impact';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async updateAssessment(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

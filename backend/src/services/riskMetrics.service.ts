@@ -142,7 +142,7 @@ export const riskMetricsService = {
 
   async forRisk(risk_id: string, company_id: string) {
     const r = (await query(
-      `SELECT id, severity, source_cluster_id, linked_person FROM risks WHERE id = $1 AND company_id = $2`,
+      `SELECT id, severity, source_cluster_id, linked_person, impact_rating FROM risks WHERE id = $1 AND company_id = $2`,
       [risk_id, company_id]
     )).rows[0];
     if (!r) return null;
@@ -182,7 +182,11 @@ export const riskMetricsService = {
       [risk_id]
     )).rows[0];
 
-    const S = Math.max(severityToS(r.severity), maxSev >= 1 ? Math.min(5, maxSev) : 1);
+    // S (Severity/Impact) prefers the human Impact rating (High 5 · Medium 3 · Low 2) when set;
+    // otherwise it falls back to the strongest linked signal severity.
+    const impactToS: Record<string, number> = { high: 5, medium: 3, moderate: 3, low: 2 };
+    const humanS = impactToS[String(r.impact_rating || '').toLowerCase()];
+    const S = humanS ?? Math.max(severityToS(r.severity), maxSev >= 1 ? Math.min(5, maxSev) : 1);
     const F = frequencyToF(sigCount);
     const C = controlToC(ctl?.latest, Number(ctl?.total) > 0);
     const riskIndex = Math.round((0.40 * S + 0.25 * F + 0.20 * V + 0.15 * C) * 20);

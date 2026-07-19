@@ -28,6 +28,8 @@ interface SignalDetail {
   assigned_to_name?: string | null;
   allocation_is_auto?: boolean;
   prior_occurrences?: number;
+  cluster_signal_count?: number;
+  cluster_label?: string;
   created_by?: string;
   note_versions?: { id: string; note: string; created_at: string; edited_by_name: string }[];
 }
@@ -328,7 +330,11 @@ export function SignalDetail() {
             <div className="bg-card border-2 border-border p-6 flex justify-between">
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Pattern Concern</h3>
-                  <p className="text-lg ">{signal.pattern_concern || "None"}</p>
+                  {(signal.cluster_signal_count ?? 0) >= 2 ? (
+                    <p className="text-lg text-amber-600 font-semibold">Part of a {signal.cluster_signal_count}-signal pattern{signal.pattern_concern && signal.pattern_concern !== "None" ? ` · ${signal.pattern_concern}` : ""}</p>
+                  ) : (
+                    <p className="text-lg ">{signal.pattern_concern && signal.pattern_concern !== "None" ? signal.pattern_concern : "Not yet part of a pattern"}</p>
+                  )}
                </div>
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Happened Before</h3>

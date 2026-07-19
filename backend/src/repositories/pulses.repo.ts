@@ -181,7 +181,13 @@ export const pulsesRepo = {
                          AND COALESCE(p2.related_person,'') = COALESCE(gp.related_person,'')
                          AND p2.risk_domain && gp.risk_domain
                          AND COALESCE(p2.created_at, p2.entry_date::timestamptz) < COALESCE(gp.created_at, gp.entry_date::timestamptz)
-                    )::int AS prior_occurrences
+                    )::int AS prior_occurrences,
+                    -- The forming pattern (cluster) this signal belongs to, if any — lets the UI
+                    -- show the real pattern concern rather than only the reporter's yes/no.
+                    (SELECT c.signal_count FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
+                       WHERE rsl.pulse_entry_id = gp.id ORDER BY c.signal_count DESC NULLS LAST LIMIT 1)::int AS cluster_signal_count,
+                    (SELECT c.cluster_label FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
+                       WHERE rsl.pulse_entry_id = gp.id ORDER BY c.signal_count DESC NULLS LAST LIMIT 1) AS cluster_label
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
