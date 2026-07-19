@@ -97,6 +97,49 @@ export const riskMetricsService = {
     return m;
   },
 
+  // Organisational Governance Health (0–100, higher = stronger governance):
+  //   Health = 100 − (0.40·R + 0.25·T + 0.20·(100−A) + 0.15·(100−D))
+  // R = avg Risk Index of open risks · T = org trajectory score · A = action completion % ·
+  // D = data confidence %.
+  async governanceHealth(company_id: string) {
+    const R = Math.round(Number((await query(
+      `SELECT COALESCE(AVG(risk_index), 0) v FROM risks
+        WHERE company_id = $1 AND LOWER(status::text) NOT IN ('closed','resolved') AND risk_index IS NOT NULL`,
+      [company_id]
+    )).rows[0]?.v || 0));
+
+    const acts = (await query(
+      `SELECT COUNT(*) t, COUNT(*) FILTER (WHERE status IN ('Complete','Completed')) c FROM risk_actions WHERE company_id = $1`,
+      [company_id]
+    )).rows[0];
+    const A = Number(acts?.t) > 0 ? Math.round((Number(acts.c) / Number(acts.t)) * 100) : 100;
+
+    const wk = (await query(
+      `SELECT SUM(${SEV_WEIGHT_SQL}) FILTER (WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= date_trunc('week', NOW())) AS cur,
+              SUM(${SEV_WEIGHT_SQL}) FILTER (WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= date_trunc('week', NOW()) - INTERVAL '1 week'
+                                               AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <  date_trunc('week', NOW())) AS prev
+         FROM governance_pulses gp WHERE gp.company_id = $1`,
+      [company_id]
+    )).rows[0];
+    const cur = Number(wk?.cur) || 0, prev = Number(wk?.prev) || 0;
+    const trajectoryPct = prev > 0 ? ((cur - prev) / prev) * 100 : (cur > 0 ? 100 : 0);
+    const T = trajectoryScoreOf(trajectoryGradeOf(trajectoryPct));
+
+    const days = Number((await query(
+      `SELECT COUNT(DISTINCT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date) d
+         FROM governance_pulses gp WHERE gp.company_id = $1 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'`,
+      [company_id]
+    )).rows[0]?.d || 0);
+    const D = Math.round(clamp((days / 30) * 100, 0, 100));
+
+    const health = Math.round(clamp(100 - (0.40 * R + 0.25 * T + 0.20 * (100 - A) + 0.15 * (100 - D)), 0, 100));
+    return {
+      health,
+      components: { riskIndexAvg: R, trajectoryScore: T, actionCompletion: A, dataConfidence: D },
+      formula: 'Health = 100 − (0.40·R + 0.25·T + 0.20·(100−A) + 0.15·(100−D))',
+    };
+  },
+
   async forRisk(risk_id: string, company_id: string) {
     const r = (await query(
       `SELECT id, severity, source_cluster_id, linked_person FROM risks WHERE id = $1 AND company_id = $2`,

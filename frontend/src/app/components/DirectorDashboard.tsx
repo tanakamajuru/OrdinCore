@@ -79,6 +79,9 @@ export function DirectorDashboard() {
   const [services, setServices] = useState<any[]>([]);
   const [heatmap, setHeatmap] = useState<any[]>([]);
   const [escPage, setEscPage] = useState(1);
+  const [health, setHealth] = useState<any>(null);
+
+  useEffect(() => { apiClient.get("/interventions/governance-health").then((r: any) => setHealth(r?.data ?? null)).catch(() => setHealth(null)); }, []);
 
   useEffect(() => { load(); }, []);
 
@@ -180,6 +183,32 @@ export function DirectorDashboard() {
             <Download className="w-4 h-4" /> Download Reports
           </button>
         </div>
+
+        {/* Organisational Governance Health — computed composite (higher = stronger). */}
+        {health && (() => {
+          const h = health.health ?? 0;
+          const tone = h >= 75 ? "text-emerald-600" : h >= 50 ? "text-amber-600" : "text-red-600";
+          const barTone = h >= 75 ? "bg-emerald-500" : h >= 50 ? "bg-amber-500" : "bg-red-500";
+          const c = health.components || {};
+          return (
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
+              <div className="flex flex-col md:flex-row md:items-center gap-4">
+                <div className="md:w-56 shrink-0">
+                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Governance Health</div>
+                  <div className={`text-4xl font-semibold ${tone}`}>{h}<span className="text-lg text-muted-foreground">/100</span></div>
+                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2"><div className={`h-full ${barTone}`} style={{ width: `${h}%` }} /></div>
+                </div>
+                <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
+                  <div><div className="text-xs text-muted-foreground">Avg Risk Index</div><div className="font-semibold">{c.riskIndexAvg ?? "—"}</div></div>
+                  <div><div className="text-xs text-muted-foreground">Trajectory</div><div className="font-semibold">{c.trajectoryScore ?? "—"}/100</div></div>
+                  <div><div className="text-xs text-muted-foreground">Action completion</div><div className="font-semibold">{c.actionCompletion ?? "—"}%</div></div>
+                  <div><div className="text-xs text-muted-foreground">Data confidence</div><div className="font-semibold">{c.dataConfidence ?? "—"}%</div></div>
+                </div>
+              </div>
+              <p className="text-[10px] text-muted-foreground mt-2" title={health.formula}>{health.formula}</p>
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}

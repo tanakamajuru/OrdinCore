@@ -153,7 +153,16 @@ export function InterventionPanel() {
                           <div><span className="text-foreground font-medium">Owner:</span> {intv.owner_name || intv.owner_role || "—"}</div>
                           <div><span className="text-foreground font-medium">Actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done</div>
                           <div><span className="text-foreground font-medium">Review:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</div>
+                          <div><span className="text-foreground font-medium">Risk now:</span> {t.currentRiskIndex ?? "—"}{intv.risk_index_before != null ? ` (was ${intv.risk_index_before})` : ""}</div>
                           <div className="col-span-2"><span className="text-foreground font-medium">Expected:</span> {intv.expected_outcome || "—"}</div>
+                          {intv.effectiveness != null && (
+                            <div className="col-span-2">
+                              <span className="text-foreground font-medium">Effectiveness:</span>{" "}
+                              <span className={intv.effectiveness > 0 ? "text-emerald-600 font-semibold" : intv.effectiveness < 0 ? "text-red-600 font-semibold" : ""}>
+                                {intv.effectiveness > 0 ? "+" : ""}{intv.effectiveness}% {intv.effectiveness > 0 ? "risk reduced" : intv.effectiveness < 0 ? "risk increased" : "no change"}
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </div>
                     ) : (

@@ -310,7 +310,32 @@ export class AnalyticsService {
       const escalationTrends = weeks.map(w => ({ week: w.label, count: w.escalations }));
       const safeguardingTrends = weeks.map(w => ({ week: w.label, incidents: w.safeguarding }));
 
+      // Daily Risk Score (avg severity of the day's signals, 0–100) + 7-day moving average.
+      const dailyRows = (await query(
+        `SELECT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date AS d,
+                AVG(CASE gp.severity::text WHEN 'Critical' THEN 100 WHEN 'High' THEN 75 WHEN 'Medium' THEN 50 WHEN 'Moderate' THEN 50 ELSE 25 END)::float AS score
+           FROM governance_pulses gp
+          WHERE gp.company_id = $1 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'
+          GROUP BY d ORDER BY d ASC`,
+        [company_id]
+      )).rows;
+      const dayMap = new Map<string, number>();
+      for (const r of dailyRows) dayMap.set(new Date(r.d).toISOString().slice(0, 10), Math.round(Number(r.score) || 0));
+      const dailyRisk: any[] = [];
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const series: number[] = [];
+      for (let i = 29; i >= 0; i--) {
+        const day = new Date(today); day.setDate(today.getDate() - i);
+        const key = day.toISOString().slice(0, 10);
+        const val = dayMap.get(key) ?? 0;
+        series.push(val);
+        const window = series.slice(Math.max(0, series.length - 7));
+        const movingAvg = Math.round(window.reduce((a, b) => a + b, 0) / window.length);
+        dailyRisk.push({ date: key.slice(5), dailyRisk: val, movingAvg });
+      }
+
       return {
+        dailyRisk,
         crossHouseRisk: multiHouseTrends,
         crossHouseIncidents: multiHouseIncidents,
         safeGuarding: {

@@ -28,6 +28,17 @@ function directionLabel(direction: string): string {
   return 'Stable';
 }
 
+// Average authoritative Risk Index of a theme's open risks (0 if none scored yet).
+async function themeRiskIndex(company_id: string, theme: string): Promise<number> {
+  const v = (await query(
+    `SELECT COALESCE(AVG(risk_index), 0) v FROM risks
+      WHERE company_id = $1 AND risk_index IS NOT NULL AND LOWER(status::text) NOT IN ('closed','resolved')
+        AND COALESCE(NULLIF(TRIM(risk_domain), ''), NULLIF(TRIM(strategic_theme), ''), title) = $2`,
+    [company_id, theme]
+  )).rows[0]?.v;
+  return Math.round(Number(v) || 0);
+}
+
 export const interventionsService = {
   // Every active theme with its trajectory, timeline, counts and any intervention.
   async themes(company_id: string) {
@@ -90,6 +101,7 @@ export const interventionsService = {
         trajectory: { direction: tr.direction, label: direction, basis: tr.basis },
         concern: concernOf(tr.direction, t.theme),
         timeline,
+        currentRiskIndex: await themeRiskIndex(company_id, t.theme),
         intervention: intv ? {
           id: intv.id,
           intervention: intv.intervention,
@@ -100,6 +112,11 @@ export const interventionsService = {
           expected_outcome: intv.expected_outcome,
           review_date: intv.review_date,
           started_at: intv.started_at,
+          risk_index_before: intv.risk_index_before,
+          // Effectiveness = (before − after) / before × 100. Positive = risk reduced.
+          effectiveness: (intv.risk_index_before && intv.risk_index_before > 0)
+            ? Math.round(((intv.risk_index_before - (await themeRiskIndex(company_id, t.theme))) / intv.risk_index_before) * 100)
+            : null,
         } : null,
       });
     }
@@ -143,20 +160,25 @@ export const interventionsService = {
     if (!data.intervention || !String(data.intervention).trim()) throw new Error('Describe the intervention.');
     const status = ['Planned', 'In Progress', 'Complete', 'On Hold'].find((s) => s.toLowerCase() === String(data.status || '').toLowerCase()) || 'Planned';
     // started_at is stamped the first time the intervention moves off "Planned", or if explicitly started.
-    const startedAt = (data.started || status === 'In Progress') ? new Date() : null;
+    const starting = (data.started || status === 'In Progress');
+    const startedAt = starting ? new Date() : null;
+    // Snapshot the theme's current Risk Index the first time the intervention starts, so we can
+    // later measure whether it worked. COALESCE in the upsert keeps the first snapshot.
+    const before = starting ? await themeRiskIndex(company_id, String(data.theme).trim()) : null;
 
     const res = await query(
-      `INSERT INTO interventions (company_id, theme, house_id, owner_id, owner_role, intervention, status, expected_outcome, review_date, started_at, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11)
+      `INSERT INTO interventions (company_id, theme, house_id, owner_id, owner_role, intervention, status, expected_outcome, review_date, started_at, risk_index_before, created_by)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
        ON CONFLICT (company_id, theme, COALESCE(house_id, '00000000-0000-0000-0000-000000000000'::uuid))
        DO UPDATE SET owner_id = EXCLUDED.owner_id, owner_role = EXCLUDED.owner_role,
                      intervention = EXCLUDED.intervention, status = EXCLUDED.status,
                      expected_outcome = EXCLUDED.expected_outcome, review_date = EXCLUDED.review_date,
                      started_at = COALESCE(interventions.started_at, EXCLUDED.started_at),
+                     risk_index_before = COALESCE(interventions.risk_index_before, EXCLUDED.risk_index_before),
                      updated_at = NOW()
        RETURNING *`,
       [company_id, String(data.theme).trim(), data.house_id || null, data.owner_id || null, data.owner_role || null,
-       String(data.intervention).trim(), status, data.expected_outcome || null, data.review_date || null, startedAt, user_id]
+       String(data.intervention).trim(), status, data.expected_outcome || null, data.review_date || null, startedAt, before, user_id]
     );
     return res.rows[0];
   },

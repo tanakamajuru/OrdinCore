@@ -35,6 +35,7 @@ export function Trends() {
   const [incidentHouseNames, setIncidentHouseNames] = useState<string[]>([]);
   const [safeguardingData, setSafeguardingData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
   const [escalationData, setEscalationData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
+  const [dailyRisk, setDailyRisk] = useState<any[]>([]);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -54,6 +55,7 @@ export function Trends() {
         setIncidentHouseNames(trendsData.crossHouseIncidents?.houses || []);
         setSafeguardingData(trendsData.safeGuarding);
         setEscalationData(trendsData.escalation);
+        setDailyRisk(trendsData.dailyRisk || []);
       }
     } catch (error) {
       console.error('Failed to load trends data:', error);
@@ -122,6 +124,30 @@ export function Trends() {
           >
             {isGeneratingReport ? "Generating..." : "Generate Monthly Board Report"}
           </button>
+        </div>
+
+        {/* Daily Risk Score + 7-day moving average — smooths one-off spikes. */}
+        <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6 mb-6">
+          <h2 className="text-xl mb-1 text-foreground flex items-center gap-2">
+            <span className="w-3 h-3 bg-primary rounded-full"></span>
+            Daily Risk Score <span className="text-sm text-muted-foreground">(30 days · 7-day average)</span>
+          </h2>
+          <p className="text-xs text-muted-foreground mb-4">Average signal severity per day (0–100). The line is the 7-day moving average — the trend that matters.</p>
+          {dailyRisk.length > 0 ? (
+            <ResponsiveContainer width="100%" height={260}>
+              <LineChart data={dailyRisk}>
+                <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
+                <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={4} tickMargin={8} />
+                <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickMargin={8} />
+                <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "2px solid hsl(var(--border))", color: "hsl(var(--foreground))", borderRadius: "0.5rem" }} />
+                <Legend verticalAlign="top" align="right" iconType="plainline" />
+                <Line type="monotone" dataKey="dailyRisk" name="Daily" stroke="#cbd5e1" strokeWidth={1.5} dot={false} />
+                <Line type="monotone" dataKey="movingAvg" name="7-day average" stroke="#6366f1" strokeWidth={3} dot={false} />
+              </LineChart>
+            </ResponsiveContainer>
+          ) : (
+            <EmptyChart height={260} message="No signals in the last 30 days — the daily risk score appears here as signals are logged." />
+          )}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 [&>*]:min-w-0">

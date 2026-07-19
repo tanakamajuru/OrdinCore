@@ -10,6 +10,7 @@ const router = Router();
 const oversight = [requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN')];
 
 router.get('/themes', ...oversight, interventionsController.themes);
+router.get('/governance-health', ...oversight, interventionsController.governanceHealth);
 router.post('/', ...oversight, interventionsController.upsert);
 
 export default router;
