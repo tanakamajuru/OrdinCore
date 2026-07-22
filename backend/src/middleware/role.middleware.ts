@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 
-type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'RESPONSIBLE_INDIVIDUAL' | 'REGISTERED_MANAGER' | 'TEAM_LEADER';
+type Role = 'SUPER_ADMIN' | 'ADMIN' | 'DIRECTOR' | 'RESPONSIBLE_INDIVIDUAL' | 'REGISTERED_MANAGER' | 'TEAM_LEADER' | 'SUPPORT_WORKER';
 
 const ROLE_HIERARCHY: Record<Role, number> = {
   SUPER_ADMIN: 100,
@@ -9,6 +9,8 @@ const ROLE_HIERARCHY: Record<Role, number> = {
   RESPONSIBLE_INDIVIDUAL: 80,
   REGISTERED_MANAGER: 60,
   TEAM_LEADER: 40,
+  // Frontline staff who capture signals and action tasks — most restricted, house-scoped.
+  SUPPORT_WORKER: 30,
 };
 
 export const requireRole = (...roles: Role[]) => {

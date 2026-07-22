@@ -1,6 +1,20 @@
 import { Request, Response } from 'express';
+import * as fs from 'fs';
+import * as path from 'path';
+import { randomUUID } from 'crypto';
 import { pulseService } from '../services/pulse.service';
 import logger from '../utils/logger';
+
+// Signal evidence (photos, voice notes) is written under the statically-served public/uploads
+// directory and referenced by URL — the same evidence_url model the pulse already stores. No
+// object store is configured, so this keeps captured media self-hosted alongside the API.
+const UPLOAD_DIR = path.join(__dirname, '../../public/uploads');
+const EXT_BY_MIME: Record<string, string> = {
+    'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/heic': 'heic', 'image/webp': 'webp',
+    'audio/m4a': 'm4a', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/webm': 'webm',
+};
+// Cap raw media at 6MB: base64 inflates ~1.37x, keeping the request under the app's 10mb JSON limit.
+const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
 
 /** Narrows company_id from string|null → string, throwing a 403-tagged error if absent. */
 function requireCompany(req: Request): string {
@@ -63,10 +77,10 @@ export class PulseController {
             if (typeof filters.severity === 'string' && filters.severity.includes(',')) {
                 filters.severity = filters.severity.split(',');
             }
-            // A Team Leader's signal list is always scoped to the house(s) they can see
-            // (assigned_house_ids — already widened if granted all-site visibility), so
-            // the "All site signals" view never leaks cross-site signals.
-            if ((req.user!.role || '').toUpperCase() === 'TEAM_LEADER' && !filters.house_id) {
+            // A Team Leader's (and Support Worker's) signal list is always scoped to the
+            // house(s) they can see (assigned_house_ids — already widened if granted all-site
+            // visibility), so the "All site signals" view never leaks cross-site signals.
+            if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes((req.user!.role || '').toUpperCase()) && !filters.house_id) {
                 const houseIds = req.user!.assigned_house_ids || [];
                 filters.house_id = houseIds.length > 0 ? houseIds : ['00000000-0000-0000-0000-000000000000'];
             }
@@ -134,6 +148,41 @@ export class PulseController {
             res.json({ success: true, data: updated });
         } catch (err: any) {
             res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
+    // Accepts base64-encoded media captured on the mobile app and returns a hosted URL to store
+    // as a signal's evidence_url. Body: { data: "<base64>", mime: "image/jpeg", kind?: "photo"|"voice" }.
+    async uploadMedia(req: Request, res: Response) {
+        try {
+            requireCompany(req); // authenticated + tenant-scoped
+            const { data, mime } = req.body || {};
+            if (!data || typeof data !== 'string') {
+                return res.status(400).json({ success: false, message: 'No media data provided.' });
+            }
+            const ext = EXT_BY_MIME[String(mime || '').toLowerCase()];
+            if (!ext) {
+                return res.status(415).json({ success: false, message: 'Unsupported media type.' });
+            }
+            // Strip an optional data-URI prefix ("data:image/jpeg;base64,").
+            const base64 = data.includes(',') ? data.slice(data.indexOf(',') + 1) : data;
+            const buffer = Buffer.from(base64, 'base64');
+            if (!buffer.length) return res.status(400).json({ success: false, message: 'Media could not be decoded.' });
+            if (buffer.length > MAX_UPLOAD_BYTES) {
+                return res.status(413).json({ success: false, message: 'Media is too large (max 6MB).' });
+            }
+
+            fs.mkdirSync(UPLOAD_DIR, { recursive: true });
+            const filename = `${randomUUID()}.${ext}`;
+            fs.writeFileSync(path.join(UPLOAD_DIR, filename), buffer);
+
+            // Honour the proxy's forwarded protocol so the URL is https in production (behind nginx).
+            const proto = String(req.headers['x-forwarded-proto'] || '').split(',')[0] || req.protocol;
+            const url = `${proto}://${req.get('host')}/api/v1/uploads/${filename}`;
+            return res.status(201).json({ success: true, data: { url, filename } });
+        } catch (err: any) {
+            logger.error('Error uploading signal media', err);
+            return res.status(err.statusCode ?? 500).json({ success: false, message: err.message });
         }
     }
 

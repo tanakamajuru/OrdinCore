@@ -595,6 +595,43 @@ export function RiskDetail() {
         })()}
 
         <div className="space-y-6">
+          {/* Recurrence banner — this risk continues a previously CLOSED risk. It leads the page
+              because "we closed this and it came back" changes how the whole record is read. */}
+          {(() => {
+            const prev: any = (risk as any).previous_chapter;
+            if (!prev) return null;
+            const d = (v: any) => (v ? new Date(v).toLocaleDateString("en-GB") : "—");
+            return (
+              <div className="bg-amber-50 dark:bg-amber-950/30 border-2 border-amber-500 p-5">
+                <div className="flex items-start justify-between gap-4 flex-wrap">
+                  <div>
+                    <p className="text-xs uppercase tracking-widest text-amber-700 dark:text-amber-400 font-semibold">
+                      Recurrence · occurrence {prev.occurrence} of this concern
+                    </p>
+                    <p className="text-base mt-2 text-foreground">
+                      This was raised before as <span className="font-semibold">“{prev.title}”</span>
+                      {prev.house ? ` (${prev.house})` : ""} on {d(prev.created_at)} and closed on {d(prev.closed_on)}
+                      {prev.resolution_outcome ? ` — ${prev.resolution_outcome}` : ""}.
+                    </p>
+                    {prev.resolution_reason && (
+                      <p className="text-sm mt-1 text-muted-foreground">Closure rationale: {prev.resolution_reason}</p>
+                    )}
+                    <p className="text-sm mt-2 text-amber-800 dark:text-amber-300">
+                      The controls signed off then did not hold. The prior history is carried into the
+                      governance description below — continue the story, do not start again.
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => navigate(`/risks/${prev.risk_id}`)}
+                    className="px-4 py-2 border-2 border-amber-600 text-amber-800 dark:text-amber-300 text-sm uppercase tracking-wider hover:bg-amber-100 dark:hover:bg-amber-900/40 whitespace-nowrap"
+                  >
+                    Previous chapter →
+                  </button>
+                </div>
+              </div>
+            );
+          })()}
+
           {/* Description & Evidence */}
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
             <div className="lg:col-span-2 bg-card border-2 border-border p-6 shadow-sm">

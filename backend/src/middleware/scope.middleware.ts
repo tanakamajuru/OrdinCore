@@ -7,6 +7,7 @@ const ROLE_LEVELS: Record<string, number> = {
   RESPONSIBLE_INDIVIDUAL: 80,
   REGISTERED_MANAGER: 60,
   TEAM_LEADER: 40,
+  SUPPORT_WORKER: 30,
 };
 
 /**

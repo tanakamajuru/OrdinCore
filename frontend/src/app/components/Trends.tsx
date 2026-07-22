@@ -88,14 +88,18 @@ export function Trends() {
     );
   }
 
+  // Explicit categorical palette — every service gets a visually distinct line. The old first
+  // two entries used theme CSS variables (--primary / --secondary), which both resolve to a
+  // near-black in this theme, so two houses shared the same colour and were indistinguishable.
   const chartColors = [
-    'hsl(var(--primary))', 
-    'hsl(var(--secondary))', 
+    '#2563EB', // Blue
     '#F59E0B', // Amber
     '#10B981', // Emerald
     '#EF4444', // Red
     '#8B5CF6', // Violet
-    '#EC4899'  // Pink
+    '#EC4899', // Pink
+    '#0891B2', // Cyan
+    '#65A30D', // Lime
   ];
 
   // Per-chart data presence + where real history begins (for the "limited history" note).

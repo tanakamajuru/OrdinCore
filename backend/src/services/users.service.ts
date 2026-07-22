@@ -30,7 +30,7 @@ export class UsersService {
     const existing = await usersRepo.findByEmail(data.email);
     if (existing) throw new Error('Email already in use');
 
-    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER'];
+    const allowedRoles = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER', 'SUPPORT_WORKER'];
     if (!allowedRoles.includes(data.role.toUpperCase())) {
       throw new Error(`Invalid role: ${data.role}`);
     }
@@ -223,7 +223,7 @@ export class UsersService {
   // primary (users.role). Admin-guarded, audited, and protects against stripping a
   // user's last role or self-granting SUPER_ADMIN.
   async setUserRoles(company_id: string, targetUserId: string, roles: string[], primary: string, actingUserId: string, actingRole: string) {
-    const allowed = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER'];
+    const allowed = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER', 'TEAM_LEADER', 'SUPPORT_WORKER'];
     const norm = Array.from(new Set((roles || []).map(r => String(r).toUpperCase().replace(/-/g, '_')))).filter(r => allowed.includes(r));
     const primaryRole = String(primary || norm[0] || '').toUpperCase().replace(/-/g, '_');
 

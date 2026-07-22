@@ -35,6 +35,8 @@ import riGovernanceRoutes from './routes/riGovernance.routes';
 import directorGovernanceRoutes from './routes/directorGovernance.routes';
 import actionsRoutes from './routes/actions.routes';
 import serviceUsersRoutes from './routes/serviceUsers.routes';
+import notesRoutes from './routes/notes.routes';
+import documentsRoutes from './routes/documents.routes';
 import governanceReviewsRoutes from './routes/governanceReviews.routes';
 import closureRoutes from './routes/closure.routes';
 import reconstructionRoutes from './routes/reconstruction.routes';
@@ -114,6 +116,10 @@ app.get('/swagger.json', (_, res) => {
 // ─── API Routes ───────────────────────────────────────────────────────────────
 const API = '/api/v1';
 
+// Serve captured signal evidence (photos / voice notes) under the API prefix so it is reachable
+// through the same nginx proxy as the rest of the API (root-level paths fall through to the SPA).
+app.use(`${API}/uploads`, express.static(path.join(__dirname, '../public/uploads')));
+
 app.use(`${API}/auth`, authRoutes);
 app.use(`${API}/actions`, actionsRoutes);
 
@@ -140,6 +146,8 @@ app.use(`${API}/clusters`, clustersRoutes);
 app.use(`${API}/ri-governance`, riGovernanceRoutes);
 app.use(`${API}/director-governance`, directorGovernanceRoutes);
 app.use(`${API}/service-users`, serviceUsersRoutes);
+app.use(`${API}/notes`, notesRoutes);
+app.use(`${API}/documents`, documentsRoutes);
 app.use(`${API}/governance-reviews`, governanceReviewsRoutes);
 app.use(`${API}/closure`, closureRoutes);
 app.use(`${API}/reconstruction`, reconstructionRoutes);

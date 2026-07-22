@@ -38,6 +38,7 @@ const ALL_ROLES: { value: string; label: string }[] = [
   { value: 'RESPONSIBLE_INDIVIDUAL', label: 'Responsible Individual' },
   { value: 'REGISTERED_MANAGER', label: 'Registered Manager' },
   { value: 'TEAM_LEADER', label: 'Team Leader' },
+  { value: 'SUPPORT_WORKER', label: 'Support Worker' },
   { value: 'ADMIN', label: 'Admin' },
 ];
 
@@ -537,6 +538,7 @@ const AdminUserManagement: React.FC = () => {
       case ROLES.DIRECTOR: return 'bg-purple-100 text-purple-800';
       case ROLES.REGISTERED_MANAGER: return 'bg-blue-100 text-blue-800';
       case ROLES.TEAM_LEADER: return 'bg-orange-100 text-orange-800';
+      case ROLES.SUPPORT_WORKER: return 'bg-teal-100 text-teal-800';
       case ROLES.RESPONSIBLE_INDIVIDUAL: return 'bg-green-100 text-green-800';
       default: return 'bg-muted text-foreground';
     }
@@ -624,6 +626,7 @@ const AdminUserManagement: React.FC = () => {
               <option value={ROLES.DIRECTOR}>Director</option>
               <option value={ROLES.REGISTERED_MANAGER}>Registered Manager</option>
               <option value={ROLES.TEAM_LEADER}>Team Leader</option>
+              <option value={ROLES.SUPPORT_WORKER}>Support Worker</option>
               <option value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</option>
             </select>
           </div>
@@ -852,13 +855,14 @@ const AdminUserManagement: React.FC = () => {
                   <SelectItem value={ROLES.DIRECTOR}>Director</SelectItem>
                   <SelectItem value={ROLES.REGISTERED_MANAGER}>Registered Manager</SelectItem>
                   <SelectItem value={ROLES.TEAM_LEADER}>Team Leader</SelectItem>
+                  <SelectItem value={ROLES.SUPPORT_WORKER}>Support Worker</SelectItem>
                   <SelectItem value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</SelectItem>
                   <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
                 </SelectContent>
               </Select>
             </div>
             
-            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'SUPPORT_WORKER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
               <>
                 <div className="grid gap-2">
                   <Label>Assigned Sites</Label>
@@ -946,6 +950,7 @@ const AdminUserManagement: React.FC = () => {
                   <SelectItem value={ROLES.DIRECTOR}>Director</SelectItem>
                   <SelectItem value={ROLES.REGISTERED_MANAGER}>Registered Manager</SelectItem>
                   <SelectItem value={ROLES.TEAM_LEADER}>Team Leader</SelectItem>
+                  <SelectItem value={ROLES.SUPPORT_WORKER}>Support Worker</SelectItem>
                   <SelectItem value={ROLES.RESPONSIBLE_INDIVIDUAL}>Responsible Individual</SelectItem>
                   <SelectItem value={ROLES.ADMIN}>Admin</SelectItem>
                 </SelectContent>
@@ -959,7 +964,7 @@ const AdminUserManagement: React.FC = () => {
                 <Switch checked={formData.isActive} onCheckedChange={(val) => setFormData({...formData, isActive: val})} />
             </div>
 
-            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
+            {['REGISTERED_MANAGER', 'TEAM_LEADER', 'SUPPORT_WORKER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(formData.role) && (
               <div className="grid gap-2">
                 <Label>Assigned Sites</Label>
                 <div className="grid grid-cols-1 gap-2 max-h-32 overflow-y-auto p-2 border border-border rounded">

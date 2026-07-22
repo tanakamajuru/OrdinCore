@@ -71,6 +71,26 @@ export class RisksService {
   async findById(id: string, company_id: string) {
     const risk = await risksRepo.findById(id, company_id);
     if (!risk) throw new Error('Risk not found');
+
+    // Attach the previous chapter, if this risk is a recurrence. The detail view leads with it
+    // so nobody re-investigates from scratch a concern that already has a history.
+    if (risk.previous_risk_id) {
+      const prev = (await query(
+        `SELECT r.title, r.severity, r.created_at, COALESCE(r.closed_at, r.resolved_at) AS closed_on,
+                r.resolution_outcome, r.resolution_reason, h.name AS house
+           FROM risks r LEFT JOIN houses h ON h.id = r.house_id
+          WHERE r.id = $1 AND r.company_id = $2`,
+        [risk.previous_risk_id, company_id]
+      )).rows[0];
+      if (prev) {
+        risk.previous_chapter = {
+          ...prev,
+          // The front end links by risk id but never renders it — ids are not presentable.
+          risk_id: risk.previous_risk_id,
+          occurrence: (Number(risk.recurrence_count) || 0) + 1,
+        };
+      }
+    }
     return risk;
   }
 
@@ -457,6 +477,67 @@ export class RisksService {
     return updated;
   }
 
+  /**
+   * Finds the most recent CLOSED risk this pattern descends from, so a recurrence continues the
+   * existing story instead of starting a blank one.
+   *
+   * A closed risk is never deleted — it stays in the register under Closed Oversight with its
+   * closure verdict and evidence. Within its recurrence window the watcher simply reopens it
+   * (same record). AFTER that window a returning pattern is legitimately a new chapter, and this
+   * is what stitches it to the previous one: same tenant, same risk domain, and — where the
+   * pattern is about a named person — the same person. Without the person match a domiciliary
+   * "medication" recurrence for one client would wrongly inherit another client's history.
+   */
+  private async priorClosedChapter(company_id: string, risk_domain: string | null, linked_person: string | null) {
+    if (!risk_domain || !String(risk_domain).trim()) return null;
+    const prior = (await query(
+      `SELECT r.id, r.title, r.created_at, r.severity, r.recurrence_count,
+              COALESCE(r.closed_at, r.resolved_at) AS closed_on,
+              r.resolution_outcome, r.resolution_reason, h.name AS house
+         FROM risks r LEFT JOIN houses h ON h.id = r.house_id
+        WHERE r.company_id = $1
+          AND LOWER(COALESCE(r.status::text, '')) IN ('closed', 'resolved')
+          AND LOWER(TRIM(COALESCE(r.risk_domain, ''))) = LOWER(TRIM($2))
+          AND ($3::text IS NULL OR COALESCE(r.linked_person, '') = $3)
+        ORDER BY COALESCE(r.closed_at, r.resolved_at, r.updated_at) DESC
+        LIMIT 1`,
+      [company_id, risk_domain, linked_person || null]
+    )).rows[0];
+    if (!prior) return null;
+
+    // Pull what was actually DONE last time. The point of continuity is not that the risk
+    // returned — it is that these controls were signed off as effective and it returned anyway.
+    const controls = (await query(
+      `SELECT action_description, COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
+         FROM risk_actions
+        WHERE risk_id = $1
+        ORDER BY COALESCE(effectiveness_reviewed_at, completed_at, created_at) ASC
+        LIMIT 10`,
+      [prior.id]
+    )).rows;
+
+    const dt = (d: any) => (d ? new Date(d).toLocaleDateString('en-GB') : '—');
+    const lines = [
+      `⚠ RECURRENCE — this concern was previously raised and closed. The story continues here.`,
+      ``,
+      `Previous chapter: "${prior.title}"${prior.house ? ` (${prior.house})` : ''}`,
+      `Raised ${dt(prior.created_at)} · Closed ${dt(prior.closed_on)}${prior.severity ? ` · Closed at ${prior.severity}` : ''}`,
+      prior.resolution_outcome ? `Closure verdict: ${prior.resolution_outcome}` : null,
+      prior.resolution_reason ? `Closure rationale: ${prior.resolution_reason}` : null,
+      controls.length ? `` : null,
+      controls.length ? `Controls put in place last time:` : null,
+      ...controls.map((c: any) => `  • ${c.action_description || 'Control'}${c.outcome ? ` — rated ${c.outcome}` : ' — never rated'}`),
+      ``,
+      `Those controls did not hold: the same pattern has reached the promotion threshold again.`,
+      `This is occurrence ${(Number(prior.recurrence_count) || 0) + 2} of this concern.`,
+      ``,
+      `─── NEW EVIDENCE ───`,
+      ``,
+    ].filter((l) => l !== null) as string[];
+
+    return { prior, header: lines.join('\n') };
+  }
+
   async promoteFromCluster(company_id: string, user_id: string, data: {
     cluster_id: string; title: string; severity: string; trajectory: string;
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
@@ -546,6 +627,12 @@ export class RisksService {
         sigRows.map((s: any) => `• ${stamp(s)} (${s.severity || '—'}${s.related_person ? ', ' + s.related_person : ''}${s.house ? ', ' + s.house : ''}): ${s.description || ''}${s.immediate_action ? ` — Immediate action: ${s.immediate_action}` : ''}`).join('\n\n')
       : data.description;
 
+    // Recurrence continuity: if this pattern was closed before, the new risk opens with the
+    // previous chapter — verdict, controls and their ratings — above the new evidence, so the
+    // register reads as one continuous story rather than an unexplained fresh entry.
+    const chapter = await this.priorClosedChapter(company_id, cluster.risk_domain, cluster.linked_person);
+    const description = chapter ? `${chapter.header}${composed || data.description}` : (composed || data.description);
+
     // Make severity, likelihood/impact and the derived risk_score agree from the outset.
     // Previously every promotion hard-coded likelihood=impact=3 (score 9) regardless of the
     // signal severity, and the mobile path hard-coded severity 'Medium' — so a Critical and a
@@ -573,7 +660,7 @@ export class RisksService {
       severity: effectiveSeverity,
       likelihood: li.likelihood,
       impact: li.impact,
-      description: composed || data.description,
+      description,
       source_cluster_id: data.cluster_id,
       status: 'Open',
       risk_domain: cluster.risk_domain,
@@ -598,6 +685,24 @@ export class RisksService {
     await risksRepo.addEvent(risk.id, company_id, 'Promotion',
       `Promoted from signal pattern${cluster.risk_domain ? ` — ${cluster.risk_domain}` : ''}${cluster.linked_person ? ` (${cluster.linked_person})` : ''}`,
       user_id);
+
+    // Stamp the lineage back to the closed chapter and count the return. recurrence_count is
+    // what leadership reads as "closed and came back N times" — the recurrence itself is the
+    // governance finding, so it is recorded on the timeline of both chapters.
+    if (chapter) {
+      const occurrence = (Number(chapter.prior.recurrence_count) || 0) + 1;
+      await query(
+        `UPDATE risks SET previous_risk_id = $1, recurrence_count = $2 WHERE id = $3 AND company_id = $4`,
+        [chapter.prior.id, occurrence, risk.id, company_id]
+      );
+      const closedOn = chapter.prior.closed_on ? new Date(chapter.prior.closed_on).toLocaleDateString('en-GB') : 'a previous date';
+      await risksRepo.addEvent(risk.id, company_id, 'Recurrence',
+        `This concern has RETURNED. It was previously closed on ${closedOn}${chapter.prior.resolution_outcome ? ` (${chapter.prior.resolution_outcome})` : ''} and the pattern has since met the promotion threshold again. Prior history and controls carried forward.`,
+        user_id);
+      await risksRepo.addEvent(chapter.prior.id, company_id, 'Recurrence',
+        `The pattern behind this closed risk has recurred and been re-promoted. The story continues on the new risk — closure did not hold.`,
+        user_id);
+    }
 
     // Close the loop back to the raw signals: every pulse behind this cluster is now evidence
     // on a formal risk, so mark it Linked — removing it from the daily oversight / governance

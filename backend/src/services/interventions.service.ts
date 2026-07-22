@@ -29,6 +29,21 @@ function directionLabel(direction: string): string {
   return 'Stable';
 }
 
+// Recorded control verdicts for a theme, oldest-first. Feeding these into the trajectory is
+// what makes a theme RESPOND to its intervention: once controls are rated Effective the
+// direction eases, and two ineffective verdicts push it the other way. (Rising signals still
+// win — a claimed-effective control can never mask a worsening picture.)
+async function themeEffectivenessOutcomes(company_id: string, theme: string): Promise<string[]> {
+  return (await query(
+    `SELECT COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) AS outcome
+       FROM risk_actions ra JOIN risks r ON r.id = ra.risk_id
+      WHERE r.company_id = $1 AND ra.effectiveness_outcome IS NOT NULL
+        AND COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) = $2
+      ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) ASC`,
+    [company_id, theme]
+  )).rows.map((r: any) => String(r.outcome || '')).filter(Boolean);
+}
+
 // Average authoritative Risk Index of a theme's open risks (0 if none scored yet).
 async function themeRiskIndex(company_id: string, theme: string): Promise<number> {
   const v = (await query(
@@ -78,7 +93,7 @@ export const interventionsService = {
     for (const t of themeRows) {
       const timeline = await this.themeTimeline(company_id, t.theme, 6);
       const points = timeline.map((w: any) => w.weight);
-      const tr = computeTrajectory(points, []);
+      const tr = computeTrajectory(points, await themeEffectivenessOutcomes(company_id, t.theme));
       const direction = directionLabel(tr.direction);
       const intv = intvByTheme.get(String(t.theme).toLowerCase()) || null;
 

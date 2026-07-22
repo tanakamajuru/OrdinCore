@@ -14,7 +14,17 @@ const router = Router();
  *     summary: Submit a new signal capture (Daily Pulse)
  *     security: [{ BearerAuth: [] }]
  */
-router.post('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER'), pulseController.createPulse.bind(pulseController));
+router.post('/', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER'), pulseController.createPulse.bind(pulseController));
+
+/**
+ * @openapi
+ * /api/v1/pulses/media:
+ *   post:
+ *     tags: [Pulses]
+ *     summary: Upload signal evidence media (photo / voice) and get a hosted URL
+ *     security: [{ BearerAuth: [] }]
+ */
+router.post('/media', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.uploadMedia.bind(pulseController));
 
 /**
  * @openapi
@@ -23,7 +33,7 @@ router.post('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTE
  *     tags: [Pulses]
  *     summary: List signals
  */
-router.get('/', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.getPulses.bind(pulseController));
+router.get('/', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.getPulses.bind(pulseController));
 
 /**
  * @openapi
@@ -41,7 +51,7 @@ router.get('/dashboard', requireAuth, requireTenant, requireRole('REGISTERED_MAN
  *     tags: [Pulses]
  *     summary: Get single pulse detail
  */
-router.get('/:id', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.getPulseById.bind(pulseController));
+router.get('/:id', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.getPulseById.bind(pulseController));
 
 /**
  * @openapi
@@ -71,7 +81,7 @@ router.post('/:id/link-risk', requireAuth, requireTenant, requireRole('REGISTERE
  */
 router.patch('/:id/assignee', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.reassignSignal.bind(pulseController));
 // Edit the observation note — appended as a new attributed version (TL who logged it, or RM/admin).
-router.patch('/:id/note', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updateNote.bind(pulseController));
+router.patch('/:id/note', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updateNote.bind(pulseController));
 
 // Alias for singular /pulse to reuse existing /pulses logic
 router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));
