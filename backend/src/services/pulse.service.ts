@@ -94,8 +94,10 @@ export class PulseService {
                         );
                         // Take the Critical signal off the daily triage queue — it now lives on an
                         // open escalation, exactly like a promoted signal leaves the pipeline.
+                        // 'Monitoring' is the valid enum label for "on an escalation, being watched"
+                        // (New/Reviewed/Closed/Monitoring/Linked) — 'Escalated' is not a member.
                         await query(
-                            `UPDATE governance_pulses SET review_status = 'Escalated', updated_at = NOW() WHERE id = $1`,
+                            `UPDATE governance_pulses SET review_status = 'Monitoring', updated_at = NOW() WHERE id = $1`,
                             [pulse.id]
                         );
                         await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, {
@@ -226,7 +228,7 @@ export class PulseService {
             house_id: house_ids,
             start_date: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0],
             severity: ['High', 'Critical'],
-            exclude_review_status: ['Linked', 'Closed', 'Reviewed', 'Escalated']
+            exclude_review_status: ['Linked', 'Closed', 'Reviewed', 'Monitoring']
         });
 
         // 2. Pattern Signals: Active clusters (Emerging, Confirmed, Escalated).
