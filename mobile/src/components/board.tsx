@@ -28,17 +28,17 @@ export function BoardHeader({ title, subtitle, menu = true }: { title: string; s
   const { c } = useTheme();
   const { open } = useDrawer();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
-      <View style={{ flex: 1 }}>
-        {!!subtitle && <Text size={12} muted style={{ marginBottom: 2 }}>{subtitle}</Text>}
-        <Text size={22} weight="700" style={{ letterSpacing: -0.3 }}>{title}</Text>
-      </View>
+    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
       {menu && (
         <Pressable onPress={open} hitSlop={8}
           style={{ width: 38, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: c.line, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
           <SidebarIcon size={20} color={c.ink} />
         </Pressable>
       )}
+      <View style={{ flex: 1 }}>
+        {!!subtitle && <Text size={12} muted style={{ marginBottom: 2 }}>{subtitle}</Text>}
+        <Text size={22} weight="700" style={{ letterSpacing: -0.3 }}>{title}</Text>
+      </View>
     </View>
   );
 }
