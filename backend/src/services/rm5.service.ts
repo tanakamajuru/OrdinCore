@@ -32,7 +32,7 @@ export const rm5Service = {
           -- Once a signal has been promoted (its pattern became a risk → review_status 'Linked')
           -- or closed, it lives on the risk in the register and must leave the daily pipeline —
           -- otherwise the same signal shows in two places and the RM keeps re-triaging it.
-          AND COALESCE(p.review_status, '') NOT IN ('Linked', 'Closed')
+          AND COALESCE(p.review_status, '') NOT IN ('Linked', 'Closed', 'Escalated')
         ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
                    WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
                  COALESCE(p.created_at, p.entry_date) DESC
@@ -55,7 +55,7 @@ export const rm5Service = {
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
     return {
-      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status,'') NOT IN ('Linked','Closed')`),
+      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status,'') NOT IN ('Linked','Closed','Escalated')`),
       patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND scope='person'`),
       risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
       actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),

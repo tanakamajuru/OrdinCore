@@ -77,7 +77,11 @@ export function RiskPromotion() {
         : Array.isArray(v?.data?.users) ? v.data.users
         : Array.isArray(v?.data?.items) ? v.data.items
         : [];
-      setCategories(toArr(catRes));
+      // Use the freshly-fetched list for auto-matching below — reading the `categories` state
+      // here would see the previous (empty) render value, so the category never pre-selected and
+      // the Register button stayed disabled with no obvious cause.
+      const cats = toArr(catRes);
+      setCategories(cats);
       setUsers(toArr(uRes));
 
       if (candidateId) {
@@ -86,7 +90,7 @@ export function RiskPromotion() {
         if (candidate) {
           setSourceData(candidate);
           const candDomain = String(Array.isArray(candidate.risk_domain) ? candidate.risk_domain[0] : candidate.risk_domain || '');
-          const matchedCategory = categories.find(c =>
+          const matchedCategory = cats.find((c: any) =>
             c.name.toLowerCase().includes(candDomain.toLowerCase()) ||
             candDomain.toLowerCase().includes(c.name.toLowerCase())
           );
@@ -115,7 +119,7 @@ export function RiskPromotion() {
         if (cluster) {
           setSourceData(cluster);
           const clDomain = String(Array.isArray(cluster.risk_domain) ? cluster.risk_domain[0] : cluster.risk_domain || '');
-          const matchedCategory = categories.find(c =>
+          const matchedCategory = cats.find((c: any) =>
             c.name.toLowerCase().includes(clDomain.toLowerCase()) ||
             clDomain.toLowerCase().includes(c.name.toLowerCase())
           );

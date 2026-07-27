@@ -91,6 +91,16 @@ export class RisksService {
         };
       }
     }
+
+    // Attach the computed trajectory with its plain-language basis, so the Evidence Trail can
+    // NARRATE the direction of travel ("Signals rising…", "Last control rated effective…")
+    // rather than just showing a badge. Same SSOT engine every other view reads.
+    try {
+      const tr = await trajectoryForRisk(risk.id, risk.source_cluster_id);
+      risk.trajectory_direction = tr.direction;
+      risk.trajectory_narrative = tr.basis;
+    } catch { /* best-effort — never fail the detail load over a narrative */ }
+
     return risk;
   }
 

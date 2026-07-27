@@ -79,6 +79,7 @@ export function RiskDetail() {
   const [savingAssessment, setSavingAssessment] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
+  const [linkedEscalations, setLinkedEscalations] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAction, setNewAction] = useState({
@@ -217,6 +218,19 @@ export function RiskDetail() {
         setActions([]);
       }
       
+      // Load escalations opened against this risk, so the risk detail SHOWS the response the
+      // organisation is running (status, days open, notes) instead of the RM re-typing it. This
+      // is the Escalation → Risk Register feed: the register owns the risk, escalations manage
+      // the response, and the risk reads that response here rather than duplicating notes.
+      try {
+        const escRes = await apiClient.get(`/escalations?risk_id=${riskId}`);
+        const escData = (escRes.data as any).data || (escRes.data as any) || [];
+        const escList = Array.isArray(escData) ? escData : (escData.escalations || escData.items || []);
+        setLinkedEscalations(escList);
+      } catch (err) {
+        setLinkedEscalations([]);
+      }
+
       // Load timeline for this risk
       try {
         const timelineRes = await apiClient.get(`/risks/${riskId}/timeline`);
@@ -664,6 +678,14 @@ export function RiskDetail() {
             </div>
             <div className="bg-primary/5 border-2 border-primary/20 p-6 shadow-sm">
                 <h2 id="rd-origin" className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
+                {/* Trajectory narration — the story of the direction of travel, straight from the
+                    SSOT engine's basis, so the trail explains WHY the risk reads as it does. */}
+                {(risk as any).trajectory_narrative && (
+                  <div className="mb-4 pb-4 border-b border-primary/20">
+                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Trajectory · {(risk as any).trajectory_direction || risk.trajectory}</div>
+                    <p className="text-sm text-foreground leading-relaxed">{(risk as any).trajectory_narrative}</p>
+                  </div>
+                )}
                 {risk.source_cluster_id ? (
                     <div className="space-y-4">
                         <div className=" text-primary">Source Cluster: {risk.source_cluster_name}</div>
@@ -841,6 +863,47 @@ export function RiskDetail() {
               )}
             </div>
           </div>
+
+          {/* Response — Escalations opened against this risk. The escalation manages the response;
+              the risk reads it here so leadership never writes the same note in two places.
+              (Escalation → Risk Register feed.) */}
+          {linkedEscalations.length > 0 && (
+            <div className="bg-card border-2 border-border p-6">
+              <h2 className="text-xl text-foreground mb-1">Response — Escalations</h2>
+              <p className="text-sm text-muted-foreground mb-4">
+                What leadership is doing about this risk. Manage actions and notes on the escalation —
+                they surface here, so you never write them twice.
+              </p>
+              <div className="space-y-3">
+                {linkedEscalations.map((e: any) => {
+                  const status = (e.lifecycle_status || e.status || 'Open') as string;
+                  const isClosed = /resolved|closed/i.test(status);
+                  const daysOpen = e.created_at
+                    ? Math.max(0, Math.floor((Date.now() - new Date(e.created_at).getTime()) / 86400000))
+                    : null;
+                  return (
+                    <button
+                      key={e.id}
+                      onClick={() => navigate('/escalation-log')}
+                      className="w-full text-left border-2 border-border rounded-lg p-4 hover:border-primary transition-colors"
+                    >
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <span className={`text-xs uppercase tracking-widest font-semibold px-2 py-0.5 rounded ${isClosed ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}`}>{status}</span>
+                        {daysOpen !== null && !isClosed && <span className="text-xs text-muted-foreground">{daysOpen} day{daysOpen === 1 ? '' : 's'} open</span>}
+                      </div>
+                      <p className="text-sm text-foreground mt-2">{e.reason || e.risk_title || 'Escalation'}</p>
+                      {(e.resolution_notes || e.latest_note) && (
+                        <p className="text-xs text-muted-foreground mt-1">Latest: {e.resolution_notes || e.latest_note}</p>
+                      )}
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Escalated by {e.escalated_by_name || '—'}{e.created_at ? ` · ${new Date(e.created_at).toLocaleDateString('en-GB')}` : ''}
+                      </p>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
 
           {/* Timeline */}
           <div className="bg-card border-2 border-border p-6">

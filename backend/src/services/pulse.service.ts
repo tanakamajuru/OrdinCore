@@ -66,6 +66,49 @@ export class PulseService {
             }
         }
 
+        // [GOVERNANCE] Immediate Escalation — Single Critical Signal (doctrine: two pathways).
+        // Some signals are serious enough that ONE occurrence must trigger action — they must not
+        // wait for a pattern to form. A Critical signal opens an escalation the moment it is
+        // recorded, assigned to the Registered Manager (or Director if none), linked to the signal
+        // itself (source_pulse_id) with no risk yet. Pattern-based governance still runs in
+        // parallel for everything else. Best-effort: a failure here never blocks recording.
+        try {
+            if (String(pulse.severity) === 'Critical') {
+                const already = await query(
+                    `SELECT 1 FROM escalations WHERE source_pulse_id = $1 LIMIT 1`, [pulse.id]
+                );
+                if (already.rows.length === 0) {
+                    const target = (await query(
+                        `SELECT id FROM users WHERE company_id = $1 AND is_active = true
+                          AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'])
+                          ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 WHEN 'DIRECTOR' THEN 1 ELSE 2 END
+                          LIMIT 1`,
+                        [company_id]
+                    )).rows[0]?.id;
+                    if (target) {
+                        const reason = `Immediate escalation — Critical signal recorded${pulse.related_person ? ` (${pulse.related_person})` : ''}: ${pulse.description || ''}`.slice(0, 1000);
+                        await query(
+                            `INSERT INTO escalations (id, company_id, risk_id, source_pulse_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by)
+                             VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,'Pending','Open','Urgent', NOW() + INTERVAL '24 hours')`,
+                            [uuidv4(), company_id, pulse.id, pulse.house_id, user_id, target, reason]
+                        );
+                        // Take the Critical signal off the daily triage queue — it now lives on an
+                        // open escalation, exactly like a promoted signal leaves the pipeline.
+                        await query(
+                            `UPDATE governance_pulses SET review_status = 'Escalated', updated_at = NOW() WHERE id = $1`,
+                            [pulse.id]
+                        );
+                        await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, {
+                            pulse_id: pulse.id, company_id, user_id: target,
+                            message: `URGENT: Critical signal recorded — immediate escalation opened. Action required within 24h.`,
+                        });
+                    }
+                }
+            }
+        } catch (err) {
+            logger.error(`Failed to open immediate escalation for Critical pulse ${pulse.id}`, err);
+        }
+
         // Emit Signal Created Event
         await eventBus.emitEvent(EVENTS.SIGNAL_CREATED, {
             pulse_id: pulse.id,
@@ -183,7 +226,7 @@ export class PulseService {
             house_id: house_ids,
             start_date: new Date(Date.now() - 48 * 60 * 60 * 1000).toISOString().split('T')[0],
             severity: ['High', 'Critical'],
-            exclude_review_status: ['Linked', 'Closed', 'Reviewed']
+            exclude_review_status: ['Linked', 'Closed', 'Reviewed', 'Escalated']
         });
 
         // 2. Pattern Signals: Active clusters (Emerging, Confirmed, Escalated).
