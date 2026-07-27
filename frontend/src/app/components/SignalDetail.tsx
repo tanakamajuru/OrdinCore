@@ -330,7 +330,17 @@ export function SignalDetail() {
             <div className="bg-card border-2 border-border p-6 flex justify-between">
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Pattern Concern</h3>
-                  {(signal.cluster_signal_count ?? 0) >= 2 ? (
+                  {signal.cluster_promoted_risk_id ? (
+                    // The pattern has already been promoted — this signal is now evidence on a live
+                    // risk, not a pattern still awaiting a decision. Point to the risk, don't imply
+                    // it still needs promoting.
+                    <button
+                      onClick={() => navigate(`/risks/${signal.cluster_promoted_risk_id}`)}
+                      className="text-lg text-primary font-semibold underline underline-offset-2 text-left"
+                    >
+                      Already a registered risk — view it →
+                    </button>
+                  ) : (signal.cluster_signal_count ?? 0) >= 2 ? (
                     <p className="text-lg text-amber-600 font-semibold">Part of a {signal.cluster_signal_count}-signal pattern{signal.pattern_concern && signal.pattern_concern !== "None" ? ` · ${signal.pattern_concern}` : ""}</p>
                   ) : (
                     <p className="text-lg ">{signal.pattern_concern && signal.pattern_concern !== "None" ? signal.pattern_concern : "Not yet part of a pattern"}</p>

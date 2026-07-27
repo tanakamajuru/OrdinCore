@@ -51,8 +51,33 @@ export class ClustersController {
       if (clusterRes.rows.length === 0) {
         return res.status(404).json({ success: false, message: 'Cluster not found', errors: [] });
       }
+      const cluster = clusterRes.rows[0];
 
-      return res.json({ success: true, data: clusterRes.rows[0], meta: {} });
+      // The signals that form this pattern — so the RM can open a pattern and read the actual
+      // observations behind it before deciding. A within-service cluster has direct
+      // risk_signal_links; a systemic (cross-service) cluster's evidence lives on its per-service
+      // child clusters, so fall back to signals in the same domain across the affected houses.
+      let signals = (await query(
+        `SELECT gp.id, gp.description, gp.severity::text AS severity, gp.related_person,
+                gp.entry_date, gp.entry_time, h.name AS house
+           FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+           LEFT JOIN houses h ON h.id = gp.house_id
+          WHERE rsl.cluster_id = $1 ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
+        [cluster_id]
+      )).rows;
+      if (signals.length === 0 && Array.isArray(cluster.affected_house_ids) && cluster.affected_house_ids.length && cluster.risk_domain) {
+        signals = (await query(
+          `SELECT gp.id, gp.description, gp.severity::text AS severity, gp.related_person,
+                  gp.entry_date, gp.entry_time, h.name AS house
+             FROM governance_pulses gp LEFT JOIN houses h ON h.id = gp.house_id
+            WHERE gp.company_id = $1 AND gp.risk_domain && ARRAY[$2]::text[]
+              AND gp.house_id = ANY($3::uuid[])
+            ORDER BY gp.entry_date DESC, gp.entry_time DESC LIMIT 30`,
+          [company_id, cluster.risk_domain, cluster.affected_house_ids]
+        )).rows;
+      }
+
+      return res.json({ success: true, data: { ...cluster, signals }, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to fetch cluster';
       return res.status(500).json({ success: false, message, errors: [] });

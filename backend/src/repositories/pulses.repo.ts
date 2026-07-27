@@ -187,7 +187,13 @@ export const pulsesRepo = {
                     (SELECT c.signal_count FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
                        WHERE rsl.pulse_entry_id = gp.id ORDER BY c.signal_count DESC NULLS LAST LIMIT 1)::int AS cluster_signal_count,
                     (SELECT c.cluster_label FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
-                       WHERE rsl.pulse_entry_id = gp.id ORDER BY c.signal_count DESC NULLS LAST LIMIT 1) AS cluster_label
+                       WHERE rsl.pulse_entry_id = gp.id ORDER BY c.signal_count DESC NULLS LAST LIMIT 1) AS cluster_label,
+                    -- If the pattern this signal belongs to has ALREADY been promoted, the signal is
+                    -- evidence on a live risk, not a pattern still awaiting a decision. Surface the risk
+                    -- id so the UI says "already a registered risk — view it" instead of "part of a
+                    -- 6-signal pattern" (which wrongly implies it still needs promoting).
+                    (SELECT c.linked_risk_id FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
+                       WHERE rsl.pulse_entry_id = gp.id AND c.linked_risk_id IS NOT NULL LIMIT 1) AS cluster_promoted_risk_id
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by

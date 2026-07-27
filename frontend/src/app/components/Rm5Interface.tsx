@@ -310,13 +310,48 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
 function PatternCard({ p, onPromote, onDismiss }: { p: any; onPromote: (p: any) => void; onDismiss?: (p: any) => void }) {
   const ready = p.signalCount >= p.threshold || p.hasCritical;
+  // Open a pattern to read the signals that formed it, before deciding. Fetched lazily on first
+  // expand so the board stays light.
+  const [open, setOpen] = useState(false);
+  const [signals, setSignals] = useState<any[] | null>(null);
+  const [loadingSignals, setLoadingSignals] = useState(false);
+  const toggle = async () => {
+    const next = !open;
+    setOpen(next);
+    if (next && signals === null) {
+      setLoadingSignals(true);
+      try {
+        const r = await apiClient.get(`/clusters/${p.id}`);
+        setSignals(unwrap(r)?.signals || []);
+      } catch { setSignals([]); }
+      finally { setLoadingSignals(false); }
+    }
+  };
   return (
     <div className="bg-card border-2 rounded-xl p-4" style={{ borderColor: p.scope === "cross_service" ? "#c7d2fe" : ready ? "#6ee7b7" : "var(--border, #e2e8f0)" }}>
-      <div className="flex items-start justify-between gap-2"><span className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{p.domain}</span><Traj t={p.trajectory} /></div>
-      <div className="text-sm font-medium text-foreground mt-0.5">{p.person !== "—" ? `${p.person} · ` : ""}{p.scope === "cross_service" ? `${p.houses.length} services` : (p.houses[0] || "—")}</div>
+      <button onClick={toggle} className="w-full text-left">
+        <div className="flex items-start justify-between gap-2"><span className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{p.domain}</span><Traj t={p.trajectory} /></div>
+        <div className="text-sm font-medium text-foreground mt-0.5 flex items-center gap-1">
+          <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
+          {p.person !== "—" ? `${p.person} · ` : ""}{p.scope === "cross_service" ? `${p.houses.length} services` : (p.houses[0] || "—")}
+        </div>
+      </button>
       {p.scope === "cross_service" && <div className="text-[11px] text-indigo-600 mt-0.5 flex items-center gap-1"><Network className="w-3 h-3" />{p.houses.join(" · ")}</div>}
       <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: p.threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(p.signalCount, p.threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
       <p className="text-[11px] text-muted-foreground mb-2">{p.promotedRiskId ? "Promoted to risk ✓" : p.hasCritical && p.signalCount < p.threshold ? "Critical — ready to promote" : ready ? "Threshold met — ready to promote" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} signals`}</p>
+      {open && (
+        <div className="mb-2 border-t border-border pt-2 space-y-1.5">
+          {loadingSignals ? <p className="text-[11px] text-muted-foreground">Loading signals…</p>
+            : !signals || signals.length === 0 ? <p className="text-[11px] text-muted-foreground">No individual signals on record for this pattern.</p>
+            : signals.map((s: any) => (
+              <div key={s.id} className="text-[11px] text-foreground/80 flex gap-2">
+                <span className={`px-1.5 rounded ${SEV[s.severity] || "bg-muted"}`}>{s.severity || "—"}</span>
+                <span className="text-muted-foreground shrink-0">{s.entry_date ? new Date(s.entry_date).toLocaleDateString("en-GB") : ""}</span>
+                <span className="truncate">{s.related_person ? `${s.related_person}: ` : ""}{s.description}</span>
+              </div>
+            ))}
+        </div>
+      )}
       {p.promotedRiskId ? (
         <div className="flex gap-2">
           <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary bg-primary/10 rounded px-2.5 py-1.5 hover:bg-primary/20">View risk</button>

@@ -12,14 +12,19 @@ export class DirectorGovernanceService {
       WITH stats AS (
         SELECT 
           h.id as service_id,
-          h.name as service_name,
+          COALESCE(h.name, 'Organisation-wide') as service_name,
           COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text, ra.effectiveness::text) as outcome,
           ra.completed_at::date as day,
-          r.risk_domain as domain
+          -- Never emit a nameless bar: a systemic (cross-service) risk carries its theme in
+          -- strategic_theme rather than risk_domain, and either can be blank — fall back so the
+          -- x-axis always has a readable label instead of an anonymous first column.
+          COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), 'Uncategorised') as domain
         FROM risk_actions ra
         JOIN risks r ON r.id = ra.risk_id
-        JOIN houses h ON h.id = r.house_id
-        WHERE h.company_id = $1
+        -- LEFT JOIN so a systemic risk (house_id NULL — it belongs to the organisation, not one
+        -- house) still contributes to effectiveness, instead of being silently dropped.
+        LEFT JOIN houses h ON h.id = r.house_id
+        WHERE r.company_id = $1
         AND ra.completed_at BETWEEN $2 AND $3
         AND (ra.calculated_outcome IS NOT NULL OR ra.rm_override_outcome IS NOT NULL OR ra.director_override_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
       )

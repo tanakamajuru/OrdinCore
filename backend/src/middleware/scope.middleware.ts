@@ -23,13 +23,18 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
   const userRole = req.user.role?.toUpperCase() || '';
   const userLevel = ROLE_LEVELS[userRole] || 0;
 
-  // Directors and above have global organization scope
-  if (userLevel >= ROLE_LEVELS.RESPONSIBLE_INDIVIDUAL) {
+  // The Registered Manager oversees the WHOLE registered service — every house in the company —
+  // which is the entire premise of the cross-house / systemic pattern, promotion and daily
+  // sign-off features. Scoping the RM to a single assigned house (and 403-ing every write when
+  // that list is empty) broke sign-off and promotion. RM and above therefore get company-wide
+  // scope; company_id isolation still confines them to their own organisation. Only the Team
+  // Leader and Support Worker — who work inside one house — remain house-restricted.
+  if (userLevel >= ROLE_LEVELS.REGISTERED_MANAGER) {
     next();
     return;
   }
 
-  // RM and TL are restricted to their OWN_SERVICE (assigned_house)
+  // TL and SW are restricted to their OWN_SERVICE (assigned_house)
   const userHouseIds = req.user.assigned_house_ids || [];
   
   if (userHouseIds.length === 0) {

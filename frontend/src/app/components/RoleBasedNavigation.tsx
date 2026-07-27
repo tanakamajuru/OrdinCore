@@ -77,6 +77,8 @@ export function RoleBasedNavigation() {
           { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
           { path: "/interventions", label: "Interventions", icon: Target },
+          // Strategic oversight of escalations, surfaced directly in the rail (was deep-link only).
+          { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/service-users", label: "Service Users", icon: Users },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -113,7 +115,7 @@ export function RoleBasedNavigation() {
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
-          { path: "/weekly-review", label: "Weekly Review", icon: FileText },
+          { path: "/weekly-review", label: "Weekly Review", icon: FileText, badgeKey: "weekly" },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
           { path: "#support", label: "Contact Support", icon: LifeBuoy, section: "Support", action: "support" },
@@ -183,6 +185,26 @@ export function RoleBasedNavigation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRole]);
 
+  // Weekly-review badge — a Team Leader had no way to see a report had been posted for them.
+  // Counts published reviews for their house(s) they have not yet acknowledged.
+  const [unviewedReviews, setUnviewedReviews] = useState(0);
+  useEffect(() => {
+    if (!navItems.some((i) => i.badgeKey === "weekly")) return;
+    let active = true;
+    const fetchReviews = async () => {
+      try {
+        const res = await apiClient.get<any[]>("/weekly-reviews/for-me");
+        const rows = (res as any)?.data?.data ?? (res as any)?.data ?? [];
+        const unseen = Array.isArray(rows) ? rows.filter((r: any) => !r?.acknowledged).length : 0;
+        if (active) setUnviewedReviews(unseen);
+      } catch { /* non-fatal */ }
+    };
+    fetchReviews();
+    const interval = setInterval(fetchReviews, 60000);
+    return () => { active = false; clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole]);
+
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout? Any unsaved changes may be lost.")) {
       logout();
@@ -225,9 +247,9 @@ export function RoleBasedNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          const badgeCount = item.badgeKey === "open" ? openEscalations : item.badgeKey === "actions" ? pendingActions : 0;
+          const badgeCount = item.badgeKey === "open" ? openEscalations : item.badgeKey === "actions" ? pendingActions : item.badgeKey === "weekly" ? unviewedReviews : 0;
           const showBadge = !!item.badgeKey && badgeCount > 0;
-          const badgeTone = item.badgeKey === "actions" ? "bg-amber-500" : "bg-red-500";
+          const badgeTone = item.badgeKey === "actions" || item.badgeKey === "weekly" ? "bg-amber-500" : "bg-red-500";
           const sectionHeader = item.section && item.section !== lastSection ? item.section : null;
           lastSection = item.section;
           return (

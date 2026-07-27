@@ -130,11 +130,15 @@ export function SignalCaptureForm() {
     }
   };
 
-  const isValid = !!form.service_id && !!form.governance_domain && !!form.severity && form.description.trim().length >= 10;
+  // Immediate action is now compulsory: a signal must record what was done at the time (or an
+  // explicit "no action taken, escalated to…"), so the governance record shows a response, never
+  // a silent observation.
+  const isValid = !!form.service_id && !!form.governance_domain && !!form.severity
+    && form.description.trim().length >= 10 && form.immediate_action.trim().length >= 3;
 
   const handleSubmit = async () => {
     if (!isValid) {
-      toast.error('Please choose a service, governance domain, severity and add a short description.');
+      toast.error('Please choose a service, governance domain, severity, a short description, and record the immediate action taken.');
       return;
     }
     setIsSubmitting(true);
@@ -284,14 +288,14 @@ export function SignalCaptureForm() {
             </datalist>
           </div>
 
-          {/* Immediate action (optional) */}
+          {/* Immediate action (compulsory) */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Immediate action taken <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Immediate action taken <span className="text-destructive font-normal">*</span></label>
             <textarea
               value={form.immediate_action}
               onChange={e => set('immediate_action', e.target.value)}
               spellCheck
-              placeholder="What was done at the time, if anything?"
+              placeholder="What was done at the time? If nothing, say so and who it was escalated to."
               className="w-full h-20 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>
