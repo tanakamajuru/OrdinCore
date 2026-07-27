@@ -518,7 +518,7 @@ export class RisksService {
     // Pull what was actually DONE last time. The point of continuity is not that the risk
     // returned — it is that these controls were signed off as effective and it returned anyway.
     const controls = (await query(
-      `SELECT action_description, COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
+      `SELECT COALESCE(title, description) AS action_description, COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
          FROM risk_actions
         WHERE risk_id = $1
         ORDER BY COALESCE(effectiveness_reviewed_at, completed_at, created_at) ASC
