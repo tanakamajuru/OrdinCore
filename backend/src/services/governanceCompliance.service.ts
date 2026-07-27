@@ -21,7 +21,9 @@ function ragFor(overdue: number): Rag {
   return 'green';
 }
 
-const OPEN = `status NOT IN ('Complete','Completed','Cancelled')`;
+// Qualified with the risk_actions alias `a`: both risk_actions AND users carry a `status` column,
+// so an unqualified `status` is ambiguous once the two are joined (teamCompliance).
+const OPEN = `a.status NOT IN ('Complete','Completed','Cancelled')`;
 
 export const governanceComplianceService = {
   /**
@@ -81,12 +83,12 @@ export const governanceComplianceService = {
   async forUser(company_id: string, user_id: string) {
     const r = (await query(
       `SELECT COUNT(*) FILTER (WHERE ${OPEN}) AS open,
-              COUNT(*) FILTER (WHERE ${OPEN} AND due_date < NOW()) AS overdue,
-              COUNT(*) FILTER (WHERE ${OPEN} AND due_date::date = NOW()::date) AS due_today,
-              MAX(CASE WHEN ${OPEN} AND due_date < NOW()
-                       THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - due_date)) / 86400) END)::int AS oldest_overdue_days
-         FROM risk_actions
-        WHERE company_id = $1 AND assigned_to = $2`,
+              COUNT(*) FILTER (WHERE ${OPEN} AND a.due_date < NOW()) AS overdue,
+              COUNT(*) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
+              MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
+                       THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
+         FROM risk_actions a
+        WHERE a.company_id = $1 AND a.assigned_to = $2`,
       [company_id, user_id]
     )).rows[0];
     return {
