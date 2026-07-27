@@ -79,7 +79,7 @@ export class PulseService {
                 );
                 if (already.rows.length === 0) {
                     const target = (await query(
-                        `SELECT id FROM users WHERE company_id = $1 AND is_active = true
+                        `SELECT id FROM users WHERE company_id = $1 AND status = 'active'
                           AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'])
                           ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 WHEN 'DIRECTOR' THEN 1 ELSE 2 END
                           LIMIT 1`,

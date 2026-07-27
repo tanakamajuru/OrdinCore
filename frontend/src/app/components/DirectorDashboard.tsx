@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 import { useNavigate } from "react-router";
 import {
   Shield, Flag, Clock, ClipboardCheck, TrendingUp, Users,
@@ -350,6 +351,12 @@ export function DirectorDashboard() {
               </div>
             );
           })()}
+        </div>
+
+        {/* Governance Compliance — Risk · Trajectory · Compliance. A moderate-risk service with
+            poor compliance is itself a leadership concern. */}
+        <div className="mt-6">
+          <GovernanceCompliancePanel />
         </div>
       </div>
     </div>

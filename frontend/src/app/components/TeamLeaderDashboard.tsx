@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 import { useNavigate } from "react-router";
 import {
   Activity, ClipboardList, Clock, TrendingUp, CheckCircle2, Plus, FileText,
@@ -365,6 +366,12 @@ export function TeamLeaderDashboard() {
             </div>
             <button onClick={() => navigate("/escalation-log")} className="mt-4 w-full text-center text-xs text-primary flex items-center justify-center gap-1">View all escalations <ArrowRight className="w-3 h-3" /></button>
           </div>
+        </div>
+
+        {/* Governance Compliance — everyone in this service, are their actions on time (with
+            overdue aging). "The Team Leader dashboard should show everyone's status." */}
+        <div className="mt-6">
+          <GovernanceCompliancePanel />
         </div>
 
         {/* Quick actions + What's new */}

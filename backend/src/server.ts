@@ -19,6 +19,7 @@ import { startActionEffectivenessWorker } from './workers/actionEffectiveness.wo
 import { startRiAssuranceWorker } from './workers/riAssurance.worker';
 import { startDirectorGovernanceWorker } from './workers/directorGovernance.worker';
 import { startEscalationOverdueWorker } from './workers/escalationOverdue.worker';
+import { startActionOverdueWorker } from './workers/actionOverdue.worker';
 import { startActionPatternWorker } from './workers/actionPattern.worker';
 import { Queue } from 'bullmq';
 import { redisConnection } from './config/redis';
@@ -61,6 +62,7 @@ const directorGovernanceWorker = startSafeWorker('DirectorGov', startDirectorGov
 // Overdue-escalation sweep + action-pattern rules (11/12/13) were previously only
 // started by the separate run_workers.ts entrypoint, so they never ran in production.
 const escalationOverdueWorker = startSafeWorker('EscalationOverdue', startEscalationOverdueWorker);
+const actionOverdueWorker = startSafeWorker('ActionOverdue', startActionOverdueWorker);
 const actionPatternWorker = startSafeWorker('ActionPattern', startActionPatternWorker);
 
 
@@ -114,6 +116,7 @@ const shutdown = async (signal: string) => {
       await riAssuranceWorker.close();
       await directorGovernanceWorker.close();
       await escalationOverdueWorker.close();
+      await actionOverdueWorker.close();
       await actionPatternWorker.close();
       await getPool().end();
 

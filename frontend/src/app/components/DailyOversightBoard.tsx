@@ -12,6 +12,7 @@ import {
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 
 interface DashboardData {
   highPriority: any[];
@@ -227,6 +228,12 @@ export function DailyOversightBoard() {
             </div>
           </div>
 
+        </div>
+
+        {/* Governance Compliance — the third dimension (Risk · Trajectory · Compliance): are the
+            required actions being done on time, per person, with overdue aging. */}
+        <div className="mt-10">
+          <GovernanceCompliancePanel />
         </div>
 
         {/* Daily Governance Sign-Off — rehomed from the retired Oversight Board.

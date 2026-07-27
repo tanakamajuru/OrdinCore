@@ -6,6 +6,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 import { requireScope } from '../middleware/scope.middleware';
+import { governanceComplianceService } from '../services/governanceCompliance.service';
 
 const router = Router();
 
@@ -255,5 +256,20 @@ router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, go
 // Daily Governance Log
 router.post('/daily-log/open', requireAuth, requireTenant, requireScope, dailyGovernanceController.openLog.bind(dailyGovernanceController));
 router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, dailyGovernanceController.completeLog.bind(dailyGovernanceController));
+
+// Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).
+// A Team Leader / Support Worker sees only their own house(s); RM and above see the whole company.
+router.get('/compliance', requireAuth, requireTenant, async (req, res) => {
+  try {
+    const company_id = req.user!.company_id!;
+    const role = String(req.user!.role || '').toUpperCase();
+    const scoped = ['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role);
+    const houseIds = scoped ? (req.user!.assigned_house_ids || []) : undefined;
+    const data = await governanceComplianceService.summary(company_id, houseIds);
+    return res.json({ success: true, data, meta: {} });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message, errors: [] });
+  }
+});
 
 export default router;
