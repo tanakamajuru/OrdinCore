@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { View, Pressable, Alert } from 'react-native';
 import { Feather } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { radius } from '@/theme/tokens';
-import { Screen, Row, Chip, Avatar, Text, Button, Loading, ErrorNote } from '@/components/ui';
+import { Screen, Row, Chip, Avatar, Text, Button, Field, Loading, ErrorNote } from '@/components/ui';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
 import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, DetailCard, PercentDonut, BoardButton, BoardItem, Tone } from '@/components/board';
 
@@ -55,11 +55,12 @@ export function RMDashboardScreen() {
       <SectionTitle>Risk summary</SectionTitle>
       <StatusList
         items={[
-          { title: 'High', value: String(high), tone: 'red' },
-          { title: 'Medium', value: String(med), tone: 'amber' },
-          { title: 'Low', value: String(low), tone: 'green' },
+          // Tapping a band jumps to that category in the register (High opens the High tab).
+          { title: 'High', value: String(high), tone: 'red', onPress: () => nav.navigate('Signals', { tab: 'high' }) },
+          { title: 'Medium', value: String(med), tone: 'amber', onPress: () => nav.navigate('Signals', { tab: 'open' }) },
+          { title: 'Low', value: String(low), tone: 'green', onPress: () => nav.navigate('Signals', { tab: 'all' }) },
         ]}
-        button="View risk register" onButton={() => nav.navigate('Signals')}
+        button="View risk register" onButton={() => nav.navigate('Signals', { tab: 'all' })}
       />
     </Screen>
   );
@@ -68,12 +69,31 @@ export function RMDashboardScreen() {
 /* 2 — Risk Register */
 export function RMRiskRegisterScreen() {
   const nav = useNavigation<any>();
+  const route = useRoute<any>();
+  const params = route.params || {};
   const { data, loading, error, refetch } = useApi<any>('/risks?limit=200');
-  const [tab, setTab] = useState<'all' | 'high' | 'open'>('all');
+  const [tab, setTab] = useState<'all' | 'high' | 'open'>(params.tab || 'all');
+  // Free-text filter — matches house/service name OR a date (e.g. "grafton", "jul", "16/07").
+  const [q, setQ] = useState<string>(params.house || '');
+
+  // Apply an incoming deep-link filter (from the dashboard risk summary or house overview) once.
+  React.useEffect(() => { if (params.tab) setTab(params.tab); }, [params.tab]);
+  React.useEffect(() => { if (params.house != null) setQ(params.house); }, [params.house]);
+
   const all = arr(data);
   const high = all.filter((r) => /(high|critical)/.test(sevOf(r)));
   const open = all.filter(isOpen);
-  const shown = tab === 'high' ? high : tab === 'open' ? open : all;
+  let shown = tab === 'high' ? high : tab === 'open' ? open : all;
+
+  const needle = q.trim().toLowerCase();
+  if (needle) {
+    shown = shown.filter((r) => {
+      const house = String(r.house_name || r.service_name || '').toLowerCase();
+      const when = `${r.updated_at || ''} ${r.created_at || ''} ${r.updated_at || r.created_at ? new Date(r.updated_at || r.created_at).toLocaleDateString('en-GB') : ''}`.toLowerCase();
+      return house.includes(needle) || when.includes(needle);
+    });
+  }
+
   const items: BoardItem[] = shown.map((r) => ({
     title: r.title || r.risk_title || r.theme || 'Risk',
     meta: `${r.house_name || r.service_name || ''}${r.updated_at || r.created_at ? ` · ${ago(r.updated_at || r.created_at)}` : ''}`,
@@ -89,6 +109,16 @@ export function RMRiskRegisterScreen() {
         <Chip label={`High · ${high.length}`} active={tab === 'high'} onPress={() => setTab('high')} />
         <Chip label={`Open · ${open.length}`} active={tab === 'open'} onPress={() => setTab('open')} />
       </Row>
+      {/* Search by house or date */}
+      <View>
+        <Field value={q} onChangeText={setQ} placeholder="Filter by house or date…" autoCapitalize="none" />
+        {!!needle && (
+          <Row style={{ marginTop: 4 }} gap={6}>
+            <Text size={11.5} muted>Showing {shown.length} of {(tab === 'high' ? high : tab === 'open' ? open : all).length}</Text>
+            <Pressable onPress={() => setQ('')} hitSlop={6}><Text size={11.5} weight="600" color="#2f6cb5">clear</Text></Pressable>
+          </Row>
+        )}
+      </View>
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : (
         <StatusList items={items} empty="No risks to show." />
       )}
@@ -179,6 +209,7 @@ export function RMReportsScreen() {
 
 /* 6 — House Overview */
 export function RMHouseOverviewScreen() {
+  const nav = useNavigation<any>();
   const houses = useApi<any>('/houses');
   const risks = useApi<any>('/risks?limit=300');
   const loading = houses.loading && !houses.data;
@@ -189,13 +220,19 @@ export function RMHouseOverviewScreen() {
     const hasHigh = hr.some((r) => /(high|critical)/.test(sevOf(r)));
     const hasMed = hr.some((r) => /(med|mod)/.test(sevOf(r)));
     const tone: Tone = hasHigh ? 'red' : hasMed ? 'amber' : 'green';
-    return { title: h.name || 'House', meta: `${hasHigh ? 'High' : hasMed ? 'Medium' : 'Low'} risk`, tone };
+    return {
+      title: h.name || 'House',
+      meta: `${hr.length} open risk${hr.length === 1 ? '' : 's'} · ${hasHigh ? 'High' : hasMed ? 'Medium' : 'Low'}`,
+      tone,
+      // Tap a house to see its risks in the register, filtered to that house.
+      onPress: () => nav.navigate('Tabs', { screen: 'Signals', params: { house: h.name } }),
+    };
   });
   return (
     <Screen refreshing={houses.loading} onRefresh={() => { houses.refetch(); risks.refetch(); }}>
-      <BoardHeader title="House Overview" />
+      <BoardHeader title="House Overview" menu={false} />
       {loading ? <Loading /> : houses.error ? <ErrorNote message={houses.error} onRetry={houses.refetch} /> : (
-        <StatusList items={items} button="View all houses" empty="No houses assigned." />
+        <StatusList items={items} empty="No houses assigned." />
       )}
     </Screen>
   );

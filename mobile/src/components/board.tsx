@@ -2,9 +2,9 @@ import React from 'react';
 import { View, Pressable, StyleProp, ViewStyle } from 'react-native';
 import Svg, { Circle, Polyline, Line } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
-import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useDrawer } from './AppDrawer';
+import { SidebarIcon } from './SidebarIcon';
 import { radius, Palette } from '@/theme/tokens';
 import { Text, Row } from './ui';
 
@@ -26,9 +26,7 @@ type FeatherName = React.ComponentProps<typeof Feather>['name'];
    on pushed hub screens that already have a back-bar. */
 export function BoardHeader({ title, subtitle, menu = true }: { title: string; subtitle?: string; menu?: boolean }) {
   const { c } = useTheme();
-  const { user } = useAuth();
   const { open } = useDrawer();
-  const inits = `${(user?.first_name?.[0] || '')}${(user?.last_name?.[0] || '')}`.toUpperCase() || '·';
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 4 }}>
       <View style={{ flex: 1 }}>
@@ -36,8 +34,9 @@ export function BoardHeader({ title, subtitle, menu = true }: { title: string; s
         <Text size={22} weight="700" style={{ letterSpacing: -0.3 }}>{title}</Text>
       </View>
       {menu && (
-        <Pressable onPress={open} hitSlop={8} style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-          <Text size={14} weight="700" color={c.accentInk}>{inits}</Text>
+        <Pressable onPress={open} hitSlop={8}
+          style={{ width: 38, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: c.line, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
+          <SidebarIcon size={20} color={c.ink} />
         </Pressable>
       )}
     </View>
@@ -71,30 +70,53 @@ export function SectionTitle({ children, action, onAction }: { children: React.R
   );
 }
 
-/* Card of rows: tone dot · title/meta · optional right value · chevron; optional footer button. */
-export function StatusList({ items, button, onButton, empty }: {
-  items: BoardItem[]; button?: string; onButton?: () => void; empty?: string;
+/* Card of rows: tone dot · title/meta · optional right value · chevron; optional footer button.
+   Paginated: when there are more than `pageSize` rows a Prev/Next footer appears and only one
+   page renders at a time — so every list/table in the app is paged, not an endless scroll. */
+export function StatusList({ items, button, onButton, empty, pageSize = 8 }: {
+  items: BoardItem[]; button?: string; onButton?: () => void; empty?: string; pageSize?: number;
 }) {
   const { c } = useTheme();
+  const [page, setPage] = React.useState(0);
+  const pages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safe = Math.min(page, pages - 1);
+  // Reset to the first page whenever the underlying list shrinks past the current page.
+  React.useEffect(() => { if (page > pages - 1) setPage(0); }, [pages]); // eslint-disable-line react-hooks/exhaustive-deps
+  const start = safe * pageSize;
+  const shown = items.slice(start, start + pageSize);
+
   return (
     <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
       {items.length === 0 && <Text size={12.5} muted style={{ paddingVertical: 16, textAlign: 'center' }}>{empty || 'Nothing here.'}</Text>}
-      {items.map((it, i) => {
+      {shown.map((it, i) => {
         const body = (
-          <Row style={{ paddingVertical: 11, borderBottomWidth: i < items.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
+          <Row style={{ paddingVertical: 11, borderBottomWidth: i < shown.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
             <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: toneColor(c, it.tone) }} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text size={13.5} weight="600" numberOfLines={1}>{it.title}</Text>
               {!!it.meta && <Text size={11.5} muted numberOfLines={1} style={{ marginTop: 2 }}>{it.meta}</Text>}
             </View>
             {!!it.value && <Text size={13.5} weight="700">{it.value}</Text>}
-            <Feather name="chevron-right" size={16} color={c.faint} />
+            {it.onPress && <Feather name="chevron-right" size={16} color={c.faint} />}
           </Row>
         );
         return it.onPress
-          ? <Pressable key={i} onPress={it.onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{body}</Pressable>
-          : <View key={i}>{body}</View>;
+          ? <Pressable key={start + i} onPress={it.onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{body}</Pressable>
+          : <View key={start + i}>{body}</View>;
       })}
+
+      {pages > 1 && (
+        <Row style={{ justifyContent: 'space-between', paddingVertical: 9, borderTopWidth: 1, borderTopColor: c.lineSoft }}>
+          <Pressable onPress={() => setPage((p) => Math.max(0, p - 1))} disabled={safe === 0} hitSlop={8} style={{ opacity: safe === 0 ? 0.35 : 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Feather name="chevron-left" size={16} color={c.accent} /><Text size={12.5} weight="600" color={c.accent}>Prev</Text>
+          </Pressable>
+          <Text size={11.5} muted>Page {safe + 1} of {pages} · {items.length}</Text>
+          <Pressable onPress={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={safe >= pages - 1} hitSlop={8} style={{ opacity: safe >= pages - 1 ? 0.35 : 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
+            <Text size={12.5} weight="600" color={c.accent}>Next</Text><Feather name="chevron-right" size={16} color={c.accent} />
+          </Pressable>
+        </Row>
+      )}
+
       {!!button && (
         <Pressable onPress={onButton} style={{ backgroundColor: c.accent, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center', marginVertical: 10 }}>
           <Text size={13} weight="700" color={c.accentInk}>{button}</Text>

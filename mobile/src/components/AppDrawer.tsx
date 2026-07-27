@@ -1,11 +1,12 @@
 import React, { createContext, useContext, useState } from 'react';
-import { Modal, View, Pressable, ScrollView, Alert } from 'react-native';
+import { View, Pressable, ScrollView, Alert } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useAuth, normalizeRole } from '@/auth/AuthContext';
 import { useTheme, ThemeMode } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/tokens';
 import { Text } from './ui';
+import { SidebarIcon } from './SidebarIcon';
 import { navigate, navigateTab } from '@/navigation/navRef';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
@@ -95,8 +96,8 @@ function ThemeSwitcher() {
   );
 }
 
-/* ---------- the drawer modal ---------- */
-function DrawerModal({ visible, onClose }: { visible: boolean; onClose: () => void }) {
+/* ---------- the drawer panel (in-tree overlay, so it stays within the app bounds) ---------- */
+function DrawerOverlay({ onClose }: { onClose: () => void }) {
   const { c } = useTheme();
   const { user, logout, role } = useAuth();
   const name = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'there';
@@ -104,58 +105,62 @@ function DrawerModal({ visible, onClose }: { visible: boolean; onClose: () => vo
   const items = itemsForRole(role || '', onClose);
 
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose} statusBarTranslucent>
-      {/* Scrim */}
-      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: c.overlay }}>
-        {/* Panel — stop presses from bubbling to the scrim */}
-        <Pressable onPress={() => {}} style={{ width: '82%', maxWidth: 340, height: '100%', backgroundColor: c.paper, borderRightWidth: 1, borderRightColor: c.line }}>
-          <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
-            {/* Header */}
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderBottomWidth: 1, borderBottomColor: c.lineSoft }}>
-              <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
-                <Text size={17} weight="700" color={c.accentInk}>{inits}</Text>
-              </View>
-              <View style={{ flex: 1 }}>
-                <Text size={19} weight="700">Hello,</Text>
-                <Text size={13} muted>{name}{role ? ` · ${prettyRole(role)}` : ''}</Text>
-              </View>
-              <Pressable onPress={onClose} hitSlop={10} style={{ padding: 4 }}>
-                <Feather name="x" size={22} color={c.faint} />
-              </Pressable>
+    // Absolutely fills the DrawerHost container (= the app view), so the panel can never spill
+    // outside the phone frame the way a full-screen Modal does on web / in a device mock.
+    <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, flexDirection: 'row', zIndex: 1000, elevation: 1000 }}>
+      <View style={{ width: '82%', maxWidth: 340, backgroundColor: c.paper, borderRightWidth: 1, borderRightColor: c.line }}>
+        <SafeAreaView edges={['top', 'bottom']} style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, padding: 18, borderBottomWidth: 1, borderBottomColor: c.lineSoft }}>
+            <View style={{ width: 46, height: 46, borderRadius: 23, backgroundColor: c.accent, alignItems: 'center', justifyContent: 'center' }}>
+              <Text size={17} weight="700" color={c.accentInk}>{inits}</Text>
             </View>
-
-            <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 8, gap: 4 }}>
-              <View style={{ marginBottom: 14 }}><ThemeSwitcher /></View>
-
-              {items.map((it) => (
-                <Pressable key={it.label} onPress={it.go}
-                  style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 13, opacity: pressed ? 0.6 : 1 })}>
-                  <Feather name={it.icon} size={20} color={c.ink} />
-                  <Text size={15.5} weight="500">{it.label}</Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-
-            {/* Logout pinned to the bottom */}
-            <Pressable onPress={() => { onClose(); setTimeout(() => logout(), 10); }}
-              style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 15, padding: 18, borderTopWidth: 1, borderTopColor: c.lineSoft, opacity: pressed ? 0.6 : 1 })}>
-              <Feather name="log-out" size={20} color={c.ink} />
-              <Text size={15.5} weight="500">Logout</Text>
+            <View style={{ flex: 1 }}>
+              <Text size={19} weight="700">Hello,</Text>
+              <Text size={13} muted>{name}{role ? ` · ${prettyRole(role)}` : ''}</Text>
+            </View>
+            {/* The open-state sidebar icon closes the drawer (matches the toggle in the header). */}
+            <Pressable onPress={onClose} hitSlop={10} style={{ padding: 4 }}>
+              <SidebarIcon size={22} color={c.faint} open />
             </Pressable>
-          </SafeAreaView>
-        </Pressable>
-      </Pressable>
-    </Modal>
+          </View>
+
+          <ScrollView contentContainerStyle={{ padding: 18, paddingBottom: 8, gap: 4 }}>
+            <View style={{ marginBottom: 14 }}><ThemeSwitcher /></View>
+
+            {items.map((it) => (
+              <Pressable key={it.label} onPress={it.go}
+                style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 15, paddingVertical: 13, opacity: pressed ? 0.6 : 1 })}>
+                <Feather name={it.icon} size={20} color={c.ink} />
+                <Text size={15.5} weight="500">{it.label}</Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+
+          {/* Logout pinned to the bottom */}
+          <Pressable onPress={() => { onClose(); setTimeout(() => logout(), 10); }}
+            style={({ pressed }) => ({ flexDirection: 'row', alignItems: 'center', gap: 15, padding: 18, borderTopWidth: 1, borderTopColor: c.lineSoft, opacity: pressed ? 0.6 : 1 })}>
+            <Feather name="log-out" size={20} color={c.ink} />
+            <Text size={15.5} weight="500">Logout</Text>
+          </Pressable>
+        </SafeAreaView>
+      </View>
+      {/* Scrim — tap to close */}
+      <Pressable onPress={onClose} style={{ flex: 1, backgroundColor: c.overlay }} />
+    </View>
   );
 }
 
-/* ---------- host: provides open/close context + renders the modal once ---------- */
+/* ---------- host: provides open/close context + renders the overlay in-tree ---------- */
 export function DrawerHost({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false);
+  const close = () => setVisible(false);
   return (
-    <DrawerContext.Provider value={{ open: () => setVisible(true), close: () => setVisible(false) }}>
-      {children}
-      <DrawerModal visible={visible} onClose={() => setVisible(false)} />
+    <DrawerContext.Provider value={{ open: () => setVisible(true), close }}>
+      <View style={{ flex: 1 }}>
+        {children}
+        {visible && <DrawerOverlay onClose={close} />}
+      </View>
     </DrawerContext.Provider>
   );
 }
