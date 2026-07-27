@@ -80,6 +80,9 @@ export function RiskDetail() {
   const [actions, setActions] = useState<Action[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [linkedEscalations, setLinkedEscalations] = useState<any[]>([]);
+  // Overdue-action count per staff member — powers the "prevent new work before old work" soft
+  // advisory when assigning a new action to someone who already has a backlog.
+  const [overdueByUser, setOverdueByUser] = useState<Record<string, number>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [newAction, setNewAction] = useState({
@@ -230,6 +233,16 @@ export function RiskDetail() {
       } catch (err) {
         setLinkedEscalations([]);
       }
+
+      // Load per-staff overdue counts for the assignment soft-gate (best-effort; RM/leadership
+      // scope returns the whole team). Never blocks the page.
+      try {
+        const cRes = await apiClient.get(`/governance/compliance`);
+        const people = ((cRes.data as any)?.data?.people ?? (cRes.data as any)?.people ?? []) as any[];
+        const map: Record<string, number> = {};
+        for (const p of people) map[p.id] = Number(p.overdue) || 0;
+        setOverdueByUser(map);
+      } catch { setOverdueByUser({}); }
 
       // Load timeline for this risk
       try {
@@ -601,8 +614,13 @@ export function RiskDetail() {
                 <Metric label="Trajectory" value={`${m.trajectoryPct > 0 ? "+" : ""}${m.trajectoryPct}%`} sub={m.trajectoryGrade} tone={trajTone} />
                 <Metric label="Priority" value={m.priority} sub="of 100" />
                 <Metric label="Overdue actions" value={`${m.overduePct}%`} />
-                <Metric label="Confidence" value={`${m.confidence}%`} sub="data reliability" />
+                <Metric label="Confidence" value={`${m.confidence}%`} sub="evidence strength" />
               </div>
+              {/* Governance summary — the "why" behind the numbers, so the page defends its own
+                  conclusions to an inspector rather than showing bare figures. */}
+              {m.narrative && (
+                <p className="text-sm text-foreground mt-3 bg-muted/40 border-l-4 border-primary/40 px-3 py-2">{m.narrative}</p>
+              )}
               <p className="text-[10px] text-muted-foreground mt-1.5">{m.formula} · S={m.inputs.S} F={m.inputs.F} V={m.inputs.V}{m.inputs.vulnerabilityAssumed ? " (assumed)" : ""} C={m.inputs.C}</p>
             </div>
           );
@@ -1037,6 +1055,12 @@ export function RiskDetail() {
                 </select>
                 {teamLeaders.length === 0 && (
                   <p className="mt-2 text-[11px] text-amber-600">No named Team Leaders available — the action will auto-assign to the service Team Leader. To pick a specific person, ensure a TL is granted the role, active, and mapped to this service (Admin → Users).</p>
+                )}
+                {/* Prevent new work before old work — soft advisory, never a hard block. */}
+                {newAction.assigned_to && (overdueByUser[newAction.assigned_to] ?? 0) >= 3 && (
+                  <p className="mt-2 text-[11px] text-amber-700 bg-amber-50 border border-amber-300 rounded px-2 py-1.5">
+                    ⚠ This person already has {overdueByUser[newAction.assigned_to]} overdue action(s). Consider clearing or reassigning that backlog before adding more routine work.
+                  </p>
                 )}
               </div>
 

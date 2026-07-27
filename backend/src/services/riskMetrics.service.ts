@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { trajectoryForRisk } from './trajectory.service';
 
 /**
  * Risk Metrics engine — the mathematically-defensible, fully-computed governance model.
@@ -202,25 +203,64 @@ export const riskMetricsService = {
       [cluster]
     )).rows[0];
     const cur = Number(wk?.cur) || 0, prev = Number(wk?.prev) || 0;
-    const trajectoryPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : (cur > 0 ? 100 : 0);
-    const trajectoryGrade = trajectoryGradeOf(trajectoryPct);
+    const rawPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : (cur > 0 ? 100 : 0);
 
-    const overduePct = Number(ctl?.open) > 0 ? Math.round((Number(ctl.overdue) / Number(ctl.open)) * 100) : 0;
-    const priority = Math.round(0.50 * riskIndex + 0.30 * trajectoryScoreOf(trajectoryGrade) + 0.20 * overduePct);
+    // Reconcile the % with the authoritative direction. The raw week-over-week signal delta and
+    // the SSOT trajectory (which also weighs control effectiveness and the safeguarding/critical
+    // safety floor) can otherwise disagree — the "-66.7% · Strong Improvement" shown next to a
+    // "Deteriorating" status the reviewer flagged. The SSOT direction wins; the % is presented as
+    // a magnitude whose SIGN follows that direction, so the number and the word never contradict,
+    // and this figure matches every other view of the same risk.
+    let direction: 'Improving' | 'Stable' | 'Deteriorating' = 'Stable';
+    try { direction = (await trajectoryForRisk(risk_id, cluster)).direction; }
+    catch { direction = trajectoryGradeOf(rawPct).includes('Deterior') ? 'Deteriorating'
+                       : trajectoryGradeOf(rawPct).includes('Improv') ? 'Improving' : 'Stable'; }
+    const magnitude = Math.abs(rawPct);
+    const trajectoryPct = direction === 'Deteriorating' ? magnitude
+                        : direction === 'Improving' ? -magnitude : 0;
+    const trajectoryGrade = direction === 'Deteriorating' ? (magnitude >= 30 ? 'Rapid Deterioration' : 'Deteriorating')
+                          : direction === 'Improving' ? (magnitude >= 30 ? 'Strong Improvement' : 'Improving')
+                          : 'Stable';
 
-    // Confidence: distinct days with a signal in the last 30 (expected) days.
+    // Confidence — how much evidence stands behind this grading. Days-with-signal alone read
+    // implausibly low for a well-evidenced Critical risk (the reviewer's "20%"). Blend the volume
+    // of signals, how many distinct days they span, and whether controls are actually in place, so
+    // confidence rises as the evidence base genuinely strengthens.
     const days = Number((await query(
       `SELECT COUNT(DISTINCT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date) d
          FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
         WHERE rsl.cluster_id = $1 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'`,
       [cluster]
     )).rows[0]?.d || 0);
-    const confidence = Math.round(clamp((days / 30) * 100, 0, 100));
+    const hasControls = Number(ctl?.total) > 0;
+    const confidence = Math.round(clamp(
+      0.55 * (Math.min(sigCount, 8) / 8) * 100 +   // volume of evidence
+      0.30 * (Math.min(days, 10) / 10) * 100 +     // spread over time
+      0.15 * (hasControls ? 100 : 0),              // something is being done about it
+      0, 100
+    ));
+
+    const overduePct = Number(ctl?.open) > 0 ? Math.round((Number(ctl.overdue) / Number(ctl.open)) * 100) : 0;
+    const rawPriority = Math.round(0.50 * riskIndex + 0.30 * trajectoryScoreOf(trajectoryGrade) + 0.20 * overduePct);
+    // Floor priority to the risk's grade band so a Critical risk can never read as low-priority
+    // (the reviewer's "if it's critical, why is priority only 45?"). It may climb above the floor
+    // when deteriorating or with overdue actions, but never falls below what the grade demands.
+    const priorityFloor: Record<string, number> = { Critical: 80, High: 60, Medium: 40, Low: 0 };
+    const priority = Math.max(rawPriority, priorityFloor[grade] ?? 0);
+
+    // A one-line governance summary — the "why", so the page defends its own conclusions rather
+    // than showing bare numbers (reviewer: "what is missing is why").
+    const narrative =
+      `${grade} risk (index ${riskIndex}). ${sigCount} signal(s) over ${days} day(s); ` +
+      `trajectory ${direction.toLowerCase()}${magnitude ? ` (${magnitude}% week-on-week)` : ''}. ` +
+      `${Number(ctl?.overdue) || 0} overdue of ${Number(ctl?.open) || 0} open action(s). ` +
+      `Confidence ${confidence}% — ${confidence >= 66 ? 'well evidenced' : confidence >= 33 ? 'moderately evidenced' : 'limited evidence so far'}.`;
 
     return {
       riskIndex, grade,
-      trajectoryPct, trajectoryGrade,
+      trajectoryPct, trajectoryGrade, trajectoryDirection: direction,
       priority, confidence, overduePct,
+      narrative,
       inputs: { S, F, V, C, vulnerabilityAssumed },
       formula: 'RiskIndex = (0.40·S + 0.25·F + 0.20·V + 0.15·C) × 20',
     };

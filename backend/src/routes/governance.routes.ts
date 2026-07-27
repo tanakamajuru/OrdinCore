@@ -272,4 +272,15 @@ router.get('/compliance', requireAuth, requireTenant, async (req, res) => {
   }
 });
 
+// The signed-in user's own outstanding workload — for the "Daily Outstanding Actions" banner and
+// the "complete old work before starting new" soft-gate.
+router.get('/my-outstanding', requireAuth, requireTenant, async (req, res) => {
+  try {
+    const data = await governanceComplianceService.forUser(req.user!.company_id!, req.user!.user_id);
+    return res.json({ success: true, data, meta: {} });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err.message, errors: [] });
+  }
+});
+
 export default router;

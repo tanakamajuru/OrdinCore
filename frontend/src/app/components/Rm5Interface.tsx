@@ -6,6 +6,7 @@ import {
   ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus,
 } from "lucide-react";
 import { apiClient } from "@/services/api";
+import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
 import { toast } from "sonner";
 
 /* Stage 4: the RM 5-screen interface (pipeline spine), wired to the live /api/rm BFF and
@@ -175,6 +176,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
         {!loading && screen === "today" && (
           <div>
+            <OutstandingActionsBanner />
             <GovHead q="What needs me now?" sub="The week's signals (highest severity first) and everything open against me — open a signal to read it, or an action to jump to its risk. Signals build into patterns; nothing promotes itself." />
             <div className="space-y-6">
               <div>

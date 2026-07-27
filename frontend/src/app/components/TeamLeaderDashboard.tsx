@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
+import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
 import { useNavigate } from "react-router";
 import {
   Activity, ClipboardList, Clock, TrendingUp, CheckCircle2, Plus, FileText,
@@ -240,6 +241,9 @@ export function TeamLeaderDashboard() {
             </button>
           </div>
         </div>
+
+        {/* Daily Outstanding Actions — impossible to ignore, complete old work before new. */}
+        <OutstandingActionsBanner />
 
         {/* Stat cards */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4 mb-6">

@@ -216,7 +216,17 @@ export function RiskPromotion() {
             )}
           </div>
           <p className="text-muted-foreground  mt-2 uppercase tracking-widest">
-            {candidateId ? `Formalizing Candidate ${candidateId.slice(0,8)}` : `Formalizing Cluster ${clusterId?.slice(0,8)}`}
+            {/* Never show a raw cluster/candidate id — describe the pattern in plain language
+                (domain · person/scope) so the sub-header reads as governance, not a database key. */}
+            {(() => {
+              const domain = String(Array.isArray(sourceData?.risk_domain) ? sourceData.risk_domain[0] : sourceData?.risk_domain || '').trim();
+              const affected: string[] = Array.isArray(sourceData?.affected_house_names) ? sourceData.affected_house_names : [];
+              const isCross = sourceData?.scope === 'cross_service' || affected.length > 1;
+              const where = isCross ? `${affected.length || (sourceData?.affected_house_ids?.length ?? 0)} services` : (sourceData?.house_name || '');
+              const who = sourceData?.linked_person ? ` · ${sourceData.linked_person}` : '';
+              const label = [domain || 'Emerging pattern', where].filter(Boolean).join(' — ');
+              return `Formalizing ${isCross ? 'systemic ' : ''}pattern: ${label}${who}`;
+            })()}
           </p>
         </div>
 

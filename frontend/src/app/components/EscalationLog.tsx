@@ -374,7 +374,7 @@ export function EscalationLog() {
                       </div>
                     )}
 
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-3 gap-4">
                       <div>
                         <label className="text-xs  uppercase text-muted-foreground block mb-1">Site</label>
                         <p className="text-sm  text-foreground">{selectedEscalation.house_name}</p>
@@ -383,7 +383,38 @@ export function EscalationLog() {
                         <label className="text-xs  uppercase text-muted-foreground block mb-1">Status</label>
                         <p className="text-sm  capitalize text-foreground">{selectedEscalation.status}</p>
                       </div>
+                      {/* Days open — automatically calculated; the headline "how long has leadership
+                          been carrying this?" figure. Frozen once resolved. */}
+                      <div>
+                        <label className="text-xs uppercase text-muted-foreground block mb-1">Days open</label>
+                        {(() => {
+                          const start = selectedEscalation.created_at ? new Date(selectedEscalation.created_at).getTime() : null;
+                          const end = (/resolved|closed/i.test(String(selectedEscalation.lifecycle_status || selectedEscalation.status || '')) && (selectedEscalation.resolved_at || (selectedEscalation as any).closed_at))
+                            ? new Date(selectedEscalation.resolved_at || (selectedEscalation as any).closed_at).getTime()
+                            : Date.now();
+                          const d = start ? Math.max(0, Math.floor((end - start) / 86400000)) : null;
+                          const tone = d != null && d >= 14 ? 'text-red-600' : d != null && d >= 7 ? 'text-amber-600' : 'text-foreground';
+                          return <p className={`text-sm font-semibold ${tone}`}>{d != null ? `${d} day${d === 1 ? '' : 's'}` : '—'}</p>;
+                        })()}
+                      </div>
                     </div>
+
+                    {/* Why is it still open? — the most important field for a Director at a glance.
+                        Shows the latest monitoring/progress note the RM recorded; if none yet, says so. */}
+                    {!/resolved|closed/i.test(String(selectedEscalation.lifecycle_status || selectedEscalation.status || '')) && (() => {
+                      const acts = Array.isArray(selectedEscalation.actions) ? selectedEscalation.actions : [];
+                      const latest = acts.find((a: any) => a.description && !/ladder/i.test(String(a.action_type || '')));
+                      return (
+                        <div>
+                          <label className="text-xs uppercase text-muted-foreground block mb-1">Why is it still open?</label>
+                          <div className="bg-amber-50 dark:bg-amber-950/30 border-l-4 border-amber-400 p-3 text-sm text-foreground">
+                            {latest?.description
+                              ? <>{latest.description}<span className="block text-xs text-muted-foreground mt-1">Last update{latest.taken_by_name ? ` by ${latest.taken_by_name}` : ''}{latest.created_at ? ` · ${new Date(latest.created_at).toLocaleDateString('en-GB')}` : ''}</span></>
+                              : <span className="text-muted-foreground">Not yet reviewed — record a monitoring note using "Keep open · continue monitoring" below.</span>}
+                          </div>
+                        </div>
+                      );
+                    })()}
 
                     {selectedEscalation.status?.toLowerCase?.() === 'pending' && (
                       <Button 

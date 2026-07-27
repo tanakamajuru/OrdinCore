@@ -73,6 +73,30 @@ export const governanceComplianceService = {
     });
   },
 
+  /**
+   * One person's outstanding workload — used for the "Daily Outstanding Actions" banner and the
+   * "prevent new work before old work" soft-gate. Returns overdue / due-today / open counts and
+   * the oldest overdue age.
+   */
+  async forUser(company_id: string, user_id: string) {
+    const r = (await query(
+      `SELECT COUNT(*) FILTER (WHERE ${OPEN}) AS open,
+              COUNT(*) FILTER (WHERE ${OPEN} AND due_date < NOW()) AS overdue,
+              COUNT(*) FILTER (WHERE ${OPEN} AND due_date::date = NOW()::date) AS due_today,
+              MAX(CASE WHEN ${OPEN} AND due_date < NOW()
+                       THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - due_date)) / 86400) END)::int AS oldest_overdue_days
+         FROM risk_actions
+        WHERE company_id = $1 AND assigned_to = $2`,
+      [company_id, user_id]
+    )).rows[0];
+    return {
+      open: Number(r?.open) || 0,
+      overdue: Number(r?.overdue) || 0,
+      due_today: Number(r?.due_today) || 0,
+      oldest_overdue_days: r?.oldest_overdue_days ?? null,
+    };
+  },
+
   /** Company rollup — the headline traffic-light counts for a leadership tile. */
   async summary(company_id: string, house_ids?: string[]) {
     const people = await this.teamCompliance(company_id, house_ids);
