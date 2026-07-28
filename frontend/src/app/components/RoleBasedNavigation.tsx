@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
   Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell,
+  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -75,6 +75,7 @@ export function RoleBasedNavigation() {
         // survive — nothing is route-deleted).
         return [
           { path: "/rm5", label: "Pipeline", icon: Layers },
+          { path: "/governance-dashboard", label: "Daily Oversight", icon: ShieldCheck },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
           { path: "/interventions", label: "Interventions", icon: Target },
           // Strategic oversight of escalations, surfaced directly in the rail (was deep-link only).

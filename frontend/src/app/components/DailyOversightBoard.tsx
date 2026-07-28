@@ -27,10 +27,17 @@ export function DailyOversightBoard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [house, setHouse] = useState<any>(null);
-  const [isDeputyCover, setIsDeputyCover] = useState(false);
+  const [houses, setHouses] = useState<any[]>([]);
+  const [selectedHouseId, setSelectedHouseId] = useState<string>("");
   const [dailyNote, setDailyNote] = useState("");
   const [isSigningOff, setIsSigningOff] = useState(false);
+
+  // The house being signed off. An RM oversees every service, so they choose which one; the
+  // certification and deputy logic follow the selection.
+  const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
+  const currentUserId = currentUser.id || currentUser.user_id;
+  const house = houses.find((h) => h.id === selectedHouseId) || houses[0] || null;
+  const isDeputyCover = !!house && house.deputy_rm_id === currentUserId;
 
   useEffect(() => {
     loadDashboard();
@@ -38,17 +45,25 @@ export function DailyOversightBoard() {
 
   const loadDashboard = async () => {
     try {
-      const user = JSON.parse(localStorage.getItem("user") || "{}");
-      const userId = user.id || user.user_id;
+      const userId = currentUserId;
       const [dashRes, housesRes] = await Promise.all([
         apiClient.get('/pulses/dashboard'),
         userId ? apiClient.get(`/users/${userId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
       ]);
       setData(dashRes.data.data);
-      const houses = (housesRes as any).data?.data || (housesRes as any).data || [];
-      const myHouse = Array.isArray(houses) ? houses[0] : null;
-      setHouse(myHouse);
-      setIsDeputyCover(!!myHouse && myHouse.deputy_rm_id === userId);
+      let list = (housesRes as any).data?.data || (housesRes as any).data || [];
+      // An RM (or anyone overseeing all services) may have no DIRECTLY-assigned house — signing off
+      // would then post an empty house_id and fail. Fall back to the company's houses so there's
+      // always a valid service to sign off, and let the user pick which one.
+      if (!Array.isArray(list) || list.length === 0) {
+        try {
+          const allRes = await apiClient.get('/houses');
+          list = (allRes as any).data?.data || (allRes as any).data || [];
+        } catch { list = []; }
+      }
+      const arr = Array.isArray(list) ? list : [];
+      setHouses(arr);
+      setSelectedHouseId(arr[0]?.id || "");
     } catch (err) {
       toast.error("Failed to load oversight board");
     } finally {
@@ -76,13 +91,13 @@ export function DailyOversightBoard() {
       toast.error("A daily governance narrative is mandatory for sign-off.");
       return;
     }
-    if (!house?.id) {
-      toast.error("Could not determine your service. Please reload.");
+    if (!selectedHouseId) {
+      toast.error("Choose which service you are signing off before continuing.");
       return;
     }
     setIsSigningOff(true);
     try {
-      const openRes = await apiClient.post('/governance/daily-log/open', { house_id: house.id });
+      const openRes = await apiClient.post('/governance/daily-log/open', { house_id: selectedHouseId });
       const logId = openRes.data?.id || openRes.data?.data?.id;
       await apiClient.post(`/governance/daily-log/${logId}/complete`, {
         note: dailyNote,
@@ -251,6 +266,20 @@ export function DailyOversightBoard() {
                 High/Critical signals exist while a Deputy RM is reviewing. Signing off will trigger an immediate
                 director notification and flag this log for enhanced oversight.
               </p>
+            </div>
+          )}
+
+          {/* Which service is being signed off — an RM oversees several, so make it explicit. */}
+          {houses.length > 0 && (
+            <div className="mb-4">
+              <label className="block mb-2 text-sm uppercase tracking-widest text-muted-foreground">Service</label>
+              <select
+                value={selectedHouseId}
+                onChange={(e) => setSelectedHouseId(e.target.value)}
+                className="w-full p-3 border-2 border-border rounded-lg bg-background focus:outline-none focus:ring-2 focus:ring-primary/30"
+              >
+                {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+              </select>
             </div>
           )}
 
