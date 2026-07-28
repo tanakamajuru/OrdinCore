@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Alert } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@/auth/AuthContext';
@@ -8,7 +8,8 @@ import { useApi } from '@/api/useApi';
 import { radius } from '@/theme/tokens';
 import { Screen, Row, Avatar, Text, Button, Loading } from '@/components/ui';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
-import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, PercentDonut, BoardButton, SparkCard, BoardItem, Tone } from '@/components/board';
+import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, PercentDonut, BoardButton, BoardItem, Tone } from '@/components/board';
+import { MultiLineChart } from '@/components/MultiLineChart';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || []);
 const sevOf = (r: any) => String(r.severity || r.risk_rating || r.current_severity || '').toLowerCase();
@@ -57,30 +58,48 @@ export function DirectorOverviewScreen() {
   );
 }
 
-/* 2 — Cross-Service Trends */
+/* 2 — Cross-Service Trends (mirrors the web Trends: labelled multi-house trajectory + daily
+   risk + weekly incident/escalation/safeguarding volumes, from /analytics/trends). */
 export function DirectorTrendsScreen() {
-  const { data, loading, refetch } = useApi<any>('/pulses?limit=500');
-  const signals = arr(data);
-  const high = signals.filter((s) => /(high|critical)/i.test(s.severity || '')).length;
-  const med = signals.filter((s) => /(medium|moderate)/i.test(s.severity || '')).length;
-  const low = signals.filter((s) => /low/i.test(s.severity || '')).length;
+  const { data, loading, refetch } = useApi<any>('/analytics/trends');
+  const t = (data && typeof data === 'object' ? (data.data ?? data) : {}) as any;
 
-  // Signals per day over the last ~8 buckets for the sparkline.
-  const now = Date.now(), buckets = new Array(8).fill(0);
-  signals.forEach((s) => {
-    const t = new Date(s.entry_date || s.created_at).getTime();
-    const daysAgo = Math.floor((now - t) / 86400000);
-    if (daysAgo >= 0 && daysAgo < 32) buckets[7 - Math.floor(daysAgo / 4)]++;
-  });
+  const crossHouse = t.crossHouseRisk || {};
+  const houseNames: string[] = crossHouse.houses || [];
+  const houseTrends: any[] = crossHouse.trends || [];
+
+  const crossInc = t.crossHouseIncidents || {};
+  const incHouses: string[] = crossInc.houses || [];
+  const incTrends: any[] = crossInc.trends || [];
+
+  // Friendly keys for the daily-risk chart legend.
+  const daily = (t.dailyRisk || []).map((d: any) => ({ date: d.date, Daily: d.dailyRisk, '7-day avg': d.movingAvg }));
+
+  const esc = t.escalation || { currentWeek: 0, total: 0, average: 0 };
+  const sg = t.safeGuarding || { currentWeek: 0, total: 0, average: 0 };
 
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
-      <BoardHeader title="Cross-Service Trends" subtitle="Last 30 days" />
-      <SparkCard points={buckets} />
-      <StatusList items={[
-        { title: 'High', value: String(high), tone: 'red' },
-        { title: 'Medium', value: String(med), tone: 'amber' },
-        { title: 'Low', value: String(low), tone: 'green' },
+      <BoardHeader title="Cross-Service Trends" subtitle="Last 6 weeks · all services" />
+
+      <SectionTitle>Cross-house risk trajectory</SectionTitle>
+      <MultiLineChart data={houseTrends} series={houseNames} xKey="date" height={210}
+        empty="No promoted risks plot here yet — they trajectory as their history accumulates." />
+
+      <SectionTitle>Daily risk score</SectionTitle>
+      <MultiLineChart data={daily} series={['Daily', '7-day avg']} xKey="date" height={180}
+        empty="No signals in the last 30 days." />
+
+      <SectionTitle>Cross-house incidents</SectionTitle>
+      <MultiLineChart data={incTrends} series={incHouses} xKey="date" height={180}
+        empty="No incidents logged in the last 6 weeks." />
+
+      <SectionTitle>Weekly volumes</SectionTitle>
+      <Metrics items={[
+        { value: esc.currentWeek ?? 0, label: 'Escalations this week', tone: 'amber' },
+        { value: esc.total ?? 0, label: 'Escalations (6 wks)' },
+        { value: sg.currentWeek ?? 0, label: 'Safeguarding this week', tone: 'red' },
+        { value: sg.total ?? 0, label: 'Safeguarding (6 wks)' },
       ]} />
     </Screen>
   );
@@ -97,13 +116,14 @@ export function DirectorThemesScreen() {
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
       <BoardHeader title="Recurring Themes" subtitle="Top themes" />
-      {loading && !data ? <Loading /> : <StatusList items={items} button="View all themes" empty="No signals yet." />}
+      {loading && !data ? <Loading /> : <StatusList items={items} empty="No signals yet." />}
     </Screen>
   );
 }
 
 /* 4 — Governance Overview */
 export function DirectorGovernanceScreen() {
+  const nav = useNavigation<any>();
   const sig = useApi<any>('/pulses?limit=500');
   const act = useApi<any>('/actions/oversight');
   const esc = useApi<any>('/escalations?limit=300');
@@ -124,22 +144,29 @@ export function DirectorGovernanceScreen() {
         { label: 'Actions completed', value: `${doneAct} / ${actions.length}` },
         { label: 'Escalations closed', value: `${closedEsc} / ${escs.length}` },
       ]} />
-      <BoardButton label="View details" onPress={() => Alert.alert('Governance', 'Full governance detail is on the OrdinCore web app.')} />
+      <BoardButton label="View reports" icon="file-text" onPress={() => nav.navigate('DirectorReports')} />
     </Screen>
   );
 }
 
-/* 5 — Strategic Reports */
+/* 5 — Strategic Reports (open live on-device summaries, like the RM reports) */
 export function DirectorReportsScreen() {
-  const reports = ['Monthly strategic report', 'Quality & safety report', 'Performance report', 'Service comparison', 'KPI dashboard'];
-  const items: BoardItem[] = reports.map((title) => ({
-    title, meta: 'Board-ready', tone: 'neutral',
-    onPress: () => Alert.alert(title, 'This report is generated on the OrdinCore web app.'),
+  const nav = useNavigation<any>();
+  const reports: { title: string; type: string; meta: string }[] = [
+    { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days across all services' },
+    { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
+    { title: 'Signals by domain', type: 'signals-domain', meta: 'Where signals are coming from' },
+    { title: 'Actions by status', type: 'actions-status', meta: 'To do · done · overdue' },
+    { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },
+  ];
+  const items: BoardItem[] = reports.map((r) => ({
+    title: r.title, meta: r.meta, tone: 'neutral',
+    onPress: () => nav.navigate('ReportDetail', { type: r.type, title: r.title }),
   }));
   return (
     <Screen>
       <BoardHeader title="Strategic Reports" />
-      <StatusList items={items} button="Generate report" onButton={() => Alert.alert('Generate report', 'Reports are generated on the OrdinCore web app.')} />
+      <StatusList items={items} />
     </Screen>
   );
 }

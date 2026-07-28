@@ -41,10 +41,9 @@ import { TLTeamOverviewScreen } from '@/screens/tl/TLTeamOverviewScreen';
 import { TLEscalationsScreen } from '@/screens/tl/TLEscalationsScreen';
 import { TLDocumentsScreen } from '@/screens/tl/TLDocumentsScreen';
 import { TLNotesScreen } from '@/screens/tl/TLNotesScreen';
-import { TLMoreScreen } from '@/screens/tl/TLMoreScreen';
 import { RMDashboardScreen, RMRiskRegisterScreen, RMEscalationsScreen, RMGovernanceReviewScreen, RMReportsScreen, RMHouseOverviewScreen, RMComplianceScreen, RMMyActionsScreen } from '@/screens/rm/RMScreens';
-import { DirectorOverviewScreen, DirectorTrendsScreen, DirectorThemesScreen, DirectorGovernanceScreen, DirectorReportsScreen, DirectorMoreScreen } from '@/screens/director/DirectorScreens';
-import { RIProviderAssuranceScreen, RIOversightScreen, RIInspectionScreen, RINarrativeScreen, RIBoardReportsScreen, RIMoreScreen } from '@/screens/ri/RIScreens';
+import { DirectorOverviewScreen, DirectorTrendsScreen, DirectorThemesScreen, DirectorGovernanceScreen, DirectorReportsScreen } from '@/screens/director/DirectorScreens';
+import { RIProviderAssuranceScreen, RIOversightScreen, RIInspectionScreen, RINarrativeScreen, RIBoardReportsScreen } from '@/screens/ri/RIScreens';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParams>();
@@ -130,12 +129,13 @@ function TeamLeaderTabs() {
     tabBarStyle: { backgroundColor: c.card, borderTopColor: c.lineSoft },
     tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
   };
+  // Uniform with the RM layout — "More" moved to the app drawer; the fourth tab is Escalations.
   return (
     <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Today" component={TLMorningMeetingScreen} options={{ tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Signals" component={TLSignalsScreen} options={{ tabBarIcon: tabIcon('activity') }} />
       <Tab.Screen name="Actions" component={TLMyActionsScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
-      <Tab.Screen name="More" component={TLMoreScreen} options={{ tabBarIcon: tabIcon('more-horizontal') }} />
+      <Tab.Screen name="Escalations" component={TLEscalationsScreen} options={{ tabBarIcon: tabIcon('flag') }} />
     </Tab.Navigator>
   );
 }
@@ -171,7 +171,7 @@ function DirectorTabs() {
       <Tab.Screen name="Home" component={DirectorOverviewScreen} options={{ tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Trends" component={DirectorTrendsScreen} options={{ tabBarIcon: tabIcon('trending-up') }} />
       <Tab.Screen name="Themes" component={DirectorThemesScreen} options={{ tabBarIcon: tabIcon('bar-chart-2') }} />
-      <Tab.Screen name="More" component={DirectorMoreScreen} options={{ tabBarIcon: tabIcon('more-horizontal') }} />
+      <Tab.Screen name="Governance" component={DirectorGovernanceScreen} options={{ tabBarIcon: tabIcon('shield') }} />
     </Tab.Navigator>
   );
 }
@@ -183,7 +183,7 @@ function ResponsibleIndividualTabs() {
       <Tab.Screen name="Home" component={RIProviderAssuranceScreen} options={{ tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Oversight" component={RIOversightScreen} options={{ tabBarIcon: tabIcon('grid') }} />
       <Tab.Screen name="Readiness" component={RIInspectionScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
-      <Tab.Screen name="More" component={RIMoreScreen} options={{ tabBarIcon: tabIcon('more-horizontal') }} />
+      <Tab.Screen name="Narrative" component={RINarrativeScreen} options={{ tabBarIcon: tabIcon('book-open') }} />
     </Tab.Navigator>
   );
 }
