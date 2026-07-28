@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, Pressable, Alert } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '@/auth/AuthContext';
@@ -39,6 +39,7 @@ function useAssurance() {
 
 /* 1 — Provider Assurance */
 export function RIProviderAssuranceScreen() {
+  const nav = useNavigation<any>();
   const a = useAssurance();
   if (a.sig.loading && !a.sig.data) return <Screen><Loading /></Screen>;
   return (
@@ -47,7 +48,7 @@ export function RIProviderAssuranceScreen() {
       <OutstandingBanner />
       <PercentDonut value={isNaN(a.overall) ? 0 : a.overall} label="Assured" tone={a.overall >= 80 ? 'green' : a.overall >= 60 ? 'amber' : 'red'} />
       <Checklist items={Object.entries(a.domains).map(([label, v]) => ({ label, value: `${isNaN(v) ? 0 : v}%` }))} />
-      <BoardButton label="View assurance report" onPress={() => Alert.alert('Assurance report', 'The full assurance report is on the OrdinCore web app.')} />
+      <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
 }
@@ -95,7 +96,6 @@ export function RIInspectionScreen() {
         { label: 'Audits current', value: yes(a.domains.Safe >= 80), showCheck: true },
         { label: 'Actions overdue', value: String(overdue), showCheck: true },
       ]} />
-      <BoardButton label="View checklist" onPress={() => Alert.alert('Inspection', 'The full inspection checklist is on the OrdinCore web app.')} />
     </Screen>
   );
 }
@@ -103,6 +103,7 @@ export function RIInspectionScreen() {
 /* 4 — Governance Narrative */
 export function RINarrativeScreen() {
   const { c } = useTheme();
+  const nav = useNavigation<any>();
   const a = useAssurance();
   const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
   const position = a.overall >= 80
@@ -128,22 +129,29 @@ export function RINarrativeScreen() {
           </Row>
         ))}
       </View>
-      <BoardButton label="View full narrative" onPress={() => Alert.alert('Narrative', 'The full governance narrative is on the OrdinCore web app.')} />
+      <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
 }
 
-/* 5 — Reports to Board */
+/* 5 — Reports to Board (open live on-device summaries, like the RM/Director reports) */
 export function RIBoardReportsScreen() {
-  const reports = ['Board assurance report', 'Risk summary report', 'Incidents report', 'Performance summary', 'Quarterly governance pack'];
-  const items: BoardItem[] = reports.map((title) => ({
-    title, meta: 'Ready to generate', tone: 'neutral',
-    onPress: () => Alert.alert(title, 'This pack is generated on the OrdinCore web app.'),
+  const nav = useNavigation<any>();
+  const reports: { title: string; type: string; meta: string }[] = [
+    { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days across all services' },
+    { title: 'Risk summary report', type: 'signals-domain', meta: 'Signals by domain' },
+    { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },
+    { title: 'Actions summary', type: 'actions-status', meta: 'To do · done · overdue' },
+    { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
+  ];
+  const items: BoardItem[] = reports.map((r) => ({
+    title: r.title, meta: r.meta, tone: 'neutral',
+    onPress: () => nav.navigate('ReportDetail', { type: r.type, title: r.title }),
   }));
   return (
     <Screen>
       <BoardHeader title="Reports to Board" />
-      <StatusList items={items} button="Generate pack" onButton={() => Alert.alert('Generate pack', 'Board packs are generated on the OrdinCore web app.')} />
+      <StatusList items={items} />
     </Screen>
   );
 }

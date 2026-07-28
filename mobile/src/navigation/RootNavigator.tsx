@@ -110,12 +110,13 @@ function SupportWorkerTabs() {
     tabBarStyle: { backgroundColor: c.card, borderTopColor: c.lineSoft },
     tabBarLabelStyle: { fontSize: 11, fontWeight: '600' as const },
   };
+  // Uniform with the other roles — "More" moved to the app drawer; the fourth tab is Alerts.
   return (
     <Tab.Navigator screenOptions={screenOptions}>
       <Tab.Screen name="Today" component={SWTodayScreen} options={{ tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Signals" component={SWSignalsFlow} options={{ tabBarIcon: tabIcon('activity') }} />
       <Tab.Screen name="Actions" component={SWActionsFlow} options={{ tabBarIcon: tabIcon('check-square') }} />
-      <Tab.Screen name="More" component={ProfileScreen} options={{ tabBarIcon: tabIcon('more-horizontal'), tabBarBadge: unread || undefined }} />
+      <Tab.Screen name="Alerts" component={AlertsScreen} options={{ tabBarIcon: tabIcon('bell'), tabBarBadge: unread || undefined }} />
     </Tab.Navigator>
   );
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Pressable, Alert } from 'react-native';
+import { View, Pressable } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { useAuth } from '@/auth/AuthContext';
@@ -155,6 +155,7 @@ export function RMEscalationsScreen() {
 
 /* 4 — Governance Review */
 export function RMGovernanceReviewScreen() {
+  const nav = useNavigation<any>();
   const sig = useApi<any>('/pulses?limit=300');
   const act = useApi<any>('/actions/oversight');
   const esc = useApi<any>('/escalations?limit=200');
@@ -179,7 +180,7 @@ export function RMGovernanceReviewScreen() {
         { label: 'Overdue actions', value: String(overdue), showCheck: true },
       ]} />
       <DetailCard items={[{ label: 'Review period', value: 'This week' }]} />
-      <BoardButton label="View report" onPress={() => Alert.alert('Weekly report', 'The full weekly governance report is available on the OrdinCore web app.')} />
+      <BoardButton label="View weekly report" icon="file-text" onPress={() => nav.navigate('ReportDetail', { type: 'weekly', title: 'Weekly governance report' })} />
     </Screen>
   );
 }
