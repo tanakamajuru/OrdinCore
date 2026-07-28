@@ -23,17 +23,13 @@ export class HousesController {
         is_active: req.query.is_active as string,
       };
       const result = await housesService.findAll(company_id, filters, page, limit);
-      
-      // Filter for TL/RM roles
-      const role = (req.user!.role || '').toUpperCase().replace('-', '_');
-      if (['REGISTERED_MANAGER', 'RM'].includes(role)) {
-        const assignedIds = req.user!.assigned_house_ids || (req.user!.assigned_house_id ? [req.user!.assigned_house_id] : []);
-        if (assignedIds.length > 0 && !assignedIds.includes('all')) {
-          result.houses = result.houses.filter((h: any) => assignedIds.includes(h.id));
-          result.total = result.houses.length;
-          result.pages = Math.ceil(result.total / limit);
-        }
-      }
+
+      // The Registered Manager oversees the WHOLE registered service — every house in the company —
+      // so they see all company houses (company_id already scopes them). The old filter narrowed an
+      // RM to assigned_house_ids, which for an RM with no direct assignment (or the "no house"
+      // sentinel) returned ZERO houses — emptying the Weekly Review service picker and the daily
+      // sign-off fallback. Only the Team Leader / Support Worker are house-restricted, and they are
+      // scoped by their own screens, not here.
 
       return res.json({ success: true, data: result.houses, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {

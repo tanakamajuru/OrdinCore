@@ -34,24 +34,27 @@ export const governanceComplianceService = {
    */
   async teamCompliance(company_id: string, house_ids?: string[]) {
     const scoped = Array.isArray(house_ids) && house_ids.length > 0;
+    // Start FROM the active staff who can own actions (RM / TL / SW) and LEFT JOIN their actions,
+    // so a newly-added member appears immediately (as "all on time / green") instead of being
+    // invisible until their first action. status = 'active' also drops de-activated duplicates.
     const rows = (await query(
       `SELECT u.id, u.first_name || ' ' || u.last_name AS name, u.role,
-              COUNT(*) FILTER (WHERE ${OPEN}) AS open,
-              COUNT(*) FILTER (WHERE ${OPEN} AND a.due_date < NOW()) AS overdue,
-              COUNT(*) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
-              COUNT(*) FILTER (WHERE a.status IN ('Complete','Completed')
+              COUNT(a.id) FILTER (WHERE ${OPEN}) AS open,
+              COUNT(a.id) FILTER (WHERE ${OPEN} AND a.due_date < NOW()) AS overdue,
+              COUNT(a.id) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
+              COUNT(a.id) FILTER (WHERE a.status IN ('Complete','Completed')
                                  AND a.completed_at IS NOT NULL
                                  AND (a.due_date IS NULL OR a.completed_at <= a.due_date)) AS completed_on_time,
-              COUNT(*) FILTER (WHERE a.status IN ('Complete','Completed')) AS completed_total,
+              COUNT(a.id) FILTER (WHERE a.status IN ('Complete','Completed')) AS completed_total,
               MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
                        THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
-         FROM risk_actions a
-         JOIN users u ON u.id = a.assigned_to
+         FROM users u
+         LEFT JOIN risk_actions a ON a.assigned_to = u.id AND a.company_id = $1
          LEFT JOIN risks r ON r.id = a.risk_id
-        WHERE a.company_id = $1
-          ${scoped ? `AND (r.house_id = ANY($2::uuid[]))` : ``}
+        WHERE u.company_id = $1 AND u.status = 'active'
+          AND u.role = ANY(ARRAY['REGISTERED_MANAGER','TEAM_LEADER','SUPPORT_WORKER'])
+          ${scoped ? `AND EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = u.id AND uh.house_id = ANY($2::uuid[]))` : ``}
         GROUP BY u.id, name, u.role
-        HAVING COUNT(*) > 0
         ORDER BY overdue DESC, due_today DESC, name ASC`,
       scoped ? [company_id, house_ids] : [company_id]
     )).rows;
