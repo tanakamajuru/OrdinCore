@@ -67,6 +67,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
     { icon: 'home', label: 'Home', go: go(() => navigateTab('Today')) },
     { icon: 'activity', label: 'Signals', go: go(() => navigateTab('Signals')) },
     { icon: 'check-square', label: 'My Actions', go: go(() => navigateTab('Actions')) },
+    { icon: 'flag', label: 'My Escalations', go: go(() => navigate('SWEscalations')) },
   ]);
 }
 

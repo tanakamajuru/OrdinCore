@@ -52,6 +52,40 @@ export function EscalationLog() {
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const [noteFlash, setNoteFlash] = useState(false);
   const [searchParams] = useSearchParams();
+  // Allocate an action to a responsible person from the escalation.
+  const [assignees, setAssignees] = useState<any[]>([]);
+  const [taskForm, setTaskForm] = useState({ title: "", assigned_to: "", due_date: "" });
+  const [assigningTask, setAssigningTask] = useState(false);
+
+  useEffect(() => {
+    apiClient.get('/users?limit=200&status=active')
+      .then((res) => {
+        const all = (res.data as any)?.data || (Array.isArray((res.data as any)) ? (res.data as any) : []);
+        setAssignees((Array.isArray(all) ? all : []).filter((u: any) =>
+          ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())));
+      })
+      .catch(() => setAssignees([]));
+  }, []);
+
+  const allocateTask = async () => {
+    if (!selectedEscalation?.risk_id) { toast.error('This escalation has no linked risk to attach an action to.'); return; }
+    if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
+    if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
+    setAssigningTask(true);
+    try {
+      await apiClient.post(`/risks/${selectedEscalation.risk_id}/action`, {
+        title: taskForm.title.trim(),
+        description: taskForm.title.trim(),
+        status: 'Pending',
+        assigned_to: taskForm.assigned_to,
+        due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+      });
+      toast.success('Action allocated — it now appears in their My Actions.');
+      setTaskForm({ title: "", assigned_to: "", due_date: "" });
+    } catch (e: any) {
+      toast.error(e?.data?.message || e?.message || 'Could not allocate the action.');
+    } finally { setAssigningTask(false); }
+  };
 
   // Turn a dead-click on a gated action into guidance: focus the notes field and flash it.
   const requireNote = (): boolean => {
@@ -482,6 +516,50 @@ export function EscalationLog() {
                           >
                             <CheckCircle2 className="w-4 h-4" /> Close with evidence
                           </button>
+                        </div>
+
+                        {/* Allocate an action to a responsible person — creates a real task on the
+                            linked risk, so it lands in that person's My Actions and ages on the
+                            overdue ladder. */}
+                        <div className="pt-4 border-t border-border">
+                          <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5 mb-2">Allocate an action</label>
+                          {selectedEscalation.risk_id ? (
+                            <div className="space-y-2">
+                              <input
+                                value={taskForm.title}
+                                onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                                placeholder="What needs doing?"
+                                className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                              />
+                              <div className="flex flex-col sm:flex-row gap-2">
+                                <select
+                                  value={taskForm.assigned_to}
+                                  onChange={(e) => setTaskForm({ ...taskForm, assigned_to: e.target.value })}
+                                  className="flex-1 bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
+                                >
+                                  <option value="">Responsible person…</option>
+                                  {assignees.map((u) => (
+                                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || '').replace(/_/g, ' ').toLowerCase()})</option>
+                                  ))}
+                                </select>
+                                <input
+                                  type="date"
+                                  value={taskForm.due_date}
+                                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                                  className="bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
+                                />
+                              </div>
+                              <button
+                                onClick={allocateTask}
+                                disabled={assigningTask || !taskForm.title.trim() || !taskForm.assigned_to}
+                                className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+                              >
+                                {assigningTask ? 'Allocating…' : 'Allocate action'}
+                              </button>
+                            </div>
+                          ) : (
+                            <p className="text-xs text-muted-foreground">This escalation has no linked risk, so an action can't be attached here yet.</p>
+                          )}
                         </div>
                       </div>
                     )}

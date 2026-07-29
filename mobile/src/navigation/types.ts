@@ -38,6 +38,7 @@ export type RootStackParams = {
   SignalDetail: { id: string };
   RiskDetail: { risk?: any; id?: string };
   ReportDetail: { type: string; title: string };
+  SWEscalations: undefined;
   Promote: { cluster: any };
   CloseRisk: { risk: { id: string; title?: string } };
   ValidateReview: { review: any };

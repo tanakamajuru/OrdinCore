@@ -149,9 +149,14 @@ export function RiskDetail() {
   useEffect(() => {
     const loadTeamLeaders = async () => {
       try {
-        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
-        const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
-        setTeamLeaders(list);
+        // Assignees include Registered Managers and Support Workers, not just Team Leaders — a
+        // strategic / cross-service risk is often owned by an RM, so they must be assignable too.
+        const res = await apiClient.get('/users?limit=200&status=active');
+        const all = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+        const assignable = (Array.isArray(all) ? all : []).filter((u: any) =>
+          ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())
+        );
+        setTeamLeaders(assignable);
       } catch (err) {
         // Finding C parity (mirror SignalDetail/PulseHistory): surface the failure
         // instead of leaving the RM with an empty allocation menu and no explanation.
@@ -1049,7 +1054,7 @@ export function RiskDetail() {
                   <option value="">Auto-assign to service Team Leader</option>
                   {teamLeaders.map((tl) => (
                     <option key={tl.id} value={tl.id}>
-                      {tl.first_name} {tl.last_name}
+                      {tl.first_name} {tl.last_name}{tl.role ? ` (${tl.role.replace(/_/g, ' ').toLowerCase()})` : ''}
                     </option>
                   ))}
                 </select>

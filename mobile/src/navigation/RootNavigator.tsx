@@ -34,6 +34,7 @@ import { SWMyActionsScreen } from '@/screens/sw/SWMyActionsScreen';
 import { SWSignalDetailScreen } from '@/screens/sw/SWSignalDetailScreen';
 import { SWSignalTimelineScreen } from '@/screens/sw/SWSignalTimelineScreen';
 import { SWSignalUpdateScreen } from '@/screens/sw/SWSignalUpdateScreen';
+import { SWEscalationsScreen } from '@/screens/sw/SWEscalationsScreen';
 import { TLMorningMeetingScreen } from '@/screens/tl/TLMorningMeetingScreen';
 import { TLSignalsScreen } from '@/screens/tl/TLSignalsScreen';
 import { TLDailyReviewScreen } from '@/screens/tl/TLDailyReviewScreen';
@@ -268,6 +269,7 @@ export function RootNavigator() {
       <Stack.Screen name="SignalDetail" component={SignalDetailScreen} options={{ title: 'Signal' }} />
       <Stack.Screen name="RiskDetail" component={RiskDetailScreen} options={{ title: 'Risk' }} />
       <Stack.Screen name="ReportDetail" component={ReportDetailScreen} options={{ title: '' }} />
+      <Stack.Screen name="SWEscalations" component={SWEscalationsScreen} options={{ title: 'My Escalations' }} />
       <Stack.Screen name="Promote" component={PromoteScreen} options={{ title: 'Promote to risk' }} />
       <Stack.Screen name="CloseRisk" component={CloseRiskScreen} options={{ title: 'Close risk' }} />
       <Stack.Screen name="ValidateReview" component={ValidateReviewScreen} options={{ title: 'Validate review' }} />

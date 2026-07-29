@@ -398,7 +398,14 @@ export function WeeklyReview() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium mb-2">Service scope</label>
-              <select value={houseId} onChange={(e) => setHouseId(e.target.value)} disabled={locked}
+              <select value={houseId} onChange={(e) => {
+                  // Switching service starts a fresh review bound to THAT service, so a review can
+                  // never be saved against the previously-selected house. If we're on an existing
+                  // review's URL, drop back to the base route so the new house's draft is used.
+                  setHouseId(e.target.value);
+                  setReviewId(null); setStep(0); setDoneStep(0); setStatus("Draft"); setValidation(null);
+                  if (id && id !== "new") navigate("/weekly-review");
+                }} disabled={locked}
                 className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary">
                 {(() => {
                   const dom = houses.filter((h: any) => String(h.sector || "").toUpperCase() === "DOMICILIARY");
@@ -500,13 +507,30 @@ export function WeeklyReview() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="w-full pt-28 p-6">
-        <div className="flex items-center gap-3 mb-5">
+        <div className="flex items-center gap-3 mb-3">
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
-            <p className="text-sm text-muted-foreground">12 sequential steps · sections 2–10 auto-populate · locked after finalisation.{isDomiciliary ? " Domiciliary care service." : ""}</p>
+            <p className="text-sm text-muted-foreground">12 sequential steps · sections 2–10 auto-populate · locked after finalisation.</p>
           </div>
         </div>
+
+        {/* Which service this review is for — prominent so a review is never authored against the
+            wrong service, and the sector (Supported Living vs Domiciliary Care) is explicit. */}
+        {(() => {
+          const h = houses.find((x) => x.id === houseId);
+          const name = h?.name || "Select a service";
+          return (
+            <div className={`mb-5 flex flex-wrap items-center gap-2 rounded-xl border-2 px-4 py-3 ${isDomiciliary ? "border-violet-400 bg-violet-50 dark:bg-violet-950/30" : "border-primary/30 bg-primary/5"}`}>
+              <span className="text-xs uppercase tracking-widest text-muted-foreground">Reviewing</span>
+              <span className="text-base font-semibold text-foreground">{name}</span>
+              <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${isDomiciliary ? "bg-violet-500/20 text-violet-700 dark:text-violet-300" : "bg-primary/15 text-primary"}`}>
+                {isDomiciliary ? "Domiciliary Care" : "Supported Living"}
+              </span>
+              {!locked && <span className="text-xs text-muted-foreground ml-auto">Change the service in Step 1 (Scope).</span>}
+            </div>
+          );
+        })()}
 
         {validation?.validation_status && (
           <div className={`${card} mb-4 border-l-4 ${validation.validation_status === "Approved" ? "border-emerald-500" : "border-red-500"}`}>
