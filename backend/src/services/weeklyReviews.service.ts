@@ -2,6 +2,12 @@ import { query } from '../config/database';
 import { assertIndependent } from '../utils/separationOfDuties';
 import { v4 as uuidv4 } from 'uuid';
 import { trajectoryForRisk } from './trajectory.service';
+import { aiService } from './ai.service';
+
+// Normalise an auto-population field that may arrive as an array OR a summary string.
+const asList = (v: any): string[] => Array.isArray(v)
+  ? v.map((x) => (typeof x === 'string' ? x : x?.description || x?.title || JSON.stringify(x))).filter(Boolean)
+  : (v ? [String(v)] : []);
 
 // export class WeeklyReviewsService {
 export class WeeklyReviewsService {
@@ -262,6 +268,52 @@ export class WeeklyReviewsService {
         })),
         interventions: interventionsRes.rows,
       }
+    };
+  }
+
+  // AI-drafted narrative for the weekly governance review. Grounded strictly in the same
+  // structured data the review auto-populates from — the model phrases it, it never invents facts.
+  // Returns a draft the manager edits and signs off; nothing is finalised by AI.
+  async aiDraftNarrative(company_id: string, house_id: string, week_ending: string) {
+    if (!aiService.available()) throw new Error('AI narrative is not enabled on this server.');
+    const data: any = await this.prepareReview(company_id, house_id, week_ending);
+    const sector = (await query(`SELECT sector FROM houses WHERE id = $1`, [house_id])).rows[0]?.sector || 'SUPPORTED_LIVING';
+    const ap = data.auto_population || {};
+    const signals: any[] = Array.isArray(ap.signals) ? ap.signals : [];
+    const hi = signals.filter((s) => ['High', 'Critical'].includes(s.severity)).length;
+
+    // A compact, factual snapshot — the ONLY thing the model is allowed to use.
+    const facts = {
+      service: data.house_name,
+      sector: sector === 'DOMICILIARY' ? 'Domiciliary Care' : 'Supported Living',
+      week: `${data.week_range?.start} to ${data.week_range?.end}`,
+      signals_recorded: ap.pulse_count ?? signals.length,
+      high_or_critical_signals: hi,
+      recurring_or_repeat_concerns: asList(ap.repeats),
+      worsening: asList(ap.worsening),
+      improvements: asList(ap.improvements),
+      active_risks: (ap.active_risks || []).map((r: any) => ({ title: r.title, trajectory: r.current_trajectory, last_effectiveness: r.last_effectiveness })),
+      leadership_interventions: (ap.interventions || []).map((i: any) => ({ theme: i.theme, intervention: i.intervention, status: i.status, owner: i.owner_name })),
+      overall_position_selected: data?.content?.step14_overall_position || null,
+    };
+
+    const system = [
+      'You are a governance assistant for a UK CQC-regulated care provider, drafting the weekly governance review narrative.',
+      'Write in measured, professional, regulator-ready British English. Be concise and specific.',
+      'CRITICAL GROUNDING RULES:',
+      '- Use ONLY the data provided in the user message. Do NOT invent, infer, or assume anything about residents, staff, or events.',
+      '- If something is not in the data, do not mention it. Never state a number that is not in the data.',
+      '- Do not use residents\' full names. Refer to people generically unless an initial/label is provided.',
+      '- The tone reflects leadership oversight: what the picture is, what is being done about it, and the position.',
+      'Return STRICT JSON with exactly two string fields: "narrative" (2-4 short paragraphs) and "lessons_learnt" (2-4 sentences).',
+    ].join('\n');
+    const user = `Draft the weekly governance review narrative and lessons learnt for this service and week. Data (JSON):\n${JSON.stringify(facts, null, 2)}`;
+
+    const out = await aiService.generateJSON<{ narrative?: string; lessons_learnt?: string; text?: string }>(system, user, 900);
+    return {
+      narrative: out.narrative || out.text || '',
+      lessons_learnt: out.lessons_learnt || '',
+      grounded_on: facts,
     };
   }
 

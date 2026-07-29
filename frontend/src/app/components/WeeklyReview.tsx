@@ -3,7 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History } from "lucide-react";
+import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History, Sparkles } from "lucide-react";
 
 // 12-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
 // auto-populate from the week's data; the RM supplies overall position and
@@ -41,6 +41,7 @@ export function WeeklyReview() {
   const [form, setForm] = useState<any>({});
   const [status, setStatus] = useState("Draft");
   const [validation, setValidation] = useState<any>(null);
+  const [aiDrafting, setAiDrafting] = useState(false);
   const [step, setStep] = useState(0);
   const [doneStep, setDoneStep] = useState(0);
   const [acks, setAcks] = useState<{ total: number; acknowledged: number; roster: any[] } | null>(null);
@@ -165,6 +166,22 @@ export function WeeklyReview() {
   const selectedSector = String(houses.find((h) => h.id === houseId)?.sector || "SUPPORTED_LIVING").toUpperCase();
   const isDomiciliary = selectedSector === "DOMICILIARY";
   const STEPS = buildSteps(isDomiciliary);
+
+  // AI draft — fills the narrative + lessons from the week's live data. The manager reviews and
+  // edits before signing off; nothing is finalised by AI.
+  const generateAiDraft = async () => {
+    if (!houseId) { toast.error("Select a service first."); return; }
+    setAiDrafting(true);
+    try {
+      const res = await apiClient.post(`/weekly-reviews/ai-draft`, { house_id: houseId, week_ending: weekEnding });
+      const d = res.data?.data || res.data;
+      if (d?.narrative) set("step15_narrative", d.narrative);
+      if (d?.lessons_learnt) set("lessons_learnt", d.lessons_learnt);
+      toast.success("AI draft generated — review and edit before signing off.");
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Couldn't generate an AI draft.");
+    } finally { setAiDrafting(false); }
+  };
 
   const persist = async (nextStep: number, extra: any = {}) => {
     const res = await apiClient.post(`/weekly-reviews`, {
@@ -478,8 +495,22 @@ export function WeeklyReview() {
               <p className="text-[11px] text-muted-foreground mt-1.5">Evidence of what leadership is <i>doing</i> about the recurring themes — carried into this review.</p>
             </div>
           )}
-          <label className="block text-sm font-medium mb-2">Governance narrative <span className="text-amber-600 font-normal">(your own words — required)</span></label>
+          <div className="flex items-center justify-between mb-2 gap-2 flex-wrap">
+            <label className="block text-sm font-medium">Governance narrative <span className="text-amber-600 font-normal">(your own words — required)</span></label>
+            {!locked && (
+              <button
+                type="button"
+                onClick={generateAiDraft}
+                disabled={aiDrafting}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-primary/40 text-primary hover:bg-primary/5 disabled:opacity-50"
+                title="Draft the narrative & lessons from this week's live data — you review and edit before signing off"
+              >
+                <Sparkles size={14} /> {aiDrafting ? "Drafting…" : "Generate AI draft"}
+              </button>
+            )}
+          </div>
           <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="The defensible account of what leadership understood and decided this week…" />
+          <p className="text-[11px] text-muted-foreground mt-1">AI drafts from the week's data — always review and edit; you remain accountable for the signed record.</p>
 
           <label className="block text-sm font-medium mt-4 mb-2">Lessons learnt <span className="text-amber-600 font-normal">(required)</span></label>
           <textarea className={area} disabled={locked} value={form.lessons_learnt || ""} onChange={(e) => set("lessons_learnt", e.target.value)} placeholder="What worked, what didn't, what changes next week…" />

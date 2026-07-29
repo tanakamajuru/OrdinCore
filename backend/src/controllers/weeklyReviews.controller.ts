@@ -107,6 +107,21 @@ export class WeeklyReviewsController {
     }
   }
 
+  async aiDraft(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { house_id, week_ending } = req.body || {};
+      const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+      if (!house_id || !uuidRegex.test(String(house_id))) {
+        return res.status(400).json({ success: false, message: 'A valid service (house_id) is required.' });
+      }
+      const data = await weeklyReviewsService.aiDraftNarrative(company_id, house_id, week_ending);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to generate AI draft' });
+    }
+  }
+
   async update(req: Request, res: Response) {
 
     try {
