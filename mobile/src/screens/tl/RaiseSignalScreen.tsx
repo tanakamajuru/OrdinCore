@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Alert } from 'react-native';
+import { Alert, View, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { api, ApiError } from '@/api/client';
+import { useApi } from '@/api/useApi';
 import { queue } from '@/offline/queue';
 import { Screen, Label, Row, Chip, Field, TextArea, SeverityPicker, Button, Pill, Text } from '@/components/ui';
 
@@ -21,6 +22,14 @@ export function RaiseSignalScreen() {
   const [observation, setObservation] = useState('');
   const [immediate, setImmediate] = useState('');
   const [busy, setBusy] = useState(false);
+  const [override, setOverride] = useState(false);
+
+  // "Complete old work before new" — a Team Leader with an action overdue by more than 7 days is
+  // gated here and pointed at My Actions first. Urgent safeguarding is never blocked (doctrine),
+  // so an explicit override remains for genuinely urgent reports.
+  const outstanding = useApi<any>('/governance/my-outstanding');
+  const oldestOverdue = Number(outstanding.data?.oldest_overdue_days ?? outstanding.data?.data?.oldest_overdue_days ?? 0) || 0;
+  const gated = oldestOverdue > 7 && !override;
 
   const houses = user?.assigned_house_ids || [];
   const houseId = houses.length === 1 ? houses[0] : undefined; // else the API resolves it from the TL's assignment
@@ -54,6 +63,32 @@ export function RaiseSignalScreen() {
       }
     } finally { setBusy(false); }
   };
+
+  // Blocking gate — complete overdue actions before recording new routine signals.
+  if (gated) {
+    const n = Number(outstanding.data?.overdue ?? outstanding.data?.data?.overdue ?? 0) || 0;
+    return (
+      <Screen scroll={false}>
+        <View style={{ flex: 1, justifyContent: 'center', padding: 8, gap: 16 }}>
+          <View style={{ alignItems: 'center', gap: 12 }}>
+            <View style={{ width: 64, height: 64, borderRadius: 32, backgroundColor: c.sevHigh + '22', alignItems: 'center', justifyContent: 'center' }}>
+              <Feather name="alert-triangle" size={30} color={c.sevHigh} />
+            </View>
+            <Text size={19} weight="700" style={{ textAlign: 'center' }}>Clear your overdue actions first</Text>
+            <Text size={13.5} muted style={{ textAlign: 'center', lineHeight: 20 }}>
+              You have {n} overdue action{n === 1 ? '' : 's'} — the oldest is {oldestOverdue} days old.
+              Please complete or update them before recording new routine signals.
+            </Text>
+          </View>
+          <Button title="Go to My Actions" icon="check-square"
+            onPress={() => nav.navigate('Tabs', { screen: 'Actions' })} />
+          <Pressable onPress={() => setOverride(true)} style={{ padding: 12, alignItems: 'center' }}>
+            <Text size={12.5} weight="600" color={c.sevCrit}>This is urgent (safeguarding) — record now anyway</Text>
+          </Pressable>
+        </View>
+      </Screen>
+    );
+  }
 
   return (
     <Screen>

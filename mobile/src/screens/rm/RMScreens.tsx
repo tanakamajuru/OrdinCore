@@ -111,7 +111,7 @@ export function RMRiskRegisterScreen() {
       </Row>
       {/* Search by house or date */}
       <View>
-        <Field value={q} onChangeText={setQ} placeholder="Filter by house or date…" autoCapitalize="none" />
+        <Field value={q} onChangeText={setQ} placeholder="Filter by site or date…" autoCapitalize="none" />
         {!!needle && (
           <Row style={{ marginTop: 4 }} gap={6}>
             <Text size={11.5} muted>Showing {shown.length} of {(tab === 'high' ? high : tab === 'open' ? open : all).length}</Text>
@@ -208,7 +208,7 @@ export function RMReportsScreen() {
   );
 }
 
-/* 6 — House Overview */
+/* 6 — Site Overview */
 export function RMHouseOverviewScreen() {
   const nav = useNavigation<any>();
   const houses = useApi<any>('/houses');
@@ -231,7 +231,7 @@ export function RMHouseOverviewScreen() {
   });
   return (
     <Screen refreshing={houses.loading} onRefresh={() => { houses.refetch(); risks.refetch(); }}>
-      <BoardHeader title="House Overview" menu={false} />
+      <BoardHeader title="Site Overview" menu={false} />
       {loading ? <Loading /> : houses.error ? <ErrorNote message={houses.error} onRetry={houses.refetch} /> : (
         <StatusList items={items} empty="No houses assigned." />
       )}
@@ -320,7 +320,7 @@ export function RMMoreScreen() {
   const items: { icon: any; label: string; sub: string; go: () => void }[] = [
     { icon: 'trending-up', label: 'Escalations', sub: 'Open & overdue', go: () => nav.navigate('RMEscalations') },
     { icon: 'clipboard', label: 'Governance Review', sub: 'Weekly review', go: () => nav.navigate('RMGovernanceReview') },
-    { icon: 'home', label: 'House Overview', sub: 'Risk by house', go: () => nav.navigate('RMHouseOverview') },
+    { icon: 'home', label: 'Site Overview', sub: 'Risk by site', go: () => nav.navigate('RMHouseOverview') },
     { icon: 'shield', label: 'Compliance', sub: 'Policies, training, audits', go: () => nav.navigate('RMCompliance') },
     { icon: 'check-square', label: 'My Actions', sub: 'Tasks allocated to you', go: () => nav.navigate('RMMyActions') },
     { icon: 'user', label: 'Profile', sub: 'Account & security', go: () => nav.navigate('Profile') },

@@ -74,7 +74,7 @@ export function RIOversightScreen() {
         { value: high, label: 'High risks', tone: 'red' },
         { value: critical, label: 'Critical', tone: 'red' },
       ]} />
-      <BoardButton label="View full oversight" onPress={() => nav.navigate('RIProviderAssurance')} />
+      <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
 }

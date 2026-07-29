@@ -34,7 +34,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('RMMyActions')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
       { icon: 'clipboard', label: 'Governance Review', go: go(() => navigate('RMGovernanceReview')) },
-      { icon: 'home', label: 'House Overview', go: go(() => navigate('RMHouseOverview')) },
+      { icon: 'home', label: 'Site Overview', go: go(() => navigate('RMHouseOverview')) },
       { icon: 'shield', label: 'Compliance', go: go(() => navigate('RMCompliance')) },
     ]);
   }

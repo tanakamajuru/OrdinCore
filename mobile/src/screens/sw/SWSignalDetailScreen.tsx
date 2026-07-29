@@ -1,9 +1,10 @@
-import React, { useEffect } from 'react';
-import { View, Pressable, Image, Linking } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { View, Pressable, Image, Linking, Alert } from 'react-native';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
+import { api } from '@/api/client';
 import { radius } from '@/theme/tokens';
 import { isImageUrl, isAudioUrl } from '@/api/media';
 import { SWSignalsStackParams } from '@/navigation/types';
@@ -24,8 +25,28 @@ export function SWSignalDetailScreen() {
   const nav = useNavigation<any>();
   const { id } = useRoute<RouteProp<SWSignalsStackParams, 'SWSignalDetail'>>().params;
   const { data: s, loading, error, refetch } = useApi<any>(`/pulses/${id}`);
+  const [escalating, setEscalating] = useState(false);
 
   useEffect(() => nav.addListener('focus', () => refetch()), [nav, refetch]);
+
+  const escalated = /escalat/i.test(s?.review_status || '') || s?.escalated;
+  const escalate = () => {
+    Alert.alert('Escalate to Team Leader', 'Raise this signal to your Team Leader for attention?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Escalate', style: 'default', onPress: async () => {
+          setEscalating(true);
+          try {
+            await api.post(`/pulses/${id}/escalate`, {});
+            Alert.alert('Escalated', 'Your Team Leader has been notified.');
+            refetch();
+          } catch (e: any) {
+            Alert.alert("Couldn't escalate", e?.message || 'Try again.');
+          } finally { setEscalating(false); }
+        },
+      },
+    ]);
+  };
 
   if (loading && !s) return <Screen><Loading /></Screen>;
   if (error) return <Screen><ErrorNote message={error} onRetry={refetch} /></Screen>;
@@ -45,7 +66,7 @@ export function SWSignalDetailScreen() {
       <DetailCard items={[
         { label: 'Domain', value: firstDomain(s?.risk_domain) || s?.governance_domain || s?.category || '—' },
         { label: 'Resident', value: s?.related_person || '—' },
-        { label: 'House', value: s?.house_name || s?.service_name || '—' },
+        { label: 'Site', value: s?.house_name || s?.service_name || '—' },
         { label: 'Description', value: s?.description || '—' },
       ]} />
 
@@ -87,6 +108,17 @@ export function SWSignalDetailScreen() {
       )}
 
       <BoardButton label="Update signal" icon="edit-3" onPress={() => nav.navigate('SWSignalUpdate', { id, current: s?.description })} />
+      {/* Escalate to Team Leader */}
+      {escalated ? (
+        <Row style={{ backgroundColor: c.sevMod + '18', borderRadius: radius.md, padding: 11, justifyContent: 'center' }} gap={8}>
+          <Feather name="flag" size={15} color={c.sevMod} /><Text size={12.5} weight="600" color={c.sevMod}>Escalated to your Team Leader</Text>
+        </Row>
+      ) : (
+        <Pressable onPress={escalate} disabled={escalating}
+          style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, borderWidth: 1.5, borderColor: c.sevHigh, borderRadius: radius.md, paddingVertical: 12, opacity: escalating ? 0.6 : 1 }}>
+          <Feather name="flag" size={16} color={c.sevHigh} /><Text size={14} weight="700" color={c.sevHigh}>Escalate to Team Leader</Text>
+        </Pressable>
+      )}
       <Pressable onPress={() => nav.navigate('SWSignalTimeline', { id })} style={{ alignItems: 'center', paddingVertical: 6 }}>
         <Row gap={6}><Feather name="clock" size={14} color={c.accent} /><Text size={13} weight="600" color={c.accent}>View timeline</Text></Row>
       </Pressable>

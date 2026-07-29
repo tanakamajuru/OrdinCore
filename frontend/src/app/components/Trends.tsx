@@ -159,7 +159,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-primary rounded-full"></span>
-              Cross-House Risk Trajectory
+              Cross-Site Risk Trajectory
             </h2>
             {riskHasData ? (
               <ResponsiveContainer width="100%" height={300}>
@@ -204,7 +204,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-destructive rounded-full"></span>
-              Cross-House Incident Trajectory
+              Cross-Site Incident Trajectory
             </h2>
             {incidentHasData ? (
               <ResponsiveContainer width="100%" height={300}>

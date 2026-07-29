@@ -82,7 +82,7 @@ export function DirectorTrendsScreen() {
     <Screen refreshing={loading} onRefresh={refetch}>
       <BoardHeader title="Cross-Service Trends" subtitle="Last 6 weeks · all services" />
 
-      <SectionTitle>Cross-house risk trajectory</SectionTitle>
+      <SectionTitle>Cross-site risk trajectory</SectionTitle>
       <MultiLineChart data={houseTrends} series={houseNames} xKey="date" height={210}
         empty="No promoted risks plot here yet — they trajectory as their history accumulates." />
 
@@ -90,7 +90,7 @@ export function DirectorTrendsScreen() {
       <MultiLineChart data={daily} series={['Daily', '7-day avg']} xKey="date" height={180}
         empty="No signals in the last 30 days." />
 
-      <SectionTitle>Cross-house incidents</SectionTitle>
+      <SectionTitle>Cross-site incidents</SectionTitle>
       <MultiLineChart data={incTrends} series={incHouses} xKey="date" height={180}
         empty="No incidents logged in the last 6 weeks." />
 
@@ -105,7 +105,7 @@ export function DirectorTrendsScreen() {
   );
 }
 
-/* 3 — Recurring Themes */
+/* 3 — Recurring Cross-Site Themes */
 export function DirectorThemesScreen() {
   const { data, loading, refetch } = useApi<any>('/pulses?limit=500');
   const counts: Record<string, number> = {};
@@ -115,7 +115,7 @@ export function DirectorThemesScreen() {
     .map(([title, n], i) => ({ title, value: String(n), tone: THEME_TONES[i % THEME_TONES.length] }));
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
-      <BoardHeader title="Recurring Themes" subtitle="Top themes" />
+      <BoardHeader title="Recurring Cross-Site Themes" subtitle="Themes seen across sites" />
       {loading && !data ? <Loading /> : <StatusList items={items} empty="No signals yet." />}
     </Screen>
   );

@@ -153,6 +153,49 @@ export class PulseService {
         return pulsesRepo.updateReview(id, company_id, user_id, data);
     }
 
+    // A Support Worker (or TL) raises a signal to their Team Leader for attention. Creates an
+    // escalation targeting a Team Leader on the signal's house (falling back to the RM if no TL is
+    // mapped), linked to the signal. The TL then manages it from Escalations.
+    async escalateToTeamLeader(pulse_id: string, company_id: string, user_id: string, reason?: string) {
+        const p = (await query(
+            `SELECT id, house_id, description, related_person, severity::text AS severity FROM governance_pulses WHERE id = $1 AND company_id = $2`,
+            [pulse_id, company_id]
+        )).rows[0];
+        if (!p) throw new Error('Signal not found');
+
+        // Prefer a Team Leader mapped to the signal's house; else any active TL; else the RM.
+        const target = (await query(
+            `SELECT u.id FROM users u
+               LEFT JOIN user_houses uh ON uh.user_id = u.id AND uh.house_id = $2
+              WHERE u.company_id = $1 AND u.status = 'active'
+                AND u.role = ANY(ARRAY['TEAM_LEADER','REGISTERED_MANAGER'])
+              ORDER BY (uh.house_id IS NOT NULL) DESC,
+                       CASE u.role WHEN 'TEAM_LEADER' THEN 0 ELSE 1 END
+              LIMIT 1`,
+            [company_id, p.house_id]
+        )).rows[0]?.id;
+        if (!target) throw new Error('No Team Leader or Registered Manager is available to escalate to.');
+
+        // Don't raise a second escalation for the same signal.
+        const existing = await query(`SELECT id FROM escalations WHERE source_pulse_id = $1 LIMIT 1`, [pulse_id]);
+        if (existing.rows[0]) throw new Error('This signal has already been escalated.');
+
+        const priority = /critical/i.test(p.severity) ? 'Critical' : /high/i.test(p.severity) ? 'Urgent' : 'Normal';
+        const text = (reason && reason.trim())
+            ? reason.trim()
+            : `Escalated to Team Leader${p.related_person ? ` (${p.related_person})` : ''}: ${p.description || ''}`.slice(0, 1000);
+        await query(
+            `INSERT INTO escalations (id, company_id, risk_id, source_pulse_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by)
+             VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,'Pending','Open',$8, NOW() + INTERVAL '48 hours')`,
+            [uuidv4(), company_id, pulse_id, p.house_id, user_id, target, text, priority]
+        );
+        await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, {
+            pulse_id, company_id, user_id: target,
+            message: `A signal has been escalated to you for attention.`,
+        });
+        return { escalated: true };
+    }
+
     // Update a signal's observation note. The edit is APPENDED as a new version (who + when)
     // and becomes the current observation; earlier versions are preserved for the trail.
     // Only the reporter who logged it, or a Registered Manager / admin, may edit.

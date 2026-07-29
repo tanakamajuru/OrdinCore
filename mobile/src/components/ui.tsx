@@ -2,6 +2,7 @@ import React from 'react';
 import {
   View, Text as RNText, TextInput, Pressable, StyleSheet, ScrollView,
   ActivityIndicator, RefreshControl, ViewStyle, TextStyle, StyleProp,
+  KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
@@ -32,12 +33,24 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, padded 
   const inner = <View style={{ padding: padded ? 16 : 0, gap: 12 }}>{children}</View>;
   return (
     <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.paper }}>
-      {scroll ? (
-        <ScrollView
-          contentContainerStyle={{ paddingBottom: 32 }}
-          refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.accent} /> : undefined}
-        >{inner}</ScrollView>
-      ) : inner}
+      {/* KeyboardAvoidingView + generous bottom padding so a focused input is never hidden behind
+          the on-screen keyboard; tapping outside dismisses it. */}
+      <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+      >
+        {scroll ? (
+          <ScrollView
+            contentContainerStyle={{ paddingBottom: 320 }}
+            keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="interactive"
+            refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.accent} /> : undefined}
+          >{inner}</ScrollView>
+        ) : (
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>{inner}</TouchableWithoutFeedback>
+        )}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }

@@ -23,7 +23,10 @@ export function MultiLineChart({ data, series, xKey = 'date', title, height = 20
   const plotW = W - padL - padR, plotH = H - padT - padB;
 
   const clean = Array.isArray(data) ? data : [];
-  const cols = series.filter((s) => clean.some((d) => Number(d[s]) > 0));
+  // Show EVERY site, not only the ones with a non-zero value — a site with no risks plots a
+  // flat line at zero (honest, and keeps domiciliary services on the chart instead of dropping
+  // them). Only fall back to the empty state when there are no series/points at all.
+  const cols = series.filter((s, i) => series.indexOf(s) === i);
   const hasData = clean.length > 1 && cols.length > 0;
 
   if (!hasData) {

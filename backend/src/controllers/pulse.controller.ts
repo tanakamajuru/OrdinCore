@@ -127,6 +127,18 @@ export class PulseController {
         }
     }
 
+    async escalateToTeamLeader(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { reason } = req.body || {};
+            const result = await pulseService.escalateToTeamLeader(id, company_id, req.user!.user_id, reason);
+            res.status(201).json({ success: true, data: result });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async reassignSignal(req: Request, res: Response) {
         try {
             const { id } = req.params;
