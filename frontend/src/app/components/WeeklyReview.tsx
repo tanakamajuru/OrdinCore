@@ -505,12 +505,12 @@ export function WeeklyReview() {
                 className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border-2 border-primary/40 text-primary hover:bg-primary/5 disabled:opacity-50"
                 title="Draft the narrative & lessons from this week's live data — you review and edit before signing off"
               >
-                <Sparkles size={14} /> {aiDrafting ? "Drafting…" : "Generate AI draft"}
+                <Sparkles size={14} /> {aiDrafting ? "Generating…" : "Generate report"}
               </button>
             )}
           </div>
           <textarea className={area} disabled={locked} value={form.step15_narrative || ""} onChange={(e) => set("step15_narrative", e.target.value)} placeholder="The defensible account of what leadership understood and decided this week…" />
-          <p className="text-[11px] text-muted-foreground mt-1">AI drafts from the week's data — always review and edit; you remain accountable for the signed record.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Drafted from the week's data — always review and edit; you remain accountable for the signed record.</p>
 
           <label className="block text-sm font-medium mt-4 mb-2">Lessons learnt <span className="text-amber-600 font-normal">(required)</span></label>
           <textarea className={area} disabled={locked} value={form.lessons_learnt || ""} onChange={(e) => set("lessons_learnt", e.target.value)} placeholder="What worked, what didn't, what changes next week…" />

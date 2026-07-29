@@ -125,7 +125,7 @@ export function Reports() {
       });
       const out = unwrap(res);
       setAiNarrative(out?.narrative || "");
-      if (out?.generated === false) toast.message("Draft generated from a template — configure NARRATIVE_API_KEY (free via Groq) for AI prose.");
+      if (out?.generated === false) toast.message("Draft generated from a template — review and edit before use.");
     } catch (e: any) {
       toast.error(e?.message || "Failed to generate narrative");
     } finally {
@@ -206,7 +206,7 @@ export function Reports() {
         <div className="border border-border rounded-lg p-4 mb-4">
           <div className="flex items-center justify-between mb-2">
             <h4 className="text-sm font-semibold flex items-center gap-2">
-              <Sparkles className="w-4 h-4 text-primary" /> AI Narrative (draft)
+              <Sparkles className="w-4 h-4 text-primary" /> Report narrative
             </h4>
             <div className="flex items-center gap-3">
               <button onClick={generateNarrative} disabled={aiBusy} className="text-sm text-primary flex items-center gap-1 disabled:opacity-50">

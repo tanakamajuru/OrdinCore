@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
+import { narrativeService } from './narrative.service';
 
 export class DirectorGovernanceService {
   /**
@@ -195,8 +196,31 @@ export class DirectorGovernanceService {
       draft += `• ${r.house_name}: ${r.overall_position}\n`;
     });
 
-    draft += `\n3. DIRECTOR'S OBSERVATIONS\n[Enter strategic narrative here]\n\n`;
-    draft += `4. FORWARD PLAN\n[Enter planned interventions here]`;
+    // Synthesise the board narrative from the month's SIGNED weekly reviews + positions +
+    // effectiveness — so the monthly report says the same thing as the weeklies (it aggregates
+    // them), and is grounded strictly in that data. Manager/Director edits before finalising.
+    const grounded = {
+      period: `${periodStart} to ${periodEnd}`,
+      service_positions: positions,
+      action_effectiveness: effectiveness.org_summary,
+      per_service_reviews: reviewsRes.rows.map((r: any) => ({
+        service: r.house_name,
+        position: r.overall_position,
+        weekly_narrative: r.governance_narrative || null,
+      })),
+    };
+    let narrativeSection = `\n3. DIRECTOR'S OBSERVATIONS\n[Enter strategic narrative here]\n\n4. FORWARD PLAN\n[Enter planned interventions here]`;
+    try {
+      const gen = await narrativeService.generate({
+        reportTitle: 'Monthly Board Governance Report',
+        periodLabel: grounded.period,
+        data: grounded,
+      });
+      if (gen.narrative && gen.narrative.trim()) {
+        narrativeSection = `\n3. GOVERNANCE NARRATIVE\n${gen.narrative.trim()}`;
+      }
+    } catch { /* fall back to the template placeholders */ }
+    draft += narrativeSection;
 
     const res = await query(
       `INSERT INTO monthly_board_reports (company_id, report_period_start, report_period_end, generated_by, draft_narrative)

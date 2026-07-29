@@ -78,7 +78,7 @@ export function MonthlyReportEditor({ onClose }: MonthlyReportEditorProps) {
                 <CardContent className="pt-6">
                     <div className="space-y-6">
                         <div>
-                            <label className="block text-[10px]  uppercase text-muted-foreground mb-2 tracking-widest">Auto-Generated Governance Narrative (Editable)</label>
+                            <label className="block text-[10px]  uppercase text-muted-foreground mb-2 tracking-widest">Governance Narrative (Editable)</label>
                             <Textarea 
                                 value={finalNarrative}
                                 onChange={(e) => setFinalNarrative(e.target.value)}
