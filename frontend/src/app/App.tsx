@@ -27,6 +27,7 @@ import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
 import { MonthlyReport } from "./components/MonthlyReport";
 import { Reports } from "./components/Reports";
+import { FrozenReports } from "./components/FrozenReports";
 import { IncidentCaseHub } from "./components/IncidentCaseHub";
 import { IncidentDetail } from "./components/IncidentDetail";
 import { PulseDetail } from "./components/PulseDetail";
@@ -302,6 +303,11 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/reports" element={
+            <ProtectedRoute>
+              <FrozenReports />
+            </ProtectedRoute>
+          } />
+          <Route path="/reports-classic" element={
             <ProtectedRoute>
               <Reports />
             </ProtectedRoute>

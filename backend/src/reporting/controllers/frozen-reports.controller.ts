@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { frozenReportService } from '../services/frozen-report.service';
+import { reportScopeService } from '../services/report-scope.service';
 import { renderSnapshotPdf } from '../renderers/frozen-pdf.renderer';
 import { REPORT_CATALOG } from '../config/report-catalog';
 import logger from '../../utils/logger';
@@ -17,6 +18,15 @@ export const frozenReportsController = {
   // The frozen catalogue + which scopes each report supports.
   catalog(_req: Request, res: Response) {
     return res.json({ success: true, data: REPORT_CATALOG, meta: {} });
+  },
+
+  async scopeOptions(req: Request, res: Response) {
+    try {
+      const data = await reportScopeService.options(authUser(req));
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: any) {
+      return res.status(500).json({ success: false, message: err.message });
+    }
   },
 
   async generate(req: Request, res: Response) {

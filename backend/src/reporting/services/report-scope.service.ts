@@ -40,6 +40,26 @@ async function authorisedSites(user: AuthUser): Promise<string[]> {
 }
 
 export const reportScopeService = {
+  // The pick-lists for the scope selector, limited to what this user is authorised to report on.
+  async options(user: AuthUser) {
+    const role = String(user.role || '').toUpperCase();
+    const company = user.company_id!;
+    const allowed = await authorisedSites(user);
+    const sites = allowed.length
+      ? (await query(`SELECT id, name, service_id, region_id FROM houses WHERE id = ANY($1::uuid[]) ORDER BY name`, [allowed])).rows
+      : [];
+    const services = (await query(`SELECT id, name FROM services WHERE company_id = $1 ORDER BY name`, [company])).rows;
+    const regions = (await query(`SELECT id, name FROM regions WHERE company_id = $1 ORDER BY name`, [company])).rows;
+    const persons = allowed.length
+      ? (await query(
+          `SELECT su.id, su.display_name AS name, su.house_id FROM service_users su
+            WHERE su.house_id = ANY($1::uuid[]) AND su.is_active = true ORDER BY su.display_name`,
+          [allowed]
+        )).rows
+      : [];
+    return { role, sites, services, regions, persons };
+  },
+
   /**
    * Validate a report+scope request and resolve the authorised sites. Throws (403) on any
    * attempt to report outside the user's role, tenant, or assigned sites.
