@@ -45,6 +45,7 @@ import rm5Routes from './routes/rm5.routes';
 import interventionRoutes from './routes/interventions.routes';
 import effectivenessRoutes from './routes/effectiveness.routes';
 import governanceConfigRoutes from './routes/governanceConfig.routes';
+import frozenReportsRoutes from './reporting/routes/frozen-reports.routes';
 
 
 
@@ -157,6 +158,7 @@ app.use(`${API}/rm`, rm5Routes);
 app.use(`${API}/interventions`, interventionRoutes);
 app.use(`${API}/effectiveness`, effectivenessRoutes);
 app.use(`${API}/governance-config`, governanceConfigRoutes);
+app.use(`${API}/frozen-reports`, frozenReportsRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
