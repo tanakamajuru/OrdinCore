@@ -30,13 +30,13 @@ async function companySites(companyId: string): Promise<string[]> {
 async function authorisedSites(user: AuthUser): Promise<string[]> {
   const role = String(user.role || '').toUpperCase();
   const company = user.company_id!;
-  if (['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(role)) {
+  // RM and above oversee the whole registered service (every site, incl. domiciliary), matching
+  // the company-wide scope the rest of the system already grants them. Only Team Leaders / Support
+  // Workers are limited to their assigned sites.
+  if (['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER'].includes(role)) {
     return companySites(company);
   }
-  const assigned = (user.assigned_house_ids || []).filter((h) => h && h !== '00000000-0000-0000-0000-000000000000');
-  // A Registered Manager with no explicit assignment oversees the whole registered service.
-  if (role === 'REGISTERED_MANAGER' && assigned.length === 0) return companySites(company);
-  return assigned;
+  return (user.assigned_house_ids || []).filter((h) => h && h !== '00000000-0000-0000-0000-000000000000');
 }
 
 export const reportScopeService = {

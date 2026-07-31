@@ -73,7 +73,9 @@ export function FrozenReports() {
       const res = await apiClient.post(`/frozen-reports/${report.key}/generate`, {
         scope: scopeBody, periodStart: iso(start), periodEnd: iso(end + "T23:59:59"),
       });
-      setSnapshot(unwrap(res));
+      // The envelope's `data` IS the generate output ({ id, data: <reportData>, narrative, … });
+      // unwrap one level only, or the generic unwrap descends into reportData and loses id/period.
+      setSnapshot((res as any)?.data ?? res);
       toast.success("Report generated — review, then approve.");
       loadHistory();
     } catch (e: any) {
