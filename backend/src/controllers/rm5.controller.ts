@@ -9,6 +9,7 @@ export const rm5Controller = {
   today: async (req: Request, res: Response) => { try { ok(res, await rm5Service.today(cid(req))); } catch (e) { fail(res, e); } },
   counts: async (req: Request, res: Response) => { try { ok(res, await rm5Service.counts(cid(req))); } catch (e) { fail(res, e); } },
   patterns: async (req: Request, res: Response) => { try { ok(res, await rm5Service.patterns(cid(req))); } catch (e) { fail(res, e); } },
+  patternStats: async (req: Request, res: Response) => { try { ok(res, await rm5Service.patternStats(cid(req))); } catch (e) { fail(res, e); } },
   register: async (req: Request, res: Response) => {
     try {
       const t = (['active', 'strategic', 'closed'].includes(String(req.query.type)) ? req.query.type : 'active') as 'active' | 'strategic' | 'closed';

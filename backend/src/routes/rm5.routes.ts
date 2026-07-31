@@ -11,6 +11,7 @@ const rm = [requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIREC
 router.get('/today', ...rm, rm5Controller.today);
 router.get('/counts', ...rm, rm5Controller.counts);
 router.get('/patterns', ...rm, rm5Controller.patterns);
+router.get('/pattern-stats', ...rm, rm5Controller.patternStats);
 router.get('/register', ...rm, rm5Controller.register);         // ?type=active|strategic|closed
 router.get('/actions', ...rm, rm5Controller.actions);
 router.get('/effectiveness', ...rm, rm5Controller.effectiveness);

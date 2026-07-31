@@ -66,6 +66,27 @@ export const rm5Service = {
     };
   },
 
+  // Pattern lifecycle stats for the daily oversight header ("5 awaiting · 2 promoted today · 1
+  // dismissed · avg 4.2 days"), so a manager sees whether pattern work is accumulating.
+  async patternStats(company_id: string) {
+    const r = (await query(
+      `SELECT
+         COUNT(*) FILTER (WHERE cluster_status IN ('Emerging','Confirmed','Escalated') AND linked_risk_id IS NULL)::int AS awaiting,
+         COUNT(*) FILTER (WHERE linked_risk_id IS NOT NULL AND promoted_at::date = CURRENT_DATE)::int AS promoted_today,
+         COUNT(*) FILTER (WHERE cluster_status = 'Dismissed' AND updated_at::date = CURRENT_DATE)::int AS dismissed_today,
+         ROUND(AVG(EXTRACT(EPOCH FROM (promoted_at - first_signal_date)) / 86400)
+               FILTER (WHERE linked_risk_id IS NOT NULL AND promoted_at IS NOT NULL AND first_signal_date IS NOT NULL)::numeric, 1) AS avg_promotion_days
+       FROM signal_clusters WHERE company_id = $1`,
+      [company_id]
+    )).rows[0];
+    return {
+      awaiting: r.awaiting || 0,
+      promoted_today: r.promoted_today || 0,
+      dismissed_today: r.dismissed_today || 0,
+      avg_promotion_days: Number(r.avg_promotion_days) || 0,
+    };
+  },
+
   // Patterns — within a service + across services (systemic), each with computed trajectory.
   async patterns(company_id: string) {
     const rows = (await query(
