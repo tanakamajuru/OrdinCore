@@ -91,8 +91,70 @@ export class ReconstructionService {
         total: timeline.length,
       },
       timeline,
+      // Governance Outputs: auto-derived findings, recommendations and learning so a
+      // reconstruction isn't just a timeline — it tells the RM what it means and what to do.
+      governance_outputs: buildGovernanceOutputs(timeline),
     };
   }
+}
+
+// Turn a merged timeline into a governance verdict: how long the warning signs were
+// present before escalation, the dominant theme, and concrete recommendations + learning.
+function buildGovernanceOutputs(timeline: any[]) {
+  const signals = timeline.filter((t) => t.item_type === 'signal');
+  const escalations = timeline.filter((t) => t.item_type === 'escalation');
+
+  // Dominant theme across the signals.
+  const themeCount = new Map<string, number>();
+  for (const s of signals) {
+    const th = String(s.theme || '').replace(/[{}"[\]]/g, '').split(',')[0].trim() || 'Unclassified';
+    themeCount.set(th, (themeCount.get(th) || 0) + 1);
+  }
+  const dominant = [...themeCount.entries()].sort((a, b) => b[1] - a[1])[0];
+  const dominant_theme = dominant ? dominant[0] : null;
+
+  const firstSignal = signals[0]?.event_time || null;
+  const firstEscalation = escalations[0]?.event_time || null;
+  const warning_window_days = (firstSignal && firstEscalation)
+    ? Math.max(0, Math.round((new Date(firstEscalation).getTime() - new Date(firstSignal).getTime()) / 86400000))
+    : null;
+  const signals_before_escalation = firstEscalation
+    ? signals.filter((s) => new Date(s.event_time).getTime() < new Date(firstEscalation).getTime()).length
+    : signals.length;
+
+  const highOrCritical = signals.filter((s) => /high|critical/i.test(String(s.status || ''))).length;
+
+  const recommendations: string[] = [];
+  const learning: string[] = [];
+
+  if (warning_window_days != null && warning_window_days >= 7 && signals_before_escalation >= 2) {
+    learning.push(`Warning signs were present for ${warning_window_days} day(s) and across ${signals_before_escalation} signal(s) before escalation.`);
+    recommendations.push(`Lower the escalation threshold for "${dominant_theme}" so a forming pattern is escalated sooner.`);
+  }
+  if (escalations.length === 0 && signals.length >= 3) {
+    learning.push('Multiple signals were recorded but none were escalated.');
+    recommendations.push('Review why the pattern was not escalated and reinforce the escalation route with the team.');
+  }
+  if (highOrCritical > 0) {
+    recommendations.push(`Confirm the risk assessment and support plan reflect the ${highOrCritical} High/Critical signal(s) seen here.`);
+  }
+  if (dominant_theme) {
+    recommendations.push(`Add "${dominant_theme}" to the next governance review and monitor its trajectory.`);
+  }
+  // Always-on learning capture prompts.
+  recommendations.push('Capture lessons learned and share them across the service.');
+  if (learning.length === 0) learning.push('No systemic gap detected — the response tracked the signals as they emerged.');
+
+  return {
+    dominant_theme,
+    first_signal: firstSignal,
+    first_escalation: firstEscalation,
+    warning_window_days,
+    signals_before_escalation,
+    high_or_critical_signals: highOrCritical,
+    recommendations: Array.from(new Set(recommendations)),
+    learning,
+  };
 }
 
 export const reconstructionService = new ReconstructionService();

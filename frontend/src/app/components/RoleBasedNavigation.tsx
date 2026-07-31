@@ -77,7 +77,7 @@ export function RoleBasedNavigation() {
           { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/governance-dashboard", label: "Daily Oversight", icon: ShieldCheck },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
-          { path: "/interventions", label: "Interventions", icon: Target },
+          { path: "/interventions", label: "Intervention Progress", icon: Target },
           // Strategic oversight of escalations, surfaced directly in the rail (was deep-link only).
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
           { path: "/service-users", label: "Service Users", icon: Users },
@@ -89,7 +89,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Assurance", icon: Home },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
-          { path: "/interventions", label: "Interventions", icon: Target },
+          { path: "/interventions", label: "Intervention Progress", icon: Target },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
           { path: "/service-review-rollup", label: "Review Roll-up", icon: Layers },
           { path: "/reconstruction", label: "Reconstruction", icon: Layers },
@@ -102,7 +102,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
-          { path: "/interventions", label: "Interventions", icon: Target },
+          { path: "/interventions", label: "Intervention Progress", icon: Target },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
           { path: "/service-review-rollup", label: "Review Roll-up", icon: Layers },
           { path: "/reconstruction", label: "Reconstruction", icon: Layers },

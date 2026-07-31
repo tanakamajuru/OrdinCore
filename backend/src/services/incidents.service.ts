@@ -2,8 +2,66 @@ import { incidentsRepo } from '../repositories/incidents.repo';
 import { pulsesRepo } from '../repositories/pulses.repo';
 import { incidentReconstructionService } from './incidentReconstruction.service';
 import { eventBus, EVENTS } from '../events/eventBus';
+import { query } from '../config/database';
+
+// Type-aware recommended follow-up actions. Kept server-side so the capture form,
+// the auto-created actions, and any report all draw on one list.
+export function recommendedActionsFor(type?: string, severity?: string): string[] {
+  const t = (type || '').toLowerCase();
+  const out: string[] = [];
+  if ((severity || '').toLowerCase() === 'critical') out.push('Assess the CQC statutory notification requirement immediately');
+  if (t.includes('safeguard')) out.push('Raise a safeguarding alert to the Local Authority', 'Preserve evidence and complete a safeguarding record');
+  if (t.includes('medication')) out.push('Complete a medication error report and MAR review', 'Arrange a medication competency re-check for the staff involved');
+  if (t.includes('abscond')) out.push('Review the missing-person / absence protocol and risk assessment', 'Confirm police notification and record the reference');
+  if (t.includes('injury') || t.includes('behav')) out.push('Arrange a physical / clinical review for the person', 'Review the positive behaviour support plan');
+  if (t.includes('environ')) out.push('Complete a health & safety / environmental check', 'Log a maintenance job and re-inspect the area');
+  if (t.includes('staff')) out.push('Consider an HR / disciplinary review for the staff involved');
+  out.push('Complete a structured incident reconstruction', 'Capture lessons learned and share them with the team');
+  return Array.from(new Set(out));
+}
 
 export class IncidentsService {
+  // Pattern detection: surface prior related incidents (same service and/or the same
+  // people) and recent signals for the people involved, so the recorder sees at a
+  // glance whether "this has happened before".
+  async detectPatterns(company_id: string, params: { house_id?: string; persons_involved?: string[]; type?: string; severity?: string }) {
+    const persons = (params.persons_involved || []).map(p => String(p).trim()).filter(Boolean);
+    const incRes = await query(
+      `SELECT id, reference, title, severity, occurred_at, house_id, persons_involved
+         FROM incidents
+        WHERE company_id = $1
+          AND ($2::uuid IS NULL OR house_id = $2)
+          AND occurred_at >= NOW() - INTERVAL '365 days'
+        ORDER BY occurred_at DESC LIMIT 25`,
+      [company_id, params.house_id || null]
+    );
+    const lowerPeople = new Set(persons.map(p => p.toLowerCase()));
+    const similar_incidents = incRes.rows.map((r: any) => {
+      let ppl: string[] = [];
+      try { ppl = Array.isArray(r.persons_involved) ? r.persons_involved : JSON.parse(r.persons_involved || '[]'); } catch { ppl = []; }
+      return { ...r, person_match: ppl.some((n: string) => lowerPeople.has(String(n).toLowerCase())) };
+    });
+
+    let related_signals: any[] = [];
+    if (persons.length) {
+      const sigRes = await query(
+        `SELECT id, governance_domain, signal_label, severity, entry_date, related_person
+           FROM governance_pulses
+          WHERE company_id = $1 AND related_person = ANY($2::text[])
+            AND entry_date >= (NOW() - INTERVAL '180 days')::date
+          ORDER BY entry_date DESC LIMIT 30`,
+        [company_id, persons]
+      );
+      related_signals = sigRes.rows;
+    }
+    return {
+      similar_incidents,
+      related_signals,
+      recurring: similar_incidents.some((s: any) => s.person_match) || related_signals.length >= 3,
+      recommended_actions: recommendedActionsFor(params.type, params.severity),
+    };
+  }
+
   async create(company_id: string, created_by: string, data: any) {
     const severity = (data.severity || '').toString().toLowerCase();
     const isSeriousOrCritical = severity === 'serious' || severity === 'critical';
@@ -59,6 +117,19 @@ export class IncidentsService {
         created_by,
         due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // Due within 14 days
       });
+
+      // Type-aware recommended actions (safeguarding referral, med review, etc.) — the
+      // "recommended actions" the reviewer asked for, created up-front so nothing is missed.
+      const typeLabel = (data.type || data.category_name || '').toString();
+      for (const title of recommendedActionsFor(typeLabel, incident.severity).slice(0, 4)) {
+        await incidentsRepo.addAction(incident.id, company_id, {
+          title,
+          description: `Recommended follow-up for this ${incident.severity} incident.`,
+          assigned_to: data.assigned_to || created_by,
+          created_by,
+          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        });
+      }
 
       if (data.source_pulse_id) {
         try {

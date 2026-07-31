@@ -23,8 +23,24 @@ export interface CreateIncidentDto {
   risk_factors?: string;
   preventive_measures?: string;
   leadership_commentary?: string;
+  lessons_learned?: string;
+  learning_shared?: boolean;
   linked_risks?: string[];
   linked_escalations?: string[];
+}
+
+// Allocate the next per-(company, year) incident number atomically and format it
+// as a stable, human-readable reference (SI-2026-0001).
+async function nextIncidentReference(company_id: string, occurred_at: Date): Promise<string> {
+  const year = new Date(occurred_at || Date.now()).getFullYear();
+  const res = await query(
+    `INSERT INTO incident_counters (company_id, year, last_no) VALUES ($1, $2, 1)
+     ON CONFLICT (company_id, year) DO UPDATE SET last_no = incident_counters.last_no + 1
+     RETURNING last_no`,
+    [company_id, year]
+  );
+  const n = res.rows[0].last_no as number;
+  return `SI-${year}-${String(n).padStart(4, '0')}`;
 }
 
 export const incidentsRepo = {
@@ -130,21 +146,23 @@ export const incidentsRepo = {
     linked_escalations?: string[];
   }) {
     const id = uuidv4();
+    const reference = await nextIncidentReference(dto.company_id, dto.occurred_at);
     const result = await query(
       `INSERT INTO incidents (
-        id, company_id, house_id, category_id, source_pulse_id, title, description, severity, status, occurred_at, location, 
+        id, company_id, house_id, category_id, source_pulse_id, title, description, severity, status, occurred_at, location,
         immediate_action, created_by, assigned_to, persons_involved, follow_up_required,
         la_referral, cqc_notification, police_reference, other_references, is_foreseeable,
-        risk_factors, preventive_measures, leadership_commentary
+        risk_factors, preventive_measures, leadership_commentary, reference, lessons_learned, learning_shared
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24) RETURNING *`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) RETURNING *`,
       [
         id, dto.company_id, dto.house_id, dto.category_id || null, dto.source_pulse_id || null, dto.title, dto.description,
         dto.severity || 'Moderate', dto.status || 'Open', dto.occurred_at, dto.location || null,
         dto.immediate_action || null, dto.created_by, dto.assigned_to || null,
         JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false,
         dto.la_referral || null, dto.cqc_notification || null, dto.police_reference || null, dto.other_references || null,
-        dto.is_foreseeable || null, dto.risk_factors || null, dto.preventive_measures || null, dto.leadership_commentary || null
+        dto.is_foreseeable || null, dto.risk_factors || null, dto.preventive_measures || null, dto.leadership_commentary || null,
+        reference, dto.lessons_learned || null, dto.learning_shared || false
       ]
     );
 
@@ -175,10 +193,11 @@ export const incidentsRepo = {
 
   async update(id: string, company_id: string, data: Partial<CreateIncidentDto> & { status?: string; resolved_at?: Date }) {
     const allowed = [
-      'title', 'description', 'severity', 'status', 'occurred_at', 'location', 'immediate_action', 
+      'title', 'description', 'severity', 'status', 'occurred_at', 'location', 'immediate_action',
       'assigned_to', 'resolved_at', 'follow_up_required',
       'la_referral', 'cqc_notification', 'police_reference', 'other_references',
-      'is_foreseeable', 'risk_factors', 'preventive_measures', 'leadership_commentary'
+      'is_foreseeable', 'risk_factors', 'preventive_measures', 'leadership_commentary',
+      'lessons_learned', 'learning_shared'
     ];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {

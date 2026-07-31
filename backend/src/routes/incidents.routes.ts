@@ -50,6 +50,10 @@ router.post('/categories', requireAuth, requireTenant, requireRole('SUPER_ADMIN'
  *         description: Success
  */
 router.post('/', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), incidentsController.create.bind(incidentsController));
+
+// Pattern detection for the capture form: prior related incidents + recent signals
+// for the people involved, plus type-aware recommended actions.
+router.post('/detect-patterns', requireAuth, requireTenant, incidentsController.detectPatterns.bind(incidentsController));
 /**
  * @openapi
  * /api/v1/incidents:

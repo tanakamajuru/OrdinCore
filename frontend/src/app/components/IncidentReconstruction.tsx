@@ -31,6 +31,8 @@ export function IncidentReconstruction() {
   const [step, setStep] = useState(1);
   const [timeline, setTimeline] = useState<any[]>([]);
   const [counts, setCounts] = useState<any>({});
+  const [outputs, setOutputs] = useState<any>(null);
+  const [learning, setLearning] = useState("");
   const [linkedRisks, setLinkedRisks] = useState<any[]>([]);
   const [trajectory, setTrajectory] = useState("Deteriorating");
   const [factors, setFactors] = useState("");
@@ -59,6 +61,16 @@ export function IncidentReconstruction() {
       const data = r.data?.data || {};
       setTimeline(data.timeline || []);
       setCounts(data.counts || {});
+      const go = data.governance_outputs || null;
+      setOutputs(go);
+      // Auto-recommendations feed the reconstruction: pre-fill control-failure analysis
+      // and the learning capture from the derived outputs (the RM can edit both).
+      if (go) {
+        if (go.learning?.length) setLearning(go.learning.join("\n"));
+        if (go.warning_window_days != null && go.warning_window_days >= 7 && !controlFailure) {
+          setControlFailure(`Signals were present for ${go.warning_window_days} day(s) across ${go.signals_before_escalation} signal(s) before escalation — the pattern was not acted on early enough.`);
+        }
+      }
       // Linked risks: by-house = risks on that house; by-person = risks for THAT person
       // (not every service's risks in the same domain — that was the cross-service leak).
       try {
@@ -81,13 +93,18 @@ export function IncidentReconstruction() {
 
   const narrative = useMemo(() => {
     const domains = [...new Set(timeline.map((t) => t.theme).filter(Boolean))];
-    return `In the period leading to the incident on ${incidentDate}, ${scopeLabel} generated ${timeline.length} governance signal${timeline.length === 1 ? "" : "s"} across ${domains.length} domain${domains.length === 1 ? "" : "s"} (${domains.join(", ") || "none recorded"}), of which ${hiCount} were High or Critical. The trajectory in the run-up was assessed as ${trajectory}.${controlFailure ? ` Control-failure analysis identified: ${controlFailure}` : ""}${factors ? ` Contributing factors: ${factors}` : ""} This reconstruction links ${linkedRisks.length} risk${linkedRisks.length === 1 ? "" : "s"}, evidencing whether escalation thresholds were met and acted upon in time.`;
-  }, [timeline, incidentDate, scopeLabel, hiCount, trajectory, controlFailure, factors, linkedRisks.length]);
+    let base = `In the period leading to the incident on ${incidentDate}, ${scopeLabel} generated ${timeline.length} governance signal${timeline.length === 1 ? "" : "s"} across ${domains.length} domain${domains.length === 1 ? "" : "s"} (${domains.join(", ") || "none recorded"}), of which ${hiCount} were High or Critical. The trajectory in the run-up was assessed as ${trajectory}.${controlFailure ? ` Control-failure analysis identified: ${controlFailure}` : ""}${factors ? ` Contributing factors: ${factors}` : ""} This reconstruction links ${linkedRisks.length} risk${linkedRisks.length === 1 ? "" : "s"}, evidencing whether escalation thresholds were met and acted upon in time.`;
+    if (outputs?.recommendations?.length) base += `\n\nRecommended actions:\n- ${outputs.recommendations.join("\n- ")}`;
+    if (learning?.trim()) base += `\n\nLessons learned:\n${learning.trim()}`;
+    return base;
+  }, [timeline, incidentDate, scopeLabel, hiCount, trajectory, controlFailure, factors, linkedRisks.length, outputs, learning]);
 
   const saveDraft = async () => {
     const body = {
       scope: mode, scope_ref: scopeRef, scope_label: scopeLabel, incident_date: incidentDate,
       trajectory, contributing_factors: factors, control_failure: controlFailure, narrative,
+      lessons_learned: learning,
+      governance_outputs: outputs,
       timeline_events: timeline, summary: { ...counts, high_critical: hiCount, domains: domainCount },
       linked_risk_ids: linkedRisks.map((r) => r.id),
     };
@@ -253,6 +270,35 @@ export function IncidentReconstruction() {
               <label className="block text-sm font-medium mb-1.5">Control-failure analysis (what should have caught this earlier?)</label>
               <textarea rows={2} value={controlFailure} onChange={(e) => setControlFailure(e.target.value)} placeholder="e.g. cluster reached threshold on day 5 but was not promoted to a risk until after the incident" className={area} />
             </div>
+
+            {/* Governance Outputs — auto-derived findings, recommendations and learning */}
+            {outputs && (
+              <div className="mb-4 rounded-xl border-2 border-primary/30 bg-primary/5 p-4">
+                <div className="text-[11px] font-bold tracking-widest uppercase text-primary mb-3">Governance Outputs</div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3 text-center">
+                  <div><div className="text-xl font-bold text-foreground">{outputs.warning_window_days ?? "—"}</div><div className="text-[10px] text-muted-foreground">Warning window (days)</div></div>
+                  <div><div className="text-xl font-bold text-foreground">{outputs.signals_before_escalation ?? 0}</div><div className="text-[10px] text-muted-foreground">Signals before escalation</div></div>
+                  <div><div className="text-xl font-bold text-foreground">{outputs.high_or_critical_signals ?? 0}</div><div className="text-[10px] text-muted-foreground">High/Critical signals</div></div>
+                  <div><div className="text-sm font-bold text-foreground truncate" title={outputs.dominant_theme || ""}>{outputs.dominant_theme || "—"}</div><div className="text-[10px] text-muted-foreground">Dominant theme</div></div>
+                </div>
+                {outputs.recommendations?.length > 0 && (
+                  <div className="mb-2">
+                    <div className="text-xs font-semibold text-foreground mb-1">Recommended actions</div>
+                    <ul className="space-y-1">
+                      {outputs.recommendations.map((rec: string, i: number) => (
+                        <li key={i} className="flex items-start gap-2 text-xs text-foreground"><span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />{rec}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-1.5">Lessons learned</label>
+              <textarea rows={3} value={learning} onChange={(e) => setLearning(e.target.value)} placeholder="What has the service learned, and what will change? (pre-filled from the governance outputs — edit as needed)" className={area} />
+            </div>
+
             <div className="bg-muted/40 rounded-lg p-3 text-xs text-muted-foreground mb-4">Linked evidence: {linkedRisks.length} risk{linkedRisks.length === 1 ? "" : "s"}{linkedRisks.length ? ` (${linkedRisks.map((r) => r.id || r.risk_code || "").filter(Boolean).slice(0, 6).join(", ")})` : ""}.</div>
             <div className="flex justify-between">
               <button onClick={() => setStep(1)} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-muted/40 text-sm"><ArrowLeft size={14} /> Back</button>

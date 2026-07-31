@@ -126,9 +126,11 @@ export const interventionsService = {
           owner_name: intv.owner_name,
           owner_role: intv.owner_role,
           expected_outcome: intv.expected_outcome,
-          review_date: intv.review_date,
+          review_date: intv.review_date,          // "Due" for the next review
           started_at: intv.started_at,
+          last_reviewed_at: intv.updated_at,       // when the intervention was last touched
           risk_index_before: intv.risk_index_before,
+          risk_index_now: await themeRiskIndex(company_id, t.theme),
           linked_risk_id: intv.linked_risk_id,
           linked_action_id: intv.linked_action_id,
           // Effectiveness = (before − after) / before × 100. Positive = risk reduced.

@@ -13,6 +13,22 @@ export class IncidentsController {
     }
   }
 
+  async detectPatterns(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { house_id, persons_involved, type, severity } = req.body || {};
+      const data = await incidentsService.detectPatterns(company_id, {
+        house_id, type, severity,
+        persons_involved: Array.isArray(persons_involved) ? persons_involved
+          : (typeof persons_involved === 'string' ? persons_involved.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+      });
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to detect patterns';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async findAll(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

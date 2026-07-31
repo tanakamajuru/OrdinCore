@@ -10,6 +10,7 @@ import apiClient from "@/services/apiClient";
 
 interface IncidentCase {
   id: string;
+  reference: string;
   houseId: string;
   houseName: string;
   title: string;
@@ -47,8 +48,16 @@ export function IncidentCaseHub() {
   const [incidentForm, setIncidentForm] = useState<any>({
     house_id: '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '',
     la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
-    is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
+    is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: '',
+    lessons_learned: '', learning_shared: false
   });
+
+  const DRAFT_KEY = `si-draft-${userIdSafe()}`;
+  function userIdSafe() { try { return JSON.parse(localStorage.getItem('user') || '{}').id || 'anon'; } catch { return 'anon'; } }
+  const [draftRestored, setDraftRestored] = useState(false);
+  const [narrativeBusy, setNarrativeBusy] = useState(false);
+  const [patterns, setPatterns] = useState<any>(null);
+  const [detecting, setDetecting] = useState(false);
   
   // Pagination state
   const [currentPage, setCurrentPage] = useState(1);
@@ -143,6 +152,7 @@ export function IncidentCaseHub() {
       const rawIncs = data.incidents || data.items || (Array.isArray(data) ? data : []);
       const mapped: IncidentCase[] = rawIncs.map((inc: any) => ({
         id: inc.id,
+        reference: inc.reference || '',
         houseId: inc.house_id,
         houseName: inc.house_name || housesList.find((h: any) => h.id === inc.house_id)?.name || userHouseName || 'Unknown',
         title: inc.title || 'Untitled Incident',
@@ -173,7 +183,7 @@ export function IncidentCaseHub() {
 
     setIsSubmitting(true);
     try {
-      await apiClient.post('/incidents', {
+      const created = await apiClient.post('/incidents', {
         house_id: targetHouseId,
         title: incidentForm.title,
         description: incidentForm.description,
@@ -181,6 +191,7 @@ export function IncidentCaseHub() {
         occurred_at: new Date(incidentForm.occurred_at).toISOString(),
         location: incidentForm.location,
         immediate_action: incidentForm.immediate_action,
+        type: incidentForm.type,
         source_pulse_id: incidentForm.source_pulse_id || undefined,
         persons_involved: incidentForm.persons_involved ? incidentForm.persons_involved.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
         follow_up_required: true,
@@ -194,14 +205,19 @@ export function IncidentCaseHub() {
         risk_factors: incidentForm.risk_factors,
         preventive_measures: incidentForm.preventive_measures,
         leadership_commentary: incidentForm.leadership_commentary,
+        lessons_learned: incidentForm.lessons_learned,
+        learning_shared: !!incidentForm.learning_shared,
       });
-      toast.success('Incident reported successfully');
+      const ref = (created.data as any)?.data?.reference || (created.data as any)?.reference;
+      toast.success(ref ? `Serious incident ${ref} logged` : 'Incident reported successfully');
+      try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setShowCreateModal(false);
-      setIncidentForm({ 
-        house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(), 
+      setIncidentForm({
+        house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(),
         immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '', linked_risks: [], linked_escalations: [],
         la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
-        is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: ''
+        is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: '',
+        lessons_learned: '', learning_shared: false
       });
       loadIncidents();
     } catch (err: any) { toast.error(err.response?.data?.message || 'Failed to report incident'); }
@@ -237,8 +253,79 @@ export function IncidentCaseHub() {
     if (showCreateModal) {
       setRiskSearchTerm('');
       setEscalationSearchTerm('');
+    } else {
+      setDraftRestored(false);
+      setPatterns(null);
     }
   }, [showCreateModal]);
+
+  // Restore an in-progress draft when the modal opens (unless pre-filling from a signal).
+  useEffect(() => {
+    if (!showCreateModal || draftRestored) return;
+    if (location.state?.fromSignal) { setDraftRestored(true); return; }
+    try {
+      const raw = localStorage.getItem(DRAFT_KEY);
+      if (raw) {
+        const saved = JSON.parse(raw);
+        if (saved && (saved.title || saved.description)) {
+          setIncidentForm((prev: any) => ({ ...prev, ...saved }));
+          toast.info('Restored your unsaved incident draft');
+        }
+      }
+    } catch { /* ignore */ }
+    setDraftRestored(true);
+  }, [showCreateModal]);
+
+  // Auto-save the draft as the user types (debounced) so nothing is lost mid-report.
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const t = setTimeout(() => {
+      try { localStorage.setItem(DRAFT_KEY, JSON.stringify(incidentForm)); } catch { /* ignore */ }
+    }, 600);
+    return () => clearTimeout(t);
+  }, [incidentForm, showCreateModal]);
+
+  // Pattern detection (debounced): prior incidents + recent signals for the people/service.
+  useEffect(() => {
+    if (!showCreateModal) return;
+    const houseId = userHouseId || incidentForm.house_id;
+    if (!houseId && !incidentForm.persons_involved) { setPatterns(null); return; }
+    const t = setTimeout(async () => {
+      setDetecting(true);
+      try {
+        const res = await apiClient.post('/incidents/detect-patterns', {
+          house_id: houseId || undefined,
+          persons_involved: incidentForm.persons_involved,
+          type: incidentForm.type,
+          severity: incidentForm.severity,
+        });
+        setPatterns((res.data as any)?.data ?? res.data ?? null);
+      } catch { setPatterns(null); }
+      finally { setDetecting(false); }
+    }, 700);
+    return () => clearTimeout(t);
+  }, [incidentForm.house_id, incidentForm.persons_involved, incidentForm.type, incidentForm.severity, showCreateModal, userHouseId]);
+
+  const generateNarrative = async () => {
+    setNarrativeBusy(true);
+    try {
+      const res = await apiClient.post('/reports/narrative', {
+        reportTitle: 'Serious Incident Account',
+        periodLabel: incidentForm.occurred_at,
+        serviceName: userHouseName || undefined,
+        data: {
+          title: incidentForm.title, type: incidentForm.type, severity: incidentForm.severity,
+          what_happened: incidentForm.description, immediate_action: incidentForm.immediate_action,
+          people_involved: incidentForm.persons_involved, location: incidentForm.location,
+          warning_signals_present: incidentForm.warning_signals, risk_factors: incidentForm.risk_factors,
+        },
+      });
+      const narrative = (res.data as any)?.data?.narrative ?? (res.data as any)?.narrative;
+      if (narrative) { setIncidentForm((f: any) => ({ ...f, description: narrative })); toast.success('Narrative drafted from your notes'); }
+      else toast.error('No narrative returned');
+    } catch { toast.error("Couldn't generate a narrative"); }
+    finally { setNarrativeBusy(false); }
+  };
 
   const filteredRisks = allRisks.filter(risk =>
     risk.title.toLowerCase().includes(riskSearchTerm.toLowerCase())
@@ -374,7 +461,10 @@ export function IncidentCaseHub() {
                   <div className="flex justify-between items-start">
                     <div className="flex-1">
                       <div className="flex items-center gap-3 mb-3">
-                        <h3 
+                        {incident.reference && (
+                          <span className="px-2 py-0.5 rounded bg-muted text-foreground text-xs font-mono font-semibold">{incident.reference}</span>
+                        )}
+                        <h3
                           className="text-lg  text-foreground cursor-pointer hover:underline"
                           onClick={() => navigate(`/incidents/${incident.id}`)}
                         >
@@ -608,6 +698,44 @@ export function IncidentCaseHub() {
                     </div>
                   </div>
 
+                  {/* Pattern detection — "has this happened before?" */}
+                  {(detecting || patterns) && (
+                    <div className={`rounded-lg border-2 p-4 ${patterns?.recurring ? 'border-amber-500/40 bg-amber-500/10' : 'border-border bg-muted/40'}`}>
+                      <div className="flex items-center gap-2 mb-2">
+                        <AlertTriangle className={`w-4 h-4 ${patterns?.recurring ? 'text-amber-600' : 'text-muted-foreground'}`} />
+                        <span className="text-sm font-semibold text-foreground">
+                          {detecting ? 'Checking for related history…'
+                            : patterns?.recurring ? 'This may be a recurring concern'
+                            : 'Related history'}
+                        </span>
+                      </div>
+                      {patterns && (
+                        <div className="space-y-2 text-sm">
+                          {(patterns.similar_incidents?.length > 0) && (
+                            <div>
+                              <p className="text-xs text-muted-foreground mb-1">{patterns.similar_incidents.length} incident(s) at this service in the last 12 months:</p>
+                              <div className="space-y-1">
+                                {patterns.similar_incidents.slice(0, 3).map((s: any) => (
+                                  <button key={s.id} type="button" onClick={() => navigate(`/incidents/${s.id}`)} className="block text-left text-primary hover:underline text-xs">
+                                    {s.reference ? `${s.reference} · ` : ''}{s.title} {s.person_match ? '· same person' : ''} ({new Date(s.occurred_at).toLocaleDateString('en-GB')})
+                                  </button>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                          {(patterns.related_signals?.length > 0) && (
+                            <p className="text-xs text-muted-foreground">
+                              {patterns.related_signals.length} recent signal(s) for the people involved in the last 6 months — this incident may be the culmination of a forming pattern.
+                            </p>
+                          )}
+                          {(!patterns.similar_incidents?.length && !patterns.related_signals?.length) && (
+                            <p className="text-xs text-muted-foreground">No closely related incidents or signals found.</p>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
                   {/* Governance Context */}
                   <div className="pb-6 border-b border-border mb-6">
                     <h3 className=" text-primary mb-4 flex items-center gap-2">
@@ -692,13 +820,23 @@ export function IncidentCaseHub() {
                     <h3 className=" text-foreground mb-4">Incident Details</h3>
                     <div className="space-y-4">
                       <div>
-                        <label htmlFor="incident-description" className="block text-sm  text-foreground mb-1">Incident Description *</label>
+                        <div className="flex items-center justify-between mb-1">
+                          <label htmlFor="incident-description" className="block text-sm text-foreground">Incident Description *</label>
+                          <button
+                            type="button"
+                            onClick={generateNarrative}
+                            disabled={narrativeBusy}
+                            className="text-xs text-primary font-medium hover:underline disabled:opacity-50"
+                          >
+                            {narrativeBusy ? 'Drafting…' : '✨ Draft narrative from notes'}
+                          </button>
+                        </div>
                         <textarea
                           id="incident-description"
                           value={incidentForm.description}
                           onChange={(e) => setIncidentForm({ ...incidentForm, description: e.target.value })}
                           className="w-full border-2 border-border rounded p-2 h-24 resize-none"
-                          placeholder="Provide detailed description of what happened..."
+                          placeholder="Jot the key points, then use “Draft narrative from notes” to expand into a formal account — or write it yourself."
                         />
                       </div>
                       <div>
@@ -832,8 +970,38 @@ export function IncidentCaseHub() {
                           onChange={(e) => setIncidentForm({ ...incidentForm, leadership_commentary: e.target.value })}
                         />
                       </div>
+                      <div>
+                        <label htmlFor="lessons-learned" className="block text-sm  text-foreground mb-1">Lessons Learned</label>
+                        <textarea
+                          id="lessons-learned"
+                          className="w-full border-2 border-border rounded p-2 h-20 resize-none"
+                          placeholder="What has the service learned, and what will change as a result?"
+                          value={incidentForm.lessons_learned}
+                          onChange={(e) => setIncidentForm({ ...incidentForm, lessons_learned: e.target.value })}
+                        />
+                        <label className="flex items-center gap-2 mt-2 text-sm text-foreground">
+                          <input type="checkbox" checked={!!incidentForm.learning_shared}
+                            onChange={(e) => setIncidentForm({ ...incidentForm, learning_shared: e.target.checked })} />
+                          This learning has been shared with the team
+                        </label>
+                      </div>
                     </div>
                   </div>
+
+                  {/* Recommended actions (auto-created on submit) */}
+                  {patterns?.recommended_actions?.length > 0 && (
+                    <div className="pb-6">
+                      <h3 className="text-foreground mb-2 font-medium">Recommended follow-up actions</h3>
+                      <p className="text-xs text-muted-foreground mb-3">These will be created automatically as tracked actions on this incident when you submit.</p>
+                      <ul className="space-y-1.5">
+                        {patterns.recommended_actions.map((a: string, i: number) => (
+                          <li key={i} className="flex items-start gap-2 text-sm text-foreground">
+                            <span className="mt-1 w-1.5 h-1.5 rounded-full bg-primary shrink-0" />{a}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
 
                   {/* Reporting Information */}
                   <div className="pb-6">

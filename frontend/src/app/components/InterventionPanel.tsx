@@ -120,8 +120,8 @@ export function InterventionPanel() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Intervention Panel</h1>
-          <p className="text-sm text-muted-foreground mt-1">Trajectory-based governance — every theme carries a direction of travel and a leadership response, not just a count. {attention > 0 && <span className="text-red-600 font-medium">{attention} theme{attention === 1 ? "" : "s"} need attention.</span>}</p>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Intervention Progress</h1>
+          <p className="text-sm text-muted-foreground mt-1">Trajectory-based governance — every theme carries a direction of travel, a leadership response and its measured effect. {attention > 0 && <span className="text-red-600 font-medium">{attention} theme{attention === 1 ? "" : "s"} need attention.</span>}</p>
         </div>
 
         {loading ? (
@@ -158,21 +158,39 @@ export function InterventionPanel() {
                           <span className={`text-[10px] rounded px-2 py-0.5 ${STATUS_TONE[intv.status] || "bg-muted"}`}>{intv.status}</span>
                         </div>
                         <p className="text-sm text-foreground">{intv.intervention}</p>
-                        <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
-                          <div><span className="text-foreground font-medium">Owner:</span> {intv.owner_name || intv.owner_role || "—"}</div>
-                          <div><span className="text-foreground font-medium">Actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done</div>
-                          <div><span className="text-foreground font-medium">Review:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</div>
-                          <div><span className="text-foreground font-medium">Risk now:</span> {t.currentRiskIndex ?? "—"}{intv.risk_index_before != null ? ` (was ${intv.risk_index_before})` : ""}</div>
-                          <div className="col-span-2"><span className="text-foreground font-medium">Expected:</span> {intv.expected_outcome || "—"}</div>
-                          {intv.effectiveness != null && (
-                            <div className="col-span-2">
-                              <span className="text-foreground font-medium">Effectiveness:</span>{" "}
-                              <span className={intv.effectiveness > 0 ? "text-emerald-600 font-semibold" : intv.effectiveness < 0 ? "text-red-600 font-semibold" : ""}>
-                                {intv.effectiveness > 0 ? "+" : ""}{intv.effectiveness}% {intv.effectiveness > 0 ? "risk reduced" : intv.effectiveness < 0 ? "risk increased" : "no change"}
-                              </span>
+                        {(() => {
+                          const due = intv.review_date ? new Date(intv.review_date) : null;
+                          const overdue = due ? due.setHours(0,0,0,0) < new Date().setHours(0,0,0,0) : false;
+                          return (
+                            <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
+                              <div><span className="text-foreground font-medium">Owner:</span> {intv.owner_name || intv.owner_role || "—"}</div>
+                              <div><span className="text-foreground font-medium">Actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done</div>
+                              <div className={overdue ? "text-red-600" : ""}>
+                                <span className="text-foreground font-medium">Due:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}{overdue ? " · overdue" : ""}
+                              </div>
+                              <div><span className="text-foreground font-medium">Last reviewed:</span> {intv.last_reviewed_at ? new Date(intv.last_reviewed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</div>
+                              <div className="col-span-2"><span className="text-foreground font-medium">Expected:</span> {intv.expected_outcome || "—"}</div>
                             </div>
-                          )}
-                        </div>
+                          );
+                        })()}
+                        {/* Action effectiveness — before → after with % improvement */}
+                        {intv.risk_index_before != null && (
+                          <div className="mt-2 rounded-lg bg-muted/50 p-2.5">
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Risk before</span>
+                              <span className="font-semibold text-foreground">{intv.risk_index_before}</span>
+                            </div>
+                            <div className="flex items-center justify-between text-xs mt-0.5">
+                              <span className="text-muted-foreground">Risk now</span>
+                              <span className="font-semibold text-foreground">{intv.risk_index_now ?? t.currentRiskIndex ?? "—"}</span>
+                            </div>
+                            {intv.effectiveness != null && (
+                              <div className={`mt-1.5 text-xs font-semibold ${intv.effectiveness > 0 ? "text-emerald-600" : intv.effectiveness < 0 ? "text-red-600" : "text-muted-foreground"}`}>
+                                {intv.effectiveness > 0 ? `▼ ${intv.effectiveness}% improvement` : intv.effectiveness < 0 ? `▲ ${Math.abs(intv.effectiveness)}% worse` : "No measurable change"}
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No intervention set — {t.openActions} open action{t.openActions === 1 ? "" : "s"}, {t.completedActions} completed.</p>
