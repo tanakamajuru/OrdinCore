@@ -9,20 +9,31 @@ import { useApi } from '@/api/useApi';
 import { queue } from '@/offline/queue';
 import { Screen, Label, Row, Chip, Field, TextArea, SeverityPicker, Button, Pill, Text } from '@/components/ui';
 
-const TYPES = ['Safeguarding', 'Medication', 'Behaviour', 'Health', 'Environment'];
+type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE' };
+type Theme = { name: string; pillar?: string | null; signals: string[]; signalsMeta?: SignalMeta[] };
 
 export function RaiseSignalScreen() {
   const { c } = useTheme();
   const { user } = useAuth();
   const nav = useNavigation<any>();
 
-  const [type, setType] = useState('Safeguarding');
+  // Live governance taxonomy (themes + per-signal escalation flags) for this sector.
+  const themesApi = useApi<any>('/governance/domains');
+  const themes: Theme[] = themesApi.data?.domains ?? themesApi.data?.data?.domains ?? [];
+
+  const [type, setType] = useState('');
+  const [signalLabel, setSignalLabel] = useState('');
   const [severity, setSeverity] = useState('High');
   const [person, setPerson] = useState('');
   const [observation, setObservation] = useState('');
   const [immediate, setImmediate] = useState('');
   const [busy, setBusy] = useState(false);
   const [override, setOverride] = useState(false);
+
+  const selectedTheme = themes.find((t) => t.name === type);
+  const signalMetas: SignalMeta[] = selectedTheme?.signalsMeta
+    ?? (selectedTheme?.signals || []).map((l) => ({ label: l, escalation: 'NONE' as const }));
+  const selectedMeta = signalMetas.find((s) => s.label === signalLabel);
 
   // "Complete old work before new" — a Team Leader with an action overdue by more than 7 days is
   // gated here and pointed at My Actions first. Urgent safeguarding is never blocked (doctrine),
@@ -36,12 +47,14 @@ export function RaiseSignalScreen() {
 
   const submit = async () => {
     if (!observation.trim()) { Alert.alert('Add what you saw', 'A short account of the observation is required.'); return; }
+    if (!type) { Alert.alert('Choose a theme', 'Select the governance theme this signal belongs to.'); return; }
     const body: any = {
       service_id: houseId,
       related_person: person.trim() || undefined,
       category: type,               // → risk_domain (drives clustering + rules)
       governance_domain: type,
-      signal_type: type === 'Safeguarding' ? 'Safeguarding' : 'Concern',
+      signal_label: signalLabel || undefined,
+      signal_type: /safeguard/i.test(type) ? 'Safeguarding' : 'Concern',
       severity,
       description: observation.trim(),
       immediate_action: immediate.trim() || undefined,
@@ -99,10 +112,36 @@ export function RaiseSignalScreen() {
       <Label>Person (optional)</Label>
       <Field value={person} onChangeText={setPerson} placeholder="Who it concerns" />
 
-      <Label>Signal type</Label>
+      <Label>Governance theme</Label>
       <Row gap={7} style={{ flexWrap: 'wrap' }}>
-        {TYPES.map((t) => <Chip key={t} label={t} active={type === t} onPress={() => setType(t)} />)}
+        {themes.map((t) => (
+          <Chip key={t.name} label={t.name} active={type === t.name}
+            onPress={() => { setType(t.name); setSignalLabel(''); }} />
+        ))}
       </Row>
+
+      {selectedTheme && signalMetas.length > 0 && (
+        <>
+          <Label>Signal</Label>
+          <Row gap={7} style={{ flexWrap: 'wrap' }}>
+            {signalMetas.map((s) => (
+              <Chip key={s.label} label={s.label} active={signalLabel === s.label} onPress={() => setSignalLabel(s.label)} />
+            ))}
+          </Row>
+          {selectedMeta?.escalation === 'IMMEDIATE' && (
+            <Row gap={7} style={{ backgroundColor: c.sevCrit + '18', borderColor: c.sevCrit, borderWidth: 1, borderRadius: 10, padding: 10 }}>
+              <Feather name="alert-triangle" size={15} color={c.sevCrit} />
+              <Text size={12} weight="600" color={c.sevCrit} style={{ flex: 1 }}>Escalated to the Registered Manager immediately on saving.</Text>
+            </Row>
+          )}
+          {selectedMeta?.escalation === 'CONDITIONAL' && (
+            <Row gap={7} style={{ backgroundColor: c.sevHigh + '18', borderColor: c.sevHigh, borderWidth: 1, borderRadius: 10, padding: 10 }}>
+              <Feather name="alert-triangle" size={15} color={c.sevHigh} />
+              <Text size={12} weight="600" color={c.sevHigh} style={{ flex: 1 }}>Escalated immediately if you mark it High or Critical.</Text>
+            </Row>
+          )}
+        </>
+      )}
 
       <Label>Severity</Label>
       <SeverityPicker value={severity} onChange={setSeverity} />

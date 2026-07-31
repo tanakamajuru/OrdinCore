@@ -38,12 +38,12 @@ export const governanceDomainsService = {
 
     const [domains, signals, thresholds] = await Promise.all([
       query(
-        `SELECT name, description, sort_order FROM governance_domains
+        `SELECT name, description, pillar, sort_order FROM governance_domains
          WHERE sector = ANY($1) AND is_active = true ORDER BY sort_order, name`,
         [sectors]
       ),
       query(
-        `SELECT domain_name, signal_label, sort_order FROM signal_library
+        `SELECT domain_name, signal_label, escalation, sort_order FROM signal_library
          WHERE sector = ANY($1) AND is_active = true ORDER BY domain_name, sort_order, signal_label`,
         [sectors]
       ),
@@ -55,8 +55,12 @@ export const governanceDomainsService = {
     ]);
 
     const signalsByDomain: Record<string, string[]> = {};
+    // signalsMeta keeps the escalation flag alongside each label (label list kept for back-compat).
+    const signalsMetaByDomain: Record<string, { label: string; escalation: string }[]> = {};
     for (const s of signals.rows) {
       (signalsByDomain[s.domain_name] = signalsByDomain[s.domain_name] || []).push(s.signal_label);
+      (signalsMetaByDomain[s.domain_name] = signalsMetaByDomain[s.domain_name] || [])
+        .push({ label: s.signal_label, escalation: s.escalation || 'NONE' });
     }
     const thresholdByDomain: Record<string, { count: number; window_days: number; description: string }> = {};
     for (const t of thresholds.rows) {
@@ -73,7 +77,9 @@ export const governanceDomainsService = {
       domains: uniqueDomains.map(d => ({
         name: d.name,
         description: d.description,
+        pillar: d.pillar || null,
         signals: signalsByDomain[d.name] || [],
+        signalsMeta: signalsMetaByDomain[d.name] || [],
         threshold: thresholdByDomain[d.name] || null,
       })),
     };

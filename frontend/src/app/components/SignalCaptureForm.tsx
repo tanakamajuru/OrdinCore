@@ -51,8 +51,10 @@ export function SignalCaptureForm() {
   const [services, setServices] = useState<ServiceUnit[]>([]);
   const [serviceUsers, setServiceUsers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  // Configurable governance domains (12 for Supported Living) + their signal library.
-  const [domains, setDomains] = useState<{ name: string; description?: string; signals: string[] }[]>([]);
+  // Configurable governance themes (grouped under six pillars) + their signal library.
+  type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE' };
+  type Domain = { name: string; description?: string; pillar?: string | null; signals: string[]; signalsMeta?: SignalMeta[] };
+  const [domains, setDomains] = useState<Domain[]>([]);
 
   const now = new Date();
   const [form, setForm] = useState({
@@ -90,6 +92,23 @@ export function SignalCaptureForm() {
   };
 
   const selectedDomain = domains.find(d => d.name === form.governance_domain);
+  const selectedSignalMeta = selectedDomain?.signalsMeta?.find(s => s.label === form.signal_label);
+
+  // Group themes under their governance pillar for the dropdown (falls back to a
+  // single "Governance" group if a sector hasn't been tagged with pillars).
+  const pillarOrder = [
+    'People & Safety', 'Quality of Life & Outcomes', 'Workforce & Capability',
+    'Governance & Compliance', 'Culture & Leadership', 'Strategic Assurance',
+  ];
+  const groupedByPillar = domains.reduce<Record<string, Domain[]>>((acc, d) => {
+    const key = d.pillar || 'Governance';
+    (acc[key] = acc[key] || []).push(d);
+    return acc;
+  }, {});
+  const pillarGroups = [
+    ...pillarOrder.filter(p => groupedByPillar[p]),
+    ...Object.keys(groupedByPillar).filter(p => !pillarOrder.includes(p)),
+  ];
 
   useEffect(() => {
     if (!form.service_id) { setServiceUsers([]); return; }
@@ -191,18 +210,21 @@ export function SignalCaptureForm() {
             </select>
           </div>
 
-          {/* Category */}
-          {/* Governance Domain (12-domain clustering model) */}
+          {/* Governance Theme (grouped by the six governance pillars) */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Governance Domain</label>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Layers size={16} /> Governance Theme</label>
             <select
               value={form.governance_domain}
               onChange={e => { set('governance_domain', e.target.value); set('signal_label', ''); }}
               className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
             >
-              <option value="" disabled>Select a governance domain…</option>
-              {domains.map(d => (
-                <option key={d.name} value={d.name}>{d.name}</option>
+              <option value="" disabled>Select a theme…</option>
+              {pillarGroups.map(pillar => (
+                <optgroup key={pillar} label={pillar}>
+                  {groupedByPillar[pillar].map(d => (
+                    <option key={d.name} value={d.name}>{d.name}</option>
+                  ))}
+                </optgroup>
               ))}
             </select>
             {selectedDomain?.description && (
@@ -210,7 +232,7 @@ export function SignalCaptureForm() {
             )}
           </div>
 
-          {/* Specific signal within the chosen domain */}
+          {/* Specific signal within the chosen theme */}
           {selectedDomain && selectedDomain.signals.length > 0 && (
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Signal</label>
@@ -219,11 +241,27 @@ export function SignalCaptureForm() {
                 onChange={e => set('signal_label', e.target.value)}
                 className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
               >
-                <option value="">Select a signal (optional)…</option>
-                {selectedDomain.signals.map(s => (
+                <option value="">Select a signal…</option>
+                {(selectedDomain.signalsMeta && selectedDomain.signalsMeta.length > 0
+                  ? selectedDomain.signalsMeta.map(s => s.label)
+                  : selectedDomain.signals).map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
               </select>
+
+              {/* Per-signal escalation notice so the recorder knows what happens on save. */}
+              {selectedSignalMeta?.escalation === 'IMMEDIATE' && (
+                <div className="mt-2 flex items-start gap-2 text-xs rounded-lg p-2.5 bg-red-500/10 text-red-700 border border-red-500/30">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>This signal is escalated to the Registered Manager <b>immediately</b> on saving — it does not wait for a pattern to form.</span>
+                </div>
+              )}
+              {selectedSignalMeta?.escalation === 'CONDITIONAL' && (
+                <div className="mt-2 flex items-start gap-2 text-xs rounded-lg p-2.5 bg-amber-500/10 text-amber-700 border border-amber-500/30">
+                  <AlertTriangle size={14} className="mt-0.5 shrink-0" />
+                  <span>If you mark this <b>High</b> or <b>Critical</b>, it is escalated to the Registered Manager immediately.</span>
+                </div>
+              )}
             </div>
           )}
 

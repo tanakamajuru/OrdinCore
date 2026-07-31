@@ -6,12 +6,14 @@ import { useAudioRecorder, RecordingPresets, AudioModule, setAudioModeAsync } fr
 import { useAuth } from '@/auth/AuthContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { api, ApiError } from '@/api/client';
+import { useApi } from '@/api/useApi';
 import { queue } from '@/offline/queue';
 import { pickPhoto, uploadMedia, fileToBase64, Evidence } from '@/api/media';
 import { radius, severityColor } from '@/theme/tokens';
 import { Screen, Row, Field, TextArea, Button, Text } from '@/components/ui';
 
-const DOMAINS = ['Medication', 'Safeguarding', 'Behaviour', 'Health', 'Environment', 'Nutrition', 'Wellbeing'];
+type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE' };
+type Theme = { name: string; signals: string[]; signalsMeta?: SignalMeta[] };
 const SEVERITIES = ['Low', 'Med', 'High', 'Critical'];
 const sevToApi = (s: string) => (s === 'Med' ? 'Moderate' : s);
 
@@ -85,8 +87,17 @@ export function SWRaiseSignalScreen() {
   const nav = useNavigation<any>();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const [domain, setDomain] = useState('Medication');
+  const themesApi = useApi<any>('/governance/domains');
+  const themes: Theme[] = themesApi.data?.domains ?? themesApi.data?.data?.domains ?? [];
+
+  const [domain, setDomain] = useState('');
+  const [signalLabel, setSignalLabel] = useState('');
   const [severity, setSeverity] = useState('Critical');
+
+  const selectedTheme = themes.find((t) => t.name === domain);
+  const signalMetas: SignalMeta[] = selectedTheme?.signalsMeta
+    ?? (selectedTheme?.signals || []).map((l) => ({ label: l, escalation: 'NONE' as const }));
+  const selectedMeta = signalMetas.find((s) => s.label === signalLabel);
   const [resident, setResident] = useState('');
   const [what, setWhat] = useState('');
   const [busy, setBusy] = useState(false);
@@ -143,13 +154,15 @@ export function SWRaiseSignalScreen() {
   };
 
   const submit = async () => {
+    if (!domain) { Alert.alert('Choose a theme', 'Select the governance theme this signal belongs to.'); return; }
     if (!what.trim()) { Alert.alert('Add what happened', 'A short, clear account is required.'); return; }
     const body: any = {
       service_id: houseId,
       related_person: resident.trim() || undefined,
       category: domain,
       governance_domain: domain,
-      signal_type: domain === 'Safeguarding' ? 'Safeguarding' : 'Concern',
+      signal_label: signalLabel || undefined,
+      signal_type: /safeguard/i.test(domain) ? 'Safeguarding' : 'Concern',
       severity: sevToApi(severity),
       description: what.trim(),
       evidence_url: evidence?.url,
@@ -175,9 +188,29 @@ export function SWRaiseSignalScreen() {
       <Text size={22} weight="700" style={{ marginBottom: 4 }}>Raise a Signal</Text>
 
       <View style={{ gap: 4 }}>
-        <Caption>Domain</Caption>
-        <Dropdown value={domain} options={DOMAINS} onChange={setDomain} />
+        <Caption>Governance theme</Caption>
+        <Dropdown value={domain || 'Select a theme…'} options={themes.map((t) => t.name)}
+          onChange={(v) => { setDomain(v); setSignalLabel(''); }} />
       </View>
+
+      {selectedTheme && signalMetas.length > 0 && (
+        <View style={{ gap: 4 }}>
+          <Caption>Signal</Caption>
+          <Dropdown value={signalLabel || 'Select a signal…'} options={signalMetas.map((s) => s.label)} onChange={setSignalLabel} />
+          {selectedMeta?.escalation === 'IMMEDIATE' && (
+            <Row gap={7} style={{ backgroundColor: c.sevCrit + '18', borderColor: c.sevCrit, borderWidth: 1, borderRadius: radius.md, padding: 10, marginTop: 4 }}>
+              <Feather name="alert-triangle" size={15} color={c.sevCrit} />
+              <Text size={12} weight="600" color={c.sevCrit} style={{ flex: 1 }}>Escalated to the Registered Manager immediately on saving.</Text>
+            </Row>
+          )}
+          {selectedMeta?.escalation === 'CONDITIONAL' && (
+            <Row gap={7} style={{ backgroundColor: c.sevHigh + '18', borderColor: c.sevHigh, borderWidth: 1, borderRadius: radius.md, padding: 10, marginTop: 4 }}>
+              <Feather name="alert-triangle" size={15} color={c.sevHigh} />
+              <Text size={12} weight="600" color={c.sevHigh} style={{ flex: 1 }}>Escalated immediately if marked High or Critical.</Text>
+            </Row>
+          )}
+        </View>
+      )}
 
       <View style={{ gap: 4 }}>
         <Caption>Severity</Caption>

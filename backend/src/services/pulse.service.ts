@@ -15,7 +15,11 @@ export class PulseService {
         const pulse = await pulsesRepo.create(company_id, user_id, dto);
         
         // [GOVERNANCE] Safeguarding Absence Override Rule (§5)
-        if (pulse.signal_type === 'Safeguarding') {
+        // Match the safeguarding THEME (governance_domain), not the legacy signal_type —
+        // under the v2 taxonomy the theme is "Safeguarding & Protection".
+        const isSafeguarding = pulse.signal_type === 'Safeguarding'
+            || /safeguard/i.test(String(pulse.governance_domain || ''));
+        if (isSafeguarding) {
             const today = new Date().toISOString().split('T')[0];
             const govLog = await query(
                 'SELECT id FROM daily_governance_log WHERE house_id = $1 AND review_date = $2 AND completed = true',
@@ -109,6 +113,63 @@ export class PulseService {
             }
         } catch (err) {
             logger.error(`Failed to open immediate escalation for Critical pulse ${pulse.id}`, err);
+        }
+
+        // [GOVERNANCE] Per-signal immediate escalation (taxonomy v2).
+        // Every signal type carries a flag in signal_library: IMMEDIATE (escalate on
+        // capture, any severity), CONDITIONAL ("Depends" — escalate now only when the
+        // recorder marks it High or Critical), or NONE (cluster only). This is the
+        // frontline safety net that means a single "Suicide Attempt" or "Sexual abuse"
+        // never has to wait for a pattern to form. Critical severity is already handled
+        // above, so we only look at the flag when it isn't Critical. Best-effort.
+        try {
+            const sev = String(pulse.severity);
+            if (pulse.signal_label && pulse.governance_domain && sev !== 'Critical') {
+                const flagRes = await query(
+                    `SELECT escalation FROM signal_library
+                      WHERE domain_name = $1 AND signal_label = $2 AND is_active = true
+                      ORDER BY (sector = (SELECT sector FROM houses WHERE id = $3)) DESC
+                      LIMIT 1`,
+                    [pulse.governance_domain, pulse.signal_label, pulse.house_id]
+                );
+                const esc = flagRes.rows[0]?.escalation;
+                const isHigh = sev === 'High';
+                const fires = esc === 'IMMEDIATE' || (esc === 'CONDITIONAL' && isHigh);
+                if (fires) {
+                    const already = await query(
+                        `SELECT 1 FROM escalations WHERE source_pulse_id = $1 LIMIT 1`, [pulse.id]
+                    );
+                    if (already.rows.length === 0) {
+                        const target = (await query(
+                            `SELECT id FROM users WHERE company_id = $1 AND status = 'active'
+                              AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'])
+                              ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 WHEN 'DIRECTOR' THEN 1 ELSE 2 END
+                              LIMIT 1`,
+                            [company_id]
+                        )).rows[0]?.id;
+                        if (target) {
+                            const priority = esc === 'IMMEDIATE' || isHigh ? 'Urgent' : 'High';
+                            const dueHours = esc === 'IMMEDIATE' ? 24 : 48;
+                            const reason = `Immediate escalation — ${pulse.signal_label} (${pulse.governance_domain})${pulse.related_person ? ` for ${pulse.related_person}` : ''}: ${pulse.description || ''}`.slice(0, 1000);
+                            await query(
+                                `INSERT INTO escalations (id, company_id, risk_id, source_pulse_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by, trigger_type)
+                                 VALUES ($1,$2,NULL,$3,$4,$5,$6,$7,'Pending','Open',$8, NOW() + ($9 || ' hours')::interval, 'SIGNAL_FLAG')`,
+                                [uuidv4(), company_id, pulse.id, pulse.house_id, user_id, target, reason, priority, String(dueHours)]
+                            );
+                            await query(
+                                `UPDATE governance_pulses SET review_status = 'Monitoring', updated_at = NOW() WHERE id = $1`,
+                                [pulse.id]
+                            );
+                            await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, {
+                                pulse_id: pulse.id, company_id, user_id: target,
+                                message: `Immediate escalation opened — ${pulse.signal_label}. Action required within ${dueHours}h.`,
+                            });
+                        }
+                    }
+                }
+            }
+        } catch (err) {
+            logger.error(`Failed per-signal escalation for pulse ${pulse.id}`, err);
         }
 
         // Emit Signal Created Event

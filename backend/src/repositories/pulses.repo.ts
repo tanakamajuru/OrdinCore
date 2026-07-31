@@ -84,15 +84,15 @@ export const pulsesRepo = {
         const result = await query(
             `INSERT INTO governance_pulses (
                 id, company_id, house_id, created_by, entry_date, entry_time, related_person,
-                signal_type, risk_domain, governance_domain, description, immediate_action, severity,
+                signal_type, risk_domain, governance_domain, signal_label, description, immediate_action, severity,
                 has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type,
                 assigned_to, assigned_at, assigned_by, allocation_is_auto
-            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, 'New', $18,
-                $19, ${'CASE WHEN $19::uuid IS NULL THEN NULL ELSE NOW() END'}, $20, TRUE)
+            ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'New', $19,
+                $20, ${'CASE WHEN $20::uuid IS NULL THEN NULL ELSE NOW() END'}, $21, TRUE)
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
-                signalType, riskDomain, governanceDomain, dto.description, dto.immediate_action || null, dto.severity,
+                signalType, riskDomain, governanceDomain, dto.signal_label || null, dto.description, dto.immediate_action || null, dto.severity,
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null,
                 assignedTo, assignedTo ? user_id : null
