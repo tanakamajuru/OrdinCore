@@ -256,6 +256,9 @@ router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, go
 // Daily Governance Log
 router.post('/daily-log/open', requireAuth, requireTenant, requireScope, dailyGovernanceController.openLog.bind(dailyGovernanceController));
 router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, dailyGovernanceController.completeLog.bind(dailyGovernanceController));
+// Team Brief (Chapter 2): the concise operational briefing published to Team Leaders.
+router.get('/daily-log/team-brief', requireAuth, requireTenant, dailyGovernanceController.getTeamBrief.bind(dailyGovernanceController));
+router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
 
 // Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).
 // A Team Leader / Support Worker sees only their own house(s); RM and above see the whole company.

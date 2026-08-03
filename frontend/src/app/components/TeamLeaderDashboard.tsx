@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { TeamBriefBanner } from "./TeamBriefBanner";
 import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
 import { useNavigate } from "react-router";
@@ -184,6 +185,8 @@ export function TeamLeaderDashboard() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="p-6 max-w-[1500px]">
+        {/* Chapter 2 — the day's Team Brief from the RM's Daily Governance Review. */}
+        <TeamBriefBanner />
         {/* Header */}
         <div className="flex flex-col xl:flex-row xl:items-start justify-between gap-4 mb-6">
           <div>

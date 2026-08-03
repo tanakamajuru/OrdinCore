@@ -27,6 +27,7 @@ export function DailyOversightBoard() {
   const [houses, setHouses] = useState<any[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
   const [dailyNote, setDailyNote] = useState("");
+  const [teamBrief, setTeamBrief] = useState("");
   const [isSigningOff, setIsSigningOff] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
@@ -86,15 +87,42 @@ export function DailyOversightBoard() {
     overall_posture: deterioratingCount > 0 || highPriority.length > 0 ? "Attention" : "Stable",
   };
 
+  // Materiality decides whether Team Leaders must acknowledge a brief, or simply see
+  // "no new governance priorities today" (Chapter 2 — proportionate acknowledgement).
+  const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0 || deterioratingCount > 0 || readyCount > 0;
+
   const generateNarrative = async () => {
     setAiBusy(true);
     try {
-      const res = await fetchClient.post("/reports/narrative", {
-        reportTitle: "Daily Governance Summary", periodLabel: today(),
-        serviceName: house?.name, data: summaryPayload,
-      });
-      const out = (res as any)?.data?.data ?? (res as any)?.data ?? res;
-      setDailyNote(out?.narrative || "");
+      const [lead, brief] = await Promise.all([
+        fetchClient.post("/reports/narrative", {
+          reportTitle: "Daily Governance Summary — Leadership Narrative", periodLabel: today(),
+          serviceName: house?.name, data: summaryPayload,
+        }),
+        materialChange ? fetchClient.post("/reports/narrative", {
+          reportTitle: "Daily Governance Team Brief",
+          periodLabel: today(), serviceName: house?.name,
+          // A concise operational briefing for Team Leaders: priorities, emerging concerns,
+          // immediate actions — no strategic/leadership commentary.
+          data: {
+            audience: "Team Leaders",
+            style: "concise operational briefing — today's priorities, emerging concerns and immediate actions only",
+            todays_priorities: highPriority.slice(0, 5).map((s: any) => `${s.house_name}: ${s.signal_type}`),
+            actions_due_today: actionsDueToday,
+            escalations_awaiting_review: openEsc,
+            emerging_patterns_near_promotion: nearPromotion,
+            deteriorating_patterns: deterioratingCount,
+          },
+        }) : Promise.resolve(null),
+      ]);
+      const leadOut = (lead as any)?.data?.data ?? (lead as any)?.data ?? lead;
+      setDailyNote(leadOut?.narrative || "");
+      if (brief) {
+        const briefOut = (brief as any)?.data?.data ?? (brief as any)?.data ?? brief;
+        setTeamBrief(briefOut?.narrative || "");
+      } else {
+        setTeamBrief("");
+      }
     } catch { toast.error("Couldn't generate the narrative — you can write it below."); }
     finally { setAiBusy(false); }
   };
@@ -112,7 +140,13 @@ export function DailyOversightBoard() {
     try {
       const openRes = await apiClient.post("/governance/daily-log/open", { house_id: selectedHouseId });
       const logId = openRes.data?.id || openRes.data?.data?.id;
-      await apiClient.post(`/governance/daily-log/${logId}/complete`, { note: dailyNote, is_deputy_review: isDeputyCover });
+      await apiClient.post(`/governance/daily-log/${logId}/complete`, {
+        note: dailyNote,
+        leadership_narrative: dailyNote,
+        team_brief: teamBrief,
+        material_change: materialChange,
+        is_deputy_review: isDeputyCover,
+      });
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
       toast.success("Daily governance signed off");
     } catch { toast.error("Sign-off failed"); }
@@ -334,7 +368,7 @@ export function DailyOversightBoard() {
 
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Governance Narrative (Draft)</h3>
+              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">· private to leadership</span></h3>
               <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="text-xs text-primary disabled:opacity-50">{aiBusy ? "Generating…" : "Regenerate"}</button>
             </div>
             {houses.length > 1 && !signedOff && (
@@ -345,6 +379,21 @@ export function DailyOversightBoard() {
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-40 p-3 border-2 border-border rounded-lg bg-background text-sm leading-6 disabled:opacity-70"
               placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all triage, patterns and actions above — what is the service position today?"} />
+
+            {/* Team Brief — the concise operational briefing published to Team Leaders (Ch2). */}
+            <div className="mt-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Users size={14} className="text-primary" />
+                <h4 className="text-xs font-semibold uppercase tracking-wide text-primary">Team Brief · published to Team Leaders</h4>
+              </div>
+              {materialChange ? (
+                <textarea value={teamBrief} onChange={(e) => setTeamBrief(e.target.value)} disabled={!!signedOff}
+                  className="w-full h-24 p-3 border-2 border-border rounded-lg bg-background text-sm leading-6 disabled:opacity-70"
+                  placeholder={aiBusy ? "Drafting the team brief…" : "Today's priorities, emerging concerns and immediate actions for Team Leaders."} />
+              ) : (
+                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." (no acknowledgement required).</p>
+              )}
+            </div>
 
             {signedOff ? (
               <div className="mt-4 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
