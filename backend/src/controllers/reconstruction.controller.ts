@@ -52,11 +52,13 @@ export class ReconstructionController {
       const r = await query(
         `INSERT INTO governance_reconstructions
            (id, company_id, scope, scope_ref, scope_label, incident_date, trajectory,
-            contributing_factors, control_failure, narrative, timeline_events, summary, linked_risk_ids, status, created_by)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,'Draft',$14) RETURNING *`,
+            contributing_factors, control_failure, narrative, timeline_events, summary, linked_risk_ids,
+            lessons_learned, governance_outputs, status, created_by)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,'Draft',$16) RETURNING *`,
         [id, company_id, b.scope, String(b.scope_ref), b.scope_label || null, b.incident_date || null,
          b.trajectory || null, b.contributing_factors || null, b.control_failure || null, b.narrative || '',
          JSON.stringify(b.timeline_events || []), JSON.stringify(b.summary || {}), JSON.stringify(b.linked_risk_ids || []),
+         b.lessons_learned || null, b.governance_outputs ? JSON.stringify(b.governance_outputs) : null,
          req.user!.user_id]
       );
       return res.status(201).json({ success: true, data: r.rows[0] });
