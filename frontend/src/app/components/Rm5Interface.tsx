@@ -372,7 +372,13 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
   return (
     <div className="bg-card border-2 rounded-xl p-4" style={{ borderColor: p.scope === "cross_service" ? "#c7d2fe" : ready ? "#6ee7b7" : "var(--border, #e2e8f0)" }}>
       <button onClick={toggle} className="w-full text-left">
-        <div className="flex items-start justify-between gap-2"><span className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">{p.domain}</span><Traj t={p.trajectory} /></div>
+        <div className="flex items-start justify-between gap-2">
+          <span className="text-[10px] uppercase tracking-widest text-muted-foreground truncate">
+            {p.domain}
+            <span className="ml-1.5 text-muted-foreground/70">· {({ person: "Individual", house: "House", service: "Service", cross_service: "Cross-Service" } as any)[p.scope] || "Individual"}</span>
+          </span>
+          <Traj t={p.trajectory} />
+        </div>
         <div className="text-sm font-medium text-foreground mt-0.5 flex items-center gap-1">
           <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
           {p.person !== "—" ? `${p.person} · ` : ""}{p.scope === "cross_service" ? `${p.houses.length} services` : (p.houses[0] || "—")}
