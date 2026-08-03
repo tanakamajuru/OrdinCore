@@ -85,6 +85,9 @@ export function Login() {
         navigate('/super-admin');
       } else if (role === 'ADMIN') {
         navigate('/admin-dashboard');
+      } else if (['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role)) {
+        // Operational roles land on their "My Work" panel — the doctrine's home screen.
+        navigate('/my-work');
       } else {
         navigate('/dashboard');
       }

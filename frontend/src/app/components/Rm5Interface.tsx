@@ -49,8 +49,11 @@ function GovHead({ q, sub }: { q: string; sub?: string }) {
 
 export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "today" | "pipeline" }) {
   const navigate = useNavigate();
-  const [screen, setScreen] = useState<string>(initialScreen);
-  const [stage, setStage] = useState("patterns");
+  // Deep-link support: /rm5?stage=signals opens the pipeline on the signals tab so
+  // "signals awaiting review" links land on signals, not patterns.
+  const stageParam = (() => { try { return new URLSearchParams(window.location.search).get("stage"); } catch { return null; } })();
+  const [screen, setScreen] = useState<string>(stageParam ? "pipeline" : initialScreen);
+  const [stage, setStage] = useState(stageParam && ["signals", "patterns", "register", "actions", "effectiveness", "escalations"].includes(stageParam) ? stageParam : "patterns");
   const [counts, setCounts] = useState<any>({});
   const [today, setToday] = useState<any>({ todaySignals: [], actionsDue: [] });
   const [patterns, setPatterns] = useState<any>({ within: [], across: [] });

@@ -76,16 +76,18 @@ export function RoleBasedNavigation() {
         // survive — nothing is route-deleted).
         return [
           { path: "/my-work", label: "My Work", icon: CheckCircle2 },
-          { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/governance-dashboard", label: "Daily Oversight", icon: ShieldCheck },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
+          { path: "/risk-register?tab=strategic", label: "Strategic Oversight", icon: TrendingUp },
           { path: "/interventions", label: "Intervention Progress", icon: Target },
           // Strategic oversight of escalations, surfaced directly in the rail (was deep-link only).
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/governance-compliance", label: "Governance Compliance", icon: ClipboardList },
           { path: "/service-users", label: "Service Users", icon: Users },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
+          { path: "/rm5", label: "Pipeline", icon: Layers },
         ];
       case "RESPONSIBLE_INDIVIDUAL":
         return [

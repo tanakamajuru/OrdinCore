@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import {
-  AlertCircle, Bell, ClipboardList, TrendingUp, FileText, ChevronRight, CheckCircle2, RefreshCw,
+  AlertCircle, Bell, ClipboardList, TrendingUp, FileText, ChevronRight, CheckCircle2, RefreshCw, ShieldCheck,
 } from "lucide-react";
 import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
@@ -35,6 +35,8 @@ export function MyWork() {
 
   const user = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
   const firstName = user.first_name || (user.name ? String(user.name).split(" ")[0] : "") || "";
+  const role = String(user.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_");
+  const canDoDailyGovernance = ["REGISTERED_MANAGER", "ADMIN", "SUPER_ADMIN"].includes(role);
 
   const load = async () => {
     try {
@@ -46,6 +48,12 @@ export function MyWork() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  // Cards must stay live — refetch whenever the user returns to this tab/window.
+  useEffect(() => {
+    const onFocus = () => load();
+    window.addEventListener("focus", onFocus);
+    return () => window.removeEventListener("focus", onFocus);
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,6 +66,19 @@ export function MyWork() {
         <p className="text-muted-foreground mb-6">
           {loading ? "Loading your work…" : allClear ? "Here's your work for today." : "Here's what needs your attention today."}
         </p>
+
+        {/* Do Daily Governance — the RM's daily heartbeat, always reachable from My Work. */}
+        {canDoDailyGovernance && !loading && (
+          <button onClick={() => navigate("/governance-dashboard")}
+            className="w-full text-left bg-primary/5 border-2 border-primary/30 rounded-xl p-4 flex items-center gap-4 mb-4 hover:bg-primary/10 transition-all">
+            <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center shrink-0"><ShieldCheck size={20} /></div>
+            <div className="flex-1">
+              <div className="font-semibold text-foreground">Do Daily Governance</div>
+              <div className="text-xs text-muted-foreground">Review each house, record decisions and sign off the day.</div>
+            </div>
+            <span className="inline-flex items-center gap-1 text-sm font-medium text-primary">Open <ChevronRight size={16} /></span>
+          </button>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>

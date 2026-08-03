@@ -25,6 +25,7 @@ import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
 import { SystemicPatterns } from "./components/SystemicPatterns";
 import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
+import { GovernanceCompliance } from "./components/GovernanceCompliance";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -123,6 +124,11 @@ export default function App() {
           <Route path="/org-structure" element={
             <ProtectedRoute>
               <OrgStructureAdmin />
+            </ProtectedRoute>
+          } />
+          <Route path="/governance-compliance" element={
+            <ProtectedRoute>
+              <GovernanceCompliance />
             </ProtectedRoute>
           } />
           <Route path="/super-admin" element={

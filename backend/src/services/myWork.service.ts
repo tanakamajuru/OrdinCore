@@ -48,7 +48,7 @@ export const myWorkService = {
                 COUNT(*) FILTER (WHERE priority IN ('Urgent','Critical'))::int AS urgent
            FROM escalations
           WHERE company_id = $1
-            AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved')
+            AND COALESCE(lifecycle_status::text, status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')
             AND (escalated_to = $2 OR house_id = ANY($3::uuid[]))`,
         [company_id, user_id, houses]
       ), { rows: [{ n: 0, urgent: 0 }] } as any);
@@ -65,7 +65,7 @@ export const myWorkService = {
         [company_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = sig.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: '/rm5', primary_action: 'Review Signal' });
+      if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: '/rm5?stage=signals', primary_action: 'Review Signal' });
     }
 
     // 3. My actions — open, with overdue highlighted (all roles).

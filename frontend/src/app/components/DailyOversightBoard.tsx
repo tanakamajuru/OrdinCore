@@ -9,7 +9,6 @@ import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { apiClient as fetchClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 import { GovernanceDecisions } from "./GovernanceDecisions";
 
 interface DashboardData {
@@ -24,6 +23,11 @@ export function DailyOversightBoard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
   const [stats, setStats] = useState<PatternStats>({ awaiting: 0, promoted_today: 0, dismissed_today: 0, avg_promotion_days: 0 });
+  // Pattern KPIs come from the SAME source the Pipeline uses (/rm/patterns, /rm/counts),
+  // so Daily Oversight, My Work and the Pipeline can never disagree on the numbers.
+  const [rmWithin, setRmWithin] = useState<any[]>([]);
+  const [rmAcross, setRmAcross] = useState<any[]>([]);
+  const [rmCounts, setRmCounts] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [houses, setHouses] = useState<any[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
@@ -44,13 +48,19 @@ export function DailyOversightBoard() {
 
   const loadDashboard = async () => {
     try {
-      const [dashRes, housesRes, statsRes] = await Promise.all([
+      const [dashRes, housesRes, statsRes, patRes, countsRes] = await Promise.all([
         apiClient.get("/pulses/dashboard"),
         currentUserId ? apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
         apiClient.get("/rm/pattern-stats").catch(() => ({ data: {} })),
+        apiClient.get("/rm/patterns").catch(() => ({ data: {} })),
+        apiClient.get("/rm/counts").catch(() => ({ data: {} })),
       ]);
       setData(dashRes.data.data);
       setStats(((statsRes as any).data?.data || (statsRes as any).data || {}) as PatternStats);
+      const pat = (patRes as any).data?.data || (patRes as any).data || {};
+      setRmWithin(Array.isArray(pat.within) ? pat.within : []);
+      setRmAcross(Array.isArray(pat.across) ? pat.across : []);
+      setRmCounts((countsRes as any).data?.data || (countsRes as any).data || {});
       let list = (housesRes as any).data?.data || (housesRes as any).data || [];
       if (!Array.isArray(list) || list.length === 0) {
         try { const allRes = await apiClient.get("/houses"); list = allRes.data?.data || allRes.data || []; } catch { list = []; }
@@ -62,14 +72,16 @@ export function DailyOversightBoard() {
     finally { setIsLoading(false); }
   };
 
-  // ---- derived posture ----
-  const THRESHOLD = data?.promotion_threshold ?? 3;
-  const patterns = data?.pattern_signals ?? [];
-  const isReady = (c: any) => c.signal_count >= THRESHOLD || c.has_critical;
-  const isNearly = (c: any) => !isReady(c) && c.signal_count === THRESHOLD - 1;
-  const deterioratingCount = patterns.filter((c) => c.trajectory === "Deteriorating" || c.trajectory === "Critical").length;
+  // ---- derived posture (from the Pipeline's own data, so the numbers match exactly) ----
+  // `within` = person/service patterns awaiting a decision (same set the Pipeline "Patterns"
+  // tab and /rm/counts.patterns count). `across` = systemic (cross-service) patterns.
+  const patterns = rmWithin;
+  const isReady = (c: any) => (c.signalCount >= (c.threshold ?? 3)) || c.hasCritical;
+  const isNearly = (c: any) => !isReady(c) && c.signalCount === (c.threshold ?? 3) - 1;
+  const deterioratingCount = patterns.filter((c) => c.trajectory?.dir === "Deteriorating").length;
   const nearlyCount = patterns.filter(isNearly).length;
   const readyCount = patterns.filter(isReady).length;
+  const activePatterns = Number(rmCounts?.patterns ?? patterns.length) || patterns.length;
   const openEsc = data?.open_escalations ?? 0;
   const highPriority = data?.highPriority ?? [];
   const actions = data?.actions ?? [];
@@ -92,27 +104,44 @@ export function DailyOversightBoard() {
   // "no new governance priorities today" (Chapter 2 — proportionate acknowledgement).
   const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0 || deterioratingCount > 0 || readyCount > 0;
 
+  // Per-house narration: the RM signs off ONE house at a time, so the narrative must be
+  // about THAT house's actual signals — not a service-wide summary they can't attest to.
   const generateNarrative = async () => {
+    if (!selectedHouseId) return;
     setAiBusy(true);
     try {
+      let houseSignals: any[] = [];
+      try {
+        const sres = await apiClient.get(`/pulses?house_id=${selectedHouseId}&limit=50`);
+        const raw = sres.data?.data || sres.data || [];
+        houseSignals = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
+      } catch { /* fall back to no signals */ }
+      const houseName = house?.name || "this service";
+      const signalLines = houseSignals.slice(0, 25).map((s: any) =>
+        `${s.entry_date ? new Date(s.entry_date).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
+      const houseHigh = houseSignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
+
       const [lead, brief] = await Promise.all([
         fetchClient.post("/reports/narrative", {
-          reportTitle: "Daily Governance Summary — Leadership Narrative", periodLabel: today(),
-          serviceName: house?.name, data: summaryPayload,
+          reportTitle: `Daily Governance Narrative — ${houseName}`, periodLabel: today(), serviceName: houseName,
+          data: {
+            service: houseName,
+            signals_recorded: houseSignals.length,
+            high_or_critical: houseHigh.length,
+            signals: signalLines,
+            overall_posture: houseHigh.length ? "Attention" : "Stable",
+            instruction: "Narrate the specific signals recorded at this house: what happened, for whom, severity, and the emerging governance picture. Ground every statement in the signals listed — do not generalise about the whole service.",
+          },
         }),
         materialChange ? fetchClient.post("/reports/narrative", {
-          reportTitle: "Daily Governance Team Brief",
-          periodLabel: today(), serviceName: house?.name,
-          // A concise operational briefing for Team Leaders: priorities, emerging concerns,
-          // immediate actions — no strategic/leadership commentary.
+          reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel: today(), serviceName: houseName,
           data: {
             audience: "Team Leaders",
-            style: "concise operational briefing — today's priorities, emerging concerns and immediate actions only",
-            todays_priorities: highPriority.slice(0, 5).map((s: any) => `${s.house_name}: ${s.signal_type}`),
+            style: "concise operational briefing that summarises today's signals at this house — what to watch, who, and the immediate actions",
+            service: houseName,
+            signals: signalLines,
             actions_due_today: actionsDueToday,
             escalations_awaiting_review: openEsc,
-            emerging_patterns_near_promotion: nearPromotion,
-            deteriorating_patterns: deterioratingCount,
           },
         }) : Promise.resolve(null),
       ]);
@@ -128,11 +157,11 @@ export function DailyOversightBoard() {
     finally { setAiBusy(false); }
   };
 
-  // Auto-draft once the day's data is in and nothing's typed yet.
+  // Auto-draft when the day's data is in, and re-draft when the RM switches house.
   useEffect(() => {
-    if (!isLoading && data && !dailyNote && !signedOff) generateNarrative();
+    if (!isLoading && data && selectedHouseId && !signedOff) generateNarrative();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, data]);
+  }, [isLoading, data, selectedHouseId]);
 
   const handleSignOff = async () => {
     if (!dailyNote.trim()) { toast.error("A daily governance narrative is required for sign-off."); return; }
@@ -244,7 +273,7 @@ export function DailyOversightBoard() {
 
         {/* Colour-coded KPI cards */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <KPI value={patterns.length} label="Active Patterns" tone="green" Icon={TrendingUp} />
+          <KPI value={activePatterns} label="Active Patterns" tone="green" Icon={TrendingUp} />
           <KPI value={deterioratingCount} label="Deteriorating" tone="red" Icon={Activity} />
           <KPI value={nearlyCount} label="Nearly Promotable" tone="amber" Icon={Clock} />
           <KPI value={readyCount} label="Ready to Promote" tone="blue" Icon={ChevronRight} />
@@ -344,7 +373,7 @@ export function DailyOversightBoard() {
           <h3 className="text-sm font-semibold text-foreground mb-4">What to do today</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
             <TodoCard Icon={Search} label="Review Interventions" tone="text-emerald-600" onClick={() => navigate("/interventions")} />
-            <TodoCard Icon={Shield} label="Review Systematic Strategic Oversight" tone="text-violet-600" onClick={() => navigate("/rm5")} />
+            <TodoCard Icon={Shield} label="Review Systematic Strategic Oversight" tone="text-violet-600" onClick={() => navigate("/risk-register?tab=strategic")} />
             <TodoCard Icon={AlertTriangle} label="Review Risk Register" tone="text-orange-600" onClick={() => navigate("/risk-register")} />
             <TodoCard Icon={Users} label="Review Escalations" tone="text-blue-600" onClick={() => navigate("/escalation-log")} />
             <TodoCard Icon={FileText} label="Publish / Update Weekly Review" tone="text-teal-600" onClick={() => navigate("/weekly-review")} />
@@ -424,8 +453,7 @@ export function DailyOversightBoard() {
           </div>
         </div>
 
-        {/* Governance Compliance (kept — per-staff action compliance, not duplicated above) */}
-        <GovernanceCompliancePanel />
+        {/* Governance Compliance now lives on its own page (see nav) to avoid overload here. */}
       </div>
     </div>
   );

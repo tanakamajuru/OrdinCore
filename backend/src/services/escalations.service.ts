@@ -488,18 +488,22 @@ export class EscalationsService {
   }
 
   async getEscalationStats(company_id: string) {
+    // SSOT for "open": either lifecycle or legacy status may be set, so an escalation is
+    // open unless one of them says Closed/Resolved. My Work, the nav badge and the daily
+    // board all use this identical definition so the numbers can never disagree.
+    const OPEN = `COALESCE(lifecycle_status::text, status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')`;
     const result = await query(
       `SELECT
         COUNT(*) AS total,
-        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed') AS open,
+        COUNT(*) FILTER (WHERE ${OPEN}) AS open,
         COUNT(*) FILTER (WHERE lifecycle_status = 'Open') AS new_open,
         COUNT(*) FILTER (WHERE lifecycle_status = 'Under Review') AS under_review,
         COUNT(*) FILTER (WHERE lifecycle_status = 'Actions Implemented') AS actions_implemented,
         COUNT(*) FILTER (WHERE lifecycle_status = 'Monitoring Effectiveness') AS monitoring_effectiveness,
-        COUNT(*) FILTER (WHERE lifecycle_status = 'Closed') AS closed,
-        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed' AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
-        COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed' AND (due_by IS NULL OR due_by >= NOW())) AS on_time,
-        COUNT(*) FILTER (WHERE priority = 'Critical' OR priority = 'Urgent') AS urgent_count
+        COUNT(*) FILTER (WHERE NOT (${OPEN})) AS closed,
+        COUNT(*) FILTER (WHERE ${OPEN} AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
+        COUNT(*) FILTER (WHERE ${OPEN} AND (due_by IS NULL OR due_by >= NOW())) AS on_time,
+        COUNT(*) FILTER (WHERE ${OPEN} AND (priority = 'Critical' OR priority = 'Urgent')) AS urgent_count
        FROM escalations
        WHERE company_id = $1`,
       [company_id]
