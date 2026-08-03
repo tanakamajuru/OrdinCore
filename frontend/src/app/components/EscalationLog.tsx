@@ -47,6 +47,7 @@ export function EscalationLog() {
   const [isLoading, setIsLoading] = useState(true);
   const [selectedEscalation, setSelectedEscalation] = useState<Escalation | null>(null);
   const [resolutionNotes, setResolutionNotes] = useState("");
+  const [returnToRisk, setReturnToRisk] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeTarget, setCloseTarget] = useState<{ id: string; title?: string } | null>(null);
   const notesRef = useRef<HTMLTextAreaElement>(null);
@@ -133,13 +134,17 @@ export function EscalationLog() {
     }
     setIsSubmitting(true);
     try {
-      await apiClient.post(`/escalations/${selectedEscalation.id}/resolve`, {
+      const res: any = await apiClient.post(`/escalations/${selectedEscalation.id}/resolve`, {
         resolution_notes: resolutionNotes
       });
+      const data = res?.data?.data ?? res?.data ?? {};
       toast.success('Escalation resolved');
       setSelectedEscalation(null);
       setResolutionNotes("");
       loadEscalations();
+      // Chapter 5 — closing the urgent response is NOT closing the risk. If a risk is
+      // linked, return the RM to it to decide: Close / Keep monitoring / Re-escalate.
+      if (data.linked_risk_id) setReturnToRisk(data.linked_risk_id);
     } catch (err) {
       toast.error('Failed to resolve escalation');
     } finally {
@@ -630,6 +635,24 @@ export function EscalationLog() {
         onClose={() => setCloseTarget(null)}
         onClosed={() => { setSelectedEscalation(null); loadEscalations(); }}
       />
+
+      {/* Chapter 5 — escalation closure returns to the linked risk (never ends the workflow). */}
+      {returnToRisk && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReturnToRisk(null)}>
+          <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground mb-1">The escalation has been closed</h3>
+            <p className="text-sm text-muted-foreground mb-5">Closing the urgent response does not close the underlying risk. The risk stays under oversight until there is evidence it is genuinely controlled. What next?</p>
+            <div className="space-y-2">
+              <button onClick={() => { const r = returnToRisk; setReturnToRisk(null); navigate(`/risk-register/${r}`); }}
+                className="w-full text-left px-4 py-3 rounded-lg bg-primary text-primary-foreground font-medium">Review the linked risk now</button>
+              <button onClick={() => { setReturnToRisk(null); toast.message('Risk kept under monitoring'); }}
+                className="w-full text-left px-4 py-3 rounded-lg border-2 border-border hover:bg-muted/40 text-foreground">Keep the risk under monitoring</button>
+              <button onClick={() => { const r = returnToRisk; setReturnToRisk(null); navigate(`/risk-register/${r}`); }}
+                className="w-full text-left px-4 py-3 rounded-lg border-2 border-amber-300 text-amber-700 hover:bg-amber-50">Re-escalate (open the risk to escalate again)</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

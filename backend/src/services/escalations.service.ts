@@ -212,22 +212,33 @@ export class EscalationsService {
 
     await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: id, company_id, resolved_by: user_id });
 
-    // If escalation is linked to a risk, check remaining open escalations and update risk status if appropriate
-    const riskId = escalation.rows[0].risk_id;
+    // Chapter 5 — Escalation Closure asks only "was the urgent response completed?".
+    // It must NEVER close the underlying risk. Instead it requires a return-to-risk review:
+    // flag it, so the RM is prompted to decide Close / Keep open / Re-escalate.
+    // The linked risk can come from risk_id or from the source pattern's linked risk.
+    let riskId = escalation.rows[0].risk_id as string | null;
+    if (!riskId && escalation.rows[0].source_cluster_id) {
+      const c = await query(`SELECT linked_risk_id FROM signal_clusters WHERE id = $1`, [escalation.rows[0].source_cluster_id]);
+      riskId = c.rows[0]?.linked_risk_id || null;
+    }
     if (riskId) {
+      await query(`UPDATE escalations SET post_closure_risk_review_required = TRUE WHERE id = $1`, [id]);
       const openRes = await query(`SELECT COUNT(*) FROM escalations WHERE risk_id = $1 AND status NOT IN ('Resolved','Closed')`, [riskId]);
       const openCount = parseInt(openRes.rows[0].count || '0');
       if (openCount === 0) {
         try {
+          // Return the risk to active monitoring (NOT closed) — closure is a separate,
+          // evidence-based decision made on the risk itself (Chapter 6).
           await risksRepo.updateStatus(riskId, company_id, 'Open');
-          await risksRepo.addEvent(riskId, company_id, 'escalation_resolved', `All escalations resolved for this risk`, user_id);
+          await risksRepo.addEvent(riskId, company_id, 'escalation_resolved', `Urgent response complete — risk returned to monitoring for review`, user_id);
         } catch (err) {
           console.warn('Failed to update risk status after escalation resolved:', err);
         }
       }
     }
 
-    return { message: 'Escalation resolved successfully' };
+    // Return the linked risk so the UI can offer "review the linked risk now?".
+    return { message: 'Escalation resolved successfully', linked_risk_id: riskId, post_closure_risk_review_required: !!riskId };
   }
 
   async acknowledge(id: string, company_id: string, user_id: string) {
