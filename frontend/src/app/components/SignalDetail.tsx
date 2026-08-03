@@ -45,6 +45,8 @@ export function SignalDetail() {
   const { user } = useAuth();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [activity, setActivity] = useState<any[]>([]);
+  const [markingAttention, setMarkingAttention] = useState(false);
   const [teamLeaders, setTeamLeaders] = useState<TeamLeaderOption[]>([]);
   const [reassigning, setReassigning] = useState(false);
   const [promoting, setPromoting] = useState(false);
@@ -87,8 +89,32 @@ export function SignalDetail() {
   useEffect(() => {
     if (id) {
       loadSignalDetails(id);
+      loadActivity(id);
     }
   }, [id]);
+
+  const loadActivity = async (signalId: string) => {
+    try {
+      const res: any = await apiClient.get(`/pulses/${signalId}/linked-activity`);
+      const list = res?.data?.data ?? res?.data ?? [];
+      setActivity(Array.isArray(list) ? list : []);
+    } catch { setActivity([]); }
+  };
+
+  // Chapter 4 — mark this signal for leadership attention (visibility marker, not severity).
+  const canMarkAttention = ["TEAM_LEADER", "REGISTERED_MANAGER", "DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "ADMIN", "SUPER_ADMIN"].includes(String(user?.role || "").toUpperCase());
+  const markAttention = async () => {
+    if (!signal) return;
+    const reason = window.prompt("Why does this signal need leadership attention? (a short sentence)");
+    if (!reason || reason.trim().length < 10) { if (reason !== null) toast.error("Please give a clear reason (at least a short sentence)."); return; }
+    setMarkingAttention(true);
+    try {
+      await apiClient.post(`/pulses/${signal.id}/leadership-attention`, { reason: reason.trim() });
+      toast.success("Flagged for leadership attention");
+      loadSignalDetails(signal.id);
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to flag"); }
+    finally { setMarkingAttention(false); }
+  };
 
   useEffect(() => {
     if (!canAllocate) return;
@@ -426,6 +452,47 @@ export function SignalDetail() {
                 )}
               </div>
             )}
+
+            {/* Chapter 4 — leadership attention marker + Linked Governance Activity */}
+            <div className="mt-8 border-t border-border pt-6">
+              <div className="flex items-center justify-between gap-3 mb-4">
+                <div className="flex items-center gap-2">
+                  <h3 className="text-lg font-semibold text-foreground">Linked Governance Activity</h3>
+                  {(signal as any).leadership_attention && (
+                    <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Leadership attention</span>
+                  )}
+                </div>
+                {canMarkAttention && !(signal as any).leadership_attention && (
+                  <button onClick={markAttention} disabled={markingAttention}
+                    className="text-sm text-amber-700 border border-amber-300 rounded-lg px-3 py-1.5 hover:bg-amber-50 disabled:opacity-50">
+                    {markingAttention ? "Flagging…" : "Flag for leadership attention"}
+                  </button>
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground mb-4">This signal remains the permanent evidence record. Every later governance record extends its history — nothing replaces it.</p>
+              {activity.length === 0 ? (
+                <p className="text-sm text-muted-foreground">No linked governance records yet. Decisions, tasks, patterns, risks and escalations created from this signal will appear here.</p>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-sm">
+                    <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border">
+                      <th className="py-2 pr-3">Record</th><th className="pr-3">Relationship</th><th className="pr-3">Detail</th><th className="pr-3">Status</th><th>When</th>
+                    </tr></thead>
+                    <tbody>
+                      {activity.map((a: any, i: number) => (
+                        <tr key={i} className={`border-b border-border/50 ${a.link ? "cursor-pointer hover:bg-muted/40" : ""}`} onClick={() => a.link && navigate(a.link)}>
+                          <td className="py-2.5 pr-3 font-medium text-foreground whitespace-nowrap">{a.record}</td>
+                          <td className="pr-3 text-muted-foreground whitespace-nowrap">{a.relationship}</td>
+                          <td className="pr-3 text-foreground">{a.label}</td>
+                          <td className="pr-3 whitespace-nowrap">{a.status}</td>
+                          <td className="text-muted-foreground whitespace-nowrap">{a.at ? new Date(a.at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
         </div>
       </div>
     </div>

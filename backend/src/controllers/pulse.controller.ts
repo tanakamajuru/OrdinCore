@@ -139,6 +139,33 @@ export class PulseController {
         }
     }
 
+    // Chapter 4 — mark a signal for leadership attention (a visibility marker, not severity).
+    async markLeadershipAttention(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { reason } = req.body || {};
+            const { governanceWorkflowService } = await import('../services/governanceWorkflow.service');
+            const updated = await governanceWorkflowService.markLeadershipAttention(company_id, id, req.user!.user_id, reason);
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
+    // Chapter 4 — the Linked Governance Activity for a signal (its permanent history).
+    async linkedActivity(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { governanceWorkflowService } = await import('../services/governanceWorkflow.service');
+            const timeline = await governanceWorkflowService.signalTimeline(company_id, id);
+            res.json({ success: true, data: timeline, meta: {} });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async reassignSignal(req: Request, res: Response) {
         try {
             const { id } = req.params;

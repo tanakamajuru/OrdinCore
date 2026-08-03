@@ -85,6 +85,9 @@ router.patch('/:id/note', requireAuth, requireTenant, requireRole('SUPPORT_WORKE
 
 // Support Worker / Team Leader escalate a signal up to their Team Leader (or RM).
 router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER'), pulseController.escalateToTeamLeader.bind(pulseController));
+// Chapter 4 — leadership-attention marker + the signal's Linked Governance Activity.
+router.post('/:id/leadership-attention', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.markLeadershipAttention.bind(pulseController));
+router.get('/:id/linked-activity', requireAuth, requireTenant, pulseController.linkedActivity.bind(pulseController));
 
 // Alias for singular /pulse to reuse existing /pulses logic
 router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));
