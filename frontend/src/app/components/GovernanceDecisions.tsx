@@ -12,13 +12,14 @@ const DECISIONS = ["Create Action", "Monitor", "Escalate", "Close"] as const;
 // Chapter 3 — Governance Decisions: the leadership decisions recorded during the Daily
 // Governance Review. "Create Action" generates a linked, lineage-carrying task for a
 // Team Leader in the existing task system.
-export function GovernanceDecisions({ houseId }: { houseId?: string }) {
+export function GovernanceDecisions({ houseId, signals = [], patterns = [] }: { houseId?: string; signals?: any[]; patterns?: any[] }) {
   const [owners, setOwners] = useState<any[]>([]);
   const [todayList, setTodayList] = useState<any[]>([]);
   const [yList, setYList] = useState<any[]>([]);
   const [ySummary, setYSummary] = useState<any>(null);
   const [busy, setBusy] = useState(false);
-  const [form, setForm] = useState({ what: "", decision: "Create Action" as string, owner_id: "", due_at: "" });
+  // `source` is "service" | "signal:<id>" | "pattern:<id>" — pins the decision's lineage.
+  const [form, setForm] = useState({ what: "", decision: "Create Action" as string, owner_id: "", due_at: "", source: "service" });
 
   const loadOwners = async () => {
     try {
@@ -46,8 +47,11 @@ export function GovernanceDecisions({ houseId }: { houseId?: string }) {
     if (!houseId) { toast.error("Choose the service this decision concerns."); return; }
     setBusy(true);
     try {
+      const [kind, sid] = form.source.split(":");
       await apiClient.post("/governance-decisions", {
         house_id: houseId,
+        pulse_entry_id: kind === "signal" ? sid : null,
+        cluster_id: kind === "pattern" ? sid : null,
         what_is_happening: form.what.trim(),
         decision: form.decision,
         owner_id: form.owner_id || null,
@@ -55,7 +59,7 @@ export function GovernanceDecisions({ houseId }: { houseId?: string }) {
         action_description: form.what.trim(),
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — task assigned" : "Decision recorded");
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "service" });
       loadDecisions();
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to record decision"); }
     finally { setBusy(false); }
@@ -106,6 +110,20 @@ export function GovernanceDecisions({ houseId }: { houseId?: string }) {
         <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2}
           placeholder="Leadership decision — e.g. Complete a medication audit at this service"
           className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+        {(signals.length > 0 || patterns.length > 0) && (
+          <div>
+            <label className="text-[11px] text-muted-foreground">About (optional — links this decision to its source)</label>
+            <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+              <option value="service">This service (general)</option>
+              {signals.length > 0 && <optgroup label="Signals">
+                {signals.slice(0, 12).map((s: any) => <option key={s.id} value={`signal:${s.id}`}>{(s.signal_type || s.governance_domain || "Signal")}{s.related_person ? ` · ${s.related_person}` : ""} — {(s.description || "").slice(0, 40)}</option>)}
+              </optgroup>}
+              {patterns.length > 0 && <optgroup label="Patterns">
+                {patterns.slice(0, 12).map((p: any) => <option key={p.id} value={`pattern:${p.id}`}>{p.cluster_label || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern"}{p.linked_person ? ` · ${p.linked_person}` : ""}</option>)}
+              </optgroup>}
+            </select>
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
             {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}

@@ -355,7 +355,7 @@ export function DailyOversightBoard() {
         </div>
 
         {/* Governance Decisions — the review that generates management work (Ch3) */}
-        <GovernanceDecisions houseId={selectedHouseId} />
+        <GovernanceDecisions houseId={selectedHouseId} signals={highPriority} patterns={patterns} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

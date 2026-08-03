@@ -81,7 +81,16 @@ export function SystemicPatterns() {
                       <td className="py-3 px-4 font-medium text-foreground">{p.domain}{p.person && p.person !== "—" ? <span className="text-muted-foreground font-normal"> · {p.person}</span> : null}
                         {p.last_reviewed_at && <div className="text-[11px] text-muted-foreground font-normal">Reviewed {new Date(p.last_reviewed_at).toLocaleDateString("en-GB")}{p.review_outcome ? ` · ${p.review_outcome}` : ""}</div>}
                       </td>
-                      <td className="px-3 text-muted-foreground">{Array.isArray(houses) ? houses.length : 0}{Array.isArray(houses) && houses.length ? <span className="text-[11px]"> ({houses.slice(0, 3).join(", ")}{houses.length > 3 ? "…" : ""})</span> : ""}</td>
+                      <td className="px-3 text-muted-foreground">
+                        {Array.isArray(houses) ? houses.length : 0}{Array.isArray(houses) && houses.length ? <span className="text-[11px]"> ({houses.slice(0, 3).join(", ")}{houses.length > 3 ? "…" : ""})</span> : ""}
+                        <div className="text-[10px] text-indigo-600 mt-0.5">
+                          {[
+                            (Array.isArray(houses) && houses.length >= 2) ? `${houses.length} services` : null,
+                            (p.days_open != null && p.days_open >= 28) ? `persists ${p.days_open}d` : (p.days_open != null ? `${p.days_open}d` : null),
+                            (p.escalation_count > 0) ? `${p.escalation_count} escalation${p.escalation_count === 1 ? "" : "s"}` : null,
+                          ].filter(Boolean).join(" · ")}
+                        </div>
+                      </td>
                       <td className="px-3"><span className="inline-flex items-center gap-1 font-medium" style={{ color: t.color }}><t.Icon size={15} />{t.label}</span></td>
                       <td className="px-3 text-foreground">{p.signalCount}</td>
                       <td className="px-3">{p.promotedRiskId ? <button onClick={() => navigate(`/risk-register/${p.promotedRiskId}`)} className="text-primary hover:underline inline-flex items-center gap-0.5">View risk <ChevronRight size={13} /></button> : <span className="text-muted-foreground">—</span>}</td>
