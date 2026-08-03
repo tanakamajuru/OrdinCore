@@ -23,6 +23,7 @@ import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
 import { Rm5Interface } from "./components/Rm5Interface";
 import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
+import { SystemicPatterns } from "./components/SystemicPatterns";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -111,6 +112,11 @@ export default function App() {
           <Route path="/my-work" element={
             <ProtectedRoute>
               <MyWork />
+            </ProtectedRoute>
+          } />
+          <Route path="/systemic-patterns" element={
+            <ProtectedRoute>
+              <SystemicPatterns />
             </ProtectedRoute>
           } />
           <Route path="/super-admin" element={

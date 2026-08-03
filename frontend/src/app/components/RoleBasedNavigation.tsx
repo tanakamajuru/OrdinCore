@@ -90,6 +90,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Assurance", icon: Home },
+          { path: "/systemic-patterns", label: "Systemic Patterns", icon: Layers },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/interventions", label: "Intervention Progress", icon: Target },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
@@ -104,6 +105,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
+          { path: "/systemic-patterns", label: "Systemic Patterns", icon: Layers },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/interventions", label: "Intervention Progress", icon: Target },
           { path: "/risk-register", label: "Oversight Register", icon: AlertTriangle },
