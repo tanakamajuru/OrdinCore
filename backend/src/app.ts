@@ -47,6 +47,7 @@ import effectivenessRoutes from './routes/effectiveness.routes';
 import governanceConfigRoutes from './routes/governanceConfig.routes';
 import frozenReportsRoutes from './reporting/routes/frozen-reports.routes';
 import myWorkRoutes from './routes/myWork.routes';
+import governanceDecisionsRoutes from './routes/governanceDecisions.routes';
 
 
 
@@ -161,6 +162,7 @@ app.use(`${API}/effectiveness`, effectivenessRoutes);
 app.use(`${API}/governance-config`, governanceConfigRoutes);
 app.use(`${API}/frozen-reports`, frozenReportsRoutes);
 app.use(`${API}/my-work`, myWorkRoutes);
+app.use(`${API}/governance-decisions`, governanceDecisionsRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────

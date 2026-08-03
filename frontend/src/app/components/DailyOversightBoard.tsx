@@ -10,6 +10,7 @@ import apiClient from "@/services/apiClient";
 import { apiClient as fetchClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
+import { GovernanceDecisions } from "./GovernanceDecisions";
 
 interface DashboardData {
   highPriority: any[]; pattern_signals: any[]; risk_candidates: any[]; actions: any[];
@@ -352,6 +353,9 @@ export function DailyOversightBoard() {
             <TodoCard Icon={PlusCircle} label="Record New Signal" tone="text-slate-600" onClick={() => navigate("/governance-pulse")} />
           </div>
         </div>
+
+        {/* Governance Decisions — the review that generates management work (Ch3) */}
+        <GovernanceDecisions houseId={selectedHouseId} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
