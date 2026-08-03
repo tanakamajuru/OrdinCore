@@ -66,6 +66,17 @@ export class EscalationsController {
     }
   }
 
+  async addTask(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const task = await escalationsService.addTask(req.params.id, company_id, req.user!.user_id, req.body);
+      return res.status(201).json({ success: true, data: task, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to add task';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async getActions(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

@@ -487,6 +487,29 @@ export class EscalationsService {
     return { message: `Escalated to ${niceRole}.` };
   }
 
+  // Add an assignable task (risk_action) from an escalation — WITH or WITHOUT a linked
+  // risk. The task carries the escalation's house + source lineage, so a control/action can
+  // be assigned for effectiveness even when the escalation isn't yet tied to a formal risk.
+  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string }) {
+    const e = (await query(`SELECT id, house_id, risk_id, source_governance_review_id, source_pulse_id, source_cluster_id, reason FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
+    if (!e) throw new Error('Escalation not found');
+    const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
+    if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
+    const actionId = uuidv4();
+    const r = await query(
+      `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by,
+         status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
+      [actionId, e.risk_id || null, company_id, e.house_id || null, title, title, body.assigned_to, body.due_date || null, user_id,
+       e.source_governance_review_id || null, e.source_pulse_id || null, e.source_cluster_id || null, body.intended_outcome || null]
+    );
+    try {
+      const { notificationsService } = await import('./notifications.service');
+      await notificationsService.create({ company_id, user_id: body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });
+    } catch { /* best-effort */ }
+    return r.rows[0];
+  }
+
   async getEscalationStats(company_id: string) {
     // SSOT for "open": either lifecycle or legacy status may be set, so an escalation is
     // open unless one of them says Closed/Resolved. My Work, the nav badge and the daily

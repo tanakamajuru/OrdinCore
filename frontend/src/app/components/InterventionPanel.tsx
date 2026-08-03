@@ -201,13 +201,14 @@ export function InterventionPanel() {
                     <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
                       {intv ? "Update intervention" : "Set intervention"}
                     </button>
-                    {intv?.linked_risk_id && (
-                      <button onClick={() => navigate(`/risk-register/${intv.linked_risk_id}`)}
-                        title="Open the risk to complete the action and rate its effectiveness"
-                        className="text-sm font-medium text-primary-foreground bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 flex items-center gap-1 whitespace-nowrap">
-                        Action <ArrowRight className="w-4 h-4" />
-                      </button>
-                    )}
+                    {/* Action button is always available — open the linked risk if there is one,
+                        otherwise the Risk Register filtered to this theme to add controls/actions. */}
+                    <button
+                      onClick={() => navigate(intv?.linked_risk_id ? `/risk-register/${intv.linked_risk_id}` : `/risk-register?theme=${encodeURIComponent(t.theme)}`)}
+                      title={intv?.linked_risk_id ? "Open the risk to complete the action and rate its effectiveness" : "Open the register for this theme to add a control/action"}
+                      className="text-sm font-medium text-primary-foreground bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 flex items-center gap-1 whitespace-nowrap">
+                      Action <ArrowRight className="w-4 h-4" />
+                    </button>
                   </div>
                 </div>
               );

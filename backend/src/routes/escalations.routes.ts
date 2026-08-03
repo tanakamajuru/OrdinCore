@@ -76,6 +76,8 @@ router.get('/:id', requireAuth, requireTenant, escalationsController.findById.bi
  *         description: Success
  */
 router.post('/:id/actions', requireAuth, requireTenant, escalationsController.addAction.bind(escalationsController));
+// Assign a task from an escalation (works with or without a linked risk).
+router.post('/:id/task', requireAuth, requireTenant, escalationsController.addTask.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}/actions:

@@ -69,22 +69,22 @@ export function EscalationLog() {
   }, []);
 
   const allocateTask = async () => {
-    if (!selectedEscalation?.risk_id) { toast.error('This escalation has no linked risk to attach an action to.'); return; }
+    if (!selectedEscalation) return;
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
     if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
     setAssigningTask(true);
     try {
-      await apiClient.post(`/risks/${selectedEscalation.risk_id}/action`, {
+      // Works whether or not the escalation has a linked risk — the task carries the
+      // escalation's house + lineage so it can be tracked for effectiveness.
+      await apiClient.post(`/escalations/${selectedEscalation.id}/task`, {
         title: taskForm.title.trim(),
-        description: taskForm.title.trim(),
-        status: 'Pending',
         assigned_to: taskForm.assigned_to,
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
       });
-      toast.success('Action allocated — it now appears in their My Actions.');
+      toast.success('Task allocated — it now appears in their My Actions.');
       setTaskForm({ title: "", assigned_to: "", due_date: "" });
     } catch (e: any) {
-      toast.error(e?.data?.message || e?.message || 'Could not allocate the action.');
+      toast.error(e?.response?.data?.message || e?.message || 'Could not allocate the task.');
     } finally { setAssigningTask(false); }
   };
 
@@ -316,8 +316,8 @@ export function EscalationLog() {
                     <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
                   </div>
 
-                  <h3 className="text-lg  text-foreground mb-2">{esc.risk_title}</h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2">{esc.reason}</p>
+                  <h3 className="text-lg text-foreground mb-2">{esc.risk_title || "Governance concern"}</h3>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-3 break-words whitespace-pre-wrap">{esc.reason}</p>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border">
                     <div className="text-xs text-muted-foreground">
@@ -373,9 +373,9 @@ export function EscalationLog() {
                     </div>
 
                     <div>
-                      <label className="text-xs  uppercase text-muted-foreground block mb-1">Escalation Reason</label>
-                      <div className="bg-muted border-l-4 border-primary p-3 text-sm  text-foreground">
-                        "{selectedEscalation.reason}"
+                      <label className="text-xs  uppercase text-muted-foreground block mb-1">Governance Concern</label>
+                      <div className="bg-muted border-l-4 border-primary p-3 text-sm text-foreground whitespace-pre-wrap break-words">
+                        {selectedEscalation.reason}
                       </div>
                     </div>
 
@@ -398,7 +398,7 @@ export function EscalationLog() {
                           )}
                         </div>
                         {selectedEscalation.observation && (
-                          <p className="text-sm text-foreground">{selectedEscalation.observation}</p>
+                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{selectedEscalation.observation}</p>
                         )}
                         {selectedEscalation.signal_immediate_action && (
                           <div className="mt-2 text-xs text-muted-foreground">
@@ -527,44 +527,40 @@ export function EscalationLog() {
                             linked risk, so it lands in that person's My Actions and ages on the
                             overdue ladder. */}
                         <div className="pt-4 border-t border-border">
-                          <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5 mb-2">Allocate an action</label>
-                          {selectedEscalation.risk_id ? (
-                            <div className="space-y-2">
-                              <input
-                                value={taskForm.title}
-                                onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                                placeholder="What needs doing?"
-                                className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                              />
-                              <div className="flex flex-col sm:flex-row gap-2">
-                                <select
-                                  value={taskForm.assigned_to}
-                                  onChange={(e) => setTaskForm({ ...taskForm, assigned_to: e.target.value })}
-                                  className="flex-1 bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
-                                >
-                                  <option value="">Responsible person…</option>
-                                  {assignees.map((u) => (
-                                    <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || '').replace(/_/g, ' ').toLowerCase()})</option>
-                                  ))}
-                                </select>
-                                <input
-                                  type="date"
-                                  value={taskForm.due_date}
-                                  onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
-                                  className="bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
-                                />
-                              </div>
-                              <button
-                                onClick={allocateTask}
-                                disabled={assigningTask || !taskForm.title.trim() || !taskForm.assigned_to}
-                                className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+                          <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5 mb-2">Allocate a task {!selectedEscalation.risk_id && <span className="normal-case text-[10px] text-muted-foreground">(no linked risk — assigns a tracked task)</span>}</label>
+                          <div className="space-y-2">
+                            <input
+                              value={taskForm.title}
+                              onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
+                              placeholder="What needs doing? (e.g. review controls, complete competency check)"
+                              className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <div className="flex flex-col sm:flex-row gap-2">
+                              <select
+                                value={taskForm.assigned_to}
+                                onChange={(e) => setTaskForm({ ...taskForm, assigned_to: e.target.value })}
+                                className="flex-1 bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
                               >
-                                {assigningTask ? 'Allocating…' : 'Allocate action'}
-                              </button>
+                                <option value="">Responsible person…</option>
+                                {assignees.map((u) => (
+                                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || '').replace(/_/g, ' ').toLowerCase()})</option>
+                                ))}
+                              </select>
+                              <input
+                                type="date"
+                                value={taskForm.due_date}
+                                onChange={(e) => setTaskForm({ ...taskForm, due_date: e.target.value })}
+                                className="bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
+                              />
                             </div>
-                          ) : (
-                            <p className="text-xs text-muted-foreground">This escalation has no linked risk, so an action can't be attached here yet.</p>
-                          )}
+                            <button
+                              onClick={allocateTask}
+                              disabled={assigningTask || !taskForm.title.trim() || !taskForm.assigned_to}
+                              className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
+                            >
+                              {assigningTask ? 'Allocating…' : 'Allocate task'}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     )}

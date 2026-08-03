@@ -298,9 +298,9 @@ export function DailyOversightBoard() {
             ) : (
               <div className="space-y-2 mb-4">
                 {highPriority.slice(0, 4).map((s: any) => (
-                  <button key={s.id} onClick={() => navigate(`/signals/${s.id}`)} className="w-full text-left flex items-center justify-between gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary">
-                    <div className="min-w-0"><div className="text-sm font-medium text-foreground truncate">{s.house_name} – {s.signal_type}</div><p className="text-xs text-muted-foreground line-clamp-1">{s.description}</p></div>
-                    <ChevronRight size={16} className="text-primary shrink-0" />
+                  <button key={s.id} onClick={() => navigate(`/signals/${s.id}`)} className="w-full text-left flex items-start justify-between gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary">
+                    <div className="min-w-0 flex-1"><div className="text-sm font-medium text-foreground">{s.house_name} – {s.signal_type}</div><p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words">{s.description}</p></div>
+                    <ChevronRight size={16} className="text-primary shrink-0 mt-0.5" />
                   </button>
                 ))}
               </div>
