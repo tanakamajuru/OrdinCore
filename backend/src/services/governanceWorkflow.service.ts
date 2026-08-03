@@ -95,4 +95,53 @@ export const governanceWorkflowService = {
     rows.sort((a, b) => new Date(a.at).getTime() - new Date(b.at).getTime());
     return rows;
   },
+
+  // Chapter 7 — a Pattern Review is about the pattern (recurrence, trajectory), not one
+  // signal. It records an outcome and, only when the linked risk/escalations are resolved,
+  // permits pattern closure. The pattern is the last thing to close (organisational memory).
+  async assessPatternClosure(company_id: string, cluster_id: string) {
+    const blockers: string[] = [];
+    const c = (await query(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2`, [cluster_id, company_id])).rows[0];
+    if (!c) throw new Error('Pattern not found.');
+    if (c.linked_risk_id) {
+      const active = await query(
+        `SELECT 1 FROM risks WHERE id = $1 AND company_id = $2 AND status NOT IN ('Closed','Resolved') LIMIT 1`,
+        [c.linked_risk_id, company_id]
+      );
+      if (active.rows[0]) blockers.push('The linked risk remains active.');
+    }
+    const openEsc = await query(
+      `SELECT COUNT(*)::int AS n FROM escalations
+        WHERE company_id = $1 AND source_cluster_id = $2 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved')`,
+      [company_id, cluster_id]
+    );
+    if (openEsc.rows[0].n > 0) blockers.push('A linked escalation remains open.');
+    return { eligible: blockers.length === 0, blockers };
+  },
+
+  async reviewPattern(company_id: string, cluster_id: string, user_id: string, outcome: string, rationale: string, nextReviewDate?: string) {
+    const OUTCOMES = ['Continue Monitoring', 'Improving', 'Stable', 'Deteriorating', 'Promote to Risk', 'Escalate', 'Close'];
+    if (!OUTCOMES.includes(outcome)) throw new Error('Choose a valid review outcome.');
+    if (!rationale || rationale.trim().length < 20) throw new Error('Pattern review requires a meaningful rationale (at least a sentence).');
+
+    if (outcome === 'Close') {
+      const closure = await this.assessPatternClosure(company_id, cluster_id);
+      if (!closure.eligible) throw new Error(`Pattern cannot close: ${closure.blockers.join(' ')}`);
+    }
+
+    const result = await query(
+      `UPDATE signal_clusters
+          SET last_reviewed_at = NOW(), last_reviewed_by = $1, next_review_date = $2,
+              review_outcome = $3,
+              closure_reason = CASE WHEN $3 = 'Close' THEN $4 ELSE closure_reason END,
+              closed_at = CASE WHEN $3 = 'Close' THEN NOW() ELSE closed_at END,
+              closed_by = CASE WHEN $3 = 'Close' THEN $1 ELSE closed_by END,
+              cluster_status = CASE WHEN $3 = 'Close' THEN 'Resolved' ELSE cluster_status END,
+              updated_at = NOW()
+        WHERE id = $5 AND company_id = $6 RETURNING *`,
+      [user_id, nextReviewDate || null, outcome, rationale.trim(), cluster_id, company_id]
+    );
+    if (!result.rows[0]) throw new Error('Pattern not found.');
+    return result.rows[0];
+  },
 };

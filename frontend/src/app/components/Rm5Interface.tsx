@@ -126,6 +126,24 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
     }
   };
 
+  // Chapter 7 — Pattern Review (about the pattern's recurrence/trajectory, not one signal).
+  const [reviewTarget, setReviewTarget] = useState<any>(null);
+  const [reviewOutcome, setReviewOutcome] = useState("Continue Monitoring");
+  const [reviewRationale, setReviewRationale] = useState("");
+  const [reviewBusy, setReviewBusy] = useState(false);
+  const openReview = (p: any) => { setReviewTarget(p); setReviewOutcome("Continue Monitoring"); setReviewRationale(""); };
+  const submitReview = async () => {
+    if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    setReviewBusy(true);
+    try {
+      await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim() });
+      toast.success("Pattern review recorded");
+      setReviewTarget(null);
+      setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
+    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
+    finally { setReviewBusy(false); }
+  };
+
   const lensTotalPages = Math.max(1, Math.ceil(lens.length / PAGE));
   const lensPageSafe = Math.min(lensPage, lensTotalPages);
   const pagedLens = lens.slice((lensPageSafe - 1) * PAGE, lensPageSafe * PAGE);
@@ -212,19 +230,41 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         {!loading && screen === "pipeline" && stage === "patterns" && (
           <div>
             <GovHead q="Which patterns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
+            <p className="text-xs text-muted-foreground mb-3">Cross-Service Patterns identify recurring governance concerns across people, teams, houses and services — trends that may not be visible when reviewing individual signals alone. Review a pattern to record its trajectory; it stays as governance memory until it is genuinely resolved.</p>
             <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
-              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} />)}
+              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
             </div>
             <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
             <h2 className="text-sm font-semibold text-foreground mb-1 mt-6 flex items-center gap-2"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
             <p className="text-xs text-muted-foreground mb-2">The same theme in more than one service — what an inspector means by systemic.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {acrossList.length === 0 && <p className="text-sm text-muted-foreground">No cross-service patterns detected.</p>}
-              {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} />)}
+              {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
             </div>
             <Pager page={acrossSafe} pages={acrossPages} total={acrossList.length} onPage={setPatAPage} />
+
+            {/* Chapter 7 — Pattern Review modal (records trajectory/closure of the pattern). */}
+            {reviewTarget && (
+              <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReviewTarget(null)}>
+                <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
+                  <h3 className="text-lg font-semibold text-foreground mb-1">Pattern Review</h3>
+                  <p className="text-xs text-muted-foreground mb-4">{reviewTarget.domain}{reviewTarget.person && reviewTarget.person !== "—" ? ` · ${reviewTarget.person}` : ""} — is this pattern improving, and is escalation still justified?</p>
+                  <label className="block text-sm font-medium mb-1">Outcome</label>
+                  <select value={reviewOutcome} onChange={(e) => setReviewOutcome(e.target.value)} className="w-full mb-3 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                    {["Continue Monitoring", "Improving", "Stable", "Deteriorating", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
+                  </select>
+                  {reviewOutcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A pattern can only close once its linked risk and escalations are resolved — it is the last thing to close.</p>}
+                  <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
+                  <textarea value={reviewRationale} onChange={(e) => setReviewRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the evidence show since the last review?" />
+                  <div className="flex justify-end gap-3 mt-4">
+                    <button onClick={() => setReviewTarget(null)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
+                    <button onClick={submitReview} disabled={reviewBusy || reviewRationale.trim().length < 20} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{reviewBusy ? "Saving…" : "Record review"}</button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Dismissed patterns — the audit trail: what was set aside, by whom, when and why. */}
             <div className="mt-8 border-t border-border pt-4">
@@ -310,7 +350,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   );
 }
 
-function PatternCard({ p, onPromote, onDismiss }: { p: any; onPromote: (p: any) => void; onDismiss?: (p: any) => void }) {
+function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote: (p: any) => void; onDismiss?: (p: any) => void; onReview?: (p: any) => void }) {
   const ready = p.signalCount >= p.threshold || p.hasCritical;
   // Open a pattern to read the signals that formed it, before deciding. Fetched lazily on first
   // expand so the board stays light.
@@ -354,9 +394,13 @@ function PatternCard({ p, onPromote, onDismiss }: { p: any; onPromote: (p: any) 
             ))}
         </div>
       )}
+      {p.last_reviewed_at && (
+        <p className="text-[11px] text-muted-foreground mb-1">Last reviewed {new Date(p.last_reviewed_at).toLocaleDateString("en-GB")}{p.review_outcome ? ` · ${p.review_outcome}` : ""}</p>
+      )}
       {p.promotedRiskId ? (
         <div className="flex gap-2">
           <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary bg-primary/10 rounded px-2.5 py-1.5 hover:bg-primary/20">View risk</button>
+          {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
         </div>
       ) : ready ? (
         <div className="flex gap-2">
@@ -366,6 +410,7 @@ function PatternCard({ p, onPromote, onDismiss }: { p: any; onPromote: (p: any) 
       ) : (
         <div className="flex gap-2">
           <button disabled className="flex-1 text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
+          {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
           {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
         </div>
       )}
