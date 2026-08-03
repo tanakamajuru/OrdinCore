@@ -5,6 +5,7 @@ import { useApi } from '@/api/useApi';
 import { Screen, Loading } from '@/components/ui';
 import { SyncStatus } from '@/components/SyncStatus';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
+import { TeamBriefBanner } from '@/components/TeamBriefBanner';
 import { BoardHeader, Metrics, SectionTitle, StatusList, BoardButton, BoardItem, Tone } from '@/components/board';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || []);
@@ -42,6 +43,7 @@ export function TLMorningMeetingScreen() {
   return (
     <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); esc.refetch(); act.refetch(); risk.refetch(); }}>
       <BoardHeader title="Morning Meeting" subtitle={`${house} · ${dateLine()}`} />
+      <TeamBriefBanner />
       <OutstandingBanner onPress={() => nav.navigate('Actions')} />
       <SyncStatus />
       <Metrics items={[
