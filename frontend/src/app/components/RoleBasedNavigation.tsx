@@ -64,7 +64,8 @@ export function RoleBasedNavigation() {
         return [
           { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
           { path: "/admin-users", label: "Users", icon: Users },
-          { path: "/admin/houses", label: "Services", icon: Home },
+          { path: "/admin/houses", label: "Sites", icon: Home },
+          { path: "/org-structure", label: "Org Structure", icon: Building2 },
           { path: "/service-users", label: "Service Users", icon: Users },
           { path: "/governance-config", label: "Governance Config", icon: ClipboardList },
         ];

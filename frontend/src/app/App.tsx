@@ -24,6 +24,7 @@ import { Rm5Interface } from "./components/Rm5Interface";
 import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
 import { SystemicPatterns } from "./components/SystemicPatterns";
+import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -117,6 +118,11 @@ export default function App() {
           <Route path="/systemic-patterns" element={
             <ProtectedRoute>
               <SystemicPatterns />
+            </ProtectedRoute>
+          } />
+          <Route path="/org-structure" element={
+            <ProtectedRoute>
+              <OrgStructureAdmin />
             </ProtectedRoute>
           } />
           <Route path="/super-admin" element={

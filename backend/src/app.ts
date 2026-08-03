@@ -49,6 +49,7 @@ import frozenReportsRoutes from './reporting/routes/frozen-reports.routes';
 import myWorkRoutes from './routes/myWork.routes';
 import governanceDecisionsRoutes from './routes/governanceDecisions.routes';
 import governanceWorkflowRoutes from './routes/governanceWorkflow.routes';
+import orgStructureRoutes from './routes/orgStructure.routes';
 
 
 
@@ -165,6 +166,7 @@ app.use(`${API}/frozen-reports`, frozenReportsRoutes);
 app.use(`${API}/my-work`, myWorkRoutes);
 app.use(`${API}/governance-decisions`, governanceDecisionsRoutes);
 app.use(`${API}/governance-workflow`, governanceWorkflowRoutes);
+app.use(`${API}/org-structure`, orgStructureRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
