@@ -74,6 +74,7 @@ export function RoleBasedNavigation() {
         // the pipeline ribbon; Escalations via the risk and /escalation-log (deep links
         // survive — nothing is route-deleted).
         return [
+          { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/rm5", label: "Pipeline", icon: Layers },
           { path: "/governance-dashboard", label: "Daily Oversight", icon: ShieldCheck },
           { path: "/risk-register", label: "Risk Register", icon: AlertTriangle },
@@ -87,6 +88,7 @@ export function RoleBasedNavigation() {
         ];
       case "RESPONSIBLE_INDIVIDUAL":
         return [
+          { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Assurance", icon: Home },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/interventions", label: "Intervention Progress", icon: Target },
@@ -100,6 +102,7 @@ export function RoleBasedNavigation() {
         ];
       case "DIRECTOR":
         return [
+          { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Strategic Dashboard", icon: Home },
           { path: "/effectiveness", label: "Effectiveness", icon: TrendingUp },
           { path: "/interventions", label: "Intervention Progress", icon: Target },
@@ -113,6 +116,7 @@ export function RoleBasedNavigation() {
         ];
       case "TEAM_LEADER":
         return [
+          { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Dashboard", icon: Home },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
