@@ -311,6 +311,7 @@ router.patch('/:id/actions/:actionId/status', requireAuth, requireTenant, risksC
 // Reassign an open action to a different Team Leader — a deliberate, recorded RM/Admin act (Finding F).
 router.patch('/:id/actions/:actionId/assignee', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), risksController.reassignAction.bind(risksController));
 // Close a risk with an evidence-gated resolution verdict + 60-day recurrence window (Finding B).
+router.get('/:id/closure-review', requireAuth, requireTenant, risksController.closureReview.bind(risksController));
 router.post('/:id/close', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), risksController.closeRisk.bind(risksController));
 /**
  * @openapi

@@ -399,6 +399,58 @@ export class RisksService {
   // Finding B — evidence-gated closure. A risk closes only with a verdict + rationale;
   // "controls effective" is refused unless a control was actually rated effective, and a
   // 60-day recurrence window is stamped (read by recurrenceWatch.worker).
+  // Chapter 6 — the four-question Risk Review, derived from evidence. Closure can NEVER
+  // come from task completion alone; it comes from a deliberate review that asks whether
+  // the underlying risk has genuinely reduced. Returns the four answers + blockers.
+  async closureReview(risk_id: string, company_id: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+
+    const actions = (await query(
+      `SELECT COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS open,
+              COUNT(*)::int AS total FROM risk_actions WHERE risk_id = $1`, [risk_id]
+    )).rows[0];
+    const eff = (await query(
+      `SELECT COUNT(*) FILTER (WHERE effectiveness_outcome IN ('Effective','Partially Effective') OR effectiveness IN ('Effective','Neutral'))::int AS rated_ok,
+              COUNT(*) FILTER (WHERE effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)::int AS rated
+         FROM risk_actions WHERE risk_id = $1`, [risk_id]
+    )).rows[0];
+    const openEsc = (await query(
+      `SELECT COUNT(*)::int AS n FROM escalations WHERE risk_id = $1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved')`, [risk_id]
+    )).rows[0];
+    // Recent vs prior signal frequency for the person/service → trajectory + recurrence.
+    const person = (risk.linked_person || risk.related_person || null) as string | null;
+    const freq = (await query(
+      `SELECT COUNT(*) FILTER (WHERE entry_date >= (NOW() - INTERVAL '14 days')::date)::int AS recent,
+              COUNT(*) FILTER (WHERE entry_date >= (NOW() - INTERVAL '28 days')::date AND entry_date < (NOW() - INTERVAL '14 days')::date)::int AS prior
+         FROM governance_pulses
+        WHERE company_id = $1 AND house_id = $2 AND ($3::text IS NULL OR related_person = $3)`,
+      [company_id, risk.house_id, person]
+    )).rows[0];
+
+    const q_actions_complete = actions.open === 0;
+    const q_interventions_effective = eff.rated_ok > 0;
+    const q_trajectory_improved = freq.recent <= freq.prior;
+    const q_no_recurring_signals = freq.recent === 0;
+
+    const blockers: string[] = [];
+    if (!q_actions_complete) blockers.push(`${actions.open} action(s) still open — complete or cancel them first.`);
+    if (openEsc.n > 0) blockers.push('An escalation on this risk is still open.');
+
+    return {
+      questions: {
+        actions_complete: q_actions_complete,
+        interventions_effective: q_interventions_effective,
+        trajectory_improved: q_trajectory_improved,
+        no_recurring_signals: q_no_recurring_signals,
+      },
+      detail: { actions_open: actions.open, actions_total: actions.total, effective_controls: eff.rated_ok, open_escalations: openEsc.n, signals_last_14d: freq.recent, signals_prior_14d: freq.prior },
+      // Hard gate: actions complete + no open escalation. The other two inform the verdict.
+      eligible: q_actions_complete && openEsc.n === 0,
+      blockers,
+    };
+  }
+
   async closeRisk(risk_id: string, company_id: string, user_id: string, opts: { verdict: string; reason: string }) {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
@@ -407,6 +459,14 @@ export class RisksService {
     if (!VERDICTS.includes(verdict)) throw new Error('A resolution verdict is required.');
     const reason = String(opts?.reason || '').trim();
     if (reason.length < 20) throw new Error('A closure rationale of at least 20 characters is required.');
+
+    // Chapter 6 — the Risk Review gate. Closure is refused while required actions or a
+    // linked escalation are still open, regardless of verdict. Task completion alone can
+    // never close a risk; this is a separate, evidence-based governance decision.
+    const review = await this.closureReview(risk_id, company_id);
+    if (!review.eligible) {
+      throw new Error(`Risk cannot be closed yet: ${review.blockers.join(' ')}`);
+    }
     if (verdict === 'Resolved — controls effective') {
       const rated = await query(
         `SELECT 1 FROM risk_actions

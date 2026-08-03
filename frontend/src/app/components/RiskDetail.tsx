@@ -106,6 +106,18 @@ export function RiskDetail() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeVerdict, setCloseVerdict] = useState("");
   const [closeReason, setCloseReason] = useState("");
+  const [closureReview, setClosureReview] = useState<any>(null);
+
+  // Chapter 6 — when the close flow opens, fetch the derived four-question Risk Review.
+  useEffect(() => {
+    if (!showCloseModal || !id) { setClosureReview(null); return; }
+    (async () => {
+      try {
+        const res: any = await apiClient.get(`/risks/${id}/closure-review`);
+        setClosureReview(res?.data?.data ?? res?.data ?? null);
+      } catch { setClosureReview(null); }
+    })();
+  }, [showCloseModal, id]);
   const [isClosing, setIsClosing] = useState(false);
   const [escalationReason, setEscalationReason] = useState("");
   const [showVerifyAction, setShowVerifyAction] = useState<string | null>(null);
@@ -1365,7 +1377,32 @@ export function RiskDetail() {
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
           <div className="bg-card border-2 border-border p-6 w-full max-w-md">
             <h2 className="text-xl mb-1 text-foreground font-semibold">Close Risk</h2>
-            <p className="text-xs text-muted-foreground mb-4">Closing requires a resolution verdict. A 60-day recurrence window opens automatically — if the theme returns, the risk re-surfaces.</p>
+            <p className="text-xs text-muted-foreground mb-4">Task completion does not close a risk. Closure requires a Risk Review confirming the underlying risk has genuinely reduced, then a verdict. A 60-day recurrence window opens automatically.</p>
+
+            {/* Chapter 6 — the four-question Risk Review, derived from evidence. */}
+            {closureReview && (
+              <div className="mb-4 rounded-lg border-2 border-border p-3">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Risk Review</div>
+                {[
+                  ["Are all required actions complete?", closureReview.questions?.actions_complete, `${closureReview.detail?.actions_open ?? 0} open`],
+                  ["Have interventions been effective?", closureReview.questions?.interventions_effective, `${closureReview.detail?.effective_controls ?? 0} rated effective`],
+                  ["Has the trajectory improved?", closureReview.questions?.trajectory_improved, `${closureReview.detail?.signals_last_14d ?? 0} vs ${closureReview.detail?.signals_prior_14d ?? 0} prior`],
+                  ["Are new signals no longer being received?", closureReview.questions?.no_recurring_signals, `${closureReview.detail?.signals_last_14d ?? 0} in last 14d`],
+                ].map(([q, ok, detail]: any, i: number) => (
+                  <div key={i} className="flex items-center justify-between gap-2 py-1 text-sm">
+                    <span className="text-foreground">{q}</span>
+                    <span className={`text-xs font-medium whitespace-nowrap ${ok ? "text-emerald-600" : "text-amber-600"}`}>{ok ? "✓" : "!"} {detail}</span>
+                  </div>
+                ))}
+                {closureReview.blockers?.length > 0 && (
+                  <p className="text-xs text-red-600 mt-2 border-t border-border pt-2">{closureReview.blockers.join(" ")}</p>
+                )}
+                {closureReview.eligible && (
+                  <p className="text-xs text-emerald-600 mt-2 border-t border-border pt-2">Actions complete and no open escalation — this risk may be closed with a verdict.</p>
+                )}
+              </div>
+            )}
+
             <div className="space-y-4">
               <div>
                 <label className="block mb-2 text-foreground text-sm">Resolution verdict</label>
@@ -1402,7 +1439,8 @@ export function RiskDetail() {
               </button>
               <button
                 onClick={handleCloseRisk}
-                disabled={isClosing || !closeVerdict || closeReason.trim().length < 20}
+                disabled={isClosing || !closeVerdict || closeReason.trim().length < 20 || (closureReview && !closureReview.eligible)}
+                title={closureReview && !closureReview.eligible ? closureReview.blockers?.join(" ") : undefined}
                 className="px-4 py-2 bg-success text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
               >
                 {isClosing ? 'Closing…' : 'Close with verdict'}

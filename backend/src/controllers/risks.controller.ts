@@ -280,6 +280,18 @@ export class RisksController {
     }
   }
 
+  // Chapter 6 — the derived four-question Risk Review shown before closure.
+  async closureReview(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await risksService.closureReview(req.params.id, company_id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to build closure review';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async reassignAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
