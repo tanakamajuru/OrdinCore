@@ -11,7 +11,11 @@ CREATE INDEX IF NOT EXISTS idx_pulses_leadership_attention
   ON governance_pulses(house_id, leadership_attention, entry_date DESC);
 
 -- Daily governance: separate leadership narrative from the operational team brief.
+-- NOTE: daily_governance_log carries a BEFORE UPDATE trigger that stamps updated_at,
+-- but the column was never created — so any UPDATE (including the backfill below)
+-- errors with "record new has no field updated_at". Add the column first.
 ALTER TABLE daily_governance_log
+  ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ DEFAULT NOW(),
   ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE CASCADE,
   ADD COLUMN IF NOT EXISTS leadership_narrative TEXT,
   ADD COLUMN IF NOT EXISTS team_brief TEXT,
