@@ -433,9 +433,16 @@ export class RisksService {
     const q_trajectory_improved = freq.recent <= freq.prior;
     const q_no_recurring_signals = freq.recent === 0;
 
+    // Trajectory is deteriorating when recent frequency clearly exceeds the prior window.
+    const deteriorating = freq.recent > freq.prior && freq.recent >= 2;
+    // "Outstanding effectiveness review": a completed control exists but none has been rated.
+    const effectiveness_outstanding = actions.total > 0 && eff.rated === 0;
+
     const blockers: string[] = [];
     if (!q_actions_complete) blockers.push(`${actions.open} action(s) still open — complete or cancel them first.`);
     if (openEsc.n > 0) blockers.push('An escalation on this risk is still open.');
+    if (effectiveness_outstanding) blockers.push('An effectiveness review is outstanding — rate whether the control worked before closing.');
+    if (deteriorating) blockers.push(`Trajectory is deteriorating (${freq.recent} signals in the last 14 days vs ${freq.prior} before) — the risk has not reduced.`);
 
     return {
       questions: {
@@ -444,9 +451,11 @@ export class RisksService {
         trajectory_improved: q_trajectory_improved,
         no_recurring_signals: q_no_recurring_signals,
       },
-      detail: { actions_open: actions.open, actions_total: actions.total, effective_controls: eff.rated_ok, open_escalations: openEsc.n, signals_last_14d: freq.recent, signals_prior_14d: freq.prior },
-      // Hard gate: actions complete + no open escalation. The other two inform the verdict.
-      eligible: q_actions_complete && openEsc.n === 0,
+      detail: { actions_open: actions.open, actions_total: actions.total, effective_controls: eff.rated_ok, controls_rated: eff.rated, open_escalations: openEsc.n, signals_last_14d: freq.recent, signals_prior_14d: freq.prior, deteriorating, effectiveness_outstanding },
+      // Hard gate (TEST_PLAN): actions complete, no open escalation, no outstanding
+      // effectiveness review, and trajectory not deteriorating. Closure is evidence-based —
+      // task completion alone never closes a risk.
+      eligible: q_actions_complete && openEsc.n === 0 && !effectiveness_outstanding && !deteriorating,
       blockers,
     };
   }
