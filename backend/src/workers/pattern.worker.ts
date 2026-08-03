@@ -312,18 +312,54 @@ async function evaluateCrossServiceRisk(
     );
     const houseCount: number = affectedRes.rows[0]?.house_count ?? 0;
 
+    // Systemic Governance Pattern criteria (doctrine Ch8): a domain is systemic when ANY of
+    //  - it spans >=2 services (now, or persistently over the last 4 weeks); OR
+    //  - it has driven >=2 escalations (repeated escalations); OR
+    //  - it persists (recurring signals across >=28 days).
+    // We evaluate the wider windows here and pass the reason into the cluster label.
+    const wide = (await query(
+        `SELECT COUNT(DISTINCT gp.house_id)::int AS services_28d,
+                ARRAY_AGG(DISTINCT gp.house_id) AS house_ids_28d,
+                MIN(gp.entry_date) AS first_signal,
+                COUNT(*)::int AS signals_28d
+           FROM governance_pulses gp
+          WHERE gp.company_id = $1 AND $2 = ANY(gp.risk_domain)
+            AND gp.entry_date >= CURRENT_DATE - INTERVAL '28 days'
+            AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)`,
+        [company_id, domain]
+    )).rows[0];
+    const domainEsc: number = (await query(
+        `SELECT COUNT(*)::int AS n FROM escalations e
+           JOIN signal_clusters sc ON sc.id = e.source_cluster_id
+          WHERE sc.company_id = $1 AND sc.risk_domain = $2
+            AND e.created_at >= NOW() - INTERVAL '28 days'`,
+        [company_id, domain]
+    )).rows[0]?.n ?? 0;
+    const services28: number = wide?.services_28d ?? 0;
+    const persistDays: number = wide?.first_signal ? Math.round((Date.now() - new Date(wide.first_signal).getTime()) / 86400000) : 0;
+    const persists = persistDays >= 28 && (wide?.signals_28d ?? 0) >= 3;
+    const spans = houseCount >= 2 || services28 >= 2;
+    const repeatedEscalations = domainEsc >= 2;
+    const isSystemic = spans || repeatedEscalations || persists;
+    const reasons = [
+        spans ? `${Math.max(houseCount, services28)} services` : null,
+        repeatedEscalations ? `${domainEsc} escalations` : null,
+        persists ? `persists ${persistDays}d` : null,
+    ].filter(Boolean).join(' · ');
+
     // Finding D: maintain ONE persistent cross-service cluster per company+domain so the
     // systemic pattern is queryable on Patterns (the Director/RI lens), not just a flag.
-    // Retire it if the domain no longer spans >=2 services.
+    // Retire it if none of the systemic criteria hold.
     try {
-        const houseIds: string[] = (affectedRes.rows[0]?.house_ids || []).filter(Boolean);
-        const totalSignals: number = affectedRes.rows[0]?.total_signals ?? houseCount;
-        const csLabel = `${domain} — systemic (${houseCount} services)`;
+        const houseIds7: string[] = (affectedRes.rows[0]?.house_ids || []).filter(Boolean);
+        const houseIds: string[] = houseIds7.length ? houseIds7 : ((wide?.house_ids_28d || []).filter(Boolean));
+        const totalSignals: number = affectedRes.rows[0]?.total_signals ?? (wide?.signals_28d ?? houseCount);
+        const csLabel = `${domain} — systemic (${reasons || `${houseCount} services`})`;
         const existingCs = await query(
             `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service' LIMIT 1`,
             [company_id, domain]
         );
-        if (houseCount >= 2) {
+        if (isSystemic) {
             if (existingCs.rows[0]) {
                 await query(
                     `UPDATE signal_clusters SET affected_house_ids = $1, signal_count = $2, cluster_label = $3,
