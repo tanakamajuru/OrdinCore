@@ -30,6 +30,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   ];
   if (r === 'REGISTERED_MANAGER' || r === 'ADMIN' || r === 'SUPER_ADMIN') {
     return common([
+      { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('RMMyActions')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
@@ -40,6 +41,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   }
   if (r === 'TEAM_LEADER') {
     return common([
+      { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Today')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('TLMyActions')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('TLEscalations')) },
@@ -50,6 +52,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   }
   if (r === 'DIRECTOR') {
     return common([
+      { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'clipboard', label: 'Governance', go: go(() => navigate('DirectorGovernance')) },
       { icon: 'file-text', label: 'Reports', go: go(() => navigate('DirectorReports')) },
@@ -57,6 +60,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   }
   if (r === 'RESPONSIBLE_INDIVIDUAL') {
     return common([
+      { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'book-open', label: 'Narrative', go: go(() => navigate('RINarrative')) },
       { icon: 'file-text', label: 'Board Reports', go: go(() => navigate('RIBoardReports')) },
@@ -64,6 +68,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   }
   // Support Worker
   return common([
+    { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
     { icon: 'home', label: 'Home', go: go(() => navigateTab('Today')) },
     { icon: 'activity', label: 'Signals', go: go(() => navigateTab('Signals')) },
     { icon: 'check-square', label: 'My Actions', go: go(() => navigateTab('Actions')) },

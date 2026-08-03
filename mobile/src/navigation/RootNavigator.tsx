@@ -23,6 +23,7 @@ import { ValidateReviewScreen } from '@/screens/director/ValidateReviewScreen';
 import { RIAssuranceScreen } from '@/screens/ri/AssuranceScreen';
 import { ProviderSignoffScreen } from '@/screens/ri/ProviderSignoffScreen';
 import { ProfileScreen } from '@/screens/shared/ProfileScreen';
+import { MyWorkScreen } from '@/screens/shared/MyWorkScreen';
 import { RiskDetailScreen } from '@/screens/shared/RiskDetailScreen';
 import { ReportDetailScreen } from '@/screens/shared/ReportDetailScreen';
 import { RateEffectivenessScreen } from '@/screens/rm/RateEffectivenessScreen';
@@ -274,6 +275,7 @@ export function RootNavigator() {
       <Stack.Screen name="CloseRisk" component={CloseRiskScreen} options={{ title: 'Close risk' }} />
       <Stack.Screen name="ValidateReview" component={ValidateReviewScreen} options={{ title: 'Validate review' }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
+      <Stack.Screen name="MyWork" component={MyWorkScreen} options={{ title: 'My Work' }} />
       <Stack.Screen name="RateEffectiveness" component={RateEffectivenessScreen} options={{ title: 'Rate effectiveness' }} />
       <Stack.Screen name="ActionDetail" component={ActionDetailScreen} options={{ title: 'Action' }} />
       <Stack.Screen name="TLEscalations" component={TLEscalationsA} options={{ title: 'Escalations' }} />

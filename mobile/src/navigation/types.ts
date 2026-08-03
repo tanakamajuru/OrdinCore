@@ -43,6 +43,7 @@ export type RootStackParams = {
   CloseRisk: { risk: { id: string; title?: string } };
   ValidateReview: { review: any };
   Profile: undefined;
+  MyWork: undefined;
   RateEffectiveness: { action: { id: string; risk_id?: string; title: string } };
   ActionDetail: { action: any };
 };
