@@ -5,7 +5,7 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc",
+    "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "migrate": "ts-node src/scripts/migrate.ts",
     "seed": "ts-node seeds/seedRealisticData.ts",
@@ -15,7 +15,8 @@
     "worker:trends": "ts-node src/workers/analytics.worker.ts",
     "worker:reports": "ts-node src/workers/report.worker.ts",
     "workers": "ts-node src/run_workers.ts",
-    "test": "jest"
+    "test": "jest",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "axios": "^1.15.0",

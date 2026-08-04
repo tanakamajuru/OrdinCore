@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false
+  },
+  "include": ["src/**/*"],
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/**/__tests__/**",
+    "src/**/*.test.ts",
+    "src/**/*.spec.ts",
+    "src/scripts/**",
+    "src/check_db.ts",
+    "src/test_incident.ts",
+    "src/trigger_analytics.ts",
+    "src/run_workers.ts"
+  ]
+}
