@@ -29,15 +29,8 @@
   "submit": {
     "production": {
       "android": {
-        "//": "Play Console -> Setup -> API access: create a service account, grant it Release Manager, download the JSON key and place it at the path below.",
         "serviceAccountKeyPath": "./credentials/play-service-account.json",
         "track": "internal"
-      },
-      "ios": {
-        "//": "ascAppId = numeric App Store Connect app id; appleTeamId = 10-char team id. EAS prompts for Apple login on first submit, or use an App Store Connect API key instead.",
-        "appleId": "YOUR_APPLE_ID_EMAIL",
-        "ascAppId": "YOUR_APP_STORE_CONNECT_APP_ID",
-        "appleTeamId": "YOUR_APPLE_TEAM_ID"
       }
     }
   }
