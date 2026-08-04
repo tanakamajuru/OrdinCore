@@ -259,6 +259,20 @@ router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope,
 // Team Brief (Chapter 2): the concise operational briefing published to Team Leaders.
 router.get('/daily-log/team-brief', requireAuth, requireTenant, dailyGovernanceController.getTeamBrief.bind(dailyGovernanceController));
 router.get('/daily-log/team-briefs', requireAuth, requireTenant, dailyGovernanceController.getTeamBriefs.bind(dailyGovernanceController));
+
+// PDF Phase 6 — unified governance timeline, reconstructed from relationships.
+router.get('/timeline', requireAuth, requireTenant, async (req, res) => {
+  try {
+    const { governanceWorkflowService } = await import('../services/governanceWorkflow.service');
+    const data = await governanceWorkflowService.timeline(req.user!.company_id!, {
+      signalId: req.query.signalId as string, patternId: req.query.patternId as string,
+      riskId: req.query.riskId as string, escalationId: req.query.escalationId as string,
+    });
+    return res.json({ success: true, data, meta: {} });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || 'Failed to build timeline', errors: [] });
+  }
+});
 router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
 
 // Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).

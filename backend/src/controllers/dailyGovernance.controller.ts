@@ -20,12 +20,13 @@ export class DailyGovernanceController {
   async completeLog(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const { note, is_deputy_review, leadership_narrative, team_brief, material_change } = req.body;
+      const { note, is_deputy_review, leadership_narrative, team_brief, material_change, decisions } = req.body;
       const user_id = req.user!.user_id;
       const company_id = req.user!.company_id!;
       const log = await dailyGovernanceService.completeLog(id, {
         note, user_id, company_id, is_deputy_review,
         leadership_narrative, team_brief, material_change,
+        decisions: Array.isArray(decisions) ? decisions : undefined,
       });
       return res.json({ success: true, data: log });
     } catch (err: any) {

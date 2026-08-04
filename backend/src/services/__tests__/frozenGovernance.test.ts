@@ -17,11 +17,13 @@ jest.mock('../../repositories/risks.repo', () => ({
   },
 }));
 
-import { query } from '../../config/database';
+import { query, getClient } from '../../config/database';
 import { risksService } from '../risks.service';
 import { governanceWorkflowService } from '../governanceWorkflow.service';
+import { dailyGovernanceService } from '../dailyGovernance.service';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
+const mockGetClient = getClient as jest.MockedFunction<typeof getClient>;
 
 // ---------------------------------------------------------------------------
 // Risks — closure is evidence-based; task completion alone can never close a risk.
@@ -136,5 +138,38 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
     await expect(
       governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Close', 'The pattern has settled and we want to close it now.')
     ).rejects.toThrow(/cannot close/i);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Daily Governance is atomic — a failed decision rolls the whole review back.
+// ---------------------------------------------------------------------------
+describe('Daily Governance transaction (PDF Phase 3 / TEST_PLAN)', () => {
+  it('rolls back and never commits when a decision task fails', async () => {
+    const seen: string[] = [];
+    const client: any = {
+      query: jest.fn(async (sql: string) => {
+        seen.push(sql.trim().split('\n')[0].trim());
+        if (/^BEGIN/.test(sql.trim())) return {};
+        if (/FOR UPDATE/.test(sql)) return { rows: [{ house_id: 'h1' }] };
+        if (/UPDATE daily_governance_log/.test(sql)) return { rows: [{ id: 'log1', completed: true }] };
+        if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'rev1' }] };
+        if (/INSERT INTO risk_actions/.test(sql)) throw new Error('task insert failed');
+        return { rows: [] };
+      }),
+      release: jest.fn(),
+    };
+    mockGetClient.mockResolvedValue(client);
+
+    await expect(
+      dailyGovernanceService.completeLog('log1', {
+        note: 'n', user_id: 'u1', company_id: 'co1', material_change: true, team_brief: 'brief',
+        decisions: [{ decision: 'Create Action', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1' }],
+      } as any)
+    ).rejects.toThrow(/task insert failed/i);
+
+    expect(client.query).toHaveBeenCalledWith('ROLLBACK');
+    expect(seen.some((s) => /^COMMIT/.test(s))).toBe(false);
+    expect(client.release).toHaveBeenCalled();
   });
 });

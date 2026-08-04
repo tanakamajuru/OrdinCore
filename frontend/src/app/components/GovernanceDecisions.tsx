@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -22,6 +22,7 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
   const [busy, setBusy] = useState(false);
   // `source` is "service" | "signal:<id>" | "pattern:<id>" — pins the decision's lineage.
   const [form, setForm] = useState({ what: "", decision: "Create Action" as string, owner_id: "", due_at: "", source: "service" });
+  const idemKey = useRef<string | null>(null);
 
   const loadOwners = async () => {
     try {
@@ -58,6 +59,8 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
     if (form.what.trim().length < 5) { toast.error("Describe the decision."); return; }
     if (!houseId) { toast.error("Choose the service this decision concerns."); return; }
     setBusy(true);
+    // Stable key for this submission so a retry/double-click can't create a duplicate.
+    if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
     try {
       const [kind, sid] = form.source.split(":");
       await apiClient.post("/governance-decisions", {
@@ -69,9 +72,11 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
         owner_id: form.owner_id || null,
         due_at: form.due_at || null,
         action_description: form.what.trim(),
+        idempotency_key: idemKey.current,
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — task assigned" : "Decision recorded");
       setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "service" });
+      idemKey.current = null;
       loadDecisions();
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to record decision"); }
     finally { setBusy(false); }

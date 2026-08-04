@@ -26,6 +26,7 @@ export type DecisionInput = {
   due_at?: string | null;
   intended_outcome?: string | null;
   action_description?: string | null;
+  idempotency_key?: string | null;
 };
 
 export const governanceDecisionsService = {
@@ -48,8 +49,9 @@ export const governanceDecisionsService = {
            pulse_entry_id, cluster_id, daily_governance_log_id,
            review_type, reviewed_by, what_is_happening, decision,
            escalation_required, action_required, evidence,
-           decision_owner_id, due_at, intended_outcome, decision_status
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+           decision_owner_id, due_at, intended_outcome, decision_status, idempotency_key
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
          RETURNING *`,
         [
           input.company_id, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null,
@@ -57,9 +59,18 @@ export const governanceDecisionsService = {
           reviewType, input.user_id, input.what_is_happening.trim(), input.decision,
           input.decision === 'Escalate', input.decision === 'Create Action', null,
           input.owner_id ?? null, input.due_at ?? null, input.intended_outcome ?? null,
-          input.decision === 'Monitor' ? 'Monitoring' : 'Open',
+          input.decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null,
         ]
       );
+      // Idempotent replay — a decision with this key already exists; return it, no duplicate.
+      if (!review.rows[0]) {
+        const existing = await client.query(
+          `SELECT * FROM governance_reviews WHERE company_id = $1 AND idempotency_key = $2`,
+          [input.company_id, input.idempotency_key]
+        );
+        await client.query('COMMIT');
+        return { decision: existing.rows[0] || null, task: null, idempotent: true };
+      }
       const decision = review.rows[0];
 
       let task = null;
