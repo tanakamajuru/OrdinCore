@@ -42,6 +42,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   if (r === 'TEAM_LEADER') {
     return common([
       { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
+      { icon: 'shield', label: 'Daily Governance', go: go(() => navigate('TLDailyGovernance')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Today')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('TLMyActions')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('TLEscalations')) },

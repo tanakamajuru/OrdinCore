@@ -11,6 +11,7 @@ import { RootStackParams, SWSignalsStackParams, SWActionsStackParams } from './t
 
 import { MyActionsScreen } from '@/screens/tl/MyActionsScreen';
 import { TLMyActionsScreen } from '@/screens/tl/TLMyActionsScreen';
+import { TLDailyGovernanceScreen } from '@/screens/tl/TLDailyGovernanceScreen';
 import { RaiseSignalScreen } from '@/screens/tl/RaiseSignalScreen';
 import { AlertsScreen } from '@/screens/shared/AlertsScreen';
 import { SignalDetailScreen } from '@/screens/shared/SignalDetailScreen';
@@ -230,6 +231,7 @@ const TLDocumentsA = withAccent('purple', TLDocumentsScreen);
 const TLNotesA = withAccent('purple', TLNotesScreen);
 const TLMyActionsA = withAccent('purple', TLMyActionsScreen);
 const TLDailyReviewA = withAccent('purple', TLDailyReviewScreen);
+const TLDailyGovernanceA = withAccent('purple', TLDailyGovernanceScreen);
 const TLTeamOverviewA = withAccent('purple', TLTeamOverviewScreen);
 const RMEscalationsA = withAccent('blue', RMEscalationsScreen);
 const RMGovernanceReviewA = withAccent('blue', RMGovernanceReviewScreen);
@@ -282,6 +284,7 @@ export function RootNavigator() {
       <Stack.Screen name="TLDocuments" component={TLDocumentsA} options={{ title: 'Documents' }} />
       <Stack.Screen name="TLNotes" component={TLNotesA} options={{ title: 'Notes' }} />
       <Stack.Screen name="TLMyActions" component={TLMyActionsA} options={{ title: 'My actions' }} />
+      <Stack.Screen name="TLDailyGovernance" component={TLDailyGovernanceA} options={{ title: 'Daily Governance' }} />
       <Stack.Screen name="TLDailyReview" component={TLDailyReviewA} options={{ title: '' }} />
       <Stack.Screen name="TLTeamOverview" component={TLTeamOverviewA} options={{ title: '' }} />
       {/* RM / Director / RI hub screens carry their own in-content header, so the nav bar is a bare back-bar */}
