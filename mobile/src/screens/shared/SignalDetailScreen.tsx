@@ -1,11 +1,13 @@
-import React from 'react';
-import { View } from 'react-native';
+import React, { useState } from 'react';
+import { View, Alert } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
+import { api } from '@/api/client';
+import { useAuth, normalizeRole } from '@/auth/AuthContext';
 import { RootStackParams } from '@/navigation/types';
-import { Screen, Card, Row, Label, Text, Pill, SeverityPill, Loading, ErrorNote } from '@/components/ui';
+import { Screen, Card, Row, Label, Text, Pill, SeverityPill, Loading, ErrorNote, TextArea, Button } from '@/components/ui';
 
 const firstDomain = (d?: string[] | string) => Array.isArray(d) ? d[0] : String(d || '').replace(/[{}]/g, '').split(',')[0];
 
@@ -17,15 +19,30 @@ export function SignalDetailScreen() {
   const { c } = useTheme();
   const route = useRoute<RouteProp<RootStackParams, 'SignalDetail'>>();
   const { id } = route.params;
+  const { role } = useAuth();
   const signal = useApi<any>(`/pulses/${id}`);
   const ctx = useApi<any>(`/pulses/${id}/context`);
+  const activity = useApi<any>(`/pulses/${id}/linked-activity`);
   const s = signal.data;
+
+  const canAttn = ['TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(normalizeRole(role || ''));
+  const [showAttn, setShowAttn] = useState(false);
+  const [attnReason, setAttnReason] = useState('');
+  const [attnBusy, setAttnBusy] = useState(false);
+  const markAttention = async () => {
+    if (attnReason.trim().length < 10) { Alert.alert('Add a reason', 'Give a short reason (at least a sentence).'); return; }
+    setAttnBusy(true);
+    try { await api.post(`/pulses/${id}/leadership-attention`, { reason: attnReason.trim() }); setShowAttn(false); setAttnReason(''); signal.refetch(); }
+    catch (e: any) { Alert.alert("Couldn't flag", e?.message || 'Try again.'); }
+    finally { setAttnBusy(false); }
+  };
 
   if (signal.loading && !s) return <Screen><Loading /></Screen>;
   if (signal.error) return <Screen><ErrorNote message={signal.error} onRetry={signal.refetch} /></Screen>;
 
   const clusters: any[] = ctx.data?.clusters || [];
   const prior: any[] = ctx.data?.prior_signals || [];
+  const linked: any[] = activity.data?.data ?? activity.data ?? [];
 
   return (
     <Screen refreshing={signal.loading} onRefresh={() => { signal.refetch(); ctx.refetch(); }}>
@@ -50,6 +67,26 @@ export function SignalDetailScreen() {
         )}
       </Card>
 
+      {/* Leadership attention marker (a visibility flag, not a severity change). */}
+      {s?.leadership_attention ? (
+        <Row style={{ backgroundColor: c.sevHigh + '18', borderRadius: 12, padding: 11, justifyContent: 'center' }} gap={8}>
+          <Feather name="alert-triangle" size={15} color={c.sevHigh} /><Text size={12.5} weight="600" color={c.sevHigh}>Flagged for leadership attention</Text>
+        </Row>
+      ) : canAttn ? (
+        showAttn ? (
+          <Card>
+            <Label>Why does this need leadership attention?</Label>
+            <TextArea value={attnReason} onChangeText={setAttnReason} placeholder="A short reason…" minHeight={56} required />
+            <Row gap={8}>
+              <Button title="Flag" icon="alert-triangle" onPress={markAttention} loading={attnBusy} style={{ flex: 1 }} />
+              <Button title="Cancel" tone="ghost" onPress={() => setShowAttn(false)} style={{ flex: 1 }} />
+            </Row>
+          </Card>
+        ) : (
+          <Button title="Flag for leadership attention" icon="alert-triangle" tone="ghost" onPress={() => setShowAttn(true)} />
+        )
+      ) : null}
+
       <Label>History &amp; pattern</Label>
       {clusters.length > 0 ? clusters.map((cl) => (
         <View key={cl.id} style={{ backgroundColor: c.accentTint, borderColor: c.accent + '55', borderWidth: 1, borderRadius: 14, padding: 12 }}>
@@ -59,6 +96,22 @@ export function SignalDetailScreen() {
           <Text muted size={11.5} style={{ marginTop: 5 }}>{cl.signal_count} signal(s) · {cl.cluster_status}{cl.trajectory ? ` · ${cl.trajectory}` : ''}</Text>
         </View>
       )) : <Text muted size={12.5}>Not yet part of a pattern.</Text>}
+
+      {/* Linked Governance Activity — decisions, tasks, patterns, risks, escalations. */}
+      {linked.length > 0 && (
+        <Card>
+          <Label>Linked governance activity</Label>
+          {linked.map((a: any, i: number) => (
+            <View key={i} style={{ borderLeftWidth: 2, borderLeftColor: c.accent + '66', paddingLeft: 10, paddingVertical: 5 }}>
+              <Row style={{ justifyContent: 'space-between' }} gap={8}>
+                <Text size={12} weight="600" style={{ flex: 1 }}>{a.record} · {a.status}</Text>
+                <Text faint size={10.5}>{a.at ? new Date(a.at).toLocaleDateString('en-GB') : ''}</Text>
+              </Row>
+              <Text size={12} muted style={{ marginTop: 1 }}>{a.relationship}{a.label ? ` — ${a.label}` : ''}</Text>
+            </View>
+          ))}
+        </Card>
+      )}
 
       <Card>
         <Label>Prior occurrences · {ctx.data?.prior_count ?? prior.length}</Label>
