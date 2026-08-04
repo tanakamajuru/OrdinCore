@@ -13,6 +13,7 @@
     "updates": {
       "url": "https://u.expo.dev/769c3d95-40d7-433a-9830-a144fee4d912"
     },
+    "icon": "./assets/icon.png",
     "splash": {
       "backgroundColor": "#2F6CB5",
       "resizeMode": "contain"
@@ -33,6 +34,7 @@
     "android": {
       "package": "care.ordincore.mobile",
       "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#2F6CB5"
       },
       "permissions": [
