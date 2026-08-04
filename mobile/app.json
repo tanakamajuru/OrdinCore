@@ -1,0 +1,64 @@
+{
+  "expo": {
+    "name": "OrdinCore",
+    "slug": "ordincore-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "ordincore",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "runtimeVersion": { "policy": "appVersion" },
+    "updates": {
+      "url": "https://u.expo.dev/769c3d95-40d7-433a-9830-a144fee4d912"
+    },
+    "splash": {
+      "backgroundColor": "#2F6CB5",
+      "resizeMode": "contain"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "care.ordincore.mobile",
+      "infoPlist": {
+        "NSFaceIDUsageDescription": "Unlock OrdinCore with Face ID to protect governance and safeguarding records.",
+        "NSCameraUsageDescription": "Attach a photo as evidence when you raise a signal.",
+        "NSPhotoLibraryUsageDescription": "Attach a photo from your library as evidence when you raise a signal.",
+        "NSMicrophoneUsageDescription": "Record a short voice note as evidence when you raise a signal."
+      }
+    },
+    "android": {
+      "package": "care.ordincore.mobile",
+      "adaptiveIcon": {
+        "backgroundColor": "#2F6CB5"
+      },
+      "permissions": [
+        "android.permission.USE_BIOMETRIC",
+        "android.permission.USE_FINGERPRINT",
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
+    },
+    "plugins": [
+      "expo-secure-store",
+      "expo-local-authentication",
+      [
+        "expo-notifications",
+        {
+          "color": "#2F6CB5"
+        }
+      ],
+      "expo-asset",
+      "expo-font",
+      "expo-audio"
+    ],
+    "extra": {
+      "apiBaseUrl": "https://work.ordincore.co.uk/api/v1",
+      "eas": {
+        "projectId": "769c3d95-40d7-433a-9830-a144fee4d912"
+      }
+    },
+    "owner": "tanaka1024"
+  }
+}

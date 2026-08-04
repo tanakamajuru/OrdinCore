@@ -1,0 +1,4 @@
+
+# EAS submit credentials (never commit)
+credentials/
+*.keystore
