@@ -64,9 +64,11 @@ export const interventionsService = {
               COUNT(DISTINCT risk_id) AS risks,
               COUNT(DISTINCT house_id) FILTER (WHERE house_id IS NOT NULL) AS services,
               COALESCE(SUM(open_actions), 0) AS open_actions,
-              COALESCE(SUM(completed_actions), 0) AS completed_actions
+              COALESCE(SUM(completed_actions), 0) AS completed_actions,
+              -- The open risk to open from the Intervention "Action" button (most recent).
+              (ARRAY_AGG(risk_id ORDER BY risk_created_at DESC NULLS LAST))[1] AS primary_risk_id
          FROM (
-           SELECT r.id AS risk_id, r.house_id,
+           SELECT r.id AS risk_id, r.house_id, r.created_at AS risk_created_at,
                   COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) AS theme,
                   (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions,
                   (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id AND ra.status IN ('Complete','Completed')) AS completed_actions
@@ -112,6 +114,7 @@ export const interventionsService = {
         theme: t.theme,
         services: Number(t.services) || 0,
         risks: Number(t.risks) || 0,
+        primary_risk_id: t.primary_risk_id || null,
         openActions: Number(t.open_actions) || 0,
         completedActions: Number(t.completed_actions) || 0,
         trajectory: { direction: tr.direction, label: direction, basis: tr.basis },

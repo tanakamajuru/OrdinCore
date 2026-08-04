@@ -123,6 +123,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Dashboard", icon: Home },
+          { path: "/daily-governance-inbox", label: "Daily Governance", icon: ShieldCheck },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText, badgeKey: "weekly" },

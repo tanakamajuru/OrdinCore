@@ -129,6 +129,9 @@ export const governanceWorkflowService = {
       if (!closure.eligible) throw new Error(`Pattern cannot close: ${closure.blockers.join(' ')}`);
     }
 
+    // Deteriorating raises an urgent next review; the others keep the current cadence.
+    const nextReview = nextReviewDate || (outcome === 'Deteriorating' ? new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10) : null);
+
     const result = await query(
       `UPDATE signal_clusters
           SET last_reviewed_at = NOW(), last_reviewed_by = $1, next_review_date = $2,
@@ -136,12 +139,67 @@ export const governanceWorkflowService = {
               closure_reason = CASE WHEN $3 = 'Close' THEN $4 ELSE closure_reason END,
               closed_at = CASE WHEN $3 = 'Close' THEN NOW() ELSE closed_at END,
               closed_by = CASE WHEN $3 = 'Close' THEN $1 ELSE closed_by END,
-              cluster_status = CASE WHEN $3 = 'Close' THEN 'Resolved' ELSE cluster_status END,
+              cluster_status = CASE WHEN $3 = 'Close' THEN 'Resolved'
+                                    WHEN $3 = 'Escalate' THEN 'Escalated'
+                                    ELSE cluster_status END,
               updated_at = NOW()
         WHERE id = $5 AND company_id = $6 RETURNING *`,
-      [user_id, nextReviewDate || null, outcome, rationale.trim(), cluster_id, company_id]
+      [user_id, nextReview, outcome, rationale.trim(), cluster_id, company_id]
     );
-    if (!result.rows[0]) throw new Error('Pattern not found.');
-    return result.rows[0];
+    const cluster = result.rows[0];
+    if (!cluster) throw new Error('Pattern not found.');
+
+    // Every review is a governance record — even "no change" (Continue Monitoring / Stable).
+    const decisionMap: Record<string, string> = { 'Promote to Risk': 'Create Action', 'Escalate': 'Escalate', 'Close': 'Close' };
+    try {
+      await query(
+        `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_status)
+         VALUES ($1,$2,'RM_REVIEW',$3,$4,$5,'Completed')`,
+        [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900), decisionMap[outcome] || 'Monitor']
+      );
+    } catch { /* audit is best-effort */ }
+
+    let next_action: any = null;
+
+    // Escalate → create a real linked escalation (doctrine: the decision becomes an object).
+    if (outcome === 'Escalate') {
+      try {
+        const target = (await query(
+          `SELECT id FROM users WHERE company_id = $1 AND status = 'active'
+             AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'])
+             ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 WHEN 'DIRECTOR' THEN 1 ELSE 2 END LIMIT 1`,
+          [company_id]
+        )).rows[0]?.id;
+        const dup = await query(`SELECT 1 FROM escalations WHERE source_cluster_id = $1 AND COALESCE(lifecycle_status::text,status,'Open') NOT IN ('Closed','Resolved') LIMIT 1`, [cluster_id]);
+        if (target && !dup.rows[0]) {
+          const { v4: uuidv4 } = await import('uuid');
+          await query(
+            `INSERT INTO escalations (id, company_id, risk_id, source_cluster_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by, trigger_type)
+             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending','Open','Urgent', NOW() + INTERVAL '48 hours','PATTERN_REVIEW')`,
+            [uuidv4(), company_id, cluster.linked_risk_id || null, cluster_id, cluster.house_id || null, user_id, target,
+             `Pattern escalated on review — ${cluster.cluster_label || cluster.risk_domain}: ${rationale.trim()}`.slice(0, 1000)]
+          );
+          next_action = { type: 'escalated' };
+        }
+      } catch { /* best-effort */ }
+    }
+
+    // Deteriorating → notify management (no auto-object, but leadership must know now).
+    if (outcome === 'Deteriorating') {
+      try {
+        const { notificationsService } = await import('./notifications.service');
+        const mgrs = await query(`SELECT id FROM users WHERE company_id = $1 AND status = 'active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR'])`, [company_id]);
+        for (const m of mgrs.rows) {
+          await notificationsService.create({ company_id, user_id: m.id, type: 'pattern_review', title: 'Pattern deteriorating', body: `${cluster.cluster_label || cluster.risk_domain}: ${rationale.trim()}`.slice(0, 200), link: '/rm5' });
+        }
+      } catch { /* best-effort */ }
+    }
+
+    // Promote to Risk → hand off to the existing promote flow (RM confirms details).
+    if (outcome === 'Promote to Risk' && !cluster.linked_risk_id) {
+      next_action = { type: 'promote', cluster_id };
+    }
+
+    return { ...cluster, next_action };
   },
 };

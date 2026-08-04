@@ -36,6 +36,7 @@ export function DailyOversightBoard() {
   const [isSigningOff, setIsSigningOff] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
@@ -383,8 +384,9 @@ export function DailyOversightBoard() {
           </div>
         </div>
 
-        {/* Governance Decisions — the review that generates management work (Ch3) */}
-        <GovernanceDecisions houseId={selectedHouseId} signals={highPriority} patterns={patterns} />
+        {/* Governance Decisions — the review that generates management work (Ch3).
+            Signals are fetched per-house inside the component; patterns for this service. */}
+        <GovernanceDecisions houseId={selectedHouseId} patterns={patterns.filter((p: any) => !house?.name || (Array.isArray(p.houses) && p.houses.includes(house.name)))} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -410,7 +412,7 @@ export function DailyOversightBoard() {
               </select>
             )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
-              className="w-full h-40 p-3 border-2 border-border rounded-lg bg-background text-sm leading-6 disabled:opacity-70"
+              className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
               placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all triage, patterns and actions above — what is the service position today?"} />
 
             {/* Team Brief — the concise operational briefing published to Team Leaders (Ch2). */}
@@ -440,7 +442,10 @@ export function DailyOversightBoard() {
                   <Info size={14} className="mt-0.5 shrink-0" /> Please review the drafted narrative. You can edit it before signing off — you remain accountable for the signed record.
                 </div>
                 <p className="text-sm text-foreground mt-3 mb-2">Do you accept this narrative?</p>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
+                  <button onClick={() => setShowPreview(true)} disabled={!dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 border-2 border-primary/40 text-primary rounded-lg text-sm font-medium disabled:opacity-50">
+                    <Search size={16} /> Preview report
+                  </button>
                   <button onClick={handleSignOff} disabled={isSigningOff || !dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
                     <CheckCircle2 size={16} /> {isSigningOff ? "Signing…" : "Accept & Sign Off"}
                   </button>
@@ -455,6 +460,37 @@ export function DailyOversightBoard() {
 
         {/* Governance Compliance now lives on its own page (see nav) to avoid overload here. */}
       </div>
+
+      {/* Report preview before sign-off — a full, readable rendering of both narratives. */}
+      {showPreview && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" onClick={() => setShowPreview(false)}>
+          <div className="bg-card w-full max-w-3xl max-h-[88vh] overflow-y-auto rounded-xl shadow-2xl border border-border" onClick={(e) => e.stopPropagation()}>
+            <div className="sticky top-0 bg-card border-b border-border px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-foreground">Daily Governance Report — {house?.name || "Service"}</h3>
+                <p className="text-xs text-muted-foreground">{today()} · preview before sign-off</p>
+              </div>
+              <button onClick={() => setShowPreview(false)} className="text-sm text-muted-foreground hover:text-foreground">Close</button>
+            </div>
+            <div className="px-6 py-5 space-y-6">
+              <div>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">(private to leadership)</span></div>
+                <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{dailyNote || "—"}</div>
+              </div>
+              <div className="border-t border-border pt-5">
+                <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Team Brief <span className="normal-case font-normal text-muted-foreground">(published to Team Leaders)</span></div>
+                <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{materialChange ? (teamBrief || "—") : "No new governance priorities today. Continue with existing actions."}</div>
+              </div>
+            </div>
+            <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex justify-end gap-3">
+              <button onClick={() => setShowPreview(false)} className="px-4 py-2 rounded-lg border-2 border-border text-sm">Keep editing</button>
+              <button onClick={() => { setShowPreview(false); handleSignOff(); }} disabled={isSigningOff || !dailyNote.trim()} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
+                <CheckCircle2 size={16} /> Accept & Sign Off
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

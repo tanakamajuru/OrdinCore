@@ -126,6 +126,26 @@ export class DailyGovernanceService {
     return res.rows[0] || null;
   }
 
+  // The Team Leader's dedicated "Daily Governance" inbox: recent published briefs for
+  // their services (Team Brief only — the leadership narrative stays private to leadership).
+  async recentTeamBriefs(company_id: string, house_ids: string[], user_id: string) {
+    if (!house_ids.length) return [];
+    const res = await query(
+      `SELECT dgl.id, dgl.house_id, h.name AS house_name, dgl.team_brief, dgl.material_change,
+              dgl.published_at, dgl.review_date, (a.id IS NOT NULL) AS acknowledged
+         FROM daily_governance_log dgl
+         JOIN houses h ON h.id = dgl.house_id
+         LEFT JOIN daily_brief_acknowledgements a ON a.log_id = dgl.id AND a.user_id = $3
+        WHERE dgl.house_id = ANY($1::uuid[])
+          AND dgl.completed = true
+          AND dgl.review_date >= CURRENT_DATE - INTERVAL '14 days'
+        ORDER BY dgl.published_at DESC NULLS LAST, dgl.review_date DESC
+        LIMIT 30`,
+      [house_ids, company_id, user_id]
+    );
+    return res.rows;
+  }
+
   async acknowledgeBrief(log_id: string, user_id: string, company_id: string) {
     await query(
       `INSERT INTO daily_brief_acknowledgements (log_id, company_id, user_id)

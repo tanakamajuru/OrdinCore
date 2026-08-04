@@ -26,6 +26,7 @@ import { MyWork } from "./components/MyWork";
 import { SystemicPatterns } from "./components/SystemicPatterns";
 import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
 import { GovernanceCompliance } from "./components/GovernanceCompliance";
+import { DailyGovernanceInbox } from "./components/DailyGovernanceInbox";
 import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
@@ -129,6 +130,11 @@ export default function App() {
           <Route path="/governance-compliance" element={
             <ProtectedRoute>
               <GovernanceCompliance />
+            </ProtectedRoute>
+          } />
+          <Route path="/daily-governance-inbox" element={
+            <ProtectedRoute>
+              <DailyGovernanceInbox />
             </ProtectedRoute>
           } />
           <Route path="/super-admin" element={

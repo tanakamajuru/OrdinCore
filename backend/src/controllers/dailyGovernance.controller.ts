@@ -49,6 +49,21 @@ export class DailyGovernanceController {
     }
   }
 
+  // TL "Daily Governance" inbox — recent briefs for the TL's services.
+  async getTeamBriefs(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      const hres = await query(`SELECT house_id FROM user_houses WHERE user_id = $1`, [user_id]);
+      const house_ids = hres.rows.map((r: any) => r.house_id);
+      const briefs = await dailyGovernanceService.recentTeamBriefs(company_id, house_ids, user_id);
+      return res.json({ success: true, data: briefs, meta: {} });
+    } catch (err: any) {
+      logger.error('Error fetching team briefs', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
   async acknowledgeBrief(req: Request, res: Response) {
     try {
       const { id } = req.params;

@@ -139,9 +139,16 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
     if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
     setReviewBusy(true);
     try {
-      await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim() });
-      toast.success("Pattern review recorded");
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim() });
+      const data = res?.data?.data ?? res?.data ?? {};
+      const na = data.next_action;
       setReviewTarget(null);
+      if (na?.type === "promote") {
+        toast.success("Review recorded — promoting to a risk");
+        navigate(`/risks/promote?cluster_id=${na.cluster_id}`, { state: { cluster_id: na.cluster_id } });
+        return;
+      }
+      toast.success(na?.type === "escalated" ? "Review recorded — escalation opened for this pattern" : "Pattern review recorded");
       setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
     finally { setReviewBusy(false); }

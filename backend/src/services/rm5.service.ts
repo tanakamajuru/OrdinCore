@@ -94,7 +94,7 @@ export const rm5Service = {
               c.scope, c.signal_count AS "signalCount", c.linked_risk_id AS "promotedRiskId",
               h.name AS house_name, c.affected_house_ids,
               (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names,
-              c.first_signal_date, c.last_signal_date,
+              c.first_signal_date, c.last_signal_date, c.last_reviewed_at, c.review_outcome,
               (SELECT COUNT(*)::int FROM escalations e WHERE e.source_cluster_id = c.id) AS escalation_count,
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
@@ -124,6 +124,7 @@ export const rm5Service = {
         first_signal_date: c.first_signal_date, last_signal_date: c.last_signal_date,
         days_open: c.first_signal_date ? Math.max(0, Math.round((Date.now() - new Date(c.first_signal_date).getTime()) / 86400000)) : null,
         escalation_count: Number(c.escalation_count) || 0,
+        last_reviewed_at: c.last_reviewed_at, review_outcome: c.review_outcome,
       };
     };
     const within: any[] = [], across: any[] = [];

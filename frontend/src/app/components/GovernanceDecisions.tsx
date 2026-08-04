@@ -12,8 +12,10 @@ const DECISIONS = ["Create Action", "Monitor", "Escalate", "Close"] as const;
 // Chapter 3 — Governance Decisions: the leadership decisions recorded during the Daily
 // Governance Review. "Create Action" generates a linked, lineage-carrying task for a
 // Team Leader in the existing task system.
-export function GovernanceDecisions({ houseId, signals = [], patterns = [] }: { houseId?: string; signals?: any[]; patterns?: any[] }) {
+export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: string; signals?: any[]; patterns?: any[] }) {
   const [owners, setOwners] = useState<any[]>([]);
+  // Signals are fetched PER HOUSE, so a decision is made about this service's own signals.
+  const [signals, setSignals] = useState<any[]>([]);
   const [todayList, setTodayList] = useState<any[]>([]);
   const [yList, setYList] = useState<any[]>([]);
   const [ySummary, setYSummary] = useState<any>(null);
@@ -39,8 +41,18 @@ export function GovernanceDecisions({ houseId, signals = [], patterns = [] }: { 
       setYSummary(y.data?.data?.summary || null);
     } catch { /* ignore */ }
   };
+  const loadSignals = async () => {
+    if (!houseId) { setSignals([]); return; }
+    try {
+      const r: any = await apiClient.get(`/pulses?house_id=${houseId}&limit=50`);
+      const raw = r.data?.data || r.data || [];
+      const list = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
+      // Only signals still awaiting a decision (not linked/closed).
+      setSignals(list.filter((s: any) => !["Linked", "Closed"].includes(s.review_status)));
+    } catch { setSignals([]); }
+  };
   useEffect(() => { loadOwners(); }, []);
-  useEffect(() => { loadDecisions(); /* eslint-disable-next-line */ }, [houseId]);
+  useEffect(() => { loadDecisions(); loadSignals(); /* eslint-disable-next-line */ }, [houseId]);
 
   const record = async () => {
     if (form.what.trim().length < 5) { toast.error("Describe the decision."); return; }
@@ -119,7 +131,11 @@ export function GovernanceDecisions({ houseId, signals = [], patterns = [] }: { 
                 {signals.slice(0, 12).map((s: any) => <option key={s.id} value={`signal:${s.id}`}>{(s.signal_type || s.governance_domain || "Signal")}{s.related_person ? ` · ${s.related_person}` : ""} — {(s.description || "").slice(0, 40)}</option>)}
               </optgroup>}
               {patterns.length > 0 && <optgroup label="Patterns">
-                {patterns.slice(0, 12).map((p: any) => <option key={p.id} value={`pattern:${p.id}`}>{p.cluster_label || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern"}{p.linked_person ? ` · ${p.linked_person}` : ""}</option>)}
+                {patterns.slice(0, 12).map((p: any) => {
+                  const label = p.cluster_label || p.domain || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern";
+                  const person = p.linked_person || (p.person && p.person !== "—" ? p.person : "");
+                  return <option key={p.id} value={`pattern:${p.id}`}>{label}{person ? ` · ${person}` : ""}</option>;
+                })}
               </optgroup>}
             </select>
           </div>

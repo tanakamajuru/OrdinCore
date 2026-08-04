@@ -40,9 +40,11 @@ export function SystemicPatterns() {
     if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
     setBusy(true);
     try {
-      await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim() });
-      toast.success("Systemic pattern review recorded");
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim() });
+      const na = (res?.data?.data ?? res?.data ?? {}).next_action;
       setReviewTarget(null); setRationale(""); setOutcome("Continue Monitoring");
+      if (na?.type === "promote") { toast.success("Review recorded — promoting to a risk"); navigate(`/risks/promote?cluster_id=${na.cluster_id}`, { state: { cluster_id: na.cluster_id } }); return; }
+      toast.success(na?.type === "escalated" ? "Review recorded — escalation opened" : "Systemic pattern review recorded");
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
     finally { setBusy(false); }
