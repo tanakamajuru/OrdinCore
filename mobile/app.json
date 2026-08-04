@@ -7,7 +7,9 @@
     "scheme": "ordincore",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": { "policy": "appVersion" },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
     "updates": {
       "url": "https://u.expo.dev/769c3d95-40d7-433a-9830-a144fee4d912"
     },
@@ -38,7 +40,8 @@
         "android.permission.USE_FINGERPRINT",
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
-      ]
+      ],
+      "versionCode": 2
     },
     "plugins": [
       "expo-secure-store",
