@@ -24,6 +24,9 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "care.ordincore.mobile",
+      "config": {
+        "usesNonExemptEncryption": false
+      },
       "infoPlist": {
         "NSFaceIDUsageDescription": "Unlock OrdinCore with Face ID to protect governance and safeguarding records.",
         "NSCameraUsageDescription": "Attach a photo as evidence when you raise a signal.",
@@ -43,7 +46,7 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "versionCode": 2
+      "versionCode": 3
     },
     "plugins": [
       "expo-secure-store",
