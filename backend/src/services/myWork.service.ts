@@ -102,6 +102,19 @@ export const myWorkService = {
       if ((wk.rows[0]?.n || 0) === 0) items.push({ key: 'weekly', label: RM_PLUS.includes(r) ? 'weekly review to publish this week' : 'weekly review to acknowledge', count: 1, tone: 'slate', link: '/weekly-review', primary_action: RM_PLUS.includes(r) ? 'Publish Weekly Review' : 'Confirm Reviewed' });
     }
 
+    // 6. Post-escalation risk reviews (§4) — a closed escalation whose underlying risk still
+    //    needs the RM's Keep Open / Add Controls / Re-escalate / Request Closure decision.
+    if (RM_PLUS.includes(r)) {
+      const pcr = await safe(() => query(
+        `SELECT COUNT(*)::int AS n FROM escalations
+          WHERE company_id = $1 AND post_closure_risk_review_required = TRUE
+            AND (escalated_to = $2 OR escalated_by = $2 OR house_id = ANY($3::uuid[]))`,
+        [company_id, user_id, houses]
+      ), { rows: [{ n: 0 }] } as any);
+      const n = pcr.rows[0]?.n || 0;
+      if (n > 0) items.push({ key: 'post_escalation_review', label: 'risks to review after escalation', count: n, tone: 'amber', link: '/escalation-log?filter=post-closure', primary_action: 'Review Risk' });
+    }
+
     const totalUrgent = items.filter((i) => i.tone === 'red').reduce((n, i) => n + (i.emphasis || i.count), 0);
     return { items, total_items: items.length, urgent: totalUrgent, all_clear: items.length === 0 };
   },

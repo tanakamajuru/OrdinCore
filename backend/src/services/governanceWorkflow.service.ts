@@ -1,4 +1,5 @@
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
+import { governanceDecisionsService } from './governanceDecisions.service';
 
 /**
  * Frozen Governance Architecture — thin workflow layer.
@@ -163,6 +164,41 @@ export const governanceWorkflowService = {
       [company_id, cluster_id]
     );
     if (openEsc.rows[0].n > 0) blockers.push('A linked escalation remains open.');
+
+    // §5 — the pattern is the last thing to close. It cannot close while any of its work,
+    // decisions or effectiveness reviews are still outstanding, or while fresh signals or an
+    // as-yet-unmonitored period mean the concern has not actually been seen through.
+    const openActions = await query(
+      `SELECT COUNT(*)::int AS n FROM risk_actions
+        WHERE company_id = $1 AND source_cluster_id = $2 AND status NOT IN ('Complete','Completed','Cancelled','Closed')`,
+      [company_id, cluster_id]
+    );
+    if ((openActions.rows[0]?.n || 0) > 0) blockers.push('An action from this pattern is still open.');
+
+    const pendingEff = await query(
+      `SELECT COUNT(*)::int AS n FROM risk_actions
+        WHERE company_id = $1 AND source_cluster_id = $2 AND status IN ('Complete','Completed') AND effectiveness IS NULL`,
+      [company_id, cluster_id]
+    );
+    if ((pendingEff.rows[0]?.n || 0) > 0) blockers.push('A completed action still needs its effectiveness review.');
+
+    const openDecision = await query(
+      `SELECT COUNT(*)::int AS n FROM governance_reviews
+        WHERE company_id = $1 AND cluster_id = $2 AND decision_status = 'Open'`,
+      [company_id, cluster_id]
+    );
+    if ((openDecision.rows[0]?.n || 0) > 0) blockers.push('A governance decision on this pattern is still open.');
+
+    const newSignals = await query(
+      `SELECT COUNT(*)::int AS n FROM risk_signal_links rsl
+         JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE rsl.cluster_id = $1 AND gp.company_id = $2 AND gp.review_status = 'New'`,
+      [cluster_id, company_id]
+    );
+    if ((newSignals.rows[0]?.n || 0) > 0) blockers.push('New signals have arrived on this pattern and need review first.');
+
+    if (!c.last_reviewed_at) blockers.push('This pattern has not yet had a recorded review — monitor and review it before closing.');
+
     return { eligible: blockers.length === 0, blockers };
   },
 
@@ -178,75 +214,81 @@ export const governanceWorkflowService = {
 
     // Deteriorating raises an urgent next review; the others keep the current cadence.
     const nextReview = nextReviewDate || (outcome === 'Deteriorating' ? new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10) : null);
+    const today = new Date().toISOString().slice(0, 10);
 
-    const result = await query(
-      `UPDATE signal_clusters
-          SET last_reviewed_at = NOW(), last_reviewed_by = $1, next_review_date = $2,
-              review_outcome = $3,
-              closure_reason = CASE WHEN $3 = 'Close' THEN $4 ELSE closure_reason END,
-              closed_at = CASE WHEN $3 = 'Close' THEN NOW() ELSE closed_at END,
-              closed_by = CASE WHEN $3 = 'Close' THEN $1 ELSE closed_by END,
-              cluster_status = CASE WHEN $3 = 'Close' THEN 'Resolved'
-                                    WHEN $3 = 'Escalate' THEN 'Escalated'
-                                    ELSE cluster_status END,
-              updated_at = NOW()
-        WHERE id = $5 AND company_id = $6 RETURNING *`,
-      [user_id, nextReview, outcome, rationale.trim(), cluster_id, company_id]
-    );
-    const cluster = result.rows[0];
-    if (!cluster) throw new Error('Pattern not found.');
-
-    // Every review is a governance record — even "no change" (Continue Monitoring / Stable).
-    const decisionMap: Record<string, string> = { 'Promote to Risk': 'Create Action', 'Escalate': 'Escalate', 'Close': 'Close' };
-    try {
-      await query(
-        `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_status)
-         VALUES ($1,$2,'RM_REVIEW',$3,$4,$5,'Completed')`,
-        [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900), decisionMap[outcome] || 'Monitor']
-      );
-    } catch { /* audit is best-effort */ }
-
+    // §3 — the review and any downstream object (risk / escalation) are created atomically.
+    // A pattern never shows Promoted or Escalated unless the linked record actually exists;
+    // if creation fails, the whole review rolls back (no swallowed errors, no phantom status).
+    const client = await getClient();
     let next_action: any = null;
+    let clusterLabel = '';
+    try {
+      await client.query('BEGIN');
+      const cur = (await client.query(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [cluster_id, company_id])).rows[0];
+      if (!cur) throw new Error('Pattern not found.');
+      clusterLabel = cur.cluster_label || cur.risk_domain || 'pattern';
 
-    // Escalate → create a real linked escalation (doctrine: the decision becomes an object).
-    if (outcome === 'Escalate') {
-      try {
-        const target = (await query(
-          `SELECT id FROM users WHERE company_id = $1 AND status = 'active'
-             AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'])
-             ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 WHEN 'DIRECTOR' THEN 1 ELSE 2 END LIMIT 1`,
-          [company_id]
-        )).rows[0]?.id;
-        const dup = await query(`SELECT 1 FROM escalations WHERE source_cluster_id = $1 AND COALESCE(lifecycle_status::text,status,'Open') NOT IN ('Closed','Resolved') LIMIT 1`, [cluster_id]);
-        if (target && !dup.rows[0]) {
-          const { v4: uuidv4 } = await import('uuid');
-          await query(
-            `INSERT INTO escalations (id, company_id, risk_id, source_cluster_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by, trigger_type)
-             VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending','Open','Urgent', NOW() + INTERVAL '48 hours','PATTERN_REVIEW')`,
-            [uuidv4(), company_id, cluster.linked_risk_id || null, cluster_id, cluster.house_id || null, user_id, target,
-             `Pattern escalated on review — ${cluster.cluster_label || cluster.risk_domain}: ${rationale.trim()}`.slice(0, 1000)]
-          );
-          next_action = { type: 'escalated' };
-        }
-      } catch { /* best-effort */ }
+      // Promote to Risk / Escalate delegate to the ONE shared executor (§2): it creates and
+      // links exactly one record, dedups duplicate submissions, and records the decision.
+      let out: any = null;
+      let linkedRiskId: string | null = cur.linked_risk_id || null;
+      if (outcome === 'Promote to Risk' || outcome === 'Escalate') {
+        out = await governanceDecisionsService.executeInTx(client, {
+          company_id, user_id, cluster_id,
+          house_id: cur.house_id || (Array.isArray(cur.affected_house_ids) ? cur.affected_house_ids[0] : null),
+          what_is_happening: `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900),
+          decision: outcome === 'Promote to Risk' ? 'Promote to Risk' : 'Escalate',
+          idempotency_key: `pattern-review:${cluster_id}:${outcome}:${today}`,
+        });
+        if (out?.risk) linkedRiskId = out.risk.id;
+      } else {
+        // Monitoring outcomes are still governance records — even "no change".
+        await client.query(
+          `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_status)
+           VALUES ($1,$2,'RM_REVIEW',$3,$4,'Monitor','Completed')`,
+          [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900)]
+        );
+      }
+
+      // Status now only reflects records that were actually created above.
+      const result = await client.query(
+        `UPDATE signal_clusters
+            SET last_reviewed_at = NOW(), last_reviewed_by = $1, next_review_date = $2,
+                review_outcome = $3,
+                closure_reason = CASE WHEN $3 = 'Close' THEN $4 ELSE closure_reason END,
+                closed_at = CASE WHEN $3 = 'Close' THEN NOW() ELSE closed_at END,
+                closed_by = CASE WHEN $3 = 'Close' THEN $1 ELSE closed_by END,
+                cluster_status = CASE WHEN $3 = 'Close' THEN 'Resolved'
+                                      WHEN $3 = 'Escalate' THEN 'Escalated'
+                                      WHEN $3 = 'Promote to Risk' THEN 'Confirmed'
+                                      ELSE cluster_status END,
+                linked_risk_id = COALESCE($7, linked_risk_id),
+                updated_at = NOW()
+          WHERE id = $5 AND company_id = $6 RETURNING *`,
+        [user_id, nextReview, outcome, rationale.trim(), cluster_id, company_id, linkedRiskId]
+      );
+      await client.query('COMMIT');
+
+      if (out?.risk) next_action = { type: 'promoted', risk_id: out.risk.id };
+      else if (out?.escalation) next_action = { type: 'escalated', escalation_id: out.escalation.id };
+
+      const cluster = result.rows[0];
+      // Deteriorating → notify management (best-effort, outside the transaction).
+      if (outcome === 'Deteriorating') {
+        try {
+          const { notificationsService } = await import('./notifications.service');
+          const mgrs = await query(`SELECT id FROM users WHERE company_id = $1 AND status = 'active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR'])`, [company_id]);
+          for (const m of mgrs.rows) {
+            await notificationsService.create({ company_id, user_id: m.id, type: 'pattern_review', title: 'Pattern deteriorating', body: `${clusterLabel}: ${rationale.trim()}`.slice(0, 200), link: '/rm5' });
+          }
+        } catch { /* notification is best-effort */ }
+      }
+      return { ...cluster, next_action };
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
     }
-
-    // Deteriorating → notify management (no auto-object, but leadership must know now).
-    if (outcome === 'Deteriorating') {
-      try {
-        const { notificationsService } = await import('./notifications.service');
-        const mgrs = await query(`SELECT id FROM users WHERE company_id = $1 AND status = 'active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR'])`, [company_id]);
-        for (const m of mgrs.rows) {
-          await notificationsService.create({ company_id, user_id: m.id, type: 'pattern_review', title: 'Pattern deteriorating', body: `${cluster.cluster_label || cluster.risk_domain}: ${rationale.trim()}`.slice(0, 200), link: '/rm5' });
-        }
-      } catch { /* best-effort */ }
-    }
-
-    // Promote to Risk → hand off to the existing promote flow (RM confirms details).
-    if (outcome === 'Promote to Risk' && !cluster.linked_risk_id) {
-      next_action = { type: 'promote', cluster_id };
-    }
-
-    return { ...cluster, next_action };
   },
 };

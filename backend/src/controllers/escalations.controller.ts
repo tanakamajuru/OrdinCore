@@ -35,6 +35,18 @@ export class EscalationsController {
     }
   }
 
+  async postClosureRiskReview(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await escalationsService.postClosureRiskReview(req.params.id, company_id, req.user!.user_id, {
+        outcome: req.body.outcome, note: req.body.note, due_at: req.body.due_at,
+      });
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to record post-escalation risk review', errors: [] });
+    }
+  }
+
   async acknowledge(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

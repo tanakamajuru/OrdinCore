@@ -59,6 +59,30 @@ export const requireMinRole = (minRole: Role) => {
   };
 };
 
+// §7 — the Responsible Individual is an INDEPENDENT oversight role. While acting as the RI
+// they may see everything but must not perform operational governance actions (complete daily
+// governance, record decisions, own/close escalations, close patterns or risks) — otherwise
+// oversight and execution collapse into one person. Because RI outranks RM in the hierarchy,
+// requireMinRole alone would wrongly allow this, so operational write routes add this guard.
+// An RI who genuinely holds an operational role switches their active capacity (active_role)
+// to it (e.g. Registered Manager); req.user.role then reflects that and the guard passes.
+export const blockOversightRole = (req: Request, res: Response, next: NextFunction): void => {
+  if (!req.user) {
+    res.status(401).json({ success: false, message: 'Not authenticated', errors: [] });
+    return;
+  }
+  if (req.user.role?.toUpperCase() === 'RESPONSIBLE_INDIVIDUAL') {
+    res.status(403).json({
+      success: false,
+      code: 'OVERSIGHT_READONLY',
+      message: 'As Responsible Individual you have independent oversight only. Switch your active role to an operational role (e.g. Registered Manager) to perform this action.',
+      errors: [],
+    });
+    return;
+  }
+  next();
+};
+
 export const isSuperAdmin = (req: Request): boolean => {
   return req.user?.role?.toUpperCase() === 'SUPER_ADMIN';
 };

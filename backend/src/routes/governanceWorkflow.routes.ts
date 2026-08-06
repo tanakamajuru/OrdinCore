@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
-import { requireRole } from '../middleware/role.middleware';
+import { requireRole, blockOversightRole } from '../middleware/role.middleware';
 import { governanceWorkflowService } from '../services/governanceWorkflow.service';
 
 const router = Router();
@@ -18,7 +18,7 @@ router.get('/patterns/:id/closure-eligibility', requireAuth, requireTenant, asyn
   }
 });
 
-router.post('/patterns/:id/review', requireAuth, requireTenant, reviewers, async (req, res) => {
+router.post('/patterns/:id/review', requireAuth, requireTenant, reviewers, blockOversightRole, async (req, res) => {
   try {
     const { outcome, rationale, next_review_date } = req.body || {};
     const data = await governanceWorkflowService.reviewPattern(

@@ -241,6 +241,78 @@ export class EscalationsService {
     return { message: 'Escalation resolved successfully', linked_risk_id: riskId, post_closure_risk_review_required: !!riskId };
   }
 
+  // Chapter 5/6 (§4) — after an escalation is closed, the RM must decide what happens to the
+  // underlying risk. Closing the urgent response never closes the risk; this mandatory review
+  // records one of four outcomes and creates the matching record. It is the ONLY thing that
+  // clears the post-closure review flag.
+  async postClosureRiskReview(id: string, company_id: string, user_id: string, input: { outcome: string; note?: string; due_at?: string }) {
+    const OUTCOMES = ['Keep Open', 'Add Controls', 'Re-escalate', 'Request Risk Closure'];
+    if (!OUTCOMES.includes(input.outcome)) throw new Error('Choose a valid post-escalation review outcome.');
+    const note = (input.note || '').trim();
+    if (input.outcome !== 'Keep Open' && note.length < 10) throw new Error('This outcome needs a short explanation (at least a sentence).');
+
+    const esc = (await query(`SELECT * FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
+    if (!esc) throw new Error('Escalation not found.');
+    if (!esc.post_closure_risk_review_required) throw new Error('This escalation is not awaiting a post-closure risk review.');
+
+    // Resolve the linked risk (direct, or via the source pattern's promoted risk).
+    let riskId: string | null = esc.risk_id || null;
+    if (!riskId && esc.source_cluster_id) {
+      riskId = (await query(`SELECT linked_risk_id FROM signal_clusters WHERE id = $1`, [esc.source_cluster_id])).rows[0]?.linked_risk_id || null;
+    }
+
+    let created: any = {};
+    if (input.outcome === 'Keep Open') {
+      if (riskId) {
+        await risksRepo.updateStatus(riskId, company_id, 'Open');
+        await risksRepo.addEvent(riskId, company_id, 'post_escalation_review', `Kept open after escalation closure — continued monitoring.${note ? ` ${note}` : ''}`.trim(), user_id);
+      }
+    } else if (input.outcome === 'Add Controls') {
+      if (!riskId) throw new Error('No linked risk to add controls to.');
+      const actionId = uuidv4();
+      await query(
+        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, source_cluster_id)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10)`,
+        [actionId, riskId, company_id, esc.house_id || null, note.slice(0, 255), note, user_id, input.due_at || null, user_id, esc.source_cluster_id || null]
+      );
+      await risksRepo.updateStatus(riskId, company_id, 'Open');
+      await risksRepo.addEvent(riskId, company_id, 'post_escalation_review', `New control added after escalation closure: ${note}`, user_id);
+      created = { action_id: actionId };
+    } else if (input.outcome === 'Re-escalate') {
+      if (!riskId) throw new Error('No linked risk to re-escalate.');
+      const dup = await query(`SELECT id FROM escalations WHERE company_id=$1 AND risk_id=$2 AND COALESCE(lifecycle_status::text,status,'Open') NOT IN ('Closed','Resolved','closed','resolved') LIMIT 1`, [company_id, riskId]);
+      if (dup.rows[0]) {
+        created = { escalation_id: dup.rows[0].id, reused: true };
+      } else {
+        const target = (await query(`SELECT id FROM users WHERE company_id=$1 AND status='active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR']) ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 ELSE 1 END LIMIT 1`, [company_id])).rows[0]?.id;
+        if (!target) throw new Error('No manager available to re-escalate to.');
+        const newId = uuidv4();
+        await query(
+          `INSERT INTO escalations (id, company_id, risk_id, source_cluster_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by, trigger_type)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending','Open','Urgent', NOW() + INTERVAL '48 hours','POST_CLOSURE_REVIEW')`,
+          [newId, company_id, riskId, esc.source_cluster_id || null, esc.house_id || null, user_id, target, `Re-escalated after review: ${note}`.slice(0, 1000)]
+        );
+        await risksRepo.addEvent(riskId, company_id, 'post_escalation_review', `Re-escalated after review: ${note}`, user_id);
+        created = { escalation_id: newId };
+      }
+    } else if (input.outcome === 'Request Risk Closure') {
+      if (!riskId) throw new Error('No linked risk to request closure for.');
+      await query(`UPDATE risks SET closure_eligible = true, last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [riskId, company_id]);
+      await risksRepo.addEvent(riskId, company_id, 'post_escalation_review', `Risk closure requested after escalation review: ${note}`, user_id);
+      created = { risk_id: riskId, closure_requested: true };
+    }
+
+    // Record the review as an escalation action and clear the flag (audit + one-time gate).
+    await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
+       VALUES ($1,$2,$3,'PostClosureReview',$4,$5)`,
+      [uuidv4(), id, company_id, `${input.outcome}${note ? ` — ${note}` : ''}`.slice(0, 1000), user_id]
+    );
+    await query(`UPDATE escalations SET post_closure_risk_review_required = FALSE, updated_at = NOW() WHERE id = $1`, [id]);
+
+    return { message: 'Post-escalation risk review recorded.', outcome: input.outcome, linked_risk_id: riskId, ...created };
+  }
+
   async acknowledge(id: string, company_id: string, user_id: string) {
     const res = await query(
       `UPDATE escalations

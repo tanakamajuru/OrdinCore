@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { closureController } from '../controllers/closure.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
-import { requireMinRole } from '../middleware/role.middleware';
+import { requireMinRole, blockOversightRole } from '../middleware/role.middleware';
 
 const router = Router();
 
@@ -21,7 +21,7 @@ const router = Router();
  *     responses:
  *       200: { description: Success }
  */
-router.post('/escalations/:id', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), closureController.closeEscalation.bind(closureController));
+router.post('/escalations/:id', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), blockOversightRole, closureController.closeEscalation.bind(closureController));
 
 /**
  * @openapi
@@ -38,6 +38,6 @@ router.post('/escalations/:id', requireAuth, requireTenant, requireMinRole('REGI
  *     responses:
  *       200: { description: Success }
  */
-router.post('/risks/:id', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), closureController.closeRisk.bind(closureController));
+router.post('/risks/:id', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), blockOversightRole, closureController.closeRisk.bind(closureController));
 
 export default router;

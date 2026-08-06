@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { rm5Controller } from '../controllers/rm5.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
-import { requireRole } from '../middleware/role.middleware';
+import { requireRole, blockOversightRole } from '../middleware/role.middleware';
 
 const router = Router();
 // The RM 5-screen read BFF. Oversight roles may read it (Director/RI use it read-only).
@@ -19,6 +19,6 @@ router.get('/escalations', ...rm, rm5Controller.escalations);
 router.get('/dismissed', ...rm, rm5Controller.dismissed);
 
 // Deciding is the RM's call — promote is gated tighter than the read BFF.
-router.post('/patterns/:id/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), rm5Controller.promotePattern);
+router.post('/patterns/:id/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), blockOversightRole, rm5Controller.promotePattern);
 
 export default router;

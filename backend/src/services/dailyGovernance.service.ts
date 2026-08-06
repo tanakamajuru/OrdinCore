@@ -1,6 +1,7 @@
 import { query, getClient } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
+import { governanceDecisionsService } from './governanceDecisions.service';
 
 export type DecisionInput = {
   sourceType?: 'signal' | 'pattern' | 'risk' | 'escalation';
@@ -109,8 +110,10 @@ export class DailyGovernanceService {
         try {
           const { notificationsService } = await import('./notifications.service');
           const tls = await query(
-            `SELECT u.id FROM users u JOIN user_houses uh ON uh.user_id = u.id
-              WHERE uh.house_id = $1 AND u.role = 'TEAM_LEADER' AND u.status = 'active'`,
+            `SELECT DISTINCT u.id FROM users u JOIN user_houses uh ON uh.user_id = u.id
+              WHERE uh.house_id = $1 AND u.status = 'active'
+                AND (u.role IN ('TEAM_LEADER','TL')
+                     OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id AND ur.role = 'TEAM_LEADER'))`,
             [house_id]
           );
           for (const t of tls.rows) {
@@ -143,50 +146,18 @@ export class DailyGovernanceService {
     const what = (d.whatIsHappening || d.actionDescription || d.reason || '').trim();
     if (!what) throw new Error('Each decision needs a description.');
 
-    const review = await client.query(
-      `INSERT INTO governance_reviews (
-         company_id, service_id, risk_id, pulse_entry_id, cluster_id, daily_governance_log_id,
-         review_type, reviewed_by, what_is_happening, decision, escalation_required, action_required,
-         decision_owner_id, due_at, intended_outcome, decision_status, idempotency_key
-       ) VALUES ($1,$2,$3,$4,$5,$6,'RM_REVIEW',$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-       ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
-       RETURNING *`,
-      [company_id, house_id, risk_id, pulse_entry_id, cluster_id, log_id, user_id, what, d.decision,
-       d.decision === 'Escalate', d.decision === 'Create Action', d.ownerId || null, d.dueAt || null,
-       d.intendedOutcome || null, d.decision === 'Monitor' ? 'Monitoring' : 'Open', d.idempotencyKey || null]
-    );
-    // Idempotent replay — the decision already exists, so its consequences already exist too.
-    if (!review.rows[0]) return;
-    const decisionId = review.rows[0].id;
-
-    if (d.decision === 'Create Action') {
-      const title = (d.actionDescription || what).slice(0, 255);
-      await client.query(
-        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13)`,
-        [uuidv4(), risk_id, company_id, house_id, title, what, d.ownerId || null, d.dueAt || null, user_id, decisionId, pulse_entry_id, cluster_id, d.intendedOutcome || null]
-      );
-    } else if (d.decision === 'Escalate') {
-      const target = d.ownerId || (await client.query(
-        `SELECT id FROM users WHERE company_id=$1 AND status='active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR']) ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 ELSE 1 END LIMIT 1`, [company_id]
-      )).rows[0]?.id;
-      if (!target) throw new Error('No manager available to escalate to.');
-      await client.query(
-        `INSERT INTO escalations (id, company_id, risk_id, source_pulse_id, source_cluster_id, source_governance_review_id, house_id, escalated_by, escalated_to, reason, status, lifecycle_status, priority, due_by, trigger_type)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'Pending','Open','Urgent', NOW() + INTERVAL '48 hours','GOVERNANCE_DECISION')`,
-        [uuidv4(), company_id, risk_id, pulse_entry_id, cluster_id, decisionId, house_id, user_id, target, (d.reason || what).slice(0, 1000)]
-      );
-    }
-
-    // 5. Update the source signal status (it remains permanent evidence, never replaced).
-    if (pulse_entry_id) {
-      await client.query(
-        `UPDATE governance_pulses SET review_status = CASE WHEN $2 = 'Close' THEN 'Closed'::review_status WHEN $2 = 'Monitor' THEN 'Monitoring'::review_status ELSE 'Reviewed'::review_status END,
-                reviewed_by = COALESCE(reviewed_by,$1), reviewed_at = COALESCE(reviewed_at, NOW())
-          WHERE id = $3 AND company_id = $4`,
-        [user_id, d.decision, pulse_entry_id, company_id]
-      );
-    }
+    // §2 — Daily Governance decisions run through the SAME executor as standalone decisions,
+    // so a decision is never "recorded" without its downstream record (task / escalation /
+    // risk / closure) being created in the same transaction, with identical idempotency.
+    await governanceDecisionsService.executeInTx(client, {
+      company_id, user_id, daily_governance_log_id: log_id, house_id,
+      pulse_entry_id, cluster_id, risk_id,
+      what_is_happening: what, decision: d.decision as any,
+      owner_id: d.ownerId || null, due_at: d.dueAt || null,
+      intended_outcome: d.intendedOutcome || null, action_description: d.actionDescription || null,
+      reason: d.reason || null,
+      idempotency_key: d.idempotencyKey || null,
+    } as any);
   }
 
   // The latest published Team Brief for a set of services (the TL's assigned houses),

@@ -3,6 +3,7 @@ import { escalationsController } from '../controllers/escalations.controller';
 import { closureController } from '../controllers/closure.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
+import { requireMinRole, blockOversightRole } from '../middleware/role.middleware';
 
 const router = Router();
 
@@ -159,7 +160,9 @@ router.patch('/:id/priority', requireAuth, requireTenant, escalationsController.
  *       200:
  *         description: Success
  */
-router.post('/:id/resolve', requireAuth, requireTenant, escalationsController.resolve.bind(escalationsController));
+router.post('/:id/resolve', requireAuth, requireTenant, blockOversightRole, escalationsController.resolve.bind(escalationsController));
+// §4 — mandatory post-closure risk review (Keep Open / Add Controls / Re-escalate / Request Risk Closure).
+router.post('/:id/post-closure-risk-review', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), blockOversightRole, escalationsController.postClosureRiskReview.bind(escalationsController));
 router.post('/:id/escalate-further', requireAuth, requireTenant, escalationsController.escalateFurther.bind(escalationsController));
 /**
  * @openapi
