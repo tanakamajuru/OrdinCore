@@ -29,15 +29,23 @@ const mockGetClient = getClient as jest.MockedFunction<any>;
 // A fake PoolClient that records every SQL it sees and answers via a matcher fn.
 function fakeClient(answer: (sql: string, params: any[]) => any) {
   const sqls: string[] = [];
+  const calls: { sql: string; params: any[] }[] = [];
   const client = {
     sqls,
+    calls,
     query: jest.fn(async (sql: string, params: any[] = []) => {
       sqls.push(sql);
+      calls.push({ sql, params });
       return answer(sql, params) ?? { rows: [], rowCount: 0 };
     }),
     release: jest.fn(),
   };
   return client;
+}
+
+// Find the params of the first recorded query whose SQL matches a pattern.
+function paramsOf(client: any, re: RegExp): any[] | undefined {
+  return client.calls.find((c: any) => re.test(c.sql))?.params;
 }
 
 describe('§3 Promote to Risk — idempotent (no duplicate risk)', () => {
@@ -244,5 +252,78 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
     expect(out.pattern?.id).toBe('cl-1');
     expect(client.sqls.some((s) => /INSERT INTO signal_clusters/.test(s))).toBe(false);
     expect(client.sqls.some((s) => /INSERT INTO risk_signal_links/.test(s))).toBe(true);
+  });
+});
+
+// §14 — the required staging journey, exercised through the shared executor. This proves the
+// chain is reconstructed by LINEAGE (each downstream record carries its source ids), not by
+// copying narratives — the property §8/§14 depend on. A live UI walkthrough remains the final
+// human acceptance step, but the wiring is verified here end to end.
+describe('§14 Full governance journey — lineage is threaded at every hop', () => {
+  const SIGNAL = 'sig-1', HOUSE = 'h1', CO = 'co', USER = 'u';
+
+  it('signal → decision → task carries source signal + decision lineage', async () => {
+    const client = fakeClient((sql) => {
+      if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
+      if (/INSERT INTO risk_actions/.test(sql)) return { rows: [{ id: 'task-1', title: 'do it' }] };
+      return { rows: [] };
+    });
+    const out = await governanceDecisionsService.executeInTx(client as any, {
+      company_id: CO, user_id: USER, house_id: HOUSE, pulse_entry_id: SIGNAL,
+      what_is_happening: 'Act on this concern promptly.', decision: 'Create Action', owner_id: 'tl-1',
+    });
+    expect(out.task?.id).toBe('task-1');
+    const p = paramsOf(client, /INSERT INTO risk_actions/)!;
+    expect(p).toContain('dec-1');   // governance_review_id lineage
+    expect(p).toContain(SIGNAL);    // source_pulse_id lineage
+  });
+
+  it('signal → pattern → promote: risk carries source cluster, pattern gets linked_risk_id', async () => {
+    const client = fakeClient((sql) => {
+      if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-2' }] };
+      if (/FROM signal_clusters/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: null, risk_domain: 'Safety', house_id: HOUSE, affected_house_ids: null, linked_person: null }] };
+      if (/INSERT INTO risks/.test(sql)) return { rows: [{ id: 'risk-1' }] };
+      return { rows: [] };
+    });
+    const out = await governanceDecisionsService.executeInTx(client as any, {
+      company_id: CO, user_id: USER, cluster_id: 'cl-1',
+      what_is_happening: 'Promote this recurring pattern to a formal risk.', decision: 'Promote to Risk',
+    });
+    expect(out.risk?.id).toBe('risk-1');
+    const riskParams = paramsOf(client, /INSERT INTO risks/)!;
+    expect(riskParams).toContain('cl-1');                                   // source_cluster_id lineage
+    expect(client.sqls.some((s) => /UPDATE signal_clusters SET linked_risk_id/.test(s))).toBe(true);
+    expect(client.sqls.some((s) => /UPDATE governance_reviews SET risk_id/.test(s))).toBe(true);
+  });
+
+  it('pattern → escalate: escalation retains source-pattern and decision lineage', async () => {
+    const client = fakeClient((sql) => {
+      if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-3' }] };
+      if (/FROM escalations WHERE company_id/.test(sql)) return { rows: [] };     // no existing open one
+      if (/FROM users WHERE company_id/.test(sql)) return { rows: [{ id: 'rm-1' }] };
+      if (/INSERT INTO escalations/.test(sql)) return { rows: [{ id: 'esc-1' }] };
+      return { rows: [] };
+    });
+    const out = await governanceDecisionsService.executeInTx(client as any, {
+      company_id: CO, user_id: USER, cluster_id: 'cl-1', house_id: HOUSE,
+      what_is_happening: 'Escalate this pattern to the Registered Manager.', decision: 'Escalate',
+    });
+    expect(out.escalation?.id).toBe('esc-1');
+    const escParams = paramsOf(client, /INSERT INTO escalations/)!;
+    expect(escParams).toContain('cl-1');    // source_cluster_id lineage
+    expect(escParams).toContain('dec-3');   // source_governance_review_id lineage
+  });
+
+  it('escalation closed → linked risk still open and pattern closure remains blocked', async () => {
+    // With the linked risk active, the pattern is not eligible to close (Chapter 7 doctrine).
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: 'risk-1', last_reviewed_at: new Date() }] } as any;
+      if (/FROM risks WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'risk-1' }] } as any; // still active
+      return { rows: [{ n: 0 }] } as any;
+    });
+    const res = await governanceWorkflowService.assessPatternClosure(CO, 'cl-1');
+    expect(res.eligible).toBe(false);
+    expect(res.blockers.join(' ')).toMatch(/linked risk remains active/i);
   });
 });
