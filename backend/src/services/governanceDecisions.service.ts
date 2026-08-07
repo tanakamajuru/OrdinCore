@@ -231,11 +231,13 @@ export const governanceDecisionsService = {
               gr.intended_outcome, gr.created_at, gr.service_id,
               h.name AS house_name,
               ow.first_name || ' ' || ow.last_name AS owner_name,
+              rb.first_name || ' ' || rb.last_name AS recorded_by_name,
               ra.id AS task_id, ra.status AS task_status, ra.due_date AS task_due,
               ra.effectiveness AS task_effectiveness
          FROM governance_reviews gr
          LEFT JOIN houses h ON h.id = gr.service_id
          LEFT JOIN users ow ON ow.id = gr.decision_owner_id
+         LEFT JOIN users rb ON rb.id = gr.reviewed_by
          LEFT JOIN risk_actions ra ON ra.governance_review_id = gr.id
         WHERE ${where} AND gr.review_type = 'RM_REVIEW'
         ORDER BY gr.created_at DESC`,

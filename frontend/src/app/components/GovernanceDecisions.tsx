@@ -28,7 +28,7 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
     try {
       const r: any = await apiClient.get("/users?limit=200");
       const list = r.data?.data || r.data || [];
-      setOwners((Array.isArray(list) ? list : list.users || []).filter((u: any) => ["TEAM_LEADER", "REGISTERED_MANAGER"].includes(String(u.role || "").toUpperCase())));
+      setOwners((Array.isArray(list) ? list : list.users || []).filter((u: any) => ["TEAM_LEADER", "REGISTERED_MANAGER", "DIRECTOR"].includes(String(u.role || "").toUpperCase())));
     } catch { setOwners([]); }
   };
   const loadDecisions = async () => {
@@ -48,8 +48,11 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
       const r: any = await apiClient.get(`/pulses?house_id=${houseId}&limit=50`);
       const raw = r.data?.data || r.data || [];
       const list = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
-      // Only signals still awaiting a decision (not linked/closed).
-      setSignals(list.filter((s: any) => !["Linked", "Closed"].includes(s.review_status)));
+      // Only signals still awaiting a decision (not linked/closed), newest first so the
+      // most recent inflow is easiest to attach a decision to.
+      const open = list.filter((s: any) => !["Linked", "Closed"].includes(s.review_status));
+      open.sort((a: any, b: any) => new Date(b.created_at || b.entry_date || 0).getTime() - new Date(a.created_at || a.entry_date || 0).getTime());
+      setSignals(open);
     } catch { setSignals([]); }
   };
   useEffect(() => { loadOwners(); }, []);
@@ -133,7 +136,14 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
             <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
               <option value="service">This service (general)</option>
               {signals.length > 0 && <optgroup label="Signals">
-                {signals.slice(0, 12).map((s: any) => <option key={s.id} value={`signal:${s.id}`}>{(s.signal_type || s.governance_domain || "Signal")}{s.related_person ? ` · ${s.related_person}` : ""} — {(s.description || "").slice(0, 40)}</option>)}
+                {signals.map((s: any) => {
+                  const dt = s.created_at || s.entry_date;
+                  const when = dt ? new Date(dt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+                  const desc = (s.description || "").trim();
+                  const kind = s.signal_type || s.governance_domain || "Signal";
+                  const person = s.related_person ? ` · ${s.related_person}` : "";
+                  return <option key={s.id} value={`signal:${s.id}`}>{when ? `${when} · ` : ""}{kind}{person} — {desc.slice(0, 90)}{desc.length > 90 ? "…" : ""}</option>;
+                })}
               </optgroup>}
               {patterns.length > 0 && <optgroup label="Patterns">
                 {patterns.slice(0, 12).map((p: any) => {
@@ -149,11 +159,11 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
           <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
             {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
           </select>
-          <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision !== "Create Action"}>
-            <option value="">{form.decision === "Create Action" ? "Assign to…" : "—"}</option>
+          <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"}>
+            <option value="">{form.decision === "Escalate" ? "Escalate to…" : form.decision === "Monitor" ? "Owner (optional)…" : form.decision === "Create Action" ? "Assign to…" : "—"}</option>
             {owners.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
           </select>
-          <input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision !== "Create Action"} />
+          <input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })} title={form.decision === "Monitor" ? "Next review date" : form.decision === "Escalate" ? "Respond by" : "Due date"} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"} />
         </div>
         <div className="flex justify-end">
           <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
@@ -167,15 +177,21 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
         <div className="mt-5 border-t border-border pt-4">
           <div className="text-xs font-semibold text-foreground mb-2">Today's decisions ({todayList.length})</div>
           <div className="space-y-1.5">
-            {todayList.map((d: any) => (
+            {todayList.map((d: any) => {
+              const when = d.created_at ? new Date(d.created_at).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
+              const isClose = String(d.decision || "").toLowerCase().includes("close");
+              return (
               <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-foreground truncate">
                   <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">{d.decision}</span>
-                  {d.what_is_happening}{d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}
+                  {d.what_is_happening}
+                  {isClose
+                    ? <span className="text-muted-foreground"> · Closed by {d.recorded_by_name || d.owner_name || "—"}{when ? ` · ${when}` : ""}</span>
+                    : <>{d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}{when ? <span className="text-muted-foreground"> · {when}</span> : null}</>}
                 </span>
                 <StatusPill s={d.rollup_status} />
               </div>
-            ))}
+            );})}
           </div>
         </div>
       )}
