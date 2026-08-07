@@ -56,12 +56,17 @@ export const myWorkService = {
       if (n > 0) items.push({ key: 'escalations', label: 'escalations awaiting response', count: n, emphasis: esc.rows[0]?.urgent || 0, tone: 'red', link: '/escalation-log', primary_action: 'Update Escalation' });
     }
 
-    // 2. Signals awaiting review (reviewers only).
+    // 2. Signals awaiting review (reviewers only). Must count exactly what the RM5 signals
+    //    pipeline shows when this item is clicked — recent inflow still in the daily pipeline
+    //    (not yet Linked to a risk, Closed, or moved onto an escalation/Monitoring). Using a
+    //    different predicate here is what made My Work (all-time New) disagree with the
+    //    pipeline count. Kept house-scoped so a Team Leader sees only their own services.
     if (REVIEWERS.includes(r)) {
       const sig = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM governance_pulses
           WHERE company_id = $1 AND house_id = ANY($2::uuid[])
-            AND (review_status IS NULL OR review_status = 'New')`,
+            AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days'
+            AND COALESCE(review_status::text, '') NOT IN ('Linked','Closed','Monitoring')`,
         [company_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = sig.rows[0]?.n || 0;

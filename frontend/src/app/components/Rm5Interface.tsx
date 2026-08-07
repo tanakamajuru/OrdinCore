@@ -52,7 +52,9 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   // Deep-link support: /rm5?stage=signals opens the pipeline on the signals tab so
   // "signals awaiting review" links land on signals, not patterns.
   const stageParam = (() => { try { return new URLSearchParams(window.location.search).get("stage"); } catch { return null; } })();
-  const [screen, setScreen] = useState<string>(stageParam ? "pipeline" : initialScreen);
+  // Signals live on the "today" screen (there is no pipeline signals tab), so a
+  // ?stage=signals deep-link must open "today" — not an empty pipeline pane.
+  const [screen, setScreen] = useState<string>(stageParam ? (stageParam === "signals" ? "today" : "pipeline") : initialScreen);
   const [stage, setStage] = useState(stageParam && ["signals", "patterns", "register", "actions", "effectiveness", "escalations"].includes(stageParam) ? stageParam : "patterns");
   const [counts, setCounts] = useState<any>({});
   const [today, setToday] = useState<any>({ todaySignals: [], actionsDue: [] });
