@@ -39,7 +39,10 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const result = await escalationsService.postClosureRiskReview(req.params.id, company_id, req.user!.user_id, {
-        outcome: req.body.outcome, note: req.body.note, due_at: req.body.due_at,
+        outcome: req.body.outcome,
+        // Spec field names are rationale/nextReviewDate; keep note/due_at for back-compat.
+        note: req.body.rationale ?? req.body.note,
+        due_at: req.body.nextReviewDate ?? req.body.due_at,
       });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {

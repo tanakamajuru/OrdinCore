@@ -17,11 +17,18 @@ export type DecisionInput = {
 export class DailyGovernanceService {
   async openLog(house_id: string, user_id: string, company_id: string) {
     const today = new Date().toISOString().split('T')[0];
-    
-    // Check if log already exists for today
+
+    // §6 — tenant isolation: the service must belong to the caller's company. Return a
+    // neutral "not found" rather than leaking that the house exists for another tenant.
+    const owns = await query('SELECT 1 FROM houses WHERE id = $1 AND company_id = $2', [house_id, company_id]);
+    if (!owns.rows[0]) throw new Error('Service not found');
+
+    // Check if a log already exists for today (scoped through the owning house).
     const existing = await query(
-      'SELECT * FROM daily_governance_log WHERE house_id = $1 AND review_date = $2',
-      [house_id, today]
+      `SELECT dgl.* FROM daily_governance_log dgl
+         JOIN houses h ON h.id = dgl.house_id
+        WHERE dgl.house_id = $1 AND dgl.review_date = $2 AND h.company_id = $3`,
+      [house_id, today, company_id]
     );
 
     if (existing.rows[0]) {
@@ -30,9 +37,9 @@ export class DailyGovernanceService {
 
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO daily_governance_log (id, house_id, review_date, completed, review_type)
-       VALUES ($1, $2, $3, false, 'Primary') RETURNING *`,
-      [id, house_id, today]
+      `INSERT INTO daily_governance_log (id, house_id, review_date, completed, review_type, company_id)
+       VALUES ($1, $2, $3, false, 'Primary', $4) RETURNING *`,
+      [id, house_id, today, company_id]
     );
 
     return result.rows[0];
@@ -63,8 +70,14 @@ export class DailyGovernanceService {
     try {
       await client.query('BEGIN');
 
-      // 1. Lock and validate the daily log.
-      const logRes = await client.query('SELECT house_id FROM daily_governance_log WHERE id = $1 FOR UPDATE', [log_id]);
+      // 1. Lock and validate the daily log — §6: scope through the owning house so a log
+      //    from another tenant can never be completed (locks only the log row, not houses).
+      const logRes = await client.query(
+        `SELECT dgl.house_id FROM daily_governance_log dgl
+           JOIN houses h ON h.id = dgl.house_id
+          WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
+        [log_id, company_id]
+      );
       if (!logRes.rows[0]) throw new Error('Governance log not found');
       house_id = logRes.rows[0].house_id;
 
@@ -72,8 +85,8 @@ export class DailyGovernanceService {
       let director_notified: Date | null = null;
       if (is_deputy_review && house_id) {
         const sig = await client.query(
-          `SELECT COUNT(*) FROM governance_pulses WHERE house_id = $1 AND entry_date = CURRENT_DATE AND severity IN ('High','Critical')`,
-          [house_id]
+          `SELECT COUNT(*) FROM governance_pulses WHERE company_id = $2 AND house_id = $1 AND entry_date = CURRENT_DATE AND severity IN ('High','Critical')`,
+          [house_id, company_id]
         );
         if (parseInt(sig.rows[0].count) > 0) { enhanced_oversight = true; director_notified = new Date(); }
       }
@@ -172,6 +185,7 @@ export class DailyGovernanceService {
          JOIN houses h ON h.id = dgl.house_id
          LEFT JOIN daily_brief_acknowledgements a ON a.log_id = dgl.id AND a.user_id = $3
         WHERE dgl.house_id = ANY($1::uuid[])
+          AND h.company_id = $2
           AND dgl.completed = true
           AND dgl.review_date = CURRENT_DATE
         ORDER BY dgl.published_at DESC NULLS LAST
@@ -192,6 +206,7 @@ export class DailyGovernanceService {
          JOIN houses h ON h.id = dgl.house_id
          LEFT JOIN daily_brief_acknowledgements a ON a.log_id = dgl.id AND a.user_id = $3
         WHERE dgl.house_id = ANY($1::uuid[])
+          AND h.company_id = $2
           AND dgl.completed = true
           AND dgl.review_date >= CURRENT_DATE - INTERVAL '14 days'
         ORDER BY dgl.published_at DESC NULLS LAST, dgl.review_date DESC
@@ -202,6 +217,13 @@ export class DailyGovernanceService {
   }
 
   async acknowledgeBrief(log_id: string, user_id: string, company_id: string) {
+    // §6 — only acknowledge a brief that belongs to the caller's company.
+    const owns = await query(
+      `SELECT 1 FROM daily_governance_log dgl JOIN houses h ON h.id = dgl.house_id
+        WHERE dgl.id = $1 AND h.company_id = $2`,
+      [log_id, company_id]
+    );
+    if (!owns.rows[0]) throw new Error('Brief not found');
     await query(
       `INSERT INTO daily_brief_acknowledgements (log_id, company_id, user_id)
        VALUES ($1, $2, $3) ON CONFLICT (log_id, user_id) DO NOTHING`,

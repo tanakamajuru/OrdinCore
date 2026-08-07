@@ -15,7 +15,7 @@ import { v4 as uuidv4 } from 'uuid';
  */
 
 export type GovernanceDecisionType =
-  | 'Monitor' | 'Create Action' | 'Escalate' | 'Promote to Risk'
+  | 'Monitor' | 'Create Action' | 'Create Pattern' | 'Link to Pattern' | 'Escalate' | 'Promote to Risk'
   | 'Close' | 'Close Signal' | 'Request Risk Closure' | 'Reopen';
 
 export type DecisionInput = {
@@ -65,11 +65,11 @@ export const governanceDecisionsService = {
     // Idempotent replay — the decision (and its consequence) already exist.
     if (!review.rows[0]) {
       const existing = await client.query(`SELECT * FROM governance_reviews WHERE company_id = $1 AND idempotency_key = $2`, [c, input.idempotency_key]);
-      return { decision: existing.rows[0] || null, idempotent: true, task: null, escalation: null, risk: null };
+      return { decision: existing.rows[0] || null, idempotent: true, task: null, escalation: null, risk: null, pattern: null };
     }
     const decisionId = review.rows[0].id;
     const title = (input.action_description || input.what_is_happening).trim().slice(0, 255);
-    let task: any = null, escalation: any = null, risk: any = null;
+    let task: any = null, escalation: any = null, risk: any = null, pattern: any = null;
 
     if (decision === 'Create Action') {
       const t = await client.query(
@@ -105,6 +105,32 @@ export const governanceDecisionsService = {
       }
     } else if (decision === 'Promote to Risk') {
       risk = await this.promoteToRiskInTx(client, input, decisionId);
+    } else if (decision === 'Create Pattern') {
+      // Create a new pattern and link the originating signal to it.
+      if (!input.pulse_entry_id) throw new Error('Create Pattern needs an originating signal.');
+      const p = (await client.query(`SELECT id, house_id, risk_domain, related_person FROM governance_pulses WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c])).rows[0];
+      if (!p) throw new Error('Originating signal not found.');
+      const dom = Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain;
+      const label = (input.action_description || input.what_is_happening).trim().slice(0, 120);
+      pattern = (await client.query(
+        `INSERT INTO signal_clusters (company_id, house_id, risk_domain, linked_person, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
+         VALUES ($1,$2,$3,$4,$5,'Emerging',1,NOW(),NOW(),'Stable') RETURNING *`,
+        [c, p.house_id, dom, p.related_person || null, label]
+      )).rows[0];
+      await client.query(`INSERT INTO risk_signal_links (id, cluster_id, pulse_entry_id, linked_by) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [uuidv4(), pattern.id, p.id, u]);
+      await client.query(`UPDATE governance_reviews SET cluster_id = $1 WHERE id = $2`, [pattern.id, decisionId]);
+      await client.query(`UPDATE governance_pulses SET review_status = 'Linked' WHERE id = $1 AND company_id = $2`, [p.id, c]);
+    } else if (decision === 'Link to Pattern') {
+      // Link the signal to an existing pattern (both must belong to this company).
+      if (!input.pulse_entry_id || !input.cluster_id) throw new Error('Link to Pattern needs a signal and a pattern.');
+      const cl = (await client.query(`SELECT id FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [input.cluster_id, c])).rows[0];
+      if (!cl) throw new Error('Pattern not found.');
+      const linked = await client.query(`INSERT INTO risk_signal_links (id, cluster_id, pulse_entry_id, linked_by) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING RETURNING id`, [uuidv4(), cl.id, input.pulse_entry_id, u]);
+      if (linked.rows[0]) {
+        await client.query(`UPDATE signal_clusters SET signal_count = COALESCE(signal_count,0) + 1, last_signal_date = NOW(), updated_at = NOW() WHERE id = $1`, [cl.id]);
+      }
+      await client.query(`UPDATE governance_pulses SET review_status = 'Linked' WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c]);
+      pattern = cl;
     } else if (decision === 'Close' || decision === 'Close Signal') {
       // Close only the processed signal — never the pattern/risk.
       if (input.pulse_entry_id) {
@@ -115,8 +141,9 @@ export const governanceDecisionsService = {
       await client.query(`UPDATE risks SET closure_eligible = true, last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [input.risk_id, c]);
     }
 
-    // The source signal remains permanent evidence — only its status advances.
-    if (input.pulse_entry_id && decision !== 'Close' && decision !== 'Close Signal') {
+    // The source signal remains permanent evidence — only its status advances. Pattern-linking
+    // and closing decisions already set the signal's status above, so skip the generic update.
+    if (input.pulse_entry_id && !['Close', 'Close Signal', 'Create Pattern', 'Link to Pattern'].includes(decision)) {
       await client.query(
         `UPDATE governance_pulses SET review_status = CASE WHEN $2 = 'Monitor' THEN 'Monitoring'::review_status ELSE 'Reviewed'::review_status END,
                 reviewed_by = COALESCE(reviewed_by,$1), reviewed_at = COALESCE(reviewed_at, NOW())
@@ -128,7 +155,7 @@ export const governanceDecisionsService = {
       await client.query(`UPDATE risks SET last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [input.risk_id, c]);
     }
 
-    return { decision: review.rows[0], task, escalation, risk, idempotent: false };
+    return { decision: review.rows[0], task, escalation, risk, pattern, idempotent: false };
   },
 
   // Promote a pattern (or a single signal) to ONE formal risk, in-transaction. Idempotent:

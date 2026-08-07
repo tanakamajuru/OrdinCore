@@ -302,6 +302,11 @@ export class EscalationsService {
       created = { risk_id: riskId, closure_requested: true };
     }
 
+    // A supplied next-review date schedules the linked risk's next governance review.
+    if (input.due_at && riskId) {
+      await query(`UPDATE risks SET next_review_date = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`, [input.due_at, riskId, company_id]);
+    }
+
     // Record the review as an escalation action and clear the flag (audit + one-time gate).
     await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)

@@ -117,7 +117,7 @@ export const governanceWorkflowService = {
       if (e) {
         push({ record: 'Escalation', id: e.id, relationship: 'Escalation', label: e.reason, status: e.status, at: e.created_at, link: '/escalation-log' });
         clusterId = clusterId || e.source_cluster_id; riskId = riskId || e.risk_id;
-        if (e.source_pulse_id) { const s = (await query(`SELECT id, description, severity, created_at FROM governance_pulses WHERE id=$1`, [e.source_pulse_id])).rows[0]; if (s) push({ record: 'Signal', id: s.id, relationship: 'Originating signal', label: s.description, status: s.severity, at: s.created_at, link: `/signals/${s.id}` }); }
+        if (e.source_pulse_id) { const s = (await query(`SELECT id, description, severity, created_at FROM governance_pulses WHERE id=$1 AND company_id=$2`, [e.source_pulse_id, company_id])).rows[0]; if (s) push({ record: 'Signal', id: s.id, relationship: 'Originating signal', label: s.description, status: s.severity, at: s.created_at, link: `/signals/${s.id}` }); }
       }
     }
     if (riskId) {
@@ -125,18 +125,18 @@ export const governanceWorkflowService = {
       if (r) {
         push({ record: 'Risk', id: r.id, relationship: 'Risk', label: r.title, status: r.status, at: r.created_at, link: `/risk-register/${r.id}` });
         clusterId = clusterId || r.source_cluster_id;
-        for (const a of (await query(`SELECT id, title, status, created_at FROM risk_actions WHERE risk_id=$1 ORDER BY created_at`, [riskId])).rows) push({ record: 'Task', id: a.id, relationship: 'Risk action', label: a.title, status: a.status, at: a.created_at, link: '/my-actions' });
-        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE risk_id=$1`, [riskId])).rows) push({ record: 'Escalation', id: e.id, relationship: 'On this risk', label: e.reason, status: e.status, at: e.created_at, link: '/escalation-log' });
+        for (const a of (await query(`SELECT id, title, status, created_at FROM risk_actions WHERE risk_id=$1 AND company_id=$2 ORDER BY created_at`, [riskId, company_id])).rows) push({ record: 'Task', id: a.id, relationship: 'Risk action', label: a.title, status: a.status, at: a.created_at, link: '/my-actions' });
+        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE risk_id=$1 AND company_id=$2`, [riskId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'On this risk', label: e.reason, status: e.status, at: e.created_at, link: '/escalation-log' });
       }
     }
     if (clusterId) {
       const c = (await query(`SELECT id, cluster_label, risk_domain, cluster_status, linked_risk_id, review_outcome, last_reviewed_at, created_at FROM signal_clusters WHERE id=$1 AND company_id=$2`, [clusterId, company_id])).rows[0];
       if (c) {
         push({ record: 'Pattern', id: c.id, relationship: 'Pattern', label: c.cluster_label || c.risk_domain, status: c.review_outcome || c.cluster_status, at: c.created_at, link: '/rm5' });
-        for (const s of (await query(`SELECT gp.id, gp.description, gp.severity, gp.created_at FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id=rsl.pulse_entry_id WHERE rsl.cluster_id=$1 ORDER BY gp.created_at`, [clusterId])).rows) push({ record: 'Signal', id: s.id, relationship: 'Contributing signal', label: s.description, status: s.severity, at: s.created_at, link: `/signals/${s.id}` });
+        for (const s of (await query(`SELECT gp.id, gp.description, gp.severity, gp.created_at FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id=rsl.pulse_entry_id WHERE rsl.cluster_id=$1 AND gp.company_id=$2 ORDER BY gp.created_at`, [clusterId, company_id])).rows) push({ record: 'Signal', id: s.id, relationship: 'Contributing signal', label: s.description, status: s.severity, at: s.created_at, link: `/signals/${s.id}` });
         for (const d of (await query(`SELECT id, what_is_happening, decision, decision_status, created_at FROM governance_reviews WHERE cluster_id=$1 AND company_id=$2 ORDER BY created_at`, [clusterId, company_id])).rows) push({ record: 'Governance Decision', id: d.id, relationship: 'Decision on this pattern', label: d.what_is_happening, status: d.decision_status || d.decision, at: d.created_at, link: null });
-        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE source_cluster_id=$1`, [clusterId])).rows) push({ record: 'Escalation', id: e.id, relationship: 'From this pattern', label: e.reason, status: e.status, at: e.created_at, link: '/escalation-log' });
-        if (c.linked_risk_id && !riskId) { const r = (await query(`SELECT id, title, status, created_at FROM risks WHERE id=$1`, [c.linked_risk_id])).rows[0]; if (r) push({ record: 'Risk', id: r.id, relationship: 'Promoted risk', label: r.title, status: r.status, at: r.created_at, link: `/risk-register/${r.id}` }); }
+        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE source_cluster_id=$1 AND company_id=$2`, [clusterId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'From this pattern', label: e.reason, status: e.status, at: e.created_at, link: '/escalation-log' });
+        if (c.linked_risk_id && !riskId) { const r = (await query(`SELECT id, title, status, created_at FROM risks WHERE id=$1 AND company_id=$2`, [c.linked_risk_id, company_id])).rows[0]; if (r) push({ record: 'Risk', id: r.id, relationship: 'Promoted risk', label: r.title, status: r.status, at: r.created_at, link: `/risk-register/${r.id}` }); }
       }
     }
 
@@ -198,6 +198,12 @@ export const governanceWorkflowService = {
     if ((newSignals.rows[0]?.n || 0) > 0) blockers.push('New signals have arrived on this pattern and need review first.');
 
     if (!c.last_reviewed_at) blockers.push('This pattern has not yet had a recorded review — monitor and review it before closing.');
+
+    // Monitoring period incomplete — a scheduled review is still pending, so sustained
+    // control has not yet been demonstrated over the monitoring window.
+    if (c.next_review_date && new Date(c.next_review_date) > new Date()) {
+      blockers.push('The scheduled monitoring review is still pending — sustained control has not yet been demonstrated.');
+    }
 
     return { eligible: blockers.length === 0, blockers };
   },

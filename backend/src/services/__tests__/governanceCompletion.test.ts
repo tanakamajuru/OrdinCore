@@ -14,9 +14,12 @@ jest.mock('../../config/database', () => ({
   getClient: jest.fn(),
 }));
 jest.mock('../notifications.service', () => ({ notificationsService: { create: jest.fn() } }));
+jest.mock('../../events/eventBus', () => ({ eventBus: { emitEvent: jest.fn() }, EVENTS: {} }));
 
 import { governanceDecisionsService } from '../governanceDecisions.service';
 import { governanceWorkflowService } from '../governanceWorkflow.service';
+import { closureService } from '../closure.service';
+import { myWorkService } from '../myWork.service';
 import { blockOversightRole } from '../../middleware/role.middleware';
 import { query, getClient } from '../../config/database';
 
@@ -141,5 +144,105 @@ describe('§7 Responsible Individual — oversight cannot perform operational wr
   it('allows an operational role (e.g. after switching active_role to Registered Manager)', () => {
     const { next } = run('REGISTERED_MANAGER');
     expect(next).toHaveBeenCalled();
+  });
+});
+
+describe('§11 Risk closure — blocked while effectiveness review is outstanding', () => {
+  it('refuses to close a risk when effectiveness has not been reviewed', async () => {
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/FROM risks WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'r1', status: 'Open' }] } as any;
+      return { rows: [] } as any;
+    });
+    await expect(
+      closureService.closeRisk('co', 'r1', 'u', {
+        pattern_reduced: true, actions_completed: true, effectiveness_reviewed: false,
+        further_escalation_required: false, evidence: 'x',
+      })
+    ).rejects.toThrow(/effectiveness/i);
+    // The block happens before any write.
+    expect(mockQuery.mock.calls.some((c: any[]) => /INSERT INTO closure_reviews/.test(c[0] as string))).toBe(false);
+  });
+});
+
+describe('§5/§11 Pattern closure — blocked when a new signal appears during monitoring', () => {
+  it('is ineligible when a linked signal is still New', async () => {
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: null, last_reviewed_at: new Date() }] } as any;
+      if (/FROM risk_signal_links/.test(sql)) return { rows: [{ n: 1 }] } as any; // a new signal
+      return { rows: [{ n: 0 }] } as any;
+    });
+    const res = await governanceWorkflowService.assessPatternClosure('co', 'cl-1');
+    expect(res.eligible).toBe(false);
+    expect(res.blockers.join(' ')).toMatch(/new signals/i);
+  });
+});
+
+describe('§4/§11 Escalation closure — mandatory risk review surfaces in the RM work queue', () => {
+  it('shows a post-escalation risk review item for an RM', async () => {
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/FROM houses WHERE company_id/.test(sql)) return { rows: [{ id: 'h1' }] } as any;
+      if (/post_closure_risk_review_required = TRUE/.test(sql)) return { rows: [{ n: 2 }] } as any;
+      if (/FROM escalations/.test(sql)) return { rows: [{ n: 0, urgent: 0 }] } as any;
+      if (/FROM governance_pulses/.test(sql)) return { rows: [{ n: 0 }] } as any;
+      if (/effectiveness IS NULL/.test(sql)) return { rows: [{ n: 0 }] } as any;
+      if (/FROM risk_actions/.test(sql)) return { rows: [{ open: 0, overdue: 0 }] } as any;
+      if (/FROM weekly_reviews/.test(sql)) return { rows: [{ n: 1 }] } as any;
+      return { rows: [{ n: 0 }] } as any;
+    });
+    const out = await myWorkService.getForUser('co', 'u', 'REGISTERED_MANAGER');
+    const item = out.items.find((i: any) => i.key === 'post_escalation_review');
+    expect(item).toBeDefined();
+    expect(item!.count).toBe(2);
+  });
+});
+
+describe('§6/§11 Tenant isolation — a pattern from another company cannot be reviewed', () => {
+  it('rolls back and reports not found when the pattern is out of company scope', async () => {
+    const client = fakeClient((sql) => {
+      if (/BEGIN/.test(sql)) return { rows: [] };
+      if (/FROM signal_clusters/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: [] }; // not in this company
+      return { rows: [] };
+    });
+    mockGetClient.mockResolvedValue(client);
+    await expect(
+      governanceWorkflowService.reviewPattern('company-A', 'cl-of-company-B', 'u', 'Improving', 'A clearly meaningful rationale sentence.')
+    ).rejects.toThrow(/not found/i);
+    expect(client.sqls.some((s) => /ROLLBACK/.test(s))).toBe(true);
+  });
+});
+
+describe('§2 Create Pattern / Link to Pattern decisions', () => {
+  it('Create Pattern creates a cluster and links the originating signal', async () => {
+    const client = fakeClient((sql) => {
+      if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
+      if (/FROM governance_pulses WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'p1', house_id: 'h1', risk_domain: ['Behaviour'], related_person: null }] };
+      if (/INSERT INTO signal_clusters/.test(sql)) return { rows: [{ id: 'cl-new' }] };
+      return { rows: [] };
+    });
+    const out = await governanceDecisionsService.executeInTx(client as any, {
+      company_id: 'co', user_id: 'u', pulse_entry_id: 'p1',
+      what_is_happening: 'A new emerging pattern of concern.', decision: 'Create Pattern',
+    });
+    expect(out.pattern?.id).toBe('cl-new');
+    expect(client.sqls.some((s) => /INSERT INTO risk_signal_links/.test(s))).toBe(true);
+  });
+
+  it('Link to Pattern links to an existing cluster without creating one', async () => {
+    const client = fakeClient((sql) => {
+      if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
+      if (/FROM signal_clusters WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'cl-1' }] };
+      if (/INSERT INTO risk_signal_links/.test(sql)) return { rows: [{ id: 'link-1' }] };
+      return { rows: [] };
+    });
+    const out = await governanceDecisionsService.executeInTx(client as any, {
+      company_id: 'co', user_id: 'u', pulse_entry_id: 'p1', cluster_id: 'cl-1',
+      what_is_happening: 'Link this signal to the existing pattern.', decision: 'Link to Pattern',
+    });
+    expect(out.pattern?.id).toBe('cl-1');
+    expect(client.sqls.some((s) => /INSERT INTO signal_clusters/.test(s))).toBe(false);
+    expect(client.sqls.some((s) => /INSERT INTO risk_signal_links/.test(s))).toBe(true);
   });
 });
