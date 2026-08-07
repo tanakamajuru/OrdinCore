@@ -58,7 +58,11 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
       y += 15;
       if (y > 740) { doc.addPage(); y = 60; }
     }
-    doc.y = y + 6; doc.fillColor('#000');
+    // CRITICAL: the table cells were drawn with an explicit x, which leaves pdfkit's cursor
+    // parked at the last column near the right margin. Reset x to the left margin — otherwise
+    // every following block (exceptions, themes, narrative, footer) flows in a ~15px column
+    // and renders one character per line.
+    doc.x = 50; doc.y = y + 6; doc.fillColor('#000');
   }
 
   // Material exceptions

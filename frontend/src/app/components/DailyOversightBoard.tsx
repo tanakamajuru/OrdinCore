@@ -18,6 +18,9 @@ interface DashboardData {
 type PatternStats = { awaiting: number; promoted_today: number; dismissed_today: number; avg_promotion_days: number };
 
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
+const isoToday = () => new Date().toISOString().slice(0, 10);
+const isoDay = (d: any) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch { return ""; } };
+const prettyDay = (isoStr: string) => { try { return new Date(isoStr).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" }); } catch { return isoStr; } };
 
 export function DailyOversightBoard() {
   const navigate = useNavigate();
@@ -31,6 +34,10 @@ export function DailyOversightBoard() {
   const [isLoading, setIsLoading] = useState(true);
   const [houses, setHouses] = useState<any[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
+  // The day the narrative/team brief is drafted for — defaults to today, but the RM can
+  // review or regenerate for an earlier date. Signals are scoped to this date and the
+  // selected house, so the narrative stays about that site on that day.
+  const [reviewDate, setReviewDate] = useState<string>(isoToday());
   const [dailyNote, setDailyNote] = useState("");
   const [teamBrief, setTeamBrief] = useState("");
   const [isSigningOff, setIsSigningOff] = useState(false);
@@ -118,13 +125,17 @@ export function DailyOversightBoard() {
         houseSignals = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
       } catch { /* fall back to no signals */ }
       const houseName = house?.name || "this service";
-      const signalLines = houseSignals.slice(0, 25).map((s: any) =>
-        `${s.entry_date ? new Date(s.entry_date).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
-      const houseHigh = houseSignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
+      // Scope to the selected review date so the narrative is about THIS site on THAT day.
+      const dayScoped = houseSignals.filter((s: any) => isoDay(s.entry_date || s.created_at) === reviewDate);
+      const daySignals = dayScoped.length ? dayScoped : houseSignals;
+      const periodLabel = prettyDay(reviewDate);
+      const signalLines = daySignals.slice(0, 25).map((s: any) =>
+        `${(s.entry_date || s.created_at) ? new Date(s.entry_date || s.created_at).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
+      const houseHigh = daySignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
 
       const [lead, brief] = await Promise.all([
         fetchClient.post("/reports/narrative", {
-          reportTitle: `Daily Governance Narrative — ${houseName}`, periodLabel: today(), serviceName: houseName,
+          reportTitle: `Daily Governance Narrative — ${houseName}`, periodLabel, serviceName: houseName,
           data: {
             service: houseName,
             signals_recorded: houseSignals.length,
@@ -135,7 +146,7 @@ export function DailyOversightBoard() {
           },
         }),
         materialChange ? fetchClient.post("/reports/narrative", {
-          reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel: today(), serviceName: houseName,
+          reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel, serviceName: houseName,
           data: {
             audience: "Team Leaders",
             style: "concise operational briefing that summarises today's signals at this house — what to watch, who, and the immediate actions",
@@ -162,7 +173,7 @@ export function DailyOversightBoard() {
   useEffect(() => {
     if (!isLoading && data && selectedHouseId && !signedOff) generateNarrative();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isLoading, data, selectedHouseId]);
+  }, [isLoading, data, selectedHouseId, reviewDate]);
 
   const handleSignOff = async () => {
     if (!dailyNote.trim()) { toast.error("A daily governance narrative is required for sign-off."); return; }
@@ -406,11 +417,18 @@ export function DailyOversightBoard() {
               <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">· private to leadership</span></h3>
               <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="text-xs text-primary disabled:opacity-50">{aiBusy ? "Generating…" : "Regenerate"}</button>
             </div>
-            {houses.length > 1 && !signedOff && (
-              <select value={selectedHouseId} onChange={(e) => setSelectedHouseId(e.target.value)} className="w-full mb-3 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-                {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
-              </select>
-            )}
+            <div className="flex flex-col sm:flex-row gap-2 mb-3">
+              {houses.length > 1 && !signedOff && (
+                <select value={selectedHouseId} onChange={(e) => setSelectedHouseId(e.target.value)} className="flex-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                  {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                </select>
+              )}
+              {!signedOff && (
+                <input type="date" value={reviewDate} max={isoToday()} onChange={(e) => setReviewDate(e.target.value || isoToday())}
+                  title="Draft/review the narrative for this date"
+                  className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+              )}
+            </div>
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
               placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all triage, patterns and actions above — what is the service position today?"} />
