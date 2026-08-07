@@ -94,7 +94,7 @@ export const myWorkService = {
         [company_id, user_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = eff.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'effectiveness', label: 'effectiveness reviews due', count: n, tone: 'blue', link: '/risk-register', primary_action: 'Review Effectiveness' });
+      if (n > 0) items.push({ key: 'effectiveness', label: 'effectiveness reviews due', count: n, tone: 'blue', link: '/rm5?stage=effectiveness', primary_action: 'Review Effectiveness' });
     }
 
     // 5. Weekly governance review — due if none published for my services this week.

@@ -44,6 +44,15 @@ export function RiskRegister() {
 
   useEffect(() => { load(); }, []);
 
+  // Keep the active tab in sync with the URL. Strategic Oversight and Risk Register share
+  // the /risk-register path (only ?tab differs), so navigating between them from the navbar
+  // changes the query string without remounting — without this, clicking Strategic Oversight
+  // while already on the Risk Register would not switch tabs.
+  useEffect(() => {
+    const t = searchParams.get("tab");
+    if (t && ["active", "strategic", "emerging", "closed"].includes(t)) setTab(t as Tab);
+  }, [searchParams]);
+
   // If a redirecting role lands on the Emerging tab via a ?tab=emerging link, send them
   // straight to the canonical surface instead of rendering the (now-removed) inline list.
   useEffect(() => {
@@ -87,12 +96,33 @@ export function RiskRegister() {
     }
   };
 
-  const Stat = ({ label, value, tone }: { label: string; value: any; tone?: string }) => (
-    <div className="bg-card border border-border rounded-xl p-3 text-center">
-      <div className={`text-2xl font-semibold ${tone || ""}`}>{value}</div>
-      <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
-    </div>
-  );
+  // Position breakdown derived from the rows ACTUALLY shown in the table below, so the cards
+  // always match the table (the banner previously summed active+strategic across tabs, which
+  // is why it disagreed with the single-tab table).
+  const shown = {
+    escalating: rows.filter((r: any) => r.position === "Escalating").length,
+    critical: rows.filter((r: any) => r.position === "Critical").length,
+    stable: rows.filter((r: any) => r.position === "Stable").length,
+    improving: rows.filter((r: any) => r.position === "Improving").length,
+  };
+
+  // Bordered KPI cards matching the Daily Oversight board (coloured top border + number).
+  const Stat = ({ label, value, tone }: { label: string; value: any; tone?: string }) => {
+    const tones: Record<string, { top: string; text: string }> = {
+      orange: { top: "border-t-orange-500", text: "text-orange-600" },
+      red: { top: "border-t-red-500", text: "text-red-600" },
+      sky: { top: "border-t-sky-500", text: "text-sky-600" },
+      emerald: { top: "border-t-emerald-500", text: "text-emerald-600" },
+      slate: { top: "border-t-slate-400", text: "text-foreground" },
+    };
+    const t = tones[tone || "slate"] || tones.slate;
+    return (
+      <div className={`bg-card border border-border border-t-4 ${t.top} rounded-xl p-3 text-center`}>
+        <div className={`text-2xl font-semibold ${t.text}`}>{value}</div>
+        <div className="text-[11px] text-muted-foreground uppercase tracking-wide">{label}</div>
+      </div>
+    );
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -105,12 +135,12 @@ export function RiskRegister() {
 
         {/* Summary banner */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">
-          <Stat label="Active Oversight" value={banner.activeOversight} />
-          <Stat label="Escalating" value={banner.escalating} tone="text-orange-600" />
-          <Stat label="Critical" value={banner.critical} tone="text-red-600" />
-          <Stat label="Stable" value={banner.stable} tone="text-sky-600" />
-          <Stat label="Improving" value={banner.improving} tone="text-emerald-600" />
-          <Stat label="Control Failures" value={banner.controlFailures} tone="text-red-600" />
+          <Stat label="In View" value={rows.length} tone="slate" />
+          <Stat label="Escalating" value={shown.escalating} tone="orange" />
+          <Stat label="Critical" value={shown.critical} tone="red" />
+          <Stat label="Stable" value={shown.stable} tone="sky" />
+          <Stat label="Improving" value={shown.improving} tone="emerald" />
+          <Stat label="Control Failures" value={banner.controlFailures} tone="red" />
         </div>
 
         {/* Tabs */}

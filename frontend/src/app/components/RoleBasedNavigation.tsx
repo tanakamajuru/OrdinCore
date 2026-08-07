@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
   Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck,
+  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck, ChevronLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -232,6 +232,16 @@ export function RoleBasedNavigation() {
   let lastSection: string | undefined;
 
   return (
+    <>
+    {/* Global Back — returns to the previously opened page/register. Shown on desktop where
+        the sidebar is present; sits in the top padding every page leaves above its content. */}
+    <button
+      onClick={() => navigate(-1)}
+      title="Back to previous page"
+      className="fixed top-3 left-[16.75rem] z-30 hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-card border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm"
+    >
+      <ChevronLeft className="w-4 h-4" /> Back
+    </button>
     <aside className="ordin-sidebar fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex flex-col z-40">
       <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-800 shrink-0">
         <img src={logo} alt="Ordin Core" className="h-8 w-auto" />
@@ -325,5 +335,6 @@ export function RoleBasedNavigation() {
         </button>
       </div>
     </aside>
+    </>
   );
 }
