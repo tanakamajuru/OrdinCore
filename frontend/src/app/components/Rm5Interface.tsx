@@ -66,6 +66,8 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [lens, setLens] = useState<any[]>([]);
   const [lensPage, setLensPage] = useState(1);
   const [sigPage, setSigPage] = useState(1);
+  const [backlog, setBacklog] = useState<any[] | null>(null);
+  const [backlogBusy, setBacklogBusy] = useState(false);
   const [duePage, setDuePage] = useState(1);
   const [patWPage, setPatWPage] = useState(1);
   const [patAPage, setPatAPage] = useState(1);
@@ -221,6 +223,33 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                   ))}
                 </div>
                 <Pager page={sigSafe} pages={sigPages} total={sigList.length} onPage={setSigPage} />
+                {/* Backlog — signals still awaiting review that have aged past the 7-day window.
+                    A signal is permanent evidence and must be reviewed, so they stay reachable. */}
+                <div className="mt-2">
+                  <button
+                    onClick={async () => {
+                      if (backlog !== null) { setBacklog(null); return; }
+                      setBacklogBusy(true);
+                      try { setBacklog(unwrap(await apiClient.get("/rm/signals-backlog")) || []); }
+                      catch { toast.error("Failed to load backlog"); setBacklog([]); }
+                      finally { setBacklogBusy(false); }
+                    }}
+                    className="text-xs text-primary hover:underline">
+                    {backlogBusy ? "Loading…" : backlog !== null ? "Hide older signals" : "View older signals awaiting review (backlog)"}
+                  </button>
+                  {backlog !== null && (
+                    <div className="mt-2 bg-card border border-amber-300/60 rounded-xl divide-y divide-border">
+                      <div className="px-4 py-2 text-[11px] uppercase tracking-wide text-amber-700 bg-amber-50">Awaiting review · older than 7 days ({backlog.length})</div>
+                      {backlog.length === 0 && <div className="p-6 text-center text-sm text-muted-foreground">No older signals awaiting review — the backlog is clear.</div>}
+                      {backlog.map((s: any) => (
+                        <button key={s.id} onClick={() => openSignal(s.id)} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
+                          <div className="min-w-0"><div className="text-sm text-foreground truncate">{s.house} · {s.person}</div><div className="text-xs text-muted-foreground truncate">{s.note}</div></div>
+                          <div className="flex items-center gap-2 shrink-0"><Sev s={s.sev} /><span className="text-xs text-muted-foreground">{s.d}</span><ChevronRight className="w-4 h-4 text-muted-foreground/40" /></div>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
               <div>
                 <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><ClipboardList className="w-4 h-4 text-primary" />Actions due <span className="text-xs font-normal text-muted-foreground">(all assignees)</span></h2>

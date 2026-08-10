@@ -53,6 +53,25 @@ export const rm5Service = {
     return { todaySignals, actionsDue };
   },
 
+  // Backlog — signals still awaiting review that have aged out of the 7-day daily pipeline.
+  // A signal is permanent evidence and must be reviewed, so these must remain reachable.
+  async signalsBacklog(company_id: string) {
+    const rows = (await query(
+      `SELECT p.id, h.name AS house, COALESCE(p.related_person, '—') AS person, p.severity::text AS sev,
+              to_char(COALESCE(p.created_at, p.entry_date), 'DD Mon YYYY') AS d, p.description AS note
+         FROM governance_pulses p
+         LEFT JOIN houses h ON h.id = p.house_id
+        WHERE p.company_id = $1
+          AND COALESCE(p.created_at, p.entry_date) < NOW() - INTERVAL '7 days'
+          AND (p.review_status IS NULL OR p.review_status = 'New')
+        ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
+                 COALESCE(p.created_at, p.entry_date) DESC
+        LIMIT 300`,
+      [company_id]
+    )).rows;
+    return rows;
+  },
+
   // Ribbon counts
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);

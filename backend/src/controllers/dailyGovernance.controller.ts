@@ -50,6 +50,21 @@ export class DailyGovernanceController {
     }
   }
 
+  // Historical playback — the signed-off log for a service on a chosen date.
+  async getLogForDate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const house_id = String(req.query.house_id || '');
+      const date = String(req.query.date || '');
+      if (!house_id || !date) return res.status(400).json({ success: false, message: 'house_id and date are required', errors: [] });
+      const log = await dailyGovernanceService.logForDate(company_id, house_id, date);
+      return res.json({ success: true, data: log, meta: {} });
+    } catch (err: any) {
+      logger.error('Error fetching daily log for date', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
   // TL "Daily Governance" inbox — recent briefs for the TL's services.
   async getTeamBriefs(req: Request, res: Response) {
     try {

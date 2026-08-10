@@ -169,9 +169,28 @@ export function DailyOversightBoard() {
     finally { setAiBusy(false); }
   };
 
-  // Auto-draft when the day's data is in, and re-draft when the RM switches house.
+  // When the house/date changes: if a signed-off log already exists for that service and day,
+  // show it read-only (historical playback). Otherwise auto-draft a fresh narrative.
   useEffect(() => {
-    if (!isLoading && data && selectedHouseId && !signedOff) generateNarrative();
+    if (isLoading || !data || !selectedHouseId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const r: any = await apiClient.get(`/governance/daily-log/by-date?house_id=${selectedHouseId}&date=${reviewDate}`);
+        const log = r.data?.data;
+        if (!cancelled && log && log.completed) {
+          setDailyNote(log.leadership_narrative || log.daily_note || "");
+          setTeamBrief(log.team_brief || "");
+          const at = log.published_at || log.completed_at;
+          setSignedOff({ by: log.published_by_name || log.reviewed_by_name || "—", at: at ? new Date(at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) : prettyDay(reviewDate) });
+          return;
+        }
+      } catch { /* no stored log — draft fresh below */ }
+      if (cancelled) return;
+      setSignedOff(null);
+      generateNarrative();
+    })();
+    return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isLoading, data, selectedHouseId, reviewDate]);
 
@@ -417,18 +436,21 @@ export function DailyOversightBoard() {
               <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">· private to leadership</span></h3>
               <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="text-xs text-primary disabled:opacity-50">{aiBusy ? "Generating…" : "Regenerate"}</button>
             </div>
+            {/* Service + date stay selectable even after sign-off, so leadership can browse and
+                play back previously signed-off records for any service on any past date. */}
             <div className="flex flex-col sm:flex-row gap-2 mb-3">
-              {houses.length > 1 && !signedOff && (
+              {houses.length > 1 && (
                 <select value={selectedHouseId} onChange={(e) => setSelectedHouseId(e.target.value)} className="flex-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
                   {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
                 </select>
               )}
-              {!signedOff && (
-                <input type="date" value={reviewDate} max={isoToday()} onChange={(e) => setReviewDate(e.target.value || isoToday())}
-                  title="Draft/review the narrative for this date"
-                  className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
-              )}
+              <input type="date" value={reviewDate} max={isoToday()} onChange={(e) => setReviewDate(e.target.value || isoToday())}
+                title="Draft or play back the narrative for this date"
+                className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
             </div>
+            {signedOff && reviewDate !== isoToday() && (
+              <div className="mb-3 text-[11px] text-muted-foreground bg-muted/40 rounded px-2 py-1">Viewing the signed-off record for {prettyDay(reviewDate)} — read only.</div>
+            )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
               placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all triage, patterns and actions above — what is the service position today?"} />

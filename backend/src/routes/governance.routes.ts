@@ -256,6 +256,8 @@ router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, go
 // Daily Governance Log
 router.post('/daily-log/open', requireAuth, requireTenant, requireScope, dailyGovernanceController.openLog.bind(dailyGovernanceController));
 router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, dailyGovernanceController.completeLog.bind(dailyGovernanceController));
+// Historical playback: the signed-off log for a service on a date (?house_id=&date=).
+router.get('/daily-log/by-date', requireAuth, requireTenant, dailyGovernanceController.getLogForDate.bind(dailyGovernanceController));
 // Team Brief (Chapter 2): the concise operational briefing published to Team Leaders.
 router.get('/daily-log/team-brief', requireAuth, requireTenant, dailyGovernanceController.getTeamBrief.bind(dailyGovernanceController));
 router.get('/daily-log/team-briefs', requireAuth, requireTenant, dailyGovernanceController.getTeamBriefs.bind(dailyGovernanceController));

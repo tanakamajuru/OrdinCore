@@ -232,6 +232,26 @@ export class DailyGovernanceService {
     return { acknowledged: true };
   }
 
+  // §Historical playback — the stored, signed-off governance log for one service on one date,
+  // company-scoped through the owning house. Returns null if nothing was recorded that day.
+  async logForDate(company_id: string, house_id: string, date: string) {
+    const res = await query(
+      `SELECT dgl.id, dgl.house_id, h.name AS house_name, dgl.review_date, dgl.completed,
+              dgl.leadership_narrative, dgl.team_brief, dgl.material_change, dgl.daily_note,
+              dgl.published_at, dgl.completed_at,
+              pb.first_name || ' ' || pb.last_name AS published_by_name,
+              rv.first_name || ' ' || rv.last_name AS reviewed_by_name
+         FROM daily_governance_log dgl
+         JOIN houses h ON h.id = dgl.house_id
+         LEFT JOIN users pb ON pb.id = dgl.published_by
+         LEFT JOIN users rv ON rv.id = dgl.reviewed_by
+        WHERE dgl.house_id = $1 AND dgl.review_date = $2 AND h.company_id = $3
+        LIMIT 1`,
+      [house_id, date, company_id]
+    );
+    return res.rows[0] || null;
+  }
+
   async getCoverage(company_id: string) {
     const result = await query(
       `SELECT h.id as house_id, h.name as house_name, 

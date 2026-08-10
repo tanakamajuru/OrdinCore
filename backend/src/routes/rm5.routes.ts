@@ -17,6 +17,7 @@ router.get('/actions', ...rm, rm5Controller.actions);
 router.get('/effectiveness', ...rm, rm5Controller.effectiveness);
 router.get('/escalations', ...rm, rm5Controller.escalations);
 router.get('/dismissed', ...rm, rm5Controller.dismissed);
+router.get('/signals-backlog', ...rm, rm5Controller.signalsBacklog);
 
 // Deciding is the RM's call — promote is gated tighter than the read BFF.
 router.post('/patterns/:id/promote', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), blockOversightRole, rm5Controller.promotePattern);
