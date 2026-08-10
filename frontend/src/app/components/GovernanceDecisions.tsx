@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight } from "lucide-react";
+import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 
@@ -22,7 +22,17 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
   const [busy, setBusy] = useState(false);
   // `source` is "service" | "signal:<id>" | "pattern:<id>" — pins the decision's lineage.
   const [form, setForm] = useState({ what: "", decision: "Create Action" as string, owner_id: "", due_at: "", source: "service" });
+  const [srcOpen, setSrcOpen] = useState(false);
   const idemKey = useRef<string | null>(null);
+
+  const fmtWhen = (dt: any) => { try { return dt ? new Date(dt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : ""; } catch { return ""; } };
+  const sourceLabel = () => {
+    if (form.source === "service") return "This service (general)";
+    const [kind, sid] = form.source.split(":");
+    if (kind === "signal") { const s = signals.find((x: any) => x.id === sid); return s ? `Signal · ${(s.description || "").slice(0, 70)}` : "Signal"; }
+    if (kind === "pattern") { const p = patterns.find((x: any) => x.id === sid); return p ? `Pattern · ${p.cluster_label || p.domain || "Pattern"}` : "Pattern"; }
+    return "This service (general)";
+  };
 
   const loadOwners = async () => {
     try {
@@ -131,28 +141,48 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
           placeholder="Leadership decision — e.g. Complete a medication audit at this service"
           className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
         {(signals.length > 0 || patterns.length > 0) && (
-          <div>
+          <div className="relative">
             <label className="text-[11px] text-muted-foreground">About (optional — links this decision to its source)</label>
-            <select value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-              <option value="service">This service (general)</option>
-              {signals.length > 0 && <optgroup label="Signals">
-                {signals.map((s: any) => {
-                  const dt = s.created_at || s.entry_date;
-                  const when = dt ? new Date(dt).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "";
-                  const desc = (s.description || "").trim();
-                  const kind = s.signal_type || s.governance_domain || "Signal";
-                  const person = s.related_person ? ` · ${s.related_person}` : "";
-                  return <option key={s.id} value={`signal:${s.id}`}>{when ? `${when} · ` : ""}{kind}{person} — {desc.slice(0, 90)}{desc.length > 90 ? "…" : ""}</option>;
-                })}
-              </optgroup>}
-              {patterns.length > 0 && <optgroup label="Patterns">
-                {patterns.slice(0, 12).map((p: any) => {
-                  const label = p.cluster_label || p.domain || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern";
-                  const person = p.linked_person || (p.person && p.person !== "—" ? p.person : "");
-                  return <option key={p.id} value={`pattern:${p.id}`}>{label}{person ? ` · ${person}` : ""}</option>;
-                })}
-              </optgroup>}
-            </select>
+            {/* Custom picker: a native <select> truncates each signal to one line, so the RM
+                can't read the full concern. This dropdown shows the complete signal text,
+                wrapped, with its date/time. */}
+            <button type="button" onClick={() => setSrcOpen((o) => !o)}
+              className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm text-left flex items-center justify-between gap-2">
+              <span className="truncate">{sourceLabel()}</span>
+              <ChevronDown size={15} className="shrink-0 opacity-60" />
+            </button>
+            {srcOpen && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setSrcOpen(false)} />
+                <div className="absolute z-20 mt-1 w-full max-h-96 overflow-y-auto rounded-lg border-2 border-border bg-background shadow-lg">
+                  <button type="button" onClick={() => { setForm({ ...form, source: "service" }); setSrcOpen(false); }}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${form.source === "service" ? "bg-primary/5" : ""}`}>This service (general)</button>
+                  {signals.length > 0 && <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground bg-muted/40">Signals</div>}
+                  {signals.map((s: any) => {
+                    const kind = s.signal_type || s.governance_domain || "Signal";
+                    const when = fmtWhen(s.created_at || s.entry_date);
+                    return (
+                      <button key={s.id} type="button" onClick={() => { setForm({ ...form, source: `signal:${s.id}` }); setSrcOpen(false); }}
+                        className={`w-full text-left px-3 py-2 border-t border-border/40 hover:bg-muted ${form.source === `signal:${s.id}` ? "bg-primary/5" : ""}`}>
+                        <div className="text-[11px] text-muted-foreground">{when}{s.related_person ? ` · ${s.related_person}` : ""} · {kind}</div>
+                        <div className="text-sm text-foreground whitespace-pre-wrap break-words">{(s.description || "—").trim()}</div>
+                      </button>
+                    );
+                  })}
+                  {patterns.length > 0 && <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground bg-muted/40">Patterns</div>}
+                  {patterns.map((p: any) => {
+                    const label = p.cluster_label || p.domain || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern";
+                    const person = p.linked_person || (p.person && p.person !== "—" ? p.person : "");
+                    return (
+                      <button key={p.id} type="button" onClick={() => { setForm({ ...form, source: `pattern:${p.id}` }); setSrcOpen(false); }}
+                        className={`w-full text-left px-3 py-2 text-sm border-t border-border/40 hover:bg-muted ${form.source === `pattern:${p.id}` ? "bg-primary/5" : ""}`}>
+                        {label}{person ? ` · ${person}` : ""}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
         )}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">

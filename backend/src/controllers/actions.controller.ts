@@ -35,16 +35,26 @@ export class ActionsController {
         return res.status(400).json({ success: false, message: 'Action is already completed.' });
       }
 
-      // 3. Update status + trajectory side-effects, then persist completion detail
-      // (single authoritative write that RETURNs the full row for the response).
-      const updated = await risksService.updateActionStatus(id, action.rows[0].risk_id, company_id, user_id, 'Completed');
+      // 3. Persist the completion directly — this works whether or not the action is linked
+      // to a risk. Governance-decision actions (Create Action from a signal/pattern) carry NO
+      // risk_id, so the risk trajectory/event side-effects below must be skipped for them,
+      // otherwise addEvent(null,…) violates risk_events.risk_id and the whole completion fails.
+      const riskId = action.rows[0].risk_id || null;
       const completedRes = await query(
         `UPDATE risk_actions
-         SET completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW(), completed_by = $6
+         SET status = 'Completed', completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW(), completed_by = $6
          WHERE id = $4 AND company_id = $5 RETURNING *`,
         [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
-      const completedAction = completedRes.rows[0] || updated;
+      let completedAction = completedRes.rows[0];
+
+      // Risk-linked actions also update the risk trajectory + write a lineage event.
+      if (riskId) {
+        try {
+          const updated = await risksService.updateActionStatus(id, riskId, company_id, user_id, 'Completed');
+          completedAction = completedAction || updated;
+        } catch (e) { logger.warn('Risk side-effects on action completion failed (non-fatal):', e); }
+      }
 
       // 4. Notification to RM (the one who assigned it)
       const manager_id = action.rows[0].created_by; // The assigner (usually RM)
@@ -55,9 +65,9 @@ export class ActionsController {
           user_id: manager_id,
           type: 'action_completed',
           title: 'Action Completed',
-          body: `Action "${action.rows[0].title || action.rows[0].description}" completed by TL. Please review outcome.`,
-          link: `/risks/${action.rows[0].risk_id}`,
-          metadata: { action_id: id, risk_id: action.rows[0].risk_id }
+          body: `Action "${action.rows[0].title || action.rows[0].description}" completed. Please review outcome.`,
+          link: riskId ? `/risks/${riskId}` : '/daily-oversight',
+          metadata: { action_id: id, risk_id: riskId }
         });
       }
 
