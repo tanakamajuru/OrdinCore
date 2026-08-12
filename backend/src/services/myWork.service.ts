@@ -70,7 +70,11 @@ export const myWorkService = {
         [company_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = sig.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: '/rm5?stage=signals', primary_action: 'Review Signal' });
+      // Route by role: the RM5 pipeline is RM/Director/RI-only and company-wide, so a Team
+      // Leader is sent to their own house-scoped signals page instead (avoids the 403/"Failed
+      // to load" they hit on /rm5).
+      const signalsLink = RM_PLUS.includes(r) ? '/rm5?stage=signals' : '/pulse-history';
+      if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: signalsLink, primary_action: 'Review Signal' });
     }
 
     // 3. My actions — open, with overdue highlighted (all roles).
@@ -82,8 +86,10 @@ export const myWorkService = {
     ), { rows: [{ open: 0, overdue: 0 }] } as any);
     if ((act.rows[0]?.open || 0) > 0) items.push({ key: 'actions', label: 'actions assigned to you', count: act.rows[0].open, emphasis: act.rows[0]?.overdue || 0, tone: (act.rows[0]?.overdue || 0) > 0 ? 'red' : 'blue', link: '/my-actions', primary_action: 'Complete Action' });
 
-    // 4. Effectiveness reviews due — completed controls not yet rated (reviewers).
-    if (REVIEWERS.includes(r)) {
+    // 4. Effectiveness reviews due — completed controls not yet rated. This is an RM/Director/RI
+    //    function (rating control effectiveness), and its destination (/rm5) is RM-only, so it
+    //    is not shown to Team Leaders (who would otherwise hit a 403 on the link).
+    if (RM_PLUS.includes(r)) {
       const eff = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM risk_actions a
            LEFT JOIN risks rk ON rk.id = a.risk_id

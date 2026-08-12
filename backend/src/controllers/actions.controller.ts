@@ -31,6 +31,13 @@ export class ActionsController {
         return res.status(404).json({ success: false, message: 'Action not found.' });
       }
 
+      // Support Workers may complete ONLY work explicitly assigned to them. Team Leader /
+      // Registered Manager behaviour is unchanged.
+      const activeRole = String((req as any).user?.role || '').toUpperCase().replace(/-/g, '_');
+      if (activeRole === 'SUPPORT_WORKER' && action.rows[0].assigned_to !== user_id) {
+        return res.status(403).json({ success: false, message: 'You can only complete actions assigned to you.' });
+      }
+
       if (action.rows[0].status === 'Completed') {
         return res.status(400).json({ success: false, message: 'Action is already completed.' });
       }
