@@ -18,36 +18,42 @@ const isOverdue = (a: any) => /overdue/i.test(a.status || '') || (a.due_date && 
 const ratio = (n: number, d: number) => (d ? n / d : 1);
 const pctOf = (n: number, d: number) => Math.round(ratio(n, d) * 100);
 
-// Shared assurance computation from real data — the RI's CQC-style domains derived from governance activity.
+// Assurance from the SAME authoritative read-model the web uses (/ri/assurance-summary).
+// Ordin Core does NOT invent an "assured %" or infer training/policy/audit compliance from
+// unrelated activity (RI doctrine) — it reports a defensible categorical state derived from
+// the real RAG indicators, plus the indicators themselves.
+type Rag = 'Good' | 'Warning' | 'Concern';
+type AssuranceState = 'Strong' | 'Adequate' | 'Watch' | 'Concern';
 function useAssurance() {
-  const sig = useApi<any>('/pulses?limit=500');
-  const act = useApi<any>('/actions/oversight');
-  const esc = useApi<any>('/escalations?limit=300');
-  const risk = useApi<any>('/risks?limit=300');
-  const signals = arr(sig.data), actions = arr(act.data), escs = arr(esc.data), risks = arr(risk.data);
-  const domains = {
-    Safe: pctOf(escs.filter((e) => !isOpen(e)).length, escs.length),
-    Effective: pctOf(actions.filter(isDone).length, actions.length),
-    Caring: pctOf(signals.filter((s) => /review|link|closed|valid/i.test(s.review_status || '')).length, signals.length),
-    Responsive: pctOf(actions.filter((a) => !isOverdue(a)).length, actions.length),
-    'Well-led': pctOf(risks.filter((r) => !isOpen(r)).length, risks.length),
-  };
-  const overall = Math.round(Object.values(domains).reduce((a, b) => a + b, 0) / Object.values(domains).length);
-  return { sig, act, esc, risk, signals, actions, escs, risks, domains, overall,
-    refetch: () => { sig.refetch(); act.refetch(); esc.refetch(); risk.refetch(); } };
+  const s = useApi<any>('/ri/assurance-summary');
+  const d: any = s.data?.data ?? s.data ?? {};
+  const rags: Rag[] = [d.risks_identified_early, d.escalations_timely, d.actions_effective, d.closures_evidenced].filter(Boolean);
+  const concerns = rags.filter((x) => x === 'Concern').length;
+  const warnings = rags.filter((x) => x === 'Warning').length;
+  const state: AssuranceState = concerns > 0 ? 'Concern' : warnings >= 2 ? 'Watch' : warnings === 1 ? 'Adequate' : 'Strong';
+  return { s, d, rags, state, refetch: s.refetch };
 }
+const stateTone = (s: AssuranceState) => (s === 'Strong' ? 'green' : s === 'Adequate' ? 'green' : s === 'Watch' ? 'amber' : 'red');
 
 /* 1 — Provider Assurance */
 export function RIProviderAssuranceScreen() {
   const nav = useNavigation<any>();
-  const a = useAssurance();
-  if (a.sig.loading && !a.sig.data) return <Screen><Loading /></Screen>;
+  const { s, d, state, refetch } = useAssurance();
+  if (s.loading && !s.data) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={a.sig.loading} onRefresh={a.refetch}>
-      <BoardHeader title="Provider Assurance" subtitle="This month" />
+    <Screen refreshing={s.loading} onRefresh={refetch}>
+      <BoardHeader title="Provider Assurance" subtitle="Assurance by exception" />
       <OutstandingBanner />
-      <PercentDonut value={isNaN(a.overall) ? 0 : a.overall} label="Assured" tone={a.overall >= 80 ? 'green' : a.overall >= 60 ? 'amber' : 'red'} />
-      <Checklist items={Object.entries(a.domains).map(([label, v]) => ({ label, value: `${isNaN(v) ? 0 : v}%` }))} />
+      <StatusList items={[{ title: 'Assurance position', value: state, tone: stateTone(state) as any }]} />
+      <Checklist items={[
+        { label: 'Risks identified early', value: String(d.risks_identified_early || '—') },
+        { label: 'Escalations timely', value: String(d.escalations_timely || '—') },
+        { label: 'Actions effective', value: String(d.actions_effective || '—') },
+        { label: 'Closures evidenced', value: String(d.closures_evidenced || '—') },
+        { label: 'Reopened risks', value: String(d.reopened_risks ?? 0) },
+        { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0) },
+        ...(d.resolution_effectiveness_rate != null ? [{ label: 'Resolution effectiveness', value: `${d.resolution_effectiveness_rate}%` }] : []),
+      ]} />
       <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
@@ -81,21 +87,25 @@ export function RIOversightScreen() {
 
 /* 3 — Inspection Readiness */
 export function RIInspectionScreen() {
-  const a = useAssurance();
-  if (a.sig.loading && !a.sig.data) return <Screen><Loading /></Screen>;
-  const overdue = a.actions.filter(isOverdue).length;
-  const yes = (b: boolean) => (b ? 'Yes' : 'No');
-  const readiness = a.overall;
+  const { c } = useTheme();
+  const { s, d, state, refetch } = useAssurance();
+  if (s.loading && !s.data) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={a.sig.loading} onRefresh={a.refetch}>
-      <BoardHeader title="Inspection Readiness" subtitle="Overall readiness" />
-      <PercentDonut value={isNaN(readiness) ? 0 : readiness} label="Ready" tone={readiness >= 80 ? 'green' : readiness >= 60 ? 'amber' : 'red'} />
+    <Screen refreshing={s.loading} onRefresh={refetch}>
+      <BoardHeader title="Governance Readiness" subtitle="Evidence Ordin Core can substantiate" />
+      <StatusList items={[{ title: 'Assurance position', value: state, tone: stateTone(state) as any }]} />
       <Checklist items={[
-        { label: 'Policies up to date', value: yes(a.domains['Well-led'] >= 80), showCheck: true },
-        { label: 'Training compliance', value: yes(a.domains.Effective >= 80), showCheck: true },
-        { label: 'Audits current', value: yes(a.domains.Safe >= 80), showCheck: true },
-        { label: 'Actions overdue', value: String(overdue), showCheck: true },
+        { label: 'Risks identified early', value: String(d.risks_identified_early || '—'), showCheck: true },
+        { label: 'Escalations timely', value: String(d.escalations_timely || '—'), showCheck: true },
+        { label: 'Actions effective', value: String(d.actions_effective || '—'), showCheck: true },
+        { label: 'Closures evidenced', value: String(d.closures_evidenced || '—'), showCheck: true },
+        { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0), showCheck: true },
       ]} />
+      {/* Defensibility: training, policy and audit status are NOT inferred from governance
+          activity — they appear only when Ordin Core actually holds that evidence. */}
+      <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }}>
+        <Text size={12} muted style={{ lineHeight: 18 }}>Training, policy and audit compliance are shown only where the platform holds the underlying evidence — they are never inferred from escalation or action statistics.</Text>
+      </View>
     </Screen>
   );
 }
@@ -104,24 +114,27 @@ export function RIInspectionScreen() {
 export function RINarrativeScreen() {
   const { c } = useTheme();
   const nav = useNavigation<any>();
-  const a = useAssurance();
+  const { s, d, state, refetch } = useAssurance();
   const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const position = a.overall >= 80
+  const position = state === 'Strong'
     ? 'Governance is effective with strong oversight across all services.'
-    : a.overall >= 60
-      ? 'Governance is developing, with oversight in place and areas for improvement identified.'
-      : 'Governance requires strengthening; oversight actions are underway across services.';
+    : state === 'Adequate'
+      ? 'Governance is adequate, with oversight in place and areas for improvement identified.'
+      : state === 'Watch'
+        ? 'Governance requires closer attention; several areas are under increased oversight.'
+        : 'Governance requires strengthening; oversight actions are underway across services.';
   return (
-    <Screen refreshing={a.sig.loading} onRefresh={a.refetch}>
+    <Screen refreshing={s.loading} onRefresh={refetch}>
       <BoardHeader title="Governance Narrative" subtitle={month} />
       <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 15 }}>
         <Text size={14} weight="700" style={{ marginBottom: 4 }}>Overall position</Text>
         <Text size={13} muted style={{ lineHeight: 20 }}>{position}</Text>
         <Text size={14} weight="700" style={{ marginTop: 14, marginBottom: 6 }}>Key highlights</Text>
         {[
-          `${a.domains.Caring}% of signals reviewed and triaged`,
-          `${a.domains.Effective}% of actions completed`,
-          `${a.escs.filter((e) => !isOpen(e)).length} escalations closed`,
+          `Risks identified early: ${d.risks_identified_early || '—'}`,
+          `Escalations timely: ${d.escalations_timely || '—'}`,
+          `Actions effective: ${d.actions_effective || '—'}`,
+          ...(d.resolution_effectiveness_rate != null ? [`Resolution effectiveness ${d.resolution_effectiveness_rate}% (of ${d.resolved_total} resolved)`] : []),
         ].map((t, i) => (
           <Row key={i} gap={9} style={{ marginBottom: 6, alignItems: 'flex-start' }}>
             <Feather name="check" size={15} color={c.sevLow} style={{ marginTop: 2 }} />
