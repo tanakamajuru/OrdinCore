@@ -8,7 +8,7 @@ import { useApi } from '@/api/useApi';
 import { radius } from '@/theme/tokens';
 import { Screen, Row, Avatar, Text, Button, Loading } from '@/components/ui';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
-import { BoardHeader, Metrics, StatusList, Checklist, PercentDonut, BoardButton, BoardItem } from '@/components/board';
+import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, PercentDonut, BoardButton, BoardItem, Tone } from '@/components/board';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || []);
 const sevOf = (r: any) => String(r.severity || r.risk_rating || r.current_severity || '').toLowerCase();
@@ -62,24 +62,32 @@ export function RIProviderAssuranceScreen() {
 /* 2 — Oversight Dashboard */
 export function RIOversightScreen() {
   const nav = useNavigation<any>();
-  const sig = useApi<any>('/pulses?limit=500');
-  const esc = useApi<any>('/escalations?limit=300');
+  // Design: strategic risk exposure by level + the themes genuinely deteriorating across
+  // services (from the same cross-service themes read-model the web uses).
   const risk = useApi<any>('/risks?limit=300');
-  const loading = sig.loading && !sig.data;
+  const themes = useApi<any>('/interventions/themes');
+  const loading = risk.loading && !risk.data;
   const risks = arr(risk.data).filter(isOpen);
-  const high = risks.filter((r) => /high/.test(sevOf(r))).length;
-  const critical = risks.filter((r) => /critical/.test(sevOf(r))).length;
+  const lvl = (re: RegExp) => risks.filter((r) => re.test(sevOf(r))).length;
+  const themeList: any[] = themes.data?.themes ?? themes.data?.data ?? (Array.isArray(themes.data) ? themes.data : []);
+  const deteriorating: BoardItem[] = themeList
+    .filter((t: any) => t.trajectory?.direction === 'Deteriorating')
+    .slice(0, 8)
+    .map((t: any) => ({ title: t.theme, value: `${t.services || 0} service${(t.services || 0) === 1 ? '' : 's'}`, tone: 'red' as Tone }));
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); esc.refetch(); risk.refetch(); }}>
-      <BoardHeader title="Oversight Dashboard" subtitle="All services" />
+    <Screen refreshing={risk.loading} onRefresh={() => { risk.refetch(); themes.refetch(); }}>
+      <BoardHeader title="Oversight" subtitle="Strategic oversight across the provider" />
+      <SectionTitle>Strategic risks</SectionTitle>
       <Metrics items={[
-        { value: arr(sig.data).length, label: 'Active signals' },
-        { value: arr(esc.data).filter(isOpen).length, label: 'Escalations', tone: 'amber' },
-        { value: high, label: 'High risks', tone: 'red' },
-        { value: critical, label: 'Critical', tone: 'red' },
+        { value: lvl(/critical/), label: 'Critical', tone: 'red' },
+        { value: lvl(/high/), label: 'High', tone: 'red' },
+        { value: lvl(/mod|medium/), label: 'Moderate', tone: 'amber' },
+        { value: lvl(/low/), label: 'Low', tone: 'green' },
       ]} />
+      <SectionTitle>Deteriorating themes</SectionTitle>
+      <StatusList items={deteriorating} empty="No themes deteriorating across services." />
       <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );

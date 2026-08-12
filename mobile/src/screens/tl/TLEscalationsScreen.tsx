@@ -17,11 +17,18 @@ export function TLEscalationsScreen() {
   const open = all.filter((e) => (e.lifecycle_status || '') !== 'Closed');
   const overdue = open.filter((e) => e.overdue);
   const shown = tab === 'overdue' ? overdue : open;
-  const items: BoardItem[] = shown.map((e) => ({
-    title: e.risk_title || e.reason || 'Escalation',
-    meta: [e.escalated_to_name ? `To ${e.escalated_to_name}` : e.house_name, ago(e.created_at || e.escalated_at)].filter(Boolean).join(' · '),
-    tone: e.overdue ? 'red' : 'amber',
-  }));
+  const items: BoardItem[] = shown.map((e) => {
+    const sev = String(e.priority || e.severity || '');
+    const raised = ago(e.created_at || e.escalated_at);
+    // Design: each escalation states what's expected + how urgent.
+    const meta = [e.house_name, sev, raised ? `raised ${raised}` : ''].filter(Boolean).join(' · ');
+    return {
+      title: e.risk_title || e.reason || 'Escalation',
+      meta,
+      value: e.overdue ? 'Overdue' : 'Awaiting response',
+      tone: e.overdue ? 'red' : 'amber',
+    };
+  });
 
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
