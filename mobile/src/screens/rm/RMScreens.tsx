@@ -148,11 +148,18 @@ export function RMEscalationsScreen() {
   const open = all.filter(isOpen);
   const overdue = open.filter((e) => e.overdue);
   const shown = tab === 'overdue' ? overdue : open;
-  const items: BoardItem[] = shown.map((e) => ({
-    title: e.risk_title || e.reason || 'Escalation',
-    meta: `${e.house_name || e.escalated_to_name || ''}${e.created_at ? ` · ${ago(e.created_at)}` : ''}`,
-    tone: e.overdue ? 'red' : 'amber',
-  }));
+  const items: BoardItem[] = shown.map((e) => {
+    const sev = String(e.priority || e.severity || '');
+    const status = e.escalated_to_name ? `Assigned to ${e.escalated_to_name}` : 'Awaiting response';
+    // Card content mirrors the design: site · severity · raised · who must respond.
+    const meta = [e.house_name, sev, e.created_at ? `raised ${ago(e.created_at)}` : '', status].filter(Boolean).join(' · ');
+    return {
+      title: e.risk_title || e.reason || 'Escalation',
+      meta,
+      value: e.overdue ? 'Overdue' : undefined,
+      tone: (e.overdue ? 'red' : 'amber') as Tone,
+    };
+  });
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
       <BoardHeader title="Escalations" />
@@ -296,9 +303,18 @@ export function RMMyActionsScreen() {
   const todo = all.filter((a) => !isDone(a));
   const done = all.filter(isDone);
   const shown = tab === 'todo' ? todo : done;
+  const dueBadge = (a: any): string | undefined => {
+    if (isDone(a)) return undefined;
+    if (isOverdue(a)) return 'Overdue';
+    if (!a.due_date) return undefined;
+    const days = Math.ceil((new Date(a.due_date).getTime() - Date.now()) / 86400000);
+    return days <= 0 ? 'Due today' : days <= 2 ? 'Due soon' : undefined;
+  };
   const items: BoardItem[] = shown.map((a) => ({
     title: a.title,
-    meta: `${a.related_person || a.house_name || a.risk_title || ''}${a.due_date ? ` · due ${new Date(a.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''}`,
+    // Linked concern + due date (design: "Linked concern: … · due 12 Aug").
+    meta: [a.risk_title || a.related_person || a.house_name, a.due_date ? `due ${new Date(a.due_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}` : ''].filter(Boolean).join(' · '),
+    value: dueBadge(a),
     tone: isDone(a) ? 'green' : isOverdue(a) ? 'red' : 'amber',
     onPress: () => nav.navigate('ActionDetail', { action: a }),
   }));
