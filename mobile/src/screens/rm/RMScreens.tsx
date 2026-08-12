@@ -98,13 +98,23 @@ export function RMRiskRegisterScreen() {
     });
   }
 
-  const items: BoardItem[] = shown.map((r) => ({
-    title: r.title || r.risk_title || r.theme || 'Risk',
-    meta: `${r.house_name || r.service_name || ''}${r.updated_at || r.created_at ? ` · ${ago(r.updated_at || r.created_at)}` : ''}`,
-    tone: riskTone(r),
-    // Tap a risk to open its full detail — same as the web register.
-    onPress: () => nav.navigate('RiskDetail', { risk: r }),
-  }));
+  const trajLabel = (t?: string) => { const s = String(t || '').toLowerCase(); return /deteriorat|escalat|worsen/.test(s) ? 'Deteriorating' : /improv/.test(s) ? 'Improving' : s ? 'Stable' : ''; };
+  const items: BoardItem[] = shown.map((r) => {
+    const sev = String(r.severity || r.risk_rating || r.current_severity || '');
+    const traj = trajLabel(r.trajectory || r.trend);
+    const decision = r.closure_eligible || r.decision_required;
+    // Card content mirrors the design: site · severity · trajectory · last activity, with a
+    // "Decision" flag on the right where a management decision is required.
+    const meta = [r.house_name || r.service_name, sev, traj].filter(Boolean).join(' · ')
+      + (r.updated_at || r.created_at ? ` · ${ago(r.updated_at || r.created_at)}` : '');
+    return {
+      title: r.title || r.risk_title || r.theme || 'Risk',
+      meta,
+      value: decision ? 'Decision' : undefined,
+      tone: riskTone(r),
+      onPress: () => nav.navigate('RiskDetail', { risk: r }),
+    };
+  });
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
       <BoardHeader title="Risk Register" />
