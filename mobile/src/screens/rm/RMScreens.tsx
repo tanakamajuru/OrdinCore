@@ -26,9 +26,10 @@ const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', mon
 /* 1 — RM Dashboard */
 export function RMDashboardScreen() {
   const nav = useNavigation<any>();
-  // Data parity with the web: the "needs your attention" numbers come from the SAME
-  // authoritative read-models the web uses — /my-work (role-scoped attention items) and
-  // /rm/counts (pipeline totals) — never re-counted from raw, capped lists on the device.
+  const { user } = useAuth();
+  // Numbers come from the authoritative read-models (/my-work, /rm/counts). The layout matches
+  // the RM design: a personal greeting, "Needs your attention" as a drill-through list, and the
+  // governance pipeline below. /my-work only includes items that actually need attention.
   const mw = useApi<any>('/my-work');
   const counts = useApi<any>('/rm/counts');
   const loading = mw.loading && !mw.data;
@@ -38,19 +39,24 @@ export function RMDashboardScreen() {
   const byKey = (k: string) => items.find((i: any) => i.key === k);
   const cts: any = counts.data?.data ?? counts.data ?? {};
   const n = (v: any) => Number(v || 0);
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
+
+  const attention: BoardItem[] = ([
+    byKey('escalations') && { title: 'Escalations awaiting response', value: String(n(byKey('escalations')?.count)), tone: 'red', onPress: () => nav.navigate('RMEscalations') },
+    byKey('signals') && { title: 'Signals awaiting review', value: String(n(byKey('signals')?.count)), tone: 'amber', onPress: () => nav.navigate('Signals') },
+    n(byKey('actions')?.emphasis) > 0 && { title: 'Overdue actions', value: String(n(byKey('actions')?.emphasis)), tone: 'red', onPress: () => nav.navigate('RMMyActions') },
+    byKey('effectiveness') && { title: 'Effectiveness reviews due', value: String(n(byKey('effectiveness')?.count)), tone: 'blue', onPress: () => nav.navigate('Signals') },
+    byKey('weekly') && { title: 'Weekly governance', value: 'Due', tone: 'slate', onPress: () => nav.navigate('RMGovernanceReview') },
+  ].filter(Boolean) as BoardItem[]);
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
     <Screen refreshing={mw.loading} onRefresh={refetch}>
-      <BoardHeader title="RM Mobile" subtitle={`What needs your decision · ${today()}`} />
+      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle={`Registered Manager · ${today()}`} />
       <OutstandingBanner onPress={() => nav.navigate('RMMyActions')} />
       <SectionTitle>Needs your attention</SectionTitle>
-      <Metrics items={[
-        { value: n(byKey('escalations')?.count), label: 'Escalations', tone: 'red' },
-        { value: n(byKey('signals')?.count), label: 'Signals to review', tone: 'amber' },
-        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'Overdue actions', tone: 'red' },
-        { value: n(byKey('effectiveness')?.count), label: 'Effectiveness due', tone: 'blue' },
-      ]} />
+      <StatusList items={attention} empty="You're all caught up — nothing needs your decision." />
       <SectionTitle>Governance pipeline</SectionTitle>
       <StatusList
         items={[
