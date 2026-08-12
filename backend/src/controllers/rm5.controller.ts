@@ -21,6 +21,7 @@ export const rm5Controller = {
   escalations: async (req: Request, res: Response) => { try { ok(res, await rm5Service.escalationsLens(cid(req))); } catch (e) { fail(res, e); } },
   dismissed: async (req: Request, res: Response) => { try { ok(res, await rm5Service.dismissedPatterns(cid(req))); } catch (e) { fail(res, e); } },
   signalsBacklog: async (req: Request, res: Response) => { try { ok(res, await rm5Service.signalsBacklog(cid(req))); } catch (e) { fail(res, e); } },
+  weeklyReadiness: async (req: Request, res: Response) => { try { ok(res, await rm5Service.weeklyReadiness(cid(req))); } catch (e) { fail(res, e); } },
   // Mobile promote: the server holds the cluster's data and enforces the floor + provenance;
   // the client supplies only the RM's reason. "System proposes, the RM decides."
   promotePattern: async (req: Request, res: Response) => {

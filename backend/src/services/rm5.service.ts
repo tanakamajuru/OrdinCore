@@ -72,6 +72,38 @@ export const rm5Service = {
     return rows;
   },
 
+  // Weekly governance readiness — server-computed so mobile/web show identical figures and a
+  // single authoritative READY / NOT READY verdict (no capped-list counting on the client).
+  async weeklyReadiness(company_id: string) {
+    const one = async (sql: string) => (await query(sql, [company_id])).rows[0] || {};
+    const sig = await one(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE COALESCE(review_status::text,'New') <> 'New')::int AS reviewed
+         FROM governance_pulses
+        WHERE company_id = $1 AND COALESCE(created_at, entry_date) >= date_trunc('week', NOW())`);
+    const esc = await one(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE COALESCE(lifecycle_status::text, status, 'Open') IN ('Closed','Resolved','closed','resolved'))::int AS reviewed
+         FROM escalations WHERE company_id = $1`);
+    const actionsReview = Number((await one(
+      `SELECT COUNT(*)::int AS n FROM risk_actions
+        WHERE company_id = $1 AND status IN ('Complete','Completed') AND effectiveness_outcome IS NULL`)).n || 0);
+    const risksDecision = Number((await one(
+      `SELECT COUNT(*)::int AS n FROM risks
+        WHERE company_id = $1 AND closure_eligible = true AND LOWER(status::text) NOT IN ('closed','resolved')`)).n || 0);
+    const signalsOutstanding = Number(sig.total || 0) - Number(sig.reviewed || 0);
+    const escOutstanding = Number(esc.total || 0) - Number(esc.reviewed || 0);
+    const outstanding = signalsOutstanding + escOutstanding + actionsReview + risksDecision;
+    return {
+      signals_reviewed: Number(sig.reviewed || 0), signals_total: Number(sig.total || 0),
+      escalations_reviewed: Number(esc.reviewed || 0), escalations_total: Number(esc.total || 0),
+      actions_requiring_review: actionsReview,
+      effectiveness_reviews_due: actionsReview,
+      risks_requiring_decision: risksDecision,
+      ready: outstanding === 0,
+    };
+  },
+
   // Ribbon counts
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);

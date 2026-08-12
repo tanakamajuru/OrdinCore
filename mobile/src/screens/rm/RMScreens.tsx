@@ -154,30 +154,22 @@ export function RMEscalationsScreen() {
 /* 4 — Governance Review */
 export function RMGovernanceReviewScreen() {
   const nav = useNavigation<any>();
-  const sig = useApi<any>('/pulses?limit=300');
-  const act = useApi<any>('/actions/oversight');
-  const esc = useApi<any>('/escalations?limit=200');
-  const loading = sig.loading && !sig.data;
+  // Server-computed readiness (same figures + verdict as the web) — not capped-list counting.
+  const { data, loading, refetch } = useApi<any>('/rm/weekly-readiness');
+  const d: any = data?.data ?? data ?? {};
 
-  const signals = arr(sig.data);
-  const reviewedSig = signals.filter((s) => /review|link|closed|valid/i.test(s.review_status || ''));
-  const actions = arr(act.data);
-  const reviewedAct = actions.filter((a) => isDone(a) || a.rm_decision);
-  const escs = arr(esc.data);
-  const reviewedEsc = escs.filter((e) => !isOpen(e) || e.reviewed_at);
-  const overdue = actions.filter(isOverdue).length;
-
-  if (loading) return <Screen><Loading /></Screen>;
+  if (loading && !data) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); act.refetch(); esc.refetch(); }}>
-      <BoardHeader title="Governance Review" subtitle="Weekly review" />
+    <Screen refreshing={loading} onRefresh={refetch}>
+      <BoardHeader title="Weekly Governance" subtitle="Review readiness" />
+      <StatusList items={[{ title: d.ready ? 'Ready to finalise' : 'Not ready', value: d.ready ? 'READY' : 'NOT READY', tone: (d.ready ? 'green' : 'amber') as any }]} />
       <Checklist items={[
-        { label: 'Signals reviewed', value: `${reviewedSig.length} / ${signals.length}`, showCheck: true },
-        { label: 'Actions reviewed', value: `${reviewedAct.length} / ${actions.length}`, showCheck: true },
-        { label: 'Escalations reviewed', value: `${reviewedEsc.length} / ${escs.length}`, showCheck: true },
-        { label: 'Overdue actions', value: String(overdue), showCheck: true },
+        { label: 'Signals reviewed', value: `${d.signals_reviewed ?? 0} / ${d.signals_total ?? 0}`, showCheck: true },
+        { label: 'Escalations reviewed', value: `${d.escalations_reviewed ?? 0} / ${d.escalations_total ?? 0}`, showCheck: true },
+        { label: 'Actions requiring review', value: String(d.actions_requiring_review ?? 0), showCheck: true },
+        { label: 'Effectiveness reviews due', value: String(d.effectiveness_reviews_due ?? 0), showCheck: true },
+        { label: 'Risks requiring decision', value: String(d.risks_requiring_decision ?? 0), showCheck: true },
       ]} />
-      <DetailCard items={[{ label: 'Review period', value: 'This week' }]} />
       <BoardButton label="View weekly report" icon="file-text" onPress={() => nav.navigate('ReportDetail', { type: 'weekly', title: 'Weekly governance report' })} />
     </Screen>
   );
