@@ -26,39 +26,37 @@ const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', mon
 /* 1 — RM Dashboard */
 export function RMDashboardScreen() {
   const nav = useNavigation<any>();
-  const sig = useApi<any>('/pulses?limit=200');
-  const esc = useApi<any>('/escalations?limit=200');
-  const act = useApi<any>('/actions/oversight');
-  const risk = useApi<any>('/risks?limit=200');
-  const loading = risk.loading && !risk.data;
-  const refetch = () => { sig.refetch(); esc.refetch(); act.refetch(); risk.refetch(); };
+  // Data parity with the web: the "needs your attention" numbers come from the SAME
+  // authoritative read-models the web uses — /my-work (role-scoped attention items) and
+  // /rm/counts (pipeline totals) — never re-counted from raw, capped lists on the device.
+  const mw = useApi<any>('/my-work');
+  const counts = useApi<any>('/rm/counts');
+  const loading = mw.loading && !mw.data;
+  const refetch = () => { mw.refetch(); counts.refetch(); };
 
-  const openEsc = arr(esc.data).filter(isOpen);
-  const openActions = arr(act.data).filter((a) => !isDone(a));
-  const overdue = openActions.filter(isOverdue);
-  const risks = arr(risk.data).filter(isOpen);
-  const high = risks.filter((r) => /(high|critical)/.test(sevOf(r))).length;
-  const med = risks.filter((r) => /(med|mod)/.test(sevOf(r))).length;
-  const low = risks.filter((r) => /low/.test(sevOf(r))).length;
+  const items: any[] = mw.data?.items ?? mw.data?.data?.items ?? [];
+  const byKey = (k: string) => items.find((i: any) => i.key === k);
+  const cts: any = counts.data?.data ?? counts.data ?? {};
+  const n = (v: any) => Number(v || 0);
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={risk.loading} onRefresh={refetch}>
-      <BoardHeader title="RM Dashboard" subtitle={`Overview · Today, ${today()}`} />
+    <Screen refreshing={mw.loading} onRefresh={refetch}>
+      <BoardHeader title="RM Mobile" subtitle={`What needs your decision · ${today()}`} />
       <OutstandingBanner onPress={() => nav.navigate('RMMyActions')} />
+      <SectionTitle>Needs your attention</SectionTitle>
       <Metrics items={[
-        { value: arr(sig.data).length, label: 'Active signals' },
-        { value: openEsc.length, label: 'Escalations', tone: 'amber' },
-        { value: openActions.length, label: 'Actions', tone: 'blue' },
-        { value: overdue.length, label: 'Overdue', tone: 'red' },
+        { value: n(byKey('escalations')?.count), label: 'Escalations', tone: 'red' },
+        { value: n(byKey('signals')?.count), label: 'Signals to review', tone: 'amber' },
+        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'Overdue actions', tone: 'red' },
+        { value: n(byKey('effectiveness')?.count), label: 'Effectiveness due', tone: 'blue' },
       ]} />
-      <SectionTitle>Risk summary</SectionTitle>
+      <SectionTitle>Governance pipeline</SectionTitle>
       <StatusList
         items={[
-          // Tapping a band jumps to that category in the register (High opens the High tab).
-          { title: 'High', value: String(high), tone: 'red', onPress: () => nav.navigate('Signals', { tab: 'high' }) },
-          { title: 'Medium', value: String(med), tone: 'amber', onPress: () => nav.navigate('Signals', { tab: 'open' }) },
-          { title: 'Low', value: String(low), tone: 'green', onPress: () => nav.navigate('Signals', { tab: 'all' }) },
+          { title: 'Patterns', value: String(n(cts.patterns)), tone: 'amber', onPress: () => nav.navigate('Signals', { tab: 'open' }) },
+          { title: 'Risks', value: String(n(cts.risks)), tone: 'red', onPress: () => nav.navigate('Signals', { tab: 'all' }) },
+          { title: 'Actions', value: String(n(cts.actions)), tone: 'blue', onPress: () => nav.navigate('RMMyActions') },
         ]}
         button="View risk register" onButton={() => nav.navigate('Signals', { tab: 'all' })}
       />
