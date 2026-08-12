@@ -66,6 +66,7 @@ export function SignalCaptureForm() {
     entry_date: now.toISOString().split('T')[0],
     entry_time: now.toTimeString().slice(0, 5),
     related_person: '',
+    service_user_id: '',
     immediate_action: '',
   });
 
@@ -111,6 +112,8 @@ export function SignalCaptureForm() {
   ];
 
   useEffect(() => {
+    // Person is per-service — clear any previous selection when the service changes.
+    setForm(prev => ({ ...prev, service_user_id: '', related_person: '' }));
     if (!form.service_id) { setServiceUsers([]); return; }
     apiClient.get(`/houses/${form.service_id}/service-users`)
       .then(res => {
@@ -172,6 +175,9 @@ export function SignalCaptureForm() {
         description: form.description.trim(),
         entry_date: form.entry_date,
         entry_time: form.entry_time,
+        // Controlled attribution: send the service-user identifier; the readable name is
+        // kept for back-compat displays and resolved server-side from the id.
+        service_user_id: form.service_user_id || undefined,
         related_person: form.related_person || undefined,
         immediate_action: form.immediate_action || undefined,
       });
@@ -310,20 +316,23 @@ export function SignalCaptureForm() {
             </div>
           </div>
 
-          {/* Client (optional) */}
+          {/* Client — controlled service-user selection (stores the person's identifier, not a
+              typed name) so signals are reliably attributable and searchable over time. */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><User size={16} /> Client <span className="text-muted-foreground font-normal">(optional)</span></label>
-            <input
-              type="text"
-              value={form.related_person}
-              onChange={e => set('related_person', e.target.value)}
-              placeholder="Person involved, if applicable"
-              list="signal-clients"
-              className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
-            />
-            <datalist id="signal-clients">
-              {serviceUsers.map((u: any, i: number) => <option key={`${u.id || ''}-${i}`} value={u.display_name} />)}
-            </datalist>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><User size={16} /> Person <span className="text-muted-foreground font-normal">(optional)</span></label>
+            <select
+              value={form.service_user_id}
+              onChange={e => {
+                const id = e.target.value;
+                const su = serviceUsers.find((u: any) => String(u.id) === id);
+                setForm(prev => ({ ...prev, service_user_id: id, related_person: su?.display_name || '' }));
+              }}
+              disabled={!form.service_id}
+              className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-60"
+            >
+              <option value="">{form.service_id ? '— Not about a specific person —' : 'Select a service first'}</option>
+              {serviceUsers.map((u: any, i: number) => <option key={`${u.id || i}`} value={u.id}>{u.display_name}</option>)}
+            </select>
           </div>
 
           {/* Immediate action (compulsory) */}

@@ -99,6 +99,7 @@ export function SWRaiseSignalScreen() {
     ?? (selectedTheme?.signals || []).map((l) => ({ label: l, escalation: 'NONE' as const }));
   const selectedMeta = signalMetas.find((s) => s.label === signalLabel);
   const [resident, setResident] = useState('');
+  const [residentId, setResidentId] = useState('');
   const [what, setWhat] = useState('');
   const [busy, setBusy] = useState(false);
   const [evidence, setEvidence] = useState<Evidence | null>(null);
@@ -108,6 +109,11 @@ export function SWRaiseSignalScreen() {
   const houses = user?.assigned_house_ids || [];
   const houseId = houses.length === 1 ? houses[0] : undefined;
   const houseName = (user as any)?.house_name || (user as any)?.service_name || 'Your service';
+
+  // Controlled resident selection — the people supported at this house, so a signal stores the
+  // person's identifier rather than a typed name (falls back to free text if the list is empty).
+  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null);
+  const serviceUsers: any[] = suApi.data?.data ?? suApi.data ?? [];
 
   const addPhoto = () => {
     Alert.alert('Add photo evidence', undefined, [
@@ -158,6 +164,7 @@ export function SWRaiseSignalScreen() {
     if (!what.trim()) { Alert.alert('Add what happened', 'A short, clear account is required.'); return; }
     const body: any = {
       service_id: houseId,
+      service_user_id: residentId || undefined,
       related_person: resident.trim() || undefined,
       category: domain,
       governance_domain: domain,
@@ -219,10 +226,22 @@ export function SWRaiseSignalScreen() {
 
       <View style={{ gap: 4 }}>
         <Caption>Resident</Caption>
-        <View style={{ position: 'relative', justifyContent: 'center' }}>
-          <Field value={resident} onChangeText={setResident} placeholder="Search resident…" />
-          <Feather name="search" size={16} color={c.faint} style={{ position: 'absolute', right: 12 }} />
-        </View>
+        {serviceUsers.length > 0 ? (
+          <Dropdown
+            value={resident || '— Not about a resident —'}
+            options={['— Not about a resident —', ...serviceUsers.map((u: any) => u.display_name)]}
+            onChange={(v) => {
+              if (v.startsWith('—')) { setResident(''); setResidentId(''); return; }
+              const su = serviceUsers.find((u: any) => u.display_name === v);
+              setResident(v); setResidentId(su?.id ? String(su.id) : '');
+            }}
+          />
+        ) : (
+          <View style={{ position: 'relative', justifyContent: 'center' }}>
+            <Field value={resident} onChangeText={setResident} placeholder="Search resident…" />
+            <Feather name="search" size={16} color={c.faint} style={{ position: 'absolute', right: 12 }} />
+          </View>
+        )}
       </View>
 
       <View style={{ gap: 4 }}>

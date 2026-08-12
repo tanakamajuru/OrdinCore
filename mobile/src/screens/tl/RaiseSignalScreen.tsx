@@ -25,6 +25,7 @@ export function RaiseSignalScreen() {
   const [signalLabel, setSignalLabel] = useState('');
   const [severity, setSeverity] = useState('High');
   const [person, setPerson] = useState('');
+  const [personId, setPersonId] = useState('');
   const [observation, setObservation] = useState('');
   const [immediate, setImmediate] = useState('');
   const [busy, setBusy] = useState(false);
@@ -45,11 +46,16 @@ export function RaiseSignalScreen() {
   const houses = user?.assigned_house_ids || [];
   const houseId = houses.length === 1 ? houses[0] : undefined; // else the API resolves it from the TL's assignment
 
+  // Controlled person selection — store the service-user's identifier, not a typed name.
+  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null);
+  const serviceUsers: any[] = suApi.data?.data ?? suApi.data ?? [];
+
   const submit = async () => {
     if (!observation.trim()) { Alert.alert('Add what you saw', 'A short account of the observation is required.'); return; }
     if (!type) { Alert.alert('Choose a theme', 'Select the governance theme this signal belongs to.'); return; }
     const body: any = {
       service_id: houseId,
+      service_user_id: personId || undefined,
       related_person: person.trim() || undefined,
       category: type,               // → risk_domain (drives clustering + rules)
       governance_domain: type,
@@ -110,7 +116,18 @@ export function RaiseSignalScreen() {
       </Row>
 
       <Label>Person (optional)</Label>
-      <Field value={person} onChangeText={setPerson} placeholder="Who it concerns" />
+      {serviceUsers.length > 0 ? (
+        <Row gap={7} style={{ flexWrap: 'wrap' }}>
+          <Chip label="Not a person" active={!personId}
+            onPress={() => { setPerson(''); setPersonId(''); }} />
+          {serviceUsers.map((u: any) => (
+            <Chip key={String(u.id)} label={u.display_name} active={personId === String(u.id)}
+              onPress={() => { setPersonId(String(u.id)); setPerson(u.display_name); }} />
+          ))}
+        </Row>
+      ) : (
+        <Field value={person} onChangeText={setPerson} placeholder="Who it concerns" />
+      )}
 
       <Label>Governance theme</Label>
       <Row gap={7} style={{ flexWrap: 'wrap' }}>

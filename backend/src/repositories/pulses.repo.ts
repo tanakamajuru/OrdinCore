@@ -9,6 +9,7 @@ export interface PulseDto {
     occurred_at?: string;         // simplified form: ISO datetime
     related_person?: string;
     client_id?: string;           // simplified form alias for related_person
+    service_user_id?: string;     // controlled service-user identifier (preferred over free text)
     signal_type?: string;
     category?: string;            // simplified form: single theme -> risk_domain[0]
     governance_domain?: string;   // 12-domain clustering key (Supported Living / Domiciliary)
@@ -76,7 +77,22 @@ export const pulsesRepo = {
         // signal_type is a constrained enum; the free-text category lives in
         // risk_domain. Never put the category into signal_type.
         const signalType = dto.signal_type || 'Concern';
-        const relatedPerson = dto.related_person || dto.client_id || null;
+        let relatedPerson = dto.related_person || dto.client_id || null;
+
+        // Controlled person attribution: store the service-user's system identifier, not just a
+        // typed name. If a service_user_id was selected, keep the readable name in sync; if only a
+        // name was typed (legacy/free text), resolve it to a known service user for this house.
+        let serviceUserId = dto.service_user_id || null;
+        if (houseId) {
+            if (serviceUserId) {
+                const su = await query(`SELECT display_name FROM service_users WHERE id = $1 AND house_id = $2`, [serviceUserId, houseId]);
+                if (su.rows[0]) relatedPerson = su.rows[0].display_name;
+                else serviceUserId = null; // id didn't belong to this house — drop it rather than store a bad link
+            } else if (relatedPerson) {
+                const su = await query(`SELECT id FROM service_users WHERE house_id = $1 AND LOWER(display_name) = LOWER($2) AND is_active = true LIMIT 1`, [houseId, relatedPerson.trim()]);
+                serviceUserId = su.rows[0]?.id || null;
+            }
+        }
 
         // Auto-allocate the signal to the house's responsible Team Leader on capture.
         const assignedTo = houseId ? await resolveDefaultAssignee(houseId, user_id) : null;
@@ -86,16 +102,16 @@ export const pulsesRepo = {
                 id, company_id, house_id, created_by, entry_date, entry_time, related_person,
                 signal_type, risk_domain, governance_domain, signal_label, description, immediate_action, severity,
                 has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type,
-                assigned_to, assigned_at, assigned_by, allocation_is_auto
+                assigned_to, assigned_at, assigned_by, allocation_is_auto, service_user_id
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'New', $19,
-                $20, ${'CASE WHEN $20::uuid IS NULL THEN NULL ELSE NOW() END'}, $21, TRUE)
+                $20, ${'CASE WHEN $20::uuid IS NULL THEN NULL ELSE NOW() END'}, $21, TRUE, $22)
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
                 signalType, riskDomain, governanceDomain, dto.signal_label || null, dto.description, dto.immediate_action || null, dto.severity,
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null,
-                assignedTo, assignedTo ? user_id : null
+                assignedTo, assignedTo ? user_id : null, serviceUserId
             ]
         );
         return result.rows[0];
