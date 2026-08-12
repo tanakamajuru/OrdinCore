@@ -107,16 +107,22 @@ export function DirectorTrendsScreen() {
 
 /* 3 — Recurring Cross-Site Themes */
 export function DirectorThemesScreen() {
-  const { data, loading, refetch } = useApi<any>('/pulses?limit=500');
-  const counts: Record<string, number> = {};
-  arr(data).forEach((s) => { const k = domainOf(s); counts[k] = (counts[k] || 0) + 1; });
-  const items: BoardItem[] = Object.entries(counts)
-    .sort((a, b) => b[1] - a[1]).slice(0, 6)
-    .map(([title, n], i) => ({ title, value: String(n), tone: THEME_TONES[i % THEME_TONES.length] }));
+  // Parity + doctrine: use the web's real cross-service themes (recurrence across 2+ services
+  // with a computed trajectory) — NOT an on-device frequency count of signal categories.
+  const { data, loading, refetch } = useApi<any>('/interventions/themes');
+  const themes: any[] = data?.themes ?? data?.data ?? (Array.isArray(data) ? data : []);
+  const items: BoardItem[] = themes.slice(0, 10).map((t: any) => {
+    const dir = t.trajectory?.direction;
+    return {
+      title: t.theme,
+      value: `${t.services || 0} service${(t.services || 0) === 1 ? '' : 's'} · ${t.trajectory?.label || 'Stable'}`,
+      tone: (dir === 'Deteriorating' ? 'red' : dir === 'Improving' ? 'green' : 'amber') as Tone,
+    };
+  });
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
-      <BoardHeader title="Recurring Cross-Site Themes" subtitle="Themes seen across sites" />
-      {loading && !data ? <Loading /> : <StatusList items={items} empty="No signals yet." />}
+      <BoardHeader title="Recurring Cross-Service Themes" subtitle="Recurrence across two or more services" />
+      {loading && !data ? <Loading /> : <StatusList items={items} empty="No cross-service themes yet." />}
     </Screen>
   );
 }
