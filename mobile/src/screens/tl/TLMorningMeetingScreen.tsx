@@ -19,17 +19,17 @@ const dateLine = () => new Date().toLocaleDateString('en-GB', { weekday: 'long',
 export function TLMorningMeetingScreen() {
   const nav = useNavigation<any>();
   const { user } = useAuth();
+  // Stat counters come from the SAME role-scoped read-model the web uses (/my-work), so they
+  // tally with the web. The house-scoped signal list stays for "new today" + the overnight list.
+  const mw = useApi<any>('/my-work');
   const sig = useApi<any>('/pulses?limit=100');
-  const esc = useApi<any>('/escalations?limit=100');
-  const act = useApi<any>('/actions/my');
-  const risk = useApi<any>('/risks?limit=100');
   const loading = sig.loading && !sig.data;
 
+  const items: any[] = mw.data?.items ?? mw.data?.data?.items ?? [];
+  const byKey = (k: string) => items.find((i: any) => i.key === k);
+  const n = (v: any) => Number(v || 0);
   const signals = arr(sig.data);
   const newToday = signals.filter((s) => isSameDay(s.entry_date || s.created_at)).length;
-  const openEsc = arr(esc.data).filter((e) => (e.lifecycle_status || '') !== 'Closed').length;
-  const actionsDue = arr(act.data).filter((a) => !isDone(a)).length;
-  const highRisks = arr(risk.data).filter((r) => (r.status || '').toLowerCase() !== 'closed' && isHigh(r.severity || r.risk_rating)).length;
   const house = (user as any)?.house_name || (user as any)?.assigned_house_name || 'Your service';
 
   const overnight: BoardItem[] = signals.slice(0, 4).map((s) => ({
@@ -41,16 +41,16 @@ export function TLMorningMeetingScreen() {
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); esc.refetch(); act.refetch(); risk.refetch(); }}>
+    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); mw.refetch(); }}>
       <BoardHeader title="Morning Meeting" subtitle={`${house} · ${dateLine()}`} />
       <TeamBriefBanner />
       <OutstandingBanner onPress={() => nav.navigate('Actions')} />
       <SyncStatus />
       <Metrics items={[
-        { value: newToday, label: 'New signals', tone: 'red' },
-        { value: openEsc, label: 'Escalations', tone: 'blue' },
-        { value: actionsDue, label: 'Actions due', tone: 'amber' },
-        { value: highRisks, label: 'High risk', tone: 'purple' },
+        { value: newToday, label: 'New today', tone: 'red' },
+        { value: n(byKey('escalations')?.count), label: 'Escalations', tone: 'blue' },
+        { value: n(byKey('actions')?.count), label: 'Actions due', tone: 'amber' },
+        { value: n(byKey('signals')?.count), label: 'To review', tone: 'purple' },
       ]} />
       <BoardButton label="Raise signal" icon="plus" onPress={() => nav.navigate('RaiseSignal')} />
       <SectionTitle action="View all" onAction={() => nav.navigate('Signals')}>Overnight events</SectionTitle>

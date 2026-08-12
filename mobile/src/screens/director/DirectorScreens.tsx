@@ -31,29 +31,32 @@ const compliancePct = (signals: any[], actions: any[], escs: any[]) => {
 /* 1 — Director Overview */
 export function DirectorOverviewScreen() {
   const nav = useNavigation<any>();
-  const sig = useApi<any>('/pulses?limit=500');
-  const esc = useApi<any>('/escalations?limit=300');
-  const act = useApi<any>('/actions/oversight');
-  const risk = useApi<any>('/risks?limit=300');
-  const loading = sig.loading && !sig.data;
-
-  const signals = arr(sig.data);
-  const escs = arr(esc.data).filter(isOpen);
-  const highRisks = arr(risk.data).filter((r) => isOpen(r) && /(high|critical)/.test(sevOf(r))).length;
-  const pct = compliancePct(signals, arr(act.data), arr(esc.data));
+  // Parity + doctrine: a plain-language governance POSITION from the web's governance-health
+  // read-model (no composite "Compliance %"), and attention counts from /my-work so they tally.
+  const gh = useApi<any>('/interventions/governance-health');
+  const mw = useApi<any>('/my-work');
+  const loading = gh.loading && !gh.data;
+  const health = gh.data?.data?.health ?? gh.data?.health ?? null;
+  const position = health == null ? 'Assessing' : health >= 75 ? 'Stable' : health >= 50 ? 'Attention required' : 'Concern';
+  const posTone: Tone = (health == null ? 'slate' : health >= 75 ? 'green' : health >= 50 ? 'amber' : 'red') as Tone;
+  const items: any[] = mw.data?.items ?? mw.data?.data?.items ?? [];
+  const byKey = (k: string) => items.find((i: any) => i.key === k);
+  const n = (v: any) => Number(v || 0);
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); esc.refetch(); act.refetch(); risk.refetch(); }}>
-      <BoardHeader title="Director Overview" subtitle={`All services · Today, ${today()}`} />
+    <Screen refreshing={gh.loading} onRefresh={() => { gh.refetch(); mw.refetch(); }}>
+      <BoardHeader title="Governance Position" subtitle={`All services · Today, ${today()}`} />
       <OutstandingBanner />
+      <StatusList items={[{ title: 'Governance position', value: position, tone: posTone }]} />
+      <SectionTitle>Requires your attention</SectionTitle>
       <Metrics items={[
-        { value: signals.length, label: 'Active signals' },
-        { value: escs.length, label: 'Escalations', tone: 'amber' },
-        { value: `${isNaN(pct) ? 0 : pct}%`, label: 'Compliance', tone: 'green' },
-        { value: highRisks, label: 'High risks', tone: 'red' },
+        { value: n(byKey('escalations')?.count), label: 'Escalations', tone: 'red' },
+        { value: n(byKey('signals')?.count), label: 'Signals to review', tone: 'amber' },
+        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'Overdue actions', tone: 'red' },
+        { value: n(byKey('effectiveness')?.count), label: 'Effectiveness due', tone: 'blue' },
       ]} />
-      <BoardButton label="View full dashboard" onPress={() => nav.navigate('Trends')} />
+      <BoardButton label="Cross-service trends" onPress={() => nav.navigate('Trends')} />
     </Screen>
   );
 }
@@ -130,26 +133,30 @@ export function DirectorThemesScreen() {
 /* 4 — Governance Overview */
 export function DirectorGovernanceScreen() {
   const nav = useNavigation<any>();
-  const sig = useApi<any>('/pulses?limit=500');
-  const act = useApi<any>('/actions/oversight');
-  const esc = useApi<any>('/escalations?limit=300');
-  const loading = sig.loading && !sig.data;
-  const signals = arr(sig.data), actions = arr(act.data), escs = arr(esc.data);
-  const reviewedSig = signals.filter((s) => /review|link|closed|valid/i.test(s.review_status || '')).length;
-  const doneAct = actions.filter(isDone).length;
-  const closedEsc = escs.filter((e) => !isOpen(e)).length;
-  const pct = compliancePct(signals, actions, escs);
+  // Parity + doctrine: expose the actual governance WORKLOAD from /my-work (the same figures
+  // as the web) rather than a synthetic "On track %".
+  const mw = useApi<any>('/my-work');
+  const loading = mw.loading && !mw.data;
+  const items: any[] = mw.data?.items ?? mw.data?.data?.items ?? [];
+  const toneOf = (t: string): Tone => (t === 'red' ? 'red' : t === 'amber' ? 'amber' : t === 'blue' ? 'blue' : t === 'emerald' ? 'green' : 'slate') as Tone;
+  const row = (key: string, label: string): BoardItem | null => {
+    const it = items.find((i: any) => i.key === key);
+    return it ? { title: label, value: String(it.count), tone: toneOf(it.tone) } : null;
+  };
+  const workload = [
+    row('signals', 'Signals awaiting review'),
+    row('actions', 'Actions requiring attention'),
+    row('escalations', 'Open escalations'),
+    row('effectiveness', 'Effectiveness reviews due'),
+    row('weekly', 'Weekly governance review'),
+    row('post_escalation_review', 'Post-escalation risk reviews'),
+  ].filter(Boolean) as BoardItem[];
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
-    <Screen refreshing={sig.loading} onRefresh={() => { sig.refetch(); act.refetch(); esc.refetch(); }}>
-      <BoardHeader title="Governance Overview" subtitle="This month" />
-      <PercentDonut value={isNaN(pct) ? 0 : pct} label="On track" tone={pct >= 80 ? 'green' : pct >= 60 ? 'amber' : 'red'} />
-      <Checklist items={[
-        { label: 'Signals reviewed', value: `${reviewedSig} / ${signals.length}` },
-        { label: 'Actions completed', value: `${doneAct} / ${actions.length}` },
-        { label: 'Escalations closed', value: `${closedEsc} / ${escs.length}` },
-      ]} />
+    <Screen refreshing={mw.loading} onRefresh={mw.refetch}>
+      <BoardHeader title="Governance Overview" subtitle="The governance workload across services" />
+      <StatusList items={workload} empty="No outstanding governance work." />
       <BoardButton label="View reports" icon="file-text" onPress={() => nav.navigate('DirectorReports')} />
     </Screen>
   );
