@@ -11,8 +11,6 @@ module.exports = function (api) {
           extensions: ['.ts', '.tsx', '.js', '.jsx', '.json'],
         },
       ],
-      // Reanimated 4 requires the worklets Babel plugin, and it MUST be listed last.
-      'react-native-worklets/plugin',
     ],
   };
 };

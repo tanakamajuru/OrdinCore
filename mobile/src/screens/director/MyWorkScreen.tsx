@@ -4,7 +4,7 @@
  */
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { myWorkRows } from '@/api/mappers';
@@ -16,12 +16,13 @@ const ICONS: Record<string, string> = { escalations: 'alert-circle', signals: 'b
 export default function MyWorkScreen() {
   const { colors, spacing } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/my-work');
   const priorityRows = myWorkRows(data).map((r) => ({ ...r, icon: ICONS[r.id] || 'file' }));
 
   return (
     <Screen scroll>
-      <BoardHeader title="My Work" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} onBellPress={() => {}} />
+      <BoardHeader title="My Work" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
 
       <Text variant="subtitle" style={{ fontSize: 18, marginBottom: spacing.md }}>
         Priority for you

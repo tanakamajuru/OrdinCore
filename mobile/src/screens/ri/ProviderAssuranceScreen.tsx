@@ -5,7 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
@@ -16,6 +16,7 @@ import { BoardHeader, Metrics, StatusList } from '@/components/board';
 export default function ProviderAssuranceScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
   const { data: assur } = useApi<any>('/ri/assurance-summary');
   const { data: mw } = useApi<any>('/my-work');
   const { data: riskData } = useApi<any>('/risks?limit=300');
@@ -42,7 +43,7 @@ export default function ProviderAssuranceScreen() {
       <BoardHeader
         title="Ordin Core"
         subtitle="Responsible Individual"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
         onBellPress={() => {}}
       />
 

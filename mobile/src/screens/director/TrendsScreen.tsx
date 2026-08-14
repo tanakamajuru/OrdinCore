@@ -6,7 +6,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card } from '@/components/ui';
@@ -23,10 +23,11 @@ const trajectoryRows: StatusRow[] = [
 export default function TrendsScreen() {
   const { colors, spacing, radius } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
 
   return (
     <Screen scroll>
-      <BoardHeader title="Trends" onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())} onBellPress={() => {}} />
+      <BoardHeader title="Trends" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
 
       <Card style={{ marginBottom: spacing.lg }}>
         <Row justify="space-between">

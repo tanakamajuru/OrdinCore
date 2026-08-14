@@ -6,7 +6,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader, StatusList, PercentDonut, type StatusRow } from '@/components/board';
@@ -24,13 +24,14 @@ const overviewRows: StatusRow[] = [
 export default function GovernanceScreen() {
   const { colors, spacing } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
 
   return (
     <Screen scroll>
       <BoardHeader
         title="Governance"
         subtitle="Updated just now"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
         onBellPress={() => {}}
       />
 

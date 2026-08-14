@@ -4,7 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { myWorkRows } from '@/api/mappers';
@@ -15,6 +15,7 @@ export default function MyWorkScreen() {
   const { spacing } = useTheme();
   const [tab, setTab] = useState('Overview');
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/my-work');
   const rows = myWorkRows(data);
 
@@ -23,7 +24,7 @@ export default function MyWorkScreen() {
       <BoardHeader
         title="My Work"
         subtitle="Your RI oversight responsibilities"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
       />
       <SegmentedControl options={['Overview', 'Updates']} value={tab} onChange={setTab} />
       <StatusList rows={rows} onPressRow={() => {}} />

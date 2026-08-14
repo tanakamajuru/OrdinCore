@@ -13,6 +13,7 @@ import { NavigationContainer } from '@react-navigation/native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
 import { AuthProvider, useAuth } from '@/auth/AuthContext';
+import { navigationRef } from '@/navigation/navRef';
 
 import { RootDrawer as DirectorDrawer } from '@/navigation/RootDrawer';
 import { RMDrawer } from '@/navigation/RMDrawer';
@@ -49,7 +50,7 @@ function Root() {
 
   const RoleNav = navigatorForRole(role);
   return (
-    <NavigationContainer>
+    <NavigationContainer ref={navigationRef}>
       <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
       <RoleNav />
     </NavigationContainer>

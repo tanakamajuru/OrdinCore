@@ -5,7 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card, Button, FilterPill } from '@/components/ui';
@@ -14,13 +14,14 @@ import { BoardHeader } from '@/components/board';
 export default function NarrativeScreen() {
   const { colors, spacing } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
 
   return (
     <Screen scroll>
       <BoardHeader
         title="Narrative"
         subtitle="Governance narrative"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
       />
 
       <FilterPill label="August 2026" />

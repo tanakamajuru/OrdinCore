@@ -5,7 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { myWorkRows, listOf } from '@/api/mappers';
@@ -15,6 +15,7 @@ import { BoardHeader, Metrics, SectionTitle, StatusList } from '@/components/boa
 export default function HomeScreen() {
   const { spacing, severityColor, mode } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
   const { data: mw } = useApi<any>('/my-work');
   const { data: gh } = useApi<any>('/interventions/governance-health');
   const { data: riskData } = useApi<any>('/risks?limit=300');
@@ -33,7 +34,7 @@ export default function HomeScreen() {
     <Screen scroll>
       <BoardHeader
         title="Home"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
         onBellPress={() => {}}
       />
 

@@ -5,7 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card } from '@/components/ui';
@@ -28,13 +28,14 @@ const gaps = [
 export default function ReadinessScreen() {
   const { colors, spacing, radius, severityColor, mode } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
 
   return (
     <Screen scroll>
       <BoardHeader
         title="Readiness"
         subtitle="Governance evidence readiness"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
       />
 
       <Card style={{ marginBottom: spacing.lg }}>

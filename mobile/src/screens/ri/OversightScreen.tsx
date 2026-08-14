@@ -5,7 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { DrawerActions } from '@react-navigation/native';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader, Metrics, PercentDonut } from '@/components/board';
@@ -22,13 +22,14 @@ const themes = [
 export default function OversightScreen() {
   const { colors, spacing } = useTheme();
   const navigation = useNavigation();
+  const { openDrawer } = useAppDrawer();
 
   return (
     <Screen scroll>
       <BoardHeader
         title="Oversight"
         subtitle="Strategic oversight across the provider"
-        onMenuPress={() => navigation.dispatch(DrawerActions.openDrawer())}
+        onMenuPress={() => openDrawer()}
       />
 
       <Text variant="subtitle" style={{ fontSize: 16, marginBottom: spacing.sm }}>
