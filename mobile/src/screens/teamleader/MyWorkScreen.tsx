@@ -5,21 +5,17 @@
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { myWorkRows } from '@/api/mappers';
 import { Screen, Text, SegmentedControl } from '@/components/ui';
-import { BoardHeader, StatusList, type StatusRow } from '@/components/board';
-
-const rows: StatusRow[] = [
-  { id: '1', title: 'Matters requiring attention', badge: 2, tone: 'high' },
-  { id: '2', title: 'Signals to review', badge: 5, tone: 'medium' },
-  { id: '3', title: 'Actions due today', badge: 3, tone: 'info' },
-  { id: '4', title: 'Escalation requiring response', badge: 1, tone: 'high' },
-  { id: '5', title: 'Governance brief to acknowledge', badge: 1, tone: 'neutral' },
-];
+import { BoardHeader, StatusList } from '@/components/board';
 
 export default function MyWorkScreen() {
   const { spacing } = useTheme();
   const [tab, setTab] = useState('All');
   const navigation = useNavigation();
+  const { data } = useApi<any>('/my-work');
+  const rows = myWorkRows(data);
 
   return (
     <Screen scroll>

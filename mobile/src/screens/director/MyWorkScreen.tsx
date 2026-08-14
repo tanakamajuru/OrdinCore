@@ -6,21 +6,18 @@ import React from 'react';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerActions } from '@react-navigation/native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Screen, Text, Row, Card } from '@/components/ui';
-import { BoardHeader, BoardItem, type StatusRow } from '@/components/board';
+import { useApi } from '@/api/useApi';
+import { myWorkRows } from '@/api/mappers';
+import { Screen, Text, Card } from '@/components/ui';
+import { BoardHeader, BoardItem } from '@/components/board';
 
-const priorityRows: (StatusRow & { icon: string })[] = [
-  { id: '1', title: 'Governance reviews', subtitle: 'Items require your review', badge: 3, tone: 'high', icon: 'file-text' } as any,
-  { id: '2', title: 'High / critical risks', subtitle: 'Require your assurance', badge: 2, tone: 'critical', icon: 'alert-triangle' } as any,
-  { id: '3', title: 'Overdue governance actions', subtitle: 'Actions require attention', badge: 4, tone: 'medium', icon: 'clipboard' } as any,
-  { id: '4', title: 'Intervention effectiveness', subtitle: 'Reviews require your input', badge: 3, tone: 'medium', icon: 'check-square' } as any,
-  { id: '5', title: 'Deteriorating trajectories', subtitle: 'Require your acknowledgement', badge: 2, tone: 'high', icon: 'trending-up' } as any,
-  { id: '6', title: 'Monthly leadership narrative', subtitle: 'Awaiting your completion', badge: 1, tone: 'info', icon: 'file' } as any,
-];
+const ICONS: Record<string, string> = { escalations: 'alert-circle', signals: 'bell', actions: 'clipboard', effectiveness: 'check-square', weekly: 'file-text', post_escalation_review: 'shield' };
 
 export default function MyWorkScreen() {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing } = useTheme();
   const navigation = useNavigation();
+  const { data } = useApi<any>('/my-work');
+  const priorityRows = myWorkRows(data).map((r) => ({ ...r, icon: ICONS[r.id] || 'file' }));
 
   return (
     <Screen scroll>

@@ -4,20 +4,16 @@
  */
 import React from 'react';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { myWorkRows } from '@/api/mappers';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { Feather } from '@expo/vector-icons';
-import { BoardHeader, StatusList, type StatusRow } from '@/components/board';
-
-const rows: StatusRow[] = [
-  { id: '1', title: 'Escalations awaiting response', badge: 9, tone: 'high' },
-  { id: '2', title: 'Signals awaiting review', badge: 12, tone: 'medium' },
-  { id: '3', title: 'Overdue actions', badge: 3, tone: 'neutral' },
-  { id: '4', title: 'Effectiveness reviews due', badge: 3, tone: 'info' },
-  { id: '5', title: 'Weekly governance due', badge: 1, tone: 'neutral' },
-];
+import { BoardHeader, StatusList } from '@/components/board';
 
 export default function MyWorkScreen() {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing } = useTheme();
+  const { data } = useApi<any>('/my-work');
+  const rows = myWorkRows(data);
 
   return (
     <Screen scroll>
