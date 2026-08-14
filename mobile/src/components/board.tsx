@@ -1,241 +1,461 @@
+/**
+ * components/board.tsx
+ * The dashboard/card kit reused across every role: metric tiles, tappable
+ * status rows, checklists, donut summaries. Built on top of ui.tsx.
+ */
 import React from 'react';
-import { View, Pressable, StyleProp, ViewStyle } from 'react-native';
-import Svg, { Circle, Polyline, Line } from 'react-native-svg';
+import { View, Pressable } from 'react-native';
+import Svg, { Circle } from 'react-native-svg';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { useDrawer } from './AppDrawer';
-import { SidebarIcon } from './SidebarIcon';
-import { radius, Palette } from '@/theme/tokens';
-import { Text, Row } from './ui';
+import type { SeverityLevel } from '@/theme/tokens';
+import { Text, Row, Card } from './ui';
 
-// Primitives that mirror the ordin-core reference board (Metrics / StatusList / Donut / Checklist /
-// DetailCard / Timeline / Sparkline). Tone colours are fixed to the OrdinCore severity palette; the
-// per-role accent (from AccentProvider) drives primary buttons, active tabs and "view all" links.
-export type Tone = 'blue' | 'red' | 'amber' | 'green' | 'purple' | 'neutral';
-export type BoardItem = { title: string; meta?: string; value?: string; tone?: Tone; onPress?: () => void };
+/** Shared severity/status vocabulary used by StatusList, BoardItem, Chip. */
+export type Tone = SeverityLevel | 'deteriorating' | 'stable' | 'improving';
 
-export function toneColor(c: Palette, tone: Tone = 'blue'): string {
-  const map: Record<Tone, string> = { red: c.sevCrit, amber: c.sevHigh, green: c.sevLow, blue: '#2f6cb5', purple: '#7c45ad', neutral: c.muted };
-  return map[tone];
+function toneToSeverity(tone: Tone): SeverityLevel {
+  if (tone === 'deteriorating') return 'high';
+  if (tone === 'improving') return 'success';
+  if (tone === 'stable') return 'info';
+  return tone;
 }
 
-type FeatherName = React.ComponentProps<typeof Feather>['name'];
+const trendIcon: Record<string, keyof typeof Feather.glyphMap> = {
+  deteriorating: 'trending-up',
+  improving: 'trending-down',
+  stable: 'arrow-right',
+};
 
-/* Screen heading — small subtitle above a bold title (reference .screen-heading), with an avatar
-   button on the right that opens the app drawer (profile · theme · menu). `menu={false}` hides it
-   on pushed hub screens that already have a back-bar. */
-export function BoardHeader({ title, subtitle, menu = true }: { title: string; subtitle?: string; menu?: boolean }) {
-  const { c } = useTheme();
-  const { open } = useDrawer();
+/* --------------------------------- BoardHeader ----------------------------------- */
+
+export function BoardHeader({
+  title,
+  subtitle,
+  onMenuPress,
+  onBellPress,
+  badge,
+  right,
+}: {
+  title: string;
+  subtitle?: string;
+  onMenuPress?: () => void;
+  onBellPress?: () => void;
+  badge?: number;
+  right?: React.ReactNode;
+}) {
+  const { colors, spacing } = useTheme();
   return (
-    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 4 }}>
-      {menu && (
-        <Pressable onPress={open} hitSlop={8}
-          style={{ width: 38, height: 38, borderRadius: radius.md, borderWidth: 1, borderColor: c.line, backgroundColor: c.card, alignItems: 'center', justifyContent: 'center' }}>
-          <SidebarIcon size={20} color={c.ink} />
-        </Pressable>
-      )}
-      <View style={{ flex: 1 }}>
-        {!!subtitle && <Text size={12} muted style={{ marginBottom: 2 }}>{subtitle}</Text>}
-        <Text size={22} weight="700" style={{ letterSpacing: -0.3 }}>{title}</Text>
-      </View>
+    <View style={{ paddingTop: spacing.sm, paddingBottom: spacing.lg }}>
+      <Row justify="space-between" align="flex-start">
+        <Row gap={spacing.md} align="center">
+          {onMenuPress ? (
+            <Pressable onPress={onMenuPress} hitSlop={10}>
+              <Feather name="menu" size={22} color={colors.text} />
+            </Pressable>
+          ) : null}
+          <View>
+            <Text variant="subtitle">{title}</Text>
+            {subtitle ? (
+              <Text variant="caption" muted style={{ marginTop: 2 }}>
+                {subtitle}
+              </Text>
+            ) : null}
+          </View>
+        </Row>
+        {right ??
+          (onBellPress ? (
+            <Pressable onPress={onBellPress} hitSlop={10} style={{ position: 'relative' }}>
+              <Feather name="bell" size={20} color={colors.text} />
+              {badge ? (
+                <View
+                  style={{
+                    position: 'absolute',
+                    top: -3,
+                    right: -3,
+                    width: 8,
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: colors.danger,
+                  }}
+                />
+              ) : null}
+            </Pressable>
+          ) : null)}
+      </Row>
     </View>
   );
 }
 
-/* 2-column metric tiles: big tone-coloured value + small label. */
-export function Metrics({ items }: { items: { value: React.ReactNode; label: string; tone?: Tone }[] }) {
-  const { c } = useTheme();
+/* ----------------------------------- Metrics -------------------------------------- */
+
+export type Metric = {
+  label: string;
+  value: string | number;
+  icon?: keyof typeof Feather.glyphMap;
+  tone?: Tone;
+  sublabel?: string;
+};
+
+export function Metrics({ items, columns = 2 }: { items: Metric[]; columns?: 2 | 4 }) {
+  const { colors, radius, spacing, severityColor, mode } = useTheme();
+  const widthPct = columns === 2 ? '48%' : '23.5%';
   return (
-    <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      {items.map((m, i) => (
-        <View key={i} style={{ width: '47.7%', flexGrow: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }}>
-          <Text size={26} weight="700" color={toneColor(c, m.tone)} style={{ letterSpacing: -0.5 }}>{m.value}</Text>
-          <Text size={11.5} muted style={{ marginTop: 4 }}>{m.label}</Text>
-        </View>
-      ))}
-    </View>
+    <Row wrap gap={spacing.md} style={{ marginBottom: spacing.md }}>
+      {items.map((m, i) => {
+        const t = severityColor(mode, toneToSeverity(m.tone ?? 'neutral'));
+        return (
+          <View
+            key={i}
+            style={{
+              width: widthPct as any,
+              backgroundColor: colors.surface,
+              borderWidth: 1,
+              borderColor: colors.border,
+              borderRadius: radius.md,
+              padding: spacing.md,
+            }}
+          >
+            {m.icon ? (
+              <View
+                style={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: radius.sm,
+                  backgroundColor: t.bg,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  marginBottom: spacing.sm,
+                }}
+              >
+                <Feather name={m.icon} size={15} color={t.fg} />
+              </View>
+            ) : null}
+            <Text variant="title" style={{ fontSize: 24 }}>
+              {m.value}
+            </Text>
+            <Text variant="body" weight="600" style={{ marginTop: 2 }}>
+              {m.label}
+            </Text>
+            {m.sublabel ? (
+              <Text variant="caption" muted style={{ marginTop: 1 }}>
+                {m.sublabel}
+              </Text>
+            ) : null}
+          </View>
+        );
+      })}
+    </Row>
   );
 }
 
-export function SectionTitle({ children, action, onAction }: { children: React.ReactNode; action?: string; onAction?: () => void }) {
-  const { c } = useTheme();
+/* --------------------------------- SectionTitle ------------------------------------ */
+
+export function SectionTitle({
+  title,
+  action,
+  onActionPress,
+}: {
+  title: string;
+  action?: string;
+  onActionPress?: () => void;
+}) {
+  const { colors, spacing } = useTheme();
   return (
-    <Row style={{ justifyContent: 'space-between', marginTop: 4, marginBottom: 2 }}>
-      <Text size={14} weight="600">{children}</Text>
+    <Row justify="space-between" style={{ marginBottom: spacing.sm, marginTop: spacing.md }}>
+      <Text variant="subtitle" style={{ fontSize: 16 }}>
+        {title}
+      </Text>
       {action ? (
-        <Pressable onPress={onAction}><Text size={12} color={c.accent} weight="600">{action}</Text></Pressable>
+        <Pressable onPress={onActionPress}>
+          <Text style={{ color: colors.primary }} weight="600" variant="caption">
+            {action}
+          </Text>
+        </Pressable>
       ) : null}
     </Row>
   );
 }
 
-/* Card of rows: tone dot · title/meta · optional right value · chevron; optional footer button.
-   Paginated: when there are more than `pageSize` rows a Prev/Next footer appears and only one
-   page renders at a time — so every list/table in the app is paged, not an endless scroll. */
-export function StatusList({ items, button, onButton, empty, pageSize = 8 }: {
-  items: BoardItem[]; button?: string; onButton?: () => void; empty?: string; pageSize?: number;
+/* ---------------------------------- StatusList -------------------------------------- */
+
+export type StatusRow = {
+  id: string;
+  title: string;
+  subtitle?: string;
+  tone?: Tone;
+  badge?: number | string;
+  trailingText?: string;
+};
+
+export function StatusList({
+  rows,
+  onPressRow,
+}: {
+  rows: StatusRow[];
+  onPressRow?: (row: StatusRow) => void;
 }) {
-  const { c } = useTheme();
-  const [page, setPage] = React.useState(0);
-  const pages = Math.max(1, Math.ceil(items.length / pageSize));
-  const safe = Math.min(page, pages - 1);
-  // Reset to the first page whenever the underlying list shrinks past the current page.
-  React.useEffect(() => { if (page > pages - 1) setPage(0); }, [pages]); // eslint-disable-line react-hooks/exhaustive-deps
-  const start = safe * pageSize;
-  const shown = items.slice(start, start + pageSize);
+  const { colors, spacing } = useTheme();
+  return (
+    <Card style={{ padding: spacing.sm }}>
+      {rows.map((row, i) => (
+        <BoardItem
+          key={row.id}
+          row={row}
+          divider={i < rows.length - 1}
+          onPress={onPressRow ? () => onPressRow(row) : undefined}
+        />
+      ))}
+    </Card>
+  );
+}
+
+/** A single tappable row inside StatusList, also usable standalone. */
+export function BoardItem({
+  row,
+  divider = true,
+  onPress,
+}: {
+  row: StatusRow;
+  divider?: boolean;
+  onPress?: () => void;
+}) {
+  const { colors, spacing, severityColor, mode } = useTheme();
+  const t = row.tone ? severityColor(mode, toneToSeverity(row.tone)) : null;
+  const icon = row.tone && trendIcon[row.tone] ? trendIcon[row.tone] : 'circle';
 
   return (
-    <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
-      {items.length === 0 && <Text size={12.5} muted style={{ paddingVertical: 16, textAlign: 'center' }}>{empty || 'Nothing here.'}</Text>}
-      {shown.map((it, i) => {
-        const body = (
-          <Row style={{ paddingVertical: 11, borderBottomWidth: i < shown.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
-            <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: toneColor(c, it.tone) }} />
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <Text size={13.5} weight="600" numberOfLines={1}>{it.title}</Text>
-              {!!it.meta && <Text size={11.5} muted numberOfLines={1} style={{ marginTop: 2 }}>{it.meta}</Text>}
-            </View>
-            {!!it.value && <Text size={13.5} weight="700">{it.value}</Text>}
-            {it.onPress && <Feather name="chevron-right" size={16} color={c.faint} />}
-          </Row>
-        );
-        return it.onPress
-          ? <Pressable key={start + i} onPress={it.onPress} style={({ pressed }) => ({ opacity: pressed ? 0.6 : 1 })}>{body}</Pressable>
-          : <View key={start + i}>{body}</View>;
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        paddingVertical: spacing.md,
+        paddingHorizontal: spacing.sm,
+        borderBottomWidth: divider ? 1 : 0,
+        borderBottomColor: colors.border,
+        opacity: pressed ? 0.7 : 1,
       })}
+    >
+      <View style={{ flex: 1 }}>
+        <Text variant="body" weight="600">
+          {row.title}
+        </Text>
+        {row.subtitle ? (
+          <Text variant="caption" muted style={{ marginTop: 2 }}>
+            {row.subtitle}
+          </Text>
+        ) : null}
+      </View>
+      <Row gap={6}>
+        {row.trailingText ? (
+          <Row gap={4}>
+            {t ? <Feather name={icon} size={13} color={t.fg} /> : null}
+            <Text variant="caption" style={{ color: t?.fg }} weight="600">
+              {row.trailingText}
+            </Text>
+          </Row>
+        ) : row.badge !== undefined ? (
+          <View
+            style={{
+              minWidth: 22,
+              height: 22,
+              paddingHorizontal: 6,
+              borderRadius: 11,
+              backgroundColor: t?.dot ?? colors.primary,
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            <Text style={{ color: '#fff', fontSize: 12 }} weight="700">
+              {row.badge}
+            </Text>
+          </View>
+        ) : null}
+        {onPress ? <Feather name="chevron-right" size={16} color={colors.textMuted} /> : null}
+      </Row>
+    </Pressable>
+  );
+}
 
-      {pages > 1 && (
-        <Row style={{ justifyContent: 'space-between', paddingVertical: 9, borderTopWidth: 1, borderTopColor: c.lineSoft }}>
-          <Pressable onPress={() => setPage((p) => Math.max(0, p - 1))} disabled={safe === 0} hitSlop={8} style={{ opacity: safe === 0 ? 0.35 : 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <Feather name="chevron-left" size={16} color={c.accent} /><Text size={12.5} weight="600" color={c.accent}>Prev</Text>
-          </Pressable>
-          <Text size={11.5} muted>Page {safe + 1} of {pages} · {items.length}</Text>
-          <Pressable onPress={() => setPage((p) => Math.min(pages - 1, p + 1))} disabled={safe >= pages - 1} hitSlop={8} style={{ opacity: safe >= pages - 1 ? 0.35 : 1, flexDirection: 'row', alignItems: 'center', gap: 3 }}>
-            <Text size={12.5} weight="600" color={c.accent}>Next</Text><Feather name="chevron-right" size={16} color={c.accent} />
-          </Pressable>
-        </Row>
-      )}
+/* ---------------------------------- Checklist -------------------------------------- */
 
-      {!!button && (
-        <Pressable onPress={onButton} style={{ backgroundColor: c.accent, borderRadius: radius.md, paddingVertical: 11, alignItems: 'center', marginVertical: 10 }}>
-          <Text size={13} weight="700" color={c.accentInk}>{button}</Text>
+export type ChecklistItem = { id: string; label: string; done?: boolean };
+
+export function Checklist({
+  items,
+  onToggle,
+}: {
+  items: ChecklistItem[];
+  onToggle?: (id: string) => void;
+}) {
+  const { colors, radius, spacing } = useTheme();
+  return (
+    <View>
+      {items.map((item) => (
+        <Pressable
+          key={item.id}
+          onPress={() => onToggle?.(item.id)}
+          style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: spacing.md,
+            paddingVertical: spacing.sm,
+          }}
+        >
+          <View
+            style={{
+              width: 20,
+              height: 20,
+              borderRadius: radius.xs,
+              borderWidth: 2,
+              borderColor: item.done ? colors.primary : colors.border,
+              backgroundColor: item.done ? colors.primary : 'transparent',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            {item.done ? <Feather name="check" size={13} color="#fff" /> : null}
+          </View>
+          <Text
+            style={item.done ? { textDecorationLine: 'line-through', color: colors.textMuted } : undefined}
+          >
+            {item.label}
+          </Text>
         </Pressable>
-      )}
+      ))}
     </View>
   );
 }
 
-/* Single-value ring (reference .donut). */
-export function PercentDonut({ value, label, tone = 'green', size = 132 }: { value: number; label: string; tone?: Tone; size?: number }) {
-  const { c } = useTheme();
-  const stroke = 15;
-  const r = (size - stroke) / 2;
-  const cx = size / 2;
-  const C = 2 * Math.PI * r;
-  const pct = Math.max(0, Math.min(100, value));
-  const col = toneColor(c, tone);
-  return (
-    <View style={{ alignItems: 'center', marginVertical: 6 }}>
+/* --------------------------------- PercentDonut -------------------------------------- */
+
+export function PercentDonut({
+  percent,
+  size = 96,
+  strokeWidth = 12,
+  label,
+  segments,
+}: {
+  percent?: number;
+  size?: number;
+  strokeWidth?: number;
+  label?: string;
+  /** Optional multi-segment mode: [{ value, color }], values should sum ~100 */
+  segments?: { value: number; color: string }[];
+}) {
+  const { colors } = useTheme();
+  const radiusPx = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radiusPx;
+  const center = size / 2;
+
+  if (segments && segments.length) {
+    let offsetAcc = 0;
+    return (
       <View style={{ width: size, height: size }}>
         <Svg width={size} height={size}>
-          <Circle cx={cx} cy={cx} r={r} stroke={c.lineSoft} strokeWidth={stroke} fill="none" />
-          <Circle cx={cx} cy={cx} r={r} stroke={col} strokeWidth={stroke} fill="none" strokeLinecap="round"
-            strokeDasharray={`${(pct / 100) * C} ${C}`} transform={`rotate(-90 ${cx} ${cx})`} />
+          <Circle
+            cx={center}
+            cy={center}
+            r={radiusPx}
+            stroke={colors.border}
+            strokeWidth={strokeWidth}
+            fill="none"
+          />
+          {segments.map((seg, i) => {
+            const dash = (seg.value / 100) * circumference;
+            const circle = (
+              <Circle
+                key={i}
+                cx={center}
+                cy={center}
+                r={radiusPx}
+                stroke={seg.color}
+                strokeWidth={strokeWidth}
+                fill="none"
+                strokeDasharray={`${dash} ${circumference - dash}`}
+                strokeDashoffset={-offsetAcc}
+                strokeLinecap="butt"
+                rotation={-90}
+                origin={`${center}, ${center}`}
+              />
+            );
+            offsetAcc += dash;
+            return circle;
+          })}
         </Svg>
-        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-          <Text size={28} weight="700">{value}%</Text>
-          <Text size={11} muted>{label}</Text>
-        </View>
+        {label ? (
+          <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+            <Text variant="subtitle" style={{ fontSize: size * 0.2 }}>
+              {label}
+            </Text>
+          </View>
+        ) : null}
+      </View>
+    );
+  }
+
+  const p = Math.max(0, Math.min(100, percent ?? 0));
+  const dash = (p / 100) * circumference;
+  return (
+    <View style={{ width: size, height: size }}>
+      <Svg width={size} height={size}>
+        <Circle cx={center} cy={center} r={radiusPx} stroke={colors.border} strokeWidth={strokeWidth} fill="none" />
+        <Circle
+          cx={center}
+          cy={center}
+          r={radiusPx}
+          stroke={colors.primary}
+          strokeWidth={strokeWidth}
+          fill="none"
+          strokeDasharray={`${dash} ${circumference - dash}`}
+          strokeLinecap="round"
+          rotation={-90}
+          origin={`${center}, ${center}`}
+        />
+      </Svg>
+      <View style={{ position: 'absolute', inset: 0, alignItems: 'center', justifyContent: 'center' }}>
+        <Text variant="subtitle" style={{ fontSize: size * 0.22 }}>
+          {label ?? `${p}%`}
+        </Text>
       </View>
     </View>
   );
 }
 
-/* Checklist rows: optional check icon, label, right value. */
-export function Checklist({ items }: { items: { label: string; value?: React.ReactNode; checked?: boolean; showCheck?: boolean }[] }) {
-  const { c } = useTheme();
-  return (
-    <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
-      {items.map((it, i) => (
-        <Row key={i} style={{ paddingVertical: 12, borderBottomWidth: i < items.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
-          {it.showCheck && <Feather name="check-circle" size={17} color={c.sevLow} />}
-          <Text size={13.5} style={{ flex: 1 }}>{it.label}</Text>
-          {it.value !== undefined && <Text size={13} weight="700">{it.value}</Text>}
-        </Row>
-      ))}
-    </View>
-  );
-}
+/* ---------------------------------- BoardButton -------------------------------------- */
 
-export function DetailCard({ items }: { items: { label: string; value: React.ReactNode }[] }) {
-  const { c } = useTheme();
+export function BoardButton({
+  label,
+  icon,
+  onPress,
+  tone = 'neutral',
+}: {
+  label: string;
+  icon?: keyof typeof Feather.glyphMap;
+  onPress?: () => void;
+  tone?: Tone;
+}) {
+  const { severityColor, mode, radius, spacing } = useTheme();
+  const t = severityColor(mode, toneToSeverity(tone));
   return (
-    <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
-      {items.map((it, i) => (
-        <View key={i} style={{ paddingVertical: 11, borderBottomWidth: i < items.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }}>
-          <Text size={11} weight="600" color={c.faint} style={{ letterSpacing: 0.5, textTransform: 'uppercase', marginBottom: 4 }}>{it.label}</Text>
-          <Text size={14} style={{ lineHeight: 20 }}>{it.value}</Text>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-/* Primary full-width button (reference .primary) — uses the role accent. */
-export function BoardButton({ label, icon, onPress, disabled, style }: { label: string; icon?: FeatherName; onPress?: () => void; disabled?: boolean; style?: StyleProp<ViewStyle> }) {
-  const { c } = useTheme();
-  return (
-    <Pressable onPress={disabled ? undefined : onPress} style={({ pressed }) => [{
-      backgroundColor: c.accent, borderRadius: radius.md, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8,
-      opacity: disabled ? 0.5 : pressed ? 0.9 : 1,
-    }, style]}>
-      {icon && <Feather name={icon} size={16} color={c.accentInk} />}
-      <Text size={14} weight="700" color={c.accentInk}>{label}</Text>
-    </Pressable>
-  );
-}
-
-/* Reference timeline — numbered/checked nodes on a rail. */
-export function Timeline({ steps }: { steps: { title: string; meta?: string; tone?: Tone; done?: boolean }[] }) {
-  const { c } = useTheme();
-  return (
-    <View style={{ paddingLeft: 2 }}>
-      {steps.map((st, i) => {
-        const last = i === steps.length - 1;
-        const col = toneColor(c, st.tone || 'blue');
-        return (
-          <Row key={i} style={{ alignItems: 'flex-start' }} gap={12}>
-            <View style={{ alignItems: 'center', width: 22 }}>
-              <View style={{ width: 22, height: 22, borderRadius: 11, backgroundColor: col, alignItems: 'center', justifyContent: 'center' }}>
-                {st.done ? <Feather name="check" size={13} color="#fff" /> : <Text size={11} weight="700" color="#fff">{i + 1}</Text>}
-              </View>
-              {!last && <View style={{ flex: 1, width: 2, backgroundColor: c.line, minHeight: 30, marginVertical: 2 }} />}
-            </View>
-            <View style={{ flex: 1, paddingBottom: last ? 0 : 16 }}>
-              <Text size={14} weight="600">{st.title}</Text>
-              {!!st.meta && <Text size={11.5} muted style={{ marginTop: 2 }}>{st.meta}</Text>}
-            </View>
-          </Row>
-        );
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => ({
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 8,
+        backgroundColor: t.bg,
+        borderRadius: radius.md,
+        paddingVertical: spacing.md,
+        opacity: pressed ? 0.85 : 1,
       })}
-    </View>
-  );
-}
-
-/* Reference sparkline in a chart card. */
-export function SparkCard({ points }: { points?: number[] }) {
-  const { c } = useTheme();
-  const pts = points && points.length > 1 ? points : [77, 50, 64, 29, 54, 40, 18, 27];
-  const max = Math.max(...pts, 1), min = Math.min(...pts, 0);
-  const span = max - min || 1;
-  const coords = pts.map((p, i) => `${(i / (pts.length - 1)) * 260},${88 - ((p - min) / span) * 70}`).join(' ');
-  return (
-    <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 14, height: 150 }}>
-      <Svg width="100%" height="100%" viewBox="0 0 260 100" preserveAspectRatio="none">
-        <Line x1="0" y1="88" x2="260" y2="88" stroke={c.line} strokeWidth={1} />
-        <Polyline points={coords} fill="none" stroke={c.accent} strokeWidth={3} />
-      </Svg>
-    </View>
+    >
+      {icon ? <Feather name={icon} size={16} color={t.fg} /> : null}
+      <Text style={{ color: t.fg }} weight="700">
+        {label}
+      </Text>
+    </Pressable>
   );
 }

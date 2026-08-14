@@ -1,20 +1,34 @@
+/**
+ * components/Logo.tsx
+ * Small mark + wordmark used in the drawer header and splash areas.
+ */
 import React from 'react';
-import { View, Image } from 'react-native';
-import { Text } from './ui';
+import { View } from 'react-native';
+import { Feather } from '@expo/vector-icons';
+import { useTheme } from '@/theme/ThemeProvider';
+import { Text, Row } from './ui';
 
-// The official ORDIN CORE brand lockup (shield + wordmark).
-const LOGO = require('../../assets/logo.png');
-
-export function LogoMark({ size = 72 }: { size?: number }) {
-  return <Image source={LOGO} style={{ width: size, height: size }} resizeMode="contain" />;
-}
-
-// The logo image already carries the ORDIN CORE wordmark, so this adds only the tagline.
-export function Logo({ size = 190, showWordmark = true }: { size?: number; showWordmark?: boolean }) {
+export function Logo({ size = 32, wordmark = true }: { size?: number; wordmark?: boolean }) {
+  const { colors, radius } = useTheme();
   return (
-    <View style={{ alignItems: 'center', gap: 4 }}>
-      <LogoMark size={size} />
-      {showWordmark && <Text muted size={12.5}>Governance at the point of care</Text>}
-    </View>
+    <Row gap={10} align="center">
+      <View
+        style={{
+          width: size,
+          height: size,
+          borderRadius: radius.sm,
+          backgroundColor: colors.primary,
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <Feather name="shield" size={size * 0.55} color="#fff" />
+      </View>
+      {wordmark ? (
+        <Text variant="subtitle" style={{ fontSize: 17 }}>
+          ORDIN<Text style={{ color: colors.primary, fontSize: 17 }} weight="700">CORE</Text>
+        </Text>
+      ) : null}
+    </Row>
   );
 }

@@ -1,47 +1,41 @@
-import React, { useEffect } from 'react';
-import { View, ActivityIndicator } from 'react-native';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
-import { NavigationContainer, DefaultTheme, DarkTheme } from '@react-navigation/native';
+/**
+ * App.tsx
+ * Entry point: SafeArea + Theme + NavigationContainer around a root stack
+ * that lets you jump into any of the 5 role experiences (RoleSelectScreen).
+ * In production, swap RoleSelectScreen for an auth flow that resolves the
+ * signed-in user's role and navigates straight to their navigator.
+ */
+import 'react-native-gesture-handler';
+import React from 'react';
 import { StatusBar } from 'expo-status-bar';
-
+import { NavigationContainer } from '@react-navigation/native';
+import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { ThemeProvider, useTheme } from '@/theme/ThemeProvider';
-import { AuthProvider, useAuth } from '@/auth/AuthContext';
-import { RootNavigator } from '@/navigation/RootNavigator';
-import { LoginScreen } from '@/screens/auth/LoginScreen';
-import { LockScreen } from '@/screens/auth/LockScreen';
-import { registerForPush } from '@/notifications/push';
-import { NotificationsProvider } from '@/notifications/NotificationsContext';
-import { queue } from '@/offline/queue';
-import { navigationRef } from '@/navigation/navRef';
-import { DrawerHost } from '@/components/AppDrawer';
 
-function Gate() {
-  const { status } = useAuth();
-  const { c, scheme } = useTheme();
+import RoleSelectScreen from '@/screens/RoleSelectScreen';
+import { RootDrawer as DirectorDrawer } from '@/navigation/RootDrawer';
+import { RMDrawer } from '@/navigation/RMDrawer';
+import { CareWorkerNavigator } from '@/navigation/CareWorkerNavigator';
+import { TeamLeaderNavigator } from '@/navigation/TeamLeaderNavigator';
+import { RIDrawer } from '@/navigation/RIDrawer';
 
-  useEffect(() => {
-    if (status === 'authed') { void registerForPush(); void queue.flush(); }
-  }, [status]);
+const RootStack = createNativeStackNavigator();
 
-  if (status === 'loading') {
-    return <View style={{ flex: 1, backgroundColor: c.paper, alignItems: 'center', justifyContent: 'center' }}><ActivityIndicator color={c.accent} /></View>;
-  }
-  if (status === 'unauthed') return <LoginScreen />;
-  if (status === 'locked') return <LockScreen />;
-
-  const base = scheme === 'dark' ? DarkTheme : DefaultTheme;
-  const navTheme = {
-    ...base,
-    colors: { ...base.colors, background: c.paper, card: c.card, text: c.ink, primary: c.accent, border: c.line },
-  };
+function Root() {
+  const { mode } = useTheme();
   return (
-    <NotificationsProvider>
-      <DrawerHost>
-        <NavigationContainer ref={navigationRef} theme={navTheme}>
-          <RootNavigator />
-        </NavigationContainer>
-      </DrawerHost>
-    </NotificationsProvider>
+    <NavigationContainer>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <RootStack.Navigator screenOptions={{ headerShown: false }}>
+        <RootStack.Screen name="RoleSelect" component={RoleSelectScreen} />
+        <RootStack.Screen name="Director" component={DirectorDrawer} />
+        <RootStack.Screen name="RM" component={RMDrawer} />
+        <RootStack.Screen name="CareWorker" component={CareWorkerNavigator} />
+        <RootStack.Screen name="TeamLeader" component={TeamLeaderNavigator} />
+        <RootStack.Screen name="RI" component={RIDrawer} />
+      </RootStack.Navigator>
+    </NavigationContainer>
   );
 }
 
@@ -49,16 +43,8 @@ export default function App() {
   return (
     <SafeAreaProvider>
       <ThemeProvider>
-        <AuthProvider>
-          <StatusBarWrapper />
-          <Gate />
-        </AuthProvider>
+        <Root />
       </ThemeProvider>
     </SafeAreaProvider>
   );
-}
-
-function StatusBarWrapper() {
-  const { scheme } = useTheme();
-  return <StatusBar style={scheme === 'dark' ? 'light' : 'dark'} />;
 }

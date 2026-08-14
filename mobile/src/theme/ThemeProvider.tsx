@@ -1,49 +1,55 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+/**
+ * theme/ThemeProvider.tsx
+ * Wraps the app, resolves light/dark from the OS (with manual override),
+ * and hands every screen a single `useTheme()` hook.
+ */
+import React, { createContext, useContext, useMemo, useState } from 'react';
 import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { light, dark, withAccent, RoleAccent, Palette } from './tokens';
+import { c, radius, spacing, fontSize, severityColor, type Colors, type ThemeMode } from './tokens';
 
-export type ThemeMode = 'system' | 'light' | 'dark';
-const STORAGE_KEY = 'ordin.theme.mode';
-
-type ThemeValue = {
-  c: Palette;
-  scheme: 'light' | 'dark';
+type ThemeContextValue = {
   mode: ThemeMode;
-  setMode: (m: ThemeMode) => void;
+  colors: Colors;
+  radius: typeof radius;
+  spacing: typeof spacing;
+  fontSize: typeof fontSize;
+  severityColor: typeof severityColor;
+  setMode: (mode: ThemeMode) => void;
+  toggleMode: () => void;
 };
 
-const ThemeContext = createContext<ThemeValue>({ c: light, scheme: 'light', mode: 'system', setMode: () => {} });
+const ThemeContext = createContext<ThemeContextValue | null>(null);
 
-export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const systemScheme = useColorScheme() === 'dark' ? 'dark' : 'light';
-  const [mode, setModeState] = useState<ThemeMode>('system');
+export function ThemeProvider({
+  children,
+  initialMode,
+}: {
+  children: React.ReactNode;
+  initialMode?: ThemeMode;
+}) {
+  const system = useColorScheme();
+  const [override, setOverride] = useState<ThemeMode | null>(initialMode ?? null);
+  const mode: ThemeMode = override ?? (system === 'dark' ? 'dark' : 'light');
 
-  // Restore the saved preference once on mount.
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY)
-      .then((v) => { if (v === 'light' || v === 'dark' || v === 'system') setModeState(v); })
-      .catch(() => {});
-  }, []);
+  const value = useMemo<ThemeContextValue>(
+    () => ({
+      mode,
+      colors: c[mode],
+      radius,
+      spacing,
+      fontSize,
+      severityColor,
+      setMode: setOverride,
+      toggleMode: () => setOverride(mode === 'dark' ? 'light' : 'dark'),
+    }),
+    [mode]
+  );
 
-  const setMode = (m: ThemeMode) => {
-    setModeState(m);
-    AsyncStorage.setItem(STORAGE_KEY, m).catch(() => {});
-  };
-
-  // The user's explicit choice wins; 'system' follows the OS.
-  const scheme: 'light' | 'dark' = mode === 'system' ? systemScheme : mode;
-  const c = scheme === 'dark' ? dark : light;
-
-  return <ThemeContext.Provider value={{ c, scheme, mode, setMode }}>{children}</ThemeContext.Provider>;
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
-// Re-themes a subtree with a role accent (e.g. green for Support Worker). Every useTheme()
-// below it sees the swapped accent, so buttons, tabs and pills pick it up automatically.
-// Mode/setMode are passed straight through so the theme switcher works from any accented screen.
-export function AccentProvider({ role, children }: { role: RoleAccent; children: React.ReactNode }) {
-  const { c, scheme, mode, setMode } = useTheme();
-  return <ThemeContext.Provider value={{ c: withAccent(c, scheme, role), scheme, mode, setMode }}>{children}</ThemeContext.Provider>;
+export function useTheme() {
+  const ctx = useContext(ThemeContext);
+  if (!ctx) throw new Error('useTheme() must be used within <ThemeProvider>');
+  return ctx;
 }
-
-export const useTheme = () => useContext(ThemeContext);

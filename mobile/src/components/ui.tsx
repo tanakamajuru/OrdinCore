@@ -1,205 +1,525 @@
+/**
+ * components/ui.tsx
+ * Base primitives used across every role. Plain RN StyleSheet + inline
+ * styles, themed via useTheme(). No third-party UI kit.
+ */
 import React from 'react';
 import {
-  View, Text as RNText, TextInput, Pressable, StyleSheet, ScrollView,
-  ActivityIndicator, RefreshControl, ViewStyle, TextStyle, StyleProp,
-  KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
+  View,
+  Text as RNText,
+  TextInput,
+  Pressable,
+  ActivityIndicator,
+  StyleSheet,
+  type ViewStyle,
+  type TextStyle,
+  type TextInputProps,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, severityColor, trajectoryColor, Palette } from '@/theme/tokens';
+import type { SeverityLevel } from '@/theme/tokens';
 
-type FeatherName = React.ComponentProps<typeof Feather>['name'];
+/* ---------------------------------- Screen --------------------------------- */
 
-/* ---------- text ---------- */
-export function Text({ style, muted, faint, size, weight, color, numberOfLines, children }: {
-  style?: StyleProp<TextStyle>; muted?: boolean; faint?: boolean; size?: number;
-  weight?: TextStyle['fontWeight']; color?: string; numberOfLines?: number; children: React.ReactNode;
+export function Screen({
+  children,
+  style,
+  scroll = false,
+  padded = true,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  scroll?: boolean;
+  padded?: boolean;
 }) {
-  const { c } = useTheme();
-  return <RNText numberOfLines={numberOfLines} style={[{ color: color || (faint ? c.faint : muted ? c.muted : c.ink), fontSize: size ?? 14, fontWeight: weight }, style]}>{children}</RNText>;
-}
-
-export function Label({ children }: { children: React.ReactNode }) {
-  const { c } = useTheme();
-  return <RNText style={{ color: c.faint, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600', marginBottom: 2 }}>{children}</RNText>;
-}
-
-/* ---------- layout ---------- */
-export function Screen({ children, refreshing, onRefresh, scroll = true, padded = true }: {
-  children: React.ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; padded?: boolean;
-}) {
-  const { c } = useTheme();
-  const inner = <View style={{ padding: padded ? 16 : 0, gap: 12 }}>{children}</View>;
+  const { colors, spacing } = useTheme();
+  const Container = scroll ? require('react-native').ScrollView : View;
   return (
-    <SafeAreaView edges={['top']} style={{ flex: 1, backgroundColor: c.paper }}>
-      {/* KeyboardAvoidingView + generous bottom padding so a focused input is never hidden behind
-          the on-screen keyboard; tapping outside dismisses it. */}
-      <KeyboardAvoidingView
-        style={{ flex: 1 }}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 8 : 0}
+    <SafeAreaView style={[styles.flex, { backgroundColor: colors.bg }]} edges={['top']}>
+      <Container
+        style={[styles.flex, padded && { paddingHorizontal: spacing.lg }, style]}
+        contentContainerStyle={scroll ? { paddingBottom: spacing.xxl } : undefined}
       >
-        {scroll ? (
-          <ScrollView
-            contentContainerStyle={{ paddingBottom: 320 }}
-            keyboardShouldPersistTaps="handled"
-            keyboardDismissMode="interactive"
-            refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.accent} /> : undefined}
-          >{inner}</ScrollView>
-        ) : (
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>{inner}</TouchableWithoutFeedback>
-        )}
-      </KeyboardAvoidingView>
+        {children}
+      </Container>
     </SafeAreaView>
   );
 }
 
-export function Row({ children, style, gap = 10 }: { children: React.ReactNode; style?: StyleProp<ViewStyle>; gap?: number }) {
-  return <View style={[{ flexDirection: 'row', alignItems: 'center', gap }, style]}>{children}</View>;
-}
+/* ----------------------------------- Text ----------------------------------- */
 
-export function AppHeader({ title, subtitle, left, right }: {
-  title: string; subtitle?: string; left?: React.ReactNode; right?: React.ReactNode;
+type TextVariant = 'title' | 'subtitle' | 'body' | 'caption' | 'label';
+
+export function Text({
+  variant = 'body',
+  muted = false,
+  weight,
+  style,
+  children,
+  numberOfLines,
+}: {
+  variant?: TextVariant;
+  muted?: boolean;
+  weight?: TextStyle['fontWeight'];
+  style?: TextStyle;
+  children: React.ReactNode;
+  numberOfLines?: number;
 }) {
-  const { c } = useTheme();
+  const { colors, fontSize } = useTheme();
+  const variantStyle: Record<TextVariant, TextStyle> = {
+    title: { fontSize: fontSize.xxl, fontWeight: '700' },
+    subtitle: { fontSize: fontSize.lg, fontWeight: '700' },
+    body: { fontSize: fontSize.md, fontWeight: '400' },
+    caption: { fontSize: fontSize.sm, fontWeight: '400' },
+    label: { fontSize: fontSize.xs, fontWeight: '600', letterSpacing: 0.3 },
+  };
   return (
-    <Row style={{ paddingHorizontal: 4, paddingBottom: 6 }}>
-      {left}
-      <View style={{ flex: 1 }}>
-        <RNText style={{ color: c.ink, fontSize: 20, fontWeight: '600', letterSpacing: -0.3 }}>{title}</RNText>
-        {!!subtitle && <RNText style={{ color: c.muted, fontSize: 12.5, marginTop: 1 }}>{subtitle}</RNText>}
-      </View>
-      {right}
-    </Row>
+    <RNText
+      numberOfLines={numberOfLines}
+      style={[
+        { color: muted ? colors.textMuted : colors.text },
+        variantStyle[variant],
+        weight ? { fontWeight: weight } : null,
+        style,
+      ]}
+    >
+      {children}
+    </RNText>
   );
 }
 
-export function Avatar({ initials, color }: { initials: string; color?: string }) {
-  const { c } = useTheme();
+/* ----------------------------------- Row ------------------------------------ */
+
+export function Row({
+  children,
+  style,
+  align = 'center',
+  justify = 'flex-start',
+  gap = 0,
+  wrap = false,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  align?: ViewStyle['alignItems'];
+  justify?: ViewStyle['justifyContent'];
+  gap?: number;
+  wrap?: boolean;
+}) {
   return (
-    <View style={{ width: 38, height: 38, borderRadius: 19, backgroundColor: color || c.accent, alignItems: 'center', justifyContent: 'center' }}>
-      <RNText style={{ color: c.accentInk, fontWeight: '600', fontSize: 14 }}>{initials}</RNText>
+    <View
+      style={[
+        {
+          flexDirection: 'row',
+          alignItems: align,
+          justifyContent: justify,
+          flexWrap: wrap ? 'wrap' : 'nowrap',
+          gap,
+        },
+        style,
+      ]}
+    >
+      {children}
     </View>
   );
 }
 
-/* ---------- surfaces ---------- */
-export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
-  const { c } = useTheme();
-  return <View style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }, style]}>{children}</View>;
+/* ----------------------------------- Chip ------------------------------------ */
+
+export function Chip({
+  label,
+  tone = 'neutral',
+  icon,
+  size = 'md',
+}: {
+  label: string;
+  tone?: SeverityLevel;
+  icon?: keyof typeof Feather.glyphMap;
+  size?: 'sm' | 'md';
+}) {
+  const { colors, radius, severityColor, mode, fontSize } = useTheme();
+  const t = severityColor(mode, tone);
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        backgroundColor: t.bg,
+        borderRadius: radius.pill,
+        paddingHorizontal: size === 'sm' ? 8 : 10,
+        paddingVertical: size === 'sm' ? 3 : 5,
+      }}
+    >
+      {icon ? <Feather name={icon} size={size === 'sm' ? 10 : 12} color={t.fg} /> : null}
+      <RNText
+        style={{
+          color: t.fg,
+          fontSize: size === 'sm' ? fontSize.xs : fontSize.sm,
+          fontWeight: '600',
+        }}
+      >
+        {label}
+      </RNText>
+    </View>
+  );
 }
 
-export function ListItem({ icon, iconColor, title, meta, right, onPress }: {
-  icon?: FeatherName; iconColor?: string; title: React.ReactNode; meta?: React.ReactNode; right?: React.ReactNode; onPress?: () => void;
+/* ----------------------------------- Field ----------------------------------- */
+
+export function Field({
+  label,
+  optional,
+  children,
+}: {
+  label: string;
+  optional?: boolean;
+  children: React.ReactNode;
 }) {
-  const { c } = useTheme();
-  const body = (
-    <Row style={{ alignItems: 'flex-start', backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 12 }} gap={11}>
-      {icon && (
-        <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: (iconColor || c.accent) + '22', alignItems: 'center', justifyContent: 'center' }}>
-          <Feather name={icon} size={15} color={iconColor || c.accent} />
-        </View>
+  const { spacing } = useTheme();
+  return (
+    <View style={{ marginBottom: spacing.lg }}>
+      <Row justify="space-between" style={{ marginBottom: spacing.sm }}>
+        <Text variant="subtitle" style={{ fontSize: 15 }}>
+          {label}
+        </Text>
+        {optional ? (
+          <Text variant="caption" muted>
+            optional
+          </Text>
+        ) : null}
+      </Row>
+      {children}
+    </View>
+  );
+}
+
+/* --------------------------------- TextArea ---------------------------------- */
+
+export function TextArea({
+  value,
+  onChangeText,
+  placeholder,
+  maxLength,
+  ...rest
+}: TextInputProps & { maxLength?: number }) {
+  const { colors, radius, spacing, fontSize } = useTheme();
+  return (
+    <View>
+      <TextInput
+        multiline
+        value={value}
+        onChangeText={onChangeText}
+        placeholder={placeholder}
+        placeholderTextColor={colors.textMuted}
+        maxLength={maxLength}
+        style={{
+          minHeight: 90,
+          borderWidth: 1,
+          borderColor: colors.border,
+          borderRadius: radius.md,
+          padding: spacing.md,
+          fontSize: fontSize.md,
+          color: colors.text,
+          textAlignVertical: 'top',
+          backgroundColor: colors.surface,
+        }}
+        {...rest}
+      />
+      {maxLength ? (
+        <Text
+          variant="caption"
+          muted
+          style={{ alignSelf: 'flex-end', marginTop: 4 }}
+        >
+          {(value?.length ?? 0)}/{maxLength}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/* ----------------------------------- Button ----------------------------------- */
+
+export function Button({
+  label,
+  onPress,
+  variant = 'primary',
+  icon,
+  disabled,
+  fullWidth = true,
+  loading = false,
+  accentColor,
+}: {
+  label: string;
+  onPress?: () => void;
+  variant?: 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+  icon?: keyof typeof Feather.glyphMap;
+  disabled?: boolean;
+  fullWidth?: boolean;
+  loading?: boolean;
+  /** Per-role brand override (e.g. Care Worker's green) without touching global theme tokens. */
+  accentColor?: string;
+}) {
+  const { colors, radius, spacing, fontSize } = useTheme();
+  const brand = accentColor ?? colors.primary;
+
+  const variants: Record<string, { bg: string; fg: string; border?: string }> = {
+    primary: { bg: brand, fg: colors.textInverse },
+    secondary: { bg: colors.surfaceAlt, fg: colors.text },
+    outline: { bg: 'transparent', fg: brand, border: brand },
+    ghost: { bg: 'transparent', fg: brand },
+    danger: { bg: colors.danger, fg: colors.textInverse },
+  };
+  const v = variants[variant];
+
+  return (
+    <Pressable
+      onPress={onPress}
+      disabled={disabled || loading}
+      style={({ pressed }) => [
+        {
+          backgroundColor: v.bg,
+          borderRadius: radius.md,
+          paddingVertical: spacing.md,
+          paddingHorizontal: spacing.lg,
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexDirection: 'row',
+          gap: 8,
+          opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
+          alignSelf: fullWidth ? 'stretch' : 'flex-start',
+          borderWidth: v.border ? 1 : 0,
+          borderColor: v.border,
+        },
+      ]}
+    >
+      {loading ? (
+        <ActivityIndicator color={v.fg} />
+      ) : (
+        <>
+          {icon ? <Feather name={icon} size={16} color={v.fg} /> : null}
+          <RNText style={{ color: v.fg, fontSize: fontSize.md, fontWeight: '700' }}>
+            {label}
+          </RNText>
+        </>
       )}
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <RNText style={{ color: c.ink, fontSize: 13.5, fontWeight: '600' }}>{title}</RNText>
-        {!!meta && <RNText style={{ color: c.muted, fontSize: 11.5, marginTop: 3 }}>{meta}</RNText>}
-      </View>
-      {right}
-    </Row>
-  );
-  return onPress ? <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.7 : 1 })}>{body}</Pressable> : body;
-}
-
-/* ---------- pills / chips ---------- */
-type PillTone = 'crit' | 'high' | 'mod' | 'low' | 'accent' | 'ghost' | 'redact';
-export function Pill({ tone = 'ghost', children }: { tone?: PillTone; children: React.ReactNode }) {
-  const { c } = useTheme();
-  const map: Record<PillTone, string> = { crit: c.sevCrit, high: c.sevHigh, mod: c.sevMod, low: c.sevLow, accent: c.accent, ghost: c.muted, redact: c.faint };
-  const col = map[tone];
-  return (
-    <View style={{ backgroundColor: col + '24', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-      <RNText style={{ color: col, fontSize: 10.5, fontWeight: '600', letterSpacing: 0.2 }}>{children}</RNText>
-    </View>
-  );
-}
-
-export function SeverityPill({ severity }: { severity?: string }) {
-  const { c } = useTheme();
-  const col = severityColor(c, severity);
-  return (
-    <View style={{ backgroundColor: col + '24', borderRadius: radius.pill, paddingHorizontal: 8, paddingVertical: 3, alignSelf: 'flex-start' }}>
-      <RNText style={{ color: col, fontSize: 10.5, fontWeight: '600' }}>{severity || '—'}</RNText>
-    </View>
-  );
-}
-
-export function Traj({ dir }: { dir?: string }) {
-  const { c } = useTheme();
-  const col = trajectoryColor(c, dir);
-  const icon: FeatherName = /deterior/i.test(dir || '') ? 'trending-up' : /improv/i.test(dir || '') ? 'trending-down' : 'minus';
-  return (
-    <Row gap={4}>
-      <Feather name={icon} size={13} color={col} />
-      <RNText style={{ color: col, fontSize: 10.5, fontWeight: '600' }}>{dir || 'Stable'}</RNText>
-    </Row>
-  );
-}
-
-export function Chip({ label, active, onPress }: { label: string; active?: boolean; onPress?: () => void }) {
-  const { c } = useTheme();
-  return (
-    <Pressable onPress={onPress} style={{
-      borderWidth: 1, borderColor: active ? c.accent : c.line, backgroundColor: active ? c.accent : c.card,
-      borderRadius: radius.pill, paddingHorizontal: 11, paddingVertical: 7,
-    }}>
-      <RNText style={{ color: active ? c.accentInk : c.muted, fontSize: 12, fontWeight: active ? '600' : '400' }}>{label}</RNText>
     </Pressable>
   );
 }
 
-/* ---------- inputs ---------- */
-export function Field({ value, onChangeText, placeholder, secureTextEntry, keyboardType, autoCapitalize, required }: {
-  value: string; onChangeText: (t: string) => void; placeholder?: string; secureTextEntry?: boolean;
-  keyboardType?: any; autoCapitalize?: any; required?: boolean;
+/* ----------------------------------- Card ------------------------------------- */
+
+export function Card({
+  children,
+  style,
+  onPress,
+}: {
+  children: React.ReactNode;
+  style?: ViewStyle;
+  onPress?: () => void;
 }) {
-  const { c } = useTheme();
+  const { colors, radius, spacing } = useTheme();
+  const content = (
+    <View
+      style={[
+        {
+          backgroundColor: colors.surface,
+          borderRadius: radius.md,
+          padding: spacing.lg,
+          borderWidth: 1,
+          borderColor: colors.border,
+        },
+        style,
+      ]}
+    >
+      {children}
+    </View>
+  );
+  if (!onPress) return content;
   return (
-    <TextInput
-      value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={c.faint}
-      secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize}
-      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: 12, fontSize: 14, color: c.ink }}
-    />
+    <Pressable onPress={onPress} style={({ pressed }) => ({ opacity: pressed ? 0.9 : 1 })}>
+      {content}
+    </Pressable>
   );
 }
 
-export function TextArea({ value, onChangeText, placeholder, minHeight = 66, required }: {
-  value: string; onChangeText: (t: string) => void; placeholder?: string; minHeight?: number; required?: boolean;
+/* --------------------------------- ListItem ------------------------------------ */
+
+export function ListItem({
+  title,
+  subtitle,
+  leadingIcon,
+  leadingColor,
+  trailing,
+  onPress,
+  divider = true,
+}: {
+  title: string;
+  subtitle?: string;
+  leadingIcon?: keyof typeof Feather.glyphMap;
+  leadingColor?: string;
+  trailing?: React.ReactNode;
+  onPress?: () => void;
+  divider?: boolean;
 }) {
-  const { c } = useTheme();
+  const { colors, spacing, radius } = useTheme();
   return (
-    <TextInput
-      value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={c.faint}
-      multiline textAlignVertical="top"
-      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: 12, fontSize: 13, color: c.ink, minHeight }}
-    />
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        {
+          flexDirection: 'row',
+          alignItems: 'center',
+          paddingVertical: spacing.md,
+          borderBottomWidth: divider ? 1 : 0,
+          borderBottomColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+          gap: spacing.md,
+        },
+      ]}
+    >
+      {leadingIcon ? (
+        <View
+          style={{
+            width: 36,
+            height: 36,
+            borderRadius: radius.sm,
+            backgroundColor: (leadingColor ?? colors.primary) + '22',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <Feather name={leadingIcon} size={17} color={leadingColor ?? colors.primary} />
+        </View>
+      ) : null}
+      <View style={{ flex: 1 }}>
+        <Text variant="body" weight="600">
+          {title}
+        </Text>
+        {subtitle ? (
+          <Text variant="caption" muted style={{ marginTop: 2 }}>
+            {subtitle}
+          </Text>
+        ) : null}
+      </View>
+      {trailing ?? (onPress ? <Feather name="chevron-right" size={18} color={colors.textMuted} /> : null)}
+    </Pressable>
   );
 }
 
-export function SeverityPicker({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const { c } = useTheme();
-  const opts = ['Low', 'Moderate', 'High', 'Critical'];
+/* ----------------------------------- Avatar ------------------------------------ */
+
+export function Avatar({
+  initials,
+  size = 40,
+  uri,
+}: {
+  initials?: string;
+  size?: number;
+  uri?: string;
+}) {
+  const { colors } = useTheme();
+  if (uri) {
+    const { Image } = require('react-native');
+    return (
+      <Image
+        source={{ uri }}
+        style={{ width: size, height: size, borderRadius: size / 2 }}
+      />
+    );
+  }
   return (
-    <Row gap={6}>
-      {opts.map((o) => {
-        const on = value === o;
-        const col = severityColor(c, o);
+    <View
+      style={{
+        width: size,
+        height: size,
+        borderRadius: size / 2,
+        backgroundColor: colors.surfaceAlt,
+        alignItems: 'center',
+        justifyContent: 'center',
+      }}
+    >
+      <RNText style={{ color: colors.text, fontWeight: '700', fontSize: size * 0.38 }}>
+        {initials}
+      </RNText>
+    </View>
+  );
+}
+
+/* ----------------------------------- Loading ------------------------------------ */
+
+export function Loading({ label }: { label?: string }) {
+  const { colors, spacing } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', padding: spacing.xxl, gap: spacing.sm }}>
+      <ActivityIndicator color={colors.primary} />
+      {label ? <Text muted>{label}</Text> : null}
+    </View>
+  );
+}
+
+/* ------------------------------------ Empty ------------------------------------- */
+
+export function Empty({
+  icon = 'inbox',
+  title,
+  message,
+}: {
+  icon?: keyof typeof Feather.glyphMap;
+  title: string;
+  message?: string;
+}) {
+  const { colors, spacing } = useTheme();
+  return (
+    <View style={{ alignItems: 'center', justifyContent: 'center', padding: spacing.xxl, gap: spacing.sm }}>
+      <Feather name={icon} size={28} color={colors.textMuted} />
+      <Text variant="subtitle">{title}</Text>
+      {message ? (
+        <Text muted style={{ textAlign: 'center' }}>
+          {message}
+        </Text>
+      ) : null}
+    </View>
+  );
+}
+
+/* ------------------------------- SegmentedControl --------------------------------- */
+
+export function SegmentedControl({
+  options,
+  value,
+  onChange,
+}: {
+  options: string[];
+  value: string;
+  onChange: (v: string) => void;
+}) {
+  const { colors, radius, spacing, fontSize } = useTheme();
+  return (
+    <Row gap={spacing.lg} style={{ borderBottomWidth: 1, borderBottomColor: colors.border }}>
+      {options.map((opt) => {
+        const active = opt === value;
         return (
-          <Pressable key={o} onPress={() => onChange(o)} style={{
-            flex: 1, borderWidth: on ? 1.5 : 1, borderColor: on ? col : c.line, backgroundColor: on ? col + '18' : c.card,
-            borderRadius: radius.md, paddingVertical: 9, alignItems: 'center',
-          }}>
-            <RNText style={{ color: on ? col : c.muted, fontSize: 11, fontWeight: '600' }}>{o === 'Moderate' ? 'Mod' : o === 'Critical' ? 'Crit' : o}</RNText>
+          <Pressable
+            key={opt}
+            onPress={() => onChange(opt)}
+            style={{
+              paddingBottom: spacing.sm,
+              borderBottomWidth: 2,
+              borderBottomColor: active ? colors.primary : 'transparent',
+              marginBottom: -1,
+            }}
+          >
+            <RNText
+              style={{
+                color: active ? colors.primary : colors.textMuted,
+                fontWeight: active ? '700' : '500',
+                fontSize: fontSize.sm,
+              }}
+            >
+              {opt}
+            </RNText>
           </Pressable>
         );
       })}
@@ -207,94 +527,56 @@ export function SeverityPicker({ value, onChange }: { value: string; onChange: (
   );
 }
 
-/* ---------- buttons ---------- */
-export function Button({ title, onPress, tone = 'primary', icon, disabled, loading, style }: {
-  title: string; onPress?: () => void; tone?: 'primary' | 'ghost' | 'block'; icon?: FeatherName;
-  disabled?: boolean; loading?: boolean; style?: StyleProp<ViewStyle>;
+/** Pill-style variant used for compact filter bars (e.g. "All Sites", "Open"). */
+export function FilterPill({
+  label,
+  onPress,
+}: {
+  label: string;
+  onPress?: () => void;
 }) {
-  const { c } = useTheme();
-  const bg = tone === 'primary' ? c.accent : tone === 'block' ? c.sevCrit + '1f' : c.card;
-  const fg = tone === 'primary' ? c.accentInk : tone === 'block' ? c.sevCrit : c.ink;
-  const border = tone === 'primary' ? c.accent : tone === 'block' ? c.sevCrit + '4d' : c.line;
+  const { colors, radius, spacing, fontSize } = useTheme();
   return (
-    <Pressable onPress={disabled || loading ? undefined : onPress} style={({ pressed }) => [{
-      backgroundColor: bg, borderWidth: 1, borderColor: border, borderRadius: radius.md, paddingVertical: 12,
-      alignItems: 'center', justifyContent: 'center', flexDirection: 'row', gap: 9, opacity: disabled ? 0.45 : pressed ? 0.85 : 1,
-    }, style]}>
-      {loading ? <ActivityIndicator color={fg} /> : (
-        <>
-          {icon && <Feather name={icon} size={16} color={fg} />}
-          <RNText style={{ color: fg, fontSize: 14, fontWeight: '600' }}>{title}</RNText>
-        </>
-      )}
+    <Pressable
+      onPress={onPress}
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 4,
+        borderWidth: 1,
+        borderColor: colors.border,
+        borderRadius: radius.pill,
+        paddingHorizontal: spacing.md,
+        paddingVertical: 6,
+      }}
+    >
+      <RNText style={{ color: colors.text, fontSize: fontSize.sm, fontWeight: '600' }}>{label}</RNText>
+      <Feather name="chevron-down" size={13} color={colors.textMuted} />
     </Pressable>
   );
 }
 
-/* ---------- misc ---------- */
-export function Banner({ tone = 'ok', title, children, icon }: {
-  tone?: 'ok' | 'warn' | 'block'; title?: string; children?: React.ReactNode; icon?: FeatherName;
-}) {
-  const { c } = useTheme();
-  const col = tone === 'ok' ? c.sevLow : tone === 'warn' ? c.sevMod : c.sevCrit;
+/* ---------------------------------- ErrorNote ------------------------------------ */
+
+export function ErrorNote({ message }: { message: string }) {
+  const { colors, radius, spacing } = useTheme();
   return (
-    <Row style={{ alignItems: 'flex-start', backgroundColor: col + '22', borderRadius: radius.md, padding: 11 }} gap={10}>
-      {icon && <Feather name={icon} size={17} color={col} />}
-      <View style={{ flex: 1 }}>
-        {!!title && <RNText style={{ color: c.ink, fontWeight: '600', fontSize: 12.5 }}>{title}</RNText>}
-        {!!children && <RNText style={{ color: c.muted, fontSize: 12, marginTop: title ? 2 : 0 }}>{children}</RNText>}
-      </View>
+    <Row
+      gap={spacing.sm}
+      style={{
+        backgroundColor: colors.danger + '15',
+        borderRadius: radius.sm,
+        padding: spacing.md,
+      }}
+    >
+      <Feather name="alert-circle" size={16} color={colors.danger} />
+      <Text style={{ color: colors.danger, flex: 1 }} variant="caption">
+        {message}
+      </Text>
     </Row>
   );
 }
 
-export function StatCard({ value, label, big }: { value: React.ReactNode; label: string; big?: boolean }) {
-  const { c } = useTheme();
-  return (
-    <View style={{ flex: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 10 }}>
-      <RNText style={{ color: c.ink, fontSize: big ? 26 : 20, fontWeight: '600', letterSpacing: -0.4 }}>{value}</RNText>
-      <RNText style={{ color: c.muted, fontSize: 10.5, marginTop: 5 }}>{label}</RNText>
-    </View>
-  );
-}
-
-export function Meter({ filled, total }: { filled: number; total: number }) {
-  const { c } = useTheme();
-  return (
-    <Row gap={3} style={{ marginVertical: 6 }}>
-      {Array.from({ length: total }).map((_, i) => (
-        <View key={i} style={{ flex: 1, height: 5, borderRadius: 3, backgroundColor: i < filled ? c.accent : c.line }} />
-      ))}
-    </Row>
-  );
-}
-
-export function Loading() {
-  const { c } = useTheme();
-  return <View style={{ paddingVertical: 60, alignItems: 'center' }}><ActivityIndicator color={c.accent} /></View>;
-}
-
-export function ErrorNote({ message, onRetry }: { message: string; onRetry?: () => void }) {
-  const { c } = useTheme();
-  return (
-    <Card style={{ borderColor: c.sevCrit + '55' }}>
-      <Row gap={9}><Feather name="alert-triangle" size={16} color={c.sevCrit} /><Text weight="600">Couldn't load</Text></Row>
-      <Text muted size={12.5} style={{ marginTop: 6 }}>{message}</Text>
-      {onRetry && <Pressable onPress={onRetry} style={{ marginTop: 10 }}><Text color={c.accent} weight="600">Try again</Text></Pressable>}
-    </Card>
-  );
-}
-
-export function Empty({ icon = 'check-circle', title }: { icon?: FeatherName; title: string }) {
-  const { c } = useTheme();
-  return (
-    <View style={{ alignItems: 'center', paddingVertical: 44, gap: 10 }}>
-      <Feather name={icon} size={30} color={c.faint} />
-      <Text muted size={13.5}>{title}</Text>
-    </View>
-  );
-}
-
-export { Feather };
-export const styles = StyleSheet.create({});
-export type { Palette };
+const styles = StyleSheet.create({
+  flex: { flex: 1 },
+});
