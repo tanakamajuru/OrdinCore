@@ -9,22 +9,32 @@ import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { roleAccent } from '@/theme/roleAccents';
+import { useAuth } from '@/auth/AuthContext';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, Button } from '@/components/ui';
-import { BoardHeader, BoardItem, type StatusRow } from '@/components/board';
+import { BoardHeader } from '@/components/board';
 
-const recentSignals = [
-  { id: '1', icon: 'heart' as const, color: '#7B5CE0', title: 'Mental Health & Wellbeing', subtitle: 'John S. · Submitted 09:42', badge: 'Under review' },
-  { id: '2', icon: 'home' as const, color: '#1B8A3E', title: 'Environmental', subtitle: 'Bedford House · Submitted Yesterday', badge: 'Action assigned' },
-  { id: '3', icon: 'star' as const, color: '#E08A2B', title: 'Positive Engagement', subtitle: 'Mary P. · Submitted 2 days ago', badge: 'Recorded' },
-];
+const domainOf = (s: any) => (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain || s.governance_domain || s.category || 'Signal');
+const iconFor = (s: any) => { const d = String(domainOf(s)).toLowerCase(); if (/health|wellbeing|mental/.test(d)) return 'heart'; if (/environment|property/.test(d)) return 'home'; if (/engagement|positive|social/.test(d)) return 'star'; if (/medicat/.test(d)) return 'thermometer'; if (/safeguard/.test(d)) return 'shield'; return 'activity'; };
+const swStatus = (s: any) => { const rs = String(s.review_status || '').toLowerCase(); return !rs || rs === 'new' ? 'Under review' : rs === 'linked' ? 'Action assigned' : rs === 'monitoring' ? 'Monitoring' : rs === 'closed' ? 'Closed' : 'Recorded'; };
+const submitted = (s: any) => { const dt = s.created_at || s.entry_date; if (!dt) return ''; const d = new Date(dt); const days = Math.floor((Date.now() - d.getTime()) / 86400000); return days <= 0 ? `Submitted ${d.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}` : days === 1 ? 'Submitted yesterday' : `Submitted ${days} days ago`; };
 
 export default function TodayScreen() {
-  const { colors, spacing, radius } = useTheme();
+  const { colors, spacing } = useTheme();
   const navigation = useNavigation<any>();
+  const { user } = useAuth();
+  const uid = user?.id || user?.user_id;
+  const { data: actData } = useApi<any>('/actions/my');
+  const { data: sigData } = useApi<any>(uid ? `/pulses?created_by=${uid}&limit=50` : '/pulses?limit=50');
+  const openActions = listOf(actData).filter((a: any) => !/complete|done|cancel/i.test(a.status || '')).length;
+  const recentSignals = listOf(sigData).slice(0, 5).map((s: any) => ({ id: s.id, icon: iconFor(s), color: roleAccent.careWorker, title: domainOf(s), subtitle: `${s.related_person || s.house_name || ''} · ${submitted(s)}`.replace(/^ · /, ''), badge: swStatus(s) }));
+  const hr = new Date().getHours();
+  const greet = hr < 12 ? 'Good morning' : hr < 18 ? 'Good afternoon' : 'Good evening';
 
   return (
     <Screen scroll>
-      <BoardHeader title="Good morning, Sam" subtitle="Capture. Act. Make a difference." onBellPress={() => {}} />
+      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Capture. Act. Make a difference." onBellPress={() => {}} />
 
       <Button
         label="+  Raise a signal"
@@ -38,7 +48,7 @@ export default function TodayScreen() {
       >
         <Feather name="clipboard" size={20} color={roleAccent.careWorker} />
         <Text style={{ flex: 1 }} weight="700">
-          2 Actions requiring you
+          {openActions} Action{openActions === 1 ? '' : 's'} requiring you
         </Text>
         <Feather name="chevron-right" size={16} color={colors.textMuted} />
       </Card>
@@ -59,7 +69,7 @@ export default function TodayScreen() {
             gap={spacing.md}
             style={{ paddingVertical: spacing.sm, borderBottomWidth: i < recentSignals.length - 1 ? 1 : 0, borderBottomColor: colors.border }}
           >
-            <Feather name={s.icon} size={18} color={s.color} />
+            <Feather name={s.icon as any} size={18} color={s.color} />
             <View style={{ flex: 1 } as any}>
               <Text weight="600">{s.title}</Text>
               <Text muted variant="caption">

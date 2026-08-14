@@ -7,18 +7,27 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { DrawerActions } from '@react-navigation/native';
 import { useTheme } from '@/theme/ThemeProvider';
-import { Screen, Text, Row, Card, Chip } from '@/components/ui';
-import { BoardHeader, Metrics, SectionTitle, StatusList, type StatusRow } from '@/components/board';
-
-const attentionRows: StatusRow[] = [
-  { id: '1', title: 'Cross-service risk deteriorating', tone: 'critical', badge: 3 },
-  { id: '2', title: 'Effectiveness reviews overdue', tone: 'medium', badge: 4 },
-  { id: '3', title: 'Weekly reviews awaiting publication', tone: 'info', badge: 2 },
-];
+import { useApi } from '@/api/useApi';
+import { myWorkRows, listOf } from '@/api/mappers';
+import { Screen, Text, Row, Card } from '@/components/ui';
+import { BoardHeader, Metrics, SectionTitle, StatusList } from '@/components/board';
 
 export default function HomeScreen() {
-  const { colors, spacing, radius } = useTheme();
+  const { spacing, severityColor, mode } = useTheme();
   const navigation = useNavigation();
+  const { data: mw } = useApi<any>('/my-work');
+  const { data: gh } = useApi<any>('/interventions/governance-health');
+  const { data: riskData } = useApi<any>('/risks?limit=300');
+
+  const items: any[] = mw?.items ?? mw?.data?.items ?? [];
+  const byKey = (k: string) => items.find((i: any) => i.key === k);
+  const n = (v: any) => Number(v || 0);
+  const health = gh?.data?.health ?? gh?.health ?? null;
+  const position = health == null ? 'Assessing' : health >= 75 ? 'Stable' : health >= 50 ? 'Attention required' : 'Concern';
+  const posTone: any = health == null ? 'info' : health >= 75 ? 'success' : health >= 50 ? 'medium' : 'high';
+  const posColor = severityColor(mode, posTone).fg;
+  const risks = listOf(riskData).filter((r: any) => String(r.status || '').toLowerCase() !== 'closed');
+  const highCritical = risks.filter((r: any) => /high|critical/i.test(String(r.severity || ''))).length;
 
   return (
     <Screen scroll>
@@ -29,31 +38,25 @@ export default function HomeScreen() {
       />
 
       <Card style={{ marginBottom: spacing.lg }}>
-        <Text variant="body" weight="600">
-          Governance position
-        </Text>
+        <Text variant="body" weight="600">Governance position</Text>
         <Row gap={8} style={{ marginTop: 6, marginBottom: 6 }}>
-          <Text style={{ color: colors.warning }} variant="subtitle">
-            Attention required
-          </Text>
+          <Text style={{ color: posColor }} variant="subtitle">{position}</Text>
         </Row>
-        <Text muted variant="caption">
-          Key areas need your attention today. See details in My Work.
-        </Text>
+        <Text muted variant="caption">Key areas needing your attention today. See details in My Work.</Text>
       </Card>
 
       <Metrics
         columns={2}
         items={[
-          { label: 'Active signals', value: 50, sublabel: 'Awaiting governance', icon: 'activity', tone: 'success' },
-          { label: 'Open escalations', value: 40, sublabel: 'Require oversight', icon: 'alert-triangle', tone: 'high' },
-          { label: 'High / Critical risks', value: 7, sublabel: 'Require assurance', icon: 'shield', tone: 'medium' },
-          { label: 'Overdue governance', value: 9, sublabel: 'Items overdue', icon: 'calendar', tone: 'info' },
+          { label: 'Signals to review', value: n(byKey('signals')?.count), sublabel: 'Awaiting governance', icon: 'activity', tone: 'success' },
+          { label: 'Open escalations', value: n(byKey('escalations')?.count), sublabel: 'Require oversight', icon: 'alert-triangle', tone: 'high' },
+          { label: 'High / Critical risks', value: highCritical, sublabel: 'Require assurance', icon: 'shield', tone: 'medium' },
+          { label: 'Overdue actions', value: n(byKey('actions')?.emphasis), sublabel: 'Items overdue', icon: 'calendar', tone: 'info' },
         ]}
       />
 
       <SectionTitle title="Requires your attention" />
-      <StatusList rows={attentionRows} onPressRow={() => {}} />
+      <StatusList rows={myWorkRows(mw)} onPressRow={() => {}} />
     </Screen>
   );
 }
