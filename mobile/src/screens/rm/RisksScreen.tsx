@@ -7,6 +7,8 @@ import React from 'react';
 import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, FilterPill, Chip } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -21,54 +23,30 @@ type Risk = {
   decisionRequired?: boolean;
 };
 
-const risks: Risk[] = [
-  {
-    id: '1',
-    title: 'Mental Health Stability – Bashit A',
-    site: 'Grafton Road',
-    tone: 'high',
-    trend: 'Deteriorating',
-    linkedSignals: 3,
-    lastSignal: 'Last signal today',
-    decisionRequired: true,
-  },
-  {
-    id: '2',
-    title: 'Self-Care – Bashit A',
-    site: '24 Hurst Grove',
-    tone: 'medium',
-    trend: 'Stable',
-    linkedSignals: 2,
-    lastSignal: 'Last signal 2d ago',
-  },
-  {
-    id: '3',
-    title: 'Engagement – Bashit A',
-    site: 'Grafton Road',
-    tone: 'low',
-    trend: 'Improving',
-    linkedSignals: 1,
-    lastSignal: 'Last signal 5d ago',
-  },
-  {
-    id: '4',
-    title: 'Medication Management – Bashit A',
-    site: '24 Hurst Grove',
-    tone: 'medium',
-    trend: 'Stable',
-    linkedSignals: 2,
-    lastSignal: 'Last signal 3d ago',
-  },
-];
-
 const trendIcon: Record<Risk['trend'], keyof typeof Feather.glyphMap> = {
   Deteriorating: 'trending-up',
   Stable: 'arrow-right',
   Improving: 'trending-down',
 };
+const toneOfSev = (sev?: string): Risk['tone'] => (/high|critical/i.test(sev || '') ? 'high' : /med|mod/i.test(sev || '') ? 'medium' : 'low');
+const trendOf = (r: any): Risk['trend'] => { const s = String(r.trajectory || r.trend || '').toLowerCase(); return /deteriorat|escalat|worsen/.test(s) ? 'Deteriorating' : /improv/.test(s) ? 'Improving' : 'Stable'; };
+const lastSignalLine = (x?: string) => { if (!x) return 'No recent activity'; const days = Math.floor((Date.now() - new Date(x).getTime()) / 86400000); return days <= 0 ? 'Last signal today' : days === 1 ? 'Last signal 1d ago' : `Last signal ${days}d ago`; };
+const isOpenRisk = (r: any) => String(r.status || '').toLowerCase() !== 'closed';
 
 export default function RisksScreen() {
-  const { colors, spacing, radius, severityColor, mode } = useTheme();
+  const { colors, spacing, severityColor, mode } = useTheme();
+  const { data } = useApi<any>('/risks?limit=300');
+
+  const risks: Risk[] = listOf(data).filter(isOpenRisk).map((r: any) => ({
+    id: String(r.id),
+    title: r.title || r.risk_title || r.theme || 'Risk',
+    site: r.house_name || r.service_name || '',
+    tone: toneOfSev(r.severity || r.risk_rating),
+    trend: trendOf(r),
+    linkedSignals: Number(r.linked_signal_count ?? r.evidence_count ?? r.signal_count ?? 0),
+    lastSignal: lastSignalLine(r.last_signal_at || r.updated_at || r.created_at),
+    decisionRequired: !!(r.closure_eligible || r.decision_required),
+  }));
 
   return (
     <Screen scroll>
@@ -80,6 +58,7 @@ export default function RisksScreen() {
         <FilterPill label="High, Med, Low" />
       </Row>
 
+      {risks.length === 0 && <Text muted variant="caption">No open risks.</Text>}
       {risks.map((r) => {
         const t = severityColor(mode, r.tone);
         return (
