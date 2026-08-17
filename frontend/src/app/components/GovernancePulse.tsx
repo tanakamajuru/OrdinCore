@@ -313,13 +313,15 @@ export function GovernancePulse() {
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">
                 <FileText className="w-4 h-4" /> 6. Description (Factual Observation Only)
               </label>
-              <textarea 
+              <textarea
                 rows={4}
-                placeholder="Describe exactly what happened or what was observed. Avoid opinions or interpretations."
+                maxLength={200}
+                placeholder="A short governance observation (2–3 lines). Describe what was observed, factually — avoid opinions."
                 value={formData.description}
                 onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full bg-card border-2 border-border p-4  focus:border-primary outline-none resize-none"
               />
+              <p className="text-xs text-muted-foreground">{(formData.description || '').length}/200 — a signal is a short governance observation, not a care note</p>
             </div>
 
             <div className="space-y-2">

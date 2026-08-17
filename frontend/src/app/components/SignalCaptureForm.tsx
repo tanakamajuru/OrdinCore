@@ -296,10 +296,11 @@ export function SignalCaptureForm() {
               value={form.description}
               onChange={e => set('description', e.target.value)}
               spellCheck
-              placeholder="Factual description only…"
+              maxLength={200}
+              placeholder="A short governance observation (2–3 lines), factual only…"
               className="w-full h-28 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
-            <p className="text-xs text-muted-foreground mt-1">{form.description.trim().length}/10 characters minimum</p>
+            <p className="text-xs text-muted-foreground mt-1">{form.description.length}/200 · minimum 10 — a signal is a short governance observation, not a care note</p>
           </div>
 
           {/* Date / Time */}
