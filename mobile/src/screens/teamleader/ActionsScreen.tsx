@@ -7,6 +7,8 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -17,19 +19,37 @@ type Action = {
   assignee: string;
   due: string;
   dueTone: 'high' | 'medium' | 'low';
+  done: boolean;
 };
 
-const actions: Action[] = [
-  { id: '1', title: 'Contact CC to arrange psychiatric appointment', linkedConcern: 'Mental health deterioration', assignee: 'Matt H.', due: 'Due today', dueTone: 'high' },
-  { id: '2', title: 'Environmental safety check', linkedConcern: 'House environment', assignee: 'Sarah T.', due: 'Due 12 Aug', dueTone: 'medium' },
-  { id: '3', title: 'Medication review with John', linkedConcern: 'Medication refusal', assignee: 'Matt H.', due: 'Due 14 Aug', dueTone: 'medium' },
-  { id: '4', title: 'Update risk assessment', linkedConcern: 'Behaviour', assignee: 'Matt H.', due: 'Due 16 Aug', dueTone: 'low' },
-];
+const dueLine = (x?: string, overdue?: boolean) => {
+  if (!x) return 'No due date';
+  const d = new Date(x);
+  const days = Math.floor((d.getTime() - Date.now()) / 86400000);
+  if (overdue || days < 0) return 'Overdue';
+  return days <= 0 ? 'Due today' : `Due ${d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' })}`;
+};
+
+const dueToneOf = (a: any): Action['dueTone'] =>
+  a.overdue || /high|critical|urgent/i.test(String(a.priority || '')) ? 'high' : /med|mod/i.test(String(a.priority || '')) ? 'medium' : 'low';
 
 export default function ActionsScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
   const [tab, setTab] = useState('To do');
   const navigation = useNavigation<any>();
+  const { data } = useApi<any>('/actions/my');
+
+  const actions: Action[] = listOf(data).map((a: any) => ({
+    id: String(a.id),
+    title: a.title || a.description || 'Action',
+    linkedConcern: a.risk_title || a.domain || a.linked_concern || '—',
+    assignee: a.assigned_to_name || a.owner_name || 'Unassigned',
+    due: dueLine(a.due_at || a.due_by, a.overdue),
+    dueTone: dueToneOf(a),
+    done: /complete|done|closed/i.test(String(a.status || '')),
+  }));
+
+  const visible = actions.filter((a) => (tab === 'To do' ? !a.done : a.done));
 
   return (
     <Screen scroll>
@@ -37,7 +57,8 @@ export default function ActionsScreen() {
       <SegmentedControl options={['To do', 'Done']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>
-        {actions.map((a) => (
+        {visible.length === 0 && <Text muted variant="caption">{tab === 'To do' ? 'Nothing outstanding.' : 'No completed actions yet.'}</Text>}
+        {visible.map((a) => (
           <Card
             key={a.id}
             onPress={() => navigation.navigate('ActionDetail', { id: a.id })}

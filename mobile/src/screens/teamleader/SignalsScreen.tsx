@@ -7,18 +7,12 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
-type Signal = { id: string; title: string; site: string; time: string; status: 'Needs review' | 'Escalated' | 'Closed' };
-
-const signals: Signal[] = [
-  { id: '1', title: 'Medication refusal · John', site: '', time: 'Recorded 08:15', status: 'Needs review' },
-  { id: '2', title: 'Environmental safety · House', site: '', time: 'Recorded yesterday', status: 'Escalated' },
-  { id: '3', title: 'Mental health deterioration · Bashit', site: '', time: 'Recorded yesterday', status: 'Needs review' },
-  { id: '4', title: 'Positive community engagement · John', site: '', time: 'Recorded 2 days ago', status: 'Closed' },
-  { id: '5', title: 'Medication side effect · John', site: '', time: 'Recorded 3 days ago', status: 'Closed' },
-];
+type Signal = { id: string; title: string; site: string; time: string; status: 'Needs review' | 'Escalated' | 'Closed'; ts: number };
 
 const statusColor: Record<Signal['status'], string> = {
   'Needs review': '#E08A2B',
@@ -26,12 +20,39 @@ const statusColor: Record<Signal['status'], string> = {
   Closed: '#1B8A3E',
 };
 
+const recordedLine = (x?: string) => {
+  if (!x) return 'Recorded';
+  const days = Math.floor((Date.now() - new Date(x).getTime()) / 86400000);
+  const t = new Date(x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return days <= 0 ? `Recorded ${t}` : days === 1 ? 'Recorded yesterday' : `Recorded ${days} days ago`;
+};
+
+const sigStatus = (p: any): Signal['status'] => {
+  const s = String(p.status || p.decision || '').toLowerCase();
+  if (/escalat/.test(s)) return 'Escalated';
+  if (/closed|reviewed|linked/.test(s)) return 'Closed';
+  return 'Needs review';
+};
+
 export default function SignalsScreen() {
   const { colors, spacing } = useTheme();
   const [tab, setTab] = useState('Needs review');
   const navigation = useNavigation<any>();
+  const { data } = useApi<any>('/pulses?limit=150');
 
-  const filtered = signals.filter((s) => (tab === 'All' ? true : tab === 'Recent' ? true : tab === 'Escalated' ? s.status === 'Escalated' : s.status === 'Needs review'));
+  const signals: Signal[] = listOf(data).map((p: any) => ({
+    id: String(p.id),
+    title: `${p.domain || p.pillar || p.theme || 'Signal'}${(p.service_user_name || p.related_person) ? ` · ${p.service_user_name || p.related_person}` : ''}`,
+    site: p.house_name || '',
+    time: recordedLine(p.created_at || p.entry_date),
+    status: sigStatus(p),
+    ts: p.created_at ? new Date(p.created_at).getTime() : 0,
+  }));
+
+  const weekAgo = Date.now() - 7 * 86400000;
+  const filtered = signals.filter((s) =>
+    tab === 'All' ? true : tab === 'Recent' ? s.ts >= weekAgo : tab === 'Escalated' ? s.status === 'Escalated' : s.status === 'Needs review'
+  );
 
   return (
     <Screen scroll>
@@ -39,6 +60,7 @@ export default function SignalsScreen() {
       <SegmentedControl options={['Needs review', 'Recent', 'Escalated', 'All']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>
+        {filtered.length === 0 && <Text muted variant="caption">No signals in this view.</Text>}
         {filtered.map((s) => (
           <Card key={s.id} style={{ marginBottom: spacing.md, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
             <View style={{ flex: 1 } as any}>
