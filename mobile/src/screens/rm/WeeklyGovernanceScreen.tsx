@@ -8,18 +8,11 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
 import { Screen, Text, Row, Card, Button } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
 type ReadinessRow = { label: string; value: string; status: 'ok' | 'warn' | 'info' };
-
-const readiness: ReadinessRow[] = [
-  { label: 'Signals reviewed', value: '19 / 60', status: 'warn' },
-  { label: 'Escalations reviewed', value: '28 / 45', status: 'ok' },
-  { label: 'Actions requiring review', value: '3', status: 'warn' },
-  { label: 'Effectiveness reviews', value: '3 due', status: 'info' },
-  { label: 'Risks requiring decision', value: '3', status: 'warn' },
-];
 
 const statusIcon: Record<ReadinessRow['status'], { icon: keyof typeof Feather.glyphMap; color: (c: any) => string }> = {
   ok: { icon: 'check-circle', color: (c) => c.success },
@@ -30,6 +23,19 @@ const statusIcon: Record<ReadinessRow['status'], { icon: keyof typeof Feather.gl
 export default function WeeklyGovernanceScreen() {
   const { colors, spacing, radius } = useTheme();
   const navigation = useNavigation<any>();
+  const { data } = useApi<any>('/rm/weekly-readiness');
+  const d: any = data?.data ?? data ?? {};
+  const n = (v: any) => Number(v || 0);
+
+  const outstanding = (rev: number, total: number) => (total > 0 && rev < total ? 'warn' : 'ok');
+  const readiness: ReadinessRow[] = [
+    { label: 'Signals reviewed', value: `${n(d.signals_reviewed)} / ${n(d.signals_total)}`, status: outstanding(n(d.signals_reviewed), n(d.signals_total)) },
+    { label: 'Escalations reviewed', value: `${n(d.escalations_reviewed)} / ${n(d.escalations_total)}`, status: outstanding(n(d.escalations_reviewed), n(d.escalations_total)) },
+    { label: 'Actions requiring review', value: `${n(d.actions_requiring_review)}`, status: n(d.actions_requiring_review) > 0 ? 'warn' : 'ok' },
+    { label: 'Effectiveness reviews', value: `${n(d.effectiveness_reviews_due)} due`, status: n(d.effectiveness_reviews_due) > 0 ? 'info' : 'ok' },
+    { label: 'Risks requiring decision', value: `${n(d.risks_requiring_decision)}`, status: n(d.risks_requiring_decision) > 0 ? 'warn' : 'ok' },
+  ];
+  const ready = !!d.ready;
 
   return (
     <Screen scroll>
@@ -60,12 +66,12 @@ export default function WeeklyGovernanceScreen() {
       <Text variant="subtitle" style={{ fontSize: 16, marginBottom: spacing.sm }}>
         Weekly review status
       </Text>
-      <Card style={{ backgroundColor: colors.warning + '15', borderWidth: 0, alignItems: 'center', marginBottom: spacing.lg }}>
-        <Text style={{ color: colors.warning }} weight="800" variant="subtitle">
-          NOT READY
+      <Card style={{ backgroundColor: (ready ? colors.success : colors.warning) + '15', borderWidth: 0, alignItems: 'center', marginBottom: spacing.lg }}>
+        <Text style={{ color: ready ? colors.success : colors.warning }} weight="800" variant="subtitle">
+          {ready ? 'READY' : 'NOT READY'}
         </Text>
         <Text muted variant="caption" style={{ textAlign: 'center', marginTop: 4 }}>
-          Complete the items above to finalise your weekly governance.
+          {ready ? 'All weekly governance items are complete.' : 'Complete the items above to finalise your weekly governance.'}
         </Text>
       </Card>
 
@@ -79,10 +85,6 @@ export default function WeeklyGovernanceScreen() {
         </Row>
         <Feather name="chevron-right" size={16} color={colors.textMuted} />
       </Card>
-      <Text muted variant="caption" style={{ textAlign: 'center', marginBottom: spacing.lg }}>
-        Last week published on 04 May 2025
-      </Text>
-
       <Button label="Go to Weekly Report" onPress={() => navigation.navigate('WeeklyGovernanceReport')} />
     </Screen>
   );
