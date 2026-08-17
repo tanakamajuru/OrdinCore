@@ -8,7 +8,7 @@ import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
-import { listOf } from '@/api/mappers';
+import { listOf, authoritativeTrajectory } from '@/api/mappers';
 import { Screen, Text, Row, Card, FilterPill, Chip } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -29,7 +29,7 @@ const trendIcon: Record<Risk['trend'], keyof typeof Feather.glyphMap> = {
   Improving: 'trending-down',
 };
 const toneOfSev = (sev?: string): Risk['tone'] => (/high|critical/i.test(sev || '') ? 'high' : /med|mod/i.test(sev || '') ? 'medium' : 'low');
-const trendOf = (r: any): Risk['trend'] => { const s = String(r.trajectory || r.trend || '').toLowerCase(); return /deteriorat|escalat|worsen/.test(s) ? 'Deteriorating' : /improv/.test(s) ? 'Improving' : 'Stable'; };
+const trendOf = (r: any): Risk['trend'] => authoritativeTrajectory(r);
 const lastSignalLine = (x?: string) => { if (!x) return 'No recent activity'; const days = Math.floor((Date.now() - new Date(x).getTime()) / 86400000); return days <= 0 ? 'Last signal today' : days === 1 ? 'Last signal 1d ago' : `Last signal ${days}d ago`; };
 const isOpenRisk = (r: any) => String(r.status || '').toLowerCase() !== 'closed';
 

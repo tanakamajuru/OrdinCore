@@ -24,3 +24,23 @@ export function myWorkRows(data: any): StatusRow[] {
 // Generic array unwrap for list endpoints (risks/escalations/pulses/actions).
 export const listOf = (v: any): any[] =>
   Array.isArray(v) ? v : v?.data || v?.items || v?.pulses || v?.actions || v?.escalations || v?.risks || [];
+
+export type TrajectoryDirection = 'Deteriorating' | 'Stable' | 'Improving';
+
+/**
+ * Trajectory SSOT (doctrine): direction of travel comes ONLY from the backend's
+ * authoritative engine — `trajectory_direction` (with `trajectory` cache as fallback,
+ * then legacy `trend`). Severity/priority is NEVER mapped to direction here, so a
+ * Critical/High risk is not forced to "Deteriorating". No-evidence resolves to Stable
+ * (the backend records the "evidence insufficient/pending" basis in trajectory_narrative).
+ */
+export const authoritativeTrajectory = (r: any): TrajectoryDirection => {
+  const s = String(r?.trajectory_direction ?? r?.trajectory ?? r?.trend ?? '').toLowerCase();
+  if (/deteriorat|worsen|escalat|increas/.test(s)) return 'Deteriorating';
+  if (/improv|reduc/.test(s)) return 'Improving';
+  return 'Stable';
+};
+
+// Plain-language basis the engine attaches (why the direction was chosen / pending).
+export const trajectoryBasis = (r: any): string | undefined =>
+  r?.trajectory_narrative ?? r?.trajectory_basis ?? undefined;

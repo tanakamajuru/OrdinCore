@@ -9,6 +9,7 @@ import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { useApi } from '@/api/useApi';
+import { authoritativeTrajectory } from '@/api/mappers';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader, StatusList, SectionTitle, type StatusRow } from '@/components/board';
 
@@ -16,7 +17,7 @@ type SevTone = 'high' | 'medium' | 'low' | 'info' | 'neutral' | 'success';
 const toneOf = (t?: string): SevTone => (t === 'red' ? 'high' : t === 'amber' ? 'medium' : t === 'blue' ? 'info' : t === 'emerald' ? 'success' : 'neutral');
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.risks || v?.escalations || []);
 const isOpenRisk = (r: any) => String(r.status || '').toLowerCase() !== 'closed';
-const trajOf = (r: any) => { const s = String(r.trajectory || r.trend || '').toLowerCase(); return /deteriorat|escalat|worsen/.test(s) ? 'deteriorating' : /improv/.test(s) ? 'improving' : 'stable'; };
+const trajOf = (r: any) => authoritativeTrajectory(r).toLowerCase();
 const isEscOpen = (e: any) => String(e.lifecycle_status || e.status || '').toLowerCase() !== 'closed' && String(e.lifecycle_status || e.status || '').toLowerCase() !== 'resolved';
 
 export default function HomeScreen() {
