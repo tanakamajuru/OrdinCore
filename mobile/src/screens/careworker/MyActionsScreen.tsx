@@ -7,6 +7,8 @@ import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -22,32 +24,46 @@ type Action = {
   done?: boolean;
 };
 
-const actions: Action[] = [
-  {
-    id: '1',
-    title: 'Check bedroom smoke detector',
-    location: 'Bedford House',
-    due: 'Due today, 10:00',
-    urgent: true,
-    tagLabel: 'Environmental signal',
-    tagColor: '#1B8A3E',
-    description: 'Check the smoke detector in the bedroom and ensure it is working correctly.',
-  },
-  {
-    id: '2',
-    title: 'Update care plan review',
-    location: 'Mary P.',
-    due: 'Due tomorrow, 12:00',
-    tagLabel: 'Care planning signal',
-    tagColor: '#7B5CE0',
-    description: 'Review and update the care plan following recent signal activity.',
-  },
-];
+const dueLine = (x?: string, overdue?: boolean) => {
+  if (!x) return 'No due date';
+  const d = new Date(x);
+  const days = Math.floor((d.getTime() - Date.now()) / 86400000);
+  const t = d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (overdue || days < 0) return `Overdue · was due ${d.toLocaleDateString()}`;
+  return days <= 0 ? `Due today, ${t}` : days === 1 ? `Due tomorrow, ${t}` : `Due in ${days} days`;
+};
+
+const tagColorFor = (d?: string): string => {
+  const s = String(d || '').toLowerCase();
+  if (/safeguard/.test(s)) return '#E08A2B';
+  if (/environment/.test(s)) return '#1B8A3E';
+  if (/medicat/.test(s)) return '#2E6FE0';
+  if (/care plan|wellbeing|mental/.test(s)) return '#7B5CE0';
+  return '#2E6FE0';
+};
+
+const isDone = (a: any) => /complete|done|closed/i.test(String(a.status || ''));
 
 export default function MyActionsScreen() {
   const { colors, spacing, radius } = useTheme();
   const [tab, setTab] = useState('To do');
   const navigation = useNavigation<any>();
+  const { data } = useApi<any>('/actions/my');
+
+  const actions: Action[] = listOf(data).map((a: any) => {
+    const domain = a.domain || a.risk_title || a.source || a.signal_domain;
+    return {
+      id: String(a.id),
+      title: a.title || a.description || 'Action',
+      location: a.house_name || a.service_user_name || a.service_name || '—',
+      due: dueLine(a.due_at || a.due_by, a.overdue),
+      urgent: !!(a.overdue || /high|critical|urgent/i.test(String(a.priority || ''))),
+      tagLabel: domain ? `${domain} signal` : 'Governance action',
+      tagColor: tagColorFor(domain),
+      description: a.description || a.title || '',
+      done: isDone(a),
+    };
+  });
 
   const visible = actions.filter((a) => (tab === 'To do' ? !a.done : a.done));
 
@@ -57,6 +73,7 @@ export default function MyActionsScreen() {
       <SegmentedControl options={['To do', 'Completed']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>
+        {visible.length === 0 && <Text muted variant="caption">{tab === 'To do' ? 'Nothing to do right now.' : 'No completed actions yet.'}</Text>}
         {visible.map((a) => (
           <Card
             key={a.id}

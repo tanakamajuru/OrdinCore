@@ -6,7 +6,9 @@ import React, { useState } from 'react';
 import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { roleAccent } from '@/theme/roleAccents';
+import { useAuth } from '@/auth/AuthContext';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -20,14 +22,6 @@ type Signal = {
   status: 'Under review' | 'Open' | 'Action assigned' | 'Actioned' | 'Closed';
 };
 
-const signals: Signal[] = [
-  { id: '1', icon: 'heart', color: '#7B5CE0', title: 'Mental Health & Wellbeing', person: 'John S.', submitted: 'Submitted today, 09:42', status: 'Under review' },
-  { id: '2', icon: 'home', color: '#1B8A3E', title: 'Environmental', person: 'Bedford House', submitted: 'Submitted yesterday, 14:20', status: 'Action assigned' },
-  { id: '3', icon: 'user', color: '#E08A2B', title: 'Safeguarding', person: 'Mary P.', submitted: 'Submitted 2 days ago', status: 'Open' },
-  { id: '4', icon: 'droplet', color: '#2E6FE0', title: 'Medication', person: 'John S.', submitted: 'Submitted 3 days ago', status: 'Actioned' },
-  { id: '5', icon: 'star', color: '#E08A2B', title: 'Positive Engagement', person: 'Mary P.', submitted: 'Submitted 5 days ago', status: 'Closed' },
-];
-
 const statusColor: Record<Signal['status'], string> = {
   'Under review': '#7B5CE0',
   Open: '#E08A2B',
@@ -36,9 +30,52 @@ const statusColor: Record<Signal['status'], string> = {
   Closed: '#667085',
 };
 
+// Domain -> icon/colour, so each signal reads at a glance (reference visual language).
+const domainVisual = (d?: string): { icon: keyof typeof Feather.glyphMap; color: string } => {
+  const s = String(d || '').toLowerCase();
+  if (/safeguard/.test(s)) return { icon: 'user', color: '#E08A2B' };
+  if (/medicat/.test(s)) return { icon: 'droplet', color: '#2E6FE0' };
+  if (/environment|propert/.test(s)) return { icon: 'home', color: '#1B8A3E' };
+  if (/mental|wellbeing|behaviour/.test(s)) return { icon: 'heart', color: '#7B5CE0' };
+  if (/positive|engage/.test(s)) return { icon: 'star', color: '#E08A2B' };
+  return { icon: 'activity', color: '#2E6FE0' };
+};
+
+const submittedLine = (x?: string) => {
+  if (!x) return 'Submitted';
+  const days = Math.floor((Date.now() - new Date(x).getTime()) / 86400000);
+  const t = new Date(x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  return days <= 0 ? `Submitted today, ${t}` : days === 1 ? `Submitted yesterday, ${t}` : `Submitted ${days} days ago`;
+};
+
+const statusOf = (p: any): Signal['status'] => {
+  const s = String(p.status || p.decision || '').toLowerCase();
+  if (/closed/.test(s)) return 'Closed';
+  if (/monitor/.test(s)) return 'Action assigned';
+  if (/reviewed|linked|action/.test(s)) return 'Actioned';
+  if (/open/.test(s)) return 'Open';
+  return 'Under review';
+};
+
 export default function MySignalsScreen() {
   const { colors, spacing } = useTheme();
+  const { user } = useAuth();
+  const uid = user?.id || user?.user_id;
   const [tab, setTab] = useState('All');
+  const { data } = useApi<any>(uid ? `/pulses?created_by=${uid}&limit=100` : '/pulses?limit=100');
+
+  const signals: Signal[] = listOf(data).map((p: any) => {
+    const v = domainVisual(p.domain || p.pillar || p.theme);
+    return {
+      id: String(p.id),
+      icon: v.icon,
+      color: v.color,
+      title: p.domain || p.pillar || p.theme || p.signal_type || 'Signal',
+      person: p.service_user_name || p.person || p.house_name || p.service_name || '—',
+      submitted: submittedLine(p.created_at || p.entry_date),
+      status: statusOf(p),
+    };
+  });
 
   const filtered = signals.filter((s) => {
     if (tab === 'All') return true;
@@ -55,6 +92,7 @@ export default function MySignalsScreen() {
       <SegmentedControl options={['All', 'Open', 'Actioned', 'Closed']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>
+        {filtered.length === 0 && <Text muted variant="caption">No signals to show.</Text>}
         {filtered.map((s) => (
           <Card key={s.id} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
             <Feather name={s.icon} size={18} color={s.color} />

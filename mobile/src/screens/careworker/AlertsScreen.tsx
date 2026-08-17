@@ -7,6 +7,8 @@ import { View } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { roleAccent } from '@/theme/roleAccents';
+import { useApi } from '@/api/useApi';
+import { listOf } from '@/api/mappers';
 import { Screen, Text, Row } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
@@ -18,19 +20,36 @@ type Alert = {
   dotColor: string;
 };
 
-const today: Alert[] = [
-  { id: '1', title: 'Action assigned to you', subtitle: 'Check bedroom smoke detector', time: '09:45', dotColor: '#1B8A3E' },
-  { id: '2', title: 'Signal reviewed', subtitle: 'Mental Health & Wellbeing - John S.', time: '08:30', dotColor: '#1B8A3E' },
-  { id: '3', title: 'Further information requested', subtitle: 'Safeguarding - Mary P.', time: 'Yesterday', dotColor: '#E08A2B' },
-  { id: '4', title: 'Action due today', subtitle: '2 actions due today', time: 'Yesterday', dotColor: '#E08A2B' },
-];
+const dotFor = (n: any): string => {
+  const s = String(n.type || n.category || n.severity || '').toLowerCase();
+  if (/overdue|urgent|escalat|warn|danger|high|critical/.test(s)) return '#E08A2B';
+  if (/complete|done|closed|read|info/.test(s)) return '#667085';
+  return '#1B8A3E';
+};
 
-const thisWeek: Alert[] = [
-  { id: '5', title: 'Action completed', subtitle: 'Medication review - John S.', time: '2 days ago', dotColor: '#667085' },
-];
+const timeLine = (x?: string) => {
+  if (!x) return '';
+  const days = Math.floor((Date.now() - new Date(x).getTime()) / 86400000);
+  if (days <= 0) return new Date(x).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  if (days === 1) return 'Yesterday';
+  return `${days} days ago`;
+};
 
 export default function AlertsScreen() {
   const { colors, spacing } = useTheme();
+  const { data } = useApi<any>('/notifications');
+
+  const all: (Alert & { ts: number })[] = listOf(data).map((n: any) => ({
+    id: String(n.id),
+    title: n.title || n.subject || n.type || 'Notification',
+    subtitle: n.body || n.message || n.description || '',
+    time: timeLine(n.created_at),
+    dotColor: dotFor(n),
+    ts: n.created_at ? new Date(n.created_at).getTime() : 0,
+  }));
+  const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0);
+  const today = all.filter((a) => a.ts >= startOfToday.getTime());
+  const thisWeek = all.filter((a) => a.ts < startOfToday.getTime());
 
   return (
     <Screen scroll>
