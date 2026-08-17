@@ -8,27 +8,45 @@ import { useNavigation } from '@react-navigation/native';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
+import { useApi } from '@/api/useApi';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
 
-const summary = [
-  { label: 'Governance reviews current', value: '92%', ok: true },
-  { label: 'Leadership narratives current', value: '100%', ok: true },
-  { label: 'Critical risks have decisions', value: '100%', ok: true },
-  { label: 'Escalations within threshold', value: '1 exception', ok: false },
-  { label: 'Effectiveness reviews complete', value: '88%', ok: true },
-  { label: 'Evidence gaps', value: '2', ok: false },
-];
-
-const gaps = [
-  { label: 'Workforce audit', status: 'Overdue', tone: 'high' as const },
-  { label: 'Fire safety audit', status: 'Due in 10 days', tone: 'medium' as const },
-];
+const ragOk = (v: any) => /good|strong/i.test(String(v || ''));
+const ragWord = (v: any) => String(v || '—');
 
 export default function ReadinessScreen() {
   const { colors, spacing, radius, severityColor, mode } = useTheme();
   const navigation = useNavigation();
   const { openDrawer } = useAppDrawer();
+  const { data: assur } = useApi<any>('/ri/assurance-summary');
+  const { data: wr } = useApi<any>('/rm/weekly-readiness');
+
+  const d: any = assur?.data ?? assur ?? {};
+  const w: any = wr?.data ?? wr ?? {};
+  const n = (v: any) => Number(v || 0);
+
+  const summary = [
+    { label: 'Risks identified early', value: ragWord(d.risks_identified_early), ok: ragOk(d.risks_identified_early) },
+    { label: 'Escalations timely', value: ragWord(d.escalations_timely), ok: ragOk(d.escalations_timely) },
+    { label: 'Actions effective', value: ragWord(d.actions_effective), ok: ragOk(d.actions_effective) },
+    { label: 'Closures evidenced', value: ragWord(d.closures_evidenced), ok: ragOk(d.closures_evidenced) },
+    { label: 'Reopened risks', value: `${n(d.reopened_risks)}`, ok: n(d.reopened_risks) === 0 },
+    { label: 'Overdue reviews', value: `${n(d.overdue_reviews)}`, ok: n(d.overdue_reviews) === 0 },
+  ];
+
+  // Overall readiness = share of the four RAG indicators that are Good/Strong.
+  const rags = [d.risks_identified_early, d.escalations_timely, d.actions_effective, d.closures_evidenced];
+  const goods = rags.filter(ragOk).length;
+  const overallPct = Math.round((goods / 4) * 100);
+  const concerns = rags.filter((x: any) => /concern/i.test(String(x))).length;
+  const band = concerns > 0 ? { label: 'Concern', color: colors.danger } : goods >= 3 ? { label: 'Good', color: colors.success } : { label: 'Watch', color: colors.warning };
+
+  const gaps = [
+    n(d.overdue_reviews) > 0 ? { label: 'Overdue governance reviews', status: `${n(d.overdue_reviews)} overdue`, tone: 'high' as const } : null,
+    n(d.reopened_risks) > 0 ? { label: 'Reopened risks', status: `${n(d.reopened_risks)} to re-evidence`, tone: 'medium' as const } : null,
+    w && w.ready === false ? { label: 'Weekly governance', status: 'Not ready', tone: 'medium' as const } : null,
+  ].filter(Boolean) as { label: string; status: string; tone: 'high' | 'medium' }[];
 
   return (
     <Screen scroll>
@@ -47,16 +65,16 @@ export default function ReadinessScreen() {
         </Text>
         <Row gap={spacing.sm} align="center">
           <Text variant="title" style={{ fontSize: 32 }}>
-            92%
+            {overallPct}%
           </Text>
-          <View style={{ backgroundColor: colors.success + '1F', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
-            <Text style={{ color: colors.success, fontSize: 12 }} weight="700">
-              Good
+          <View style={{ backgroundColor: band.color + '1F', borderRadius: 999, paddingHorizontal: 10, paddingVertical: 3 }}>
+            <Text style={{ color: band.color, fontSize: 12 }} weight="700">
+              {band.label}
             </Text>
           </View>
         </Row>
         <Text muted variant="caption" style={{ marginTop: 4 }}>
-          Evidence position is strong
+          {goods} of 4 assurance indicators strong
         </Text>
       </Card>
 
@@ -85,6 +103,7 @@ export default function ReadinessScreen() {
         Top Evidence Gaps
       </Text>
       <Card>
+        {gaps.length === 0 && <Text muted variant="caption">No evidence gaps — assurance position is complete.</Text>}
         {gaps.map((g, i) => {
           const t = severityColor(mode, g.tone);
           return (

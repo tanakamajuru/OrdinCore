@@ -61,10 +61,6 @@ export default function BoardReportsScreen() {
           <Feather name="chevron-right" size={16} color={colors.textMuted} />
         </Card>
       ))}
-
-      <Text muted variant="caption" style={{ textAlign: 'center', marginTop: spacing.sm }}>
-        Reports updated today, 09:30
-      </Text>
     </Screen>
   );
 }
