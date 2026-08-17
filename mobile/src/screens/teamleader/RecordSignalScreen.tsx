@@ -41,7 +41,7 @@ export default function RecordSignalScreen() {
       </Field>
 
       <Field label="What happened?">
-        <TextArea value={whatHappened} onChangeText={setWhatHappened} maxLength={500} />
+        <TextArea value={whatHappened} onChangeText={setWhatHappened} placeholder="A short governance observation (2–3 lines)…" maxLength={200} />
       </Field>
 
       <Field label="Immediate action required?">

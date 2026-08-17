@@ -112,8 +112,8 @@ export default function RaiseSignalScreen() {
           <TextArea
             value={description}
             onChangeText={setDescription}
-            placeholder="Briefly describe what happened..."
-            maxLength={1000}
+            placeholder="A short governance observation (2–3 lines)…"
+            maxLength={200}
           />
         </Field>
 
