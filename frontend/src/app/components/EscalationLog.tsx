@@ -127,31 +127,6 @@ export function EscalationLog() {
     }
   };
 
-  const handleResolve = async () => {
-    if (!selectedEscalation || !resolutionNotes) {
-      toast.error('Please provide resolution notes');
-      return;
-    }
-    setIsSubmitting(true);
-    try {
-      const res: any = await apiClient.post(`/escalations/${selectedEscalation.id}/resolve`, {
-        resolution_notes: resolutionNotes
-      });
-      const data = res?.data?.data ?? res?.data ?? {};
-      toast.success('Escalation resolved');
-      setSelectedEscalation(null);
-      setResolutionNotes("");
-      loadEscalations();
-      // Chapter 5 — closing the urgent response is NOT closing the risk. If a risk is
-      // linked, return the RM to it to decide: Close / Keep monitoring / Re-escalate.
-      if (data.linked_risk_id) setReturnToRisk(data.linked_risk_id);
-    } catch (err) {
-      toast.error('Failed to resolve escalation');
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
   const handleUpdateProgress = async () => {
     if (!selectedEscalation || !resolutionNotes) {
       toast.error('Please provide progress notes');
@@ -316,7 +291,7 @@ export function EscalationLog() {
                     <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
                   </div>
 
-                  <h3 className="text-lg text-foreground mb-2">{esc.risk_title || "Governance concern"}</h3>
+                  <h3 className="text-lg text-foreground mb-2">{esc.risk_title || [firstDomain(esc.signal_risk_domain), esc.signal_related_person].filter(Boolean).join(' · ') || 'Escalation'}</h3>
                   <p className="text-sm text-muted-foreground mb-4 line-clamp-3 break-words whitespace-pre-wrap">{esc.reason}</p>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border">
@@ -373,7 +348,7 @@ export function EscalationLog() {
                     </div>
 
                     <div>
-                      <label className="text-xs  uppercase text-muted-foreground block mb-1">Governance Concern</label>
+                      <label className="text-xs  uppercase text-muted-foreground block mb-1">Escalation Basis</label>
                       <div className="bg-muted border-l-4 border-primary p-3 text-sm text-foreground whitespace-pre-wrap break-words">
                         {selectedEscalation.reason}
                       </div>
@@ -483,6 +458,10 @@ export function EscalationLog() {
                         {/* The three-way decision: keep monitoring · resolve · escalate further.
                             Gated actions stay clickable so a tap focuses the note field (guidance,
                             not a dead button) while still looking inactive until a note is present. */}
+                        {/* Doctrine: one closure route. Keeping an escalation open is time-bound
+                            (a note is required). Closure is only ever via the evidence-based
+                            closure review below ("Close with evidence") — the old direct
+                            "Mark as Resolved" shortcut around the governance gate is removed. */}
                         <div className="flex flex-col sm:flex-row gap-3">
                           <Button
                             onClick={() => { if (requireNote()) handleUpdateProgress(); }}
@@ -493,24 +472,16 @@ export function EscalationLog() {
                           >
                             <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>
-                          <Button
-                            onClick={() => { if (requireNote()) handleResolve(); }}
-                            disabled={isSubmitting}
-                            title={!resolutionNotes ? "Add a note to enable" : "Mark this escalation resolved"}
-                            className={`flex-1 bg-success text-success-foreground hover:bg-success/90 ${!resolutionNotes ? 'opacity-60' : ''}`}
-                          >
-                            <CheckCircle2 className="w-4 h-4 mr-1.5" /> Mark as Resolved
-                          </Button>
                         </div>
                         {!resolutionNotes && (
-                          <p className="text-xs text-amber-600">A note is required before you can resolve or keep this escalation open — it's the record of your decision.</p>
+                          <p className="text-xs text-amber-600">A note is required before you can keep this escalation open or close it — it's the record of your decision.</p>
                         )}
 
                         <div className="flex flex-col sm:flex-row gap-3">
                           <button
-                            onClick={handleEscalateFurther}
+                            onClick={() => { if (requireNote()) handleEscalateFurther(); }}
                             disabled={isSubmitting}
-                            title="Escalate up the accountability ladder (RM → Director → RI)"
+                            title={!resolutionNotes ? "Add a reason to escalate further" : "Escalate up the accountability ladder (RM → Director → RI)"}
                             className="flex-1 px-4 py-2 rounded-lg border-2 border-destructive/40 text-destructive hover:bg-destructive/5 text-sm flex items-center justify-center gap-2 disabled:opacity-50"
                           >
                             <ShieldAlert className="w-4 h-4" /> Escalate further
@@ -629,7 +600,13 @@ export function EscalationLog() {
           || !((selectedEscalation as any)?.risk_id)
         }
         onClose={() => setCloseTarget(null)}
-        onClosed={() => { setSelectedEscalation(null); loadEscalations(); }}
+        onClosed={(result?: any) => {
+          setSelectedEscalation(null);
+          loadEscalations();
+          // Doctrine: evidence-based closure returns the RM to the linked risk to decide
+          // Close / Keep monitoring / Re-escalate — closing the escalation never auto-closes it.
+          if (result?.linked_risk_id) setReturnToRisk(result.linked_risk_id);
+        }}
       />
 
       {/* Chapter 5 — escalation closure returns to the linked risk (never ends the workflow). */}
