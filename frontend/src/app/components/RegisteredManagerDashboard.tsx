@@ -131,8 +131,10 @@ export function RegisteredManagerDashboard() {
 
   // ─── Counts for the navigator cards (no data tables are rendered) ─────────
   const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
-  const risingCount = openRisks.filter(r => ["Rising", "Deteriorating"].includes(r.trend || r.trajectory)).length;
-  const improvingCount = openRisks.filter(r => (r.trend || r.trajectory) === "Improving").length;
+  // Trajectory SSOT: prefer the authoritative engine result over the legacy trend field.
+  const dirOf = (r: any) => r.trajectory_direction || r.trajectory || r.trend;
+  const risingCount = openRisks.filter(r => ["Rising", "Deteriorating"].includes(dirOf(r))).length;
+  const improvingCount = openRisks.filter(r => dirOf(r) === "Improving").length;
   const stableCount = Math.max(openRisks.length - risingCount - improvingCount, 0);
   const openEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
   const overdueEsc = escalations.filter(e => e.overdue).length;
