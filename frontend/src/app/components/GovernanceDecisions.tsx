@@ -30,7 +30,6 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
     if (form.source === "service") return "This service (general)";
     const [kind, sid] = form.source.split(":");
     if (kind === "signal") { const s = signals.find((x: any) => x.id === sid); return s ? `Signal · ${(s.description || "").slice(0, 70)}` : "Signal"; }
-    if (kind === "pattern") { const p = patterns.find((x: any) => x.id === sid); return p ? `Pattern · ${p.cluster_label || p.domain || "Pattern"}` : "Pattern"; }
     return "This service (general)";
   };
 
@@ -60,7 +59,10 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
       const list = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
       // Only signals still awaiting a decision (not linked/closed), newest first so the
       // most recent inflow is easiest to attach a decision to.
-      const open = list.filter((s: any) => !["Linked", "Closed"].includes(s.review_status));
+      // Doctrine: the live decision picker shows only signals still awaiting a first decision.
+      // Once dealt with (Reviewed / Linked / Closed) a signal leaves the queue — it remains
+      // permanently stored as governance evidence, just not as outstanding work.
+      const open = list.filter((s: any) => !["Reviewed", "Linked", "Closed"].includes(s.review_status));
       open.sort((a: any, b: any) => new Date(b.created_at || b.entry_date || 0).getTime() - new Date(a.created_at || a.entry_date || 0).getTime());
       setSignals(open);
     } catch { setSignals([]); }
@@ -82,7 +84,7 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
       await apiClient.post("/governance-decisions", {
         house_id: houseId,
         pulse_entry_id: kind === "signal" ? sid : null,
-        cluster_id: kind === "pattern" ? sid : null,
+        cluster_id: null,
         what_is_happening: form.what.trim(),
         decision: form.decision,
         owner_id: form.owner_id || null,
@@ -143,7 +145,7 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
         <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2}
           placeholder="Leadership decision — e.g. Complete a medication audit at this service"
           className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
-        {(signals.length > 0 || patterns.length > 0) && (
+        {signals.length > 0 && (
           <div className="relative">
             <label className="text-[11px] text-muted-foreground">About (optional — links this decision to its source)</label>
             {/* Custom picker: a native <select> truncates each signal to one line, so the RM
@@ -172,17 +174,9 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
                       </button>
                     );
                   })}
-                  {patterns.length > 0 && <div className="px-3 pt-2 pb-1 text-[10px] uppercase tracking-wide text-muted-foreground bg-muted/40">Patterns</div>}
-                  {patterns.map((p: any) => {
-                    const label = p.cluster_label || p.domain || (Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain) || "Pattern";
-                    const person = p.linked_person || (p.person && p.person !== "—" ? p.person : "");
-                    return (
-                      <button key={p.id} type="button" onClick={() => { setForm({ ...form, source: `pattern:${p.id}` }); setSrcOpen(false); }}
-                        className={`w-full text-left px-3 py-2 text-sm border-t border-border/40 hover:bg-muted ${form.source === `pattern:${p.id}` ? "bg-primary/5" : ""}`}>
-                        {label}{person ? ` · ${person}` : ""}
-                      </button>
-                    );
-                  })}
+                  {/* Doctrine: patterns are NOT surfaced in the Daily Governance decision picker.
+                      The daily review acts on live signals; the pattern/pipeline architecture is
+                      unchanged but lives in its own module, not this workflow. */}
                 </div>
               </>
             )}
