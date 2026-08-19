@@ -120,7 +120,7 @@ export function InterventionPanel() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Intervention Progress</h1>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Intervention Effectiveness</h1>
           <p className="text-sm text-muted-foreground mt-1">Trajectory-based governance — every theme carries a direction of travel, a leadership response and its measured effect. {attention > 0 && <span className="text-red-600 font-medium">{attention} theme{attention === 1 ? "" : "s"} need attention.</span>}</p>
         </div>
 

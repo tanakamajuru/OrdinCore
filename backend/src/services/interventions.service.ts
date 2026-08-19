@@ -1,5 +1,5 @@
 import { query } from '../config/database';
-import { computeTrajectory } from './trajectory.service';
+import { trajectoryForRisk } from './trajectory.service';
 import { risksService } from './risks.service';
 
 /**
@@ -27,21 +27,6 @@ function directionLabel(direction: string): string {
   if (direction === 'Deteriorating') return 'Increasing';
   if (direction === 'Improving') return 'Reducing';
   return 'Stable';
-}
-
-// Recorded control verdicts for a theme, oldest-first. Feeding these into the trajectory is
-// what makes a theme RESPOND to its intervention: once controls are rated Effective the
-// direction eases, and two ineffective verdicts push it the other way. (Rising signals still
-// win — a claimed-effective control can never mask a worsening picture.)
-async function themeEffectivenessOutcomes(company_id: string, theme: string): Promise<string[]> {
-  return (await query(
-    `SELECT COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) AS outcome
-       FROM risk_actions ra JOIN risks r ON r.id = ra.risk_id
-      WHERE r.company_id = $1 AND ra.effectiveness_outcome IS NOT NULL
-        AND COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) = $2
-      ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) ASC`,
-    [company_id, theme]
-  )).rows.map((r: any) => String(r.outcome || '')).filter(Boolean);
 }
 
 // Average authoritative Risk Index of a theme's open risks (0 if none scored yet).
@@ -93,10 +78,34 @@ export const interventionsService = {
 
     const out = [];
     for (const t of themeRows) {
+      // The 6-week series is retained as EVIDENCE (a before/after timeline), NOT as a second
+      // trajectory calculation.
       const timeline = await this.themeTimeline(company_id, t.theme, 6);
-      const points = timeline.map((w: any) => w.weight);
-      const tr = computeTrajectory(points, await themeEffectivenessOutcomes(company_id, t.theme));
-      const direction = directionLabel(tr.direction);
+
+      // Trajectory SSOT: each active risk in the theme uses the one authoritative engine
+      // (trajectoryForRisk). The theme card only performs an exception-display ROLL-UP of those
+      // already-computed risk trajectories — it never calculates its own direction of travel.
+      const themeRisks = (await query(
+        `SELECT r.id, r.source_cluster_id
+           FROM risks r
+          WHERE r.company_id = $1 AND LOWER(r.status::text) NOT IN ('closed','resolved')
+            AND COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) = $2`,
+        [company_id, t.theme]
+      )).rows;
+      const risk_trajectories: { risk_id: string; direction: string; basis: string }[] = [];
+      for (const rr of themeRisks) {
+        const rtr = await trajectoryForRisk(rr.id, rr.source_cluster_id);
+        risk_trajectories.push({ risk_id: rr.id, direction: rtr.direction, basis: rtr.basis });
+      }
+      // Exception roll-up: any Deteriorating risk -> theme Deteriorating; all Improving ->
+      // Improving; otherwise Stable/mixed. No-risk themes resolve to Stable (basis says pending).
+      const rollupDirection: 'Deteriorating' | 'Improving' | 'Stable' =
+        risk_trajectories.some((x) => x.direction === 'Deteriorating') ? 'Deteriorating'
+        : (risk_trajectories.length > 0 && risk_trajectories.every((x) => x.direction === 'Improving')) ? 'Improving'
+        : 'Stable';
+      const rollupBasis = risk_trajectories.length === 0
+        ? 'No active risks linked to this theme yet — direction pending.'
+        : `Exception roll-up of ${risk_trajectories.length} linked risk trajector${risk_trajectories.length === 1 ? 'y' : 'ies'}.`;
       const intv = intvByTheme.get(String(t.theme).toLowerCase()) || null;
 
       // Mark the timeline week when the intervention started.
@@ -117,8 +126,9 @@ export const interventionsService = {
         primary_risk_id: t.primary_risk_id || null,
         openActions: Number(t.open_actions) || 0,
         completedActions: Number(t.completed_actions) || 0,
-        trajectory: { direction: tr.direction, label: direction, basis: tr.basis },
-        concern: concernOf(tr.direction, t.theme),
+        trajectory: { direction: rollupDirection, label: directionLabel(rollupDirection), basis: rollupBasis },
+        concern: concernOf(rollupDirection, t.theme),
+        risk_trajectories,
         timeline,
         currentRiskIndex: await themeRiskIndex(company_id, t.theme),
         intervention: intv ? {
