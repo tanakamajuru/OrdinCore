@@ -71,6 +71,9 @@ export function GovernanceDecisions({ houseId, patterns = [] }: { houseId?: stri
   const record = async () => {
     if (form.what.trim().length < 5) { toast.error("Describe the decision."); return; }
     if (!houseId) { toast.error("Choose the service this decision concerns."); return; }
+    // Doctrine: a Monitor decision must carry a next review date — that is what brings the
+    // signal back into the live queue as "Monitoring review due" when the date arrives.
+    if (form.decision === "Monitor" && !form.due_at) { toast.error("Set a next review date for a Monitor decision."); return; }
     setBusy(true);
     // Stable key for this submission so a retry/double-click can't create a duplicate.
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));

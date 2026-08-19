@@ -130,7 +130,8 @@ export function DirectorDashboard() {
     const domain = Array.isArray(d) ? d[0] : d;
     return (r.strategic_theme || domain || r.title || "").toString().trim();
   };
-  const trendOf = (r: any) => r.trend || r.trajectory || "Stable";
+  // Trajectory SSOT: authoritative direction first, legacy trend only as last resort.
+  const trendOf = (r: any) => r.trajectory_direction || r.trajectory || r.trend || "Stable";
   const rising = openRisks.filter(r => isRising(trendOf(r))).length;
   const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
   const stable = openRisks.length - rising - improving;
