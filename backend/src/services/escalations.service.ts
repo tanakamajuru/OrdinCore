@@ -511,6 +511,10 @@ export class EscalationsService {
    * This is the "Escalate further" action — distinct from closing.
    */
   async escalateFurther(id: string, company_id: string, user_id: string, reason?: string) {
+    // Doctrine: moving accountability upward (RM → Director → RI) requires a meaningful rationale.
+    if (!reason || !reason.trim() || reason.trim().length < 3) {
+      throw new Error('A reason is required to escalate further up the accountability ladder.');
+    }
     const escRes = await query(
       `SELECT e.*, u.role AS current_role
          FROM escalations e LEFT JOIN users u ON u.id = e.escalated_to

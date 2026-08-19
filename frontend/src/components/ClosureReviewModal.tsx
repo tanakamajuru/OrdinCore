@@ -6,7 +6,7 @@ import { apiClient } from "@/services/api";
 interface Props {
   open: boolean;
   onClose: () => void;
-  onClosed?: () => void;
+  onClosed?: (result?: any) => void;
   target: { type: "escalation" | "risk"; id: string; title?: string };
   // Gates derived from real state (e.g. the escalation's lifecycle). When true the
   // gate is shown as system-confirmed and locked, rather than a self-attest checkbox.
@@ -51,10 +51,14 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
         closure_reason: "Closed after evidence-based review",
         evidence: evidenceText,
       };
-      if (target.type === "escalation") await apiClient.closeEscalation(target.id, payload);
-      else await apiClient.closeRisk(target.id, payload);
+      const res: any = target.type === "escalation"
+        ? await apiClient.closeEscalation(target.id, payload)
+        : await apiClient.closeRisk(target.id, payload);
       toast.success(`${target.type === "escalation" ? "Escalation" : "Risk"} closed with evidence.`);
-      onClosed?.();
+      // Doctrine: closing the escalation is NOT closing the risk. Hand back the closure result
+      // (carrying linked_risk_id / post_closure_risk_review_required) so the caller can return
+      // the RM to the post-closure risk decision.
+      onClosed?.(res?.data?.data ?? res?.data ?? res);
       onClose();
     } catch (err: any) {
       toast.error(err?.message || "Failed to close.");
@@ -98,10 +102,15 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
           </p>
           <Gate label="All required actions are complete." derived={derivedActionsComplete} checked={actionsCompleted} onChange={setActionsCompleted} />
           <Gate label="Effectiveness has been reviewed." derived={derivedEffectivenessReviewed} checked={effectivenessReviewed} onChange={setEffectivenessReviewed} />
-          {/* The pattern-reduced attestation is genuinely a human judgement, so it stays a checkbox. */}
+          {/* Closure attestation — a human judgement, so it stays a checkbox. Doctrine: an
+              escalation can originate from a single critical signal, incident, risk or governance
+              decision — not only a pattern — so the escalation attestation speaks to the reason for
+              escalation being addressed, while risk closure keeps the pattern-reduced wording. */}
           <label className="flex items-start gap-2 text-sm py-1.5">
             <input type="checkbox" checked={patternReduced} onChange={(e) => setPatternReduced(e.target.checked)} className="mt-0.5" />
-            <span>The pattern has reduced and the concern is resolved.</span>
+            <span>{target.type === "escalation"
+              ? "The reason for escalation has been addressed and there is evidence supporting closure."
+              : "The pattern has reduced and the concern is resolved."}</span>
           </label>
           {/* Evidence is taken from the "Decision & notes" already recorded on the escalation —
               no need to write it a second time. Tick the gates and close. */}
