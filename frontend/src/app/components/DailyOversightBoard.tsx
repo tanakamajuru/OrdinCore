@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertCircle, ChevronRight, ShieldCheck, RefreshCw, Search, Shield, AlertTriangle, Users,
-  FileText, Bell, TrendingUp, PlusCircle, Activity, Flag, ClipboardList, Layers, CheckCircle2,
+  FileText, Bell, TrendingUp, PlusCircle, Flag, ClipboardList, Layers, CheckCircle2,
   Zap, Info, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -30,7 +30,6 @@ export function DailyOversightBoard() {
   // so Daily Oversight, My Work and the Pipeline can never disagree on the numbers.
   const [rmWithin, setRmWithin] = useState<any[]>([]);
   const [rmAcross, setRmAcross] = useState<any[]>([]);
-  const [rmCounts, setRmCounts] = useState<any>({});
   const [isLoading, setIsLoading] = useState(true);
   const [houses, setHouses] = useState<any[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
@@ -56,19 +55,17 @@ export function DailyOversightBoard() {
 
   const loadDashboard = async () => {
     try {
-      const [dashRes, housesRes, statsRes, patRes, countsRes] = await Promise.all([
+      const [dashRes, housesRes, statsRes, patRes] = await Promise.all([
         apiClient.get("/pulses/dashboard"),
         currentUserId ? apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
         apiClient.get("/rm/pattern-stats").catch(() => ({ data: {} })),
         apiClient.get("/rm/patterns").catch(() => ({ data: {} })),
-        apiClient.get("/rm/counts").catch(() => ({ data: {} })),
       ]);
       setData(dashRes.data.data);
       setStats(((statsRes as any).data?.data || (statsRes as any).data || {}) as PatternStats);
       const pat = (patRes as any).data?.data || (patRes as any).data || {};
       setRmWithin(Array.isArray(pat.within) ? pat.within : []);
       setRmAcross(Array.isArray(pat.across) ? pat.across : []);
-      setRmCounts((countsRes as any).data?.data || (countsRes as any).data || {});
       let list = (housesRes as any).data?.data || (housesRes as any).data || [];
       if (!Array.isArray(list) || list.length === 0) {
         try { const allRes = await apiClient.get("/houses"); list = allRes.data?.data || allRes.data || []; } catch { list = []; }
@@ -83,19 +80,18 @@ export function DailyOversightBoard() {
   // ---- derived posture (from the Pipeline's own data, so the numbers match exactly) ----
   // `within` = person/service patterns awaiting a decision (same set the Pipeline "Patterns"
   // tab and /rm/counts.patterns count). `across` = systemic (cross-service) patterns.
+  // Pattern posture is still computed (the pattern/pipeline architecture is unchanged and feeds
+  // the AI narrative + materiality), but it is no longer PRESENTED on the Daily Governance board.
   const patterns = rmWithin;
   const isReady = (c: any) => (c.signalCount >= (c.threshold ?? 3)) || c.hasCritical;
-  const isNearly = (c: any) => !isReady(c) && c.signalCount === (c.threshold ?? 3) - 1;
   const deterioratingCount = patterns.filter((c) => c.trajectory?.dir === "Deteriorating").length;
-  const nearlyCount = patterns.filter(isNearly).length;
   const readyCount = patterns.filter(isReady).length;
-  const activePatterns = Number(rmCounts?.patterns ?? patterns.length) || patterns.length;
   const openEsc = data?.open_escalations ?? 0;
   const highPriority = data?.highPriority ?? [];
   const actions = data?.actions ?? [];
+  const openActions = actions.length;
   const isDue = (a: any) => a.due_date && new Date(a.due_date).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
   const actionsDueToday = actions.filter(isDue).length;
-  const nearPromotion = nearlyCount + readyCount;
 
   // ---- AI narrative (grounded daily summary) ----
   const summaryPayload = {
@@ -298,17 +294,15 @@ export function DailyOversightBoard() {
               text={highPriority.length ? <><b>{highPriority.length}</b> high-risk concern{highPriority.length === 1 ? "" : "s"}.</> : "No new high-risk concerns."} />
             <SummaryItem Icon={AlertCircle} tone="bg-orange-500/10 text-orange-600" text={<><b>{openEsc}</b> escalation{openEsc === 1 ? "" : "s"} awaiting review.</>} />
             <SummaryItem Icon={ClipboardList} tone="bg-blue-500/10 text-blue-600" text={<><b>{actionsDueToday}</b> action{actionsDueToday === 1 ? "" : "s"} due today.</>} />
-            <SummaryItem Icon={TrendingUp} tone="bg-violet-500/10 text-violet-600" text={<><b>{nearPromotion}</b> pattern{nearPromotion === 1 ? "" : "s"} close to promotion.</>} />
           </div>
         </div>
 
-        {/* Colour-coded KPI cards */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4">
-          <KPI value={activePatterns} label="Active Patterns" tone="green" Icon={TrendingUp} />
-          <KPI value={deterioratingCount} label="Deteriorating" tone="red" Icon={Activity} />
-          <KPI value={nearlyCount} label="Nearly Promotable" tone="amber" Icon={Clock} />
-          <KPI value={readyCount} label="Ready to Promote" tone="blue" Icon={ChevronRight} />
+        {/* Colour-coded KPI cards — governance workload for the day (patterns live in the
+            separate Pipeline module, not this daily board). */}
+        <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPI value={highPriority.length} label="High Priority (48h)" tone="orange" Icon={Bell} />
+          <KPI value={actionsDueToday} label="Actions Due Today" tone="blue" Icon={ClipboardList} />
+          <KPI value={openActions} label="Open Actions" tone="green" Icon={Layers} />
           <KPI value={openEsc} label="Open Escalations" tone="slate" Icon={AlertCircle} />
         </div>
 
@@ -351,24 +345,8 @@ export function DailyOversightBoard() {
             </div>
           </div>
 
-          {/* Emerging patterns + Governance actions */}
+          {/* Governance actions (patterns are handled in the separate Pipeline module) */}
           <div className="space-y-6">
-            <div className="bg-card border-2 border-border rounded-xl p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-foreground">Review Emerging Patterns</h3>
-                <button onClick={() => navigate("/rm5")} className="text-sm text-primary flex items-center gap-1">View all patterns <ChevronRight size={14} /></button>
-              </div>
-              <div className="grid grid-cols-4 gap-2 text-center mb-4">
-                {[[stats.awaiting, "Patterns awaiting review"], [stats.promoted_today, "Promoted today"], [stats.dismissed_today, "Dismissed today"], [stats.avg_promotion_days, "Avg promotion (days)"]].map(([v, l], i) => (
-                  <div key={i}><div className="text-2xl font-bold text-foreground">{v as number}</div><div className="text-[10px] text-muted-foreground leading-tight mt-1">{l as string}</div></div>
-                ))}
-              </div>
-              <div className="flex items-center justify-between gap-3 flex-wrap">
-                <p className="text-xs text-muted-foreground max-w-[60%]">Promote, dismiss and track emerging patterns before they escalate.</p>
-                <button onClick={() => navigate("/rm5")} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold">Review Patterns</button>
-              </div>
-            </div>
-
             <div className="bg-card border-2 border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">Governance Actions <span className="text-xs bg-muted rounded-full px-2 py-0.5">{actions.length}</span></h3>
@@ -409,14 +387,13 @@ export function DailyOversightBoard() {
             <TodoCard Icon={Users} label="Review Escalations" tone="text-blue-600" onClick={() => navigate("/escalation-log")} />
             <TodoCard Icon={FileText} label="Publish / Update Weekly Review" tone="text-teal-600" onClick={() => navigate("/weekly-review")} />
             <TodoCard Icon={Flag} label="Handle Escalations" tone="text-purple-600" onClick={() => navigate("/escalation-log")} />
-            <TodoCard Icon={TrendingUp} label="Review Emerging Patterns" tone="text-amber-600" onClick={() => navigate("/rm5")} />
             <TodoCard Icon={PlusCircle} label="Record New Signal" tone="text-slate-600" onClick={() => navigate("/governance-pulse")} />
           </div>
         </div>
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} patterns={patterns.filter((p: any) => !house?.name || (Array.isArray(p.houses) && p.houses.includes(house.name)))} />
+        <GovernanceDecisions houseId={selectedHouseId} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -426,8 +403,7 @@ export function DailyOversightBoard() {
               <SummaryLine Icon={highPriority.length ? AlertTriangle : CheckCircle2} tone={highPriority.length ? "text-red-600" : "text-emerald-600"} title={highPriority.length ? `${highPriority.length} high-risk concern(s) recorded today.` : "No new high-risk concerns recorded today."} />
               <SummaryLine Icon={AlertCircle} tone="text-orange-600" title={`${openEsc} escalation(s) awaiting your review.`} />
               <SummaryLine Icon={ClipboardList} tone="text-blue-600" title={`${actionsDueToday} action(s) due today.`} />
-              <SummaryLine Icon={TrendingUp} tone="text-violet-600" title={`Overall risk posture: ${summaryPayload.overall_posture}`} sub={deterioratingCount ? `${deterioratingCount} pattern(s) deteriorating.` : "No significant deterioration detected."} />
-              <SummaryLine Icon={Layers} tone="text-teal-600" title={`Patterns: ${stats.awaiting} awaiting · ${readyCount} ready to promote.`} />
+              <SummaryLine Icon={TrendingUp} tone="text-violet-600" title={`Overall risk posture: ${summaryPayload.overall_posture}`} sub={deterioratingCount ? `${deterioratingCount} concern(s) deteriorating.` : "No significant deterioration detected."} />
             </div>
           </div>
 
@@ -453,7 +429,7 @@ export function DailyOversightBoard() {
             )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
-              placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all triage, patterns and actions above — what is the service position today?"} />
+              placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all signals and actions above — what is the service position today?"} />
 
             {/* Team Brief — the concise operational briefing published to Team Leaders (Ch2). */}
             <div className="mt-4">
