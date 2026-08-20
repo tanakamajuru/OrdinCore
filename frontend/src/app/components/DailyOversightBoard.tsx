@@ -121,9 +121,9 @@ export function DailyOversightBoard() {
         houseSignals = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
       } catch { /* fall back to no signals */ }
       const houseName = house?.name || "this service";
-      // Scope to the selected review date so the narrative is about THIS site on THAT day.
-      const dayScoped = houseSignals.filter((s: any) => isoDay(s.entry_date || s.created_at) === reviewDate);
-      const daySignals = dayScoped.length ? dayScoped : houseSignals;
+      // Doctrine: exact house/date scoping — the narrative/brief is about THIS site on THAT day
+      // only. Never substitute older signals; if the day is silent, that silence is the evidence.
+      const daySignals = houseSignals.filter((s: any) => isoDay(s.entry_date || s.created_at) === reviewDate);
       const periodLabel = prettyDay(reviewDate);
       const signalLines = daySignals.slice(0, 25).map((s: any) =>
         `${(s.entry_date || s.created_at) ? new Date(s.entry_date || s.created_at).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
@@ -393,7 +393,7 @@ export function DailyOversightBoard() {
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} />
+        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
