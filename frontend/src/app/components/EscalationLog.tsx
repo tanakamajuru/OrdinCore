@@ -50,6 +50,8 @@ export function EscalationLog() {
   const [returnToRisk, setReturnToRisk] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [closeTarget, setCloseTarget] = useState<{ id: string; title?: string } | null>(null);
+  // Continuing oversight is time-bound — the RM must set the next review point (doctrine).
+  const [nextReviewAt, setNextReviewAt] = useState("");
   const notesRef = useRef<HTMLTextAreaElement>(null);
   const [noteFlash, setNoteFlash] = useState(false);
   const [searchParams] = useSearchParams();
@@ -132,14 +134,20 @@ export function EscalationLog() {
       toast.error('Please provide progress notes');
       return;
     }
+    if (!nextReviewAt) {
+      toast.error('Set a next review date — continuing oversight must be time-bound.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await apiClient.post(`/escalations/${selectedEscalation.id}/actions`, {
         action_type: 'update',
-        description: resolutionNotes
+        description: resolutionNotes,
+        next_review_at: nextReviewAt,
       });
-      toast.success('Progress updated');
+      toast.success('Oversight continued — next review set');
       setResolutionNotes("");
+      setNextReviewAt("");
       loadEscalations();
     } catch (err) {
       toast.error('Failed to update progress');
@@ -462,13 +470,22 @@ export function EscalationLog() {
                             (a note is required). Closure is only ever via the evidence-based
                             closure review below ("Close with evidence") — the old direct
                             "Mark as Resolved" shortcut around the governance gate is removed. */}
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+                          <div className="flex-1">
+                            <label className="text-[11px] text-muted-foreground block mb-1">Next review date {!nextReviewAt && <span className="text-amber-600">· required to keep open</span>}</label>
+                            <input
+                              type="date"
+                              value={nextReviewAt}
+                              onChange={(e) => setNextReviewAt(e.target.value)}
+                              className={`w-full p-2.5 border-2 rounded-lg bg-background text-sm ${!nextReviewAt ? 'border-amber-400' : 'border-border'}`}
+                            />
+                          </div>
                           <Button
                             onClick={() => { if (requireNote()) handleUpdateProgress(); }}
                             disabled={isSubmitting}
                             variant="outline"
-                            title={!resolutionNotes ? "Add a note to enable" : "Keep this escalation open and log progress"}
-                            className={`flex-1 border-border text-foreground hover:bg-muted ${!resolutionNotes ? 'opacity-60' : ''}`}
+                            title={!resolutionNotes ? "Add a note to enable" : !nextReviewAt ? "Set a next review date" : "Keep this escalation open and log progress"}
+                            className={`flex-1 border-border text-foreground hover:bg-muted self-end ${!resolutionNotes || !nextReviewAt ? 'opacity-60' : ''}`}
                           >
                             <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>
