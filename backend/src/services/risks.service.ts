@@ -1102,6 +1102,9 @@ export class RisksService {
       await risksRepo.addEvent(risk_id, company_id, 'governance_concern', note, risk.created_by);
       await eventBus.emitEvent(EVENTS.GOVERNANCE_CONCERN, { risk_id, company_id, note });
     }
+    // Return the authoritative trajectory so callers (e.g. RM action review) can surface the
+    // engine's direction instead of computing their own.
+    return tr;
   }
 
   /**

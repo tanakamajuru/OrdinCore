@@ -127,24 +127,11 @@ export class ActionsController {
         [rm_decision, rm_comment || null, effectiveness, id, company_id]
       );
 
-      // 3. Update Risk Trajectory
-      const riskRes = await query('SELECT trajectory FROM risks WHERE id = $1', [action.risk_id]);
-      const currentTrajectory = riskRes.rows[0].trajectory;
-      let newTrajectory = currentTrajectory;
-
-      if (rm_decision === 'Confirm improvement') {
-        newTrajectory = 'Improving';
-      } else if (rm_decision === 'Negative impact') {
-        newTrajectory = (currentTrajectory === 'Deteriorating' || currentTrajectory === 'Critical') ? 'Critical' : 'Deteriorating';
-      }
-
-      if (newTrajectory !== currentTrajectory) {
-        await risksService.update(action.risk_id, company_id, user_id, { trajectory: newTrajectory });
-        await risksService.addEvent(action.risk_id, company_id, user_id, {
-          event_type: 'trajectory_update',
-          description: `Trajectory updated to ${newTrajectory} based on RM review of action "${action.title || action.description}"`
-        });
-      }
+      // 3. Refresh Risk Trajectory through the ONE authoritative engine.
+      // Trajectory SSOT: RM review contributes effectiveness evidence (written above); it must
+      // never directly set/force trajectory. The stored value is only ever a cache of the engine.
+      const trajectory = await risksService.updateTrajectoryFromActions(action.risk_id, company_id);
+      const newTrajectory = (trajectory as any)?.direction || 'Stable';
 
       // 4. Notification to TL (the one who was assigned and completed it)
       await notificationsService.create({

@@ -250,14 +250,16 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         );
     }
 
-    // SSOT (Finding K): store the ONE computed engine trajectory, not the local heuristic, so
-    // every stored-column reader (Patterns list, risk candidates, oversight) matches the engine.
-    // Keep the safety floor — a Safeguarding theme, or an in-window Critical, can never read
-    // calmer than Deteriorating on the boards.
+    // Trajectory SSOT: store ONLY the one authoritative engine result so every stored-column
+    // reader (Patterns list, risk candidates, oversight) matches the engine. Threshold rules
+    // above still FLAG concerns for review, but they no longer force the displayed trajectory,
+    // and the old Safeguarding/Critical deterioration floor is removed — severity is kept
+    // separate from direction of travel. The local heuristic remains only as a fallback if the
+    // engine read throws.
     let storedTrajectory = trajectory;
     try {
         const trc = await trajectoryForCluster(cluster_id);
-        storedTrajectory = (domain === 'Safeguarding' || hasHighCritical) ? 'Deteriorating' : trc.direction;
+        storedTrajectory = trc.direction;
     } catch (e) { logger.error('Cluster trajectory compute failed', e); }
 
     // Finalize Cluster Update
