@@ -1,127 +1,305 @@
 import { query } from '../config/database';
 
 /**
- * Finding K — one computed, explained trajectory for every role.
+ * Ordin Core authoritative trajectory engine.
  *
- * A single place that turns a risk/cluster's evidence into a direction of travel
- * (Improving / Stable / Deteriorating) WITH a plain-language basis and the weekly
- * signal-weight series (for a sparkline). RM, Director, RI and reports all read this
- * one figure, so the same risk can never look different in two places.
+ * IMPORTANT ARCHITECTURAL RULE:
+ * This file is the ONLY place that decides whether a concern is Improving,
+ * Stable or Deteriorating. Other services/controllers may cache or display
+ * the result, but must not apply their own trajectory rules.
  *
- * The core (`computeTrajectory`) is identical to the RM prototype, so live output
- * matches the design. Inputs are gathered from the real schema:
- *   - signal series: severity-weighted governance_pulses linked to the cluster via
- *     risk_signal_links, bucketed by week;
- *   - effectiveness: recorded control verdicts (effectiveness_outcome), oldest-first.
+ * Refinement of Finding K:
+ * - compares two equal 14-day windows (28 days total);
+ * - explicitly preserves zero-signal weeks;
+ * - keeps risk severity separate from direction of travel;
+ * - does not force Safeguarding or historic Critical evidence to Deteriorating;
+ * - uses action/control effectiveness as supporting evidence, not an override;
+ * - returns a plain-language basis for auditability and UI display.
+ *
+ * No new tables, routes or parallel trajectory subsystem are introduced.
  */
 
 export type TrajectoryDirection = 'Improving' | 'Stable' | 'Deteriorating';
+
 export interface Trajectory {
   direction: TrajectoryDirection;
   basis: string;
+  /** Four consecutive 7-day severity-weighted buckets, oldest -> newest. */
   points: number[];
+  /** Optional evidence metadata. Existing consumers can ignore this safely. */
+  evidence?: {
+    previous14DayWeight: number;
+    current14DayWeight: number;
+    previous14DaySignals: number;
+    current14DaySignals: number;
+    latestEffectiveness: string | null;
+    sufficientHistory: boolean;
+    windowDays: 14;
+    calculationVersion: 'trajectory-v3';
+  };
 }
 
-// Map the recorded verdict vocabulary to the three directional buckets.
-function normalizeOutcome(o: string): 'Effective' | 'Ineffective' | 'Neutral' {
-  const v = String(o || '').toLowerCase();
+type SignalEvidence = {
+  occurred_at: string | Date;
+  severity: string | null;
+};
+
+type EffectivenessEvidence = {
+  outcome: string;
+  reviewed_at: string | Date | null;
+};
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+const WINDOW_DAYS = 14;
+const TOTAL_DAYS = WINDOW_DAYS * 2;
+const CALCULATION_VERSION = 'trajectory-v3' as const;
+
+function severityWeight(severity?: string | null): number {
+  switch (String(severity || '').trim().toLowerCase()) {
+    case 'critical': return 4;
+    case 'high': return 3;
+    case 'medium':
+    case 'moderate': return 2;
+    case 'low': return 1;
+    default: return 1;
+  }
+}
+
+/**
+ * Keep the four governance effectiveness outcomes distinct.
+ * The value is deliberately smaller than the signal movement contribution:
+ * effectiveness informs direction; it cannot unilaterally decide direction.
+ */
+function effectivenessContribution(outcome?: string | null): number {
+  const v = String(outcome || '').trim().toLowerCase();
+  if (!v) return 0;
+  if (v === 'effective') return -1;
+  if (v.includes('partially effective') || v === 'partial' || v === 'partially') return -0.4;
+  if (v.includes('too early')) return 0;
+  if (v === 'ineffective' || v.includes('not effective')) return 1;
+  return 0;
+}
+
+function normalizeOutcomeLabel(outcome?: string | null): string | null {
+  const v = String(outcome || '').trim().toLowerCase();
+  if (!v) return null;
   if (v === 'effective') return 'Effective';
-  if (v.includes('not effective') || v === 'ineffective') return 'Ineffective';
-  return 'Neutral'; // Partially Effective / Too Early / Partially — no override
+  if (v.includes('partially effective') || v === 'partial' || v === 'partially') return 'Partially Effective';
+  if (v.includes('too early')) return 'Too Early To Assess';
+  if (v === 'ineffective' || v.includes('not effective')) return 'Not Effective';
+  return String(outcome);
 }
 
-/** Pure core — no I/O. Same logic as the RM prototype's `trajectory()`. */
-export function computeTrajectory(points: number[], outcomes: string[]): Trajectory {
-  const pts = Array.isArray(points) ? points : [];
-  const n = pts.length;
-  const recent = n ? pts.slice(-2).reduce((a, b) => a + b, 0) / Math.min(2, n) : 0;
-  const priorArr = n > 2 ? pts.slice(0, -2) : pts.slice(0, 1);
-  const prior = priorArr.length ? priorArr.reduce((a, b) => a + b, 0) / priorArr.length : recent;
-  const delta = recent - prior;
-  const last = outcomes && outcomes.length ? normalizeOutcome(outcomes[outcomes.length - 1]) : null;
+/**
+ * Build four complete rolling 7-day buckets over the last 28 days.
+ * Empty periods are deliberately represented as 0; silence is evidence and
+ * must not disappear from the series.
+ */
+export function buildFourWeekSeries(
+  signals: SignalEvidence[],
+  now: Date = new Date()
+): { points: number[]; counts: number[] } {
+  const end = now.getTime();
+  const start = end - TOTAL_DAYS * DAY_MS;
+  const points = [0, 0, 0, 0];
+  const counts = [0, 0, 0, 0];
+
+  for (const signal of Array.isArray(signals) ? signals : []) {
+    const at = new Date(signal.occurred_at).getTime();
+    if (!Number.isFinite(at) || at < start || at > end) continue;
+
+    // at === end belongs to the newest bucket. Clamp protects clock precision.
+    const elapsed = Math.min(Math.max(at - start, 0), TOTAL_DAYS * DAY_MS - 1);
+    const bucket = Math.min(3, Math.floor(elapsed / (7 * DAY_MS)));
+    points[bucket] += severityWeight(signal.severity);
+    counts[bucket] += 1;
+  }
+
+  return { points, counts };
+}
+
+/**
+ * Pure trajectory decision core.
+ *
+ * `points` must be four consecutive 7-day weighted buckets, oldest -> newest.
+ * The first two buckets form the previous 14-day window and the last two form
+ * the current 14-day window.
+ *
+ * Existing callers/tests that supply fewer buckets are padded with zeroes to
+ * preserve backwards compatibility while keeping the corrected equal-window
+ * behaviour.
+ */
+export function computeTrajectory(
+  points: number[],
+  outcomes: string[],
+  counts: number[] = [],
+): Trajectory {
+  const p = [0, 0, 0, 0];
+  const c = [0, 0, 0, 0];
+  const inputPoints = Array.isArray(points) ? points.slice(-4) : [];
+  const inputCounts = Array.isArray(counts) ? counts.slice(-4) : [];
+
+  for (let i = 0; i < inputPoints.length; i++) p[4 - inputPoints.length + i] = Number(inputPoints[i]) || 0;
+  for (let i = 0; i < inputCounts.length; i++) c[4 - inputCounts.length + i] = Number(inputCounts[i]) || 0;
+
+  const previousWeight = p[0] + p[1];
+  const currentWeight = p[2] + p[3];
+  const previousCount = c[0] + c[1];
+  const currentCount = c[2] + c[3];
+  const delta = currentWeight - previousWeight;
+
+  // A movement is material when it is at least one severity-weight point and
+  // at least 20% of the prior burden. When the prior burden is zero, any new
+  // weighted evidence is a material deterioration signal.
+  const materialThreshold = previousWeight === 0 ? 1 : Math.max(1, previousWeight * 0.20);
+
+  let signalDirectionScore = 0;
+  if (delta >= materialThreshold) signalDirectionScore = 2;
+  else if (delta <= -materialThreshold) signalDirectionScore = -2;
+
+  const latestRaw = outcomes && outcomes.length ? outcomes[outcomes.length - 1] : null;
+  const latestLabel = normalizeOutcomeLabel(latestRaw);
+  const effectivenessScore = effectivenessContribution(latestRaw);
+
+  // Signal movement deliberately has greater influence (±2) than one control
+  // rating (±1). This prevents a single effectiveness judgement from flipping
+  // clear contradictory longitudinal evidence.
+  const combined = signalDirectionScore + effectivenessScore;
 
   let direction: TrajectoryDirection = 'Stable';
-  let basis = `Signal weight steady (${recent.toFixed(1)} vs ${prior.toFixed(1)} prior).`;
-  if (delta > 0.6) { direction = 'Deteriorating'; basis = `Signals rising — recent ${recent.toFixed(1)} vs ${prior.toFixed(1)} prior.`; }
-  else if (delta < -0.6) { direction = 'Improving'; basis = `Signals easing — recent ${recent.toFixed(1)} vs ${prior.toFixed(1)} prior.`; }
-  if (last === 'Effective' && direction !== 'Deteriorating') { direction = 'Improving'; basis = 'Last control rated effective; signals not rising.'; }
-  if (last === 'Ineffective') { direction = 'Deteriorating'; basis = 'Last control rated ineffective — risk not controlled.'; }
-  return { direction, basis, points: pts };
+  if (combined >= 1) direction = 'Deteriorating';
+  else if (combined <= -1) direction = 'Improving';
+
+  const signalPhrase = currentWeight > previousWeight
+    ? `weighted signal burden increased from ${previousWeight.toFixed(1)} to ${currentWeight.toFixed(1)} over equal 14-day periods`
+    : currentWeight < previousWeight
+      ? `weighted signal burden reduced from ${previousWeight.toFixed(1)} to ${currentWeight.toFixed(1)} over equal 14-day periods`
+      : `weighted signal burden remained ${currentWeight.toFixed(1)} across the two 14-day periods`;
+
+  const countPhrase = (previousCount || currentCount)
+    ? ` (${previousCount} signals previously; ${currentCount} currently)`
+    : '';
+
+  const effectivenessPhrase = latestLabel
+    ? ` Latest control effectiveness: ${latestLabel}.`
+    : '';
+
+  // With no evidence in either period and no effectiveness review, the existing
+  // three-state UI is preserved by returning Stable while the basis makes clear
+  // that no directional conclusion should be inferred. This avoids a new UI
+  // state and therefore avoids behavioural/UI deviation in this refinement patch.
+  const sufficientHistory = previousWeight > 0 || currentWeight > 0 || !!latestLabel;
+  const basis = sufficientHistory
+    ? `${signalPhrase}${countPhrase}.${effectivenessPhrase}`
+    : 'No linked signal or effectiveness evidence is available in the 28-day comparison window; trajectory remains Stable pending evidence.';
+
+  return {
+    direction,
+    basis,
+    points: p,
+    evidence: {
+      previous14DayWeight: previousWeight,
+      current14DayWeight: currentWeight,
+      previous14DaySignals: previousCount,
+      current14DaySignals: currentCount,
+      latestEffectiveness: latestLabel,
+      sufficientHistory,
+      windowDays: WINDOW_DAYS,
+      calculationVersion: CALCULATION_VERSION,
+    },
+  };
 }
 
-/** Weekly severity-weighted signal series for a cluster's linked pulses. */
-export async function signalSeriesForCluster(cluster_id?: string | null): Promise<number[]> {
+/** Return linked signal evidence for a cluster for the authoritative 28-day window. */
+async function signalEvidenceForCluster(cluster_id?: string | null): Promise<SignalEvidence[]> {
   if (!cluster_id) return [];
   const r = await query(
-    `SELECT SUM(CASE gp.severity
-                  WHEN 'Critical' THEN 4 WHEN 'High' THEN 3
-                  WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2
-                  WHEN 'Low' THEN 1 ELSE 1 END)::float AS weight
+    `SELECT DISTINCT gp.id,
+            COALESCE(gp.created_at, gp.entry_date::timestamptz) AS occurred_at,
+            gp.severity
        FROM risk_signal_links rsl
        JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
       WHERE rsl.cluster_id = $1
-      GROUP BY date_trunc('week', COALESCE(gp.created_at, gp.entry_date))
-      ORDER BY date_trunc('week', COALESCE(gp.created_at, gp.entry_date)) ASC`,
+        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '28 days'
+        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <= NOW()
+      ORDER BY occurred_at ASC`,
     [cluster_id]
   );
-  return r.rows.map((row: any) => Number(row.weight) || 0);
+  return r.rows;
 }
 
-/** Recorded control verdicts for a risk, oldest-first (only genuinely-rated actions). */
-export async function effectivenessOutcomesForRisk(risk_id?: string | null): Promise<string[]> {
-  if (!risk_id) return [];
-  // effectiveness_outcome is the canonical rated verdict (written by the rating flow);
-  // `effectiveness` (enum) is the mapped fallback. NB: control_effectiveness is NOT a
-  // live column on risk_actions despite the handover pack assuming it — verified against
-  // the DB.
+/**
+ * Return all evidence linked to the risk. The OR preserves cluster-promoted risks
+ * and also covers critical-exception/single-signal risks that have direct risk links.
+ * DISTINCT prevents double weighting where the same pulse is linked both ways.
+ */
+async function signalEvidenceForRisk(
+  risk_id?: string | null,
+  source_cluster_id?: string | null,
+): Promise<SignalEvidence[]> {
+  if (!risk_id && !source_cluster_id) return [];
   const r = await query(
-    `SELECT COALESCE(effectiveness_outcome, effectiveness::text) AS outcome
+    `SELECT DISTINCT gp.id,
+            COALESCE(gp.created_at, gp.entry_date::timestamptz) AS occurred_at,
+            gp.severity
+       FROM risk_signal_links rsl
+       JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+      WHERE (($1::uuid IS NOT NULL AND rsl.risk_id = $1::uuid)
+          OR ($2::uuid IS NOT NULL AND rsl.cluster_id = $2::uuid))
+        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '28 days'
+        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <= NOW()
+      ORDER BY occurred_at ASC`,
+    [risk_id || null, source_cluster_id || null]
+  );
+  return r.rows;
+}
+
+/** Recorded control verdicts for a risk, oldest-first. */
+async function effectivenessEvidenceForRisk(risk_id?: string | null): Promise<EffectivenessEvidence[]> {
+  if (!risk_id) return [];
+  const r = await query(
+    `SELECT COALESCE(effectiveness_outcome, effectiveness::text) AS outcome,
+            COALESCE(effectiveness_reviewed_at, effectiveness_measured_at, completed_at, created_at) AS reviewed_at
        FROM risk_actions
-      WHERE risk_id = $1 AND effectiveness_outcome IS NOT NULL
+      WHERE risk_id = $1
+        AND (effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)
       ORDER BY COALESCE(effectiveness_reviewed_at, effectiveness_measured_at, completed_at, created_at) ASC`,
     [risk_id]
   );
-  return r.rows.map((row: any) => String(row.outcome || '')).filter(Boolean);
+  return r.rows
+    .map((row: any) => ({ outcome: String(row.outcome || ''), reviewed_at: row.reviewed_at || null }))
+    .filter((row: EffectivenessEvidence) => !!row.outcome);
+}
+
+/**
+ * Compatibility export retained for callers that use the old helper.
+ * It now returns the corrected complete four-week series including zero periods.
+ */
+export async function signalSeriesForCluster(cluster_id?: string | null): Promise<number[]> {
+  const evidence = await signalEvidenceForCluster(cluster_id);
+  return buildFourWeekSeries(evidence).points;
+}
+
+/** Compatibility export retained; returns canonical outcomes oldest-first. */
+export async function effectivenessOutcomesForRisk(risk_id?: string | null): Promise<string[]> {
+  return (await effectivenessEvidenceForRisk(risk_id)).map(x => x.outcome);
 }
 
 export async function trajectoryForCluster(cluster_id?: string | null): Promise<Trajectory> {
-  return computeTrajectory(await signalSeriesForCluster(cluster_id), []);
+  const evidence = await signalEvidenceForCluster(cluster_id);
+  const series = buildFourWeekSeries(evidence);
+  return computeTrajectory(series.points, [], series.counts);
 }
 
-export async function trajectoryForRisk(risk_id?: string | null, source_cluster_id?: string | null): Promise<Trajectory> {
-  const [points, outcomes] = await Promise.all([
-    signalSeriesForCluster(source_cluster_id),
-    effectivenessOutcomesForRisk(risk_id),
+export async function trajectoryForRisk(
+  risk_id?: string | null,
+  source_cluster_id?: string | null,
+): Promise<Trajectory> {
+  const [signals, effectiveness] = await Promise.all([
+    signalEvidenceForRisk(risk_id, source_cluster_id),
+    effectivenessEvidenceForRisk(risk_id),
   ]);
-  const t = computeTrajectory(points, outcomes);
 
-  // Safety floor — identical to the one the pattern board applies to clusters, so the SAME
-  // concern never reads calmer on the risk detail / register than it does as a pattern. An
-  // OPEN risk that carries a Critical signal or sits in the Safeguarding domain can never
-  // show better than Deteriorating. Closed/Resolved risks are left as computed (a resolved
-  // safeguarding risk should be allowed to read Improving).
-  if (risk_id && t.direction !== 'Deteriorating') {
-    try {
-      const f = (await query(
-        `SELECT
-           (r.status NOT IN ('Closed','Resolved')) AS open,
-           (r.risk_domain::text ILIKE '%safeguard%') AS is_safeguarding,
-           EXISTS (SELECT 1 FROM risk_signal_links rsl
-                     JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
-                    WHERE rsl.risk_id = r.id AND gp.severity = 'Critical') AS has_critical
-           FROM risks r WHERE r.id = $1`,
-        [risk_id]
-      )).rows[0];
-      if (f && f.open && (f.has_critical || f.is_safeguarding)) {
-        return {
-          direction: 'Deteriorating',
-          basis: f.has_critical
-            ? 'Critical signal on this risk — held at Deteriorating until controlled.'
-            : 'Safeguarding domain — held at Deteriorating until controlled.',
-          points: t.points,
-        };
-      }
-    } catch { /* floor is best-effort — never let it break a trajectory read */ }
-  }
-  return t;
+  const series = buildFourWeekSeries(signals);
+  return computeTrajectory(series.points, effectiveness.map(x => x.outcome), series.counts);
 }
