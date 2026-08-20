@@ -15,8 +15,6 @@ interface DashboardData {
   highPriority: any[]; pattern_signals: any[]; risk_candidates: any[]; actions: any[];
   promotion_threshold?: number; open_escalations?: number;
 }
-type PatternStats = { awaiting: number; promoted_today: number; dismissed_today: number; avg_promotion_days: number };
-
 const today = () => new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
 const isoToday = () => new Date().toISOString().slice(0, 10);
 const isoDay = (d: any) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch { return ""; } };
@@ -25,11 +23,6 @@ const prettyDay = (isoStr: string) => { try { return new Date(isoStr).toLocaleDa
 export function DailyOversightBoard() {
   const navigate = useNavigate();
   const [data, setData] = useState<DashboardData | null>(null);
-  const [stats, setStats] = useState<PatternStats>({ awaiting: 0, promoted_today: 0, dismissed_today: 0, avg_promotion_days: 0 });
-  // Pattern KPIs come from the SAME source the Pipeline uses (/rm/patterns, /rm/counts),
-  // so Daily Oversight, My Work and the Pipeline can never disagree on the numbers.
-  const [rmWithin, setRmWithin] = useState<any[]>([]);
-  const [rmAcross, setRmAcross] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [houses, setHouses] = useState<any[]>([]);
   const [selectedHouseId, setSelectedHouseId] = useState<string>("");
@@ -38,7 +31,6 @@ export function DailyOversightBoard() {
   // selected house, so the narrative stays about that site on that day.
   const [reviewDate, setReviewDate] = useState<string>(isoToday());
   const [dailyNote, setDailyNote] = useState("");
-  const [teamBrief, setTeamBrief] = useState("");
   const [isSigningOff, setIsSigningOff] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
@@ -55,17 +47,13 @@ export function DailyOversightBoard() {
 
   const loadDashboard = async () => {
     try {
-      const [dashRes, housesRes, statsRes, patRes] = await Promise.all([
+      // Doctrine: the Daily Governance board no longer depends on /rm/patterns. Patterns live in
+      // the separate Pipeline module; the daily flow is signals -> decisions -> Team Brief.
+      const [dashRes, housesRes] = await Promise.all([
         apiClient.get("/pulses/dashboard"),
         currentUserId ? apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-        apiClient.get("/rm/pattern-stats").catch(() => ({ data: {} })),
-        apiClient.get("/rm/patterns").catch(() => ({ data: {} })),
       ]);
       setData(dashRes.data.data);
-      setStats(((statsRes as any).data?.data || (statsRes as any).data || {}) as PatternStats);
-      const pat = (patRes as any).data?.data || (patRes as any).data || {};
-      setRmWithin(Array.isArray(pat.within) ? pat.within : []);
-      setRmAcross(Array.isArray(pat.across) ? pat.across : []);
       let list = (housesRes as any).data?.data || (housesRes as any).data || [];
       if (!Array.isArray(list) || list.length === 0) {
         try { const allRes = await apiClient.get("/houses"); list = allRes.data?.data || allRes.data || []; } catch { list = []; }
@@ -77,15 +65,7 @@ export function DailyOversightBoard() {
     finally { setIsLoading(false); }
   };
 
-  // ---- derived posture (from the Pipeline's own data, so the numbers match exactly) ----
-  // `within` = person/service patterns awaiting a decision (same set the Pipeline "Patterns"
-  // tab and /rm/counts.patterns count). `across` = systemic (cross-service) patterns.
-  // Pattern posture is still computed (the pattern/pipeline architecture is unchanged and feeds
-  // the AI narrative + materiality), but it is no longer PRESENTED on the Daily Governance board.
-  const patterns = rmWithin;
-  const isReady = (c: any) => (c.signalCount >= (c.threshold ?? 3)) || c.hasCritical;
-  const deterioratingCount = patterns.filter((c) => c.trajectory?.dir === "Deteriorating").length;
-  const readyCount = patterns.filter(isReady).length;
+  // ---- derived daily posture (signals, escalations, actions — NOT patterns) ----
   const openEsc = data?.open_escalations ?? 0;
   const highPriority = data?.highPriority ?? [];
   const actions = data?.actions ?? [];
@@ -93,20 +73,17 @@ export function DailyOversightBoard() {
   const isDue = (a: any) => a.due_date && new Date(a.due_date).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
   const actionsDueToday = actions.filter(isDue).length;
 
-  // ---- AI narrative (grounded daily summary) ----
+  // ---- Team Brief context (grounded daily summary) ----
   const summaryPayload = {
     high_risk_concerns: highPriority.length,
     escalations_awaiting_review: openEsc,
     governance_actions_due_today: actionsDueToday,
-    patterns_awaiting_review: stats.awaiting,
-    patterns_ready_to_promote: readyCount,
-    deteriorating_patterns: deterioratingCount,
-    overall_posture: deterioratingCount > 0 || highPriority.length > 0 ? "Attention" : "Stable",
+    overall_posture: highPriority.length > 0 || openEsc > 0 ? "Attention" : "Stable",
   };
 
-  // Materiality decides whether Team Leaders must acknowledge a brief, or simply see
+  // Materiality decides whether Team Leaders must acknowledge the brief, or simply see
   // "no new governance priorities today" (Chapter 2 — proportionate acknowledgement).
-  const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0 || deterioratingCount > 0 || readyCount > 0;
+  const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0;
 
   // Per-house narration: the RM signs off ONE house at a time, so the narrative must be
   // about THAT house's actual signals — not a service-wide summary they can't attest to.
@@ -129,39 +106,26 @@ export function DailyOversightBoard() {
         `${(s.entry_date || s.created_at) ? new Date(s.entry_date || s.created_at).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
       const houseHigh = daySignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
 
-      const [lead, brief] = await Promise.all([
-        fetchClient.post("/reports/narrative", {
-          reportTitle: `Daily Governance Narrative — ${houseName}`, periodLabel, serviceName: houseName,
-          data: {
-            service: houseName,
-            signals_recorded: houseSignals.length,
-            high_or_critical: houseHigh.length,
-            signals: signalLines,
-            overall_posture: houseHigh.length ? "Attention" : "Stable",
-            instruction: "Narrate the specific signals recorded at this house: what happened, for whom, severity, and the emerging governance picture. Ground every statement in the signals listed — do not generalise about the whole service.",
-          },
-        }),
-        materialChange ? fetchClient.post("/reports/narrative", {
-          reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel, serviceName: houseName,
-          data: {
-            audience: "Team Leaders",
-            style: "concise operational briefing that summarises today's signals at this house — what to watch, who, and the immediate actions",
-            service: houseName,
-            signals: signalLines,
-            actions_due_today: actionsDueToday,
-            escalations_awaiting_review: openEsc,
-          },
-        }) : Promise.resolve(null),
-      ]);
-      const leadOut = (lead as any)?.data?.data ?? (lead as any)?.data ?? lead;
-      setDailyNote(leadOut?.narrative || "");
-      if (brief) {
-        const briefOut = (brief as any)?.data?.data ?? (brief as any)?.data ?? brief;
-        setTeamBrief(briefOut?.narrative || "");
-      } else {
-        setTeamBrief("");
-      }
-    } catch { toast.error("Couldn't generate the narrative — you can write it below."); }
+      // Doctrine: the daily governance output is the Team Brief for Team Leaders — a concise
+      // operational briefing grounded in THIS house/date's signals. There is no separate
+      // "leadership narrative" in the daily flow (that belongs to the monthly/board narrative).
+      const brief = await fetchClient.post("/reports/narrative", {
+        reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel, serviceName: houseName,
+        data: {
+          audience: "Team Leaders",
+          style: "concise operational briefing that summarises today's signals at this house — what to watch, who, and the immediate actions",
+          service: houseName,
+          signals_recorded: houseSignals.length,
+          high_or_critical: houseHigh.length,
+          signals: signalLines,
+          actions_due_today: actionsDueToday,
+          escalations_awaiting_review: openEsc,
+          overall_posture: houseHigh.length ? "Attention" : "Stable",
+        },
+      });
+      const briefOut = (brief as any)?.data?.data ?? (brief as any)?.data ?? brief;
+      setDailyNote(briefOut?.narrative || "");
+    } catch { toast.error("Couldn't generate the team brief — you can write it below."); }
     finally { setAiBusy(false); }
   };
 
@@ -175,8 +139,7 @@ export function DailyOversightBoard() {
         const r: any = await apiClient.get(`/governance/daily-log/by-date?house_id=${selectedHouseId}&date=${reviewDate}`);
         const log = r.data?.data;
         if (!cancelled && log && log.completed) {
-          setDailyNote(log.leadership_narrative || log.daily_note || "");
-          setTeamBrief(log.team_brief || "");
+          setDailyNote(log.team_brief || log.leadership_narrative || log.daily_note || "");
           const at = log.published_at || log.completed_at;
           setSignedOff({ by: log.published_by_name || log.reviewed_by_name || "—", at: at ? new Date(at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) : prettyDay(reviewDate) });
           return;
@@ -191,21 +154,23 @@ export function DailyOversightBoard() {
   }, [isLoading, data, selectedHouseId, reviewDate]);
 
   const handleSignOff = async () => {
-    if (!dailyNote.trim()) { toast.error("A daily governance narrative is required for sign-off."); return; }
+    if (!dailyNote.trim()) { toast.error("A team brief is required for sign-off."); return; }
     if (!selectedHouseId) { toast.error("Choose which service you are signing off."); return; }
     setIsSigningOff(true);
     try {
       const openRes = await apiClient.post("/governance/daily-log/open", { house_id: selectedHouseId });
       const logId = openRes.data?.id || openRes.data?.data?.id;
+      // The Team Brief is the daily operational output; persisted to both columns for
+      // backward-compatible storage/readers (no separate leadership narrative in the daily flow).
       await apiClient.post(`/governance/daily-log/${logId}/complete`, {
         note: dailyNote,
+        team_brief: dailyNote,
         leadership_narrative: dailyNote,
-        team_brief: teamBrief,
         material_change: materialChange,
         is_deputy_review: isDeputyCover,
       });
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
-      toast.success("Daily governance signed off");
+      toast.success("Team brief signed off");
     } catch { toast.error("Sign-off failed"); }
     finally { setIsSigningOff(false); }
   };
@@ -403,17 +368,17 @@ export function DailyOversightBoard() {
               <SummaryLine Icon={highPriority.length ? AlertTriangle : CheckCircle2} tone={highPriority.length ? "text-red-600" : "text-emerald-600"} title={highPriority.length ? `${highPriority.length} high-risk concern(s) recorded today.` : "No new high-risk concerns recorded today."} />
               <SummaryLine Icon={AlertCircle} tone="text-orange-600" title={`${openEsc} escalation(s) awaiting your review.`} />
               <SummaryLine Icon={ClipboardList} tone="text-blue-600" title={`${actionsDueToday} action(s) due today.`} />
-              <SummaryLine Icon={TrendingUp} tone="text-violet-600" title={`Overall risk posture: ${summaryPayload.overall_posture}`} sub={deterioratingCount ? `${deterioratingCount} concern(s) deteriorating.` : "No significant deterioration detected."} />
+              <SummaryLine Icon={TrendingUp} tone="text-violet-600" title={`Overall governance posture: ${summaryPayload.overall_posture}`} sub={summaryPayload.overall_posture === "Attention" ? "Review the priorities below before signing off." : "No significant governance concerns today."} />
             </div>
           </div>
 
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">· private to leadership</span></h3>
+              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· published to Team Leaders</span></h3>
               <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="text-xs text-primary disabled:opacity-50">{aiBusy ? "Generating…" : "Regenerate"}</button>
             </div>
             {/* Service + date stay selectable even after sign-off, so leadership can browse and
-                play back previously signed-off records for any service on any past date. */}
+                play back previously signed-off briefs for any service on any past date. */}
             <div className="flex flex-col sm:flex-row gap-2 mb-3">
               {houses.length > 1 && (
                 <select value={selectedHouseId} onChange={(e) => setSelectedHouseId(e.target.value)} className="flex-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
@@ -421,30 +386,18 @@ export function DailyOversightBoard() {
                 </select>
               )}
               <input type="date" value={reviewDate} max={isoToday()} onChange={(e) => setReviewDate(e.target.value || isoToday())}
-                title="Draft or play back the narrative for this date"
+                title="Draft or play back the team brief for this date"
                 className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
             </div>
             {signedOff && reviewDate !== isoToday() && (
-              <div className="mb-3 text-[11px] text-muted-foreground bg-muted/40 rounded px-2 py-1">Viewing the signed-off record for {prettyDay(reviewDate)} — read only.</div>
+              <div className="mb-3 text-[11px] text-muted-foreground bg-muted/40 rounded px-2 py-1">Viewing the signed-off brief for {prettyDay(reviewDate)} — read only.</div>
+            )}
+            {!materialChange && !signedOff && (
+              <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5 mb-2">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." You can still record a brief below.</p>
             )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
-              placeholder={aiBusy ? "Drafting the day's narrative…" : "Considering all signals and actions above — what is the service position today?"} />
-
-            {/* Team Brief — the concise operational briefing published to Team Leaders (Ch2). */}
-            <div className="mt-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Users size={14} className="text-primary" />
-                <h4 className="text-xs font-semibold uppercase tracking-wide text-primary">Team Brief · published to Team Leaders</h4>
-              </div>
-              {materialChange ? (
-                <textarea value={teamBrief} onChange={(e) => setTeamBrief(e.target.value)} disabled={!!signedOff}
-                  className="w-full h-24 p-3 border-2 border-border rounded-lg bg-background text-sm leading-6 disabled:opacity-70"
-                  placeholder={aiBusy ? "Drafting the team brief…" : "Today's priorities, emerging concerns and immediate actions for Team Leaders."} />
-              ) : (
-                <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." (no acknowledgement required).</p>
-              )}
-            </div>
+              placeholder={aiBusy ? "Drafting today's team brief…" : "Today's priorities, emerging concerns and immediate actions for Team Leaders — grounded in the signals and actions above."} />
 
             {signedOff ? (
               <div className="mt-4 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
@@ -455,9 +408,9 @@ export function DailyOversightBoard() {
             ) : (
               <>
                 <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5">
-                  <Info size={14} className="mt-0.5 shrink-0" /> Please review the drafted narrative. You can edit it before signing off — you remain accountable for the signed record.
+                  <Info size={14} className="mt-0.5 shrink-0" /> Please review the drafted team brief. You can edit it before signing off — you remain accountable for the signed record.
                 </div>
-                <p className="text-sm text-foreground mt-3 mb-2">Do you accept this narrative?</p>
+                <p className="text-sm text-foreground mt-3 mb-2">Do you accept this team brief?</p>
                 <div className="flex items-center gap-3 flex-wrap">
                   <button onClick={() => setShowPreview(true)} disabled={!dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 border-2 border-primary/40 text-primary rounded-lg text-sm font-medium disabled:opacity-50">
                     <Search size={16} /> Preview report
@@ -466,7 +419,7 @@ export function DailyOversightBoard() {
                     <CheckCircle2 size={16} /> {isSigningOff ? "Signing…" : "Accept & Sign Off"}
                   </button>
                   <button onClick={() => noteRef.current?.focus()} className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg text-sm">
-                    <FileText size={16} /> Edit Narrative
+                    <FileText size={16} /> Edit Brief
                   </button>
                 </div>
               </>
@@ -490,12 +443,8 @@ export function DailyOversightBoard() {
             </div>
             <div className="px-6 py-5 space-y-6">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Leadership Narrative <span className="normal-case font-normal text-muted-foreground">(private to leadership)</span></div>
-                <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{dailyNote || "—"}</div>
-              </div>
-              <div className="border-t border-border pt-5">
                 <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Team Brief <span className="normal-case font-normal text-muted-foreground">(published to Team Leaders)</span></div>
-                <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{materialChange ? (teamBrief || "—") : "No new governance priorities today. Continue with existing actions."}</div>
+                <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{materialChange ? (dailyNote || "—") : "No new governance priorities today. Continue with existing actions."}</div>
               </div>
             </div>
             <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex justify-end gap-3">
