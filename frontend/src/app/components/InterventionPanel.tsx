@@ -173,21 +173,46 @@ export function InterventionPanel() {
                             </div>
                           );
                         })()}
-                        {/* Action effectiveness — before → after with % improvement */}
-                        {intv.risk_index_before != null && (
+                        {/* Formal effectiveness — the existing human-reviewed action-effectiveness
+                            judgement (Effective / Partially Effective / Not Effective / Too Early).
+                            No synthetic Risk-Index percentage is claimed. */}
+                        {intv.effectiveness_review?.outcome && (
                           <div className="mt-2 rounded-lg bg-muted/50 p-2.5">
                             <div className="flex items-center justify-between text-xs">
-                              <span className="text-muted-foreground">Risk before</span>
-                              <span className="font-semibold text-foreground">{intv.risk_index_before}</span>
+                              <span className="text-muted-foreground">Effectiveness (reviewed)</span>
+                              <span className={`font-semibold ${
+                                intv.effectiveness_review.outcome === "Effective" ? "text-emerald-600"
+                                : intv.effectiveness_review.outcome === "Not Effective" ? "text-red-600"
+                                : "text-foreground"}`}>{intv.effectiveness_review.outcome}</span>
                             </div>
-                            <div className="flex items-center justify-between text-xs mt-0.5">
-                              <span className="text-muted-foreground">Risk now</span>
-                              <span className="font-semibold text-foreground">{intv.risk_index_now ?? t.currentRiskIndex ?? "—"}</span>
-                            </div>
-                            {intv.effectiveness != null && (
-                              <div className={`mt-1.5 text-xs font-semibold ${intv.effectiveness > 0 ? "text-emerald-600" : intv.effectiveness < 0 ? "text-red-600" : "text-muted-foreground"}`}>
-                                {intv.effectiveness > 0 ? `▼ ${intv.effectiveness}% improvement` : intv.effectiveness < 0 ? `▲ ${Math.abs(intv.effectiveness)}% worse` : "No measurable change"}
+                            {intv.effectiveness_review.reviewed_at && (
+                              <div className="text-[11px] text-muted-foreground mt-0.5">Reviewed {new Date(intv.effectiveness_review.reviewed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</div>
+                            )}
+                            {intv.effectiveness_review.evidence && (
+                              <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-wrap break-words">{intv.effectiveness_review.evidence}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* Observable 14-day before → after evidence around the intervention start.
+                            Signal counts / weighted burden / high-critical — no percentage claim. */}
+                        {intv.evidence_comparison && (
+                          <div className="mt-2 rounded-lg border border-border p-2.5">
+                            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Observable evidence (14 days before → after)</div>
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                              <div>
+                                <div className="text-muted-foreground">Before</div>
+                                <div className="font-semibold text-foreground">{intv.evidence_comparison.before.signal_count} signals</div>
+                                <div className="text-[11px] text-muted-foreground">burden {intv.evidence_comparison.before.weighted_burden} · {intv.evidence_comparison.before.high_or_critical} high/critical</div>
                               </div>
+                              <div>
+                                <div className="text-muted-foreground">After ({intv.evidence_comparison.after.days_observed}d)</div>
+                                <div className="font-semibold text-foreground">{intv.evidence_comparison.after.signal_count} signals</div>
+                                <div className="text-[11px] text-muted-foreground">burden {intv.evidence_comparison.after.weighted_burden} · {intv.evidence_comparison.after.high_or_critical} high/critical</div>
+                              </div>
+                            </div>
+                            {!intv.evidence_comparison.after_window_complete && (
+                              <div className="text-[11px] text-amber-600 mt-1.5">Post-intervention window still in progress — evidence is indicative, not conclusive.</div>
                             )}
                           </div>
                         )}
