@@ -184,61 +184,13 @@ export class EscalationsService {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
-    if (escalation.rows[0].status === 'resolved' || escalation.rows[0].status === 'closed') {
-      throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
-    }
-
-    const status = 'Resolved';
-    // Keep lifecycle_status in sync with the legacy status. Dashboards treat any
-    // escalation whose lifecycle_status != 'Closed' as still open, so resolving
-    // must also close the lifecycle or the item lingers in the queue as "Open".
-    await query(
-      `UPDATE escalations
-         SET status = $1, lifecycle_status = 'Closed',
-             resolved_at = NOW(), closed_at = NOW(), closed_by = $4,
-             resolution_notes = $2, updated_at = NOW()
-       WHERE id = $3`,
-      [status, resolution_notes, id, user_id]
-    );
-
-    await query(
-      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
-       VALUES ($1,$2,$3,'Resolved',$4,$5)`,
-      [uuidv4(), id, company_id, resolution_notes, user_id]
-    );
-
-    // Close the loop back to the Team Leader who raised the signal.
-    await this.notifyOriginator(escalation.rows[0], company_id, user_id, 'ESCALATION_RESOLVED', 'Your escalation was resolved', 'resolved');
-
-    await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: id, company_id, resolved_by: user_id });
-
-    // Chapter 5 — Escalation Closure asks only "was the urgent response completed?".
-    // It must NEVER close the underlying risk. Instead it requires a return-to-risk review:
-    // flag it, so the RM is prompted to decide Close / Keep open / Re-escalate.
-    // The linked risk can come from risk_id or from the source pattern's linked risk.
-    let riskId = escalation.rows[0].risk_id as string | null;
-    if (!riskId && escalation.rows[0].source_cluster_id) {
-      const c = await query(`SELECT linked_risk_id FROM signal_clusters WHERE id = $1`, [escalation.rows[0].source_cluster_id]);
-      riskId = c.rows[0]?.linked_risk_id || null;
-    }
-    if (riskId) {
-      await query(`UPDATE escalations SET post_closure_risk_review_required = TRUE WHERE id = $1`, [id]);
-      const openRes = await query(`SELECT COUNT(*) FROM escalations WHERE risk_id = $1 AND status NOT IN ('Resolved','Closed')`, [riskId]);
-      const openCount = parseInt(openRes.rows[0].count || '0');
-      if (openCount === 0) {
-        try {
-          // Return the risk to active monitoring (NOT closed) — closure is a separate,
-          // evidence-based decision made on the risk itself (Chapter 6).
-          await risksRepo.updateStatus(riskId, company_id, 'Open');
-          await risksRepo.addEvent(riskId, company_id, 'escalation_resolved', `Urgent response complete — risk returned to monitoring for review`, user_id);
-        } catch (err) {
-          console.warn('Failed to update risk status after escalation resolved:', err);
-        }
-      }
-    }
-
-    // Return the linked risk so the UI can offer "review the linked risk now?".
-    return { message: 'Escalation resolved successfully', linked_risk_id: riskId, post_closure_risk_review_required: !!riskId };
+    // Doctrine: there is ONE closure route — the evidence-based closure review. This legacy
+    // endpoint is retained only for route compatibility and no longer closes an escalation
+    // directly, so it can never be used as a hidden shortcut around the governance gates
+    // (actions complete, effectiveness reviewed, evidence recorded, return-to-risk). The
+    // parameters are intentionally unused now that the method refuses.
+    void user_id; void resolution_notes;
+    throw new Error('Direct resolve is disabled. Close this escalation through the evidence-based closure review (POST /escalations/:id/closure-review), which enforces the governance gates and returns you to the linked risk.');
   }
 
   // Chapter 5/6 (§4) — after an escalation is closed, the RM must decide what happens to the
@@ -358,7 +310,7 @@ export class EscalationsService {
     return { message: 'Escalation acknowledged' };
   }
 
-  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string }) {
+  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string; next_review_at?: string }) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
@@ -371,6 +323,20 @@ export class EscalationsService {
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [uuidv4(), id, company_id, data.action_type, data.description, user_id]
     );
+
+    // Doctrine: continuing oversight is time-bound. When the RM keeps an escalation open they
+    // must set a next review point — recorded on the escalation's EXISTING metadata JSONB as
+    // next_review_at (no schema change) and aligned onto due_by so the queue resurfaces it then.
+    if (data.next_review_at) {
+      await query(
+        `UPDATE escalations
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('next_review_at', $2::text),
+                due_by = $2::timestamptz,
+                updated_at = NOW()
+          WHERE id = $1`,
+        [id, data.next_review_at]
+      );
+    }
     return result.rows[0];
   }
 
