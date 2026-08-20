@@ -32,6 +32,10 @@ interface Escalation {
   signal_type?: string;
   signal_logged_at?: string;
   signal_logged_by_name?: string;
+  // Read-only effectiveness context (from existing risk_actions; not an escalation engine).
+  latest_effectiveness?: string | null;
+  actions_completed_count?: number | string;
+  actions_total_count?: number | string;
 }
 
 // risk_domain is TEXT[] — render the first element, never the raw {…}.
@@ -361,6 +365,26 @@ export function EscalationLog() {
                         {selectedEscalation.reason}
                       </div>
                     </div>
+
+                    {/* Read-only effectiveness context — the existing risk_actions verdict and
+                        action completion for the linked risk. Evidence only; it never closes the
+                        escalation (closure is the separate evidence-based review). */}
+                    {(selectedEscalation.latest_effectiveness || Number(selectedEscalation.actions_total_count) > 0) && (
+                      <div>
+                        <label className="text-xs uppercase text-muted-foreground block mb-1">Control effectiveness (read-only)</label>
+                        <div className="flex items-center justify-between gap-3 border-2 border-border rounded-lg p-3 text-sm">
+                          <span className={`font-semibold ${
+                            selectedEscalation.latest_effectiveness === 'Effective' ? 'text-emerald-600'
+                            : /not effective|ineffective/i.test(String(selectedEscalation.latest_effectiveness)) ? 'text-destructive'
+                            : 'text-foreground'}`}>
+                            {selectedEscalation.latest_effectiveness || 'Not yet rated'}
+                          </span>
+                          <span className="text-xs text-muted-foreground">
+                            {Number(selectedEscalation.actions_completed_count) || 0}/{Number(selectedEscalation.actions_total_count) || 0} actions complete
+                          </span>
+                        </div>
+                      </div>
+                    )}
 
                     {/* Originating signal — the decision-making evidence (observation,
                         severity, person, immediate action already taken). */}
