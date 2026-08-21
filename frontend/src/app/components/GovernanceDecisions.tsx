@@ -24,10 +24,15 @@ export function GovernanceDecisions({
   houseId,
   reviewDate,
   readOnly = false,
+  houses = [],
+  onSelectHouse,
 }: {
   houseId?: string;
   reviewDate: string;
   readOnly?: boolean;
+  /** House list + selector so the RM picks the service right here while deciding. */
+  houses?: Array<{ id: string; name: string }>;
+  onSelectHouse?: (id: string) => void;
 }) {
   const [owners, setOwners] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
@@ -192,6 +197,22 @@ export function GovernanceDecisions({
         </div>
         <span className="text-xs text-muted-foreground">{signals.length} signal{signals.length === 1 ? "" : "s"} awaiting / due for review</span>
       </div>
+
+      {/* Pick the service (house) to decide on — signals are grouped by house, so the RM chooses
+          the house here and reviews that house's live signals. */}
+      {onSelectHouse && houses.length > 0 && (
+        <div className="mb-4">
+          <label className="text-[11px] text-muted-foreground">Service (house)</label>
+          <select
+            value={houseId || ""}
+            onChange={(e) => onSelectHouse(e.target.value)}
+            disabled={readOnly}
+            className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm disabled:opacity-70"
+          >
+            {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+          </select>
+        </div>
+      )}
 
       {previousHasItems && (
         <div className="mb-5 rounded-lg border border-border bg-muted/30 p-3">

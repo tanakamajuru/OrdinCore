@@ -358,7 +358,7 @@ export function DailyOversightBoard() {
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff} />
+        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff} houses={houses} onSelectHouse={setSelectedHouseId} />
 
         {/* Governance summary + AI narrative sign-off */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
