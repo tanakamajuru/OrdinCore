@@ -372,10 +372,12 @@ export class PulseService {
 
         // 4. Actions: Due today or overdue
         const actions = await query(
-            `SELECT ra.*, h.name as house_name, r.title as risk_title
+            `SELECT ra.*, h.name as house_name, r.title as risk_title,
+                    (au.first_name || ' ' || au.last_name) AS assigned_to_name
              FROM risk_actions ra
              LEFT JOIN risks r ON r.id = ra.risk_id
              LEFT JOIN houses h ON h.id = r.house_id
+             LEFT JOIN users au ON au.id = ra.assigned_to
              WHERE ra.company_id = $1 AND ra.status IN ('Pending', 'In Progress', 'Overdue')
              AND (ra.due_date <= CURRENT_DATE OR ra.status = 'Overdue')
              AND (r.house_id IN (${placeholderIds}) OR ra.risk_id IS NULL)

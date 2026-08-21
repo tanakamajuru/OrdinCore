@@ -150,6 +150,37 @@ export class ActionsController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
+  // Remind the person an action is assigned to — creates a notification for them (RM chases work
+  // from the Daily Oversight board). Does not change the action; it is a nudge only.
+  async remind(req: Request, res: Response) {
+    const { company_id, user_id } = (req as any).user;
+    const { id } = req.params;
+    try {
+      const r = await query(
+        `SELECT ra.id, ra.title, ra.description, ra.assigned_to, ra.due_date, r.title AS risk_title
+           FROM risk_actions ra LEFT JOIN risks r ON r.id = ra.risk_id
+          WHERE ra.id = $1 AND ra.company_id = $2`,
+        [id, company_id]
+      );
+      const action = r.rows[0];
+      if (!action) return res.status(404).json({ success: false, message: 'Action not found', errors: [] });
+      if (!action.assigned_to) return res.status(400).json({ success: false, message: 'This action has no assignee to remind.', errors: [] });
+      await notificationsService.create({
+        company_id,
+        user_id: action.assigned_to,
+        type: 'action_reminder',
+        title: 'Reminder: action needs attention',
+        body: `${action.title || action.description || 'An action'}${action.due_date ? ` · due ${new Date(action.due_date).toLocaleDateString('en-GB')}` : ''}`,
+        link: '/my-actions',
+        metadata: { action_id: id, reminded_by: user_id },
+      });
+      return res.json({ success: true, message: 'Reminder sent.' });
+    } catch (err: any) {
+      logger.error('Error reminding action assignee', err);
+      return res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
   async getMyActions(req: Request, res: Response) {
     const { company_id, user_id } = (req as any).user;
     try {
