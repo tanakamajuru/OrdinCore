@@ -52,6 +52,9 @@ export function GovernanceDecisions({
   const [fromDate, setFromDate] = useState(reviewDate);
   const [toDate, setToDate] = useState(reviewDate);
   const [actionedSignals, setActionedSignals] = useState<any[]>([]);
+  // Allocate a task to a person for this service — available even when there are no new signals.
+  const [taskForm, setTaskForm] = useState({ what: "", owner_id: "", due_at: "" });
+  const [taskBusy, setTaskBusy] = useState(false);
   const idemKey = useRef<string | null>(null);
 
   // Keep the range anchored to the selected review date when it changes.
@@ -192,6 +195,32 @@ export function GovernanceDecisions({
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to record decision");
     } finally { setBusy(false); }
+  };
+
+  // Allocate a governance task for this service to a person — a service-level decision that
+  // creates an assigned action even when there is no specific signal to decide on.
+  const allocateTask = async () => {
+    if (readOnly) return;
+    if (!houseId) { toast.error("Choose the service first."); return; }
+    if (taskForm.what.trim().length < 5) { toast.error("Describe the task to allocate."); return; }
+    if (!taskForm.owner_id) { toast.error("Choose who to allocate the task to."); return; }
+    setTaskBusy(true);
+    try {
+      await apiClient.post("/governance-decisions", {
+        house_id: houseId,
+        what_is_happening: taskForm.what.trim(),
+        decision: "Create Action",
+        owner_id: taskForm.owner_id,
+        due_at: taskForm.due_at || null,
+        action_description: taskForm.what.trim(),
+        idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
+      });
+      toast.success("Task allocated");
+      setTaskForm({ what: "", owner_id: "", due_at: "" });
+      await Promise.all([loadDecisions(), loadSignals()]);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to allocate task");
+    } finally { setTaskBusy(false); }
   };
 
   const StatusPill = ({ s }: { s: string }) => {
@@ -343,6 +372,30 @@ export function GovernanceDecisions({
           <div className="flex justify-end">
             <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
               <Plus size={15} /> {busy ? "Recording…" : "Record decision"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Allocate a task — assign governance work for THIS service to a person, available even
+          when there are no new signals to decide (a service-level Create Action decision). */}
+      {!readOnly && houseId && (
+        <div className="mt-5 border-t border-border pt-4">
+          <div className="text-xs font-semibold uppercase tracking-wide text-primary mb-1">Allocate a task</div>
+          <p className="text-[11px] text-muted-foreground mb-2">Assign a governance task for this service to a person.</p>
+          <textarea value={taskForm.what} onChange={(e) => setTaskForm({ ...taskForm, what: e.target.value })} rows={2}
+            placeholder="What needs doing? (the task / action to be completed)"
+            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
+            <select value={taskForm.owner_id} onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+              <option value="">Allocate to…</option>
+              {owners.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+            </select>
+            <input type="date" value={taskForm.due_at} onChange={(e) => setTaskForm({ ...taskForm, due_at: e.target.value })} title="Due date" className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+          </div>
+          <div className="flex justify-end mt-2">
+            <button onClick={allocateTask} disabled={taskBusy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+              <Plus size={15} /> {taskBusy ? "Allocating…" : "Allocate task"}
             </button>
           </div>
         </div>
