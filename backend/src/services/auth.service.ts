@@ -12,9 +12,17 @@ const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
 
 const hashToken = (raw: string) => crypto.createHash('sha256').update(raw).digest('hex');
 
-const JWT_SECRET = process.env.JWT_SECRET || 'fallback-secret';
+// Security (C4): JWT signing/verification secrets must be provided by the environment as two
+// independent values. No fallback secret exists — a missing secret is a fatal startup error in
+// production so tokens can never be signed/verified with a guessable constant. A clearly-labelled
+// dev-only value is used outside production so local/test runs work without prod secrets.
+const isProd = process.env.NODE_ENV === 'production';
+const JWT_SECRET = process.env.JWT_SECRET || (isProd ? '' : 'dev-only-insecure-access-secret');
+const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || (isProd ? '' : 'dev-only-insecure-refresh-secret');
+if (!JWT_SECRET || !JWT_REFRESH_SECRET) {
+  throw new Error('JWT_SECRET and JWT_REFRESH_SECRET are required — set both in the environment. Refusing to start.');
+}
 const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '7d';
-const JWT_REFRESH_SECRET = process.env.JWT_REFRESH_SECRET || 'refresh-fallback';
 const JWT_REFRESH_EXPIRES_IN = process.env.JWT_REFRESH_EXPIRES_IN || '30d';
 
 export class AuthService {

@@ -6,12 +6,19 @@ let poolInstance: Pool | null = null;
 export const getPool = (): Pool => {
   if (!poolInstance) {
     const isProd = process.env.NODE_ENV === 'production';
+    // Security (C1): the database password must come exclusively from the environment.
+    // No production credential is embedded in source. Fail fast if it is absent in production;
+    // a local-dev default is allowed only outside production.
+    const password = process.env.DB_PASSWORD ?? (isProd ? undefined : 'postgres');
+    if (!password) {
+      throw new Error('DB_PASSWORD is required — set it in the environment. Refusing to start.');
+    }
     const config: PoolConfig = {
       host: process.env.DB_HOST || 'localhost',
       port: parseInt(process.env.DB_PORT || '5432'),
       database: process.env.DB_NAME || (isProd ? 'ordincore' : 'caresignal'),
       user: process.env.DB_USER || (isProd ? 'ordinuser' : 'postgres'),
-      password: process.env.DB_PASSWORD || (isProd ? 'Highway@1520' : 'postgres'),
+      password,
       max: 20,
       idleTimeoutMillis: 30000,
       connectionTimeoutMillis: 2000,
