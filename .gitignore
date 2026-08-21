@@ -17,5 +17,22 @@ backend/scratch/
 landing-page/dist/
 landing-page/.env
 
-# Mobile app (Expo / React Native) — kept out of the repo for now
-mobile/
+# Mobile app (Expo / React Native) — build artifacts only; source is tracked
+mobile/.expo/
+mobile/dist/
+mobile/dist-verify/
+mobile/web-build/
+
+# Database dumps / backups — never commit (may contain PII, safeguarding data, password hashes)
+*.dump
+*.sql.gz
+*.bak
+*_dump.sql
+*_dump_*.sql
+backup.sql
+backend/local_dump.sql
+backend/ordincore_backup.sql
+database_dump.sql
+clean_database_dump.sql
+simple_dump.sql
+caresignal_db.dump
