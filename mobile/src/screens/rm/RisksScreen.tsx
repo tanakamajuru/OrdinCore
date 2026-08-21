@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf, authoritativeTrajectory } from '@/api/mappers';
 import { Screen, Text, Row, Card, FilterPill, Chip } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Risk = {
   id: string;
@@ -35,6 +36,7 @@ const isOpenRisk = (r: any) => String(r.status || '').toLowerCase() !== 'closed'
 
 export default function RisksScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/risks?limit=300');
 
   const risks: Risk[] = listOf(data).filter(isOpenRisk).map((r: any) => ({
@@ -50,7 +52,7 @@ export default function RisksScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="Risks" onBellPress={() => {}} />
+      <BoardHeader title="Risks" onMenuPress={openDrawer} onBellPress={() => {}} />
 
       <Row gap={spacing.sm} style={{ marginBottom: spacing.lg }}>
         <FilterPill label="All Sites" />

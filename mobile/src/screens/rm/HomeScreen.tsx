@@ -12,6 +12,7 @@ import { useApi } from '@/api/useApi';
 import { authoritativeTrajectory } from '@/api/mappers';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader, StatusList, SectionTitle, type StatusRow } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type SevTone = 'high' | 'medium' | 'low' | 'info' | 'neutral' | 'success';
 const toneOf = (t?: string): SevTone => (t === 'red' ? 'high' : t === 'amber' ? 'medium' : t === 'blue' ? 'info' : t === 'emerald' ? 'success' : 'neutral');
@@ -22,6 +23,7 @@ const isEscOpen = (e: any) => String(e.lifecycle_status || e.status || '').toLow
 
 export default function HomeScreen() {
   const { spacing, severityColor, mode } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const { data: mw } = useApi<any>('/my-work');
@@ -57,7 +59,7 @@ export default function HomeScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Registered Manager" onBellPress={() => {}} />
+      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Registered Manager" onMenuPress={openDrawer} onBellPress={() => {}} />
 
       <SectionTitle title="Needs your attention" />
       <StatusList rows={attentionRows} onPressRow={() => {}} />

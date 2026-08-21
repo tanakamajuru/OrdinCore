@@ -9,15 +9,17 @@ import { myWorkRows } from '@/api/mappers';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { Feather } from '@expo/vector-icons';
 import { BoardHeader, StatusList } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 export default function MyWorkScreen() {
   const { colors, spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/my-work');
   const rows = myWorkRows(data);
 
   return (
     <Screen scroll>
-      <BoardHeader title="My Work" onBellPress={() => {}} />
+      <BoardHeader title="My Work" onMenuPress={openDrawer} onBellPress={() => {}} />
       <Text muted variant="caption" style={{ marginBottom: spacing.md, marginTop: -spacing.sm }}>
         Work requiring your decision
       </Text>

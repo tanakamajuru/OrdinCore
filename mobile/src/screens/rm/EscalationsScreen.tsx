@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, FilterPill, Chip } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Escalation = {
   id: string;
@@ -31,6 +32,7 @@ const isEscOpen = (e: any) => !/closed|resolved/i.test(String(e.lifecycle_status
 
 export default function EscalationsScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const navigation = useNavigation<any>();
   const { data } = useApi<any>('/escalations?limit=300');
 
@@ -47,7 +49,7 @@ export default function EscalationsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="Escalations" onBellPress={() => {}} />
+      <BoardHeader title="Escalations" onMenuPress={openDrawer} onBellPress={() => {}} />
 
       <Row gap={spacing.sm} style={{ marginBottom: spacing.lg }}>
         <FilterPill label="All Sites" />
