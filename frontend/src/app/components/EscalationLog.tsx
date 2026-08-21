@@ -210,8 +210,15 @@ export function EscalationLog() {
   })();
   const [filter, setFilter] = useState<'all' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
   const [page, setPage] = useState(1);
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const PAGE_SIZE = 10;
-  useEffect(() => { setPage(1); }, [filter]);
+  useEffect(() => { setPage(1); }, [filter, fromDate, toDate]);
+  const inRange = (e: any) => {
+    if (fromDate && new Date(e.created_at) < new Date(`${fromDate}T00:00:00`)) return false;
+    if (toDate && new Date(e.created_at) > new Date(`${toDate}T23:59:59`)) return false;
+    return true;
+  };
 
   const counts = {
     needs: escalations.filter(e => lifecycleState(e) === 'needs').length,
@@ -219,7 +226,7 @@ export function EscalationLog() {
     resolved: escalations.filter(e => lifecycleState(e) === 'resolved').length,
   };
   const visibleEscalations = escalations
-    .filter(e => filter === 'all' || lifecycleState(e) === filter)
+    .filter(e => (filter === 'all' || lifecycleState(e) === filter) && inRange(e))
     .sort((a, b) => {
       const w = STATE_META[lifecycleState(a)].weight - STATE_META[lifecycleState(b)].weight;
       if (w !== 0) return w;
@@ -278,6 +285,22 @@ export function EscalationLog() {
                   {t.label} <span className="text-xs opacity-70">({t.n})</span>
                 </button>
               ))}
+            </div>
+
+            {/* Search by date range (raised date) */}
+            <div className="flex flex-wrap items-end gap-2 mb-4">
+              <div>
+                <label className="text-[11px] text-muted-foreground block">From</label>
+                <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground block">To</label>
+                <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+              </div>
+              {(fromDate || toDate) && (
+                <button onClick={() => { setFromDate(""); setToDate(""); }} className="px-3 py-2 text-sm text-primary hover:underline">Clear dates</button>
+              )}
+              <span className="text-xs text-muted-foreground ml-auto self-center">{visibleEscalations.length} result{visibleEscalations.length === 1 ? "" : "s"}</span>
             </div>
 
             {visibleEscalations.length > 0 ? pagedEscalations.map((esc) => {
