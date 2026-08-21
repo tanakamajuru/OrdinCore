@@ -33,8 +33,13 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     }
 
     const token = authHeader.split(' ')[1];
-    const secret = process.env.JWT_SECRET || 'fallback-secret';
-
+    // Security (C4): verify only with the configured secret — never a fallback constant. The
+    // startup guard in auth.service guarantees JWT_SECRET is present in production.
+    const secret = process.env.JWT_SECRET;
+    if (!secret) {
+      res.status(500).json({ success: false, message: 'Server auth is not configured', errors: [] });
+      return;
+    }
     const decoded = jwt.verify(token, secret) as JwtPayload;
 
     // Verify user still exists and is active, and fetch assigned houses

@@ -22,7 +22,11 @@ export function initSocketServer(httpServer: HttpServer): Server {
       const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
       if (!token) return next(new Error('Authentication required'));
 
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as {
+      // Security (C4): WebSocket auth verifies with the configured secret only — no fallback
+      // constant. Startup guard (auth.service) guarantees JWT_SECRET is present in production.
+      const secret = process.env.JWT_SECRET;
+      if (!secret) return next(new Error('Server auth is not configured'));
+      const decoded = jwt.verify(token, secret) as {
         user_id: string; company_id: string | null; role: string;
       };
 
