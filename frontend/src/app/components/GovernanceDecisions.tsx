@@ -48,7 +48,14 @@ export function GovernanceDecisions({
     source: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
+  // Date range for picking signals (defaults to the selected review date; the RM can widen it).
+  const [fromDate, setFromDate] = useState(reviewDate);
+  const [toDate, setToDate] = useState(reviewDate);
+  const [actionedSignals, setActionedSignals] = useState<any[]>([]);
   const idemKey = useRef<string | null>(null);
+
+  // Keep the range anchored to the selected review date when it changes.
+  useEffect(() => { setFromDate(reviewDate); setToDate(reviewDate); }, [reviewDate]);
 
   const fmtWhen = (dt: any) => {
     try {
@@ -106,15 +113,19 @@ export function GovernanceDecisions({
         if (d.pulse_entry_id && !latestByPulse.has(d.pulse_entry_id)) latestByPulse.set(d.pulse_entry_id, d);
       }
 
-      const selectedEnd = new Date(`${reviewDate}T23:59:59`);
+      const selectedEnd = new Date(`${toDate}T23:59:59`);
+      const inRange = (s: any) => {
+        const d = isoDay(s.entry_date || s.created_at);
+        if (fromDate && d < fromDate) return false;
+        if (toDate && d > toDate) return false;
+        return true;
+      };
+      // Signals still awaiting a decision in the chosen house + date range.
       const visible = all.filter((s: any) => {
+        if (!inRange(s)) return false;
         const status = String(s.review_status || "New");
-
-        // Fresh daily evidence: exact selected house/date only.
-        if ((status === "New" || status === "") && isoDay(s.entry_date || s.created_at) === reviewDate) return true;
-
-        // Monitoring is not an indefinite hiding place. It returns to governance only when
-        // the latest Monitor decision's review date has arrived or passed.
+        if (status === "New" || status === "") return true;
+        // Monitoring returns only when the latest Monitor decision's review date is due/overdue.
         if (status === "Monitoring") {
           const latest = latestByPulse.get(s.id);
           if (!latest || latest.decision !== "Monitor" || !latest.due_at) return false;
@@ -122,9 +133,18 @@ export function GovernanceDecisions({
         }
         return false;
       });
+      // Signals in the same range that have already been actioned — shown read-only as evidence.
+      const decidedIds = new Set(visible.map((s: any) => s.id));
+      const actioned = all.filter((s: any) => {
+        if (!inRange(s) || decidedIds.has(s.id)) return false;
+        const status = String(s.review_status || "New");
+        return latestByPulse.has(s.id) || ["Reviewed", "Linked", "Closed", "Monitoring"].includes(status);
+      });
 
       visible.sort((a: any, b: any) => new Date(b.created_at || b.entry_date || 0).getTime() - new Date(a.created_at || a.entry_date || 0).getTime());
+      actioned.sort((a: any, b: any) => new Date(b.created_at || b.entry_date || 0).getTime() - new Date(a.created_at || a.entry_date || 0).getTime());
       setSignals(visible);
+      setActionedSignals(actioned);
 
       // Avoid leaving a stale source selected after it has been actioned/closed/escalated.
       if (form.source) {
@@ -139,7 +159,7 @@ export function GovernanceDecisions({
     loadDecisions();
     loadSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [houseId, reviewDate]);
+  }, [houseId, reviewDate, fromDate, toDate]);
 
   const record = async () => {
     if (readOnly) return;
@@ -211,6 +231,33 @@ export function GovernanceDecisions({
           >
             {houses.map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
           </select>
+        </div>
+      )}
+
+      {/* Date range — pick specific signals for this house across a period. */}
+      <div className="flex flex-wrap items-end gap-2 mb-4">
+        <div>
+          <label className="text-[11px] text-muted-foreground block">From</label>
+          <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} disabled={readOnly} className="p-2 border-2 border-border rounded-lg bg-background text-sm disabled:opacity-70" />
+        </div>
+        <div>
+          <label className="text-[11px] text-muted-foreground block">To</label>
+          <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} disabled={readOnly} className="p-2 border-2 border-border rounded-lg bg-background text-sm disabled:opacity-70" />
+        </div>
+      </div>
+
+      {/* Signals already actioned in this house + range — read-only evidence (marked ACTIONED). */}
+      {actionedSignals.length > 0 && (
+        <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3">
+          <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Actioned in this range ({actionedSignals.length})</div>
+          <div className="space-y-1.5">
+            {actionedSignals.slice(0, 8).map((s: any) => (
+              <div key={s.id} className="flex items-center justify-between gap-3 text-sm">
+                <span className="text-foreground truncate">{s.related_person ? `${s.related_person} · ` : ""}{(s.description || s.governance_domain || s.signal_type || "Signal").slice(0, 80)}</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-success/10 text-success shrink-0">ACTIONED</span>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 
