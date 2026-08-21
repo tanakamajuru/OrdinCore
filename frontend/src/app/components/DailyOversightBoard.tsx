@@ -2,8 +2,8 @@ import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
   AlertCircle, ChevronRight, ShieldCheck, RefreshCw, Search, Shield, AlertTriangle, Users,
-  FileText, Bell, TrendingUp, PlusCircle, Flag, ClipboardList, Layers, CheckCircle2,
-  Zap, Info, Clock,
+  FileText, Bell, PlusCircle, Flag, ClipboardList, Layers, CheckCircle2,
+  Info, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -106,20 +106,33 @@ export function DailyOversightBoard() {
         `${(s.entry_date || s.created_at) ? new Date(s.entry_date || s.created_at).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
       const houseHigh = daySignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
 
+      // Pull the governance decisions for this house/date so the brief can state the decisions
+      // taken, the pending decisions not yet fully effected, and their ageing.
+      let decisionLines: string[] = [];
+      try {
+        const dres = await apiClient.get(`/governance-decisions?date=${reviewDate}&house_id=${selectedHouseId}`);
+        const decisions = dres.data?.data?.decisions || [];
+        decisionLines = decisions.slice(0, 30).map((d: any) => {
+          const age = d.created_at ? Math.max(0, Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000)) : null;
+          const ageTxt = age == null ? "" : age === 0 ? " (recorded today)" : ` (${age}d old)`;
+          const pending = !/complete|closed|done/i.test(String(d.rollup_status || d.decision_status || ""));
+          return `${d.decision || "Decision"} — ${(d.what_is_happening || "").trim()} · ${pending ? "PENDING" : "effected"} (${d.rollup_status || d.decision_status || "—"})${d.owner_name ? ` · owner ${d.owner_name}` : ""}${ageTxt}`.trim();
+        });
+      } catch { /* decisions optional */ }
+
       // Doctrine: the daily governance output is the Team Brief for Team Leaders — a concise
-      // operational briefing grounded in THIS house/date's signals. There is no separate
-      // "leadership narrative" in the daily flow (that belongs to the monthly/board narrative).
+      // review of the DAY'S SIGNALS and the decisions taken/pending. No patterns, no risk-index.
       const brief = await fetchClient.post("/reports/narrative", {
         reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel, serviceName: houseName,
         data: {
           audience: "Team Leaders",
-          style: "concise operational briefing that summarises today's signals at this house — what to watch, who, and the immediate actions",
+          format: `Begin the brief EXACTLY with this sentence: "Today's Review of signals of the House ${houseName} and period ${periodLabel} reflected". Then continue with: (1) a daily overview of the signals recorded for this period and the problems they show; (2) the decisions taken, pulled from the decisions list; (3) the pending decisions that have NOT been fully effected, each with its ageing. Keep it a concise operational team brief for Team Leaders and include nothing else — no patterns, no risk scores.`,
           service: houseName,
-          signals_recorded: houseSignals.length,
+          period: periodLabel,
+          signals_recorded: daySignals.length,
           high_or_critical: houseHigh.length,
           signals: signalLines,
-          actions_due_today: actionsDueToday,
-          escalations_awaiting_review: openEsc,
+          decisions: decisionLines,
           overall_posture: houseHigh.length ? "Attention" : "Stable",
         },
       });
@@ -173,6 +186,17 @@ export function DailyOversightBoard() {
       toast.success("Team brief signed off");
     } catch { toast.error("Sign-off failed"); }
     finally { setIsSigningOff(false); }
+  };
+
+  // Remind the person an action is assigned to (creates a notification for them).
+  const remindAction = async (a: any) => {
+    if (!a?.id) return;
+    try {
+      await apiClient.post(`/actions/${a.id}/remind`, {});
+      toast.success(`Reminder sent${a.assigned_to_name ? ` to ${a.assigned_to_name}` : ""}`);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Couldn't send reminder");
+    }
   };
 
   // ---- KPI card ----
@@ -271,46 +295,8 @@ export function DailyOversightBoard() {
           <KPI value={openEsc} label="Open Escalations" tone="slate" Icon={AlertCircle} />
         </div>
 
-        {/* Signals + Patterns/Actions */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Signals requiring attention */}
-          <div className="bg-card border-2 border-border rounded-xl p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><Zap size={16} className="text-red-500" /> Signals Requiring Attention <span className="text-xs bg-muted rounded-full px-2 py-0.5">{highPriority.length}</span></h3>
-              <button onClick={() => navigate("/rm5")} className="text-sm text-primary flex items-center gap-1">View all signals <ChevronRight size={14} /></button>
-            </div>
-            {highPriority.length === 0 ? (
-              <div className="text-center py-8">
-                <div className="w-14 h-14 rounded-full bg-muted flex items-center justify-center mx-auto mb-3"><Bell size={22} className="text-muted-foreground" /></div>
-                <p className="font-semibold text-foreground">No High Priority Signals</p>
-                <p className="text-sm text-muted-foreground">You're all caught up. Great work!</p>
-              </div>
-            ) : (
-              <div className="space-y-2 mb-4">
-                {highPriority.slice(0, 4).map((s: any) => (
-                  <button key={s.id} onClick={() => navigate(`/signals/${s.id}`)} className="w-full text-left flex items-start justify-between gap-3 p-3 bg-background border border-border rounded-lg hover:border-primary">
-                    <div className="min-w-0 flex-1"><div className="text-sm font-medium text-foreground">{s.house_name} – {s.signal_type}</div><p className="text-xs text-muted-foreground line-clamp-3 whitespace-pre-wrap break-words">{s.description}</p></div>
-                    <ChevronRight size={16} className="text-primary shrink-0 mt-0.5" />
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="border border-border rounded-lg p-3">
-              <p className="text-xs font-semibold text-muted-foreground mb-2">Quick actions</p>
-              {[
-                { icon: PlusCircle, label: "Record new signal", go: () => navigate("/governance-pulse") },
-                { icon: Search, label: "Review all signals", go: () => navigate("/rm5") },
-                { icon: Clock, label: "Check overdue actions", go: () => navigate("/risk-register") },
-                { icon: FileText, label: "Publish weekly review", go: () => navigate("/weekly-review") },
-              ].map((q) => (
-                <button key={q.label} onClick={q.go} className="w-full flex items-center gap-2.5 py-2 text-sm text-foreground hover:text-primary">
-                  <q.icon size={16} className="text-primary" /> {q.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Governance actions (patterns are handled in the separate Pipeline module) */}
+        {/* Governance actions (full width) — the day's outstanding management work */}
+        <div>
           <div className="space-y-6">
             <div className="bg-card border-2 border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
@@ -321,17 +307,26 @@ export function DailyOversightBoard() {
                 <p className="text-sm text-muted-foreground py-4 text-center">No governance actions outstanding.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border"><th className="py-2">Priority</th><th>Action</th><th>Related to</th><th>Due</th></tr></thead>
+                  <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border"><th className="py-2">Priority</th><th>Action</th><th>Related to</th><th>Age</th><th>Due</th><th></th></tr></thead>
                   <tbody>
-                    {[...actions].sort((a, b) => (new Date(a.due_date || 0).getTime()) - (new Date(b.due_date || 0).getTime())).slice(0, 5).map((a: any, i) => {
+                    {[...actions].sort((a, b) => (new Date(a.due_date || 0).getTime()) - (new Date(b.due_date || 0).getTime())).slice(0, 8).map((a: any, i) => {
                       const b = prioBadge(a.priority || a.severity);
                       const due = dueLabel(a);
+                      const person = a.related_person || a.service_user_name || a.assigned_to_name || a.risk_title || a.house_name || "—";
+                      const ageDays = a.created_at ? Math.max(0, Math.floor((Date.now() - new Date(a.created_at).getTime()) / 86400000)) : null;
+                      const go = () => a.risk_id ? navigate(`/risk-register/${a.risk_id}`) : navigate("/risk-register");
                       return (
-                        <tr key={a.id || i} className="border-b border-border/50 cursor-pointer hover:bg-muted/40" onClick={() => a.risk_id ? navigate(`/risk-register/${a.risk_id}`) : navigate("/risk-register")}>
-                          <td className="py-2.5"><span className={`text-[10px] font-bold px-2 py-0.5 rounded ${b.cls}`}>{b.label}</span></td>
-                          <td className="pr-2">{a.title || a.action || "Action"}</td>
-                          <td className="pr-2 text-muted-foreground">{a.house_name || a.related_person || a.risk_title || "—"}</td>
-                          <td className={due === "Overdue" || due === "Today" ? "text-red-600 font-medium" : "text-muted-foreground"}>{due}</td>
+                        <tr key={a.id || i} className="border-b border-border/50 hover:bg-muted/40">
+                          <td className="py-2.5 cursor-pointer" onClick={go}><span className={`text-[10px] font-bold px-2 py-0.5 rounded ${b.cls}`}>{b.label}</span></td>
+                          <td className="pr-2 cursor-pointer" onClick={go}>{a.title || a.action || "Action"}</td>
+                          <td className="pr-2 text-muted-foreground">{person}</td>
+                          <td className="pr-2 text-muted-foreground whitespace-nowrap">{ageDays == null ? "—" : ageDays === 0 ? "Today" : `${ageDays}d`}</td>
+                          <td className={due === "Overdue" || due === "Today" ? "text-red-600 font-medium whitespace-nowrap" : "text-muted-foreground whitespace-nowrap"}>{due}</td>
+                          <td className="pr-1 text-right">
+                            {a.assigned_to ? (
+                              <button onClick={(e) => { e.stopPropagation(); remindAction(a); }} className="text-[11px] text-primary hover:underline whitespace-nowrap">Remind</button>
+                            ) : null}
+                          </td>
                         </tr>
                       );
                     })}
@@ -360,18 +355,8 @@ export function DailyOversightBoard() {
             Signals are fetched per-house inside the component; patterns for this service. */}
         <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff} houses={houses} onSelectHouse={setSelectedHouseId} />
 
-        {/* Governance summary + AI narrative sign-off */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          <div className="bg-card border-2 border-border rounded-xl p-5">
-            <h3 className="text-sm font-semibold text-primary uppercase tracking-wide mb-4">Governance Summary for Today</h3>
-            <div className="space-y-3">
-              <SummaryLine Icon={highPriority.length ? AlertTriangle : CheckCircle2} tone={highPriority.length ? "text-red-600" : "text-emerald-600"} title={highPriority.length ? `${highPriority.length} high-risk concern(s) recorded today.` : "No new high-risk concerns recorded today."} />
-              <SummaryLine Icon={AlertCircle} tone="text-orange-600" title={`${openEsc} escalation(s) awaiting your review.`} />
-              <SummaryLine Icon={ClipboardList} tone="text-blue-600" title={`${actionsDueToday} action(s) due today.`} />
-              <SummaryLine Icon={TrendingUp} tone="text-violet-600" title={`Overall governance posture: ${summaryPayload.overall_posture}`} sub={summaryPayload.overall_posture === "Attention" ? "Review the priorities below before signing off." : "No significant governance concerns today."} />
-            </div>
-          </div>
-
+        {/* Team Brief (full width) — the day's signal review published to Team Leaders */}
+        <div>
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· published to Team Leaders</span></h3>

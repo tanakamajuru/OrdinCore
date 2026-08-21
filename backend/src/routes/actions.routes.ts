@@ -35,6 +35,9 @@ router.get('/oversight', requireAuth, requireTenant, requireRole('REGISTERED_MAN
  */
 router.post('/:id/rm-review', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionsController.rmReview.bind(actionsController));
 
+// Remind the assignee of an action (Daily Oversight board nudge) — creates a notification.
+router.post('/:id/remind', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), actionsController.remind.bind(actionsController));
+
 /**
  * @openapi
  * /api/v1/actions/pending-effectiveness:
