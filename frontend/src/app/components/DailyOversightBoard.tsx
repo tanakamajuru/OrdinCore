@@ -200,7 +200,7 @@ export function DailyOversightBoard() {
   };
 
   // ---- KPI card ----
-  const KPI = ({ value, label, tone, Icon, sub }: { value: number; label: string; tone: string; Icon: any; sub?: string }) => {
+  const KPI = ({ value, label, tone, Icon, sub, onClick }: { value: number; label: string; tone: string; Icon: any; sub?: string; onClick?: () => void }) => {
     const tones: Record<string, { top: string; badge: string; text: string }> = {
       green: { top: "border-t-emerald-500", badge: "bg-emerald-500", text: "text-emerald-600" },
       red: { top: "border-t-red-500", badge: "bg-red-500", text: "text-red-600" },
@@ -211,7 +211,7 @@ export function DailyOversightBoard() {
     };
     const t = tones[tone] || tones.slate;
     return (
-      <div className={`bg-card border-2 border-border ${t.top} border-t-4 rounded-xl p-4`}>
+      <div onClick={onClick} className={`bg-card border-2 border-border ${t.top} border-t-4 rounded-xl p-4 ${onClick ? "cursor-pointer hover:shadow-md transition-shadow" : ""}`}>
         <div className="text-[11px] uppercase tracking-wider text-muted-foreground mb-2">{label}</div>
         <div className="flex items-center justify-between">
           <div className="text-3xl font-bold text-foreground">{value}</div>
@@ -278,21 +278,15 @@ export function DailyOversightBoard() {
             <ClipboardList size={18} className="text-primary" />
             <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Today's Governance Summary</h2>
           </div>
-          <div className="flex flex-wrap gap-5">
-            <SummaryItem Icon={highPriority.length ? AlertTriangle : ShieldCheck} tone={highPriority.length ? "bg-red-500/10 text-red-600" : "bg-emerald-500/10 text-emerald-600"}
-              text={highPriority.length ? <><b>{highPriority.length}</b> high-risk concern{highPriority.length === 1 ? "" : "s"}.</> : "No new high-risk concerns."} />
-            <SummaryItem Icon={AlertCircle} tone="bg-orange-500/10 text-orange-600" text={<><b>{openEsc}</b> escalation{openEsc === 1 ? "" : "s"} awaiting review.</>} />
-            <SummaryItem Icon={ClipboardList} tone="bg-blue-500/10 text-blue-600" text={<><b>{actionsDueToday}</b> action{actionsDueToday === 1 ? "" : "s"} due today.</>} />
-          </div>
         </div>
 
         {/* Colour-coded KPI cards — governance workload for the day (patterns live in the
             separate Pipeline module, not this daily board). */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <KPI value={highPriority.length} label="High Priority (48h)" tone="orange" Icon={Bell} />
-          <KPI value={actionsDueToday} label="Actions Due Today" tone="blue" Icon={ClipboardList} />
-          <KPI value={openActions} label="Open Actions" tone="green" Icon={Layers} />
-          <KPI value={openEsc} label="Open Escalations" tone="slate" Icon={AlertCircle} />
+          <KPI value={highPriority.length} label="High Priority (48h)" tone="orange" Icon={Bell} onClick={() => navigate("/rm5?stage=signals")} />
+          <KPI value={actionsDueToday} label="Actions Due Today" tone="blue" Icon={ClipboardList} onClick={() => navigate("/my-actions")} />
+          <KPI value={openActions} label="Open Actions" tone="green" Icon={Layers} onClick={() => navigate("/risk-register")} />
+          <KPI value={openEsc} label="Open Escalations" tone="slate" Icon={AlertCircle} onClick={() => navigate("/escalation-log?status=open")} />
         </div>
 
         {/* Governance actions (full width) — the day's outstanding management work */}

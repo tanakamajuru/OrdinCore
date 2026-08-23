@@ -42,7 +42,8 @@ export const myWorkService = {
     };
 
     // 1. Open escalations assigned to me or in my services (urgent highlighted).
-    if (REVIEWERS.includes(r) || true) {
+    // Commented out per request — escalations are no longer surfaced as a My Work item.
+    if (false) {
       const esc = await safe(() => query(
         `SELECT COUNT(*)::int AS n,
                 COUNT(*) FILTER (WHERE priority IN ('Urgent','Critical'))::int AS urgent
@@ -124,7 +125,7 @@ export const myWorkService = {
         [company_id, user_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = pcr.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'post_escalation_review', label: 'risks to review after escalation', count: n, tone: 'amber', link: '/escalation-log?filter=post-closure', primary_action: 'Review Risk' });
+      if (n > 0) items.push({ key: 'post_escalation_review', label: 'risks to review in progress', count: n, tone: 'amber', link: '/escalation-log?status=progress', primary_action: 'Review Risk' });
     }
 
     const totalUrgent = items.filter((i) => i.tone === 'red').reduce((n, i) => n + (i.emphasis || i.count), 0);
