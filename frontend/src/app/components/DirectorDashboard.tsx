@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { GovernanceCompliancePanel } from "./GovernanceCompliancePanel";
 import { useNavigate } from "react-router";
 import {
   Shield, Flag, Clock, ClipboardCheck, TrendingUp, Users,
@@ -62,10 +61,10 @@ function Donut({ data, centerLabel }: { data: { name: string; value: number; col
 function HeatCell({ trend }: { trend?: string }) {
   if (!trend) return <td className="p-2 text-center"><span className="inline-block w-6 h-6 rounded bg-muted" /></td>;
   const cfg = isRising(trend)
-    ? { bg: "bg-red-100", icon: <ArrowUpRight className="w-4 h-4 text-red-600" /> }
+    ? { bg: "bg-red-500", icon: <ArrowUpRight className="w-4 h-4 text-white" /> }
     : trend === "Improving"
-      ? { bg: "bg-emerald-100", icon: <ArrowDownRight className="w-4 h-4 text-emerald-600" /> }
-      : { bg: "bg-amber-100", icon: <Minus className="w-4 h-4 text-amber-600" /> };
+      ? { bg: "bg-emerald-500", icon: <ArrowDownRight className="w-4 h-4 text-white" /> }
+      : { bg: "bg-amber-500", icon: <Minus className="w-4 h-4 text-white" /> };
   return <td className="p-2 text-center"><span className={`inline-flex items-center justify-center w-7 h-7 rounded ${cfg.bg}`}>{cfg.icon}</span></td>;
 }
 
@@ -187,32 +186,6 @@ export function DirectorDashboard() {
             <Download className="w-4 h-4" /> Download Reports
           </button>
         </div>
-
-        {/* Organisational Governance Health — computed composite (higher = stronger). */}
-        {health && (() => {
-          const h = health.health ?? 0;
-          const tone = h >= 75 ? "text-emerald-600" : h >= 50 ? "text-amber-600" : "text-red-600";
-          const barTone = h >= 75 ? "bg-emerald-500" : h >= 50 ? "bg-amber-500" : "bg-red-500";
-          const c = health.components || {};
-          return (
-            <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
-              <div className="flex flex-col md:flex-row md:items-center gap-4">
-                <div className="md:w-56 shrink-0">
-                  <div className="text-xs uppercase tracking-widest text-muted-foreground">Governance Health</div>
-                  <div className={`text-4xl font-semibold ${tone}`}>{h}<span className="text-lg text-muted-foreground">/100</span></div>
-                  <div className="w-full h-2 bg-muted rounded-full overflow-hidden mt-2"><div className={`h-full ${barTone}`} style={{ width: `${h}%` }} /></div>
-                </div>
-                <div className="flex-1 grid grid-cols-2 sm:grid-cols-4 gap-3 text-sm">
-                  <div><div className="text-xs text-muted-foreground">Avg Risk Index</div><div className="font-semibold">{c.riskIndexAvg ?? "—"}</div></div>
-                  <div><div className="text-xs text-muted-foreground">Trajectory</div><div className="font-semibold">{c.trajectoryScore ?? "—"}/100</div></div>
-                  <div><div className="text-xs text-muted-foreground">Action completion</div><div className="font-semibold">{c.actionCompletion ?? "—"}%</div></div>
-                  <div><div className="text-xs text-muted-foreground">Data confidence</div><div className="font-semibold">{c.dataConfidence ?? "—"}%</div></div>
-                </div>
-              </div>
-              <p className="text-[10px] text-muted-foreground mt-2" title={health.formula}>{health.formula}</p>
-            </div>
-          );
-        })()}
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
           <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}
@@ -354,11 +327,6 @@ export function DirectorDashboard() {
           })()}
         </div>
 
-        {/* Governance Compliance — Risk · Trajectory · Compliance. A moderate-risk service with
-            poor compliance is itself a leadership concern. */}
-        <div className="mt-6">
-          <GovernanceCompliancePanel />
-        </div>
       </div>
     </div>
   );
