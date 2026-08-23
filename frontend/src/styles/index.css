@@ -9,7 +9,8 @@
    full-width (sidebar overlays). */
 @media (min-width: 768px) {
   .ordin-sidebar ~ * {
-    margin-left: 16rem;
+    margin-left: var(--ordin-sidebar-w, 14rem);
+    transition: margin-left 0.2s ease;
   }
 }
 

@@ -3,7 +3,7 @@ import { useLocation, useNavigate } from "react-router";
 import {
   Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
   Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck, ChevronLeft,
+  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck, ChevronLeft, Menu,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
@@ -23,6 +23,14 @@ export function RoleBasedNavigation() {
     ? (user as any).granted_roles
     : [userRole]).map((r: string) => r.toUpperCase().replace(/-/g, "_"));
   const [switching, setSwitching] = useState(false);
+  // Collapsible sidebar — off-canvas when collapsed; the content margin follows via a CSS var.
+  const [navCollapsed, setNavCollapsed] = useState<boolean>(() => {
+    try { return localStorage.getItem("ordin_nav_collapsed") === "1"; } catch { return false; }
+  });
+  useEffect(() => {
+    try { localStorage.setItem("ordin_nav_collapsed", navCollapsed ? "1" : "0"); } catch { /* ignore */ }
+    document.documentElement.style.setProperty("--ordin-sidebar-w", navCollapsed ? "0rem" : "14rem");
+  }, [navCollapsed]);
 
   const roleLabel = (r: string) => ({
     SUPER_ADMIN: "Super Admin", ADMIN: "Company Admin", REGISTERED_MANAGER: "Registered Manager",
@@ -82,7 +90,7 @@ export function RoleBasedNavigation() {
           { path: "/interventions", label: "Intervention Effectiveness", icon: Target },
           // Strategic oversight of escalations, surfaced directly in the rail (was deep-link only).
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
-          { path: "/governance-compliance", label: "Governance Compliance", icon: ClipboardList },
+          { path: "/governance-compliance", label: "Action Tracker", icon: ClipboardList },
           { path: "/service-users", label: "Service Users", icon: Users },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
@@ -100,6 +108,7 @@ export function RoleBasedNavigation() {
           { path: "/service-review-rollup", label: "Review Roll-up", icon: Layers },
           { path: "/reconstruction", label: "Reconstruction", icon: Layers },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/governance-compliance", label: "Action Tracker", icon: ClipboardList },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/reports", label: "Reports", icon: FileDown },
@@ -115,6 +124,7 @@ export function RoleBasedNavigation() {
           { path: "/service-review-rollup", label: "Review Roll-up", icon: Layers },
           { path: "/reconstruction", label: "Reconstruction", icon: Layers },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/governance-compliance", label: "Action Tracker", icon: ClipboardList },
           { path: "/trends", label: "Trends", icon: BarChart3 },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
@@ -128,6 +138,7 @@ export function RoleBasedNavigation() {
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText, badgeKey: "weekly" },
           { path: "/escalation-log", label: "Escalations", icon: Flag, badgeKey: "open" },
+          { path: "/governance-compliance", label: "Action Tracker", icon: ClipboardList },
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
           { path: "#support", label: "Contact Support", icon: LifeBuoy, section: "Support", action: "support" },
         ];
@@ -238,11 +249,22 @@ export function RoleBasedNavigation() {
     <button
       onClick={() => navigate(-1)}
       title="Back to previous page"
-      className="fixed top-3 left-[16.75rem] z-30 hidden md:flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-card border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm"
+      style={{ left: "14.75rem" }}
+      className={`fixed top-3 z-30 ${navCollapsed ? "hidden" : "hidden md:flex"} items-center gap-1 px-2.5 py-1.5 rounded-lg bg-card border border-border text-sm text-muted-foreground hover:text-foreground hover:bg-muted shadow-sm`}
     >
       <ChevronLeft className="w-4 h-4" /> Back
     </button>
-    <aside className="ordin-sidebar fixed inset-y-0 left-0 w-64 bg-slate-900 text-slate-300 flex flex-col z-40">
+    {/* Floating opener — only visible when the sidebar is collapsed off-canvas. */}
+    {navCollapsed && (
+      <button
+        onClick={() => setNavCollapsed(false)}
+        title="Open menu"
+        className="fixed top-3 left-3 z-50 flex items-center justify-center w-10 h-10 rounded-lg bg-slate-900 text-white border border-slate-700 shadow-md hover:bg-slate-800"
+      >
+        <Menu className="w-5 h-5" />
+      </button>
+    )}
+    <aside className={`ordin-sidebar fixed inset-y-0 left-0 w-56 bg-slate-900 text-slate-300 flex flex-col z-40 transition-transform duration-200 ${navCollapsed ? "-translate-x-full" : ""}`}>
       <div className="flex items-center gap-2 px-5 h-16 border-b border-slate-800 shrink-0">
         <img src={logo} alt="Ordin Core" className="h-8 w-auto" />
         <div className="leading-tight">
@@ -262,6 +284,9 @@ export function RoleBasedNavigation() {
             </span>
           );
         })()}
+        <button onClick={() => setNavCollapsed(true)} title="Collapse menu" className="ml-1 text-slate-400 hover:text-white shrink-0">
+          <ChevronLeft className="w-5 h-5" />
+        </button>
       </div>
 
       <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-1">
