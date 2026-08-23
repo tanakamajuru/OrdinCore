@@ -35,7 +35,7 @@ export function GovernanceCompliance() {
         <div className="flex items-center gap-3 mb-1">
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><ShieldCheck size={22} /></div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Governance Compliance</h1>
+            <h1 className="text-2xl font-semibold text-foreground">Action Tracker</h1>
             <p className="text-sm text-muted-foreground">Are required actions being done on time? Traffic light per person; oldest overdue action ages up the ladder.</p>
           </div>
         </div>

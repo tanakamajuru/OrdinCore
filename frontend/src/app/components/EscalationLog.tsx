@@ -205,10 +205,11 @@ export function EscalationLog() {
   const initialFilter = (() => {
     const s = (searchParams.get('status') || '').toLowerCase();
     if (s === 'closed' || s === 'resolved') return 'resolved';
-    if (s === 'open' || s === 'pending') return 'needs';
+    if (s === 'open') return 'open';        // all awaiting-response (Needs + In progress)
+    if (s === 'pending') return 'needs';
     return 'all';
   })();
-  const [filter, setFilter] = useState<'all' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
+  const [filter, setFilter] = useState<'all' | 'open' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
   const [page, setPage] = useState(1);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
@@ -225,8 +226,12 @@ export function EscalationLog() {
     progress: escalations.filter(e => lifecycleState(e) === 'progress').length,
     resolved: escalations.filter(e => lifecycleState(e) === 'resolved').length,
   };
+  const matchesFilter = (e: any) =>
+    filter === 'all' ? true
+    : filter === 'open' ? lifecycleState(e) !== 'resolved'
+    : lifecycleState(e) === filter;
   const visibleEscalations = escalations
-    .filter(e => (filter === 'all' || lifecycleState(e) === filter) && inRange(e))
+    .filter(e => matchesFilter(e) && inRange(e))
     .sort((a, b) => {
       const w = STATE_META[lifecycleState(a)].weight - STATE_META[lifecycleState(b)].weight;
       if (w !== 0) return w;
@@ -273,7 +278,7 @@ export function EscalationLog() {
             {/* Filter tabs — organise the queue by what needs doing */}
             <div className="flex flex-wrap gap-2 mb-4">
               {([
-                { key: 'all', label: 'All', n: escalations.length },
+                { key: 'open', label: 'Awaiting response', n: counts.needs + counts.progress },
                 { key: 'needs', label: 'Needs action', n: counts.needs },
                 { key: 'progress', label: 'In progress', n: counts.progress },
                 { key: 'resolved', label: 'Resolved', n: counts.resolved },

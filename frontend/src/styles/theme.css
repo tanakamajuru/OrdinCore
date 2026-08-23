@@ -252,7 +252,7 @@
      utility: width:auto makes the content fill only the space *beside* the sidebar
      (containing-block − 16rem margin), so it never spills 16rem past the viewport. */
   .ordin-sidebar ~ * {
-    margin-left: 16rem; /* = w-64 */
+    margin-left: var(--ordin-sidebar-w, 14rem); /* collapsible: driven by a CSS var */
     width: auto;
   }
 }
