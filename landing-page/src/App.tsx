@@ -55,7 +55,7 @@ const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  { label: "Pricing", href: "#pricing" },
+  { label: "Pilot", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
   { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
@@ -207,33 +207,6 @@ const PILOT_TIMELINE = [
   { phase: "Week 9–12", label: "Evaluation and governance outcomes review" },
 ];
 
-const PILOT_PRICING_DOM = [
-  {
-    tier: "Small Provider",
-    scope: "1–50 service users",
-    price: "£49",
-    features: ["Up to 5 management users", "Full governance pulse", "Escalations", "Weekly governance reviews", "Monthly governance narrative", "Direct founder support"],
-  },
-  {
-    tier: "Medium Provider",
-    scope: "50–150 service users",
-    price: "£99",
-    features: ["Multiple managers", "Multiple service areas", "Cross-team oversight", "Priority support"],
-  },
-  {
-    tier: "Large Provider",
-    scope: "150+ service users",
-    price: "£199",
-    features: ["Multi-branch oversight", "Director dashboard", "Strategic reporting", "Pilot partner status"],
-  },
-];
-
-const PILOT_PRICING_SL = [
-  { scope: "1–3 houses", price: "£149" },
-  { scope: "4–8 houses", price: "£249" },
-  { scope: "9–15 houses", price: "£399" },
-  { scope: "16+ houses", price: "Contact Us" },
-];
 
 const PILOT_INCLUDED = [
   "Full platform access",
@@ -983,72 +956,6 @@ export default function App() {
                 </Card>
               ))}
             </div>
-
-            {/* Pricing */}
-            <div className="mx-auto max-w-2xl text-center mb-12">
-              <h2 className="text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
-                Early Adopter Pilot Pricing
-              </h2>
-              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
-                Founder pricing for the first cohort of providers. Limited to the first 10 providers.
-              </p>
-            </div>
-
-            {/* Domiciliary & Community Care pricing */}
-            <p className="text-sm font-black uppercase tracking-wider text-[#1A3D28] dark:text-white mb-5">
-              Domiciliary &amp; Community Care Services
-            </p>
-            <div className="grid gap-6 lg:grid-cols-3 mb-14">
-              {PILOT_PRICING_DOM.map((plan, idx) => (
-                <Card
-                  key={plan.tier}
-                  className={`p-7 flex flex-col dark:bg-slate-900 ${idx === 1 ? "border-2 border-[#1E7D4F] dark:border-emerald-600 shadow-lg" : "dark:border-slate-800"}`}
-                >
-                  {idx === 1 && (
-                    <span className="self-start mb-3 rounded-full bg-emerald-50 dark:bg-emerald-950/40 px-3 py-0.5 text-[10px] font-bold uppercase tracking-wider text-emerald-700 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-900/30">
-                      Most Popular
-                    </span>
-                  )}
-                  <h3 className="text-lg font-bold text-[#1A3D28] dark:text-white">{plan.tier}</h3>
-                  <p className="text-sm text-slate-500 dark:text-slate-400 mb-4">{plan.scope}</p>
-                  <p className="mb-5">
-                    <span className="text-4xl font-extrabold text-[#1A3D28] dark:text-white">{plan.price}</span>
-                    <span className="text-sm text-slate-500 dark:text-slate-400"> / month</span>
-                  </p>
-                  <ul className="space-y-2.5 flex-1">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2 text-sm text-slate-600 dark:text-slate-300">
-                        <CheckBadgeIcon className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <button
-                    onClick={() => setIsPilotModalOpen(true)}
-                    className={`mt-6 inline-flex items-center justify-center rounded-full px-5 py-3 text-sm font-bold transition shadow-sm ${idx === 1 ? "bg-[#1E7D4F] hover:bg-[#1A3D28] text-white" : "border border-[#B0D4C0] dark:border-slate-700 text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/40 dark:hover:bg-slate-800"}`}
-                  >
-                    Apply for Pilot Access →
-                  </button>
-                </Card>
-              ))}
-            </div>
-
-            {/* Supported Living pricing */}
-            <p className="text-sm font-black uppercase tracking-wider text-[#1A3D28] dark:text-white mb-5">
-              Supported Living Services
-            </p>
-            <Card className="overflow-hidden dark:border-slate-800 dark:bg-slate-900 mb-16">
-              <div className="grid grid-cols-2 bg-[#E2F0EA] dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white">
-                <span>Services / Houses</span>
-                <span className="text-right">Monthly Cost</span>
-              </div>
-              {PILOT_PRICING_SL.map((row) => (
-                <div key={row.scope} className="grid grid-cols-2 px-6 py-3.5 border-t border-[#B0D4C0]/30 dark:border-slate-800 text-sm">
-                  <span className="text-slate-700 dark:text-slate-300 font-medium">{row.scope}</span>
-                  <span className="text-right font-bold text-[#1A3D28] dark:text-white">{row.price}</span>
-                </div>
-              ))}
-            </Card>
 
             {/* Included / Guarantee / Expectations */}
             <div className="grid gap-6 md:grid-cols-3">

@@ -638,7 +638,6 @@ export function RiskDetail() {
               {m.narrative && (
                 <p className="text-sm text-foreground mt-3 bg-muted/40 border-l-4 border-primary/40 px-3 py-2">{m.narrative}</p>
               )}
-              <p className="text-[10px] text-muted-foreground mt-1.5">{m.formula} · S={m.inputs.S} F={m.inputs.F} V={m.inputs.V}{m.inputs.vulnerabilityAssumed ? " (assumed)" : ""} C={m.inputs.C}</p>
             </div>
           );
         })()}
