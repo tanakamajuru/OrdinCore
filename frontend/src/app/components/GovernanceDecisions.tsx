@@ -164,6 +164,15 @@ export function GovernanceDecisions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId, reviewDate, fromDate, toDate]);
 
+  // Auto-open the signal picker once a service's signals have loaded, so choosing the house
+  // drops the RM straight into picking which signal to decide on (no extra click). Only when
+  // there are signals to pick and the day isn't already signed off.
+  useEffect(() => {
+    if (!readOnly && houseId && signals.length > 0) setSrcOpen(true);
+    else setSrcOpen(false);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [houseId, signals.length, readOnly]);
+
   const record = async () => {
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
@@ -244,7 +253,7 @@ export function GovernanceDecisions({
           <Gavel size={18} className="text-primary" />
           <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Governance Decisions</h2>
         </div>
-        <span className="text-xs text-muted-foreground">{signals.length} signal{signals.length === 1 ? "" : "s"} awaiting / due for review</span>
+        <span className="text-xs font-bold text-emerald-600">{signals.length} signal{signals.length === 1 ? "" : "s"} awaiting / due for review</span>
       </div>
 
       {/* Pick the service (house) to decide on — signals are grouped by house, so the RM chooses

@@ -120,19 +120,46 @@ export function DailyOversightBoard() {
         });
       } catch { /* decisions optional */ }
 
+      // Outstanding actions staff must keep progressing, and today's reviewer/time — the
+      // Team Brief follows the RM's paper "Daily Governance Review" format exactly.
+      const actionLines = actions.slice(0, 30).map((a: any) =>
+        `${a.title || a.action || "Action"}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : (a.related_person ? ` · ${a.related_person}` : "")}${a.due_date ? ` · due ${new Date(a.due_date).toLocaleDateString("en-GB")}` : ""}`.trim());
+      const reviewedBy = userName;
+      const reviewTime = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+
       // Doctrine: the daily governance output is the Team Brief for Team Leaders — a concise
       // review of the DAY'S SIGNALS and the decisions taken/pending. No patterns, no risk-index.
       const brief = await fetchClient.post("/reports/narrative", {
-        reportTitle: `Daily Governance Team Brief — ${houseName}`, periodLabel, serviceName: houseName,
+        reportTitle: `Daily Governance Review — ${houseName}`, periodLabel, serviceName: houseName,
         data: {
           audience: "Team Leaders",
-          format: `Begin the brief EXACTLY with this sentence: "Today's Review of signals of the House ${houseName} and period ${periodLabel} reflected". Then continue with: (1) a daily overview of the signals recorded for this period and the problems they show; (2) the decisions taken, pulled from the decisions list; (3) the pending decisions that have NOT been fully effected, each with its ageing. Keep it a concise operational team brief for Team Leaders and include nothing else — no patterns, no risk scores.`,
+          format: [
+            `Produce a "Daily Governance Review" team brief with EXACTLY these parts and nothing else.`,
+            `Start with this header block, each item on its own line, verbatim:`,
+            `Daily Governance Review`,
+            `Service: ${houseName}`,
+            `Date: ${periodLabel}`,
+            `Reviewed by: ${reviewedBy}`,
+            `Review time: ${reviewTime}`,
+            ``,
+            `Then these five headed sections, each heading on its own line followed by short plain bullet lines:`,
+            `"What happened" — group the day's signals by the person involved (related_person); where there is no person, group under the service. One plain-language line per event.`,
+            `"What staff need to do today" — concrete instructions for Team Leaders and support staff, drawn from the signals and the decisions taken.`,
+            `"Management decisions" — the decisions taken (from the decisions list); note any still pending together with their ageing.`,
+            `"Escalations" — anything escalated or needing escalation; if there are none, write "None today".`,
+            `"Existing actions to remember" — outstanding actions staff must keep progressing (from the actions list).`,
+            `Keep it concise and operational. Do NOT include patterns, risk scores, or governance-health numbers.`,
+          ].join("\n"),
           service: houseName,
           period: periodLabel,
+          reviewed_by: reviewedBy,
+          review_time: reviewTime,
           signals_recorded: daySignals.length,
           high_or_critical: houseHigh.length,
           signals: signalLines,
           decisions: decisionLines,
+          existing_actions: actionLines,
+          open_escalations: openEsc,
           overall_posture: houseHigh.length ? "Attention" : "Stable",
         },
       });
@@ -143,7 +170,10 @@ export function DailyOversightBoard() {
   };
 
   // When the house/date changes: if a signed-off log already exists for that service and day,
-  // show it read-only (historical playback). Otherwise auto-draft a fresh narrative.
+  // show it read-only (historical playback). Otherwise clear the draft — the Team Brief is
+  // NOT auto-generated; the RM generates it deliberately AFTER recording the governance
+  // decisions and allocating tasks (doctrine: the brief is the output of that review, not a
+  // pre-emptive draft), using the "Generate team brief" button below.
   useEffect(() => {
     if (isLoading || !data || !selectedHouseId) return;
     let cancelled = false;
@@ -157,10 +187,10 @@ export function DailyOversightBoard() {
           setSignedOff({ by: log.published_by_name || log.reviewed_by_name || "—", at: at ? new Date(at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) : prettyDay(reviewDate) });
           return;
         }
-      } catch { /* no stored log — draft fresh below */ }
+      } catch { /* no stored log — leave the draft empty until the RM generates it */ }
       if (cancelled) return;
       setSignedOff(null);
-      generateNarrative();
+      setDailyNote("");
     })();
     return () => { cancelled = true; };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -354,7 +384,9 @@ export function DailyOversightBoard() {
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· published to Team Leaders</span></h3>
-              <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="text-xs text-primary disabled:opacity-50">{aiBusy ? "Generating…" : "Regenerate"}</button>
+              <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50">
+                <RefreshCw size={13} className={aiBusy ? "animate-spin" : ""} /> {aiBusy ? "Generating…" : (dailyNote.trim() ? "Regenerate team brief" : "Generate team brief")}
+              </button>
             </div>
             {/* Service + date stay selectable even after sign-off, so leadership can browse and
                 play back previously signed-off briefs for any service on any past date. */}
@@ -373,6 +405,9 @@ export function DailyOversightBoard() {
             )}
             {!materialChange && !signedOff && (
               <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5 mb-2">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." You can still record a brief below.</p>
+            )}
+            {!dailyNote.trim() && !signedOff && !aiBusy && (
+              <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-2">Record your governance decisions and allocate today's tasks above first — then press <span className="font-semibold text-primary">Generate team brief</span> to draft the review for Team Leaders.</p>
             )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
