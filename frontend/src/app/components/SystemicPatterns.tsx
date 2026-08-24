@@ -29,7 +29,10 @@ export function SystemicPatterns() {
   const load = async () => {
     setLoading(true);
     try {
-      const data = unwrap(await apiClient.get("/rm/patterns")) || {};
+      // includePromoted: a systemic pattern that has already been promoted to a strategic risk
+      // must still appear on this leadership view (with its "View risk" link) — the RM5 decision
+      // board excludes promoted ones, but oversight should not lose sight of them.
+      const data = unwrap(await apiClient.get("/rm/patterns?includePromoted=1")) || {};
       setItems(Array.isArray(data.across) ? data.across : []);
     } catch { setItems([]); }
     finally { setLoading(false); }
