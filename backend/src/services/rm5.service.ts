@@ -139,7 +139,14 @@ export const rm5Service = {
   },
 
   // Patterns — within a service + across services (systemic), each with computed trajectory.
-  async patterns(company_id: string) {
+  // `includePromoted`: the RM5 decision board wants only patterns still awaiting a decision
+  // (default, promoted ones excluded). The Systemic Governance Patterns oversight page passes
+  // true so a cross-service pattern that has ALREADY been promoted to a strategic risk still
+  // shows there (with its "View risk" link) instead of vanishing from leadership's view.
+  async patterns(company_id: string, includePromoted = false) {
+    const promotedClause = includePromoted
+      ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status <> 'Dismissed'))`
+      : `c.cluster_status IN ${ACTIVE_CLUSTER} AND c.linked_risk_id IS NULL`;
     const rows = (await query(
       `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
               c.scope, c.signal_count AS "signalCount", c.linked_risk_id AS "promotedRiskId",
@@ -150,10 +157,7 @@ export const rm5Service = {
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
          FROM signal_clusters c LEFT JOIN houses h ON h.id = c.house_id
-        WHERE c.company_id = $1 AND c.cluster_status IN ${ACTIVE_CLUSTER}
-          -- Decision board = patterns still awaiting a decision. Once a pattern is promoted
-          -- to a risk it lives in the register; keeping it here just clogs the board.
-          AND c.linked_risk_id IS NULL
+        WHERE c.company_id = $1 AND ${promotedClause}
         ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
       [company_id]
     )).rows;
