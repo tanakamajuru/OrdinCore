@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History, Sparkles } from "lucide-react";
 
-// 12-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
+// 13-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
 // auto-populate from the week's data; the RM supplies overall position and
 // narrative, then finalises (locks) for RI/Director validation.
 //
@@ -19,7 +19,7 @@ const buildSteps = (isDomiciliary: boolean) => [
   "Safeguarding",
   isDomiciliary ? "Visit Reliability" : "Medication",
   isDomiciliary ? "Care Continuity" : "Workforce",
-  "Overall Position", "Narrative",
+  "Daily Oversight", "Overall Position", "Narrative",
 ];
 const POSITIONS = ["Stable", "Watch", "Concern", "Escalating", "Serious Concern"];
 
@@ -47,6 +47,10 @@ export function WeeklyReview() {
   const [acks, setAcks] = useState<{ total: number; acknowledged: number; roster: any[] } | null>(null);
   const [priorWeeks, setPriorWeeks] = useState<any[]>([]);
   const [showPrior, setShowPrior] = useState(false);
+  // Step 11 — the week's daily governance oversight (the daily Team Briefs signed off for this
+  // site across the review week), so the weekly review is grounded in the daily record.
+  const [weekLogs, setWeekLogs] = useState<any[]>([]);
+  const [weekLogsBusy, setWeekLogsBusy] = useState(false);
   const [tlNoReview, setTlNoReview] = useState(false);
 
   const isTeamLeader = userRole === "TEAM_LEADER";
@@ -101,9 +105,23 @@ export function WeeklyReview() {
 
   const loadHouses = async () => {
     try {
-      const res = await apiClient.get("/houses?limit=100");
-      const data = res.data?.data || res.data || [];
-      const list = Array.isArray(data) ? data : (data.items || []);
+      // Site-scoped, not cross-site: the weekly review is a per-site governance record, so the
+      // picker offers only the services THIS manager is assigned to. Fall back to all company
+      // houses only when the user has no explicit house assignments (e.g. a fresh Director).
+      const uid = user.id || user.user_id;
+      let list: any[] = [];
+      if (uid) {
+        try {
+          const scoped = await apiClient.get(`/users/${uid}/houses`);
+          const sd = scoped.data?.data || scoped.data || [];
+          list = Array.isArray(sd) ? sd : (sd.items || []);
+        } catch { list = []; }
+      }
+      if (!Array.isArray(list) || list.length === 0) {
+        const res = await apiClient.get("/houses?limit=100");
+        const data = res.data?.data || res.data || [];
+        list = Array.isArray(data) ? data : (data.items || []);
+      }
       setHouses(list);
       const def = list.find((h: any) => h.id === user.assigned_house_id) ? user.assigned_house_id : list[0]?.id;
       if (def) setHouseId(def); else setIsLoading(false);
@@ -126,8 +144,8 @@ export function WeeklyReview() {
         setReviewId(rv.id);
         setForm(rv.content || {});
         setStatus(rv.status || "Draft");
-        setStep(Math.min(11, rv.step_reached ? rv.step_reached - 1 : 0));
-        setDoneStep(Math.min(11, rv.step_reached ? rv.step_reached - 1 : 0));
+        setStep(Math.min(12, rv.step_reached ? rv.step_reached - 1 : 0));
+        setDoneStep(Math.min(12, rv.step_reached ? rv.step_reached - 1 : 0));
         setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
       } else {
         setForm({
@@ -144,6 +162,30 @@ export function WeeklyReview() {
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to prepare review"); }
     finally { setIsLoading(false); }
   };
+
+  // Pull the seven daily governance logs for the week ending on `weekEnding` for this site.
+  // Reuses the by-date endpoint (per day) so it works against the live daily-log store; only
+  // completed/ signed-off briefs are shown.
+  const loadWeekLogs = async () => {
+    if (!houseId) return;
+    setWeekLogsBusy(true);
+    try {
+      const end = new Date(`${weekEnding}T00:00:00`);
+      const days: string[] = [];
+      for (let i = 6; i >= 0; i--) { const d = new Date(end); d.setDate(end.getDate() - i); days.push(d.toISOString().slice(0, 10)); }
+      const results = await Promise.all(days.map((date) =>
+        apiClient.get(`/governance/daily-log/by-date?house_id=${houseId}&date=${date}`)
+          .then((r) => ({ date, log: r.data?.data }))
+          .catch(() => ({ date, log: null }))
+      ));
+      setWeekLogs(results.filter((r) => r.log && (r.log.completed || r.log.team_brief || r.log.leadership_narrative)));
+    } catch { setWeekLogs([]); }
+    finally { setWeekLogsBusy(false); }
+  };
+  useEffect(() => {
+    if (step === 10 && houseId) loadWeekLogs();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [step, houseId, weekEnding]);
 
   const auto = preview?.auto_population || {};
   // Every one of these MUST be an array before it reaches a .map/.filter in render. The
@@ -197,7 +239,7 @@ export function WeeklyReview() {
   };
 
   const validateStep = (s: number): string | null => {
-    if (s === 10 && !form.step14_overall_position) return "Choose an overall governance position.";
+    if (s === 11 && !form.step14_overall_position) return "Choose an overall governance position.";
     return null;
   };
 
@@ -206,7 +248,7 @@ export function WeeklyReview() {
     if (err) { toast.error(err); return; }
     setIsSaving(true);
     try {
-      if (step < 11) { await persist(step + 1); setStep(step + 1); setDoneStep(Math.max(doneStep, step + 1)); window.scrollTo(0, 0); }
+      if (step < 12) { await persist(step + 1); setStep(step + 1); setDoneStep(Math.max(doneStep, step + 1)); window.scrollTo(0, 0); }
     } catch { toast.error("Failed to save progress"); }
     finally { setIsSaving(false); }
   };
@@ -214,17 +256,17 @@ export function WeeklyReview() {
   const finalise = async () => {
     setIsSaving(true);
     try {
-      // The wizard has 12 steps (index 0–11). Finalising from the last step marks all 12 done
-      // → step_reached = 12 (persist adds 1). Passing 12 here produced step_reached 13 → the
-      // "Step 13 of 12" glitch.
-      const saved = await persist(11);
+      // The wizard has 13 steps (index 0–12). Finalising from the last step marks all 13 done
+      // → step_reached = 13 (persist adds 1). Passing 13 here would produce step_reached 14 → a
+      // "Step 14 of 13" glitch, so pass the last index (12).
+      const saved = await persist(12);
       const activeId = id && id !== "new" ? id : (reviewId || saved?.id);
       if (userRole === "REGISTERED_MANAGER") {
         await apiClient.post(`/weekly-reviews/${activeId}/finalise`, {});
         toast.success("Weekly Review finalised & sent for RI validation");
         setStatus("pending_validation");
       } else {
-        await persist(11, { status: "LOCKED" });
+        await persist(12, { status: "LOCKED" });
         toast.success("Weekly Review locked & published");
         setStatus("Locked");
       }
@@ -463,6 +505,33 @@ export function WeeklyReview() {
         : <p className="text-sm leading-7"><b>{domainCount("workforce") + domainCount("staffing")}</b> workforce / staffing signal{(domainCount("workforce") + domainCount("staffing")) === 1 ? "" : "s"} recorded.</p>;
       case 10: return (
         <div>
+          <p className="text-sm text-muted-foreground mb-3">The daily governance oversight for this site across the review week — the Team Briefs the manager signed off each day. This grounds the weekly position in the daily record.</p>
+          {weekLogsBusy ? (
+            <p className="text-sm text-muted-foreground">Loading the week's daily oversight…</p>
+          ) : weekLogs.length === 0 ? (
+            <div className="bg-muted/40 border border-dashed border-border rounded-lg p-4 text-sm text-muted-foreground">No daily governance briefs were signed off for this site during the review week.</div>
+          ) : (
+            <div className="space-y-2">
+              {weekLogs.map((w: any) => {
+                const brief = String(w.log.team_brief || w.log.leadership_narrative || w.log.daily_note || "").trim();
+                const by = w.log.published_by_name || w.log.reviewed_by_name || "—";
+                return (
+                  <div key={w.date} className="border border-border rounded-lg p-3">
+                    <div className="flex items-center justify-between gap-2 mb-1">
+                      <span className="text-sm font-semibold text-foreground">{new Date(`${w.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}</span>
+                      <span className="text-[11px] text-muted-foreground">{w.log.completed ? "Signed off" : "Draft"}{by !== "—" ? ` · ${by}` : ""}</span>
+                    </div>
+                    <p className="text-sm leading-6 text-foreground whitespace-pre-line line-clamp-6">{brief || "—"}</p>
+                  </div>
+                );
+              })}
+              <p className="text-[11px] text-muted-foreground">{weekLogs.length} of 7 days had a signed-off daily brief.</p>
+            </div>
+          )}
+        </div>
+      );
+      case 11: return (
+        <div>
           <label className="block text-sm font-medium mb-2">Overall governance position</label>
           <div className="grid grid-cols-2 sm:grid-cols-5 gap-2">
             {POSITIONS.map((p) => (
@@ -472,7 +541,7 @@ export function WeeklyReview() {
           </div>
         </div>
       );
-      case 11: {
+      case 12: {
         const antItems = (form.anticipated_risks?.items ?? preview?.anticipated ?? []) as any[];
         const setAnt = (items: any[], note?: string) => set("anticipated_risks", { items, rm_note: note ?? (form.anticipated_risks?.rm_note || "") });
         return (
@@ -542,7 +611,7 @@ export function WeeklyReview() {
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
-            <p className="text-sm text-muted-foreground">12 sequential steps · sections 2–10 auto-populate · locked after finalisation.</p>
+            <p className="text-sm text-muted-foreground">13 sequential steps · sections 2–10 auto-populate · locked after finalisation.</p>
           </div>
         </div>
 
@@ -684,7 +753,7 @@ export function WeeklyReview() {
 
           {/* Step body */}
           <div className={`${card} flex-1`}>
-            <div className="text-xs text-muted-foreground mb-1">Step {step + 1} of 12</div>
+            <div className="text-xs text-muted-foreground mb-1">Step {step + 1} of 13</div>
             <h2 className="text-xl text-foreground font-semibold mb-3">{STEPS[step]}</h2>
             {isAuto && <div className="inline-flex items-center gap-1.5 text-xs font-medium text-emerald-700 bg-emerald-50 rounded px-2 py-1 mb-3"><Activity size={12} /> Auto-populated from this week's data</div>}
             <div className="mb-4">{stepBody()}</div>
@@ -697,8 +766,8 @@ export function WeeklyReview() {
                     <button onClick={() => doValidate("Approved")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm">Approve</button>
                   </>
                 )}
-                {!locked && step < 11 && <button onClick={advance} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">Confirm & continue <ArrowRight size={14} /></button>}
-                {!locked && step === 11 && <button onClick={finalise} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">{userRole === "REGISTERED_MANAGER" ? "Finalise & lock" : "Lock & publish"} <Lock size={14} /></button>}
+                {!locked && step < 12 && <button onClick={advance} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">Confirm & continue <ArrowRight size={14} /></button>}
+                {!locked && step === 12 && <button onClick={finalise} disabled={isSaving} className="px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm flex items-center gap-1.5">{userRole === "REGISTERED_MANAGER" ? "Finalise & lock" : "Lock & publish"} <Lock size={14} /></button>}
                 {locked && <span className="text-sm text-emerald-700 flex items-center gap-1.5"><Check size={16} /> {status === "pending_validation" ? "Finalised — awaiting validation" : "Locked"}</span>}
               </div>
             </div>

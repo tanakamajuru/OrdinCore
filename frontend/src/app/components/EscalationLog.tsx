@@ -252,6 +252,19 @@ export function EscalationLog() {
     }
   };
 
+  // Deep-link: /escalation-log?focus=<id> (e.g. from the RM5 escalations lens) opens that
+  // escalation's details directly instead of just landing on the list. Runs once, after the
+  // escalations have loaded.
+  const focusedRef = useRef(false);
+  useEffect(() => {
+    if (focusedRef.current) return;
+    const fid = searchParams.get('focus');
+    if (!fid || escalations.length === 0) return;
+    const target = escalations.find((e: any) => String(e.id) === String(fid));
+    if (target) { focusedRef.current = true; handleSelectEscalation(target); }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [escalations, searchParams]);
+
   if (isLoading) {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">

@@ -224,12 +224,18 @@ export const rm5Service = {
 
   // Lenses — views that link back to the owning risk (never a second copy).
   async actionsLens(company_id: string) {
+    // LEFT JOIN risks: service-level actions (Allocate-a-task / Create Action) carry a
+    // house_id and NO risk_id, so an INNER join here silently dropped them from the list
+    // even though /rm/counts (which does not join) still counted them — the Actions tab
+    // then showed "Nothing here" against a non-zero count. Fall back to the house name.
     return (await query(
-      `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
-              (COALESCE(r.strategic_theme, r.title) || ' · '
+      `SELECT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
+              (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · '
                 || COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned')
                 || ' · due ' || COALESCE(to_char(a.due_date,'DD Mon'),'—')) AS meta, a.status
-         FROM risk_actions a JOIN risks r ON r.id = a.risk_id
+         FROM risk_actions a
+         LEFT JOIN risks r ON r.id = a.risk_id
+         LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
          LEFT JOIN users u ON u.id = a.assigned_to
         WHERE a.company_id = $1 AND a.status ${OPEN_ACTION}
         ORDER BY a.due_date ASC NULLS LAST`,
@@ -238,11 +244,15 @@ export const rm5Service = {
   },
 
   async effectivenessLens(company_id: string) {
+    // LEFT JOIN risks for the same reason as actionsLens — a completed service-level action
+    // still needs its effectiveness rated, so it must appear here.
     return (await query(
-      `SELECT a.id AS key, a.risk_id AS "riskId", a.title,
-              (COALESCE(r.strategic_theme, r.title) || ' · completed '
+      `SELECT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
+              (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · completed '
                 || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
-         FROM risk_actions a JOIN risks r ON r.id = a.risk_id
+         FROM risk_actions a
+         LEFT JOIN risks r ON r.id = a.risk_id
+         LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
         WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL
         ORDER BY a.completed_at ASC`,
       [company_id]

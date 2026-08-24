@@ -25,6 +25,17 @@ const SEV: Record<string, string> = {
 const unwrap = (r: any) => r?.data?.data ?? r?.data ?? r;
 const PAGE = 5; // rows/cards per page across every RM5 list
 
+// Per-stage colours for the pipeline ribbon so each step reads as its own stage at a glance
+// (signals → patterns → risks → actions → effectiveness → escalations).
+const STAGE_TONE: Record<string, { text: string; badge: string }> = {
+  signals: { text: "text-rose-600", badge: "bg-rose-100 text-rose-600" },
+  patterns: { text: "text-indigo-600", badge: "bg-indigo-100 text-indigo-600" },
+  risks: { text: "text-amber-600", badge: "bg-amber-100 text-amber-600" },
+  actions: { text: "text-blue-600", badge: "bg-blue-100 text-blue-600" },
+  effectiveness: { text: "text-emerald-600", badge: "bg-emerald-100 text-emerald-600" },
+  escalations: { text: "text-purple-600", badge: "bg-purple-100 text-purple-600" },
+};
+
 // Shared Prev/Next footer — hidden when everything fits on one page.
 function Pager({ page, pages, total, onPage }: { page: number; pages: number; total: number; onPage: (p: number) => void }) {
   if (pages <= 1) return null;
@@ -194,10 +205,11 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         <div className="bg-card border border-border rounded-xl px-2 py-3 flex items-stretch mb-6 overflow-x-auto">
           {ribbon.map(([k, l, n, I], i) => {
             const on = activeStage === k;
+            const tone = STAGE_TONE[k as string] || { text: "text-foreground", badge: "bg-muted" };
             return <div key={k} className="flex items-center">
               <button onClick={() => ribbonGo(k)} className={`flex items-center gap-3 rounded-lg px-3 py-2 ${on ? "bg-primary text-primary-foreground" : "hover:bg-muted"}`}>
-                <span className={`p-1.5 rounded-lg ${on ? "bg-white/20" : "bg-muted"}`}><I className="w-4 h-4" style={{ color: on ? "#fff" : undefined }} /></span>
-                <span className="text-left"><span className="block text-lg font-semibold leading-none">{n}</span><span className={`block text-[11px] ${on ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{l}</span></span>
+                <span className={`p-1.5 rounded-lg ${on ? "bg-white/20" : tone.badge}`}><I className="w-4 h-4" style={{ color: on ? "#fff" : undefined }} /></span>
+                <span className="text-left"><span className={`block text-lg font-semibold leading-none ${on ? "" : tone.text}`}>{n}</span><span className={`block text-[11px] ${on ? "text-primary-foreground/80" : "text-muted-foreground"}`}>{l}</span></span>
               </button>
               {i < ribbon.length - 1 && <ChevronRight className="w-4 h-4 text-muted-foreground/40 mx-0.5 shrink-0" />}
             </div>;
@@ -272,13 +284,13 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
           <div>
             <GovHead q="Which patterns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
             <p className="text-xs text-muted-foreground mb-3">Cross-Service Patterns identify recurring governance concerns across people, teams, houses and services — trends that may not be visible when reviewing individual signals alone. Review a pattern to record its trajectory; it stays as governance memory until it is genuinely resolved.</p>
-            <h2 className="text-sm font-semibold text-foreground mb-2 flex items-center gap-2"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
               {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
             </div>
             <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
-            <h2 className="text-sm font-semibold text-foreground mb-1 mt-6 flex items-center gap-2"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
+            <h2 className="text-lg font-semibold text-foreground mb-1 mt-6 flex items-center gap-2 text-indigo-700"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>
             <p className="text-xs text-muted-foreground mb-2">The same theme in more than one service — what an inspector means by systemic.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {acrossList.length === 0 && <p className="text-sm text-muted-foreground">No cross-service patterns detected.</p>}
@@ -309,9 +321,9 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
             {/* Dismissed patterns — the audit trail: what was set aside, by whom, when and why. */}
             <div className="mt-8 border-t border-border pt-4">
-              <button onClick={() => setShowDismissed((v) => !v)} className="text-sm font-semibold text-foreground flex items-center gap-2 hover:text-primary">
-                {showDismissed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
-                Dismissed patterns <span className="text-xs font-normal text-muted-foreground">({dismissed.length})</span>
+              <button onClick={() => setShowDismissed((v) => !v)} className="text-lg text-indigo-700 font-semibold flex items-center gap-2 hover:text-primary">
+                {showDismissed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className=" text-lg text-indigo-700 font-normalw-4 h-4" />}
+                Dismissed patterns <span className="text-lg text-indigo-700 font-normal">({dismissed.length})</span>
               </button>
               {showDismissed && (
                 dismissed.length === 0 ? (
@@ -374,7 +386,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
               {lens.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nothing here.</div>}
               {pagedLens.map((row: any) => (
-                <button key={row.key} onClick={() => row.riskId ? openRisk(row.riskId) : navigate("/escalation-log")} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
+                <button key={row.key} onClick={() => stage === "escalations" ? navigate(`/escalation-log?focus=${row.key}`) : (row.riskId ? openRisk(row.riskId) : navigate("/escalation-log"))} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                   <div className="min-w-0"><div className="text-sm text-foreground truncate">{row.title}</div><div className="text-xs text-muted-foreground truncate">{row.meta}</div></div>
                   {stage === "actions" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.status}</span>
                     : stage === "escalations" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.overdue ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.overdue ? "Overdue" : row.status}</span>
