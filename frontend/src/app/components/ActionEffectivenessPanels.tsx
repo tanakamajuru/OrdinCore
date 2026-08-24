@@ -38,6 +38,7 @@ export function ActionEffectivenessPanels() {
   const dailyTrendWithNumbers = (data.daily_trend || []).map((item: any) => ({
     ...item,
     effective: Number(item.effective || 0),
+    partial: Number(item.partial || 0),
     ineffective: Number(item.ineffective || 0)
   }));
 
@@ -55,11 +56,11 @@ export function ActionEffectivenessPanels() {
               <span className="text-2xl ">{data.org_summary?.effective || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
-              <span className=" text-warning uppercase text-xs">Neutral Outcomes</span>
+              <span className=" text-warning uppercase text-xs">Partially Effective</span>
               <span className="text-2xl ">{data.org_summary?.neutral || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
-              <span className=" text-destructive uppercase text-xs">Ineffective Actions</span>
+              <span className=" text-destructive uppercase text-xs">Not Effective</span>
               <span className="text-2xl ">{data.org_summary?.ineffective || 0}</span>
             </div>
           </CardContent>
@@ -92,7 +93,7 @@ export function ActionEffectivenessPanels() {
                     );
                   }} />
                 </Bar>
-                <Bar dataKey="neutral" fill="#F59E0B" stackId="a" name="Neutral">
+                <Bar dataKey="neutral" fill="#F59E0B" stackId="a" name="Partially Effective">
                   <LabelList dataKey="neutral" position="center" content={(props: any) => {
                     const { x, y, width, height, value } = props;
                     if (!value || Number(value) === 0) return null;
@@ -103,7 +104,7 @@ export function ActionEffectivenessPanels() {
                     );
                   }} />
                 </Bar>
-                <Bar dataKey="ineffective" fill="#EF4444" stackId="a" name="Ineffective">
+                <Bar dataKey="ineffective" fill="#EF4444" stackId="a" name="Not Effective">
                   <LabelList dataKey="ineffective" position="center" content={(props: any) => {
                     const { x, y, width, height, value } = props;
                     if (!value || Number(value) === 0) return null;
@@ -132,8 +133,8 @@ export function ActionEffectivenessPanels() {
                 <TableRow className="bg-muted/50 border-b-2 border-border">
                   <TableHead className=" uppercase text-[10px] font-bold">Service Unit</TableHead>
                   <TableHead className="text-center  uppercase text-[10px] font-bold">Effective</TableHead>
-                  <TableHead className="text-center  uppercase text-[10px] font-bold">Neutral</TableHead>
-                  <TableHead className="text-center  uppercase text-[10px] font-bold">Ineffective</TableHead>
+                  <TableHead className="text-center  uppercase text-[10px] font-bold">Partially Effective</TableHead>
+                  <TableHead className="text-center  uppercase text-[10px] font-bold">Not Effective</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -180,7 +181,8 @@ export function ActionEffectivenessPanels() {
                 />
                 <Legend verticalAlign="top" align="right" iconType="circle" />
                 <Line type="monotone" dataKey="effective" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Effective" />
-                <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Ineffective" />
+                <Line type="monotone" dataKey="partial" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Partially Effective" />
+                <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Not Effective" />
               </LineChart>
             </ResponsiveContainer>
             )}

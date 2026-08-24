@@ -29,38 +29,39 @@ export class DirectorGovernanceService {
         AND ra.completed_at BETWEEN $2 AND $3
         AND (ra.calculated_outcome IS NOT NULL OR ra.rm_override_outcome IS NOT NULL OR ra.director_override_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
       )
-      SELECT 
+      SELECT
         (SELECT json_build_object(
           'effective', COUNT(*) FILTER (WHERE outcome = 'Effective'),
-          'neutral', COUNT(*) FILTER (WHERE outcome = 'Neutral'),
-          'ineffective', COUNT(*) FILTER (WHERE outcome = 'Ineffective')
+          'neutral', COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')),
+          'ineffective', COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective'))
         ) FROM stats) as org_summary,
-        
+
         (SELECT json_agg(comparison) FROM (
-          SELECT 
+          SELECT
             service_name,
             COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome = 'Neutral') as neutral,
-            COUNT(*) FILTER (WHERE outcome = 'Ineffective') as ineffective
+            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as neutral,
+            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
           FROM stats
           GROUP BY service_name
         ) comparison) as service_comparison,
-        
+
         (SELECT json_agg(domain_stats) FROM (
-          SELECT 
+          SELECT
             domain,
             COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome = 'Neutral') as neutral,
-            COUNT(*) FILTER (WHERE outcome = 'Ineffective') as ineffective
+            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as neutral,
+            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
           FROM stats
           GROUP BY domain
         ) domain_stats) as domain_analysis,
-        
+
         (SELECT json_agg(trend) FROM (
-          SELECT 
+          SELECT
             day,
             COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome = 'Ineffective') as ineffective
+            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as partial,
+            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
           FROM stats
           GROUP BY day
           ORDER BY day ASC
