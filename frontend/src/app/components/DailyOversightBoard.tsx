@@ -7,7 +7,6 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
-import { apiClient as fetchClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { GovernanceDecisions } from "./GovernanceDecisions";
 
@@ -85,87 +84,103 @@ export function DailyOversightBoard() {
   // "no new governance priorities today" (Chapter 2 — proportionate acknowledgement).
   const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0;
 
-  // Per-house narration: the RM signs off ONE house at a time, so the narrative must be
-  // about THAT house's actual signals — not a service-wide summary they can't attest to.
+  // Per-house narration: the RM signs off ONE house at a time. The Team Brief is assembled
+  // DETERMINISTICALLY from this house's real signals, decisions, escalations and actions on
+  // the selected date — no language model — so it follows the RM's paper "Daily Governance
+  // Review" format exactly and can never hallucinate content that wasn't recorded.
   const generateNarrative = async () => {
     if (!selectedHouseId) return;
     setAiBusy(true);
     try {
-      let houseSignals: any[] = [];
-      try {
-        const sres = await apiClient.get(`/pulses?house_id=${selectedHouseId}&limit=50`);
-        const raw = sres.data?.data || sres.data || [];
-        houseSignals = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
-      } catch { /* fall back to no signals */ }
       const houseName = house?.name || "this service";
-      // Doctrine: exact house/date scoping — the narrative/brief is about THIS site on THAT day
-      // only. Never substitute older signals; if the day is silent, that silence is the evidence.
-      const daySignals = houseSignals.filter((s: any) => isoDay(s.entry_date || s.created_at) === reviewDate);
       const periodLabel = prettyDay(reviewDate);
-      const signalLines = daySignals.slice(0, 25).map((s: any) =>
-        `${(s.entry_date || s.created_at) ? new Date(s.entry_date || s.created_at).toLocaleDateString("en-GB") : ""} · ${s.severity || "—"} · ${s.governance_domain || s.signal_type || "Signal"}${s.related_person ? ` (${s.related_person})` : ""}: ${s.description || ""}`.trim());
-      const houseHigh = daySignals.filter((s: any) => ["High", "Critical"].includes(s.severity));
-
-      // Pull the governance decisions for this house/date so the brief can state the decisions
-      // taken, the pending decisions not yet fully effected, and their ageing.
-      let decisionLines: string[] = [];
-      try {
-        const dres = await apiClient.get(`/governance-decisions?date=${reviewDate}&house_id=${selectedHouseId}`);
-        const decisions = dres.data?.data?.decisions || [];
-        decisionLines = decisions.slice(0, 30).map((d: any) => {
-          const age = d.created_at ? Math.max(0, Math.floor((Date.now() - new Date(d.created_at).getTime()) / 86400000)) : null;
-          const ageTxt = age == null ? "" : age === 0 ? " (recorded today)" : ` (${age}d old)`;
-          const pending = !/complete|closed|done/i.test(String(d.rollup_status || d.decision_status || ""));
-          return `${d.decision || "Decision"} — ${(d.what_is_happening || "").trim()} · ${pending ? "PENDING" : "effected"} (${d.rollup_status || d.decision_status || "—"})${d.owner_name ? ` · owner ${d.owner_name}` : ""}${ageTxt}`.trim();
-        });
-      } catch { /* decisions optional */ }
-
-      // Outstanding actions staff must keep progressing, and today's reviewer/time — the
-      // Team Brief follows the RM's paper "Daily Governance Review" format exactly.
-      const actionLines = actions.slice(0, 30).map((a: any) =>
-        `${a.title || a.action || "Action"}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : (a.related_person ? ` · ${a.related_person}` : "")}${a.due_date ? ` · due ${new Date(a.due_date).toLocaleDateString("en-GB")}` : ""}`.trim());
       const reviewedBy = userName;
       const reviewTime = new Date().toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
 
-      // Doctrine: the daily governance output is the Team Brief for Team Leaders — a concise
-      // review of the DAY'S SIGNALS and the decisions taken/pending. No patterns, no risk-index.
-      const brief = await fetchClient.post("/reports/narrative", {
-        reportTitle: `Daily Governance Review — ${houseName}`, periodLabel, serviceName: houseName,
-        data: {
-          audience: "Team Leaders",
-          format: [
-            `Produce a "Daily Governance Review" team brief with EXACTLY these parts and nothing else.`,
-            `Start with this header block, each item on its own line, verbatim:`,
-            `Daily Governance Review`,
-            `Service: ${houseName}`,
-            `Date: ${periodLabel}`,
-            `Reviewed by: ${reviewedBy}`,
-            `Review time: ${reviewTime}`,
-            ``,
-            `Then these five headed sections, each heading on its own line followed by short plain bullet lines:`,
-            `"What happened" — group the day's signals by the person involved (related_person); where there is no person, group under the service. One plain-language line per event.`,
-            `"What staff need to do today" — concrete instructions for Team Leaders and support staff, drawn from the signals and the decisions taken.`,
-            `"Management decisions" — the decisions taken (from the decisions list); note any still pending together with their ageing.`,
-            `"Escalations" — anything escalated or needing escalation; if there are none, write "None today".`,
-            `"Existing actions to remember" — outstanding actions staff must keep progressing (from the actions list).`,
-            `Keep it concise and operational. Do NOT include patterns, risk scores, or governance-health numbers.`,
-          ].join("\n"),
-          service: houseName,
-          period: periodLabel,
-          reviewed_by: reviewedBy,
-          review_time: reviewTime,
-          signals_recorded: daySignals.length,
-          high_or_critical: houseHigh.length,
-          signals: signalLines,
-          decisions: decisionLines,
-          existing_actions: actionLines,
-          open_escalations: openEsc,
-          overall_posture: houseHigh.length ? "Attention" : "Stable",
-        },
+      // 1. This house's signals for THIS date only (exact scoping — if the day is silent, that
+      //    silence is the evidence; never substitute older signals).
+      let houseSignals: any[] = [];
+      try {
+        const sres = await apiClient.get(`/pulses?house_id=${selectedHouseId}&limit=100`);
+        const raw = sres.data?.data || sres.data || [];
+        houseSignals = Array.isArray(raw) ? raw : (raw.items || raw.pulses || []);
+      } catch { /* no signals */ }
+      const daySignals = houseSignals.filter((s: any) => isoDay(s.entry_date || s.created_at) === reviewDate);
+
+      // 2. Governance decisions recorded for this house/date.
+      let decisions: any[] = [];
+      try {
+        const dres = await apiClient.get(`/governance-decisions?date=${reviewDate}&house_id=${selectedHouseId}`);
+        decisions = dres.data?.data?.decisions || [];
+      } catch { /* decisions optional */ }
+      const escDecisions = decisions.filter((d: any) => /escalat/i.test(String(d.decision || "")));
+      const isDone = (d: any) => /complete|closed|done|effected/i.test(String(d.rollup_status || d.decision_status || ""));
+
+      // 3. Outstanding actions to remember — scoped to this house where the row names one.
+      const houseActions = actions.filter((a: any) => !a.house_name || a.house_name === houseName);
+      const openActs = houseActions.filter((a: any) => !["Complete", "Completed", "Cancelled"].includes(a.status));
+
+      const clean = (t: any) => String(t || "").replace(/\s+/g, " ").trim();
+      const L: string[] = [];
+      L.push("Daily Governance Review");
+      L.push(`Service: ${houseName}`);
+      L.push(`Date: ${periodLabel}`);
+      L.push(`Reviewed by: ${reviewedBy}`);
+      L.push(`Review time: ${reviewTime}`);
+      L.push("");
+
+      // What happened — grouped by the person involved.
+      L.push("What happened");
+      if (daySignals.length === 0) {
+        L.push("- No signals were recorded for this service on this date.");
+      } else {
+        const byPerson = new Map<string, any[]>();
+        daySignals.forEach((s: any) => {
+          const who = clean(s.related_person) || "Service (general)";
+          if (!byPerson.has(who)) byPerson.set(who, []);
+          byPerson.get(who)!.push(s);
+        });
+        byPerson.forEach((sigs, who) => {
+          L.push(`${who}:`);
+          sigs.forEach((s: any) => L.push(`- ${s.severity || "—"} · ${clean(s.governance_domain || s.signal_type || "Signal")}: ${clean(s.description) || "—"}`));
+        });
+      }
+      L.push("");
+
+      // What staff need to do today — the decisions' required actions and anything due today.
+      L.push("What staff need to do today");
+      const todo: string[] = [];
+      decisions.filter((d: any) => !/escalat/i.test(String(d.decision || ""))).forEach((d: any) => {
+        const what = clean(d.what_is_happening);
+        if (what) todo.push(`- ${what}${d.owner_name ? ` (owner: ${d.owner_name})` : ""}`);
       });
-      const briefOut = (brief as any)?.data?.data ?? (brief as any)?.data ?? brief;
-      setDailyNote(briefOut?.narrative || "");
-    } catch { toast.error("Couldn't generate the team brief — you can write it below."); }
+      houseActions.filter(isDue).forEach((a: any) => todo.push(`- ${clean(a.title || a.action || "Action")}${a.assigned_to_name ? ` — ${a.assigned_to_name}` : ""} (due today)`));
+      L.push(todo.length ? todo.join("\n") : "- Continue with existing actions; no new tasks were set today.");
+      L.push("");
+
+      // Management decisions — every decision taken, with pending status.
+      L.push("Management decisions");
+      if (decisions.length === 0) L.push("- No management decisions were recorded for this date.");
+      else decisions.forEach((d: any) => L.push(`- ${clean(d.decision || "Decision")}: ${clean(d.what_is_happening) || "—"}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`));
+      L.push("");
+
+      // Escalations — from escalation decisions and any open escalations on the service.
+      L.push("Escalations");
+      if (escDecisions.length === 0 && openEsc === 0) {
+        L.push("- None today.");
+      } else {
+        escDecisions.forEach((d: any) => L.push(`- ${clean(d.what_is_happening) || "Escalation raised"}${d.owner_name ? ` · to ${d.owner_name}` : ""}`));
+        if (openEsc > 0) L.push(`- ${openEsc} open escalation${openEsc === 1 ? "" : "s"} still require follow-up.`);
+      }
+      L.push("");
+
+      // Existing actions to remember — outstanding work staff must keep progressing.
+      L.push("Existing actions to remember");
+      if (openActs.length === 0) L.push("- No outstanding actions.");
+      else openActs.slice(0, 15).forEach((a: any) => L.push(`- ${clean(a.title || a.action || "Action")}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : ""}${a.due_date ? ` · due ${new Date(a.due_date).toLocaleDateString("en-GB")}` : ""}`));
+
+      setDailyNote(L.join("\n"));
+    } catch { toast.error("Couldn't assemble the team brief — you can write it below."); }
     finally { setAiBusy(false); }
   };
 

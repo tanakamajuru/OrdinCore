@@ -291,7 +291,7 @@ export function EscalationLog() {
             {/* Filter tabs — organise the queue by what needs doing */}
             <div className="flex flex-wrap gap-2 mb-4">
               {([
-                { key: 'open', label: 'Awaiting response', n: counts.needs + counts.progress },
+                { key: 'open', label: 'Open', n: counts.needs + counts.progress },
                 { key: 'needs', label: 'Needs action', n: counts.needs },
                 { key: 'progress', label: 'In progress', n: counts.progress },
                 { key: 'resolved', label: 'Resolved', n: counts.resolved },

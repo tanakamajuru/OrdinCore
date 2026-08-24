@@ -580,7 +580,7 @@ export function RiskDetail() {
                 ESCALATED
               </span>
             )}
-            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
+            {['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
               <button
                 onClick={() => hasImpact ? setShowEscalateModal(true) : (document.getElementById('rd-actions')?.scrollIntoView({ behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — it sits above Controls & Effectiveness.'))}
                 disabled={!hasImpact}
@@ -590,7 +590,7 @@ export function RiskDetail() {
                 Escalate
               </button>
             )}
-            {['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
+            {['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && !['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
               <button
                 onClick={() => setShowCloseModal(true)}
                 className="px-3 py-1 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors uppercase font-bold"
@@ -602,9 +602,6 @@ export function RiskDetail() {
           <p className="text-muted-foreground  uppercase tracking-widest text-sm">
             {risk.house_name} • Registered {new Date(risk.created_at).toLocaleDateString()} by {risk.created_by_name}
           </p>
-          {(risk as any).trajectory_v2?.basis && (
-            <p className="text-xs text-muted-foreground mt-1 normal-case tracking-normal">Trajectory basis — {(risk as any).trajectory_v2.basis}</p>
-          )}
         </div>
 
         {/* Computed governance metrics — mathematically-defensible, derived by the system
@@ -612,7 +609,10 @@ export function RiskDetail() {
         {(risk as any).metrics && (() => {
           const m = (risk as any).metrics;
           const gradeTone: Record<string, string> = { Low: "text-emerald-600", Medium: "text-amber-600", High: "text-orange-600", Critical: "text-red-600" };
-          const trajTone = m.trajectoryPct > 10 ? "text-red-600" : m.trajectoryPct < -10 ? "text-emerald-600" : "text-amber-600";
+          // Trajectory is shown as a DIRECTION only (Improving / Stable / Deteriorating) — the
+          // underlying week-on-week maths is deliberately not surfaced on the record.
+          const trajDir = (risk as any).trajectory_v2?.direction || (risk as any).trajectory_direction || risk.trajectory || "Stable";
+          const trajTone = ["Deteriorating", "Critical"].includes(trajDir) ? "text-red-600" : trajDir === "Improving" ? "text-emerald-600" : "text-amber-600";
           const Metric = ({ label, value, sub, tone }: any) => (
             <div className="bg-card border-2 border-border p-4 shadow-sm">
               <div className="text-[10px] uppercase tracking-widest text-muted-foreground mb-1">{label}</div>
@@ -628,7 +628,7 @@ export function RiskDetail() {
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 <Metric label="Risk Index" value={m.riskIndex} sub={`Grade: ${m.grade}`} tone={gradeTone[m.grade]} />
-                <Metric label="Trajectory" value={`${m.trajectoryPct > 0 ? "+" : ""}${m.trajectoryPct}%`} sub={m.trajectoryGrade} tone={trajTone} />
+                <Metric label="Trajectory" value={trajDir} tone={trajTone} />
                 <Metric label="Priority" value={m.priority} sub="of 100" />
                 <Metric label="Overdue actions" value={`${m.overduePct}%`} />
                 <Metric label="Confidence" value={`${m.confidence}%`} sub="evidence strength" />
@@ -636,7 +636,9 @@ export function RiskDetail() {
               {/* Governance summary — the "why" behind the numbers, so the page defends its own
                   conclusions to an inspector rather than showing bare figures. */}
               {m.narrative && (
-                <p className="text-sm text-foreground mt-3 bg-muted/40 border-l-4 border-primary/40 px-3 py-2">{m.narrative}</p>
+                // Strip the exposed week-on-week trajectory percentage — trajectory is reported
+                // as a direction, not a raw figure.
+                <p className="text-sm text-foreground mt-3 bg-muted/40 border-l-4 border-primary/40 px-3 py-2">{String(m.narrative).replace(/\s*\(\d+%\s*week-on-week\)/gi, "")}</p>
               )}
             </div>
           );
@@ -714,12 +716,11 @@ export function RiskDetail() {
                 <h2 id="rd-origin" className="text-xs  uppercase text-primary mb-4 tracking-widest">Evidence Trail</h2>
                 {/* Trajectory narration — the story of the direction of travel, straight from the
                     SSOT engine's basis, so the trail explains WHY the risk reads as it does. */}
-                {(risk as any).trajectory_narrative && (
-                  <div className="mb-4 pb-4 border-b border-primary/20">
-                    <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Trajectory · {(risk as any).trajectory_direction || risk.trajectory}</div>
-                    <p className="text-sm text-foreground leading-relaxed">{(risk as any).trajectory_narrative}</p>
-                  </div>
-                )}
+                {/* Trajectory shown as a direction only — the raw signal-burden maths is not
+                    surfaced on the record. */}
+                <div className="mb-4 pb-4 border-b border-primary/20">
+                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Trajectory · {(risk as any).trajectory_direction || risk.trajectory || "Stable"}</div>
+                </div>
                 {risk.source_cluster_id ? (
                     <div className="space-y-4">
                         <div className=" text-primary">Source Cluster: {risk.source_cluster_name}</div>

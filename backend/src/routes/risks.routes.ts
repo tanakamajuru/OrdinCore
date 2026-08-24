@@ -152,7 +152,7 @@ router.patch('/:id/assessment', requireAuth, requireTenant, requireScope, requir
 // Change the current severity (RM + Director) — initial severity is preserved.
 router.patch('/:id/severity', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateSeverity.bind(risksController));
 // Set the compulsory human Impact rating (High/Medium/Low) — drives S in the Risk Index.
-router.patch('/:id/impact-rating', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), risksController.updateImpactRating.bind(risksController));
+router.patch('/:id/impact-rating', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), risksController.updateImpactRating.bind(risksController));
 
 
 /**
@@ -312,7 +312,7 @@ router.patch('/:id/actions/:actionId/status', requireAuth, requireTenant, risksC
 router.patch('/:id/actions/:actionId/assignee', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), risksController.reassignAction.bind(risksController));
 // Close a risk with an evidence-gated resolution verdict + 60-day recurrence window (Finding B).
 router.get('/:id/closure-review', requireAuth, requireTenant, risksController.closureReview.bind(risksController));
-router.post('/:id/close', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), risksController.closeRisk.bind(risksController));
+router.post('/:id/close', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), risksController.closeRisk.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/actions/{actionId}/verify:
@@ -343,7 +343,7 @@ router.post('/:id/actions/:actionId/verify', requireAuth, requireTenant, require
  *       200:
  *         description: Success
  */
-router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'), risksController.escalate.bind(risksController));
+router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'), risksController.escalate.bind(risksController));
 /**
  * @openapi
  * /api/v1/risks/{id}/timeline:
