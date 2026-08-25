@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
-import { requireRole, blockOversightRole } from '../middleware/role.middleware';
+import { requireRole } from '../middleware/role.middleware';
 import { governanceWorkflowService } from '../services/governanceWorkflow.service';
 
 const router = Router();
@@ -18,7 +18,10 @@ router.get('/patterns/:id/closure-eligibility', requireAuth, requireTenant, asyn
   }
 });
 
-router.post('/patterns/:id/review', requireAuth, requireTenant, reviewers, blockOversightRole, async (req, res) => {
+// Oversight roles (Director / Responsible Individual) may record a pattern review — leadership
+// must be able to review and close promoted/systemic patterns from their own interface, so the
+// blockOversightRole gate is intentionally NOT applied here (reviewers already scopes the roles).
+router.post('/patterns/:id/review', requireAuth, requireTenant, reviewers, async (req, res) => {
   try {
     const { outcome, rationale, next_review_date } = req.body || {};
     const data = await governanceWorkflowService.reviewPattern(
