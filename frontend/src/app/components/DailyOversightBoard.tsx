@@ -147,20 +147,12 @@ export function DailyOversightBoard() {
       }
       L.push("");
 
-      // What staff need to do today — the decisions' required actions and anything due today.
-      L.push("What staff need to do today");
-      const todo: string[] = [];
-      decisions.filter((d: any) => !/escalat/i.test(String(d.decision || ""))).forEach((d: any) => {
-        const what = clean(d.what_is_happening);
-        if (what) todo.push(`- ${what}${d.owner_name ? ` (owner: ${d.owner_name})` : ""}`);
-      });
-      houseActions.filter(isDue).forEach((a: any) => todo.push(`- ${clean(a.title || a.action || "Action")}${a.assigned_to_name ? ` — ${a.assigned_to_name}` : ""} (due today)`));
-      L.push(todo.length ? todo.join("\n") : "- Continue with existing actions; no new tasks were set today.");
-      L.push("");
-
-      // Management decisions — every decision taken, with pending status.
+      // Management decisions — every governance decision taken for the day, including tasks
+      // allocated to a named owner (Allocate-a-task → "Create Action"), with pending status.
+      // This single section carries the staff instructions; a separate "what staff need to do"
+      // list duplicated it, so it was removed.
       L.push("Management decisions");
-      if (decisions.length === 0) L.push("- No management decisions were recorded for this date.");
+      if (decisions.length === 0) L.push("- No governance decisions were recorded for this date.");
       else decisions.forEach((d: any) => L.push(`- ${clean(d.decision || "Decision")}: ${clean(d.what_is_happening) || "—"}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`));
       L.push("");
 

@@ -169,7 +169,13 @@ export const pulsesRepo = {
         const result = await query(
             `SELECT gp.*, gp.review_status as status, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name,
                     u.first_name || ' ' || u.last_name as created_by_name,
-                    au.first_name || ' ' || au.last_name as assigned_to_name
+                    au.first_name || ' ' || au.last_name as assigned_to_name,
+                    -- Return entry_date as a plain calendar-date string (overrides the DATE from
+                    -- gp.*, which node-pg hands back as a JS Date at server-local midnight). Serialised
+                    -- to JSON that Date becomes a UTC timestamp and, in any positive-offset zone (e.g.
+                    -- BST), slices back to the PREVIOUS day — which was dropping same-day signals from
+                    -- the daily decision panel and the Team Brief. As text it is timezone-proof.
+                    to_char(gp.entry_date, 'YYYY-MM-DD') as entry_date
              FROM governance_pulses gp
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
