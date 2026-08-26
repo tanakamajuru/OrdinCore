@@ -5,6 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
@@ -81,7 +82,7 @@ export default function ProviderAssuranceScreen() {
       <Text variant="subtitle" style={{ fontSize: 16, marginTop: spacing.md, marginBottom: spacing.sm }}>
         Requires your attention
       </Text>
-      <StatusList rows={attentionRows} onPressRow={() => {}} />
+      <StatusList rows={attentionRows} onPressRow={(row) => goToMyWork(navigation, 'RESPONSIBLE_INDIVIDUAL', row.id)} />
     </Screen>
   );
 }

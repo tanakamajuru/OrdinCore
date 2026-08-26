@@ -6,6 +6,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useAuth } from '@/auth/AuthContext';
 import { useApi } from '@/api/useApi';
@@ -62,7 +63,7 @@ export default function HomeScreen() {
       <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Registered Manager" onMenuPress={openDrawer} onBellPress={() => {}} />
 
       <SectionTitle title="Needs your attention" />
-      <StatusList rows={attentionRows} onPressRow={() => {}} />
+      <StatusList rows={attentionRows} onPressRow={(row) => goToMyWork(navigation, 'REGISTERED_MANAGER', row.id)} />
 
       <SectionTitle title="Trajectory changes" />
       <Row gap={spacing.md} style={{ marginBottom: spacing.lg }}>

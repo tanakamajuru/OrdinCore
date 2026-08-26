@@ -10,6 +10,7 @@ import { myWorkRows } from '@/api/mappers';
 import { Screen, Text, SegmentedControl } from '@/components/ui';
 import { BoardHeader, StatusList } from '@/components/board';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
+import { goToMyWork } from '@/navigation/goToMyWork';
 
 export default function MyWorkScreen() {
   const { spacing } = useTheme();
@@ -26,7 +27,7 @@ export default function MyWorkScreen() {
       <Text muted variant="caption" style={{ marginVertical: spacing.md }}>
         Everything requiring your action.
       </Text>
-      <StatusList rows={rows} onPressRow={() => {}} />
+      <StatusList rows={rows} onPressRow={(row) => goToMyWork(navigation, 'TEAM_LEADER', row.id)} />
     </Screen>
   );
 }

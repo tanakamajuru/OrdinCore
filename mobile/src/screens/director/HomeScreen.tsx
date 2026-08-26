@@ -5,6 +5,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
@@ -57,7 +58,7 @@ export default function HomeScreen() {
       />
 
       <SectionTitle title="Requires your attention" />
-      <StatusList rows={myWorkRows(mw)} onPressRow={() => {}} />
+      <StatusList rows={myWorkRows(mw)} onPressRow={(row) => goToMyWork(navigation, 'DIRECTOR', row.id)} />
     </Screen>
   );
 }

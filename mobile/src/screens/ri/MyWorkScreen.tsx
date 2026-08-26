@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
@@ -27,7 +28,7 @@ export default function MyWorkScreen() {
         onMenuPress={() => openDrawer()}
       />
       <SegmentedControl options={['Overview', 'Updates']} value={tab} onChange={setTab} />
-      <StatusList rows={rows} onPressRow={() => {}} />
+      <StatusList rows={rows} onPressRow={(row) => goToMyWork(navigation, 'RESPONSIBLE_INDIVIDUAL', row.id)} />
       <Text muted variant="caption" style={{ marginTop: spacing.md, textAlign: 'center' }}>
         Items updated just now
       </Text>

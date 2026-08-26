@@ -6,6 +6,7 @@
 import React from 'react';
 import { View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
@@ -44,7 +45,7 @@ export default function GovernanceScreen() {
       <Text variant="subtitle" style={{ fontSize: 16, marginBottom: spacing.sm }}>
         Governance overview
       </Text>
-      {overviewRows.length ? <StatusList rows={overviewRows} onPressRow={() => {}} /> : <Text muted variant="caption">Nothing awaiting governance review.</Text>}
+      {overviewRows.length ? <StatusList rows={overviewRows} onPressRow={(row) => goToMyWork(navigation, 'DIRECTOR', row.id)} /> : <Text muted variant="caption">Nothing awaiting governance review.</Text>}
 
       <Text variant="subtitle" style={{ fontSize: 16, marginTop: spacing.xl, marginBottom: spacing.md }}>
         Escalations by severity

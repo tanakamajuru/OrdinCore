@@ -3,6 +3,7 @@
  * "Work requiring your decision" — matches RM Mobile screenshot 2/8.
  */
 import React from 'react';
+import { useNavigation } from '@react-navigation/native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { myWorkRows } from '@/api/mappers';
@@ -10,9 +11,11 @@ import { Screen, Text, Row, Card } from '@/components/ui';
 import { Feather } from '@expo/vector-icons';
 import { BoardHeader, StatusList } from '@/components/board';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
+import { goToMyWork } from '@/navigation/goToMyWork';
 
 export default function MyWorkScreen() {
   const { colors, spacing } = useTheme();
+  const navigation = useNavigation();
   const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/my-work');
   const rows = myWorkRows(data);
@@ -24,7 +27,7 @@ export default function MyWorkScreen() {
         Work requiring your decision
       </Text>
 
-      <StatusList rows={rows} onPressRow={() => {}} />
+      <StatusList rows={rows} onPressRow={(row) => goToMyWork(navigation, 'REGISTERED_MANAGER', row.id)} />
 
       <Card style={{ marginTop: spacing.lg, backgroundColor: colors.surfaceAlt, borderWidth: 0 }}>
         <Row gap={spacing.sm} align="flex-start">

@@ -4,6 +4,7 @@
  */
 import React from 'react';
 import { useNavigation } from '@react-navigation/native';
+import { goToMyWork } from '@/navigation/goToMyWork';
 import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
@@ -30,7 +31,7 @@ export default function MyWorkScreen() {
 
       {priorityRows.map((row) => (
         <Card key={row.id} style={{ marginBottom: spacing.md, flexDirection: 'row', alignItems: 'center', gap: spacing.md }}>
-          <BoardItem row={row} divider={false} onPress={() => {}} />
+          <BoardItem row={row} divider={false} onPress={() => goToMyWork(navigation, 'DIRECTOR', row.id)} />
         </Card>
       ))}
 
