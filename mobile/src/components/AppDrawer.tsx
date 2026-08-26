@@ -100,6 +100,27 @@ export function AppDrawer({
         })}
       </ScrollView>
 
+      {/* Log out — always present at the foot of the sidebar for every role. */}
+      <Pressable
+        onPress={() => onSelect('LogOut')}
+        style={{
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: spacing.md,
+          marginHorizontal: spacing.md,
+          marginBottom: spacing.sm,
+          paddingVertical: 12,
+          paddingHorizontal: spacing.md,
+          borderRadius: radius.sm,
+          backgroundColor: 'rgba(214,69,69,0.15)',
+        }}
+      >
+        <Feather name="log-out" size={18} color="#F7A6A6" />
+        <Text style={{ color: '#F7A6A6', flex: 1 }} weight="700">
+          Log Out
+        </Text>
+      </Pressable>
+
       <Row
         gap={spacing.sm}
         style={{

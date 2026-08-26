@@ -34,12 +34,12 @@ export const spacing = {
 };
 
 export const fontSize = {
-  xs: 12,
-  sm: 13,
-  md: 15,
-  lg: 17,
-  xl: 20,
-  xxl: 26,
+  xs: 11,
+  sm: 12,
+  md: 14,
+  lg: 16,
+  xl: 18,
+  xxl: 22,
 };
 
 const palette = {

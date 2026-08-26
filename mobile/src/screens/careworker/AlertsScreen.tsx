@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Alert = {
   id: string;
@@ -37,6 +38,7 @@ const timeLine = (x?: string) => {
 
 export default function AlertsScreen() {
   const { colors, spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const { data } = useApi<any>('/notifications');
 
   const all: (Alert & { ts: number })[] = listOf(data).map((n: any) => ({
@@ -55,6 +57,7 @@ export default function AlertsScreen() {
     <Screen scroll>
       <BoardHeader
         title="Alerts"
+        onMenuPress={() => openDrawer()}
         right={
           <Text style={{ color: roleAccent.careWorker }} weight="600" variant="caption">
             Mark all read

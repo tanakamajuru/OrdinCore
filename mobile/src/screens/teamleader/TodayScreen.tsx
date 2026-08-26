@@ -11,6 +11,7 @@ import { Screen, Text, Row, Card, Button } from '@/components/ui';
 import { Metrics } from '@/components/board';
 import { Logo } from '@/components/Logo';
 import { useAuth } from '@/auth/AuthContext';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 
@@ -22,6 +23,7 @@ export default function TodayScreen() {
   const { colors, spacing } = useTheme();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
+  const { openDrawer } = useAppDrawer();
   const { data: mw } = useApi<any>('/my-work');
   const { data: sigData } = useApi<any>('/pulses?limit=100');
   const { data: actData } = useApi<any>('/actions/my');
@@ -42,7 +44,10 @@ export default function TodayScreen() {
   return (
     <Screen scroll>
       <Row justify="space-between" style={{ marginBottom: spacing.lg, marginTop: spacing.sm }}>
-        <Logo size={28} />
+        <Row gap={spacing.md} align="center">
+          <Feather name="menu" size={22} color={colors.text} onPress={() => openDrawer()} />
+          <Logo size={28} />
+        </Row>
         <Feather name="bell" size={20} color={colors.text} />
       </Row>
 

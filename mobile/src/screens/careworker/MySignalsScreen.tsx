@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Signal = {
   id: string;
@@ -59,6 +60,7 @@ const statusOf = (p: any): Signal['status'] => {
 
 export default function MySignalsScreen() {
   const { colors, spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const { user } = useAuth();
   const uid = user?.id || user?.user_id;
   const [tab, setTab] = useState('All');
@@ -87,7 +89,7 @@ export default function MySignalsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="My signals" onBellPress={() => {}} />
+      <BoardHeader title="My signals" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
 
       <SegmentedControl options={['All', 'Open', 'Actioned', 'Closed']} value={tab} onChange={setTab} />
 

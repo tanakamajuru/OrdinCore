@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Action = {
   id: string;
@@ -35,6 +36,7 @@ const dueToneOf = (a: any): Action['dueTone'] =>
 
 export default function ActionsScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const [tab, setTab] = useState('To do');
   const navigation = useNavigation<any>();
   const { data } = useApi<any>('/actions/my');
@@ -53,7 +55,7 @@ export default function ActionsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="Actions" onBellPress={() => {}} />
+      <BoardHeader title="Actions" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
       <SegmentedControl options={['To do', 'Done']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>

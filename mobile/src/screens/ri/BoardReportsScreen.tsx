@@ -9,6 +9,7 @@ import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { Screen, Text, Row, Card } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Report = {
   id: string;
@@ -28,11 +29,12 @@ const reports: Report[] = [
 
 export default function BoardReportsScreen() {
   const { colors, spacing, radius } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const navigation = useNavigation<any>();
 
   return (
     <Screen scroll>
-      <BoardHeader title="Board Reports" subtitle="Reports for governance and assurance" />
+      <BoardHeader title="Board Reports" subtitle="Reports for governance and assurance" onMenuPress={() => openDrawer()} />
 
       {reports.map((r) => (
         <Card

@@ -9,9 +9,11 @@ import { useApi } from '@/api/useApi';
 import { myWorkRows } from '@/api/mappers';
 import { Screen, Text, SegmentedControl } from '@/components/ui';
 import { BoardHeader, StatusList } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 export default function MyWorkScreen() {
   const { spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const [tab, setTab] = useState('All');
   const navigation = useNavigation();
   const { data } = useApi<any>('/my-work');
@@ -19,7 +21,7 @@ export default function MyWorkScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="My Work" onBellPress={() => {}} />
+      <BoardHeader title="My Work" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
       <SegmentedControl options={['All', 'Urgent', 'Due Today']} value={tab} onChange={setTab} />
       <Text muted variant="caption" style={{ marginVertical: spacing.md }}>
         Everything requiring your action.

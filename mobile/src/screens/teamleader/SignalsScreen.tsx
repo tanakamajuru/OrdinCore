@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Signal = { id: string; title: string; site: string; time: string; status: 'Needs review' | 'Escalated' | 'Closed'; ts: number };
 
@@ -36,6 +37,7 @@ const sigStatus = (p: any): Signal['status'] => {
 
 export default function SignalsScreen() {
   const { colors, spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const [tab, setTab] = useState('Needs review');
   const navigation = useNavigation<any>();
   const { data } = useApi<any>('/pulses?limit=150');
@@ -56,7 +58,7 @@ export default function SignalsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="Signals" onBellPress={() => {}} />
+      <BoardHeader title="Signals" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
       <SegmentedControl options={['Needs review', 'Recent', 'Escalated', 'All']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>

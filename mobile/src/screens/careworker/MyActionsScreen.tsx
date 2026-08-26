@@ -11,6 +11,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Action = {
   id: string;
@@ -46,6 +47,7 @@ const isDone = (a: any) => /complete|done|closed/i.test(String(a.status || ''));
 
 export default function MyActionsScreen() {
   const { colors, spacing, radius } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const [tab, setTab] = useState('To do');
   const navigation = useNavigation<any>();
   const { data } = useApi<any>('/actions/my');
@@ -69,7 +71,7 @@ export default function MyActionsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="My actions" onBellPress={() => {}} />
+      <BoardHeader title="My actions" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
       <SegmentedControl options={['To do', 'Completed']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>

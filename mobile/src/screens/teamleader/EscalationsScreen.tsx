@@ -10,6 +10,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, SegmentedControl } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 type Escalation = {
   id: string;
@@ -33,6 +34,7 @@ const bucketOf = (e: any): Escalation['bucket'] => {
 
 export default function EscalationsScreen() {
   const { colors, spacing, severityColor, mode } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const [tab, setTab] = useState('Requires me');
   const { data } = useApi<any>('/escalations?limit=300');
 
@@ -56,7 +58,7 @@ export default function EscalationsScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title="Escalations" onBellPress={() => {}} />
+      <BoardHeader title="Escalations" onMenuPress={() => openDrawer()} onBellPress={() => {}} />
       <SegmentedControl options={['Requires me', 'Under RM oversight', 'Closed']} value={tab} onChange={setTab} />
 
       <View style={{ marginTop: spacing.lg }}>

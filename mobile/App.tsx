@@ -15,16 +15,16 @@ import { navigationRef } from '@/navigation/navRef';
 
 import { RootDrawer as DirectorDrawer } from '@/navigation/RootDrawer';
 import { RMDrawer } from '@/navigation/RMDrawer';
-import { CareWorkerNavigator } from '@/navigation/CareWorkerNavigator';
-import { TeamLeaderNavigator } from '@/navigation/TeamLeaderNavigator';
+import { CareWorkerDrawer } from '@/navigation/CareWorkerDrawer';
+import { TLDrawer } from '@/navigation/TLDrawer';
 import { RIDrawer } from '@/navigation/RIDrawer';
 import LoginScreen from '@/screens/auth/LoginScreen';
 import LockScreen from '@/screens/auth/LockScreen';
 
 function navigatorForRole(role: string): React.ComponentType {
   switch (role) {
-    case 'SUPPORT_WORKER': return CareWorkerNavigator;
-    case 'TEAM_LEADER': return TeamLeaderNavigator;
+    case 'SUPPORT_WORKER': return CareWorkerDrawer;
+    case 'TEAM_LEADER': return TLDrawer;
     case 'DIRECTOR': return DirectorDrawer;
     case 'RESPONSIBLE_INDIVIDUAL': return RIDrawer;
     case 'REGISTERED_MANAGER':

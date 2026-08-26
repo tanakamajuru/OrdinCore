@@ -14,6 +14,7 @@ import { useApi } from '@/api/useApi';
 import { listOf } from '@/api/mappers';
 import { Screen, Text, Row, Card, Button } from '@/components/ui';
 import { BoardHeader } from '@/components/board';
+import { useAppDrawer } from '@/navigation/AppDrawerContext';
 
 const domainOf = (s: any) => (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain || s.governance_domain || s.category || 'Signal');
 const iconFor = (s: any) => { const d = String(domainOf(s)).toLowerCase(); if (/health|wellbeing|mental/.test(d)) return 'heart'; if (/environment|property/.test(d)) return 'home'; if (/engagement|positive|social/.test(d)) return 'star'; if (/medicat/.test(d)) return 'thermometer'; if (/safeguard/.test(d)) return 'shield'; return 'activity'; };
@@ -22,6 +23,7 @@ const submitted = (s: any) => { const dt = s.created_at || s.entry_date; if (!dt
 
 export default function TodayScreen() {
   const { colors, spacing } = useTheme();
+  const { openDrawer } = useAppDrawer();
   const navigation = useNavigation<any>();
   const { user } = useAuth();
   const uid = user?.id || user?.user_id;
@@ -34,7 +36,7 @@ export default function TodayScreen() {
 
   return (
     <Screen scroll>
-      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Capture. Act. Make a difference." onBellPress={() => {}} />
+      <BoardHeader title={`${greet}${user?.first_name ? `, ${user.first_name}` : ''}`} subtitle="Capture. Act. Make a difference." onMenuPress={() => openDrawer()} onBellPress={() => {}} />
 
       <Button
         label="+  Raise a signal"
