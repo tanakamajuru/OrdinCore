@@ -31,6 +31,10 @@
       "android": {
         "serviceAccountKeyPath": "./credentials/play-service-account.json",
         "track": "internal"
+      },
+      "ios": {
+        "appleId": "kuda.sikangela@icloud.com",
+        "appleTeamId": "T4J2Q5S4R2"
       }
     }
   }
