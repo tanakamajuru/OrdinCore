@@ -55,7 +55,8 @@ const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  { label: "Pilot", href: "#pricing" },
+  // { label: "Pilot", href: "#pricing" }, // hidden with the pricing section — re-enable later
+
   { label: "FAQ", href: "#faq" },
   { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
@@ -931,7 +932,10 @@ export default function App() {
           </div>
         </section>
 
-        {/* ── PILOT STRUCTURE & PRICING ── */}
+        {/* ── PILOT STRUCTURE & PRICING ──
+             Hidden for now (pricing / pilot commercial). Kept in the code so it can be
+             re-enabled later by changing `{false && (` back to `{(`. */}
+        {false && (
         <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="pricing">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
 
@@ -997,6 +1001,7 @@ export default function App() {
             </div>
           </div>
         </section>
+        )}
 
         {/* ── FAQ ── */}
         <section className="py-20 bg-[#F0F7F3] dark:bg-slate-900 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="faq">
