@@ -78,6 +78,24 @@ cd "$APP_ROOT/landing-page"
 npm install --legacy-peer-deps
 chmod -R 755 node_modules/.bin
 npm run build
+# Publish to the marketing site's REAL docroot. ordincore.co.uk is served by Apache
+# from /home/ordin/public_html (a cPanel account), NOT /var/www/ordincore/landing-page-dist
+# — that old path is served by nothing, so every landing update was silently dropped while
+# the site kept showing the June build. Merge the fresh build over the landing files there,
+# leaving the app subdir (work.ordincore.co.uk), privacy/ and .well-known/ untouched, then
+# hand ownership back to the cPanel user so Apache/suEXEC serves it.
+LANDING_DOCROOT="/home/ordin/public_html"
+if [[ -d "$LANDING_DOCROOT" ]]; then
+  log "Landing: publish to live docroot ($LANDING_DOCROOT)"
+  cp -a dist/assets/. "$LANDING_DOCROOT/assets/"
+  cp -af dist/index.html "$LANDING_DOCROOT/index.html"
+  for f in dist/*; do [[ -f "$f" ]] && cp -af "$f" "$LANDING_DOCROOT/"; done
+  chown -R ordin:ordin "$LANDING_DOCROOT/assets" "$LANDING_DOCROOT/index.html"
+  chown ordin:ordin "$LANDING_DOCROOT"/*.svg "$LANDING_DOCROOT"/*.png "$LANDING_DOCROOT"/*.jpg "$LANDING_DOCROOT"/*.ico 2>/dev/null || true
+else
+  echo "WARNING: $LANDING_DOCROOT not found — landing NOT published."
+fi
+# Legacy mirror (kept for backward-compat; not served by any vhost).
 mkdir -p "$LANDING_DIST"
 cp -rf dist/* "$LANDING_DIST/"
 
