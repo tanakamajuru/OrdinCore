@@ -36,3 +36,47 @@ database_dump.sql
 clean_database_dump.sql
 simple_dump.sql
 caresignal_db.dump
+
+# ── Security: keys, secret material, credential stores (never commit) ──
+*.sql.gz
+*.pem
+*.p8
+*.key
+id_rsa
+id_rsa.*
+**/credentials/
+mobile/credentials/*.json
+backend/credentials/*.json
+
+# Ad-hoc operational scripts that carried embedded server/DB/SSH credentials.
+# Removed during the security remediation — use deployment/deploy.sh + environment
+# variables instead. Kept out of the repo so live secrets can never be re-committed.
+backend/deploy_prod.*
+backend/deploy_frontend*.js
+backend/deploy_recovery.js
+backend/redeploy_frontend_clean.js
+backend/hard_sync_prod.js
+backend/prod_stabilize.js
+backend/manual_stabilize.js
+backend/run_deploy_full.js
+backend/run_migration_prod.js
+backend/run_live_seed.ts
+backend/run_seed_sql_live.ts
+backend/fresh_deployment.js
+backend/final_reconstruction.js
+backend/setup_live_db.ts
+backend/inspect_live_db.ts
+backend/read_remote_env.ts
+backend/sync_remote_env.ts
+backend/sync_db_pass.ts
+backend/reset_db_pass.js
+backend/repair_db_ssh.js
+backend/migrate_live.ts
+backend/check_remote_db.ts
+backend/scratch_remote_exec.js
+backend/scripts/remote_exec.js
+backend/scripts/test_creds.js
+backend/*_live_db*.ts
+backend/get_*_live*.ts
+backend/find_superadmin_live.ts
+backend/verify_prod_live.ts

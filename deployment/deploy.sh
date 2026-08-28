@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 #
 # Ordin Core — production redeploy script
-# Server: 185.116.215.178   App root: /var/www/ordincore
+# Server: <SERVER_IP>   App root: /var/www/ordincore
 #
 # Usage (on the server, as root):
 #   cd /var/www/ordincore && ./deploy.sh
@@ -117,8 +117,8 @@ echo "Tail backend logs with:  pm2 logs ordincore-api --lines 50"
 # -----------------------------------------------------------------------------
 # To copy this script onto the server from your Windows machine (PowerShell):
 #
-#   scp ".\deployment\deploy.sh" tmajuru@185.116.215.178:/tmp/deploy.sh
-#   ssh tmajuru@185.116.215.178
+#   scp ".\deployment\deploy.sh" tmajuru@<SERVER_IP>:/tmp/deploy.sh
+#   ssh tmajuru@<SERVER_IP>
 #   sudo -i
 #   install -m 755 /tmp/deploy.sh /var/www/ordincore/deploy.sh
 #   cd /var/www/ordincore && ./deploy.sh
