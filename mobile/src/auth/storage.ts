@@ -13,10 +13,13 @@ const readValue = async (key: string): Promise<string | null> => {
     return AsyncStorage.getItem(key);
   }
 
+  // Native: the bearer token / cached profile live ONLY in the secure keychain/keystore.
+  // If SecureStore is unavailable, fail closed (return null) instead of reading a credential
+  // from plaintext AsyncStorage — the user simply re-authenticates (security P4.14).
   try {
     return await SecureStore.getItemAsync(key);
   } catch {
-    return AsyncStorage.getItem(key);
+    return null;
   }
 };
 
@@ -26,11 +29,9 @@ const writeValue = async (key: string, value: string): Promise<void> => {
     return;
   }
 
-  try {
-    await SecureStore.setItemAsync(key, value);
-  } catch {
-    await AsyncStorage.setItem(key, value);
-  }
+  // Native: never downgrade a bearer credential to plaintext storage. If the secure store
+  // rejects the write, surface the error rather than silently persisting it less securely.
+  await SecureStore.setItemAsync(key, value);
 };
 
 const removeValue = async (key: string): Promise<void> => {
@@ -42,7 +43,7 @@ const removeValue = async (key: string): Promise<void> => {
   try {
     await SecureStore.deleteItemAsync(key);
   } catch {
-    await AsyncStorage.removeItem(key);
+    /* nothing to remove / secure store unavailable — the credential was never persisted here */
   }
 };
 

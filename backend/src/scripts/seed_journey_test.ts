@@ -14,6 +14,12 @@ const pool = new Pool({
   ssl: false,
 });
 
+// Synthetic seed data (creates accounts with weak, well-known passwords). Must NEVER run
+// against production — no test credential may also be valid in production (security P5.16).
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('Refusing to run seed script in production — it creates synthetic test accounts.');
+}
+
 async function seed() {
   const client = await pool.connect();
   try {

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 import { api } from '@/api/client';
+import { encryptBlob, decryptBlob } from './secureBlob';
 
 // Offline-first capture. A signal (or action update) raised without a connection is persisted
 // on the device and flushed automatically on reconnect — a calm queue, never a lost record.
@@ -19,10 +20,20 @@ type Listener = (items: QueuedItem[]) => void;
 const listeners = new Set<Listener>();
 
 async function read(): Promise<QueuedItem[]> {
-  try { return JSON.parse((await AsyncStorage.getItem(KEY)) || '[]'); } catch { return []; }
+  const raw = await AsyncStorage.getItem(KEY);
+  if (!raw) return [];
+  // The queue is stored AES-encrypted. Try the decrypted payload first, then fall back to
+  // legacy plaintext, so items queued by an older build are never lost on upgrade (they get
+  // re-encrypted on the next write). Only give up (returning []) if neither parses.
+  const dec = await decryptBlob(raw);
+  for (const candidate of [dec, raw]) {
+    if (!candidate) continue;
+    try { const arr = JSON.parse(candidate); if (Array.isArray(arr)) return arr; } catch { /* try next */ }
+  }
+  return [];
 }
 async function write(items: QueuedItem[]) {
-  await AsyncStorage.setItem(KEY, JSON.stringify(items));
+  await AsyncStorage.setItem(KEY, await encryptBlob(JSON.stringify(items)));
   listeners.forEach((l) => l(items));
 }
 

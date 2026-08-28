@@ -14,6 +14,12 @@ const pool = new Pool({
     password: process.env.DB_PASSWORD || 'postgres',
 });
 
+// Synthetic seed data (creates accounts with weak, well-known passwords). Must NEVER run
+// against production — no test credential may also be valid in production (security P5.16).
+if (process.env.NODE_ENV === 'production') {
+  throw new Error('Refusing to run seed script in production — it creates synthetic test accounts.');
+}
+
 async function run() {
     console.log('🚀 Seeding Beam of Light Users...');
     const companyId = '11111111-1111-1111-1111-111111111111';
