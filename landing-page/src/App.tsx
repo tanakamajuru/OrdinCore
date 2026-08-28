@@ -312,6 +312,7 @@ export default function App() {
       formData.append("preferred_contact_method", demoFormContactMethod);
       formData.append("message", demoFormMessage);
       formData.append("subject", "Ordin Core Landing Page - Demo Request");
+      formData.append("ccemail", "support@ordincore.co.uk");
 
       const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
@@ -359,6 +360,7 @@ export default function App() {
       formData.append("what_ordin_core_can_help_with", pilotFormHelp);
       formData.append("consent_to_be_contacted", pilotFormConsent ? "Yes" : "No");
       formData.append("subject", "Ordin Core Landing Page - Pilot Programme Application");
+      formData.append("ccemail", "support@ordincore.co.uk");
 
       const response = await fetch("https://api.web3forms.com/submit", {
         method: "POST",
@@ -1041,11 +1043,11 @@ export default function App() {
                 Structured operational governance and assurance loops for supported living, community, and care services.
               </p>
               <div className="space-y-1.5 pt-2 text-sm">
-                <a href="mailto:hello@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
-                  hello@ordincore.co.uk
+                <a href="mailto:support@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
+                  support@ordincore.co.uk
                 </a>
-                <a href="mailto:pilot@ordincore.com" className="block text-slate-400 hover:text-white transition-colors font-medium">
-                  pilot@ordincore.com — Pilot enquiries
+                <a href="mailto:support@ordincore.co.uk" className="block text-slate-400 hover:text-white transition-colors font-medium">
+                  support@ordincore.co.uk — Pilot enquiries
                 </a>
               </div>
             </div>
