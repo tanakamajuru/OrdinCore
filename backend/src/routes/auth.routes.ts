@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { authController } from '../controllers/auth.controller';
 import { requireAuth } from '../middleware/auth.middleware';
+import { loginSlowDown, loginRateLimit, authRouteLimit } from '../middleware/rateLimit.middleware';
 
 const router = Router();
 
@@ -25,10 +26,10 @@ const router = Router();
  *               email:
  *                 type: string
  *                 format: email
- *                 example: superadmin@caresignal.com
+ *                 example: user@example.com
  *               password:
  *                 type: string
- *                 example: admin123
+ *                 example: your-password
  *     responses:
  *       200:
  *         description: Login successful
@@ -51,7 +52,7 @@ const router = Router();
  *       401:
  *         description: Invalid credentials
  */
-router.post('/login', authController.login.bind(authController));
+router.post('/login', loginSlowDown, loginRateLimit, authController.login.bind(authController));
 /**
  * @openapi
  * /api/v1/auth/logout:
@@ -79,7 +80,7 @@ router.post('/logout', requireAuth, authController.logout.bind(authController));
  *       200:
  *         description: Success
  */
-router.post('/refresh', authController.refresh.bind(authController));
+router.post('/refresh', authRouteLimit, authController.refresh.bind(authController));
 /**
  * @openapi
  * /api/v1/auth/me:
@@ -112,7 +113,7 @@ router.post('/active-role', requireAuth, authController.setActiveRole.bind(authC
 router.post('/change-password', requireAuth, authController.changePassword.bind(authController));
 router.patch('/profile', requireAuth, authController.updateProfile.bind(authController));
 
-router.post('/forgot-password', authController.forgotPassword.bind(authController));
-router.post('/reset-password', authController.resetPassword.bind(authController));
+router.post('/forgot-password', authRouteLimit, authController.forgotPassword.bind(authController));
+router.post('/reset-password', authRouteLimit, authController.resetPassword.bind(authController));
 
 export default router;

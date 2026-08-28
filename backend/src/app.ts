@@ -57,28 +57,53 @@ import orgStructureRoutes from './routes/orgStructure.routes';
 
 const app = express();
 
+// Behind Apache (one reverse-proxy hop) — trust exactly one proxy so req.ip is the real
+// client address (needed for accurate auth rate-limiting), without trusting arbitrary
+// X-Forwarded-For values.
+app.set('trust proxy', 1);
+
 // ─── Security & Parsing Middleware ────────────────────────────────────────────
-app.use(helmet({ contentSecurityPolicy: false }));
-const allowedOrigins = (process.env.CORS_ORIGIN || 'http://localhost:5173')
+// Content Security Policy (P3.11). A restrictive policy is enforced; the only relaxations
+// are the inline script/style + data: URIs that Swagger UI (/api-docs) requires. This app
+// serves the JSON API + docs; the web app is served separately by Apache with its own headers.
+const isProd = process.env.NODE_ENV === 'production';
+app.use(helmet({
+  contentSecurityPolicy: {
+    directives: {
+      defaultSrc: ["'self'"],
+      scriptSrc: ["'self'", "'unsafe-inline'"],
+      styleSrc: ["'self'", "'unsafe-inline'", 'https:'],
+      imgSrc: ["'self'", 'data:', 'https:'],
+      connectSrc: ["'self'"],
+      fontSrc: ["'self'", 'https:', 'data:'],
+      objectSrc: ["'none'"],
+      frameAncestors: ["'none'"],
+      baseUri: ["'self'"],
+      formAction: ["'self'"],
+      upgradeInsecureRequests: isProd ? [] : null,
+    },
+  },
+  crossOriginEmbedderPolicy: false,
+}));
+
+// CORS (P3.12): an EXACT, configuration-driven allow-list. No suffix / reflected-origin
+// matching — a request whose Origin is not literally on the list is rejected. Development
+// origins are only present outside production.
+const defaultOrigins = isProd
+  ? 'https://work.ordincore.co.uk,https://ordincore.co.uk,https://www.ordincore.co.uk'
+  : 'http://localhost:5173,http://localhost:3000';
+const allowedOrigins = (process.env.CORS_ORIGIN || defaultOrigins)
   .split(',')
-  .map(o => o.trim());
+  .map(o => o.trim())
+  .filter(Boolean);
 
 app.use(cors({
   origin: (origin, callback) => {
-    if (!origin) {
-      return callback(null, true);
-    }
-    
-    const isAllowed = allowedOrigins.some(allowed => 
-      origin === allowed || origin.endsWith(`.${allowed.replace(/^https?:\/\//, '')}`)
-    );
-
-    if (isAllowed) {
-      // Return only the exact origin that matched
-      callback(null, origin);
-    } else {
-      callback(new Error('Not allowed by CORS'));
-    }
+    // No Origin header = non-browser / same-origin (curl, health checks, native app,
+    // server-to-server) — allowed. Browser cross-origin requests must match exactly.
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.includes(origin)) return callback(null, origin);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
