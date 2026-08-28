@@ -40,10 +40,15 @@ export class AuthService {
   async login(email: string, password: string) {
     const user = await usersRepo.findByEmail(email);
     if (!user) throw new Error('Invalid credentials');
-    if (user.status !== 'active') throw new Error('Account is inactive or suspended');
 
+    // Verify the password BEFORE checking account status, so an unknown email and a wrong
+    // password are indistinguishable ('Invalid credentials'). The account-status message —
+    // which would reveal that the email is registered — is only reachable once the correct
+    // password has been supplied (P2.9: errors must not disclose whether an account exists).
     const valid = await bcrypt.compare(password, user.password_hash);
     if (!valid) throw new Error('Invalid credentials');
+
+    if (user.status !== 'active') throw new Error('Account is inactive or suspended');
 
     // Block access when the organisation itself has been deactivated/suspended/archived.
     // (SUPER_ADMIN has no company_id and is exempt.)

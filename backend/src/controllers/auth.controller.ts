@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
 import logger from '../utils/logger';
+import { logSecurityEvent, maskEmail } from '../middleware/rateLimit.middleware';
 
 export class AuthController {
   /**
@@ -36,8 +37,10 @@ export class AuthController {
         return res.status(400).json({ success: false, message: 'Email and password are required', errors: [] });
       }
       const result = await authService.login(email, password);
+      logSecurityEvent('login.success', req, { email: maskEmail(email) });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
+      logSecurityEvent('login.failure', req, { email: maskEmail(req.body?.email) });
       const message = err instanceof Error ? err.message : 'Login failed';
       return res.status(401).json({ success: false, message, errors: [] });
     }
