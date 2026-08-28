@@ -9,6 +9,23 @@ import { rateLimit } from 'express-rate-limit';
 import { slowDown } from 'express-slow-down';
 import type { Request, Response } from 'express';
 import logger from '../utils/logger';
+import { sendMail } from '../utils/mailer';
+
+// App-level intrusion alerting: when a brute-force burst trips a limiter, email a security
+// alert (in addition to imunify360's infra-level detection). Throttled to at most one email
+// per key per hour so an attack cannot turn the alert into a mail flood.
+const SECURITY_ALERT_EMAIL = process.env.SECURITY_ALERT_EMAIL || 'support@ordincore.co.uk';
+const ALERT_MIN_INTERVAL_MS = 60 * 60 * 1000;
+const alertThrottle = new Map<string, number>();
+
+function sendSecurityAlert(key: string, subject: string, text: string): void {
+  const now = Date.now();
+  if (now - (alertThrottle.get(key) || 0) < ALERT_MIN_INTERVAL_MS) return;
+  alertThrottle.set(key, now);
+  // Fire-and-forget — alerting must never break or slow the request path.
+  const html = `<pre style="font:14px/1.5 monospace">${text.replace(/</g, '&lt;')}</pre>`;
+  void sendMail({ to: SECURITY_ALERT_EMAIL, subject, text, html }).catch(() => { /* best-effort delivery */ });
+}
 
 /** Normalise the client IP for keying: IPv6 is collapsed to its /64 prefix so an attacker
  *  cannot trivially rotate addresses within a single allocation to bypass the limit. */
@@ -57,6 +74,11 @@ export const loginRateLimit = rateLimit({
   validate: false,
   handler: (req: Request, res: Response) => {
     logSecurityEvent('login.rate_limited', req, { email: maskEmail(req.body?.email) });
+    sendSecurityAlert(
+      `login:${req.ip}:${String(req.body?.email || '').toLowerCase()}`,
+      'OrdinCore security alert — repeated failed logins',
+      `Repeated failed login attempts tripped the login rate limit.\n\nIP: ${req.ip}\nAccount: ${maskEmail(req.body?.email)}\nTime: ${new Date().toISOString()}\n\nThis is an automated alert from OrdinCore. If this was not expected activity, investigate a possible brute-force attempt.`,
+    );
     res.status(429).json({
       success: false,
       message: 'Too many attempts. Please wait a few minutes and try again.',
@@ -75,6 +97,11 @@ export const authRouteLimit = rateLimit({
   validate: false,
   handler: (req: Request, res: Response) => {
     logSecurityEvent('auth.rate_limited', req, { path: req.path });
+    sendSecurityAlert(
+      `auth:${req.ip}`,
+      'OrdinCore security alert — auth endpoint flooded',
+      `A sensitive auth endpoint was hit past its rate limit.\n\nIP: ${req.ip}\nPath: ${req.path}\nTime: ${new Date().toISOString()}\n\nThis is an automated alert from OrdinCore.`,
+    );
     res.status(429).json({ success: false, message: 'Too many requests. Please try again shortly.', errors: [] });
   },
 });
