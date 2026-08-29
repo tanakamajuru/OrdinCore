@@ -28,7 +28,13 @@ fi
 cd "$APP_ROOT"
 
 log "Pulling latest code (main)"
-git pull origin main
+# Hard-sync to origin/main rather than 'git pull'. A plain pull aborts when untracked working
+# files (e.g. the installed node_modules, no longer tracked) would be touched by the merge, and
+# it also chokes on the throwaway local edits this box accumulates (logs, package-lock). reset
+# --hard matches origin exactly for TRACKED files and leaves untracked files (node_modules) in
+# place; npm install below then reconciles dependencies.
+git fetch origin main
+git reset --hard origin/main
 
 # ---------- Backend ----------
 log "Backend: install"
