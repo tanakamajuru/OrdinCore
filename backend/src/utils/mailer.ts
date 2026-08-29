@@ -35,6 +35,10 @@ function getTransporter(): Transporter | null {
     port: Number(SMTP_PORT) || 587,
     secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true', // true for 465, false for 587 (STARTTLS)
     auth: { user: SMTP_USER, pass: SMTP_PASS },
+    // TLS verification stays ON by default. It can be disabled ONLY for the org's own mail host
+    // when its certificate is temporarily invalid (e.g. an expired/self-signed cPanel cert on the
+    // same server) — set SMTP_TLS_REJECT_UNAUTHORIZED=false. The correct fix is renewing the cert.
+    tls: { rejectUnauthorized: String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED).toLowerCase() !== 'false' },
   });
 
   logger.info(`[mailer] SMTP configured via ${SMTP_HOST}:${SMTP_PORT || 587}`);
