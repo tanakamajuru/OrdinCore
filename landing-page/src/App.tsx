@@ -51,6 +51,9 @@ import {
   XMarkIcon,
 } from "@heroicons/react/24/outline";
 
+// Website enquiries POST here; the Ordin Core backend emails them via the org's own SMTP.
+const CONTACT_API = "https://work.ordincore.co.uk/api/v1/contact";
+
 const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
@@ -293,29 +296,29 @@ export default function App() {
     localStorage.setItem("theme", theme);
   }, [theme]);
 
-  // Handle Form Submission with Web3Forms
+  // Handle Form Submission — posts to the Ordin Core backend, which emails the enquiry
+  // via the organisation's own SMTP (no third-party form service).
   const handleDemoSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setDemoSubmitStatus("submitting");
     setDemoSubmitError("");
 
     try {
-      const formData = new FormData();
-      formData.append("access_key", "b9e46d19-c01b-4527-a65f-67e31817e04e");
-      formData.append("name", demoFormName);
-      formData.append("email", demoFormEmail);
-      formData.append("phone", demoFormPhone);
-      formData.append("organisation", demoFormOrg);
-      formData.append("role", demoFormRole);
-      formData.append("number_of_services_sites", demoFormServices);
-      formData.append("type_of_service", demoFormServiceType);
-      formData.append("preferred_contact_method", demoFormContactMethod);
-      formData.append("message", demoFormMessage);
-      formData.append("subject", "Ordin Core Landing Page - Demo Request");
-
-      const response = await fetch("https://api.web3forms.com/submit", {
+      const response = await fetch(CONTACT_API, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "demo",
+          name: demoFormName,
+          email: demoFormEmail,
+          phone: demoFormPhone,
+          organisation: demoFormOrg,
+          role: demoFormRole,
+          number_of_services_sites: demoFormServices,
+          type_of_service: demoFormServiceType,
+          preferred_contact_method: demoFormContactMethod,
+          message: demoFormMessage,
+        }),
       });
 
       const data = await response.json();
@@ -339,30 +342,29 @@ export default function App() {
     }
   };
 
-  // Handle Pilot Programme Form Submission with Web3Forms
+  // Handle Pilot Programme Form Submission — posts to the Ordin Core backend (own SMTP).
   const handlePilotSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     setPilotSubmitStatus("submitting");
     setPilotSubmitError("");
 
     try {
-      const formData = new FormData();
-      formData.append("access_key", "b9e46d19-c01b-4527-a65f-67e31817e04e");
-      formData.append("name", pilotFormName);
-      formData.append("email", pilotFormEmail);
-      formData.append("phone", pilotFormPhone);
-      formData.append("organisation", pilotFormOrg);
-      formData.append("role", pilotFormRole);
-      formData.append("number_of_services_sites", pilotFormServices);
-      formData.append("type_of_service", pilotFormServiceType);
-      formData.append("current_governance_challenge", pilotFormChallenge);
-      formData.append("what_ordin_core_can_help_with", pilotFormHelp);
-      formData.append("consent_to_be_contacted", pilotFormConsent ? "Yes" : "No");
-      formData.append("subject", "Ordin Core Landing Page - Pilot Programme Application");
-
-      const response = await fetch("https://api.web3forms.com/submit", {
+      const response = await fetch(CONTACT_API, {
         method: "POST",
-        body: formData,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          type: "pilot",
+          name: pilotFormName,
+          email: pilotFormEmail,
+          phone: pilotFormPhone,
+          organisation: pilotFormOrg,
+          role: pilotFormRole,
+          number_of_services_sites: pilotFormServices,
+          type_of_service: pilotFormServiceType,
+          current_governance_challenge: pilotFormChallenge,
+          what_ordin_core_can_help_with: pilotFormHelp,
+          consent_to_be_contacted: pilotFormConsent ? "Yes" : "No",
+        }),
       });
 
       const data = await response.json();

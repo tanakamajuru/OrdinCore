@@ -46,6 +46,7 @@ export interface MailMessage {
   subject: string;
   html: string;
   text?: string;
+  replyTo?: string;
 }
 
 export async function sendMail(msg: MailMessage): Promise<{ sent: boolean }> {
@@ -59,7 +60,7 @@ export async function sendMail(msg: MailMessage): Promise<{ sent: boolean }> {
   }
 
   try {
-    await tx.sendMail({ from, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html });
+    await tx.sendMail({ from, to: msg.to, subject: msg.subject, text: msg.text, html: msg.html, replyTo: msg.replyTo });
     logger.info(`[mailer] Sent "${msg.subject}" to ${msg.to}`);
     return { sent: true };
   } catch (err) {

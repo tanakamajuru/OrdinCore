@@ -11,6 +11,7 @@ import logger from './utils/logger';
 
 // Routes
 import authRoutes from './routes/auth.routes';
+import contactRoutes from './routes/contact.routes';
 import companiesRoutes from './routes/companies.routes';
 import usersRoutes from './routes/users.routes';
 import housesRoutes from './routes/houses.routes';
@@ -151,6 +152,7 @@ const API = '/api/v1';
 app.use(`${API}/uploads`, express.static(path.join(__dirname, '../public/uploads')));
 
 app.use(`${API}/auth`, authRoutes);
+app.use(`${API}/contact`, contactRoutes);
 app.use(`${API}/actions`, actionsRoutes);
 
 app.use(`${API}/companies`, companiesRoutes);
