@@ -115,6 +115,11 @@ export function DailyOversightBoard() {
       } catch { /* decisions optional */ }
       const escDecisions = decisions.filter((d: any) => /escalat/i.test(String(d.decision || "")));
       const isDone = (d: any) => /complete|closed|done|effected/i.test(String(d.rollup_status || d.decision_status || ""));
+      // Signals reviewed from the backlog today — a decision was recorded against a signal that
+      // was captured on an earlier date. Surfacing these (tagged to their decision) so backlog
+      // review no longer reads as "no signals", without substituting unrelated older signals.
+      const dayIds = new Set(daySignals.map((s: any) => String(s.id)));
+      const reviewedSignals = decisions.filter((d: any) => d.pulse_entry_id && !dayIds.has(String(d.pulse_entry_id)) && (d.signal_description || d.signal_person || d.signal_domain));
 
       // 3. Outstanding actions to remember — scoped to this house where the row names one.
       const houseActions = actions.filter((a: any) => !a.house_name || a.house_name === houseName);
@@ -131,19 +136,25 @@ export function DailyOversightBoard() {
 
       // What happened — grouped by the person involved.
       L.push("What happened");
-      if (daySignals.length === 0) {
-        L.push("- No signals were recorded for this service on this date.");
+      if (daySignals.length === 0 && reviewedSignals.length === 0) {
+        L.push("- No signals were recorded or reviewed for this service on this date.");
       } else {
-        const byPerson = new Map<string, any[]>();
-        daySignals.forEach((s: any) => {
-          const who = clean(s.related_person) || "Service (general)";
-          if (!byPerson.has(who)) byPerson.set(who, []);
-          byPerson.get(who)!.push(s);
-        });
-        byPerson.forEach((sigs, who) => {
-          L.push(`${who}:`);
-          sigs.forEach((s: any) => L.push(`- ${s.severity || "—"} · ${clean(s.governance_domain || s.signal_type || "Signal")}: ${clean(s.description) || "—"}`));
-        });
+        if (daySignals.length > 0) {
+          const byPerson = new Map<string, any[]>();
+          daySignals.forEach((s: any) => {
+            const who = clean(s.related_person) || "Service (general)";
+            if (!byPerson.has(who)) byPerson.set(who, []);
+            byPerson.get(who)!.push(s);
+          });
+          byPerson.forEach((sigs, who) => {
+            L.push(`${who}:`);
+            sigs.forEach((s: any) => L.push(`- ${s.severity || "—"} · ${clean(s.governance_domain || s.signal_type || "Signal")}: ${clean(s.description) || "—"}`));
+          });
+        }
+        if (reviewedSignals.length > 0) {
+          L.push(daySignals.length > 0 ? "Signals reviewed from the backlog:" : "Signals reviewed (recorded on an earlier date):");
+          reviewedSignals.forEach((d: any) => L.push(`- ${d.signal_severity || "—"} · ${clean(d.signal_domain || "Signal")}${d.signal_person ? ` · ${clean(d.signal_person)}` : ""}: ${clean(d.signal_description) || clean(d.what_is_happening) || "—"}${d.signal_date ? ` (recorded ${new Date(d.signal_date).toLocaleDateString("en-GB")})` : ""}`));
+        }
       }
       L.push("");
 
@@ -153,7 +164,10 @@ export function DailyOversightBoard() {
       // list duplicated it, so it was removed.
       L.push("Management decisions");
       if (decisions.length === 0) L.push("- No governance decisions were recorded for this date.");
-      else decisions.forEach((d: any) => L.push(`- ${clean(d.decision || "Decision")}: ${clean(d.what_is_happening) || "—"}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`));
+      else decisions.forEach((d: any) => {
+        const sigTag = (d.signal_person || d.signal_domain) ? ` · re: ${clean(d.signal_person || d.signal_domain)}${d.signal_date ? ` (signal ${new Date(d.signal_date).toLocaleDateString("en-GB")})` : ""}` : "";
+        L.push(`- ${clean(d.decision || "Decision")}: ${clean(d.what_is_happening) || "—"}${sigTag}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`);
+      });
       L.push("");
 
       // Escalations — from escalation decisions and any open escalations on the service.

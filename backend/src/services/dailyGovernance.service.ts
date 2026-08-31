@@ -111,12 +111,36 @@ export class DailyGovernanceService {
 
       // 3–5. Create each governance decision, its linked task/escalation, and update the
       // source status — all inside the same transaction. Any failure rolls the review back.
+      // Collect the work that was allocated to a person so we can notify them post-commit.
+      const allocations: { owner_id: string; title: string; kind: 'task' | 'escalation'; due_at?: string | null }[] = [];
       for (const d of (opts.decisions || [])) {
-        await this.createDecisionInTx(client, { company_id, user_id, log_id, house_id: house_id || null, decision: d });
+        const out: any = await this.createDecisionInTx(client, { company_id, user_id, log_id, house_id: house_id || null, decision: d });
+        if (out && !out.idempotent && d.ownerId) {
+          if (out.task) allocations.push({ owner_id: d.ownerId, title: out.task.title, kind: 'task', due_at: d.dueAt });
+          else if (out.escalation && out.escalation.escalated_to === d.ownerId) allocations.push({ owner_id: d.ownerId, title: out.escalation.reason || d.actionDescription || d.reason || d.whatIsHappening || 'Escalation', kind: 'escalation', due_at: d.dueAt });
+        }
       }
 
       // 6. Commit only when every required step succeeded.
       await client.query('COMMIT');
+
+      // 6b. Notify each person work was allocated to (post-commit, best-effort), so a
+      // Monitor/Create Action decision reaches their My Work AND pings them — matching the
+      // standalone-decision path. Previously only Escalate notified anyone.
+      if (allocations.length) {
+        try {
+          const { notificationsService } = await import('./notifications.service');
+          for (const a of allocations) {
+            await notificationsService.create({
+              company_id, user_id: a.owner_id,
+              type: a.kind === 'escalation' ? 'escalation_assigned' : 'task_assigned',
+              title: a.kind === 'escalation' ? 'Escalation assigned to you' : 'Governance action assigned to you',
+              body: `${a.title}${a.due_at ? ` · due ${new Date(a.due_at).toLocaleDateString('en-GB')}` : ''}`,
+              link: a.kind === 'escalation' ? '/escalation-log' : '/my-actions',
+            });
+          }
+        } catch { /* best-effort */ }
+      }
 
       // 7. Notifications (post-commit, best-effort) — publish the brief to Team Leaders.
       if (material && house_id) {
@@ -162,7 +186,7 @@ export class DailyGovernanceService {
     // §2 — Daily Governance decisions run through the SAME executor as standalone decisions,
     // so a decision is never "recorded" without its downstream record (task / escalation /
     // risk / closure) being created in the same transaction, with identical idempotency.
-    await governanceDecisionsService.executeInTx(client, {
+    return await governanceDecisionsService.executeInTx(client, {
       company_id, user_id, daily_governance_log_id: log_id, house_id,
       pulse_entry_id, cluster_id, risk_id,
       what_is_happening: what, decision: d.decision as any,

@@ -59,7 +59,7 @@ export const governanceDecisionsService = {
        RETURNING *`,
       [c, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null, input.pulse_entry_id ?? null,
        input.cluster_id ?? null, input.daily_governance_log_id ?? null, u, input.what_is_happening.trim(), decision,
-       decision === 'Escalate', decision === 'Create Action', null, input.owner_id ?? null, input.due_at ?? null,
+       decision === 'Escalate', decision === 'Create Action' || (decision === 'Monitor' && !!input.owner_id), null, input.owner_id ?? null, input.due_at ?? null,
        input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null]
     );
     // Idempotent replay — the decision (and its consequence) already exist.
@@ -76,6 +76,18 @@ export const governanceDecisionsService = {
         `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
         [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id ?? null, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
+      );
+      task = t.rows[0];
+    } else if (decision === 'Monitor' && input.owner_id) {
+      // A Monitor decision that names an owner is real, ongoing work for that person
+      // (e.g. "continue to monitor medication compliance — owner Eric Ndikum"). Allocate
+      // it as an assigned action so it reaches the owner's My Work, exactly like Create
+      // Action — the signal itself still advances to 'Monitoring' below. Without this, a
+      // Monitor decision recorded no work and never reached the Team Leader.
+      const t = await client.query(
+        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
+        [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
       );
       task = t.rows[0];
     } else if (decision === 'Escalate') {
@@ -228,17 +240,21 @@ export const governanceDecisionsService = {
 
     const res = await query(
       `SELECT gr.id, gr.what_is_happening, gr.decision, gr.decision_status, gr.due_at,
-              gr.intended_outcome, gr.created_at, gr.service_id,
+              gr.intended_outcome, gr.created_at, gr.service_id, gr.pulse_entry_id,
               h.name AS house_name,
               ow.first_name || ' ' || ow.last_name AS owner_name,
               rb.first_name || ' ' || rb.last_name AS recorded_by_name,
               ra.id AS task_id, ra.status AS task_status, ra.due_date AS task_due,
-              ra.effectiveness AS task_effectiveness
+              ra.effectiveness AS task_effectiveness,
+              gp.related_person AS signal_person, gp.severity AS signal_severity,
+              gp.governance_domain AS signal_domain, gp.description AS signal_description,
+              gp.entry_date AS signal_date
          FROM governance_reviews gr
          LEFT JOIN houses h ON h.id = gr.service_id
          LEFT JOIN users ow ON ow.id = gr.decision_owner_id
          LEFT JOIN users rb ON rb.id = gr.reviewed_by
          LEFT JOIN risk_actions ra ON ra.governance_review_id = gr.id
+         LEFT JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id
         WHERE ${where} AND gr.review_type = 'RM_REVIEW'
         ORDER BY gr.created_at DESC`,
       params
