@@ -151,7 +151,11 @@ async function raiseImmediateEscalation(ctx: {
   const { company_id, house_id, domain, pulse, rule, rmId } = ctx;
 
   const escalatedBy: string = pulse.created_by;
-  const escalateTo = (await resolveEscalateTo(company_id, rule.escalate_to_role, rmId)) || escalatedBy;
+  // Frozen doctrine: safety-net escalations travel UP only (RM → Director → RI) and must NEVER be
+  // auto-assigned to the raiser (often a Team Leader). resolveEscalateTo already returns a manager
+  // (with a Director/Admin fallback); if none exists at all, target the RM id rather than the raiser.
+  const escalateTo = (await resolveEscalateTo(company_id, rule.escalate_to_role, rmId)) || rmId;
+  if (!escalateTo) { logger.warn(`[immediate] no management target to escalate pulse ${pulse.id} — skipping auto-escalation`); return; }
   const dueBy = escalationDueBy(rule.sla_trigger_type);
 
   const subject = rule.match_any_severity ? domain : `${pulse.severity}-severity ${domain}`;

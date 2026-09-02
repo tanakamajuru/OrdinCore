@@ -103,7 +103,21 @@ export const governanceDecisionsService = {
         );
         if (existing.rows[0]) { escalation = existing.rows[0]; }
       }
-      if (escalation) { /* reuse existing open escalation */ } else {
+      if (escalation) {
+        // Frozen doctrine: an open SAFETY-NET alert for this source is PROMOTED into the formal
+        // escalation pathway (never duplicated) — record the decision, mark it governance-driven,
+        // and retarget to the chosen owner if the RM named one.
+        const promoted = await client.query(
+          `UPDATE escalations
+              SET trigger_type = 'GOVERNANCE_DECISION',
+                  source_governance_review_id = COALESCE(source_governance_review_id, $2),
+                  escalated_to = COALESCE($3, escalated_to),
+                  reason = CASE WHEN COALESCE(reason,'') = '' THEN $4 ELSE reason END
+            WHERE id = $1 RETURNING *`,
+          [escalation.id, decisionId, input.owner_id ?? null, (input.action_description || input.what_is_happening).slice(0, 1000)]
+        );
+        escalation = promoted.rows[0] || escalation;
+      } else {
       const target = input.owner_id || (await client.query(
         `SELECT id FROM users WHERE company_id=$1 AND status='active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR']) ORDER BY CASE role WHEN 'REGISTERED_MANAGER' THEN 0 ELSE 1 END LIMIT 1`, [c]
       )).rows[0]?.id;
@@ -165,6 +179,26 @@ export const governanceDecisionsService = {
     }
     if (decision === 'Monitor' && input.risk_id) {
       await client.query(`UPDATE risks SET last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [input.risk_id, c]);
+    }
+
+    // Frozen doctrine — the RM's daily triage IS the management response to a SAFETY-NET alert
+    // escalation (auto-opened on capture for Critical/flagged signals). A non-Escalate decision on
+    // the signal resolves that alert: the record is preserved, closed, and references the decision.
+    // Formal governance escalations (trigger 'GOVERNANCE_DECISION') are untouched — they close only
+    // through the evidence-based closure review. Escalate promotes the alert instead (handled above).
+    if (input.pulse_entry_id && decision !== 'Escalate') {
+      const bits = [`Safety-net requirement satisfied through RM governance triage → ${decision}`];
+      if (input.owner_id && (decision === 'Create Action' || decision === 'Monitor')) bits.push('action allocated to owner');
+      if (input.due_at) bits.push(`due ${new Date(input.due_at).toISOString().slice(0, 10)}`);
+      await client.query(
+        `UPDATE escalations
+            SET lifecycle_status = 'Closed', status = 'Resolved', resolved_at = NOW(),
+                resolution_notes = $2, source_governance_review_id = COALESCE(source_governance_review_id, $3)
+          WHERE company_id = $1 AND source_pulse_id = $4
+            AND COALESCE(trigger_type, '') <> 'GOVERNANCE_DECISION'
+            AND COALESCE(lifecycle_status::text, 'Open') <> 'Closed'`,
+        [c, bits.join(' · '), decisionId, input.pulse_entry_id]
+      );
     }
 
     return { decision: review.rows[0], task, escalation, risk, pattern, idempotent: false };
