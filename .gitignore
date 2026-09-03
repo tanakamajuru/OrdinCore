@@ -80,3 +80,15 @@ backend/*_live_db*.ts
 backend/get_*_live*.ts
 backend/find_superadmin_live.ts
 backend/verify_prod_live.ts
+
+# C-03 — runtime data & release hygiene (never ship logs, dumps, evidence or reset utilities)
+backend/logs/
+backend/dump.rdb
+dump.rdb
+backend/storage/
+backend/migrate*.log
+backend/migration_error.log
+backend/reset_admin.js
+backend/reset_admin_pass.js
+backend/reset_all_passwords.js
+backend/reset_*.js

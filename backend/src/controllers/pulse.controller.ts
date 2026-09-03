@@ -3,12 +3,14 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { randomUUID } from 'crypto';
 import { pulseService } from '../services/pulse.service';
+import { query } from '../config/database';
 import logger from '../utils/logger';
 
-// Signal evidence (photos, voice notes) is written under the statically-served public/uploads
-// directory and referenced by URL — the same evidence_url model the pulse already stores. No
-// object store is configured, so this keeps captured media self-hosted alongside the API.
-const UPLOAD_DIR = path.join(__dirname, '../../public/uploads');
+// Signal evidence (photos, voice notes) is stored OUTSIDE the public web root (C-01) and served
+// only through the authenticated download endpoint below — never as a public static file. It is
+// referenced by the same evidence_url the pulse already stores, but retrieval now verifies the
+// requester's company (tenant isolation) and, for frontline roles, their assigned service.
+const UPLOAD_DIR = path.join(__dirname, '../../storage/uploads');
 const EXT_BY_MIME: Record<string, string> = {
     'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/heic': 'heic', 'image/webp': 'webp',
     'audio/m4a': 'm4a', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/webm': 'webm',
@@ -221,6 +223,44 @@ export class PulseController {
             return res.status(201).json({ success: true, data: { url, filename } });
         } catch (err: any) {
             logger.error('Error uploading signal media', err);
+            return res.status(err.statusCode ?? 500).json({ success: false, message: err.message });
+        }
+    }
+
+    // C-01 — authenticated evidence download. Streams a stored media file only when the requester's
+    // company owns a signal that references it (tenant isolation) and, for frontline roles, the
+    // signal is in one of their assigned services (site scope). Every not-permitted case is a 404 so
+    // existence is never disclosed; unauthenticated requests are rejected by requireAuth (401).
+    async downloadMedia(req: Request, res: Response) {
+        try {
+            const company_id = requireCompany(req);
+            const user = (req as any).user || {};
+            const role = String(user.role || '').toUpperCase().replace(/-/g, '_');
+            const filename = String(req.params.filename || '');
+            // Only a bare "<uuid>.<ext>" basename — never a path — so traversal is impossible.
+            if (!/^[A-Za-z0-9][A-Za-z0-9-]*\.[A-Za-z0-9]+$/.test(filename)) {
+                return res.status(404).json({ success: false, message: 'Not found.' });
+            }
+            // The file must be referenced by a signal in THIS company.
+            const pulse = (await query(
+                `SELECT house_id FROM governance_pulses
+                  WHERE company_id = $1 AND evidence_url LIKE '%' || $2 || '%' LIMIT 1`,
+                [company_id, filename]
+            )).rows[0];
+            if (!pulse) return res.status(404).json({ success: false, message: 'Not found.' });
+            // Frontline roles are confined to their assigned service.
+            if (['SUPPORT_WORKER', 'TEAM_LEADER'].includes(role)) {
+                const allowed = (user.assigned_house_ids || []).map(String);
+                if (!pulse.house_id || !allowed.includes(String(pulse.house_id))) {
+                    return res.status(404).json({ success: false, message: 'Not found.' });
+                }
+            }
+            const filePath = path.join(UPLOAD_DIR, filename);
+            if (!fs.existsSync(filePath)) return res.status(404).json({ success: false, message: 'Not found.' });
+            logger.info(`[evidence-access] user=${user.user_id} role=${role} company=${company_id} file=${filename}`);
+            return res.sendFile(filePath);
+        } catch (err: any) {
+            logger.error('Error downloading signal media', err);
             return res.status(err.statusCode ?? 500).json({ success: false, message: err.message });
         }
     }

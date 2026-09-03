@@ -19,6 +19,7 @@ import risksRoutes from './routes/risks.routes';
 import incidentsRoutes from './routes/incidents.routes';
 import governanceRoutes from './routes/governance.routes';
 import helpRoutes from './routes/help.routes';
+import uploadsRoutes from './routes/uploads.routes';
 import pulseRoutes from './routes/pulse.routes';
 import escalationsRoutes from './routes/escalations.routes';
 import reportsRoutes from './routes/reports.routes';
@@ -148,9 +149,9 @@ app.get('/swagger.json', (_, res) => {
 // ─── API Routes ───────────────────────────────────────────────────────────────
 const API = '/api/v1';
 
-// Serve captured signal evidence (photos / voice notes) under the API prefix so it is reachable
-// through the same nginx proxy as the rest of the API (root-level paths fall through to the SPA).
-app.use(`${API}/uploads`, express.static(path.join(__dirname, '../public/uploads')));
+// C-01 — captured signal evidence is served ONLY through an authenticated, tenant/site-scoped
+// endpoint (uploadsRoutes), never as a public static file. Files live outside the web root.
+app.use(`${API}/uploads`, uploadsRoutes);
 
 app.use(`${API}/auth`, authRoutes);
 app.use(`${API}/contact`, contactRoutes);
