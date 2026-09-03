@@ -72,15 +72,7 @@ export function RiskRegister() {
   };
 
   const banner = data?.banner || { activeOversight: 0, escalating: 0, stable: 0, improving: 0, critical: 0, controlFailures: 0, lastReviewAt: null };
-
-  // "Awaiting review" — risks the RM must review after a closed escalation (arrives via
-  // /risk-register?review=awaiting from the My Work "risks to review" card). When on, we show those
-  // risks across active + strategic (regardless of tab) so none are missed.
-  const reviewAwaiting = searchParams.get("review") === "awaiting";
-  const [onlyAwaiting, setOnlyAwaiting] = useState(reviewAwaiting);
-  useEffect(() => { setOnlyAwaiting(searchParams.get("review") === "awaiting"); }, [searchParams]);
-  const awaitingRows: any[] = [...(data?.active || []), ...(data?.strategic || [])].filter((r: any) => r.awaitingReview);
-  const rows: any[] = onlyAwaiting ? awaitingRows : (data?.[tab] || []);
+  const rows: any[] = data?.[tab] || [];
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 5;
@@ -151,22 +143,8 @@ export function RiskRegister() {
           <Stat label="Control Failures" value={banner.controlFailures} tone="red" />
         </div>
 
-        {/* Awaiting-review filter — driven by ?review=awaiting or the toggle below. */}
-        {(onlyAwaiting || awaitingRows.length > 0) && (
-          <div className="mb-4 flex items-center justify-between gap-3 rounded-xl border border-amber-300 bg-amber-50 p-3">
-            <div className="flex items-center gap-2 text-sm text-amber-800">
-              <AlertTriangle className="w-4 h-4 text-amber-600" />
-              <span><span className="font-semibold">{awaitingRows.length}</span> risk{awaitingRows.length === 1 ? "" : "s"} awaiting your review after a closed escalation.</span>
-            </div>
-            <button onClick={() => setOnlyAwaiting((v) => !v)}
-              className={`text-xs font-medium rounded-lg px-3 py-1.5 border ${onlyAwaiting ? "bg-amber-600 text-white border-amber-600" : "border-amber-400 text-amber-800 hover:bg-amber-100"}`}>
-              {onlyAwaiting ? "Show all risks" : "Show only awaiting review"}
-            </button>
-          </div>
-        )}
-
         {/* Tabs */}
-        <div className={`flex flex-wrap gap-2 mb-4 border-b border-border ${onlyAwaiting ? "opacity-50 pointer-events-none" : ""}`}>
+        <div className="flex flex-wrap gap-2 mb-4 border-b border-border">
           {tabs.map((t) => (
             <button key={t.key} onClick={() => (t.key === "emerging" && emergingRedirectsToPatterns ? navigate("/rm5") : setTab(t.key))}
               className={`px-4 py-2 text-sm flex items-center gap-2 border-b-2 -mb-px transition-colors ${tab === t.key ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
@@ -190,11 +168,10 @@ export function RiskRegister() {
                 <thead>
                   <tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
                     <th className="py-2.5 px-3">Concern</th>
-                    <th className="px-2">Type</th>
                     <th className="px-2">Impact</th>
                     <th className="px-2">Risk</th>
                     <th className="px-2">Trajectory</th>
-                    <th className="px-2">Evidence</th>
+                    {tab !== "emerging" && <th className="px-2">Review</th>}
                     {tab !== "emerging" && <th className="px-2">Controls</th>}
                     {tab !== "emerging" && <th className="px-2">Effectiveness</th>}
                     {tab !== "emerging" && <th className="px-2">Owner</th>}
@@ -205,15 +182,7 @@ export function RiskRegister() {
                 <tbody>
                   {pagedRows.map((r) => (
                     <tr key={r.id} onClick={() => openRow(r)} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer">
-                      <td className="py-2.5 px-3 font-medium max-w-[260px]">
-                        <div className="flex items-center gap-2 min-w-0">
-                          <span className="truncate">{r.concern}</span>
-                          {r.awaitingReview && (
-                            <span className="shrink-0 text-[10px] font-semibold uppercase rounded px-1.5 py-0.5 bg-amber-100 text-amber-700" title="Awaiting your post-closure review">Review</span>
-                          )}
-                        </div>
-                      </td>
-                      <td className="px-2"><span className="text-xs text-muted-foreground">{r.type}</span></td>
+                      <td className="py-2.5 px-3 font-medium max-w-[260px] truncate">{r.concern}</td>
                       <td className="px-2">
                         {r.impact
                           ? <span className={`text-xs font-medium rounded px-2 py-0.5 ${r.impact === "High" ? "bg-red-100 text-red-700" : r.impact === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{r.impact}</span>
@@ -223,7 +192,13 @@ export function RiskRegister() {
                         <span className={`text-xs rounded px-2 py-0.5 ${POSITION_TONE[r.position] || "bg-muted"}`}>{r.riskIndex != null ? `${r.riskIndex} · ` : ""}{r.position}</span>
                       </td>
                       <td className="px-2"><div className="flex items-center gap-1"><TrajIcon t={r.trajectory} /><span className="text-xs text-muted-foreground">{r.trajectory}</span></div></td>
-                      <td className="px-2 text-muted-foreground">{r.evidence} signals</td>
+                      {tab !== "emerging" && (
+                        <td className="px-2">
+                          {r.awaitingReview
+                            ? <span className="text-[10px] font-semibold uppercase rounded px-2 py-0.5 bg-amber-100 text-amber-700" title="A closed escalation left this risk needing your review">Awaiting</span>
+                            : <span className="text-xs text-muted-foreground">—</span>}
+                        </td>
+                      )}
                       {tab !== "emerging" && <td className="px-2 text-muted-foreground">{r.controls}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.effectiveness}</td>}
                       {tab !== "emerging" && <td className="px-2 text-xs text-muted-foreground">{r.owner}</td>}
