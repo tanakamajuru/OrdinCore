@@ -385,14 +385,26 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                 : "A view, not a second copy — each item belongs to a risk. Open it there."} />
             <div className="bg-card border border-border rounded-xl divide-y divide-border">
               {lens.length === 0 && <div className="p-8 text-center text-sm text-muted-foreground">Nothing here.</div>}
-              {pagedLens.map((row: any) => (
-                <button key={row.key} onClick={() => stage === "escalations" ? navigate(`/escalation-log?focus=${row.key}`) : (row.riskId ? openRisk(row.riskId) : navigate("/escalation-log"))} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
+              {pagedLens.map((row: any) => {
+                // Each lens item opens where its work is done. Effectiveness/actions items belong to
+                // a risk — open the risk record. Service-level items with no linked risk have no risk
+                // page, so send them to their proper home (Action Effectiveness / My Actions), NOT
+                // the escalation log (which was the previous, incorrect fallback).
+                const rid = row.riskId || row.risk_id;
+                const open = () => {
+                  if (stage === "escalations") return navigate(`/escalation-log?focus=${row.key}`);
+                  if (rid) return openRisk(rid);
+                  return navigate(stage === "effectiveness" ? "/effectiveness" : "/my-actions");
+                };
+                return (
+                <button key={row.key} onClick={open} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                   <div className="min-w-0"><div className="text-sm text-foreground truncate">{row.title}</div><div className="text-xs text-muted-foreground truncate">{row.meta}</div></div>
                   {stage === "actions" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.status === "Overdue" ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.status}</span>
                     : stage === "escalations" ? <span className={`text-[10px] uppercase px-2 py-1 rounded ${row.overdue ? "bg-red-600 text-white" : "bg-amber-100 text-amber-700"}`}>{row.overdue ? "Overdue" : row.status}</span>
                     : <span className="text-xs text-primary">Rate →</span>}
                 </button>
-              ))}
+                );
+              })}
             </div>
             <Pager page={lensPageSafe} pages={lensTotalPages} total={lens.length} onPage={setLensPage} />
           </div>
