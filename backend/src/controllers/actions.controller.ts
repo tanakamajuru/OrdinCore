@@ -197,10 +197,14 @@ export class ActionsController {
     const { company_id, user_id } = (req as any).user;
     try {
       const actions = await query(
-        `SELECT ra.*, r.title as risk_title, u.first_name || ' ' || u.last_name as assigned_by_name
+        `SELECT ra.*, r.title as risk_title, u.first_name || ' ' || u.last_name as assigned_by_name,
+                -- The originating signal (for Daily Governance actions that carry no risk) so the
+                -- assignee can open what the action relates to.
+                p.description AS signal_label, p.related_person AS signal_person
          FROM risk_actions ra
          LEFT JOIN risks r ON ra.risk_id = r.id
          LEFT JOIN users u ON ra.created_by = u.id
+         LEFT JOIN governance_pulses p ON p.id = ra.source_pulse_id
          WHERE ra.company_id = $1 AND ra.assigned_to = $2
          ORDER BY ra.due_date ASC`,
         [company_id, user_id]

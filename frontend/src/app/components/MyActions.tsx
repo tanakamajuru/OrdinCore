@@ -19,6 +19,9 @@ interface AssignedAction {
   assigned_to_name?: string;
   house_name?: string;
   risk_id: string;
+  source_pulse_id?: string | null;
+  signal_label?: string | null;
+  signal_person?: string | null;
 }
 
 export function MyActions() {
@@ -53,6 +56,14 @@ export function MyActions() {
   const totalPages = Math.max(1, Math.ceil(filteredActions.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
   const pagedActions = filteredActions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+
+  // What this action relates to, so the assignee can open it. A risk-linked action opens its risk;
+  // a Daily Governance action (no risk) opens its originating SIGNAL. Never a null risk.
+  const relatedFor = (a: AssignedAction): { label: string; view: string; to: string } | null => {
+    if (a.risk_id) return { label: `Risk: ${a.risk_title || 'Linked risk'}`, view: 'View Related Risk', to: `/risk-register/${a.risk_id}` };
+    if (a.source_pulse_id) return { label: `Signal: ${a.signal_label || a.signal_person || 'Related signal'}`, view: 'View Related Signal', to: `/signals/${a.source_pulse_id}` };
+    return null;
+  };
 
   useEffect(() => {
     fetchActions();
@@ -190,7 +201,7 @@ export function MyActions() {
                       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 pt-2">
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <AlertCircle className="w-4 h-4 text-primary" />
-                          <span>Risk: {action.risk_title || 'N/A'}</span>
+                          <span>{relatedFor(action)?.label || 'Not linked to a risk or signal'}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MessageSquare className="w-4 h-4 text-primary" />
@@ -206,16 +217,10 @@ export function MyActions() {
                     </div>
 
                     <div className="flex flex-col justify-center gap-3">
-                      {isOversight ? (
-                        <Button
-                          variant="outline"
-                          onClick={() => navigate(`/risk-register/${action.risk_id}`)}
-                          className="border-border hover:bg-muted"
-                        >
-                          View Related Risk
-                          <ChevronRight className="w-4 h-4 ml-2" />
-                        </Button>
-                      ) : action.status !== 'Completed' ? (
+                      {/* A Team Leader completes their own open actions; everyone can open the
+                          action's related risk or signal. The button only shows when there is a real
+                          risk or signal to open — no more dead-end /risk-register/null links. */}
+                      {!isOversight && action.status !== 'Completed' && (
                         <Button
                           onClick={() => handleCompleteClick(action)}
                           className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-lg tracking-tighter"
@@ -223,16 +228,16 @@ export function MyActions() {
                           <CheckCircle2 className="w-5 h-5 mr-2" />
                           COMPLETE ACTION
                         </Button>
-                      ) : (
-                        <Button
-                          variant="outline"
-                          onClick={() => navigate(`/risk-register/${action.risk_id}`)}
-                          className="border-border hover:bg-muted"
-                        >
-                          View Related Risk
-                          <ChevronRight className="w-4 h-4 ml-2" />
-                        </Button>
                       )}
+                      {(() => {
+                        const rel = relatedFor(action);
+                        return rel ? (
+                          <Button variant="outline" onClick={() => navigate(rel.to)} className="border-border hover:bg-muted">
+                            {rel.view}
+                            <ChevronRight className="w-4 h-4 ml-2" />
+                          </Button>
+                        ) : null;
+                      })()}
                     </div>
                   </div>
                 </CardContent>
