@@ -5,6 +5,7 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
+    "typecheck": "tsc --noEmit",
     "dev": "vite",
     "test": "playwright test",
     "test:ui": "playwright test --ui",
