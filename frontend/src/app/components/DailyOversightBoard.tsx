@@ -121,13 +121,17 @@ export function DailyOversightBoard() {
       const dayIds = new Set(daySignals.map((s: any) => String(s.id)));
       const reviewedSignals = decisions.filter((d: any) => d.pulse_entry_id && !dayIds.has(String(d.pulse_entry_id)) && (d.signal_description || d.signal_person || d.signal_domain));
 
-      // 3. Outstanding actions to remember — scoped STRICTLY to the house being signed off.
-      // Match on house_id (authoritative); fall back to an exact house-name match only for rows
-      // that carry no id. Rows with no house attribution at all are NOT included — otherwise
-      // whole-service / unattributed actions leaked into every house's brief.
-      const houseActions = actions.filter((a: any) =>
-        a.house_id ? String(a.house_id) === String(selectedHouseId)
-                   : (!!a.house_name && a.house_name === houseName));
+      // 3. Outstanding actions to remember — fetched scoped to THIS house, the same way signals and
+      // decisions above are (by house_id). The dashboard's data.actions is a company-wide roll-up
+      // whose rows don't reliably carry a house, which is what leaked other services' actions into
+      // one house's brief. The oversight rows carry an authoritative house_id, so we filter strictly
+      // on it — a brief for 1 Grafton Rd now lists only 1 Grafton Rd's actions.
+      let houseActions: any[] = [];
+      try {
+        const ares = await apiClient.get(`/actions/oversight`);
+        const rawActs = (ares.data as any)?.data ?? (ares.data as any) ?? [];
+        houseActions = (Array.isArray(rawActs) ? rawActs : []).filter((a: any) => String(a.house_id) === String(selectedHouseId));
+      } catch { /* no actions for this service */ }
       const openActs = houseActions.filter((a: any) => !["Complete", "Completed", "Cancelled"].includes(a.status));
 
       const clean = (t: any) => String(t || "").replace(/\s+/g, " ").trim();
