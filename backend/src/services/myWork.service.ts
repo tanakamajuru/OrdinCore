@@ -92,14 +92,16 @@ export const myWorkService = {
     //    function (rating control effectiveness), and its destination (/rm5) is RM-only, so it
     //    is not shown to Team Leaders (who would otherwise hit a 403 on the link).
     if (RM_PLUS.includes(r)) {
+      // Same measure as the pipeline Effectiveness lens (rm5.service) so Home and the lens agree:
+      // every completed action company-wide still awaiting an effectiveness verdict. Must use the
+      // identical predicate — completed_at IS NOT NULL AND effectiveness_outcome IS NULL — not the
+      // older status/effectiveness columns or a house/assignee scope, which undercounted here.
       const eff = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM risk_actions a
-           LEFT JOIN risks rk ON rk.id = a.risk_id
           WHERE a.company_id = $1
-            AND a.status IN ('Complete','Completed')
-            AND a.effectiveness IS NULL
-            AND (a.assigned_to = $2 OR rk.house_id = ANY($3::uuid[]))`,
-        [company_id, user_id, houses]
+            AND a.completed_at IS NOT NULL
+            AND a.effectiveness_outcome IS NULL`,
+        [company_id]
       ), { rows: [{ n: 0 }] } as any);
       const n = eff.rows[0]?.n || 0;
       if (n > 0) items.push({ key: 'effectiveness', label: 'effectiveness reviews due', count: n, tone: 'blue', link: '/rm5?stage=effectiveness', primary_action: 'Review Effectiveness' });
