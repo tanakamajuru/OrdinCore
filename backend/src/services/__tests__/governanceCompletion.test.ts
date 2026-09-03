@@ -216,7 +216,7 @@ describe('§6/§11 Tenant isolation — a pattern from another company cannot be
     });
     mockGetClient.mockResolvedValue(client);
     await expect(
-      governanceWorkflowService.reviewPattern('company-A', 'cl-of-company-B', 'u', 'Improving', 'A clearly meaningful rationale sentence.')
+      governanceWorkflowService.reviewPattern('company-A', 'cl-of-company-B', 'u', 'Escalate', 'A clearly meaningful rationale sentence.')
     ).rejects.toThrow(/not found/i);
     expect(client.sqls.some((s) => /ROLLBACK/.test(s))).toBe(true);
   });

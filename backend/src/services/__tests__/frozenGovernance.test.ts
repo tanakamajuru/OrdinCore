@@ -112,7 +112,7 @@ describe('Leadership attention (Ch4 / TEST_PLAN §Signals)', () => {
 describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
   it('requires a meaningful rationale', async () => {
     mockQuery.mockReset();
-    await expect(governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Improving', 'short')).rejects.toThrow(/rationale/i);
+    await expect(governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Escalate', 'short')).rejects.toThrow(/rationale/i);
   });
 
   it('cannot close while the linked risk is active', async () => {
