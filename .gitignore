@@ -92,3 +92,8 @@ backend/reset_admin.js
 backend/reset_admin_pass.js
 backend/reset_all_passwords.js
 backend/reset_*.js
+
+# C-02 — password-reset utilities must never ship
+**/reset_passwords.js
+backend/scripts/reset_passwords.js
+backend/src/reset_passwords.js
