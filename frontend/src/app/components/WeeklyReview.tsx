@@ -56,6 +56,11 @@ export function WeeklyReview() {
   const isTeamLeader = userRole === "TEAM_LEADER";
 
   const [tlReviews, setTlReviews] = useState<any[]>([]);
+  // Published-reviews list: default to the last 24 hours, widen with a date range, paginate.
+  const [wkFrom, setWkFrom] = useState("");
+  const [wkTo, setWkTo] = useState("");
+  const [wkPage, setWkPage] = useState(1);
+  const WK_PAGE_SIZE = 10;
 
   // A Team Leader doesn't author reviews — they READ the ones published for their service(s)
   // and acknowledge them. Landing on /weekly-review (no id), show a list of published reviews
@@ -361,7 +366,24 @@ export function WeeklyReview() {
 
   // Team Leaders (and viewers) landing without a specific review see the READ list, by date &
   // house — never the authoring wizard.
-  if (isTeamLeader && (!id || id === "new")) return (
+  if (isTeamLeader && (!id || id === "new")) {
+    const wkTime = (r: any) => new Date(r.published_at || r.updated_at || r.week_ending || r.created_at || 0).getTime();
+    const wkUsingRange = !!(wkFrom || wkTo);
+    const wkFiltered = [...tlReviews]
+      .sort((a, b) => wkTime(b) - wkTime(a))
+      .filter((r) => {
+        const t = wkTime(r);
+        if (wkUsingRange) {
+          if (wkFrom && t < new Date(wkFrom + "T00:00:00").getTime()) return false;
+          if (wkTo && t > new Date(wkTo + "T23:59:59").getTime()) return false;
+          return true;
+        }
+        return Date.now() - t <= 24 * 60 * 60 * 1000; // default: last 24 hours
+      });
+    const wkTotalPages = Math.max(1, Math.ceil(wkFiltered.length / WK_PAGE_SIZE));
+    const wkSafePage = Math.min(wkPage, wkTotalPages);
+    const wkPaged = wkFiltered.slice((wkSafePage - 1) * WK_PAGE_SIZE, wkSafePage * WK_PAGE_SIZE);
+    return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
@@ -372,13 +394,35 @@ export function WeeklyReview() {
             <p className="text-sm text-muted-foreground">Published reviews for your service — open one to read and acknowledge.</p>
           </div>
         </div>
-        {tlReviews.length === 0 ? (
+
+        {/* Date-range filter — defaults to the last 24 hours until a range is chosen. */}
+        <div className="flex flex-wrap items-end gap-4 mb-5">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">From</label>
+            <input type="date" value={wkFrom} onChange={(e) => { setWkFrom(e.target.value); setWkPage(1); }}
+              className="border border-border rounded-lg p-2 text-sm bg-background" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground">To</label>
+            <input type="date" value={wkTo} onChange={(e) => { setWkTo(e.target.value); setWkPage(1); }}
+              className="border border-border rounded-lg p-2 text-sm bg-background" />
+          </div>
+          {wkUsingRange ? (
+            <button onClick={() => { setWkFrom(""); setWkTo(""); setWkPage(1); }} className="text-sm text-primary hover:underline pb-2">Reset to last 24h</button>
+          ) : (
+            <span className="text-sm text-muted-foreground pb-2">Showing the last 24 hours — pick a range to see earlier reviews.</span>
+          )}
+        </div>
+
+        {wkFiltered.length === 0 ? (
           <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground">
-            No weekly review has been published for your service yet. When your Registered Manager finalises and publishes it, it will appear here to read and acknowledge.
+            {tlReviews.length === 0
+              ? "No weekly review has been published for your service yet. When your Registered Manager finalises and publishes it, it will appear here to read and acknowledge."
+              : wkUsingRange ? "No reviews in this date range — try widening it." : "No reviews published in the last 24 hours. Pick a date range to see earlier ones."}
           </div>
         ) : (
           <div className="bg-card border border-border rounded-xl divide-y divide-border">
-            {tlReviews.map((r: any) => (
+            {wkPaged.map((r: any) => (
               <button key={r.id} onClick={() => navigate(`/weekly-review/${r.id}`)}
                 className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">
                 <div className="min-w-0">
@@ -392,9 +436,19 @@ export function WeeklyReview() {
             ))}
           </div>
         )}
+        {wkTotalPages > 1 && (
+          <div className="flex items-center justify-between pt-3">
+            <button onClick={() => setWkPage((p) => Math.max(1, p - 1))} disabled={wkSafePage <= 1}
+              className="text-sm px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 hover:bg-muted">Prev</button>
+            <span className="text-xs text-muted-foreground">Page {wkSafePage} of {wkTotalPages} · {wkFiltered.length} review{wkFiltered.length === 1 ? "" : "s"}</span>
+            <button onClick={() => setWkPage((p) => Math.min(wkTotalPages, p + 1))} disabled={wkSafePage >= wkTotalPages}
+              className="text-sm px-3 py-1.5 rounded-lg border border-border disabled:opacity-40 hover:bg-muted">Next</button>
+          </div>
+        )}
       </div>
     </div>
   );
+  }
 
   // Team Leader reading a specific published review — read-only, plus acknowledge. Never the wizard.
   if (isTeamLeader && id && id !== "new") {
