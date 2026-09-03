@@ -141,12 +141,19 @@ export const interventionsService = {
               COALESCE(SUM(overdue_actions), 0) AS overdue_actions,
               (ARRAY_AGG(risk_id ORDER BY risk_created_at DESC NULLS LAST))[1] AS primary_risk_id,
               JSON_AGG(
-                JSON_BUILD_OBJECT('id', risk_id, 'source_cluster_id', source_cluster_id)
+                JSON_BUILD_OBJECT('id', risk_id, 'source_cluster_id', source_cluster_id,
+                                  'title', risk_title, 'status', risk_status,
+                                  'impact_rating', risk_impact, 'house_name', house_name,
+                                  'open_actions', open_actions)
                 ORDER BY risk_created_at DESC NULLS LAST
               ) AS risk_refs
          FROM (
            SELECT r.id AS risk_id,
                   r.house_id,
+                  r.title AS risk_title,
+                  r.status::text AS risk_status,
+                  r.impact_rating AS risk_impact,
+                  (SELECT h.name FROM houses h WHERE h.id = r.house_id) AS house_name,
                   r.created_at AS risk_created_at,
                   r.source_cluster_id,
                   COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) AS theme,

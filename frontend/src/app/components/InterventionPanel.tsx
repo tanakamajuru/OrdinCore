@@ -3,9 +3,135 @@ import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
+
+const VERDICTS = [
+  "Resolved — controls effective",
+  "Resolved — no longer applicable",
+  "Tolerated — risk accepted",
+];
+const IMPACTS = ["High", "Medium", "Low"];
+const isClosedStatus = (s?: string) => ["closed", "resolved"].includes(String(s || "").toLowerCase());
+
+// Close / rate the risks that make up a theme, without leaving Intervention Action.
+// Impact (High/Medium/Low) is the compulsory judgement of consequence and must be set before a
+// risk can close; closure itself is evidence-gated on the backend (open actions / linked
+// escalations / effectiveness / trajectory) — we surface that verdict rather than bypassing it.
+function CloseRiskManager({ theme, onDone }: { theme: any; onDone: () => void }) {
+  const [risks, setRisks] = useState<any[]>(() =>
+    (theme.risk_refs || []).filter((r: any) => r?.id && !isClosedStatus(r.status)));
+  const [openId, setOpenId] = useState<string | null>(null);
+  const [verdict, setVerdict] = useState("");
+  const [reason, setReason] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const patchLocal = (id: string, patch: any) =>
+    setRisks((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+
+  const setImpact = async (r: any, impact_rating: string) => {
+    setBusy(r.id);
+    try {
+      await apiClient.patch(`/risks/${r.id}/impact-rating`, { impact_rating });
+      patchLocal(r.id, { impact_rating });
+      toast.success(`Impact set to ${impact_rating}`);
+    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to set impact"); }
+    finally { setBusy(null); }
+  };
+
+  const closeRisk = async (r: any) => {
+    if (!verdict) { toast.error("Choose a resolution verdict."); return; }
+    if (reason.trim().length < 20) { toast.error("Rationale must be at least 20 characters."); return; }
+    setBusy(r.id);
+    try {
+      await apiClient.post(`/risks/${r.id}/close`, { verdict, reason: reason.trim() });
+      toast.success("Risk closed with a resolution verdict. Recurrence monitoring started (60 days).");
+      setRisks((rs) => rs.filter((x) => x.id !== r.id));
+      setOpenId(null); setVerdict(""); setReason("");
+    } catch (e: any) {
+      // The backend closure-review gate returns why it can't close yet (open actions, open linked
+      // escalation, effectiveness unrated, deteriorating trajectory) — show it verbatim.
+      toast.error(e?.response?.data?.message || e?.message || "This risk can't be closed yet.");
+    } finally { setBusy(null); }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onDone}>
+      <div className="bg-card w-full max-w-lg rounded-xl shadow-xl border border-border" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+          <div>
+            <h3 className="font-semibold text-foreground">Close / rate risk — {theme.theme}</h3>
+            <p className="text-xs text-muted-foreground">Set the impact, then close with an evidence-based verdict.</p>
+          </div>
+          <button onClick={onDone} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
+        </div>
+        <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
+          {risks.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground py-8 flex flex-col items-center gap-2">
+              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
+              No open risks left on this theme.
+            </div>
+          ) : risks.map((r) => (
+            <div key={r.id} className="rounded-lg border border-border p-3">
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <div className="text-sm font-medium text-foreground truncate">{r.title || "Risk"}</div>
+                  <div className="text-[11px] text-muted-foreground">{r.house_name || "—"}{r.open_actions ? ` · ${r.open_actions} open action${r.open_actions === 1 ? "" : "s"}` : ""}</div>
+                </div>
+                <span className="text-[10px] rounded px-2 py-0.5 bg-muted shrink-0 uppercase">{r.status || "open"}</span>
+              </div>
+
+              {/* Impact — compulsory before close */}
+              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
+                <span className="text-[11px] text-muted-foreground">Impact:</span>
+                {r.impact_rating ? (
+                  <span className="text-xs font-semibold text-foreground">{r.impact_rating}</span>
+                ) : IMPACTS.map((lvl) => (
+                  <button key={lvl} disabled={busy === r.id} onClick={() => setImpact(r, lvl)}
+                    className="text-xs px-2.5 py-1 rounded-md border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50">
+                    {lvl}
+                  </button>
+                ))}
+                {!r.impact_rating && <span className="text-[11px] text-amber-600">· required to close</span>}
+              </div>
+
+              {openId === r.id ? (
+                <div className="mt-3 space-y-2 border-t border-border pt-3">
+                  <select value={verdict} onChange={(e) => setVerdict(e.target.value)}
+                    className="w-full border border-border rounded-lg p-2 text-sm bg-background">
+                    <option value="">Choose a verdict…</option>
+                    {VERDICTS.map((v) => <option key={v} value={v}>{v}</option>)}
+                  </select>
+                  <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
+                    placeholder="Why is this risk being closed, and how do you know it is resolved? (min 20 characters)"
+                    className="w-full border border-border rounded-lg p-2 text-sm bg-background resize-none" />
+                  <div className="flex justify-end gap-2">
+                    <button onClick={() => { setOpenId(null); setVerdict(""); setReason(""); }} className="px-3 py-1.5 text-sm rounded-lg border border-border hover:bg-muted">Cancel</button>
+                    <button onClick={() => closeRisk(r)} disabled={busy === r.id || !verdict || reason.trim().length < 20}
+                      className="px-3 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
+                      {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Close risk
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => { if (!r.impact_rating) { toast.error("Set the risk impact first."); return; } setOpenId(r.id); setVerdict(""); setReason(""); }}
+                  title={r.impact_rating ? "Close this risk with a verdict" : "Set the risk impact first"}
+                  className="mt-2.5 text-sm font-medium text-primary hover:underline flex items-center gap-1">
+                  <ShieldAlert className="w-4 h-4" /> Close this risk
+                </button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div className="px-5 py-3 border-t border-border flex justify-end">
+          <button onClick={onDone} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Done</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 const DIR = {
   Deteriorating: { Icon: ArrowUpRight, color: "#dc2626", label: "Increasing" },
@@ -63,6 +189,7 @@ export function InterventionPanel() {
   const [users, setUsers] = useState<any[]>([]);
   const [edit, setEdit] = useState<any>(null); // { theme, intervention record or blank }
   const [saving, setSaving] = useState(false);
+  const [closeTheme, setCloseTheme] = useState<any>(null); // theme whose risks are being closed/rated
 
   const load = async () => {
     setLoading(true);
@@ -222,6 +349,15 @@ export function InterventionPanel() {
                     )}
                   </div>
 
+                  {/* Close / rate the risks that make up this theme, in place. Only shown when the
+                      theme still has open risks to act on. */}
+                  {(t.risk_refs || []).some((r: any) => r?.id && !isClosedStatus(r.status)) && (
+                    <button onClick={() => setCloseTheme(t)}
+                      className="mt-3 w-full text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted flex items-center justify-center gap-1.5">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Close / rate risk
+                    </button>
+                  )}
+
                   <div className="mt-3 flex gap-2">
                     <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
                       {intv ? "Update intervention" : "Set intervention"}
@@ -247,6 +383,10 @@ export function InterventionPanel() {
           </div>
         )}
       </div>
+
+      {closeTheme && (
+        <CloseRiskManager theme={closeTheme} onDone={() => { setCloseTheme(null); load(); }} />
+      )}
 
       {edit && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEdit(null)}>
