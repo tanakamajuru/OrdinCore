@@ -1137,6 +1137,10 @@ export class RisksService {
               (SELECT ra.effectiveness_outcome FROM risk_actions ra
                  WHERE ra.risk_id = r.id AND ra.effectiveness_outcome IS NOT NULL
                  ORDER BY ra.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness,
+              -- The RM's post-closure review is outstanding on this risk (a closed escalation left
+              -- its underlying risk needing a Keep-open / Add-controls / Re-escalate / Close call).
+              EXISTS (SELECT 1 FROM escalations e
+                        WHERE e.risk_id = r.id AND e.post_closure_risk_review_required = TRUE) AS awaiting_review,
               u.first_name || ' ' || u.last_name AS owner_name, u.role AS owner_role
          FROM risks r
          LEFT JOIN houses h ON h.id = r.house_id
@@ -1173,6 +1177,7 @@ export class RisksService {
       lastUpdated: r.updated_at || null,
       closed_at: r.closed_at || null,
       closed_by: null,
+      awaitingReview: r.awaiting_review || false,
     });
 
     const all = risksRes.rows.map(shape);

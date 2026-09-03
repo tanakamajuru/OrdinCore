@@ -121,14 +121,16 @@ export const myWorkService = {
     // 6. Post-escalation risk reviews (§4) — a closed escalation whose underlying risk still
     //    needs the RM's Keep Open / Add Controls / Re-escalate / Request Closure decision.
     if (RM_PLUS.includes(r)) {
+      // Count the RISKS awaiting review (distinct), not the escalations — the label and the
+      // destination are about risks. Opens the Risk Register filtered to those awaiting review.
       const pcr = await safe(() => query(
-        `SELECT COUNT(*)::int AS n FROM escalations
-          WHERE company_id = $1 AND post_closure_risk_review_required = TRUE
+        `SELECT COUNT(DISTINCT risk_id)::int AS n FROM escalations
+          WHERE company_id = $1 AND post_closure_risk_review_required = TRUE AND risk_id IS NOT NULL
             AND (escalated_to = $2 OR escalated_by = $2 OR house_id = ANY($3::uuid[]))`,
         [company_id, user_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = pcr.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'post_escalation_review', label: 'risks to review in progress', count: n, tone: 'amber', link: '/escalation-log?status=progress', primary_action: 'Review Risk' });
+      if (n > 0) items.push({ key: 'post_escalation_review', label: 'risks to review', count: n, tone: 'amber', link: '/risk-register?review=awaiting', primary_action: 'Review Risk' });
     }
 
     const totalUrgent = items.filter((i) => i.tone === 'red').reduce((n, i) => n + (i.emphasis || i.count), 0);
