@@ -57,6 +57,16 @@ export const governanceConfigController = {
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }
   },
+  // Hard-delete a governance theme/domain (SUPER_ADMIN). Existing signals reference the domain by
+  // name (a string), so removing the config row never orphans historical evidence. Deactivating via
+  // the is_active toggle remains the audit-preserving alternative.
+  async deleteDomain(req: Request, res: Response) {
+    try {
+      const r = await query(`DELETE FROM governance_domains WHERE id = $1 RETURNING id`, [req.params.id]);
+      if (!r.rows[0]) return fail(res, new Error('Domain not found'), 404);
+      return ok(res, { id: r.rows[0].id });
+    } catch (e) { return fail(res, e, 400); }
+  },
 
   // ---- Signal Library (signal_library) ----
   async listSignals(req: Request, res: Response) {

@@ -14,6 +14,7 @@ const edit = [requireAuth, requireTenant, requireRole('SUPER_ADMIN')];
 router.get('/domains', ...view, c.listDomains);
 router.post('/domains', ...edit, c.createDomain);
 router.patch('/domains/:id', ...edit, c.updateDomain);
+router.delete('/domains/:id', ...edit, c.deleteDomain);
 
 // Signal Library
 router.get('/signals', ...view, c.listSignals);

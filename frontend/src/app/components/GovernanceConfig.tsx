@@ -289,7 +289,16 @@ export function GovernanceConfig() {
                           ) : (r.key_question ? <span className="block text-[10px] text-muted-foreground mt-0.5">{r.key_question}{r.quality_statement ? ` · ${r.quality_statement}` : ""}</span> : null)}
                         </td>
                         <td className={td}>{r.sort_order}</td>
-                        <td className={td}><ActiveToggle active={r.is_active} onToggle={() => patch(`domains/${r.id}`, { is_active: !r.is_active }, "Domain")} /></td>
+                        <td className={td}>
+                          <div className="flex items-center gap-2">
+                            <ActiveToggle active={r.is_active} onToggle={() => patch(`domains/${r.id}`, { is_active: !r.is_active }, "Domain")} />
+                            {isSuper && (
+                              <button onClick={() => del(`domains/${r.id}`, "Theme")} title="Delete this theme permanently" className="text-muted-foreground hover:text-destructive">
+                                <Trash2 size={15} />
+                              </button>
+                            )}
+                          </div>
+                        </td>
                       </tr>
                     ))}
                   </tbody>
