@@ -71,9 +71,11 @@ export class ActionsController {
           company_id,
           user_id: manager_id,
           type: 'action_completed',
-          title: 'Action Completed',
-          body: `Action "${action.rows[0].title || action.rows[0].description}" completed. Please review outcome.`,
-          link: riskId ? `/risks/${riskId}` : '/daily-oversight',
+          title: 'Action completed — review & rate effectiveness',
+          body: `"${action.rows[0].title || action.rows[0].description}" was completed (${completion_outcome}). Open the risk to rate its effectiveness and impact, then close it.`,
+          // Open the risk record (correct route is /risk-register/:id) where effectiveness + impact
+          // are rated and the risk is closed. Risk-less actions go to the Action Effectiveness page.
+          link: riskId ? `/risk-register/${riskId}` : '/effectiveness',
           metadata: { action_id: id, risk_id: riskId }
         });
       }

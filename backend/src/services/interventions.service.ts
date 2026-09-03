@@ -658,6 +658,26 @@ export const interventionsService = {
       }
     }
 
+    // Alert the assigned person when the RM saves the intervention, so the delegated work lands in
+    // their My Work / My Actions and pings them (post-write, best-effort). Completing it later
+    // notifies the RM back for effectiveness review (actions.controller → 'action_completed').
+    if (data.owner_id && intv) {
+      try {
+        const { notificationsService } = await import('./notifications.service');
+        await notificationsService.create({
+          company_id,
+          user_id: data.owner_id,
+          type: 'task_assigned',
+          title: 'Governance action assigned to you',
+          body: `Intervention: ${String(data.intervention).trim()}${data.review_date ? ` · due ${new Date(data.review_date).toLocaleDateString('en-GB')}` : ''}`,
+          link: '/my-actions',
+          metadata: { intervention_id: intv.id, risk_id: intv.linked_risk_id || null, action_id: intv.linked_action_id || null },
+        });
+      } catch {
+        // best-effort — the intervention is saved regardless of notification delivery.
+      }
+    }
+
     return intv;
   },
 };
