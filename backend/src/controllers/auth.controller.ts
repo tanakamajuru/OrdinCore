@@ -57,8 +57,13 @@ export class AuthController {
    *         description: Logged out successfully
    */
   async logout(req: Request, res: Response) {
-    // In a stateless JWT system, logout is handled client-side by deleting the token
-    // Optionally persist a token blacklist in Redis
+    // M-05 — actually revoke the refresh token server-side so it can never mint a new access token.
+    // Revoke the presented token if supplied; otherwise revoke all of the user's sessions.
+    try {
+      const { refreshToken } = req.body || {};
+      if (refreshToken) await authService.revokeRefreshToken(refreshToken);
+      else if (req.user?.user_id) await authService.revokeAllForUser(req.user.user_id);
+    } catch { /* best-effort — client still clears its tokens */ }
     logger.info(`User ${req.user?.user_id} logged out`);
     return res.json({ success: true, data: { message: 'Logged out successfully' }, meta: {} });
   }

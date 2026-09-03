@@ -139,7 +139,9 @@ class ApiClient {
 
   async logout(): Promise<ApiResponse<null>> {
     try {
-      const response = await this.request<null>('/auth/logout', { method: 'POST' });
+      // Send the refresh token so the server revokes exactly this session (M-05).
+      const refreshToken = localStorage.getItem('refreshToken');
+      const response = await this.request<null>('/auth/logout', { method: 'POST', body: JSON.stringify({ refreshToken }) });
       return response;
     } finally {
       this.clearToken();
@@ -159,6 +161,9 @@ class ApiClient {
 
     if (response.success && response.data?.token) {
       this.setToken(response.data.token);
+      // M-05: the server rotates the refresh token on every use — persist the new one, or the next
+      // refresh would present a now-revoked token and be treated as reuse (all sessions revoked).
+      if (response.data.refreshToken) localStorage.setItem('refreshToken', response.data.refreshToken);
     }
 
     return response;

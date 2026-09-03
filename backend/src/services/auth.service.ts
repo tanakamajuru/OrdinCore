@@ -6,6 +6,7 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { governanceService } from './governance.service';
 import { sendMail } from '../utils/mailer';
+import logger from '../utils/logger';
 
 // One-time password-reset tokens are valid for this long.
 const RESET_TOKEN_TTL_MS = 60 * 60 * 1000; // 1 hour
@@ -83,7 +84,7 @@ export class AuthService {
     const profile = await query('SELECT * FROM user_profiles WHERE user_id = $1', [user.id]);
     const assignedHouses = await usersRepo.getHouses(user.id);
     const token = this.generateToken(user);
-    const refreshToken = this.generateRefreshToken(user);
+    const refreshToken = await this.generateRefreshToken(user);
 
     const { password_hash, ...safeUser } = user;
     void password_hash;
@@ -249,22 +250,60 @@ export class AuthService {
     const hash = await bcrypt.hash(newPassword, 12);
     await usersRepo.update(row.user_id, { password_hash: hash } as any);
     await query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [row.id]);
+    // M-05 — a password reset invalidates every existing session for that user.
+    await this.revokeAllForUser(row.user_id);
 
     return { message: 'Password reset successfully. You can now sign in with your new password.' };
   }
 
+  // M-05 — rotate on use, revoke the presented token, and detect reuse. The refresh token carries a
+  // jti recorded server-side (hash only). A revoked/rotated token being presented again means the
+  // token was captured: we revoke every token for that user and refuse.
   async refreshToken(token: string) {
-    let payload: { user_id: string };
+    let payload: { user_id: string; jti?: string };
     try {
-      payload = jwt.verify(token, JWT_REFRESH_SECRET) as { user_id: string };
+      payload = jwt.verify(token, JWT_REFRESH_SECRET) as { user_id: string; jti?: string };
     } catch {
       throw new Error('Invalid or expired refresh token');
     }
+    // Legacy tokens issued before server-side tracking carry no jti and cannot be trusted — refuse
+    // so the client re-authenticates once into the revocable scheme.
+    if (!payload.jti) throw new Error('Invalid or expired refresh token');
+
+    const row = (await query('SELECT * FROM refresh_tokens WHERE id = $1', [payload.jti])).rows[0];
+    if (!row) throw new Error('Invalid or expired refresh token');
+    if (row.revoked_at) {
+      // Reuse of a revoked/rotated token — treat as compromise: revoke the whole family.
+      await this.revokeAllForUser(payload.user_id);
+      logger.warn(`[security] refresh-token reuse detected — revoked all sessions for user ${payload.user_id}`);
+      throw new Error('Invalid or expired refresh token');
+    }
+    if (new Date(row.expires_at).getTime() < Date.now()) throw new Error('Invalid or expired refresh token');
+    if (row.token_hash !== hashToken(token)) throw new Error('Invalid or expired refresh token');
+
     const user = await usersRepo.findById(payload.user_id);
     if (!user) throw new Error('User not found');
     if (user.status !== 'active') throw new Error('Account is inactive or suspended');
-    const newToken = this.generateToken(user);
-    return { token: newToken };
+
+    // Rotate: issue a fresh refresh token, then revoke the presented one and link the successor.
+    const newRefresh = await this.generateRefreshToken(user);
+    const newJti = (jwt.decode(newRefresh) as { jti?: string })?.jti || null;
+    await query('UPDATE refresh_tokens SET revoked_at = NOW(), rotated_to = $2 WHERE id = $1', [payload.jti, newJti]);
+
+    return { token: this.generateToken(user), refreshToken: newRefresh };
+  }
+
+  // Revoke a single refresh token (logout). Never throws for an unknown/expired token.
+  async revokeRefreshToken(token: string) {
+    try {
+      const payload = jwt.verify(token, JWT_REFRESH_SECRET) as { jti?: string };
+      if (payload.jti) await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE id = $1 AND revoked_at IS NULL', [payload.jti]);
+    } catch { /* already invalid — nothing to revoke */ }
+  }
+
+  // Revoke every active refresh token for a user (password reset, suspension, reuse detection).
+  async revokeAllForUser(user_id: string) {
+    await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [user_id]);
   }
 
   generateToken(user: { id: string; company_id: string | null; role: string; email: string }) {
@@ -275,8 +314,18 @@ export class AuthService {
     );
   }
 
-  generateRefreshToken(user: { id: string }) {
-    return jwt.sign({ user_id: user.id }, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions);
+  // Signs a refresh token with a unique jti and records its hash + expiry so it can be rotated and
+  // revoked. Only the hash is stored — the token itself never touches the database.
+  async generateRefreshToken(user: { id: string }) {
+    const jti = uuidv4();
+    const token = jwt.sign({ user_id: user.id, jti }, JWT_REFRESH_SECRET, { expiresIn: JWT_REFRESH_EXPIRES_IN } as jwt.SignOptions);
+    const exp = (jwt.decode(token) as { exp?: number })?.exp;
+    const expiresAt = exp ? new Date(exp * 1000) : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+    await query(
+      'INSERT INTO refresh_tokens (id, user_id, token_hash, expires_at) VALUES ($1, $2, $3, $4)',
+      [jti, user.id, hashToken(token), expiresAt]
+    );
+    return token;
   }
 
   async logAudit(company_id: string | null, user_id: string, action: string, resource: string, resource_id?: string) {
