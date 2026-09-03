@@ -52,13 +52,22 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [token, setToken] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
+  // Single teardown for a session — clears every cached token/profile field and drops auth state.
+  const clearSession = () => {
+    setUser(null);
+    setToken(null);
+    ['authToken', 'user', 'userRole', 'userName', 'userEmail', 'userId', 'refreshToken'].forEach((k) => localStorage.removeItem(k));
+  };
+
   useEffect(() => {
     const initAuth = async () => {
       const storedToken = localStorage.getItem('authToken');
 
       if (storedToken) {
+        // M-06 — fail CLOSED. The session is restored ONLY from a successful /auth/me. A rejected or
+        // failed validation clears everything and returns the user to login — cached profile data
+        // must never resurrect a logged-in interface.
         try {
-          // Validate token by calling /auth/me
           const response = await apiClient.me();
           if (response.success && response.data) {
             const userData = response.data as unknown as User;
@@ -67,24 +76,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             localStorage.setItem('user', JSON.stringify(userData));
             localStorage.setItem('userRole', userData.role);
           } else {
-            // Token invalid
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            clearSession();
           }
         } catch {
-          // Token expired or server error — fall back to stored user data
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            try {
-              setUser(JSON.parse(storedUser));
-              setToken(storedToken);
-            } catch {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('user');
-            }
-          } else {
-            localStorage.removeItem('authToken');
-          }
+          clearSession();
         }
       }
 
@@ -116,11 +111,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = () => {
     apiClient.logout().catch(console.error);
-    setUser(null);
-    setToken(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
+    clearSession();
   };
 
   const value: AuthContextType = {

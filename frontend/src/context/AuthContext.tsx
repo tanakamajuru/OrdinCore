@@ -23,34 +23,33 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const isAuthenticated = !!user;
 
+  // Single place to tear down a session — clears every cached token/profile and drops the user.
+  const clearSession = () => {
+    setUser(null);
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('user');
+    localStorage.removeItem('userRole');
+    localStorage.removeItem('refreshToken');
+  };
+
   useEffect(() => {
     const initializeAuth = async () => {
       const token = localStorage.getItem('authToken');
 
       if (token) {
+        // M-06 — fail CLOSED on session validation. The session is only ever restored from a
+        // successful /auth/me; a rejected or failed validation clears the session and returns the
+        // user to login. Cached profile data must never resurrect a logged-in interface.
         try {
-          // Validate token by calling /auth/me endpoint
           const response = await apiClient.me();
           if (response.success && response.data) {
             setUser(response.data as unknown as User);
           } else {
-            localStorage.removeItem('authToken');
-            localStorage.removeItem('user');
+            clearSession();
           }
         } catch (error) {
-          // If /auth/me fails, try falling back to stored user data
-          const storedUser = localStorage.getItem('user');
-          if (storedUser) {
-            try {
-              setUser(JSON.parse(storedUser));
-            } catch {
-              localStorage.removeItem('authToken');
-              localStorage.removeItem('user');
-            }
-          } else {
-            console.error('Token validation failed:', error);
-            localStorage.removeItem('authToken');
-          }
+          console.error('Token validation failed — signing out:', error);
+          clearSession();
         }
       }
       setIsLoading(false);
@@ -72,11 +71,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const logout = (): void => {
     apiClient.logout().catch(console.error);
-    setUser(null);
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('user');
-    localStorage.removeItem('userRole');
-    localStorage.removeItem('refreshToken');
+    clearSession();
   };
 
   const refreshToken = async (): Promise<void> => {
