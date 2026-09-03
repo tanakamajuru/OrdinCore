@@ -144,6 +144,7 @@ const CONCERN_TONE: Record<string, string> = {
   "Review required": "bg-red-100 text-red-700",
   "Monitor": "bg-amber-100 text-amber-700",
   "Controlled": "bg-emerald-100 text-emerald-700",
+  "Ready to close": "bg-emerald-100 text-emerald-700",
   "Low concern": "bg-emerald-100 text-emerald-700",
 };
 
@@ -300,6 +301,20 @@ export function InterventionPanel() {
                             </div>
                           );
                         })()}
+                        {/* Assigned-action lifecycle — so the RM can see the delegated work has been
+                            done and where it is for review / effectiveness. */}
+                        {intv.linked_action_stage && (
+                          <div className="mt-2 flex items-center gap-2 text-xs">
+                            {intv.linked_action_completed_at
+                              ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                              : <Loader2 className="w-3.5 h-3.5 text-amber-600" />}
+                            <span className="text-muted-foreground">Assigned action:</span>
+                            <span className={`font-medium ${intv.linked_action_completed_at ? "text-emerald-700" : "text-amber-700"}`}>{intv.linked_action_stage}</span>
+                            {intv.linked_action_completed_at && (
+                              <span className="text-muted-foreground">· {new Date(intv.linked_action_completed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>
+                            )}
+                          </div>
+                        )}
                         {/* Formal effectiveness — the existing human-reviewed action-effectiveness
                             judgement (Effective / Partially Effective / Not Effective / Too Early).
                             No synthetic Risk-Index percentage is claimed. */}
@@ -349,12 +364,23 @@ export function InterventionPanel() {
                     )}
                   </div>
 
+                  {/* Ready-to-close prompt — effective, no new risks in 14 days, no open escalations
+                      and not deteriorating. Doctrine: the RM still decides and closes explicitly. */}
+                  {t.readyToClose && (
+                    <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 flex items-start gap-2">
+                      <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                      <div className="text-xs text-emerald-800">
+                        <span className="font-semibold">Ready to close.</span> {t.readyToCloseReason}
+                      </div>
+                    </div>
+                  )}
+
                   {/* Close / rate the risks that make up this theme, in place. Only shown when the
                       theme still has open risks to act on. */}
                   {(t.risk_refs || []).some((r: any) => r?.id && !isClosedStatus(r.status)) && (
                     <button onClick={() => setCloseTheme(t)}
-                      className="mt-3 w-full text-sm font-medium text-foreground border border-border rounded-lg px-3 py-2 hover:bg-muted flex items-center justify-center gap-1.5">
-                      <CheckCircle2 className="w-4 h-4 text-emerald-600" /> Close / rate risk
+                      className={`mt-3 w-full text-sm font-medium rounded-lg px-3 py-2 flex items-center justify-center gap-1.5 ${t.readyToClose ? "text-white bg-emerald-600 hover:bg-emerald-700" : "text-foreground border border-border hover:bg-muted"}`}>
+                      <CheckCircle2 className="w-4 h-4" /> Close / rate risk
                     </button>
                   )}
 

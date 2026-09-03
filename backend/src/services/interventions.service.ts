@@ -144,7 +144,7 @@ export const interventionsService = {
                 JSON_BUILD_OBJECT('id', risk_id, 'source_cluster_id', source_cluster_id,
                                   'title', risk_title, 'status', risk_status,
                                   'impact_rating', risk_impact, 'house_name', house_name,
-                                  'open_actions', open_actions)
+                                  'open_actions', open_actions, 'created_at', risk_created_at)
                 ORDER BY risk_created_at DESC NULLS LAST
               ) AS risk_refs
          FROM (
@@ -185,6 +185,8 @@ export const interventionsService = {
               (u.first_name || ' ' || u.last_name) AS owner_name,
               ira.status AS linked_action_status,
               ira.due_date AS linked_action_due_date,
+              ira.completed_at AS linked_action_completed_at,
+              ira.assigned_to AS linked_action_assigned_to,
               COALESCE(
                 ira.effectiveness_outcome,
                 CASE ira.effectiveness::text
@@ -209,6 +211,16 @@ export const interventionsService = {
 
     const intvByTheme = new Map<string, any>();
     for (const i of interventions) intvByTheme.set(String(i.theme).toLowerCase(), i);
+
+    // Open escalations by risk — a theme whose risks still carry an open escalation is not ready
+    // to close. Used only as a close-readiness gate; it never alters the authoritative trajectory.
+    const openEscByRisk = new Set<string>();
+    (await query(
+      `SELECT DISTINCT risk_id FROM escalations
+        WHERE company_id = $1 AND risk_id IS NOT NULL
+          AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')`,
+      [company_id]
+    )).rows.forEach((r: any) => openEscByRisk.add(String(r.risk_id)));
 
     const out: any[] = [];
 
@@ -259,6 +271,23 @@ export const interventionsService = {
         ? await this.themeEvidenceComparison(company_id, t.theme, intv.started_at)
         : null;
 
+      // Close-readiness (doctrine, RM-decided — never auto-closes): the intervention is rated
+      // Effective, no new risk has been added to the theme within 14 days, no open escalation
+      // remains on its risks, and the trajectory is not deteriorating. When all hold, the theme's
+      // concern is improving and the RM is prompted to close its risks (via the Close/rate manager).
+      const now = Date.now();
+      const newRiskIn14d = riskRefs.some((r: any) => r.created_at && (now - new Date(r.created_at).getTime()) < 14 * 864e5);
+      const hasOpenEscalation = riskRefs.some((r: any) => openEscByRisk.has(String(r.id)));
+      const openRiskCount = riskRefs.filter((r: any) => !['closed', 'resolved'].includes(String(r.status || '').toLowerCase())).length;
+      const readyToClose = effectiveness === 'Effective'
+        && trajectory.direction !== 'Deteriorating'
+        && !newRiskIn14d
+        && !hasOpenEscalation
+        && openRiskCount > 0;
+      const readyToCloseReason = readyToClose
+        ? 'Effective · no new risks in 14 days · no open escalations — ready to close.'
+        : null;
+
       out.push({
         theme: t.theme,
         services: Number(t.services) || 0,
@@ -285,7 +314,9 @@ export const interventionsService = {
 
         needsAttention: reasons.length > 0,
         attentionReasons: reasons,
-        concern: concernOf(reasons, trajectory, effectiveness),
+        concern: readyToClose ? 'Ready to close' : concernOf(reasons, trajectory, effectiveness),
+        readyToClose,
+        readyToCloseReason,
 
         intervention: intv
           ? {
@@ -303,6 +334,13 @@ export const interventionsService = {
               linked_action_id: intv.linked_action_id,
               linked_action_status: intv.linked_action_status,
               linked_action_due_date: intv.linked_action_due_date,
+              linked_action_completed_at: intv.linked_action_completed_at,
+              // Where the assigned work is in its lifecycle, so the RM can see it has been done and
+              // is awaiting an effectiveness verdict: assigned → completed → effectiveness rated.
+              linked_action_stage: !intv.linked_action_id ? null
+                : intv.linked_action_completed_at
+                  ? (intv.effectiveness_outcome ? 'Effectiveness rated' : 'Completed · awaiting effectiveness')
+                  : 'Assigned · in progress',
 
               // Formal effectiveness is reused from existing action-effectiveness governance.
               effectiveness_review: {
@@ -587,6 +625,36 @@ export const interventionsService = {
         } catch {
           // Non-fatal: the intervention record itself remains saved.
         }
+      }
+    }
+
+    // Propagate intervention edits to the risk register: keep the linked risk action in step with
+    // the intervention (title, expected outcome, owner and review/due date) so "Update intervention"
+    // updates the risk record too — not just the intervention row. Action COMPLETION is separate
+    // evidence and is never auto-set here.
+    if (intv?.linked_action_id) {
+      try {
+        await query(
+          `UPDATE risk_actions
+              SET title = $1,
+                  description = $2,
+                  intended_outcome = COALESCE($3, intended_outcome),
+                  assigned_to = COALESCE($4, assigned_to),
+                  due_date = COALESCE($5, due_date),
+                  updated_at = NOW()
+            WHERE id = $6 AND company_id = $7`,
+          [
+            `Intervention: ${String(data.intervention).trim()}`,
+            data.expected_outcome ? `Expected outcome: ${data.expected_outcome}` : `Leadership intervention for the ${data.theme} theme.`,
+            data.expected_outcome ? String(data.expected_outcome).trim() : null,
+            data.owner_id || null,
+            data.review_date ? new Date(data.review_date) : null,
+            intv.linked_action_id,
+            company_id,
+          ]
+        );
+      } catch {
+        // Non-fatal: the intervention itself is saved; the register sync is best-effort.
       }
     }
 
