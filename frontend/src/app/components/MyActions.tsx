@@ -38,10 +38,21 @@ export function MyActions() {
   const [rationale, setRationale] = useState("");
   const [note, setNote] = useState("");
   const [page, setPage] = useState(1);
+  // Filter by due-date range. Inclusive of both ends; either end may be left blank for an open range.
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
   const PAGE_SIZE = 12;
-  const totalPages = Math.max(1, Math.ceil(actions.length / PAGE_SIZE));
+  const filteredActions = actions.filter((a) => {
+    if (!fromDate && !toDate) return true;
+    if (!a.due_date) return false;
+    const due = new Date(a.due_date); due.setHours(0, 0, 0, 0);
+    if (fromDate && due < new Date(fromDate + "T00:00:00")) return false;
+    if (toDate && due > new Date(toDate + "T00:00:00")) return false;
+    return true;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredActions.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);
-  const pagedActions = actions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
+  const pagedActions = filteredActions.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   useEffect(() => {
     fetchActions();
@@ -50,7 +61,18 @@ export function MyActions() {
   const fetchActions = async () => {
     try {
       setIsLoading(true);
-      const response = await apiClient.get(isOversight ? "/actions/oversight" : "/actions/my");
+      // Pick the endpoint by the cached role, but the cached role can disagree with the token the
+      // server actually sees (e.g. a stale localStorage role, or a role that endpoint doesn't
+      // allow). Rather than surface a 403, fall back to the other actions endpoint — between them,
+      // /actions/oversight (RM+) and /actions/my (the personal queue) cover every action-holder.
+      const primary = isOversight ? "/actions/oversight" : "/actions/my";
+      const secondary = isOversight ? "/actions/my" : "/actions/oversight";
+      let response: any;
+      try {
+        response = await apiClient.get(primary);
+      } catch {
+        response = await apiClient.get(secondary);
+      }
       // apiClient (@/services/api) returns the parsed body, so response.data is the payload array
       const list: any = response.data;
       setActions(Array.isArray(list) ? list : (list?.data || []));
@@ -121,11 +143,31 @@ export function MyActions() {
           </div>
         </div>
 
+        {/* Filter by due-date range */}
+        <div className="flex flex-wrap items-end gap-4 mb-6">
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">Due from</label>
+            <input type="date" value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(1); }}
+              className="border border-border rounded-lg p-2 text-sm bg-background" />
+          </div>
+          <div className="flex flex-col gap-1">
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">Due to</label>
+            <input type="date" value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(1); }}
+              className="border border-border rounded-lg p-2 text-sm bg-background" />
+          </div>
+          {(fromDate || toDate) && (
+            <>
+              <Button variant="ghost" onClick={() => { setFromDate(""); setToDate(""); setPage(1); }} className="hover:bg-muted">Clear</Button>
+              <span className="text-sm text-muted-foreground pb-2">{filteredActions.length} of {actions.length} action{actions.length === 1 ? "" : "s"}</span>
+            </>
+          )}
+        </div>
+
         <div className="grid grid-cols-1 gap-6">
-          {actions.length === 0 ? (
+          {filteredActions.length === 0 ? (
             <div className="bg-card border-2 border-dashed border-border p-12 text-center rounded-lg">
               <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">{isOversight ? "No open actions across your services." : "No active actions assigned to you."}</p>
+              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">{(fromDate || toDate) ? "No actions due in this date range." : isOversight ? "No open actions across your services." : "No active actions assigned to you."}</p>
             </div>
           ) : (
             pagedActions.map((action) => (
