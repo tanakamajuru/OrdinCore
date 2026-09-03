@@ -42,6 +42,13 @@ export function RiskRegister() {
   const userRole = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
   const emergingRedirectsToPatterns = userRole === "REGISTERED_MANAGER" || userRole === "DIRECTOR";
 
+  // The full oversight register is a leadership surface. A Team Leader only ever sees the single
+  // risk that relates to one of their actions (via RiskDetail) — never the whole list; send them
+  // back to their actions if they land here.
+  useEffect(() => {
+    if (userRole === "TEAM_LEADER") navigate("/my-actions", { replace: true });
+  }, [userRole, navigate]);
+
   useEffect(() => { load(); }, []);
 
   // Keep the active tab in sync with the URL. Strategic Oversight and Risk Register share

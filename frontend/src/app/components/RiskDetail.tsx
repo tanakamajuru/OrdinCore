@@ -71,6 +71,11 @@ export function RiskDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const userRole = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
+  // A Team Leader reaches a risk only as context for one of their own actions — they don't oversee
+  // the register. Send their back-link to My Actions, not the full oversight register list.
+  const isTeamLeader = userRole === 'TEAM_LEADER';
+  const backTo = isTeamLeader ? '/my-actions' : '/risk-register';
+  const backLabel = isTeamLeader ? 'Back to My Actions' : 'Back to Oversight Register';
   
   const [showAddAction, setShowAddAction] = useState(false);
   const [risk, setRisk] = useState<RiskDetail | null>(null);
@@ -496,10 +501,10 @@ export function RiskDetail() {
         <div className="text-center">
           <h2 className="text-xl  text-foreground mb-4">Risk not found</h2>
           <button
-            onClick={() => navigate("/risk-register")}
+            onClick={() => navigate(backTo)}
             className="px-4 py-2 bg-primary text-primary-foreground hover:bg-[#008394] transition-colors"
           >
-            Back to Oversight Register
+            {backLabel}
           </button>
         </div>
       </div>
@@ -559,11 +564,11 @@ export function RiskDetail() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <button
-          onClick={() => navigate("/risk-register")}
+          onClick={() => navigate(backTo)}
           className="flex items-center gap-2 text-foreground hover:text-muted-foreground transition-colors mb-6 underline"
         >
           <ArrowLeft className="w-4 h-4" />
-          Back to Oversight Register
+          {backLabel}
         </button>
 
         <div className="mb-6">
