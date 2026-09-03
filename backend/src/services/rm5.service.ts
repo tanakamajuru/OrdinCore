@@ -112,7 +112,7 @@ export const rm5Service = {
       patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND scope='person'`),
       risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
       actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),
-      effectiveness: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND completed_at IS NOT NULL AND effectiveness_outcome IS NULL`),
+      effectiveness: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND risk_id IS NOT NULL AND completed_at IS NOT NULL AND effectiveness_outcome IS NULL`),
       escalations: await one(`SELECT COUNT(*) n FROM escalations WHERE company_id=$1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')`),
     };
   },
@@ -248,14 +248,16 @@ export const rm5Service = {
   },
 
   async effectivenessLens(company_id: string) {
-    // LEFT JOIN risks for the same reason as actionsLens — a completed service-level action
-    // still needs its effectiveness rated, so it must appear here.
+    // Effectiveness = "which CONTROLS are due a verdict" — a control is an action ON a risk, and
+    // every item must open its risk record. So this lens is scoped to risk-linked actions only
+    // (INNER JOIN): standalone service-level tasks are not risk controls, have no risk to open, and
+    // are not subject to a control-effectiveness verdict. Counts (getCounts) use the same predicate.
     return (await query(
       `SELECT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
               (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · completed '
                 || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
          FROM risk_actions a
-         LEFT JOIN risks r ON r.id = a.risk_id
+         JOIN risks r ON r.id = a.risk_id
          LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
         WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL
         ORDER BY a.completed_at ASC`,

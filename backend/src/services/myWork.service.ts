@@ -99,6 +99,7 @@ export const myWorkService = {
       const eff = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM risk_actions a
           WHERE a.company_id = $1
+            AND a.risk_id IS NOT NULL
             AND a.completed_at IS NOT NULL
             AND a.effectiveness_outcome IS NULL`,
         [company_id]

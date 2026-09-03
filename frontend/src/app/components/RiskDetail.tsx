@@ -306,6 +306,21 @@ export function RiskDetail() {
     } finally { setIsClosing(false); }
   };
 
+  // Reopen a closed/resolved risk (RM+). Puts it back to Open so its impact can be re-rated and it
+  // can be re-closed — closed risks otherwise show no Close button or impact control by design.
+  const [isReopening, setIsReopening] = useState(false);
+  const handleReopenRisk = async () => {
+    if (!id) return;
+    setIsReopening(true);
+    try {
+      await apiClient.patch(`/risks/${id}/status`, { status: 'Open' });
+      toast.success("Risk reopened — you can update its impact and close it again with a fresh verdict.");
+      loadRiskDetails(id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to reopen risk");
+    } finally { setIsReopening(false); }
+  };
+
   const [searchParams] = useSearchParams();
   // Deep-link deep-scroll: a /risk-register/:id?section=… link (or the /risks/:id redirect)
   // lands on the right sub-section instead of the top of the record (Migration-Map Phase 2).
@@ -580,6 +595,23 @@ export function RiskDetail() {
                 ESCALATED
               </span>
             )}
+            {/* Make the closed state explicit — otherwise a closed risk just shows a stripped page
+                with no Close button or impact control and looks broken. */}
+            {['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
+              <span className="px-3 py-1 bg-emerald-600 text-white uppercase font-bold">
+                {risk.status?.toLowerCase() === 'resolved' ? 'RESOLVED' : 'CLOSED'}
+              </span>
+            )}
+            {['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && ['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && (
+              <button
+                onClick={handleReopenRisk}
+                disabled={isReopening}
+                title="Reopen this risk to update its impact and close it again"
+                className="px-3 py-1 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors uppercase font-bold disabled:opacity-50"
+              >
+                {isReopening ? 'Reopening…' : 'Reopen Risk'}
+              </button>
+            )}
             {['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && risk.status?.toLowerCase() !== 'escalated' && (
               <button
                 onClick={() => hasImpact ? setShowEscalateModal(true) : (document.getElementById('rd-actions')?.scrollIntoView({ behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — it sits above Controls & Effectiveness.'))}
@@ -756,6 +788,20 @@ export function RiskDetail() {
                   </button>
                 ))}
               </div>
+            </div>
+          )}
+
+          {/* Closed risks: keep the recorded impact visible (read-only) rather than hiding the card
+              entirely — the judgement still matters for the audit trail. Reopen to change it. */}
+          {['closed', 'resolved'].includes((risk.status || '').toLowerCase()) && hasImpact && (
+            <div className="rounded-xl border-2 border-border bg-card p-4 flex items-center gap-3">
+              <div className="flex-1">
+                <div className="text-sm font-semibold text-foreground">Impact</div>
+                <div className="text-xs text-muted-foreground">Recorded consequence judgement · Reopen the risk to change it.</div>
+              </div>
+              <span className={`px-4 py-2 rounded-lg text-sm font-bold uppercase text-white ${risk.impact_rating === 'High' ? 'bg-red-600' : risk.impact_rating === 'Medium' ? 'bg-amber-500' : 'bg-emerald-600'}`}>
+                {risk.impact_rating}
+              </span>
             </div>
           )}
 
