@@ -242,6 +242,13 @@ export function EscalationLog() {
   const pagedEscalations = visibleEscalations.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
 
   const handleSelectEscalation = async (esc: Escalation) => {
+    // The decision/notes field and next-review date are per-escalation inputs, not shared drafts.
+    // Clear them whenever a different escalation is opened so a new record always starts empty and
+    // a note can never be accidentally carried over from the previously-reviewed escalation.
+    if (esc.id !== selectedEscalation?.id) {
+      setResolutionNotes("");
+      setNextReviewAt("");
+    }
     try {
       const res = await apiClient.get(`/escalations/${esc.id}`);
       const payload = (res.data as any).data || (res.data as any) || null;

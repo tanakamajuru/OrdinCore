@@ -121,8 +121,13 @@ export function DailyOversightBoard() {
       const dayIds = new Set(daySignals.map((s: any) => String(s.id)));
       const reviewedSignals = decisions.filter((d: any) => d.pulse_entry_id && !dayIds.has(String(d.pulse_entry_id)) && (d.signal_description || d.signal_person || d.signal_domain));
 
-      // 3. Outstanding actions to remember — scoped to this house where the row names one.
-      const houseActions = actions.filter((a: any) => !a.house_name || a.house_name === houseName);
+      // 3. Outstanding actions to remember — scoped STRICTLY to the house being signed off.
+      // Match on house_id (authoritative); fall back to an exact house-name match only for rows
+      // that carry no id. Rows with no house attribution at all are NOT included — otherwise
+      // whole-service / unattributed actions leaked into every house's brief.
+      const houseActions = actions.filter((a: any) =>
+        a.house_id ? String(a.house_id) === String(selectedHouseId)
+                   : (!!a.house_name && a.house_name === houseName));
       const openActs = houseActions.filter((a: any) => !["Complete", "Completed", "Cancelled"].includes(a.status));
 
       const clean = (t: any) => String(t || "").replace(/\s+/g, " ").trim();
