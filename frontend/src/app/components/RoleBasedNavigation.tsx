@@ -150,6 +150,15 @@ export function RoleBasedNavigation() {
 
   const navItems = getNavigationItems();
 
+  // Help & Guidelines — admins author content (/help-admin); everyone reads the articles
+  // targeted at their role (/help). Appended for every role so it's always reachable.
+  if (userRole) {
+    if (["ADMIN", "SUPER_ADMIN"].includes(userRole)) {
+      navItems.push({ path: "/help-admin", label: "Help Content", icon: ClipboardList });
+    }
+    navItems.push({ path: "/help", label: "Help & Guidelines", icon: HelpCircle });
+  }
+
   const getRoleLabel = () => {
     switch (userRole) {
       case "ADMIN": return "Company Admin";

@@ -51,6 +51,8 @@ import SuperAdminDashboard from "./components/SuperAdminDashboard";
 import { ComputationalEngines } from "./components/ComputationalEngines";
 import { PulseHistory } from "./components/PulseHistory";
 import { MyActions } from "./components/MyActions";
+import { Help } from "./components/Help";
+import { HelpAdmin } from "./components/HelpAdmin";
 import { AdminServiceUsers } from "./admin/ServiceUsers";
 
 // Protected Route Component
@@ -215,6 +217,16 @@ export default function App() {
           <Route path="/my-actions" element={
             <ProtectedRoute>
               <MyActions />
+            </ProtectedRoute>
+          } />
+          <Route path="/help" element={
+            <ProtectedRoute>
+              <Help />
+            </ProtectedRoute>
+          } />
+          <Route path="/help-admin" element={
+            <ProtectedRoute>
+              <HelpAdmin />
             </ProtectedRoute>
           } />
           {/* /oversight-board retired — clusters consolidated to /patterns; its daily
