@@ -4,13 +4,13 @@ import { Button } from './ui/button';
 import apiClient from '@/services/api';
 import { toast } from 'sonner';
 
-import { TrajectoryBadge } from './TrajectoryBadge';
-
 export const ActionReviewPanel: React.FC = () => {
   const [actions, setActions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState<string | null>(null);
   const [comments, setComments] = useState<Record<string, string>>({});
+  // Optional: when accepting, the RM can schedule an effectiveness review (a future date).
+  const [effDates, setEffDates] = useState<Record<string, string>>({});
 
   const fetchActions = async () => {
     setLoading(true);
@@ -41,10 +41,13 @@ export const ActionReviewPanel: React.FC = () => {
       const response = await apiClient.rmReviewAction(actionId, {
         rm_decision: decision,
         rm_comment: comments[actionId] || '',
+        effectiveness_due_at: decision === 'Accept Completion' ? (effDates[actionId] || undefined) : undefined,
       });
 
       if (response.success) {
-        toast.success('Review submitted and trajectory updated.');
+        toast.success(decision === 'Return for Rework'
+          ? 'Returned to the assignee for rework.'
+          : (effDates[actionId] ? 'Completion accepted; effectiveness review scheduled.' : 'Completion accepted.'));
         setActions(actions.filter((a) => a.id !== actionId));
       }
     } catch (error: any) {
@@ -59,17 +62,18 @@ export const ActionReviewPanel: React.FC = () => {
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold text-foreground px-1">Actions Awaiting Review</h3>
+      <h3 className="text-lg font-semibold text-foreground px-1">Actions Awaiting Completion Review</h3>
+      <p className="text-xs text-muted-foreground px-1 -mt-2">Accept the completed work, or return it for rework. This confirms the work was done — it does not rate effectiveness (schedule that separately).</p>
       <div className="grid gap-4">
         {actions.map((action) => (
           <Card key={action.id} className="p-5 border-border bg-card hover:shadow-md transition-shadow">
             <div className="flex flex-col md:flex-row justify-between gap-4">
               <div className="space-y-2 flex-1">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">Action Review</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-primary bg-primary/10 px-2 py-0.5 rounded">Completion Review</span>
                   <h4 className="font-semibold text-foreground">{action.title}</h4>
                 </div>
-                <p className="text-sm text-muted-foreground">Linked to Risk: <span className="text-foreground font-medium">{action.risk_title}</span></p>
+                <p className="text-sm text-muted-foreground">{action.risk_title ? <>Linked to Risk: <span className="text-foreground font-medium">{action.risk_title}</span></> : <span className="text-foreground font-medium">Daily Governance action</span>}</p>
                 
                 <div className="mt-4 p-3 rounded-lg bg-muted/30 border border-border/50">
                   <div className="flex items-center gap-2 mb-1">
@@ -87,32 +91,32 @@ export const ActionReviewPanel: React.FC = () => {
                   value={comments[action.id] || ''}
                   onChange={(e) => setComments({ ...comments, [action.id]: e.target.value })}
                 />
+                <div>
+                  <label className="block text-[10px] uppercase tracking-wide text-muted-foreground mb-1">Schedule effectiveness review (optional)</label>
+                  <input
+                    type="date"
+                    className="w-full p-2 text-xs rounded border border-border bg-background focus:ring-1 focus:ring-primary focus:outline-none"
+                    value={effDates[action.id] || ''}
+                    onChange={(e) => setEffDates({ ...effDates, [action.id]: e.target.value })}
+                  />
+                </div>
                 <div className="flex gap-2">
                   <Button
                     size="sm"
-                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[10px] px-1"
-                    onClick={() => handleReview(action.id, 'Confirm improvement')}
+                    className="flex-1 bg-green-600 hover:bg-green-700 text-white text-[11px] px-1"
+                    onClick={() => handleReview(action.id, 'Accept Completion')}
                     disabled={!!submitting}
                   >
-                    Confirm Improvement
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="secondary"
-                    className="flex-1 text-[10px] px-1"
-                    onClick={() => handleReview(action.id, 'No impact')}
-                    disabled={!!submitting}
-                  >
-                    No Impact
+                    Accept Completion
                   </Button>
                   <Button
                     size="sm"
                     variant="destructive"
-                    className="flex-1 text-[10px] px-1"
-                    onClick={() => handleReview(action.id, 'Negative impact')}
+                    className="flex-1 text-[11px] px-1"
+                    onClick={() => handleReview(action.id, 'Return for Rework')}
                     disabled={!!submitting}
                   >
-                    Negative Impact
+                    Return for Rework
                   </Button>
                 </div>
               </div>

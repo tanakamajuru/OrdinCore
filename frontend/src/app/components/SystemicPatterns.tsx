@@ -24,6 +24,7 @@ export function SystemicPatterns() {
   const [reviewTarget, setReviewTarget] = useState<any>(null);
   const [outcome, setOutcome] = useState("Continue Monitoring");
   const [rationale, setRationale] = useState("");
+  const [nextDate, setNextDate] = useState("");
   const [busy, setBusy] = useState(false);
 
   const load = async () => {
@@ -41,11 +42,12 @@ export function SystemicPatterns() {
 
   const submitReview = async () => {
     if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (outcome === "Continue Monitoring" && !nextDate) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     setBusy(true);
     try {
-      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim() });
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim(), nextReviewDate: nextDate || undefined });
       const na = (res?.data?.data ?? res?.data ?? {}).next_action;
-      setReviewTarget(null); setRationale(""); setOutcome("Continue Monitoring");
+      setReviewTarget(null); setRationale(""); setOutcome("Continue Monitoring"); setNextDate("");
       if (na?.type === "promote") { toast.success("Review recorded — promoting to a risk"); navigate(`/risks/promote?cluster_id=${na.cluster_id}`, { state: { cluster_id: na.cluster_id } }); return; }
       toast.success(na?.type === "escalated" ? "Review recorded — escalation opened" : "Systemic pattern review recorded");
       load();
@@ -53,7 +55,7 @@ export function SystemicPatterns() {
     finally { setBusy(false); }
   };
 
-  const openReview = (p: any) => { setReviewTarget(p); setOutcome("Continue Monitoring"); setRationale(""); };
+  const openReview = (p: any) => { setReviewTarget(p); setOutcome("Continue Monitoring"); setRationale(""); setNextDate(""); };
 
   return (
     <div className="min-h-screen bg-background">
@@ -112,11 +114,24 @@ export function SystemicPatterns() {
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReviewTarget(null)}>
             <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-lg font-semibold text-foreground mb-1">Systemic Pattern Review</h3>
-              <p className="text-xs text-muted-foreground mb-4">{reviewTarget.domain} — across {(reviewTarget.houses || reviewTarget.affected_house_names || []).length} services. Is the organisation-wide response working?</p>
-              <label className="block text-sm font-medium mb-1">Outcome</label>
+              <p className="text-xs text-muted-foreground mb-3">{reviewTarget.domain} — across {(reviewTarget.houses || reviewTarget.affected_house_names || []).length} services. Review the evidence, then choose the governance decision.</p>
+              {/* Trajectory is EVIDENCE, shown read-only — it is never a review decision. */}
+              {reviewTarget.trajectory && (
+                <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
+                  <span className="text-muted-foreground">Current trajectory (evidence):</span>
+                  <span className="font-semibold" style={{ color: (TRAJ as any)[reviewTarget.trajectory]?.color || "#64748b" }}>{reviewTarget.trajectory}</span>
+                </div>
+              )}
+              <label className="block text-sm font-medium mb-1">Governance decision</label>
               <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className="w-full mb-3 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-                {["Continue Monitoring", "Improving", "Stable", "Deteriorating", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
+                {["Continue Monitoring", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
               </select>
+              {outcome === "Continue Monitoring" && (
+                <div className="mb-3">
+                  <label className="block text-sm font-medium mb-1">Next review date</label>
+                  <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                </div>
+              )}
               {outcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A systemic pattern can only close once its linked risk and escalations are resolved.</p>}
               <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
               <textarea value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the cross-service evidence show?" />

@@ -209,17 +209,20 @@ export const governanceWorkflowService = {
   },
 
   async reviewPattern(company_id: string, cluster_id: string, user_id: string, outcome: string, rationale: string, nextReviewDate?: string) {
-    const OUTCOMES = ['Continue Monitoring', 'Improving', 'Stable', 'Deteriorating', 'Promote to Risk', 'Escalate', 'Close'];
-    if (!OUTCOMES.includes(outcome)) throw new Error('Choose a valid review outcome.');
+    // Doctrine: trajectory (Improving / Stable / Deteriorating) is EVIDENCE, shown read-only — it is
+    // never a review decision. Management chooses one of these governance actions on an established
+    // pattern; the current trajectory is displayed alongside, not selected.
+    const OUTCOMES = ['Continue Monitoring', 'Promote to Risk', 'Escalate', 'Close'];
+    if (!OUTCOMES.includes(outcome)) throw new Error('Choose a valid pattern review decision.');
     if (!rationale || rationale.trim().length < 20) throw new Error('Pattern review requires a meaningful rationale (at least a sentence).');
+    if (outcome === 'Continue Monitoring' && !nextReviewDate) throw new Error('Continue Monitoring requires a future review date so the pattern returns for review.');
 
     if (outcome === 'Close') {
       const closure = await this.assessPatternClosure(company_id, cluster_id);
       if (!closure.eligible) throw new Error(`Pattern cannot close: ${closure.blockers.join(' ')}`);
     }
 
-    // Deteriorating raises an urgent next review; the others keep the current cadence.
-    const nextReview = nextReviewDate || (outcome === 'Deteriorating' ? new Date(Date.now() + 2 * 86400000).toISOString().slice(0, 10) : null);
+    const nextReview = nextReviewDate || null;
     const today = new Date().toISOString().slice(0, 10);
 
     // §3 — the review and any downstream object (risk / escalation) are created atomically.
@@ -227,12 +230,10 @@ export const governanceWorkflowService = {
     // if creation fails, the whole review rolls back (no swallowed errors, no phantom status).
     const client = await getClient();
     let next_action: any = null;
-    let clusterLabel = '';
     try {
       await client.query('BEGIN');
       const cur = (await client.query(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [cluster_id, company_id])).rows[0];
       if (!cur) throw new Error('Pattern not found.');
-      clusterLabel = cur.cluster_label || cur.risk_domain || 'pattern';
 
       // Promote to Risk / Escalate delegate to the ONE shared executor (§2): it creates and
       // links exactly one record, dedups duplicate submissions, and records the decision.
@@ -279,16 +280,6 @@ export const governanceWorkflowService = {
       else if (out?.escalation) next_action = { type: 'escalated', escalation_id: out.escalation.id };
 
       const cluster = result.rows[0];
-      // Deteriorating → notify management (best-effort, outside the transaction).
-      if (outcome === 'Deteriorating') {
-        try {
-          const { notificationsService } = await import('./notifications.service');
-          const mgrs = await query(`SELECT id FROM users WHERE company_id = $1 AND status = 'active' AND role = ANY(ARRAY['REGISTERED_MANAGER','DIRECTOR'])`, [company_id]);
-          for (const m of mgrs.rows) {
-            await notificationsService.create({ company_id, user_id: m.id, type: 'pattern_review', title: 'Pattern deteriorating', body: `${clusterLabel}: ${rationale.trim()}`.slice(0, 200), link: '/rm5' });
-          }
-        } catch { /* notification is best-effort */ }
-      }
       return { ...cluster, next_action };
     } catch (err) {
       await client.query('ROLLBACK');

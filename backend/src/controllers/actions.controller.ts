@@ -92,11 +92,15 @@ export class ActionsController {
     const { rm_decision, rm_comment } = req.body;
     const { company_id, user_id } = (req as any).user;
 
+    // Doctrine: this is a COMPLETION review, not an effectiveness judgement. The RM either accepts
+    // the completed work or returns it for rework. It must NOT set effectiveness or move trajectory —
+    // effectiveness is a separate, later, human-reviewed stage. Where effectiveness is warranted the
+    // RM schedules it (effectiveness_due_at); the effectiveness verdict is recorded elsewhere.
+    const { effectiveness_due_at } = req.body;
     try {
-      // 1. Validation
-      const allowedDecisions = ['Confirm improvement', 'No impact', 'Negative impact'];
+      const allowedDecisions = ['Accept Completion', 'Return for Rework'];
       if (!allowedDecisions.includes(rm_decision)) {
-        return res.status(400).json({ success: false, message: 'Invalid RM decision.' });
+        return res.status(400).json({ success: false, message: 'Choose Accept Completion or Return for Rework.' });
       }
 
       const actionRes = await query('SELECT * FROM risk_actions WHERE id = $1 AND company_id = $2', [id, company_id]);
@@ -106,47 +110,53 @@ export class ActionsController {
 
       const action = actionRes.rows[0];
       if (action.status !== 'Completed') {
-        return res.status(400).json({ success: false, message: 'Action must be completed before RM review.' });
+        return res.status(400).json({ success: false, message: 'Action must be completed before it can be reviewed.' });
       }
 
-      if (action.rm_decision) {
-        return res.status(400).json({ success: false, message: 'Action already reviewed by RM.' });
+      const link = action.risk_id ? `/risk-register/${action.risk_id}` : '/my-actions';
+
+      if (rm_decision === 'Return for Rework') {
+        // Send it back: reopen the action and clear the completion so the assignee re-does and
+        // re-records it. Nothing about effectiveness or trajectory is touched.
+        await query(
+          `UPDATE risk_actions
+              SET status = 'In Progress', completed_at = NULL, completion_outcome = NULL,
+                  completion_rationale = NULL, rm_decision = $1, rm_decision_comment = $2, rm_decision_at = NOW()
+            WHERE id = $3 AND company_id = $4`,
+          [rm_decision, rm_comment || null, id, company_id]
+        );
+        if (action.assigned_to) {
+          await notificationsService.create({
+            company_id, user_id: action.assigned_to, type: 'action_returned',
+            title: 'Action returned for rework',
+            body: `Your completed action "${action.title || action.description}" was returned by the RM${rm_comment ? `: ${rm_comment}` : '.'} Please action and re-submit it.`,
+            link: '/my-actions', metadata: { action_id: id, risk_id: action.risk_id, decision: rm_decision },
+          });
+        }
+        return res.json({ success: true, message: 'Action returned for rework.', data: { status: 'In Progress' } });
       }
 
-      // 2. Update action with RM decision
-      let effectiveness = 'Neutral';
-      if (rm_decision === 'Confirm improvement') {
-        effectiveness = 'Effective';
-      } else if (rm_decision === 'Negative impact') {
-        effectiveness = 'Ineffective';
-      }
-
+      // Accept Completion — record acceptance only. Optionally schedule an effectiveness review
+      // (a future date) where the action was intended to change/control a concern.
+      const schedule = effectiveness_due_at ? new Date(effectiveness_due_at) : null;
       await query(
-        `UPDATE risk_actions 
-         SET rm_decision = $1, rm_decision_comment = $2, rm_decision_at = NOW(), 
-             effectiveness = $3, calculated_outcome = $3
-         WHERE id = $4 AND company_id = $5`,
-        [rm_decision, rm_comment || null, effectiveness, id, company_id]
+        `UPDATE risk_actions
+            SET rm_decision = $1, rm_decision_comment = $2, rm_decision_at = NOW(),
+                effectiveness_due_at = COALESCE($3, effectiveness_due_at)
+          WHERE id = $4 AND company_id = $5`,
+        [rm_decision, rm_comment || null, schedule, id, company_id]
       );
 
-      // 3. Refresh Risk Trajectory through the ONE authoritative engine.
-      // Trajectory SSOT: RM review contributes effectiveness evidence (written above); it must
-      // never directly set/force trajectory. The stored value is only ever a cache of the engine.
-      const trajectory = await risksService.updateTrajectoryFromActions(action.risk_id, company_id);
-      const newTrajectory = (trajectory as any)?.direction || 'Stable';
+      if (action.assigned_to) {
+        await notificationsService.create({
+          company_id, user_id: action.assigned_to, type: 'action_accepted',
+          title: 'Action completion accepted',
+          body: `The RM accepted your completed action "${action.title || action.description}".${schedule ? ` An effectiveness review is scheduled for ${schedule.toLocaleDateString('en-GB')}.` : ''}`,
+          link, metadata: { action_id: id, risk_id: action.risk_id, decision: rm_decision },
+        });
+      }
 
-      // 4. Notification to TL (the one who was assigned and completed it)
-      await notificationsService.create({
-        company_id,
-        user_id: action.assigned_to, 
-        type: 'action_rm_reviewed',
-        title: 'Action Reviewed',
-        body: `RM reviewed your action: ${rm_decision}. Risk trajectory: ${newTrajectory}.`,
-        link: `/risks/${action.risk_id}`,
-        metadata: { action_id: id, risk_id: action.risk_id, decision: rm_decision }
-      });
-
-      res.json({ success: true, message: 'RM review recorded and trajectory updated.' });
+      return res.json({ success: true, message: schedule ? 'Completion accepted; effectiveness review scheduled.' : 'Completion accepted.', data: { effectiveness_due_at: schedule } });
     } catch (err: any) {
       logger.error('Error in RM action review', err);
       res.status(500).json({ success: false, message: err.message });

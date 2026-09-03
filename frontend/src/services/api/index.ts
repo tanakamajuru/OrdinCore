@@ -335,7 +335,7 @@ class ApiClient {
     });
   }
 
-  async rmReviewAction(id: string, data: { rm_decision: string; rm_comment?: string }): Promise<ApiResponse<any>> {
+  async rmReviewAction(id: string, data: { rm_decision: string; rm_comment?: string; effectiveness_due_at?: string }): Promise<ApiResponse<any>> {
     return this.request<any>(`/actions/${id}/rm-review`, {
       method: 'POST',
       body: JSON.stringify(data),

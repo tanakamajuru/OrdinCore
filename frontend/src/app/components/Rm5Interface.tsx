@@ -148,13 +148,15 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [reviewTarget, setReviewTarget] = useState<any>(null);
   const [reviewOutcome, setReviewOutcome] = useState("Continue Monitoring");
   const [reviewRationale, setReviewRationale] = useState("");
+  const [reviewNextDate, setReviewNextDate] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const openReview = (p: any) => { setReviewTarget(p); setReviewOutcome("Continue Monitoring"); setReviewRationale(""); };
+  const openReview = (p: any) => { setReviewTarget(p); setReviewOutcome("Continue Monitoring"); setReviewRationale(""); setReviewNextDate(""); };
   const submitReview = async () => {
     if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (reviewOutcome === "Continue Monitoring" && !reviewNextDate) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     setReviewBusy(true);
     try {
-      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim() });
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim(), nextReviewDate: reviewNextDate || undefined });
       const data = res?.data?.data ?? res?.data ?? {};
       const na = data.next_action;
       setReviewTarget(null);
@@ -303,11 +305,24 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
               <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReviewTarget(null)}>
                 <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
                   <h3 className="text-lg font-semibold text-foreground mb-1">Pattern Review</h3>
-                  <p className="text-xs text-muted-foreground mb-4">{reviewTarget.domain}{reviewTarget.person && reviewTarget.person !== "—" ? ` · ${reviewTarget.person}` : ""} — is this pattern improving, and is escalation still justified?</p>
-                  <label className="block text-sm font-medium mb-1">Outcome</label>
+                  <p className="text-xs text-muted-foreground mb-3">{reviewTarget.domain}{reviewTarget.person && reviewTarget.person !== "—" ? ` · ${reviewTarget.person}` : ""} — review the recurrence and evidence, then choose the governance decision.</p>
+                  {/* Trajectory is EVIDENCE, shown read-only — it is never a review decision. */}
+                  {reviewTarget.trajectory && (
+                    <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
+                      <span className="text-muted-foreground">Current trajectory (evidence):</span>
+                      <span className="font-semibold" style={{ color: (DIR as any)[reviewTarget.trajectory]?.c || "#64748b" }}>{reviewTarget.trajectory}</span>
+                    </div>
+                  )}
+                  <label className="block text-sm font-medium mb-1">Governance decision</label>
                   <select value={reviewOutcome} onChange={(e) => setReviewOutcome(e.target.value)} className="w-full mb-3 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-                    {["Continue Monitoring", "Improving", "Stable", "Deteriorating", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
+                    {["Continue Monitoring", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
                   </select>
+                  {reviewOutcome === "Continue Monitoring" && (
+                    <div className="mb-3">
+                      <label className="block text-sm font-medium mb-1">Next review date</label>
+                      <input type="date" value={reviewNextDate} onChange={(e) => setReviewNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                    </div>
+                  )}
                   {reviewOutcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A pattern can only close once its linked risk and escalations are resolved — it is the last thing to close.</p>}
                   <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
                   <textarea value={reviewRationale} onChange={(e) => setReviewRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the evidence show since the last review?" />
@@ -474,14 +489,17 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
           {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
         </div>
       ) : ready ? (
+        // Established pattern (threshold met / critical): it is REVIEWED, not dismissed. Promote is
+        // a shortcut for the Promote-to-Risk decision; dismissal is only for emerging candidates.
         <div className="flex gap-2">
           <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Promote to risk</button>
-          {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
+          {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
         </div>
       ) : (
+        // Emerging candidate (below threshold — "not yet a pattern"): keep watching or dismiss with a
+        // reason. No full Pattern Review here — that belongs to an established pattern.
         <div className="flex gap-2">
           <button disabled className="flex-1 text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
-          {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
           {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
         </div>
       )}

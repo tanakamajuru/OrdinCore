@@ -197,12 +197,15 @@ export const risksRepo = {
     const params: unknown[] = [company_id];
     let idx = 2;
 
+    // Scope by house using the action's own house first, falling back to its risk's house — so a
+    // standalone Daily Governance action (no risk_id, but with its own house_id) is still scoped and
+    // still appears. Doctrine: the completion review must not omit non-risk actions.
     if (filters.house_id) {
-      conditions.push(`r.house_id = $${idx++}`);
+      conditions.push(`COALESCE(ra.house_id, r.house_id) = $${idx++}`);
       params.push(filters.house_id);
     } else if (Array.isArray(filters.house_ids)) {
       // RM/TL scope: confine to the user's assigned houses (empty array -> no rows).
-      conditions.push(`r.house_id = ANY($${idx++}::uuid[])`);
+      conditions.push(`COALESCE(ra.house_id, r.house_id) = ANY($${idx++}::uuid[])`);
       params.push(filters.house_ids);
     }
     if (filters.status) {
@@ -215,10 +218,11 @@ export const risksRepo = {
 
 
     const where = conditions.join(' AND ');
+    // LEFT JOIN so risk-less Daily Governance actions are included (they get a completion review too).
     const result = await query(
-      `SELECT ra.*, r.title as risk_title, r.house_id
+      `SELECT ra.*, r.title as risk_title, COALESCE(ra.house_id, r.house_id) AS house_id
        FROM risk_actions ra
-       JOIN risks r ON r.id = ra.risk_id
+       LEFT JOIN risks r ON r.id = ra.risk_id
        WHERE ${where}
        ORDER BY ra.due_date ASC`,
       params
