@@ -70,17 +70,18 @@ export class ActionEffectivenessService {
   }
 
   async getPendingEffectiveness(company_id: string, house_id?: string) {
-    // Actions completed > 48h ago but not yet rated
+    // Risk-linked completed actions still awaiting an effectiveness verdict. Same predicate as the
+    // My Work / pipeline counts (completed_at IS NOT NULL AND effectiveness_outcome IS NULL) so the
+    // list matches the count. The fixed 48-hour assumption is removed (doctrine): an action is due a
+    // verdict as soon as it is completed — the RM schedules the actual review date.
     let sql = `
       SELECT ra.*, h.name as house_name, r.title as risk_title
       FROM risk_actions ra
       JOIN risks r ON r.id = ra.risk_id
       JOIN houses h ON h.id = r.house_id
       WHERE ra.company_id = $1
-      AND ra.status = 'Completed'
+      AND ra.completed_at IS NOT NULL
       AND ra.effectiveness_outcome IS NULL
-      AND ra.effectiveness IS NULL
-      AND ra.completed_at <= NOW() - INTERVAL '48 hours'
     `;
     const params: any[] = [company_id];
 

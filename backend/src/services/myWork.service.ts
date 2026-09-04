@@ -68,7 +68,10 @@ export const myWorkService = {
         `SELECT COUNT(*)::int AS n FROM governance_pulses
           WHERE company_id = $1 AND house_id = ANY($2::uuid[])
             AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days'
-            AND COALESCE(review_status::text, '') NOT IN ('Linked','Closed','Monitoring')`,
+            -- Only genuinely-unreviewed signals are "awaiting". Once triaged the signal moves to
+            -- Reviewed/Monitoring/Linked/Closed/etc. — previously only 3 states were excluded, so a
+            -- signal reviewed as "Reviewed" kept showing as pending after the RM had actioned it.
+            AND COALESCE(review_status::text, 'New') = 'New'`,
         [company_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = sig.rows[0]?.n || 0;

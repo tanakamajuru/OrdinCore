@@ -29,12 +29,11 @@ export const rm5Service = {
          LEFT JOIN houses h ON h.id = p.house_id
         WHERE p.company_id = $1
           AND COALESCE(p.created_at, p.entry_date) >= NOW() - INTERVAL '7 days'
-          -- Once a signal has been promoted (its pattern became a risk → review_status 'Linked'),
-          -- closed, or moved onto an escalation ('Monitoring'), it lives on the risk/escalation and
-          -- must leave the daily pipeline — otherwise the same signal shows twice and the RM keeps
-          -- re-triaging it. review_status is an enum, so COALESCE must cast to text ('' is not a
-          -- valid enum label).
-          AND COALESCE(p.review_status::text, '') NOT IN ('Linked', 'Closed', 'Monitoring')
+          -- Only genuinely-unreviewed signals ('New'/null) stay in the daily "awaiting review"
+          -- pipeline. Once triaged — Reviewed, Monitoring, Linked (promoted), Closed, Escalated,
+          -- etc. — the signal leaves this list (it now lives on its risk/escalation), so a reviewed
+          -- signal no longer shows as pending. review_status is an enum, so cast to text.
+          AND COALESCE(p.review_status::text, 'New') = 'New'
         ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
                    WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
                  COALESCE(p.created_at, p.entry_date) DESC

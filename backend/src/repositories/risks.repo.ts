@@ -72,6 +72,10 @@ export const risksRepo = {
     const result = await query(
       `SELECT r.*, rc.name AS category_name, h.name AS house_name, h.name AS service_name,
         COALESCE(r.strategic_theme, r.title) AS strategic_theme_display,
+        -- The RM's post-closure review is outstanding on this risk (a closed escalation left it
+        -- needing review) — lets clients filter to "risks to review".
+        EXISTS (SELECT 1 FROM escalations e2 WHERE e2.risk_id = r.id
+                  AND e2.post_closure_risk_review_required = TRUE) AS awaiting_review,
         EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open_computed,
         (SELECT COUNT(*) FROM risk_actions ra2 WHERE ra2.risk_id = r.id
            AND ra2.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions_count,
