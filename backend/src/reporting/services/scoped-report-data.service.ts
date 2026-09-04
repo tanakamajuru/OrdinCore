@@ -100,6 +100,145 @@ export const scopedReportDataService = {
     const materialExceptions = perSite.filter((s) => s.status !== 'STABLE')
       .map((s) => ({ site_name: s.site_name, status: s.status, governance_confidence: s.governance_confidence }));
 
+    // Plain-language templates need the underlying evidence, not only aggregate counts. These rows
+    // are frozen inside the immutable snapshot so the PDF never re-queries live data at download
+    // time. Every query is company + authorised-site scoped; person scope uses the stable
+    // service_user_id linkage and never free-text name matching.
+    const detailParams: any[] = [companyId, siteIds, start, end, personId || null];
+    const includeOrganisationWide = ['SERVICE', 'REGION', 'ORGANISATION'].includes(resolved.type);
+    const broadParams: any[] = [...detailParams, includeOrganisationWide];
+
+    const signals = (await query(
+      `SELECT gp.id, h.name AS service, gp.entry_date AS date,
+              gp.description AS concern, gp.risk_domain::text AS domain,
+              gp.severity::text AS severity,
+              COALESCE(gp.review_status::text, 'New') AS review_status,
+              gp.immediate_action
+         FROM governance_pulses gp
+         JOIN houses h ON h.id = gp.house_id AND h.company_id = gp.company_id
+        WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3 AND $4
+          AND ($5::uuid IS NULL OR gp.service_user_id = $5)
+        ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC LIMIT 80`, detailParams
+    )).rows;
+
+    const risks = (await query(
+      `SELECT r.id, h.name AS service, COALESCE(r.strategic_theme, r.title) AS risk,
+              r.description, r.severity::text AS severity, r.status::text AS status,
+              COALESCE(r.trajectory::text, r.trend::text, 'Insufficient evidence') AS direction,
+              r.review_due_date, r.resolution_reason
+         FROM risks r
+         LEFT JOIN houses h ON h.id = r.house_id AND h.company_id = r.company_id
+        WHERE r.company_id = $1
+          AND (r.house_id = ANY($2::uuid[]) OR ($6::boolean AND r.house_id IS NULL))
+          AND r.created_at <= $4 AND COALESCE(r.closed_at, r.resolved_at, $4::timestamptz) >= $3
+          AND ($5::uuid IS NULL OR r.service_user_id = $5)
+        ORDER BY CASE r.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END,
+                 r.created_at DESC LIMIT 60`, broadParams
+    )).rows;
+
+    const actions = (await query(
+      `SELECT ra.id, COALESCE(h.name, 'Organisation-wide') AS service, ra.title AS action,
+              ra.status::text AS status, ra.due_date,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
+              ra.completion_evidence,
+              COALESCE(ra.effectiveness_outcome::text, ra.effectiveness::text, 'Not yet reviewed') AS effectiveness
+         FROM risk_actions ra
+         LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
+         LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id) AND h.company_id = ra.company_id
+         LEFT JOIN users u ON u.id = ra.assigned_to AND u.company_id = ra.company_id
+        WHERE ra.company_id = $1
+          AND (COALESCE(ra.house_id, r.house_id) = ANY($2::uuid[])
+               OR ($6::boolean AND COALESCE(ra.house_id, r.house_id) IS NULL))
+          AND ra.created_at <= $4 AND COALESCE(ra.completed_at, $4::timestamptz) >= $3
+          AND ($5::uuid IS NULL OR ra.service_user_id = $5)
+        ORDER BY (ra.status NOT IN ('Complete','Completed','Cancelled')) DESC,
+                 ra.due_date ASC NULLS LAST LIMIT 80`, broadParams
+    )).rows;
+
+    const escalations = (await query(
+      `SELECT e.id, COALESCE(h.name, 'Organisation-wide') AS service, e.created_at AS date,
+              e.reason, e.priority::text AS priority,
+              COALESCE(e.lifecycle_status::text, e.status::text) AS status,
+              e.due_by, COALESCE(e.closure_evidence, e.resolution_notes) AS outcome,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to
+         FROM escalations e
+         LEFT JOIN risks r ON r.id = e.risk_id AND r.company_id = e.company_id
+         LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id) AND h.company_id = e.company_id
+         LEFT JOIN users u ON u.id = e.escalated_to AND u.company_id = e.company_id
+        WHERE e.company_id = $1
+          AND (COALESCE(e.house_id, r.house_id) = ANY($2::uuid[])
+               OR ($6::boolean AND COALESCE(e.house_id, r.house_id) IS NULL))
+          AND e.created_at BETWEEN $3 AND $4
+          AND ($5::uuid IS NULL OR e.service_user_id = $5)
+        ORDER BY e.created_at DESC LIMIT 60`, broadParams
+    )).rows;
+
+    const decisions = (await query(
+      `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
+              gr.review_date AS date, gr.what_is_happening AS concern,
+              gr.decision, gr.evidence AS reason,
+              COALESCE(gr.decision_status, 'Open') AS status,
+              gr.due_at,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
+         FROM governance_reviews gr
+         LEFT JOIN houses h ON h.id = gr.service_id AND h.company_id = gr.company_id
+         LEFT JOIN users u ON u.id = gr.reviewed_by AND u.company_id = gr.company_id
+         LEFT JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id AND gp.company_id = gr.company_id
+         LEFT JOIN risks r ON r.id = gr.risk_id AND r.company_id = gr.company_id
+         LEFT JOIN escalations e ON e.id = gr.escalation_id AND e.company_id = gr.company_id
+        WHERE gr.company_id = $1
+          AND (gr.service_id = ANY($2::uuid[])
+               OR ($6::boolean AND gr.service_id IS NULL))
+          AND gr.review_date BETWEEN $3 AND $4
+          AND ($5::uuid IS NULL OR gp.service_user_id = $5 OR r.service_user_id = $5 OR e.service_user_id = $5)
+        ORDER BY gr.review_date DESC LIMIT 80`, broadParams
+    )).rows;
+
+    const patterns = (await query(
+      `SELECT sc.id, COALESCE(sc.cluster_label, sc.risk_domain) AS pattern,
+              sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status,
+              sc.signal_count, sc.review_outcome, sc.next_review_date,
+              COALESCE(array_to_string(sc.affected_house_ids, ', '), sc.house_id::text) AS affected_scope
+         FROM signal_clusters sc
+        WHERE sc.company_id = $1
+          AND (sc.house_id = ANY($2::uuid[]) OR sc.affected_house_ids && $2::uuid[])
+          AND sc.created_at <= $4
+          AND ($5::uuid IS NULL)
+        ORDER BY sc.created_at DESC LIMIT 50`, detailParams
+    )).rows;
+
+    const weeklyReviews = (await query(
+      `SELECT wr.id, h.name AS service, wr.week_ending, wr.status,
+              wr.content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
+         FROM weekly_reviews wr
+         JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
+        WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])
+          AND wr.week_ending BETWEEN $3::date AND $4::date
+        ORDER BY wr.week_ending DESC, h.name LIMIT 40`, [companyId, siteIds, start, end]
+    )).rows;
+
+    // Audit rows are only included where they reference a record already inside the snapshot scope
+    // (except organisation reports, which see all company audit rows) — never another provider's.
+    const scopedIds = new Set<string>([
+      ...signals, ...risks, ...actions, ...escalations, ...decisions, ...patterns, ...weeklyReviews,
+    ].map((row: any) => row.id).filter(Boolean));
+    const auditCandidates = (await query(
+      `SELECT a.id, a.created_at AS date, a.action, a.resource,
+              a.resource_id, COALESCE(a.new_values->>'reason', a.new_values->>'rationale', '') AS reason,
+              COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), 'System') AS actor
+         FROM audit_logs a
+         LEFT JOIN users u ON u.id = a.user_id AND (u.company_id = a.company_id OR u.company_id IS NULL)
+        WHERE a.company_id = $1 AND a.created_at BETWEEN $2 AND $3
+        ORDER BY a.created_at DESC LIMIT 300`,
+      [companyId, start, end]
+    )).rows;
+    const audit = resolved.type === 'ORGANISATION'
+      ? auditCandidates
+      : auditCandidates.filter((row: any) => row.resource_id && scopedIds.has(row.resource_id));
+
+    const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit };
+
     return {
       scope_label: resolved.label,
       period: { start, end },
@@ -109,6 +248,8 @@ export const scopedReportDataService = {
       cross_site_themes: themes,
       organisation: { status: organisationStatus, governance_confidence: avgGov, evidence_confidence: avgEvidence },
       material_exceptions: materialExceptions,
+      evidence,
+      limitations: [] as string[],
     };
   },
 };

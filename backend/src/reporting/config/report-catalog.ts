@@ -9,16 +9,17 @@ const R: ScopeType = 'REGION';
 const O: ScopeType = 'ORGANISATION';
 
 export const REPORT_CATALOG: ReportDefinition[] = [
-  { key: 'weekly-governance-review',      title: 'Weekly Governance Review',       scopes: [S, SV, R, O] },
-  { key: 'executive-governance-dashboard', title: 'Executive Governance Dashboard', scopes: [S, SV, R, O] },
-  { key: 'strategic-risk-register',       title: 'Strategic Risk Register',         scopes: [P, S, SV, R, O] },
-  { key: 'escalation-intervention',       title: 'Escalation & Intervention',       scopes: [P, S, SV, R, O] },
-  { key: 'weekly-leadership-narrative',   title: 'Weekly Leadership Narrative',     scopes: [S, SV, R, O] },
-  { key: 'cross-service-governance',      title: 'Cross-Service Governance',        scopes: [SV, R, O] },
-  { key: 'inspection-evidence-pack',      title: 'Inspection Evidence Pack',        scopes: [P, S, SV, R, O] },
-  { key: 'governance-reconstruction',     title: 'Governance Reconstruction',       scopes: [P, S, SV, R, O] },
-  { key: 'board-ri-assurance',            title: 'Board & RI Assurance',            scopes: [SV, R, O] },
-  { key: 'governance-audit-log',          title: 'Governance Audit Log',            scopes: [P, S, SV, R, O] },
+  // Displayed titles only — plain supported-living language. Keys and scopes are unchanged.
+  { key: 'weekly-governance-review',      title: 'Weekly Governance Review',                 scopes: [S, SV, R, O] },
+  { key: 'executive-governance-dashboard', title: 'Service Governance Overview',             scopes: [S, SV, R, O] },
+  { key: 'strategic-risk-register',       title: 'Key Risks and Management Response',        scopes: [P, S, SV, R, O] },
+  { key: 'escalation-intervention',       title: 'Escalations and Management Response',      scopes: [P, S, SV, R, O] },
+  { key: 'weekly-leadership-narrative',   title: "Manager's Weekly Summary",                 scopes: [S, SV, R, O] },
+  { key: 'cross-service-governance',      title: 'Concerns Repeating Across Services',       scopes: [SV, R, O] },
+  { key: 'inspection-evidence-pack',      title: 'Governance Evidence Summary',              scopes: [P, S, SV, R, O] },
+  { key: 'governance-reconstruction',     title: 'Governance Timeline and Reconstruction',   scopes: [P, S, SV, R, O] },
+  { key: 'board-ri-assurance',            title: 'Provider Assurance Summary',               scopes: [SV, R, O] },
+  { key: 'governance-audit-log',          title: 'Governance Decision Record',               scopes: [P, S, SV, R, O] },
 ];
 
 // Organisation/Region/Service-wide reporting is restricted to leadership roles. Site/Person
