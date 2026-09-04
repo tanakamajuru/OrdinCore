@@ -152,7 +152,7 @@ export const scopedReportDataService = {
                OR ($6::boolean AND COALESCE(ra.house_id, r.house_id) IS NULL))
           AND ra.created_at <= $4 AND COALESCE(ra.completed_at, $4::timestamptz) >= $3
           AND ($5::uuid IS NULL OR ra.service_user_id = $5)
-        ORDER BY (ra.status NOT IN ('Complete','Completed','Cancelled')) DESC,
+        ORDER BY (ra.status::text NOT IN ('Complete','Completed','Cancelled')) DESC,
                  ra.due_date ASC NULLS LAST LIMIT 80`, broadParams
     )).rows;
 
@@ -178,7 +178,7 @@ export const scopedReportDataService = {
       `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
               gr.review_date AS date, gr.what_is_happening AS concern,
               gr.decision, gr.evidence AS reason,
-              COALESCE(gr.decision_status, 'Open') AS status,
+              COALESCE(gr.decision_status::text, 'Open') AS status,
               gr.due_at,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
          FROM governance_reviews gr
@@ -195,6 +195,9 @@ export const scopedReportDataService = {
         ORDER BY gr.review_date DESC LIMIT 80`, broadParams
     )).rows;
 
+    // Patterns are cluster-level (never person-level), so PERSON scope returns none. This query
+    // takes its own fully-typed param list — it does not use `start`, and passing an unreferenced
+    // parameter makes Postgres unable to infer its type ("could not determine data type").
     const patterns = (await query(
       `SELECT sc.id, COALESCE(sc.cluster_label, sc.risk_domain) AS pattern,
               sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status,
@@ -203,9 +206,9 @@ export const scopedReportDataService = {
          FROM signal_clusters sc
         WHERE sc.company_id = $1
           AND (sc.house_id = ANY($2::uuid[]) OR sc.affected_house_ids && $2::uuid[])
-          AND sc.created_at <= $4
-          AND ($5::uuid IS NULL)
-        ORDER BY sc.created_at DESC LIMIT 50`, detailParams
+          AND sc.created_at <= $3::timestamptz
+          AND ($4::uuid IS NULL)
+        ORDER BY sc.created_at DESC LIMIT 50`, [companyId, siteIds, end, personId || null]
     )).rows;
 
     const weeklyReviews = (await query(
