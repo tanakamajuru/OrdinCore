@@ -139,7 +139,7 @@ export const scopedReportDataService = {
 
     const actions = (await query(
       `SELECT ra.id, COALESCE(h.name, 'Organisation-wide') AS service, ra.title AS action,
-              ra.status::text AS status, ra.due_date,
+              ra.status::text AS status, ra.created_at, ra.completed_at, ra.due_date,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
               ra.completion_evidence,
               COALESCE(ra.effectiveness_outcome::text, ra.effectiveness::text, 'Not yet reviewed') AS effectiveness
@@ -202,7 +202,13 @@ export const scopedReportDataService = {
       `SELECT sc.id, COALESCE(sc.cluster_label, sc.risk_domain) AS pattern,
               sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status,
               sc.signal_count, sc.review_outcome, sc.next_review_date,
-              COALESCE(array_to_string(sc.affected_house_ids, ', '), sc.house_id::text) AS affected_scope
+              COALESCE(
+                (SELECT string_agg(h2.name, ', ' ORDER BY h2.name)
+                   FROM houses h2
+                  WHERE h2.company_id = sc.company_id
+                    AND (h2.id = sc.house_id OR h2.id = ANY(COALESCE(sc.affected_house_ids, ARRAY[]::uuid[])))),
+                'Service not recorded'
+              ) AS affected_scope
          FROM signal_clusters sc
         WHERE sc.company_id = $1
           AND (sc.house_id = ANY($2::uuid[]) OR sc.affected_house_ids && $2::uuid[])

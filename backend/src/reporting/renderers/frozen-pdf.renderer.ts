@@ -1,491 +1,354 @@
 import PDFDocument from 'pdfkit';
 import { findReport } from '../config/report-catalog';
 
-// Renders a PDF from the STORED snapshot only — never from live data — so every figure, name,
-// date, narrative and evidence row is exactly what was generated, hashed and approved. The
-// templates are plain-language and evidence-led: where the snapshot holds no evidence for a
-// section we print "Not recorded" / "None recorded in this period" rather than inferring
-// anything. Nothing here re-queries the database.
+// Renders a PDF from the STORED snapshot only — never from live data, and never from a legacy
+// inspection/governance narrative. Each recognised report is produced entirely from its
+// report-specific structured renderer over the immutable snapshot (row.data + data.evidence).
+// Missing information is stated ("Not recorded - follow-up required"); it is never invented.
 
-const NAVY = '#12233f';
-const BLUE = '#17689b';
-const INK = '#1e2936';
-const MUTED = '#607080';
-const LINE = '#d6e0e7';
-const PALE = '#eaf3f7';
-const STATUS_COLOR: Record<string, string> = { STABLE: '#2e7d32', ATTENTION: '#ed6c02', CRITICAL: '#d32f2f' };
+const NAVY = '#12233f', BLUE = '#17689b', INK = '#1e2936', MUTED = '#607080';
+const LINE = '#d6e0e7', PALE = '#eaf3f7';
+const LEFT = 50, WIDTH = 495, PAGE_BOTTOM = 742;
 
-const LEFT = 50;
-const WIDTH = 495;
-const PAGE_BOTTOM = 742;
-
-// ── small text helpers ───────────────────────────────────────────────────────
-const clean = (v: any): string => {
-  if (v === null || v === undefined) return '';
-  const s = String(v).replace(/\s+/g, ' ').trim();
-  return s;
-};
-const short = (v: any, n = 160): string => {
-  const s = clean(v);
-  if (!s) return '';
-  return s.length > n ? `${s.slice(0, n - 1)}…` : s;
-};
-const date = (x?: any): string => {
-  if (!x) return 'Not recorded';
-  const dt = new Date(x);
-  return isNaN(dt.getTime()) ? 'Not recorded' : dt.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
-};
-const orNot = (v: any, fallback = 'Not recorded'): string => {
-  const s = clean(v);
-  return s || fallback;
+const MISSING = 'Not recorded - follow-up required';
+const date = (v?: any) => {
+  if (!v) return 'Not recorded';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? 'Not recorded' : d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
 };
 
-// Ensure there is room for `need` px on the page; add a page (and reset the cursor) if not.
-function ensure(doc: PDFKit.PDFDocument, need: number) {
-  if (doc.y + need > PAGE_BOTTOM) {
+// Remove Markdown control characters while keeping the words. Never leave **, #, ` or list markers.
+const stripMarkup = (value: string) => value
+  .replace(/\*\*/g, '')
+  .replace(/^#{1,6}\s*/gm, '')
+  .replace(/`/g, '')
+  .replace(/^\s*[-*]\s+/gm, '')
+  .replace(/[ \t]+/g, ' ')
+  .replace(/\n{3,}/g, '\n\n')
+  .trim();
+const label = (value: string) => value.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
+
+// Turn any snapshot value into readable text. Objects become labelled "Key: value" fields (never
+// [object Object] or raw JSON); arrays are joined; empty values state that nothing was recorded.
+const clean = (v?: any): string => {
+  if (v === null || v === undefined || v === '') return MISSING;
+  if (Array.isArray(v)) return v.length ? v.map(clean).filter((s) => s !== MISSING).join(', ') || MISSING : MISSING;
+  if (typeof v === 'object') {
+    const parts = Object.entries(v)
+      .filter(([, value]) => value !== null && value !== undefined && value !== '')
+      .map(([key, value]) => `${label(key)}: ${clean(value)}`);
+    return parts.length ? parts.join('. ') : MISSING;
+  }
+  return stripMarkup(String(v).replace(/[{}\[\]"]/g, '').replace(/_/g, ' '));
+};
+export const formatReportText = clean;
+const short = (v: any, max = 180) => (clean(v).length > max ? `${clean(v).slice(0, max - 1)}…` : clean(v));
+
+// ── layout primitives (every one resets doc.x to the left margin and uses explicit x/width) ────
+function ensure(doc: PDFKit.PDFDocument, needed = 90, continuation?: string) {
+  if (doc.y + needed > PAGE_BOTTOM) {
     doc.addPage();
     doc.x = LEFT;
-    doc.y = 60;
+    if (continuation) doc.font('Helvetica-Bold').fontSize(11).fillColor(NAVY).text(`${continuation} - continued`, LEFT, doc.y, { width: WIDTH }).moveDown(0.4);
   }
 }
 
-function heading(doc: PDFKit.PDFDocument, text: string) {
-  ensure(doc, 40);
-  doc.moveDown(0.6);
-  doc.x = LEFT;
-  doc.font('Helvetica-Bold').fontSize(12.5).fillColor(NAVY).text(text, LEFT, doc.y, { width: WIDTH });
-  const y = doc.y + 3;
-  doc.moveTo(LEFT, y).lineTo(LEFT + WIDTH, y).strokeColor(LINE).lineWidth(1).stroke();
-  doc.moveDown(0.5);
-  doc.x = LEFT;
-}
-
-function paragraph(doc: PDFKit.PDFDocument, text: string, opts: { color?: string; size?: number; bold?: boolean } = {}) {
-  const s = clean(text);
-  if (!s) return;
-  ensure(doc, 24);
-  doc.x = LEFT;
-  doc.font(opts.bold ? 'Helvetica-Bold' : 'Helvetica').fontSize(opts.size ?? 10).fillColor(opts.color ?? INK)
-    .text(s, LEFT, doc.y, { width: WIDTH, align: 'left', lineGap: 1.5 });
-  doc.moveDown(0.3);
-}
-
-function bullets(doc: PDFKit.PDFDocument, items: string[], empty = 'None recorded in this period.') {
-  const list = items.map(clean).filter(Boolean);
-  if (!list.length) {
-    paragraph(doc, empty, { color: MUTED });
-    return;
-  }
-  doc.font('Helvetica').fontSize(10).fillColor(INK);
-  for (const it of list) {
-    const h = doc.heightOfString(it, { width: WIDTH - 14 });
-    ensure(doc, h + 4);
-    const y = doc.y;
-    doc.fillColor(BLUE).text('•', LEFT, y, { width: 10 });
-    doc.fillColor(INK).text(it, LEFT + 14, y, { width: WIDTH - 14, lineGap: 1.5 });
-    doc.moveDown(0.15);
-  }
-  doc.x = LEFT;
-}
-
-type Col = { label: string; width: number; get: (row: any) => string };
-
-// Generic, page-aware table. Cells wrap; cursor is always reset to the left margin afterwards
-// (a hard-won lesson — drawing cells with an explicit x otherwise parks the cursor mid-row).
-function table(doc: PDFKit.PDFDocument, cols: Col[], rows: any[], empty = 'None recorded in this period.') {
-  if (!rows.length) {
-    paragraph(doc, empty, { color: MUTED });
-    return;
-  }
-  const drawHeader = () => {
-    ensure(doc, 24);
-    const y = doc.y;
-    doc.rect(LEFT, y - 2, WIDTH, 18).fill(PALE);
-    let x = LEFT + 4;
-    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY);
-    for (const c of cols) { doc.text(c.label, x, y + 3, { width: c.width - 6 }); x += c.width; }
-    doc.y = y + 18;
-    doc.x = LEFT;
-  };
-  drawHeader();
-  doc.font('Helvetica').fontSize(8.5);
-  for (const row of rows) {
-    const cells = cols.map((c) => clean(c.get(row)) || '—');
-    const heights = cells.map((val, i) => doc.heightOfString(val, { width: cols[i].width - 6 }));
-    const rowH = Math.max(14, ...heights) + 6;
-    if (doc.y + rowH > PAGE_BOTTOM) { doc.addPage(); doc.x = LEFT; doc.y = 60; drawHeader(); doc.font('Helvetica').fontSize(8.5); }
-    const y = doc.y;
-    let x = LEFT + 4;
-    cells.forEach((val, i) => {
-      doc.fillColor(i === 0 ? INK : '#2a3746').text(val, x, y + 2, { width: cols[i].width - 6, lineGap: 1 });
-      x += cols[i].width;
-    });
-    const ny = y + rowH;
-    doc.moveTo(LEFT, ny - 2).lineTo(LEFT + WIDTH, ny - 2).strokeColor('#eef3f6').lineWidth(0.5).stroke();
-    doc.x = LEFT;
-    doc.y = ny;
-  }
-  doc.x = LEFT;
-  doc.moveDown(0.2);
-}
-
-// Overall-position banner shared by the position-led reports.
-function position(doc: PDFKit.PDFDocument, org: any) {
-  const st = clean(org?.status) || 'STABLE';
+function heading(doc: PDFKit.PDFDocument, title: string) {
   ensure(doc, 46);
-  const y = doc.y;
-  doc.roundedRect(LEFT, y, WIDTH, 40, 4).fill(PALE);
-  doc.fillColor(MUTED).font('Helvetica-Bold').fontSize(8).text('OVERALL POSITION', LEFT + 12, y + 7);
-  doc.fillColor(STATUS_COLOR[st] || NAVY).font('Helvetica-Bold').fontSize(15).text(st, LEFT + 12, y + 17);
-  doc.fillColor(INK).font('Helvetica').fontSize(9).text(
-    `Governance confidence ${org?.governance_confidence ?? '—'}%   ·   Evidence confidence ${org?.evidence_confidence ?? '—'}%`,
-    LEFT + 150, y + 22, { width: WIDTH - 160, align: 'right' });
   doc.x = LEFT;
-  doc.y = y + 48;
-  if (st === 'CRITICAL') {
-    paragraph(doc, 'At least one service is rated CRITICAL. This overall position reflects that exception — it is not an average across services.', { color: STATUS_COLOR.CRITICAL, size: 9 });
+  doc.moveDown(0.9);
+  doc.font('Helvetica-Bold').fontSize(11).fillColor(BLUE).text(title, LEFT, doc.y, { width: WIDTH }).moveDown(0.3);
+  doc.x = LEFT;
+}
+
+function paragraph(doc: PDFKit.PDFDocument, text?: any, italic = false) {
+  ensure(doc, 40);
+  doc.x = LEFT;
+  const blocks = clean(text).split(/\n\s*\n/).filter(Boolean);
+  for (const block of blocks) {
+    doc.font(italic ? 'Helvetica-Oblique' : 'Helvetica').fontSize(9).fillColor(italic ? MUTED : INK)
+      .text(block, LEFT, doc.y, { width: WIDTH, lineGap: 3 }).moveDown(0.55);
+    doc.x = LEFT;
   }
 }
 
-// ── report templates ─────────────────────────────────────────────────────────
-// Each takes the parsed snapshot `data` (including data.evidence) and the stored `row`.
-
-function renderWeekly(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  position(doc, data.organisation || {});
-
-  heading(doc, 'What this review covers');
-  paragraph(doc, `This is the governance review for ${orNot(data.scope_label, row.scope_type)}, covering the period ${date(row.period_start)} to ${date(row.period_end)}. It summarises the concerns raised, the risks being managed, the actions taken and the decisions recorded during the week.`);
-
-  heading(doc, 'Concerns raised this week');
-  paragraph(doc, `${(ev.signals || []).length} concern(s) were logged in this period.`, { color: MUTED, size: 9 });
-  table(doc, [
-    { label: 'Date', width: 62, get: (r) => date(r.date) },
-    { label: 'Service', width: 90, get: (r) => orNot(r.service, '—') },
-    { label: 'Concern', width: 213, get: (r) => short(r.concern, 180) },
-    { label: 'Severity', width: 60, get: (r) => orNot(r.severity, '—') },
-    { label: 'Status', width: 70, get: (r) => orNot(r.review_status, '—') },
-  ], ev.signals || []);
-
-  heading(doc, 'Actions taken and being tracked');
-  table(doc, [
-    { label: 'Action', width: 200, get: (r) => short(r.action, 160) },
-    { label: 'Owner', width: 95, get: (r) => orNot(r.owner, 'Not assigned') },
-    { label: 'Due', width: 62, get: (r) => date(r.due_date) },
-    { label: 'Status', width: 70, get: (r) => orNot(r.status, '—') },
-    { label: 'Effectiveness', width: 68, get: (r) => orNot(r.effectiveness, 'Not yet reviewed') },
-  ], ev.actions || []);
-
-  heading(doc, 'Decisions recorded');
-  table(doc, [
-    { label: 'Date', width: 62, get: (r) => date(r.date) },
-    { label: 'Decision', width: 210, get: (r) => short(r.decision, 170) },
-    { label: 'Reason / evidence', width: 143, get: (r) => short(r.reason, 120) },
-    { label: 'Reviewer', width: 80, get: (r) => orNot(r.reviewer, 'Not recorded') },
-  ], ev.decisions || []);
-
-  weeklyNarrativeBlock(doc, ev);
-  narrativeBlock(doc, row);
-}
-
-function weeklyNarrativeBlock(doc: PDFKit.PDFDocument, ev: any) {
-  const wr: any[] = ev.weekly_reviews || [];
-  if (!wr.length) return;
-  heading(doc, 'Manager reflections (from weekly reviews)');
-  for (const w of wr) {
-    ensure(doc, 30);
-    paragraph(doc, `${orNot(w.service, 'Service')} — week ending ${date(w.week_ending)}`, { bold: true, size: 10 });
-    if (clean(w.lessons_learnt)) paragraph(doc, `Lessons learnt: ${clean(w.lessons_learnt)}`);
-    if (clean(w.anticipated_risks)) paragraph(doc, `Anticipated risks: ${clean(w.anticipated_risks)}`);
-    if (!clean(w.lessons_learnt) && !clean(w.anticipated_risks) && clean(w.content)) paragraph(doc, short(w.content, 400));
+function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 6) {
+  const shown = values.filter(Boolean).slice(0, limit);
+  if (!shown.length) return paragraph(doc, empty, true);
+  for (const value of shown) {
+    ensure(doc, 34);
+    doc.x = LEFT;
+    doc.font('Helvetica').fontSize(9).fillColor(INK).text(`• ${short(value, 230)}`, LEFT, doc.y, { width: WIDTH, indent: 10, lineGap: 3 }).moveDown(0.35);
+    doc.x = LEFT;
   }
+  if (values.length > shown.length) paragraph(doc, `${values.length - shown.length} additional record(s) remain in the frozen snapshot.`, true);
 }
 
-function renderOverview(doc: PDFKit.PDFDocument, data: any, row: any) {
-  position(doc, data.organisation || {});
+type Col = { label: string; key: string; width: number; map?: (r: any) => string };
 
-  heading(doc, 'Service-by-service position');
-  const sites: any[] = data.per_site || [];
-  table(doc, [
-    { label: 'Service', width: 150, get: (r) => orNot(r.site_name, '—') },
-    { label: 'Position', width: 80, get: (r) => orNot(r.status, '—') },
-    { label: 'Gov %', width: 55, get: (r) => `${r.governance_confidence ?? '—'}%` },
-    { label: 'Concerns', width: 70, get: (r) => String(r.signals ?? 0) },
-    { label: 'Open risks', width: 75, get: (r) => String(r.open_risks ?? 0) },
-    { label: 'Overdue', width: 65, get: (r) => String(r.overdue_actions ?? 0) },
-  ], sites, 'No services in scope for this report.');
+function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col[], empty: string, limit = 8) {
+  heading(doc, title);
+  const shown = (rows || []).slice(0, limit);
+  if (!shown.length) return paragraph(doc, empty, true);
 
-  const ex: any[] = data.material_exceptions || [];
-  heading(doc, 'Where attention is needed');
-  if (ex.length) {
-    bullets(doc, ex.map((e) => `${orNot(e.site_name)} — ${orNot(e.status)} (governance confidence ${e.governance_confidence ?? '—'}%)`));
-  } else {
-    paragraph(doc, 'No service is currently rated ATTENTION or CRITICAL in this period.', { color: MUTED });
+  const header = () => {
+    ensure(doc, 40, title);
+    const y = doc.y;
+    doc.rect(LEFT, y, WIDTH, 20).fill(PALE);
+    let x = LEFT + 4;
+    doc.font('Helvetica-Bold').fontSize(7.2).fillColor(NAVY);
+    for (const c of columns) { doc.text(c.label, x, y + 6, { width: c.width - 7 }); x += c.width; }
+    doc.x = LEFT; doc.y = y + 24;
+  };
+  header();
+
+  for (const row of shown) {
+    const values = columns.map((c) => (c.map ? clean(c.map(row)) : clean(row[c.key])));
+    const rowHeight = Math.min(72, Math.max(16, ...values.map((v, i) => doc.heightOfString(v, { width: columns[i].width - 7 }) + 8)));
+    if (doc.y + rowHeight > PAGE_BOTTOM) { doc.addPage(); doc.x = LEFT; header(); }
+    const y = doc.y;
+    let x = LEFT + 4;
+    doc.font('Helvetica').fontSize(7.4).fillColor(INK);
+    values.forEach((v, i) => { doc.text(v, x, y + 4, { width: columns[i].width - 7, height: rowHeight - 7, ellipsis: true }); x += columns[i].width; });
+    doc.moveTo(LEFT, y + rowHeight).lineTo(LEFT + WIDTH, y + rowHeight).strokeColor(LINE).lineWidth(0.5).stroke();
+    doc.x = LEFT; doc.y = y + rowHeight;
   }
-
-  const themes: any[] = data.cross_site_themes || [];
-  heading(doc, 'Themes appearing across services');
-  bullets(doc, themes.map((t) => `${orNot(t.theme)} — ${t.n ?? 0} concern(s)`), 'No themes recurred across more than one service in this period.');
-
-  narrativeBlock(doc, row);
+  doc.x = LEFT; doc.moveDown(0.55);
+  if (rows.length > shown.length) paragraph(doc, `${rows.length - shown.length} additional record(s) remain in the frozen snapshot.`, true);
 }
 
-function renderRisks(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  const risks: any[] = ev.risks || [];
-  paragraph(doc, `This report lists the key risks in scope for ${orNot(data.scope_label, row.scope_type)} during ${date(row.period_start)} to ${date(row.period_end)}, and the management response to each. ${risks.length} risk(s) recorded.`);
-
-  heading(doc, 'Key risks and how they are being managed');
-  table(doc, [
-    { label: 'Risk', width: 165, get: (r) => short(r.risk, 130) },
-    { label: 'Service', width: 90, get: (r) => orNot(r.service, 'Organisation-wide') },
-    { label: 'Severity', width: 58, get: (r) => orNot(r.severity, '—') },
-    { label: 'Direction', width: 72, get: (r) => orNot(r.direction, 'Insufficient evidence') },
-    { label: 'Status', width: 60, get: (r) => orNot(r.status, '—') },
-    { label: 'Review due', width: 50, get: (r) => date(r.review_due_date) },
-  ], risks, 'No risks were recorded in scope for this period.');
-
-  // For each closed risk, the closure reason is the defensible evidence — surface it plainly.
-  const closed = risks.filter((r) => /closed|resolved/i.test(clean(r.status)));
-  if (closed.length) {
-    heading(doc, 'Closed risks — reason for closure');
-    for (const r of closed) {
-      paragraph(doc, `${short(r.risk, 120)}`, { bold: true, size: 10 });
-      paragraph(doc, orNot(r.resolution_reason, 'Closure reason not recorded.'), { color: clean(r.resolution_reason) ? INK : MUTED });
-    }
-  }
-  narrativeBlock(doc, row);
-}
-
-function renderEscalations(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  const esc: any[] = ev.escalations || [];
-  paragraph(doc, `This report covers matters escalated for management attention in ${orNot(data.scope_label, row.scope_type)} during ${date(row.period_start)} to ${date(row.period_end)}, and the response to each. ${esc.length} escalation(s) recorded.`);
-
-  heading(doc, 'Escalations and management response');
-  table(doc, [
-    { label: 'Raised', width: 60, get: (r) => date(r.date) },
-    { label: 'Service', width: 82, get: (r) => orNot(r.service, 'Organisation-wide') },
-    { label: 'Reason', width: 150, get: (r) => short(r.reason, 130) },
-    { label: 'Priority', width: 52, get: (r) => orNot(r.priority, '—') },
-    { label: 'Status', width: 66, get: (r) => orNot(r.status, '—') },
-    { label: 'Due by', width: 60, get: (r) => date(r.due_by) },
-  ], esc, 'No escalations were recorded in this period.');
-
-  const closed = esc.filter((r) => clean(r.outcome));
-  if (closed.length) {
-    heading(doc, 'Outcomes recorded');
-    for (const r of closed) {
-      paragraph(doc, `${date(r.date)} · ${orNot(r.service, 'Organisation-wide')} — escalated to ${orNot(r.escalated_to, 'not recorded')}`, { bold: true, size: 9.5 });
-      paragraph(doc, clean(r.outcome));
-    }
-  }
-  narrativeBlock(doc, row);
-}
-
-function renderManager(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  position(doc, data.organisation || {});
-
-  heading(doc, "Manager's summary");
-  if (clean(row.narrative)) {
-    paragraph(doc, clean(row.narrative));
-  } else {
-    paragraph(doc, 'No written manager summary was recorded for this period. The evidence below is drawn from the governance record.', { color: MUTED });
-  }
-
-  heading(doc, 'What happened this period — in numbers');
-  const t = data.totals || {};
-  bullets(doc, [
-    `${(ev.signals || []).length} concern(s) logged`,
-    `${(ev.risks || []).length} risk(s) in scope`,
-    `${(ev.actions || []).length} action(s) tracked`,
-    `${(ev.escalations || []).length} escalation(s) raised`,
-    `${(ev.decisions || []).length} governance decision(s) recorded`,
-    t.overdue_actions != null ? `${t.overdue_actions} action(s) overdue at period end` : '',
-  ].filter(Boolean));
-
-  heading(doc, 'Reflections from weekly reviews');
-  weeklyNarrativeBlockBody(doc, ev);
-}
-
-function weeklyNarrativeBlockBody(doc: PDFKit.PDFDocument, ev: any) {
-  const wr: any[] = ev.weekly_reviews || [];
-  if (!wr.length) { paragraph(doc, 'No weekly reviews were published in this period.', { color: MUTED }); return; }
-  for (const w of wr) {
-    ensure(doc, 28);
-    paragraph(doc, `${orNot(w.service, 'Service')} — week ending ${date(w.week_ending)}`, { bold: true, size: 10 });
-    if (clean(w.lessons_learnt)) paragraph(doc, `Lessons learnt: ${clean(w.lessons_learnt)}`);
-    if (clean(w.anticipated_risks)) paragraph(doc, `Anticipated risks: ${clean(w.anticipated_risks)}`);
-  }
-}
-
-function renderPatterns(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  paragraph(doc, `This report identifies concerns that are repeating across more than one service in ${orNot(data.scope_label, row.scope_type)} during ${date(row.period_start)} to ${date(row.period_end)}. Recurring concerns can point to a systemic issue rather than an isolated event.`);
-
-  heading(doc, 'Patterns identified across services');
-  table(doc, [
-    { label: 'Pattern', width: 150, get: (r) => short(r.pattern, 120) },
-    { label: 'Domain', width: 90, get: (r) => orNot(r.domain, '—') },
-    { label: 'Services affected', width: 130, get: (r) => orNot(r.affected_scope, '—') },
-    { label: 'Signals', width: 50, get: (r) => String(r.signal_count ?? 0) },
-    { label: 'Status', width: 75, get: (r) => orNot(r.status, '—') },
-  ], ev.patterns || [], 'No cross-service patterns were identified in this period.');
-
-  heading(doc, 'Themes by concern count');
-  const themes: any[] = data.cross_site_themes || [];
-  bullets(doc, themes.map((t) => `${orNot(t.theme)} — ${t.n ?? 0} concern(s)`), 'No themes recurred across services in this period.');
-
-  const reviewed = (ev.patterns || []).filter((p: any) => clean(p.review_outcome));
-  if (reviewed.length) {
-    heading(doc, 'Review outcomes');
-    for (const p of reviewed) {
-      paragraph(doc, `${short(p.pattern, 120)}`, { bold: true, size: 9.5 });
-      paragraph(doc, clean(p.review_outcome));
-    }
-  }
-  narrativeBlock(doc, row);
-}
-
-function renderEvidence(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  position(doc, data.organisation || {});
-  paragraph(doc, `This is a governance evidence summary for ${orNot(data.scope_label, row.scope_type)}, ${date(row.period_start)} to ${date(row.period_end)}. It gathers the concerns, risks, actions, escalations and decisions on record so the governance activity for the period can be reviewed in one place.`);
-
-  heading(doc, 'Concerns on record');
-  table(doc, [
-    { label: 'Date', width: 62, get: (r) => date(r.date) },
-    { label: 'Service', width: 90, get: (r) => orNot(r.service, '—') },
-    { label: 'Concern', width: 215, get: (r) => short(r.concern, 180) },
-    { label: 'Domain', width: 128, get: (r) => orNot(r.domain, '—') },
-  ], ev.signals || []);
-
-  heading(doc, 'Risks on record');
-  table(doc, [
-    { label: 'Risk', width: 200, get: (r) => short(r.risk, 160) },
-    { label: 'Service', width: 100, get: (r) => orNot(r.service, 'Organisation-wide') },
-    { label: 'Severity', width: 90, get: (r) => orNot(r.severity, '—') },
-    { label: 'Status', width: 105, get: (r) => orNot(r.status, '—') },
-  ], ev.risks || []);
-
-  heading(doc, 'Actions on record');
-  table(doc, [
-    { label: 'Action', width: 230, get: (r) => short(r.action, 190) },
-    { label: 'Owner', width: 110, get: (r) => orNot(r.owner, 'Not assigned') },
-    { label: 'Status', width: 75, get: (r) => orNot(r.status, '—') },
-    { label: 'Due', width: 80, get: (r) => date(r.due_date) },
-  ], ev.actions || []);
-
-  heading(doc, 'Decisions on record');
-  table(doc, [
-    { label: 'Date', width: 62, get: (r) => date(r.date) },
-    { label: 'Decision', width: 215, get: (r) => short(r.decision, 170) },
-    { label: 'Reason / evidence', width: 138, get: (r) => short(r.reason, 110) },
-    { label: 'Reviewer', width: 80, get: (r) => orNot(r.reviewer, '—') },
-  ], ev.decisions || []);
-
-  narrativeBlock(doc, row);
-}
-
-function renderReconstruction(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  paragraph(doc, `This report reconstructs the governance timeline for ${orNot(data.scope_label, row.scope_type)} between ${date(row.period_start)} and ${date(row.period_end)}, drawing every dated event from the record into a single chronological account. Use it to understand what was known, when, and what was done in response.`);
-
-  // Build one chronological timeline from every dated evidence stream.
-  type Ev = { when: any; kind: string; text: string };
-  const events: Ev[] = [];
-  for (const s of ev.signals || []) events.push({ when: s.date, kind: 'Concern raised', text: `${orNot(s.service, '')} — ${short(s.concern, 150)}` });
-  for (const e of ev.escalations || []) events.push({ when: e.date, kind: 'Escalation', text: `${orNot(e.service, '')} — ${short(e.reason, 150)}` });
-  for (const a of ev.actions || []) events.push({ when: a.due_date, kind: 'Action', text: `${short(a.action, 140)} (owner ${orNot(a.owner, 'not assigned')}, ${orNot(a.status, 'status not recorded')})` });
-  for (const d of ev.decisions || []) events.push({ when: d.date, kind: 'Decision', text: `${short(d.decision, 150)}` });
-  for (const w of ev.weekly_reviews || []) events.push({ when: w.week_ending, kind: 'Weekly review', text: `${orNot(w.service, '')} — review published` });
-  events.sort((a, b) => new Date(a.when || 0).getTime() - new Date(b.when || 0).getTime());
-
-  heading(doc, 'Governance timeline');
-  table(doc, [
-    { label: 'Date', width: 70, get: (r) => date(r.when) },
-    { label: 'Event', width: 95, get: (r) => r.kind },
-    { label: 'Detail', width: 330, get: (r) => r.text },
-  ], events, 'No dated governance events were recorded in this period.');
-
-  narrativeBlock(doc, row);
-}
-
-function renderAssurance(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  position(doc, data.organisation || {});
-  paragraph(doc, `This is a provider assurance summary for ${orNot(data.scope_label, row.scope_type)}, ${date(row.period_start)} to ${date(row.period_end)}. It is written for leadership and board oversight and sets out the overall position, the material exceptions, and the assurance the governance record provides.`);
-
-  heading(doc, 'Position across services');
-  table(doc, [
-    { label: 'Service', width: 175, get: (r) => orNot(r.site_name, '—') },
-    { label: 'Position', width: 95, get: (r) => orNot(r.status, '—') },
-    { label: 'Gov %', width: 70, get: (r) => `${r.governance_confidence ?? '—'}%` },
-    { label: 'Open risks', width: 75, get: (r) => String(r.open_risks ?? 0) },
-    { label: 'Overdue', width: 70, get: (r) => String(r.overdue_actions ?? 0) },
-  ], data.per_site || [], 'No services in scope for this report.');
-
-  heading(doc, 'Material exceptions for the board');
-  const ex: any[] = data.material_exceptions || [];
-  bullets(doc, ex.map((e) => `${orNot(e.site_name)} — ${orNot(e.status)} (governance confidence ${e.governance_confidence ?? '—'}%)`), 'No material exceptions were recorded in this period.');
-
-  heading(doc, 'Highest-severity risks');
-  const topRisks = (ev.risks || []).filter((r: any) => /high|critical/i.test(clean(r.severity)));
-  table(doc, [
-    { label: 'Risk', width: 200, get: (r) => short(r.risk, 160) },
-    { label: 'Service', width: 110, get: (r) => orNot(r.service, 'Organisation-wide') },
-    { label: 'Severity', width: 90, get: (r) => orNot(r.severity, '—') },
-    { label: 'Direction', width: 95, get: (r) => orNot(r.direction, 'Insufficient evidence') },
-  ], topRisks, 'No high or critical risks were recorded in this period.');
-
-  narrativeBlock(doc, row);
-}
-
-function renderDecisions(doc: PDFKit.PDFDocument, data: any, row: any) {
-  const ev = data.evidence || {};
-  paragraph(doc, `This is the governance decision record for ${orNot(data.scope_label, row.scope_type)}, ${date(row.period_start)} to ${date(row.period_end)}. It sets out the decisions taken, the reason and evidence recorded for each, who recorded them, and the supporting audit trail — the defensible account of governance activity for the period.`);
-
-  heading(doc, 'Decisions taken');
-  table(doc, [
-    { label: 'Date', width: 62, get: (r) => date(r.date) },
-    { label: 'Service', width: 82, get: (r) => orNot(r.service, 'Organisation-wide') },
-    { label: 'Decision', width: 165, get: (r) => short(r.decision, 140) },
-    { label: 'Reason / evidence', width: 106, get: (r) => short(r.reason, 90) },
-    { label: 'Recorded by', width: 80, get: (r) => orNot(r.reviewer, 'Not recorded') },
-  ], ev.decisions || [], 'No governance decisions were recorded in this period.');
-
-  heading(doc, 'Supporting audit trail');
-  paragraph(doc, 'These entries are drawn from the tamper-evident audit log and relate to the records covered by this report.', { color: MUTED, size: 9 });
-  table(doc, [
-    { label: 'When', width: 90, get: (r) => date(r.date) },
-    { label: 'Actor', width: 105, get: (r) => orNot(r.actor, 'System') },
-    { label: 'Action', width: 120, get: (r) => orNot(r.action, '—') },
-    { label: 'Reason', width: 180, get: (r) => short(r.reason, 150) },
-  ], ev.audit || [], 'No audit entries are on record for the items in this report.');
-
-  narrativeBlock(doc, row);
-}
-
-// Shared free-text narrative block (only where a narrative was actually recorded).
-function narrativeBlock(doc: PDFKit.PDFDocument, row: any) {
-  if (!clean(row.narrative)) return;
-  heading(doc, 'Governance narrative');
-  paragraph(doc, clean(row.narrative));
-}
-
-const RENDERERS: Record<string, (doc: PDFKit.PDFDocument, data: any, row: any) => void> = {
-  'weekly-governance-review': renderWeekly,
-  'executive-governance-dashboard': renderOverview,
-  'strategic-risk-register': renderRisks,
-  'escalation-intervention': renderEscalations,
-  'weekly-leadership-narrative': renderManager,
-  'cross-service-governance': renderPatterns,
-  'inspection-evidence-pack': renderEvidence,
-  'governance-reconstruction': renderReconstruction,
-  'board-ri-assurance': renderAssurance,
-  'governance-audit-log': renderDecisions,
+// ── evidence-led helpers ───────────────────────────────────────────────────────
+const isOpen = (status: any) => !/complete|completed|cancel|closed|resolved/i.test(clean(status));
+const inPeriod = (value: any, data: any) => {
+  if (!value || !data.period?.start || !data.period?.end) return false;
+  const at = new Date(value).getTime();
+  return at >= new Date(data.period.start).getTime() && at <= new Date(data.period.end).getTime();
 };
+const priorityActions = (data: any, actions: any[]) => [...actions].sort((a: any, b: any) => {
+  const score = (x: any) => (isOpen(x.status) ? 0 : inPeriod(x.completed_at, data) ? 1 : 2);
+  return score(a) - score(b) || new Date(a.due_date || '9999-12-31').getTime() - new Date(b.due_date || '9999-12-31').getTime();
+});
+
+// Overall position, tied to visible evidence. A CRITICAL position must name the open critical risk
+// that justifies it, or state that the basis was not identified and requires confirmation.
+function position(data: any): string {
+  const critical = (data.per_site || []).filter((s: any) => s.status === 'CRITICAL');
+  const attention = (data.per_site || []).filter((s: any) => s.status === 'ATTENTION');
+  if (critical.length) {
+    const criticalRisks = (data.evidence?.risks || []).filter((r: any) => /critical/i.test(clean(r.severity)) && isOpen(r.status));
+    const reason = criticalRisks.length
+      ? ` This position is supported by the following open critical risk${criticalRisks.length === 1 ? '' : 's'}: ${criticalRisks.slice(0, 3).map((r: any) => `${clean(r.service)} - ${clean(r.risk)}`).join('; ')}.`
+      : ' The snapshot does not identify the specific critical risk, so management must confirm the basis for this position.';
+    return `Significant concern requires urgent oversight in ${critical.map((s: any) => clean(s.site_name)).join(', ')}.${reason}`;
+  }
+  if (attention.length) return `Management attention is required in ${attention.map((s: any) => clean(s.site_name)).join(', ')}.`;
+  return 'No immediate exception was identified from the information reviewed for this period.';
+}
+
+function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit = 3) {
+  const shown = (reviews || []).slice(0, limit);
+  if (!shown.length) return paragraph(doc, 'No manager reflection was recorded for this reporting period.', true);
+  for (const review of shown) {
+    heading(doc, `${clean(review.service)} - week ending ${date(review.week_ending)}`);
+    paragraph(doc, review.content);
+    if (review.lessons_learnt) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Learning recorded', LEFT, doc.y, { width: WIDTH }); paragraph(doc, review.lessons_learnt); }
+    if (review.anticipated_risks) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Next risks to watch', LEFT, doc.y, { width: WIDTH }); paragraph(doc, review.anticipated_risks); }
+  }
+}
+
+// ── the ten report templates ───────────────────────────────────────────────────
+function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Overall position'); paragraph(doc, position(data));
+  table(doc, '2. Important concerns reviewed', e.decisions || [], [
+    { label: 'Service', key: 'service', width: 75 }, { label: 'Concern', key: 'concern', width: 190 },
+    { label: 'Decision', key: 'decision', width: 85 }, { label: 'Reason', key: 'reason', width: 145 },
+  ], 'No management decision was recorded in this period.', 6);
+  table(doc, '3. Key risks requiring oversight', (e.risks || []).filter((r: any) => isOpen(r.status)), [
+    { label: 'Service', key: 'service', width: 75 }, { label: 'Risk', key: 'risk', width: 180 },
+    { label: 'Severity / direction', key: 'severity', width: 120, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
+    { label: 'Review due', key: 'review_due_date', width: 120, map: (r) => date(r.review_due_date) },
+  ], 'No open risk was identified in the selected snapshot.', 5);
+  table(doc, '4. Open actions and escalations', [...priorityActions(data, e.actions || []).filter((a: any) => isOpen(a.status)), ...(e.escalations || []).filter((x: any) => isOpen(x.status))], [
+    { label: 'Service', key: 'service', width: 75 }, { label: 'Required response', key: 'action', width: 205, map: (r) => r.action || r.reason },
+    { label: 'Owner', key: 'owner', width: 90, map: (r) => r.owner || r.escalated_to },
+    { label: 'Position / due', key: 'status', width: 125, map: (r) => `${clean(r.status)} / ${date(r.due_date || r.due_by)}` },
+  ], 'No open action or escalation was recorded for the selected period.', 8);
+  heading(doc, '5. What worked - and what has not yet been demonstrated');
+  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}. Evidence: ${clean(a.completion_evidence)}`), 'No completed action had a recorded effectiveness judgement. Completion is not proof that the concern is resolved.', 5);
+  heading(doc, '6. Manager reflection'); renderWeeklyReviews(doc, e.weekly_reviews || [], 1);
+  heading(doc, '7. Focus for next week');
+  bullets(doc, (e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - ${clean(a.owner) === MISSING ? 'owner not recorded' : clean(a.owner)} - due ${date(a.due_date)}`), 'No open action was identified in the selected snapshot.', 3);
+}
+
+function renderOverview(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Overall position'); paragraph(doc, position(data));
+  table(doc, '2. Services requiring attention', (data.per_site || []).filter((s: any) => s.status !== 'STABLE'), [
+    { label: 'Service', key: 'site_name', width: 150 }, { label: 'Position', key: 'status', width: 90 },
+    { label: 'Gov %', key: 'governance_confidence', width: 60, map: (r) => `${r.governance_confidence ?? '—'}%` },
+    { label: 'Open risks', key: 'open_risks', width: 95, map: (r) => String(r.open_risks ?? 0) },
+    { label: 'Overdue', key: 'overdue_actions', width: 100, map: (r) => String(r.overdue_actions ?? 0) },
+  ], 'No service was rated ATTENTION or CRITICAL in this period.', 12);
+  heading(doc, '3. Recorded response');
+  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
+  heading(doc, '4. Evidenced improvement');
+  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && /effective|improv|reduc/i.test(a.effectiveness) && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
+  heading(doc, '5. Unresolved work');
+  bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No unresolved action or escalation was recorded.', 6);
+  heading(doc, '6. Management priority'); paragraph(doc, position(data));
+}
+
+function renderRisks(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Key risks and management response');
+  paragraph(doc, 'Each risk below is drawn from the frozen snapshot with its recorded severity, direction, status and review date. A missing review date is shown so it can be corrected.');
+  table(doc, '2. Risks on record', e.risks || [], [
+    { label: 'Service', key: 'service', width: 80 }, { label: 'Risk', key: 'risk', width: 170 },
+    { label: 'Severity / direction', key: 'severity', width: 110, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
+    { label: 'Status', key: 'status', width: 60 },
+    { label: 'Review due', key: 'review_due_date', width: 75, map: (r) => date(r.review_due_date) },
+  ], 'No risk was recorded in scope for this period.', 12);
+  heading(doc, '3. Closed risks - reason for closure');
+  bullets(doc, (e.risks || []).filter((r: any) => /closed|resolved/i.test(clean(r.status))).map((r: any) => `${clean(r.risk)} (${clean(r.service)}): ${clean(r.resolution_reason)}`), 'No risk was closed in this period.', 6);
+}
+
+function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Escalations and management response');
+  paragraph(doc, `This report covers matters escalated for management attention in ${clean(data.scope_label)} during the selected period, with the recorded response to each.`);
+  table(doc, '2. Escalations', e.escalations || [], [
+    { label: 'Raised', key: 'date', width: 60, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 75 },
+    { label: 'Reason', key: 'reason', width: 150 }, { label: 'Recipient', key: 'escalated_to', width: 80 },
+    { label: 'Position / due', key: 'status', width: 130, map: (r) => `${clean(r.status)} / ${date(r.due_by)}` },
+  ], 'No escalation was recorded in this period.', 10);
+  heading(doc, '3. Outcomes recorded');
+  bullets(doc, (e.escalations || []).filter((x: any) => x.outcome).map((x: any) => `${date(x.date)} ${clean(x.service)} - escalated to ${clean(x.escalated_to)}: ${clean(x.outcome)}`), 'No escalation outcome was recorded in this period.', 6);
+  paragraph(doc, 'Closing an escalation does not automatically close the underlying concern or risk.', true);
+}
+
+function renderManager(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. What stood out this week'); paragraph(doc, position(data));
+  heading(doc, '2. What the information may be telling us');
+  bullets(doc, (data.cross_site_themes || []).map((t: any) => `${clean(t.theme)} appeared in ${t.n} recorded signal(s). This is not by itself proof of a pattern.`), 'No recurring theme was visible.', 4);
+  heading(doc, '3. Important decisions made');
+  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management decision was recorded.', 5);
+  heading(doc, '4. What requires continued attention');
+  bullets(doc, (e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - ${clean(a.owner) === MISSING ? 'owner not recorded' : clean(a.owner)} - due ${date(a.due_date)}`), 'No continuing action was identified.', 4);
+  heading(doc, '5. Reflections recorded by managers'); renderWeeklyReviews(doc, e.weekly_reviews || [], 3);
+  heading(doc, '6. Management conclusion'); paragraph(doc, position(data));
+}
+
+function renderPatterns(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  table(doc, '1. Patterns identified across services', (e.patterns || []).filter((p: any) => p.scope === 'cross_service' && !/dismissed|closed/i.test(clean(p.status))), [
+    { label: 'Pattern', key: 'pattern', width: 150 }, { label: 'Domain', key: 'domain', width: 90 },
+    { label: 'Services affected', key: 'affected_scope', width: 140 },
+    { label: 'Evidence / review', key: 'signal_count', width: 115, map: (r) => `${clean(r.signal_count)} signal(s); ${clean(r.review_outcome || r.status)}` },
+  ], 'No active cross-service pattern was recorded.', 8);
+  heading(doc, '2. Why the connection matters');
+  paragraph(doc, 'A repeated category alone is not enough. Management must confirm the shared feature, consider alternatives and record why organisation-wide oversight is justified.');
+  table(doc, '3. Organisation-wide response', (e.actions || []).filter((a: any) => a.service === 'Organisation-wide'), [
+    { label: 'Required response', key: 'action', width: 230 }, { label: 'Owner', key: 'owner', width: 110 },
+    { label: 'Position / due', key: 'status', width: 155, map: (r) => `${clean(r.status)} / ${date(r.due_date)}` },
+  ], 'No organisation-wide response was recorded.', 6);
+}
+
+function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Evidence index');
+  paragraph(doc, `Recorded pathway for ${clean(data.scope_label)} in this period: ${(e.signals || []).length} concern(s) logged; ${(e.risks || []).length} risk(s) on record; ${(e.actions || []).length} action(s); ${(e.escalations || []).length} escalation(s); ${(e.decisions || []).length} decision(s). The complete records remain available in-system.`);
+  table(doc, '2. Recorded concerns', e.signals || [], [
+    { label: 'Date', key: 'date', width: 62, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 90 },
+    { label: 'Concern', key: 'concern', width: 215 }, { label: 'Domain', key: 'domain', width: 128 },
+  ], 'No concern was recorded in this period.', 6);
+  table(doc, '3. Risks on record', e.risks || [], [
+    { label: 'Risk', key: 'risk', width: 200 }, { label: 'Service', key: 'service', width: 100 },
+    { label: 'Severity', key: 'severity', width: 90 }, { label: 'Status', key: 'status', width: 105 },
+  ], 'No risk was recorded in this period.', 6);
+  table(doc, '4. Decisions on record', e.decisions || [], [
+    { label: 'Date', key: 'date', width: 62, map: (r) => date(r.date) }, { label: 'Decision', key: 'decision', width: 130 },
+    { label: 'Reason', key: 'reason', width: 155 }, { label: 'Reviewer', key: 'reviewer', width: 148 },
+  ], 'No decision was recorded in this period.', 6);
+  heading(doc, '5. Evidence gaps and limitations');
+  const decNoReason = (e.decisions || []).filter((d: any) => !d.reason).length;
+  const riskNoReview = (e.risks || []).filter((r: any) => !r.review_due_date && isOpen(r.status)).length;
+  const actNoEff = (e.actions || []).filter((a: any) => !isOpen(a.status) && /not yet/i.test(clean(a.effectiveness))).length;
+  const gaps: string[] = [
+    ...(Array.isArray(data.limitations) ? data.limitations : []),
+    decNoReason ? `${decNoReason} decision(s) have no recorded rationale.` : '',
+    riskNoReview ? `${riskNoReview} open risk(s) have no review date.` : '',
+    actNoEff ? `${actNoEff} completed action(s) have no effectiveness judgement.` : '',
+  ].filter(Boolean);
+  bullets(doc, gaps, 'No specific evidence gap was identified beyond the records shown.', 6);
+}
+
+function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  const timeline = [
+    ...(e.signals || []).map((r: any) => ({ date: r.date, type: 'Signal', information: r.concern, response: r.review_status, person: 'Recorded source' })),
+    ...(e.decisions || []).map((r: any) => ({ date: r.date, type: 'Decision', information: r.concern, response: `${clean(r.decision)}: ${clean(r.reason)}`, person: r.reviewer })),
+    ...(e.escalations || []).map((r: any) => ({ date: r.date, type: 'Escalation', information: r.reason, response: r.status, person: r.escalated_to })),
+    ...(e.actions || []).map((r: any) => ({ date: r.created_at, type: 'Action', information: r.action, response: `${clean(r.status)}; due ${date(r.due_date)}; ${clean(r.effectiveness)}`, person: r.owner })),
+  ].filter((r: any) => inPeriod(r.date, data))
+    .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
+  heading(doc, '1. Scope and factual account');
+  paragraph(doc, `This reconstruction covers ${clean(data.scope_label)} and uses only records retained in the frozen snapshot, limited to events within the selected period.`);
+  table(doc, '2. Governance timeline', timeline, [
+    { label: 'Date / type', key: 'date', width: 90, map: (r) => `${date(r.date)} / ${r.type}` },
+    { label: 'Information available', key: 'information', width: 185 },
+    { label: 'Response recorded', key: 'response', width: 150 }, { label: 'Source', key: 'person', width: 70 },
+  ], 'No in-period governance event was recorded for this reconstruction.', 20);
+  table(doc, '3. Actions and follow-through', (e.actions || []).filter((a: any) => inPeriod(a.created_at, data)), [
+    { label: 'Action', key: 'action', width: 190 }, { label: 'Completed / status', key: 'status', width: 100, map: (r) => `${clean(r.status)} (created ${date(r.created_at)})` },
+    { label: 'Completion evidence', key: 'completion_evidence', width: 115 }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
+  ], 'No action was created within this reconstruction period.', 10);
+  heading(doc, '4. Learning and limitations');
+  bullets(doc, (e.weekly_reviews || []).map((r: any) => r.lessons_learnt).filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
+}
+
+function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  heading(doc, '1. Leadership position'); paragraph(doc, position(data));
+  table(doc, '2. Services and position', data.per_site || [], [
+    { label: 'Service', key: 'site_name', width: 175 }, { label: 'Position', key: 'status', width: 95 },
+    { label: 'Gov %', key: 'governance_confidence', width: 70, map: (r) => `${r.governance_confidence ?? '—'}%` },
+    { label: 'Open risks', key: 'open_risks', width: 75, map: (r) => String(r.open_risks ?? 0) },
+    { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
+  ], 'No service was in scope for this report.', 12);
+  heading(doc, '3. What is evidenced as working');
+  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && /effective|improv|reduc/i.test(a.effectiveness) && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
+  heading(doc, '4. Assurance limitations');
+  bullets(doc, [
+    ...(data.material_exceptions || []).map((x: any) => `${clean(x.site_name)} - ${clean(x.status)} (governance confidence ${x.governance_confidence ?? '—'}%)`),
+    ...(Array.isArray(data.limitations) ? data.limitations : []),
+  ], 'No material exception was recorded for this period.', 6);
+  heading(doc, '5. Required response');
+  bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No outstanding response was recorded.', 5);
+  heading(doc, '6. Conclusion');
+  paragraph(doc, 'This assurance is limited to the recorded evidence, scope and period shown. Where evidence is absent, assurance cannot be given and management confirmation is required.', true);
+}
+
+function renderDecisions(doc: PDFKit.PDFDocument, data: any) {
+  const e = data.evidence || {};
+  table(doc, 'Governance decision record', (e.decisions || []).map((r: any) => ({ ...r, reason: r.reason || MISSING, followup: `${clean(r.status)}; ${date(r.due_at)}` })), [
+    { label: 'Date', key: 'date', width: 55, map: (r) => date(r.date) }, { label: 'Concern / information', key: 'concern', width: 125 },
+    { label: 'Decision', key: 'decision', width: 65 }, { label: 'Reason', key: 'reason', width: 125 },
+    { label: 'Responsible', key: 'reviewer', width: 70 }, { label: 'Follow-up', key: 'followup', width: 55 },
+  ], 'No governance decision was recorded.', 18);
+  heading(doc, 'Related audit activity');
+  table(doc, 'Audit trail', e.audit || [], [
+    { label: 'When', key: 'date', width: 90, map: (r) => date(r.date) }, { label: 'Actor', key: 'actor', width: 105 },
+    { label: 'Action', key: 'action', width: 120 }, { label: 'Reason', key: 'reason', width: 180 },
+  ], 'No audit entry is on record for the items in this report.', 12);
+}
+
+function renderSafeFallback(doc: PDFKit.PDFDocument, data: any) {
+  heading(doc, 'Recorded snapshot');
+  paragraph(doc, 'This report type does not have a structured template configured. Only the recorded snapshot position is shown; no narrative is generated.');
+  paragraph(doc, position(data));
+}
 
 export function renderSnapshotPdf(row: any): Promise<Buffer> {
   const data = typeof row.data === 'string' ? JSON.parse(row.data) : (row.data || {});
@@ -496,41 +359,42 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
   doc.on('data', (c: Buffer) => chunks.push(c));
   const finished = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
 
-  // Cover / masthead
-  doc.rect(0, 0, doc.page.width, 96).fill(NAVY);
-  doc.fillColor('#ffffff').font('Helvetica-Bold').fontSize(19).text(title, LEFT, 28, { width: WIDTH });
-  doc.font('Helvetica').fontSize(10).fillColor('#c7d6e4')
-    .text(`${orNot(data.scope_label, row.scope_type)}   ·   ${date(row.period_start)} to ${date(row.period_end)}`, LEFT, 60, { width: WIDTH });
+  // Masthead
   doc.x = LEFT;
-  doc.y = 118;
-  doc.fillColor(INK);
+  doc.font('Helvetica-Bold').fontSize(18).fillColor(NAVY).text(title, LEFT, doc.y, { width: WIDTH });
+  doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor(MUTED)
+    .text(`${clean(data.scope_label) === MISSING ? row.scope_type : clean(data.scope_label)}  ·  ${date(row.period_start)} to ${date(row.period_end)}`, LEFT, doc.y, { width: WIDTH });
+  doc.font('Helvetica').fontSize(9).fillColor(MUTED)
+    .text(`Status: ${clean(row.status)}${row.approved_at ? ` | Approved ${date(row.approved_at)}` : ''}`, LEFT, doc.y, { width: WIDTH });
+  doc.moveDown(0.5).moveTo(LEFT, doc.y).lineTo(LEFT + WIDTH, doc.y).strokeColor(LINE).stroke();
+  doc.x = LEFT; doc.moveDown(0.4);
 
-  // Body — route to the plain-language template for this report key.
-  const render = RENDERERS[row.report_key];
-  if (render) {
-    render(doc, data, row);
-  } else {
-    paragraph(doc, 'This report type does not have a template configured.', { color: MUTED });
+  // Body — route to the report-specific structured template. No legacy narrative is appended.
+  switch (row.report_key) {
+    case 'weekly-governance-review': renderWeekly(doc, data); break;
+    case 'executive-governance-dashboard': renderOverview(doc, data); break;
+    case 'strategic-risk-register': renderRisks(doc, data); break;
+    case 'escalation-intervention': renderEscalations(doc, data); break;
+    case 'weekly-leadership-narrative': renderManager(doc, data); break;
+    case 'cross-service-governance': renderPatterns(doc, data); break;
+    case 'inspection-evidence-pack': renderEvidence(doc, data); break;
+    case 'governance-reconstruction': renderReconstruction(doc, data); break;
+    case 'board-ri-assurance': renderAssurance(doc, data); break;
+    case 'governance-audit-log': renderDecisions(doc, data); break;
+    default: renderSafeFallback(doc, data);
   }
 
-  // Any limitations recorded by the data builder (e.g. a stream that could not be evidenced).
-  const limitations: string[] = Array.isArray(data.limitations) ? data.limitations : [];
-  if (limitations.length) {
-    heading(doc, 'Limitations of this report');
-    bullets(doc, limitations);
-  }
+  // Integrity block (content, not footer, so it can never overlap or create a blank page).
+  heading(doc, 'Report integrity');
+  paragraph(doc, 'Rendered from an immutable, authorised snapshot. Conclusions are limited to the recorded evidence, scope and period shown.', true);
+  paragraph(doc, `Evidence hash: ${String(row.evidence_hash || '').slice(0, 32) || 'Not recorded'}`, true);
 
-  // Integrity footer + page numbers, written across every buffered page.
+  // Page numbers only, drawn below the content frame with lineBreak:false so no blank page is added.
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
-    const y = PAGE_BOTTOM + 6;
-    doc.moveTo(LEFT, y).lineTo(LEFT + WIDTH, y).strokeColor(LINE).lineWidth(0.5).stroke();
-    doc.font('Helvetica').fontSize(7.5).fillColor(MUTED);
-    doc.text(
-      `Rendered from an immutable snapshot — figures are frozen at generation.  Status: ${orNot(row.status, '—')}${row.approved_at ? ` · Approved ${date(row.approved_at)}` : ''}  ·  Evidence hash ${String(row.evidence_hash || '').slice(0, 24)}…`,
-      LEFT, y + 4, { width: WIDTH - 60 });
-    doc.text(`Page ${i - range.start + 1} of ${range.count}`, LEFT + WIDTH - 60, y + 4, { width: 60, align: 'right' });
+    doc.font('Helvetica').fontSize(7).fillColor(MUTED)
+      .text(`Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
   }
 
   doc.end();

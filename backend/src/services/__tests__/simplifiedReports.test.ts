@@ -6,7 +6,7 @@
  * "Not recorded" / "None recorded" paths) — proving the renderer never re-queries live data.
  */
 import { REPORT_CATALOG } from '../../reporting/config/report-catalog';
-import { renderSnapshotPdf } from '../../reporting/renderers/frozen-pdf.renderer';
+import { formatReportText, renderSnapshotPdf } from '../../reporting/renderers/frozen-pdf.renderer';
 
 const EXPECTED: Record<string, string> = {
   'weekly-governance-review': 'Weekly Governance Review',
@@ -20,6 +20,33 @@ const EXPECTED: Record<string, string> = {
   'board-ri-assurance': 'Provider Assurance Summary',
   'governance-audit-log': 'Governance Decision Record',
 };
+
+describe('Simplified Reports — text sanitisation (no legacy narration / markup)', () => {
+  it('turns structured review content into readable text and removes raw markdown markers', () => {
+    const text = formatReportText({
+      summary: '**Immediate oversight is required.**',
+      lessons_learnt: '## Learning\nRecord the outcome.',
+    });
+    expect(text).toContain('Summary: Immediate oversight is required.');
+    expect(text).toContain('Lessons Learnt: Learning');
+    expect(text).not.toContain('[object Object]');
+    expect(text).not.toContain('**');
+    expect(text).not.toContain('##');
+    expect(text).not.toContain('`');
+  });
+
+  it('states missing information rather than inventing or blanking it', () => {
+    expect(formatReportText(null)).toBe('Not recorded - follow-up required');
+    expect(formatReportText('')).toBe('Not recorded - follow-up required');
+    expect(formatReportText({})).toBe('Not recorded - follow-up required');
+  });
+
+  it('joins arrays and never leaves JSON braces or brackets', () => {
+    const text = formatReportText(['first item', 'second item']);
+    expect(text).toBe('first item, second item');
+    expect(text).not.toMatch(/[[\]{}]/);
+  });
+});
 
 describe('Simplified Reports — catalogue', () => {
   it('has exactly the ten frozen report keys', () => {
@@ -66,7 +93,7 @@ function fullRow(reportKey: string) {
           { id: 'r1', service: 'Meadow House', risk: 'Recurring medication timing errors', severity: 'High', status: 'Open', direction: 'Improving', review_due_date: '2026-09-10', resolution_reason: null },
           { id: 'r2', service: 'Sunrise House', risk: 'Historic falls cluster', severity: 'Medium', status: 'Closed', direction: 'Stable', review_due_date: null, resolution_reason: 'Three-month evidence shows no recurrence; PT input embedded.' },
         ],
-        actions: [{ id: 'a1', service: 'Meadow House', action: 'Retrain night staff on MAR timings', status: 'In Progress', due_date: '2026-09-05', owner: 'Jane Doe', completion_evidence: null, effectiveness: 'Not yet reviewed' }],
+        actions: [{ id: 'a1', service: 'Meadow House', action: 'Retrain night staff on MAR timings', status: 'In Progress', created_at: '2026-08-26T09:00:00Z', completed_at: null, due_date: '2026-09-05', owner: 'Jane Doe', completion_evidence: null, effectiveness: 'Not yet reviewed' }],
         escalations: [{ id: 'e1', service: 'Meadow House', date: '2026-08-26', reason: 'Repeat medication concern', priority: 'High', status: 'Open', due_by: '2026-09-02', outcome: null, escalated_to: 'Area Manager' }],
         decisions: [{ id: 'd1', service: 'Meadow House', date: '2026-08-27', concern: 'Medication pattern', decision: 'Keep risk open pending 4-week evidence', reason: 'Two incidents within the fortnight', status: 'Open', due_at: '2026-09-20', reviewer: 'RM Smith' }],
         patterns: [{ id: 'p1', pattern: 'Medication timing across houses', domain: 'Medication', scope: 'SERVICE', status: 'Active', signal_count: 4, review_outcome: 'Confirmed systemic — service-wide action set', next_review_date: '2026-09-15', affected_scope: 'Sunrise House, Meadow House' }],
