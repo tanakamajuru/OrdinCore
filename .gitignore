@@ -97,3 +97,7 @@ backend/reset_*.js
 **/reset_passwords.js
 backend/scripts/reset_passwords.js
 backend/src/reset_passwords.js
+
+# Compliance/operations documentation must be tracked despite the blanket *.md ignore
+!docs/
+!docs/**
