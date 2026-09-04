@@ -21,9 +21,12 @@ export class WeeklyReviewsService {
       step15_narrative: 'Governance Narrative',
     };
     const mandatoryFields: Record<number, string[]> = {
-      // Leadership Interpretation was retired from the review; only the overall position
-      // is gated now, required before the narrative / finalise step.
-      11: ['step14_overall_position'],
+      // Overall Position is ENTERED on UI step 12, so it must only be required when advancing PAST
+      // it to the Narrative (UI step 13 → step_reached 13, checked as mandatoryFields[13-1=12]).
+      // Keying it at 11 demanded it a step early — when merely leaving Daily Oversight (step 11) —
+      // which made the wizard un-passable ("Failed to save progress"). The frontend already gates
+      // the field on its own step; this keeps the server gate before narrative/finalise, no earlier.
+      12: ['step14_overall_position'],
     };
 
     const required = mandatoryFields[targetStep - 1] || [];

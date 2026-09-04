@@ -557,33 +557,45 @@ export function WeeklyReview() {
       case 9: return isDomiciliary
         ? <p className="text-sm leading-7"><b>{domainCount("continuity")}</b> care-continuity signal{domainCount("continuity") === 1 ? "" : "s"} (care plan not followed, handover gaps, missed double-ups) recorded.</p>
         : <p className="text-sm leading-7"><b>{domainCount("workforce") + domainCount("staffing")}</b> workforce / staffing signal{(domainCount("workforce") + domainCount("staffing")) === 1 ? "" : "s"} recorded.</p>;
-      case 10: return (
+      case 10: {
+        // One consolidated weekly summary of THIS site's daily governance oversight over the review
+        // period — not individual day records. Scoped to the reviewed house (houseId), so a house's
+        // weekly evidence never mixes with another service's.
+        const houseName = houses.find((h: any) => h.id === houseId)?.name || "this service";
+        const signedOff = weekLogs.filter((w: any) => w.log?.completed).length;
+        return (
         <div>
-          <p className="text-sm text-muted-foreground mb-3">The daily governance oversight for this site across the review week — the Team Briefs the manager signed off each day. This grounds the weekly position in the daily record.</p>
+          <p className="text-sm text-muted-foreground mb-3">A single weekly summary of this site's daily governance oversight — the daily Team Briefs the manager signed off across the review period, consolidated. This grounds the weekly position in the daily record.</p>
           {weekLogsBusy ? (
             <p className="text-sm text-muted-foreground">Loading the week's daily oversight…</p>
           ) : weekLogs.length === 0 ? (
             <div className="bg-muted/40 border border-dashed border-border rounded-lg p-4 text-sm text-muted-foreground">No daily governance briefs were signed off for this site during the review week.</div>
           ) : (
-            <div className="space-y-2">
-              {weekLogs.map((w: any) => {
-                const brief = String(w.log.team_brief || w.log.leadership_narrative || w.log.daily_note || "").trim();
-                const by = w.log.published_by_name || w.log.reviewed_by_name || "—";
-                return (
-                  <div key={w.date} className="border border-border rounded-lg p-3">
-                    <div className="flex items-center justify-between gap-2 mb-1">
-                      <span className="text-sm font-semibold text-foreground">{new Date(`${w.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" })}</span>
-                      <span className="text-[11px] text-muted-foreground">{w.log.completed ? "Signed off" : "Draft"}{by !== "—" ? ` · ${by}` : ""}</span>
+            <div className="border border-border rounded-lg p-4 bg-card">
+              <div className="flex items-center justify-between gap-2 mb-3 pb-2 border-b border-border/60">
+                <span className="text-sm font-semibold text-foreground">Weekly Daily‑Oversight Summary · {houseName}</span>
+                <span className="text-[11px] text-muted-foreground">{signedOff} of 7 days signed off</span>
+              </div>
+              <div className="space-y-3">
+                {weekLogs.map((w: any) => {
+                  const brief = String(w.log.team_brief || w.log.leadership_narrative || w.log.daily_note || "").trim();
+                  const by = w.log.published_by_name || w.log.reviewed_by_name || "—";
+                  const day = new Date(`${w.date}T00:00:00`).toLocaleDateString("en-GB", { weekday: "short", day: "2-digit", month: "short" });
+                  return (
+                    <div key={w.date} className="text-sm leading-6">
+                      <span className="font-semibold text-foreground">{day}</span>
+                      <span className="text-[11px] text-muted-foreground">{w.log.completed ? " · signed off" : " · draft"}{by !== "—" ? ` · ${by}` : ""}</span>
+                      <p className="text-foreground whitespace-pre-line mt-0.5">{brief || "—"}</p>
                     </div>
-                    <p className="text-sm leading-6 text-foreground whitespace-pre-line line-clamp-6">{brief || "—"}</p>
-                  </div>
-                );
-              })}
-              <p className="text-[11px] text-muted-foreground">{weekLogs.length} of 7 days had a signed-off daily brief.</p>
+                  );
+                })}
+              </div>
+              <p className="text-[11px] text-muted-foreground mt-3 pt-2 border-t border-border/60">Consolidated from {weekLogs.length} daily brief{weekLogs.length === 1 ? "" : "s"} for {houseName} this period.</p>
             </div>
           )}
         </div>
-      );
+        );
+      }
       case 11: return (
         <div>
           <label className="block text-sm font-medium mb-2">Overall governance position</label>
