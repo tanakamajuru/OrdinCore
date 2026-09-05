@@ -219,7 +219,7 @@ export const scopedReportDataService = {
 
     const weeklyReviews = (await query(
       `SELECT wr.id, h.name AS service, wr.week_ending, wr.status,
-              wr.content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
+              wr.governance_narrative AS content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
          FROM weekly_reviews wr
          JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
         WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])

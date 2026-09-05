@@ -43,6 +43,10 @@ const clean = (v?: any): string => {
 };
 export const formatReportText = clean;
 const short = (v: any, max = 180) => (clean(v).length > max ? `${clean(v).slice(0, max - 1)}…` : clean(v));
+// Manager reflection fields must only ever be free text. A structured value (e.g. the 13-step
+// weekly-review wizard state, which contains record IDs) is never expanded into the report — it
+// is treated as absent so no database identifier can leak into a narrative field.
+const asText = (v: any) => (typeof v === 'string' || typeof v === 'number' ? clean(v) : '');
 
 // ── layout primitives (every one resets doc.x to the left margin and uses explicit x/width) ────
 function ensure(doc: PDFKit.PDFDocument, needed = 90, continuation?: string) {
@@ -150,9 +154,13 @@ function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit = 3)
   if (!shown.length) return paragraph(doc, 'No manager reflection was recorded for this reporting period.', true);
   for (const review of shown) {
     heading(doc, `${clean(review.service)} - week ending ${date(review.week_ending)}`);
-    paragraph(doc, review.content);
-    if (review.lessons_learnt) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Learning recorded', LEFT, doc.y, { width: WIDTH }); paragraph(doc, review.lessons_learnt); }
-    if (review.anticipated_risks) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Next risks to watch', LEFT, doc.y, { width: WIDTH }); paragraph(doc, review.anticipated_risks); }
+    const content = asText(review.content);
+    if (content) paragraph(doc, content);
+    const lessons = asText(review.lessons_learnt);
+    if (lessons) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Learning recorded', LEFT, doc.y, { width: WIDTH }); paragraph(doc, lessons); }
+    const risks = asText(review.anticipated_risks);
+    if (risks) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Next risks to watch', LEFT, doc.y, { width: WIDTH }); paragraph(doc, risks); }
+    if (!content && !lessons && !risks) paragraph(doc, 'No manager reflection text was recorded for this review.', true);
   }
 }
 
@@ -187,7 +195,7 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
 
   heading(doc, '3. What did we learn?');
   bullets(doc, [
-    latestReview?.lessons_learnt,
+    asText(latestReview?.lessons_learnt),
     ...(e.actions || []).filter((a: any) => a.effectiveness && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}. Evidence: ${clean(a.completion_evidence)}`),
   ], 'No learning or effectiveness conclusion was recorded. A completed action is not proof that the concern was resolved.', 4);
 
@@ -196,13 +204,14 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Due', key: 'due_date', width: 70, map: (r) => date(r.due_date) },
     { label: 'Evidence expected', key: 'completion_evidence', width: 130, map: (r) => r.completion_evidence || 'Outcome evidence required' },
   ], 'No open action was identified. The manager should confirm whether any follow-up is still required.', 5);
-  if (latestReview?.anticipated_risks) {
+  const anticipated = asText(latestReview?.anticipated_risks);
+  if (anticipated) {
     doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Risks to watch', LEFT, doc.y, { width: WIDTH });
-    paragraph(doc, latestReview.anticipated_risks);
+    paragraph(doc, anticipated);
   }
 
   heading(doc, 'Manager conclusion');
-  paragraph(doc, latestReview?.content || `${position(data)} The coming week should focus on completing and verifying the open actions shown above.`);
+  paragraph(doc, asText(latestReview?.content) || `${position(data)} The coming week should focus on completing and verifying the open actions shown above.`);
 
   const gaps = [
     ...(e.decisions || []).filter((d: any) => !d.reason).map((d: any) => `The reason for the ${clean(d.decision)} decision about ${short(d.concern, 90)} was not recorded.`),
