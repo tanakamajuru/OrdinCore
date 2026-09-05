@@ -157,28 +157,61 @@ function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit = 3)
 }
 
 // ── the ten report templates ───────────────────────────────────────────────────
+// Weekly Governance Review — the approved four-question format ("what we knew, what we did,
+// what we learned, what to expect next week") plus a manager conclusion and evidence-gaps
+// section. This is the ONLY renderer for this report key; no legacy weekly format runs before,
+// after or between these sections.
 function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
-  heading(doc, '1. Overall position'); paragraph(doc, position(data));
-  table(doc, '2. Important concerns reviewed', e.decisions || [], [
-    { label: 'Service', key: 'service', width: 75 }, { label: 'Concern', key: 'concern', width: 190 },
-    { label: 'Decision', key: 'decision', width: 85 }, { label: 'Reason', key: 'reason', width: 145 },
-  ], 'No management decision was recorded in this period.', 6);
-  table(doc, '3. Key risks requiring oversight', (e.risks || []).filter((r: any) => isOpen(r.status)), [
-    { label: 'Service', key: 'service', width: 75 }, { label: 'Risk', key: 'risk', width: 180 },
-    { label: 'Severity / direction', key: 'severity', width: 120, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
-    { label: 'Review due', key: 'review_due_date', width: 120, map: (r) => date(r.review_due_date) },
-  ], 'No open risk was identified in the selected snapshot.', 5);
-  table(doc, '4. Open actions and escalations', [...priorityActions(data, e.actions || []).filter((a: any) => isOpen(a.status)), ...(e.escalations || []).filter((x: any) => isOpen(x.status))], [
-    { label: 'Service', key: 'service', width: 75 }, { label: 'Required response', key: 'action', width: 205, map: (r) => r.action || r.reason },
-    { label: 'Owner', key: 'owner', width: 90, map: (r) => r.owner || r.escalated_to },
-    { label: 'Position / due', key: 'status', width: 125, map: (r) => `${clean(r.status)} / ${date(r.due_date || r.due_by)}` },
-  ], 'No open action or escalation was recorded for the selected period.', 8);
-  heading(doc, '5. What worked - and what has not yet been demonstrated');
-  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}. Evidence: ${clean(a.completion_evidence)}`), 'No completed action had a recorded effectiveness judgement. Completion is not proof that the concern is resolved.', 5);
-  heading(doc, '6. Manager reflection'); renderWeeklyReviews(doc, e.weekly_reviews || [], 1);
-  heading(doc, '7. Focus for next week');
-  bullets(doc, (e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - ${clean(a.owner) === MISSING ? 'owner not recorded' : clean(a.owner)} - due ${date(a.due_date)}`), 'No open action was identified in the selected snapshot.', 3);
+  const latestReview = (e.weekly_reviews || [])[0];
+  const openRisks = (e.risks || []).filter((r: any) => isOpen(r.status));
+  const openActions = priorityActions(data, e.actions || []).filter((a: any) => isOpen(a.status));
+  const openEscalations = (e.escalations || []).filter((x: any) => isOpen(x.status));
+  const completedThisWeek = (e.actions || []).filter((a: any) => !isOpen(a.status) && inPeriod(a.completed_at, data));
+
+  heading(doc, '1. What did we know?');
+  paragraph(doc, position(data));
+  bullets(doc, [
+    ...openRisks.map((r: any) => `${clean(r.service)}: ${clean(r.risk)} remained ${clean(r.status)}; severity ${clean(r.severity)}, direction ${clean(r.direction)}.`),
+    ...(e.signals || []).filter((s: any) => /high|critical/i.test(clean(s.severity))).map((s: any) => `${clean(s.service)}: ${clean(s.concern)}`),
+  ], 'No significant open risk or high-severity concern was identified from the selected snapshot.', 4);
+
+  table(doc, '2. What did we do?', [
+    ...(e.decisions || []).map((r: any) => ({ ...r, response: r.decision, owner_name: r.reviewer, response_status: r.status })),
+    ...completedThisWeek.map((r: any) => ({ ...r, concern: r.action, response: 'Action completed', owner_name: r.owner, response_status: r.effectiveness })),
+    ...openEscalations.map((r: any) => ({ ...r, concern: r.reason, response: 'Escalated', owner_name: r.escalated_to, response_status: r.status })),
+  ], [
+    { label: 'Concern / information', key: 'concern', width: 205 }, { label: 'Response', key: 'response', width: 90 },
+    { label: 'Responsible', key: 'owner_name', width: 90 }, { label: 'Evidence / position', key: 'response_status', width: 110 },
+  ], 'No management decision, completed response or escalation was recorded this week.', 6);
+
+  heading(doc, '3. What did we learn?');
+  bullets(doc, [
+    latestReview?.lessons_learnt,
+    ...(e.actions || []).filter((a: any) => a.effectiveness && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}. Evidence: ${clean(a.completion_evidence)}`),
+  ], 'No learning or effectiveness conclusion was recorded. A completed action is not proof that the concern was resolved.', 4);
+
+  table(doc, '4. What should we expect next week?', openActions, [
+    { label: 'Required action', key: 'action', width: 205 }, { label: 'Owner', key: 'owner', width: 90 },
+    { label: 'Due', key: 'due_date', width: 70, map: (r) => date(r.due_date) },
+    { label: 'Evidence expected', key: 'completion_evidence', width: 130, map: (r) => r.completion_evidence || 'Outcome evidence required' },
+  ], 'No open action was identified. The manager should confirm whether any follow-up is still required.', 5);
+  if (latestReview?.anticipated_risks) {
+    doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Risks to watch', LEFT, doc.y, { width: WIDTH });
+    paragraph(doc, latestReview.anticipated_risks);
+  }
+
+  heading(doc, 'Manager conclusion');
+  paragraph(doc, latestReview?.content || `${position(data)} The coming week should focus on completing and verifying the open actions shown above.`);
+
+  const gaps = [
+    ...(e.decisions || []).filter((d: any) => !d.reason).map((d: any) => `The reason for the ${clean(d.decision)} decision about ${short(d.concern, 90)} was not recorded.`),
+    ...openActions.filter((a: any) => !a.owner).map((a: any) => `No owner was recorded for ${short(a.action, 100)}.`),
+    ...openActions.filter((a: any) => !a.due_date).map((a: any) => `No due date was recorded for ${short(a.action, 100)}.`),
+    ...completedThisWeek.filter((a: any) => !a.effectiveness || /not yet/i.test(a.effectiveness)).map((a: any) => `Effectiveness has not been reviewed for ${short(a.action, 100)}.`),
+  ];
+  heading(doc, 'Evidence gaps to correct');
+  bullets(doc, gaps, 'No specific evidence gap was identified from the fields reviewed. The manager must still confirm completeness before finalisation.', 4);
 }
 
 function renderOverview(doc: PDFKit.PDFDocument, data: any) {
@@ -393,8 +426,13 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
   const range = doc.bufferedPageRange();
   for (let i = range.start; i < range.start + range.count; i++) {
     doc.switchToPage(i);
+    // Zero the bottom margin only for the page-number write so PDFKit does not treat the text as
+    // overflowing the content frame and append a blank page; restore it immediately afterwards.
+    const bottomMargin = doc.page.margins.bottom;
+    doc.page.margins.bottom = 0;
     doc.font('Helvetica').fontSize(7).fillColor(MUTED)
       .text(`Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
+    doc.page.margins.bottom = bottomMargin;
   }
 
   doc.end();
