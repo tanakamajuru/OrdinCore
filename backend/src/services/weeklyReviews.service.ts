@@ -336,14 +336,76 @@ export class WeeklyReviewsService {
 
   async findById(id: string, company_id: string) {
     const result = await query(
-      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name, h.name AS house_name
+      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name, h.name AS house_name,
+              NULLIF(TRIM(COALESCE(pu.first_name,'') || ' ' || COALESCE(pu.last_name,'')), '') AS published_by_name
        FROM weekly_reviews wr
        JOIN users u ON u.id = wr.created_by
        JOIN houses h ON h.id = wr.house_id
+       LEFT JOIN users pu ON pu.id = wr.published_by
        WHERE wr.id = $1 AND wr.company_id = $2`,
       [id, company_id]
     );
-    return result.rows[0];
+    const row = result.rows[0];
+    if (row) row.team_report = await this.buildTeamReport(row, company_id);
+    return row;
+  }
+
+  // Read-only presentation enrichment for the team-facing Weekly Governance Team Report.
+  // Assembled ONLY from records already published in the selected week — signals grouped by
+  // domain (with a trajectory only where one is recorded on an open risk), the week's daily
+  // team briefs, and the service's active measures. No governance decision is recalculated and
+  // no trajectory/conclusion is invented; unknowns are returned null and shown as gaps in the UI.
+  async buildTeamReport(row: any, company_id: string) {
+    const p = [company_id, row.house_id, row.week_ending];
+    const domainGroups = (await query(
+      `WITH dg AS (
+         SELECT (gp.risk_domain)[1] AS domain, COUNT(*)::int AS signal_count,
+                COUNT(*) FILTER (WHERE gp.severity::text IN ('High','Critical'))::int AS high_critical
+           FROM governance_pulses gp
+          WHERE gp.company_id = $1 AND gp.house_id = $2
+            AND gp.entry_date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
+            AND COALESCE(array_length(gp.risk_domain, 1), 0) > 0
+          GROUP BY (gp.risk_domain)[1]
+       )
+       SELECT dg.domain, dg.signal_count, dg.high_critical,
+              (SELECT r.trajectory::text FROM risks r
+                 WHERE r.company_id = $1 AND r.house_id = $2 AND r.risk_domain::text = dg.domain
+                   AND r.status::text NOT IN ('Closed','Resolved','closed','resolved')
+                 ORDER BY r.updated_at DESC NULLS LAST LIMIT 1) AS trajectory
+         FROM dg ORDER BY dg.signal_count DESC`, p)).rows;
+
+    const events = (await query(
+      `SELECT dgl.review_date AS date, dgl.team_brief AS summary
+         FROM daily_governance_log dgl
+        WHERE dgl.company_id = $1 AND dgl.house_id = $2 AND dgl.completed = true
+          AND dgl.review_date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
+          AND NULLIF(TRIM(dgl.team_brief), '') IS NOT NULL
+        ORDER BY dgl.review_date`, p)).rows;
+
+    const measures = (await query(
+      `SELECT ra.id, COALESCE(rk.risk_domain::text, 'Governance') AS area, ra.title AS measure,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
+              ra.due_date, ra.effectiveness_due_at AS effectiveness_review_date,
+              ra.status::text AS status, ra.completion_evidence AS evidence_expected, ra.created_at
+         FROM risk_actions ra
+         LEFT JOIN risks rk ON rk.id = ra.risk_id AND rk.company_id = ra.company_id
+         LEFT JOIN users u ON u.id = ra.assigned_to AND u.company_id = ra.company_id
+        WHERE ra.company_id = $1 AND ra.house_id = $2
+          AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')
+        ORDER BY ra.due_date NULLS LAST LIMIT 20`, [company_id, row.house_id])).rows;
+
+    const signals_reviewed = domainGroups.reduce((n: number, g: any) => n + (g.signal_count || 0), 0);
+    const high_critical = domainGroups.reduce((n: number, g: any) => n + (g.high_critical || 0), 0);
+    return {
+      prepared_by: row.published_by_name || row.created_by_name,
+      period_start: null,
+      signals_reviewed,
+      high_critical,
+      main_domain_count: domainGroups.filter((g: any) => g.signal_count > 0).length,
+      domain_groups: domainGroups,
+      events,
+      measures,
+    };
   }
 
   async complete(id: string, company_id: string, user_id: string) {

@@ -244,7 +244,12 @@ export function DailyOversightBoard() {
       });
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
       toast.success("Team brief signed off");
-    } catch { toast.error("Sign-off failed"); }
+    } catch (e: any) {
+      // Surface the real governance reason (e.g. "N signal(s) still require an RM decision" or an
+      // unreviewed escalation/effectiveness exception) instead of a mystifying "Sign-off failed",
+      // so the manager knows exactly what to clear before publishing.
+      toast.error(e?.response?.data?.message || e?.message || "Sign-off failed");
+    }
     finally { setIsSigningOff(false); }
   };
 

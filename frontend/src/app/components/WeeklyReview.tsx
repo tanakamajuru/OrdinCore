@@ -4,6 +4,8 @@ import { useNavigate, useParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History, Sparkles } from "lucide-react";
+import { WeeklyGovernanceTeamReport } from "./weeklyGovernanceTeamReport/WeeklyGovernanceTeamReport";
+import { mapWeeklyReviewToTeamReport } from "./weeklyGovernanceTeamReport/mapWeeklyReviewToTeamReport";
 
 // 13-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
 // auto-populate from the week's data; the RM supplies overall position and
@@ -52,6 +54,9 @@ export function WeeklyReview() {
   const [weekLogs, setWeekLogs] = useState<any[]>([]);
   const [weekLogsBusy, setWeekLogsBusy] = useState(false);
   const [tlNoReview, setTlNoReview] = useState(false);
+  // The full published review (incl. the backend-enriched team_report) for the Team Leader's
+  // structured Weekly Governance Team Report view.
+  const [teamReview, setTeamReview] = useState<any>(null);
 
   const isTeamLeader = userRole === "TEAM_LEADER";
 
@@ -100,6 +105,7 @@ export function WeeklyReview() {
         setIsLoading(true);
         const rv = (await apiClient.get(`/weekly-reviews/${id}`)).data?.data;
         setReviewId(rv.id);
+        setTeamReview(rv);
         setForm(rv.content || {});
         setStatus(rv.status || "Draft");
         setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
@@ -453,7 +459,6 @@ export function WeeklyReview() {
   // Team Leader reading a specific published review — read-only, plus acknowledge. Never the wizard.
   if (isTeamLeader && id && id !== "new") {
     const c = form || {};
-    const antTL = (c.anticipated_risks?.items ?? []) as any[];
     return (
       <div className="min-h-screen bg-background">
         <RoleBasedNavigation />
@@ -467,38 +472,20 @@ export function WeeklyReview() {
             </div>
           </div>
 
-          {myAck?.acknowledged ? (
-            <div className="mb-5 bg-emerald-50 border border-emerald-200 rounded-lg px-4 py-3 text-sm text-emerald-800 flex items-center gap-2">
-              <Check size={16} /> You acknowledged this review{myAck.acknowledged_at ? ` · ${new Date(myAck.acknowledged_at).toLocaleString("en-GB")}` : ""}
-            </div>
+          {/* Structured, team-facing Weekly Governance Team Report — replaces the old narrative /
+              lessons blocks. It carries its own acknowledgement (receipt-only). */}
+          {teamReview ? (
+            <WeeklyGovernanceTeamReport
+              report={{
+                ...mapWeeklyReviewToTeamReport(teamReview),
+                acknowledgedAt: myAck?.acknowledged ? (myAck.acknowledged_at || new Date().toISOString()) : null,
+                acknowledgedBy: myAck?.name || myAck?.acknowledged_by || null,
+              }}
+              onAcknowledge={async () => { await acknowledge(); }}
+            />
           ) : (
-            <div className="mb-5 bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 flex items-center justify-between gap-3">
-              <span className="text-sm text-amber-800 flex items-center gap-1.5"><Clock size={14} /> Please read this review and mark it as read.</span>
-              <button onClick={acknowledge} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-sm">Mark as read</button>
-            </div>
+            <div className={card}><p className="text-sm text-muted-foreground">Loading the weekly report…</p></div>
           )}
-
-          <div className="space-y-4">
-            <div className={card}>
-              <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Governance narrative</h2>
-              <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.step15_narrative || "—"}</p>
-            </div>
-            {c.lessons_learnt && (
-              <div className={card}>
-                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Lessons learnt</h2>
-                <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.lessons_learnt}</p>
-              </div>
-            )}
-            {(antTL.length > 0 || c.anticipated_risks?.rm_note) && (
-              <div className={card}>
-                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Week ahead — anticipated risks</h2>
-                <ul className="text-sm space-y-1 mb-2">
-                  {antTL.map((a: any, i: number) => <li key={i}><b>{a.theme}</b> — {a.reason}</li>)}
-                </ul>
-                {c.anticipated_risks?.rm_note && <p className="text-sm text-muted-foreground">{c.anticipated_risks.rm_note}</p>}
-              </div>
-            )}
-          </div>
         </div>
       </div>
     );
