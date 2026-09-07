@@ -242,12 +242,49 @@ export class DailyGovernanceService {
   // their services (Team Brief only — the leadership narrative stays private to leadership).
   async recentTeamBriefs(company_id: string, house_ids: string[], user_id: string) {
     if (!house_ids.length) return [];
+    // Read-only presentation enrichment for the Team Leader Daily Brief view. Additive only —
+    // no lifecycle change and no new table. Each brief carries: the governance decisions recorded
+    // in that review (priorities), and the service's currently-active actions/escalations
+    // (operational "requires attention"), plus who prepared it and the acknowledgement.
     const res = await query(
       `SELECT dgl.id, dgl.house_id, h.name AS house_name, dgl.team_brief, dgl.material_change,
-              dgl.published_at, dgl.review_date, (a.id IS NOT NULL) AS acknowledged
+              dgl.published_at, dgl.review_date,
+              NULLIF(TRIM(COALESCE(pu.first_name,'') || ' ' || COALESCE(pu.last_name,'')), '') AS prepared_by,
+              (a.id IS NOT NULL) AS acknowledged,
+              a.created_at AS acknowledged_at,
+              NULLIF(TRIM(COALESCE(acu.first_name,'') || ' ' || COALESCE(acu.last_name,'')), '') AS acknowledged_by,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'id', gr.id, 'decision', gr.decision, 'title', gr.what_is_happening,
+                        'instruction', COALESCE(NULLIF(gr.intended_outcome,''), gr.evidence),
+                        'owner', NULLIF(TRIM(COALESCE(ou.first_name,'') || ' ' || COALESCE(ou.last_name,'')), ''),
+                        'dueLabel', gr.due_at, 'status', gr.decision_status
+                      ) ORDER BY gr.created_at), '[]'::json)
+                 FROM governance_reviews gr
+                 LEFT JOIN users ou ON ou.id = gr.decision_owner_id
+                WHERE gr.daily_governance_log_id = dgl.id) AS priorities,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'id', ra.id, 'title', ra.title,
+                        'owner', NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')), ''),
+                        'dueDate', ra.due_date, 'completionEvidence', ra.completion_evidence
+                      ) ORDER BY ra.due_date NULLS LAST), '[]'::json)
+                 FROM risk_actions ra
+                 LEFT JOIN users au ON au.id = ra.assigned_to
+                WHERE ra.house_id = dgl.house_id AND ra.company_id = $2
+                  AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')) AS actions,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'id', e.id, 'title', e.reason,
+                        'owner', NULLIF(TRIM(COALESCE(eu.first_name,'') || ' ' || COALESCE(eu.last_name,'')), ''),
+                        'responseDue', e.due_by
+                      ) ORDER BY e.created_at DESC), '[]'::json)
+                 FROM escalations e
+                 LEFT JOIN users eu ON eu.id = e.escalated_to
+                WHERE e.house_id = dgl.house_id AND e.company_id = $2
+                  AND COALESCE(e.lifecycle_status::text, e.status::text, 'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS escalations
          FROM daily_governance_log dgl
          JOIN houses h ON h.id = dgl.house_id
+         LEFT JOIN users pu ON pu.id = dgl.published_by
          LEFT JOIN daily_brief_acknowledgements a ON a.log_id = dgl.id AND a.user_id = $3
+         LEFT JOIN users acu ON acu.id = a.user_id
         WHERE dgl.house_id = ANY($1::uuid[])
           AND h.company_id = $2
           AND dgl.completed = true
