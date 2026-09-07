@@ -3,7 +3,7 @@ import { Alert } from 'react-native';
 import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { api } from '@/api/client';
-import { Screen, AppHeader, Banner, Label, Card, Row, Text, Pill, Button, Loading, ErrorNote, Feather } from '@/components/ui';
+import { Screen, AppHeader, Banner, Label, Card, Row, Text, Pill, Button, Loading, ErrorNote, Feather, Chip, TextArea } from '@/components/ui';
 
 export function ProviderSignoffScreen() {
   const { c } = useTheme();
@@ -11,16 +11,19 @@ export function ProviderSignoffScreen() {
   const week = roll.data?.week_ending as string | undefined;
   const prov = useApi<any>(week ? `/weekly-reviews/rollup?week_ending=${week}` : null, [week]);
   const [busy, setBusy] = useState(false);
+  const [position, setPosition] = useState('Assured with actions');
+  const [rationale, setRationale] = useState('');
 
   const d = prov.data || {};
   const outstanding: string[] = d.outstanding || [];
-  const blocked = outstanding.length > 0;
+  const notValidated = (d.sites || []).filter((s: any) => s.validation_status !== 'Approved');
+  const blocked = outstanding.length > 0 || notValidated.length > 0;
 
   const sign = async () => {
     if (!week) return;
     setBusy(true);
     try {
-      await api.post('/weekly-reviews/rollup/sign', { week_ending: week });
+      await api.post('/weekly-reviews/rollup/sign', { week_ending: week, position, statement: rationale.trim() });
       Alert.alert('Signed', 'The provider position is recorded against you.');
       prov.refetch();
     } catch (e: any) {
@@ -38,8 +41,8 @@ export function ProviderSignoffScreen() {
           {d.signoff ? (
             <Banner tone="ok" icon="check-circle" title={`Signed by ${d.signoff.acknowledged_by_name || 'you'}`}>{d.signoff.statement}</Banner>
           ) : blocked ? (
-            <Banner tone="block" icon="lock" title={`Sign-off blocked · ${outstanding.length} outstanding`}>
-              {outstanding.slice(0, 4).join(', ')}{outstanding.length > 4 ? '…' : ''} not yet finalised.
+            <Banner tone="block" icon="lock" title="Sign-off blocked">
+              {[...outstanding, ...notValidated.map((s: any) => `${s.house} awaiting Director validation`)].slice(0, 5).join(', ')}
             </Banner>
           ) : (
             <Banner tone="ok" icon="check" title="All services finalised">Ready for your sign-off.</Banner>
@@ -64,7 +67,10 @@ export function ProviderSignoffScreen() {
           </Row>
           {!d.signoff && (
             <>
-              <Button title="Sign provider position" tone={blocked ? 'block' : 'primary'} disabled={blocked} onPress={sign} loading={busy} />
+              <Label>Your independent assurance conclusion</Label>
+              <Row gap={6} style={{ flexWrap: 'wrap' }}>{['Assured', 'Assured with actions', 'Further evidence required', 'Not assured'].map((p) => <Chip key={p} label={p} active={position === p} onPress={() => setPosition(p)} />)}</Row>
+              <TextArea value={rationale} onChangeText={setRationale} placeholder="Your evidence-based conclusion, challenge and required follow-up…" minHeight={90} required />
+              <Button title="Sign provider position" tone={blocked ? 'block' : 'primary'} disabled={blocked || rationale.trim().length < 30} onPress={sign} loading={busy} />
               <Row gap={6} style={{ justifyContent: 'center' }}>
                 <Feather name="git-branch" size={12} color={c.muted} />
                 <Text muted size={11} style={{ textAlign: 'center' }}>Signed by the RI — not the RMs who authored each site.</Text>

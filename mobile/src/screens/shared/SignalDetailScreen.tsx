@@ -7,7 +7,7 @@ import { useApi } from '@/api/useApi';
 import { api } from '@/api/client';
 import { useAuth, normalizeRole } from '@/auth/AuthContext';
 import { RootStackParams } from '@/navigation/types';
-import { Screen, Card, Row, Label, Text, Pill, SeverityPill, Loading, ErrorNote, TextArea, Button } from '@/components/ui';
+import { Screen, Card, Row, Label, Text, Pill, SeverityPill, Loading, ErrorNote, TextArea, Button, Chip } from '@/components/ui';
 
 const firstDomain = (d?: string[] | string) => Array.isArray(d) ? d[0] : String(d || '').replace(/[{}]/g, '').split(',')[0];
 
@@ -29,6 +29,36 @@ export function SignalDetailScreen() {
   const [showAttn, setShowAttn] = useState(false);
   const [attnReason, setAttnReason] = useState('');
   const [attnBusy, setAttnBusy] = useState(false);
+  const isRM = normalizeRole(role || '') === 'REGISTERED_MANAGER';
+  const users = useApi<any>(isRM ? '/users' : null);
+  const [decision, setDecision] = useState<'Monitor'|'Create Action'|'Escalate'|'Close Signal'>('Monitor');
+  const [rationale, setRationale] = useState('');
+  const [ownerId, setOwnerId] = useState('');
+  const [dueAt, setDueAt] = useState('');
+  const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'>('Moderate');
+  const [decisionBusy, setDecisionBusy] = useState(false);
+  const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  const people: any[] = Array.isArray(users.data) ? users.data : users.data?.users || users.data?.data || [];
+  const needsOwner = decision === 'Create Action' || decision === 'Escalate';
+  const recordDecision = async () => {
+    if (rationale.trim().length < 10) { Alert.alert('Add a rationale', 'Record why this decision is appropriate (at least 10 characters).'); return; }
+    if (needsOwner && !ownerId) { Alert.alert('Choose an owner', 'An action or escalation must have one accountable owner.'); return; }
+    if (decision === 'Create Action' && !dueAt.trim()) { Alert.alert('Add a due date', 'Use YYYY-MM-DD.'); return; }
+    setDecisionBusy(true);
+    try {
+      await api.post('/governance-decisions', {
+        pulse_entry_id: id, house_id: s?.house_id || s?.service_id,
+        what_is_happening: rationale.trim(), decision, severity: rmSeverity,
+        owner_id: ownerId || undefined, due_at: dueAt ? `${dueAt}T17:00:00.000Z` : undefined,
+        action_description: decision === 'Create Action' ? rationale.trim() : undefined,
+        intended_outcome: decision === 'Create Action' ? 'Concern addressed and effectiveness reviewed' : undefined,
+        idempotency_key: decisionKey,
+      });
+      Alert.alert('Decision recorded', 'The signal and any linked work now use the same governance record as the web app.');
+      setRationale(''); setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
+    } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
+    finally { setDecisionBusy(false); }
+  };
   const markAttention = async () => {
     if (attnReason.trim().length < 10) { Alert.alert('Add a reason', 'Give a short reason (at least a sentence).'); return; }
     setAttnBusy(true);
@@ -66,6 +96,34 @@ export function SignalDetailScreen() {
           </View>
         )}
       </Card>
+
+      {isRM && String(s?.review_status || 'New').toLowerCase() !== 'closed' && (
+        <Card>
+          <Label>Registered Manager decision</Label>
+          <Label>Governance severity</Label>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>{(['Low','Moderate','High','Critical'] as const).map((v) => <Chip key={v} label={v} active={rmSeverity === v} onPress={() => setRmSeverity(v)} />)}</Row>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+            {(['Monitor','Create Action','Escalate','Close Signal'] as const).map((d) => (
+              <Chip key={d} label={d === 'Close Signal' ? 'Close' : d} active={decision === d} onPress={() => setDecision(d)} />
+            ))}
+          </Row>
+          <Label>Decision rationale</Label>
+          <TextArea value={rationale} onChangeText={setRationale} placeholder="What is happening and why this is the right governance response…" minHeight={72} required />
+          {needsOwner && <>
+            <Label>Accountable owner</Label>
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {people.filter((u) => u.status !== 'suspended').map((u) => (
+                <Chip key={u.id} label={`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email} active={ownerId === u.id} onPress={() => setOwnerId(u.id)} />
+              ))}
+            </Row>
+          </>}
+          {decision === 'Create Action' && <>
+            <Label>Due date (YYYY-MM-DD)</Label>
+            <TextArea value={dueAt} onChangeText={setDueAt} placeholder="2026-09-10" minHeight={45} required />
+          </>}
+          <Button title="Record governance decision" icon="check" onPress={recordDecision} loading={decisionBusy} />
+        </Card>
+      )}
 
       {/* Leadership attention marker (a visibility flag, not a severity change). */}
       {s?.leadership_attention ? (

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useApi } from '@/api/useApi';
 import { Screen, Row, Chip, Loading, ErrorNote } from '@/components/ui';
 import { BoardHeader, StatusList, BoardItem } from '@/components/board';
+import { useNavigation } from '@react-navigation/native';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.escalations || []);
 const ago = (x?: string) => {
@@ -11,6 +12,7 @@ const ago = (x?: string) => {
 };
 
 export function TLEscalationsScreen() {
+  const nav = useNavigation<any>();
   const { data, loading, error, refetch } = useApi<any>('/escalations?limit=200');
   const [tab, setTab] = useState<'open' | 'overdue'>('open');
   const all = arr(data);
@@ -27,6 +29,7 @@ export function TLEscalationsScreen() {
       meta,
       value: e.overdue ? 'Overdue' : 'Awaiting response',
       tone: e.overdue ? 'red' : 'amber',
+      onPress: () => nav.navigate('EscalationDetail', { id: e.id }),
     };
   });
 

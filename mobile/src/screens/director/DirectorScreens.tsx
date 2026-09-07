@@ -51,11 +51,10 @@ export function DirectorOverviewScreen() {
       <StatusList items={[{ title: 'Governance position', value: position, tone: posTone }]} />
       <SectionTitle>Requires your attention</SectionTitle>
       <Metrics items={[
-        { value: n(byKey('escalations')?.count), label: 'Escalations', tone: 'red' },
-        { value: n(byKey('signals')?.count), label: 'Signals to review', tone: 'amber' },
-        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'Overdue actions', tone: 'red' },
-        { value: n(byKey('effectiveness')?.count), label: 'Effectiveness due', tone: 'blue' },
+        { value: n(byKey('weekly_validation')?.count), label: 'Reviews to validate', tone: 'amber' },
+        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'My overdue actions', tone: 'red' },
       ]} />
+      <BoardButton label="Validate weekly reviews" icon="check-circle" onPress={() => nav.navigate('DirectorReviews')} />
       <BoardButton label="Cross-service trends" onPress={() => nav.navigate('Trends')} />
     </Screen>
   );
@@ -144,19 +143,16 @@ export function DirectorGovernanceScreen() {
     return it ? { title: label, value: String(it.count), tone: toneOf(it.tone) } : null;
   };
   const workload = [
-    row('signals', 'Signals awaiting review'),
-    row('actions', 'Actions requiring attention'),
-    row('escalations', 'Open escalations'),
-    row('effectiveness', 'Effectiveness reviews due'),
-    row('weekly', 'Weekly governance review'),
-    row('post_escalation_review', 'Post-escalation risk reviews'),
+    row('weekly_validation', 'Weekly reviews awaiting validation'),
+    row('actions', 'My assigned actions requiring attention'),
   ].filter(Boolean) as BoardItem[];
 
   if (loading) return <Screen><Loading /></Screen>;
   return (
     <Screen refreshing={mw.loading} onRefresh={mw.refetch}>
       <BoardHeader title="Governance Overview" subtitle="The governance workload across services" />
-      <StatusList items={workload} empty="No outstanding governance work." />
+      <StatusList items={workload} empty="No outstanding governance assurance work." />
+      <BoardButton label="Validate weekly reviews" icon="check-circle" onPress={() => nav.navigate('DirectorReviews')} />
       <BoardButton label="View reports" icon="file-text" onPress={() => nav.navigate('DirectorReports')} />
     </Screen>
   );

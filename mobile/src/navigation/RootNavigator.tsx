@@ -28,7 +28,13 @@ import { MyWorkScreen } from '@/screens/shared/MyWorkScreen';
 import { RiskDetailScreen } from '@/screens/shared/RiskDetailScreen';
 import { ReportDetailScreen } from '@/screens/shared/ReportDetailScreen';
 import { RateEffectivenessScreen } from '@/screens/rm/RateEffectivenessScreen';
+import { RMSignalQueueScreen } from '@/screens/rm/RMSignalQueueScreen';
+import { RMPatternsScreen } from '@/screens/rm/RMPatternsScreen';
+import { RMWeeklyReviewScreen } from '@/screens/rm/RMWeeklyReviewScreen';
+import { RMDailyGovernanceScreen } from '@/screens/rm/RMDailyGovernanceScreen';
 import { ActionDetailScreen } from '@/screens/shared/ActionDetailScreen';
+import { EscalationDetailScreen } from '@/screens/shared/EscalationDetailScreen';
+import { AdminBoundaryScreen } from '@/screens/shared/AdminBoundaryScreen';
 import { SWTodayScreen } from '@/screens/sw/SWTodayScreen';
 import { SWSignalsScreen } from '@/screens/sw/SWSignalsScreen';
 import { SWRaiseSignalScreen } from '@/screens/sw/SWRaiseSignalScreen';
@@ -44,6 +50,8 @@ import { TLTeamOverviewScreen } from '@/screens/tl/TLTeamOverviewScreen';
 import { TLEscalationsScreen } from '@/screens/tl/TLEscalationsScreen';
 import { TLDocumentsScreen } from '@/screens/tl/TLDocumentsScreen';
 import { TLNotesScreen } from '@/screens/tl/TLNotesScreen';
+import { TLWeeklyReviewsScreen } from '@/screens/tl/TLWeeklyReviewsScreen';
+import { TLWeeklyReviewDetailScreen } from '@/screens/tl/TLWeeklyReviewDetailScreen';
 import { RMDashboardScreen, RMRiskRegisterScreen, RMEscalationsScreen, RMGovernanceReviewScreen, RMReportsScreen, RMHouseOverviewScreen, RMComplianceScreen, RMMyActionsScreen } from '@/screens/rm/RMScreens';
 import { DirectorOverviewScreen, DirectorTrendsScreen, DirectorThemesScreen, DirectorGovernanceScreen, DirectorReportsScreen } from '@/screens/director/DirectorScreens';
 import { RIProviderAssuranceScreen, RIOversightScreen, RIInspectionScreen, RINarrativeScreen, RIBoardReportsScreen } from '@/screens/ri/RIScreens';
@@ -161,7 +169,7 @@ function RegisteredManagerTabs() {
   return (
     <Tab.Navigator screenOptions={boardTabOptions(c)}>
       <Tab.Screen name="Home" component={RMDashboardScreen} options={{ tabBarIcon: tabIcon('home') }} />
-      <Tab.Screen name="Signals" component={RMRiskRegisterScreen} options={{ tabBarIcon: tabIcon('activity') }} />
+      <Tab.Screen name="Daily Oversight" component={RMSignalQueueScreen} options={{ tabBarIcon: tabIcon('activity') }} />
       <Tab.Screen name="Reports" component={RMReportsScreen} options={{ tabBarIcon: tabIcon('file-text') }} />
       <Tab.Screen name="My Actions" component={RMMyActionsScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
     </Tab.Navigator>
@@ -208,7 +216,7 @@ function RoleTabs() {
   if (role === 'SUPPORT_WORKER') {
     return <AccentProvider role="green"><SupportWorkerTabs /></AccentProvider>;
   }
-  if (role === 'REGISTERED_MANAGER' || role === 'ADMIN' || role === 'SUPER_ADMIN') {
+  if (role === 'REGISTERED_MANAGER') {
     return <AccentProvider role="blue"><RegisteredManagerTabs /></AccentProvider>;
   }
   if (role === 'DIRECTOR') {
@@ -216,6 +224,9 @@ function RoleTabs() {
   }
   if (role === 'RESPONSIBLE_INDIVIDUAL') {
     return <AccentProvider role="violet"><ResponsibleIndividualTabs /></AccentProvider>;
+  }
+  if (role === 'ADMIN' || role === 'SUPER_ADMIN' || role === 'UNKNOWN') {
+    return <AccentProvider role="blue"><AdminBoundaryScreen /></AccentProvider>;
   }
   // Team Leader (default)
   return <AccentProvider role="purple"><TeamLeaderTabs /></AccentProvider>;
@@ -233,11 +244,19 @@ const TLMyActionsA = withAccent('purple', TLMyActionsScreen);
 const TLDailyReviewA = withAccent('purple', TLDailyReviewScreen);
 const TLDailyGovernanceA = withAccent('purple', TLDailyGovernanceScreen);
 const TLTeamOverviewA = withAccent('purple', TLTeamOverviewScreen);
+const TLWeeklyReviewsA = withAccent('purple', TLWeeklyReviewsScreen);
+const TLWeeklyReviewDetailA = withAccent('purple', TLWeeklyReviewDetailScreen);
 const RMEscalationsA = withAccent('blue', RMEscalationsScreen);
 const RMGovernanceReviewA = withAccent('blue', RMGovernanceReviewScreen);
 const RMHouseOverviewA = withAccent('blue', RMHouseOverviewScreen);
 const RMComplianceA = withAccent('blue', RMComplianceScreen);
 const RMMyActionsA = withAccent('blue', RMMyActionsScreen);
+const RMPatternsA = withAccent('blue', RMPatternsScreen);
+const RMRiskRegisterA = withAccent('blue', RMRiskRegisterScreen);
+const RMWeeklyReviewA = withAccent('blue', RMWeeklyReviewScreen);
+const RMDailyGovernanceA = withAccent('blue', RMDailyGovernanceScreen);
+const DirectorReviewsA = withAccent('orange', ReviewsScreen);
+const ProviderSignoffA = withAccent('violet', ProviderSignoffScreen);
 const DirectorGovernanceA = withAccent('orange', DirectorGovernanceScreen);
 const DirectorReportsA = withAccent('orange', DirectorReportsScreen);
 const RINarrativeA = withAccent('violet', RINarrativeScreen);
@@ -280,6 +299,7 @@ export function RootNavigator() {
       <Stack.Screen name="MyWork" component={MyWorkScreen} options={{ title: 'My Work' }} />
       <Stack.Screen name="RateEffectiveness" component={RateEffectivenessScreen} options={{ title: 'Rate effectiveness' }} />
       <Stack.Screen name="ActionDetail" component={ActionDetailScreen} options={{ title: 'Action' }} />
+      <Stack.Screen name="EscalationDetail" component={EscalationDetailScreen} options={{ title: 'Escalation' }} />
       <Stack.Screen name="TLEscalations" component={TLEscalationsA} options={{ title: 'Escalations' }} />
       <Stack.Screen name="TLDocuments" component={TLDocumentsA} options={{ title: 'Documents' }} />
       <Stack.Screen name="TLNotes" component={TLNotesA} options={{ title: 'Notes' }} />
@@ -287,12 +307,20 @@ export function RootNavigator() {
       <Stack.Screen name="TLDailyGovernance" component={TLDailyGovernanceA} options={{ title: 'Daily Governance' }} />
       <Stack.Screen name="TLDailyReview" component={TLDailyReviewA} options={{ title: '' }} />
       <Stack.Screen name="TLTeamOverview" component={TLTeamOverviewA} options={{ title: '' }} />
+      <Stack.Screen name="TLWeeklyReviews" component={TLWeeklyReviewsA} options={{ title: '' }} />
+      <Stack.Screen name="TLWeeklyReviewDetail" component={TLWeeklyReviewDetailA} options={{ title: '' }} />
       {/* RM / Director / RI hub screens carry their own in-content header, so the nav bar is a bare back-bar */}
       <Stack.Screen name="RMEscalations" component={RMEscalationsA} options={{ title: '' }} />
       <Stack.Screen name="RMGovernanceReview" component={RMGovernanceReviewA} options={{ title: '' }} />
       <Stack.Screen name="RMHouseOverview" component={RMHouseOverviewA} options={{ title: '' }} />
       <Stack.Screen name="RMCompliance" component={RMComplianceA} options={{ title: '' }} />
       <Stack.Screen name="RMMyActions" component={RMMyActionsA} options={{ title: '' }} />
+      <Stack.Screen name="RMRiskRegister" component={RMRiskRegisterA} options={{ title: '' }} />
+      <Stack.Screen name="RMPatterns" component={RMPatternsA} options={{ title: '' }} />
+      <Stack.Screen name="RMWeeklyReview" component={RMWeeklyReviewA} options={{ title: '' }} />
+      <Stack.Screen name="RMDailyGovernance" component={RMDailyGovernanceA} options={{ title: '' }} />
+      <Stack.Screen name="DirectorReviews" component={DirectorReviewsA} options={{ title: '' }} />
+      <Stack.Screen name="ProviderSignoff" component={ProviderSignoffA} options={{ title: '' }} />
       <Stack.Screen name="DirectorGovernance" component={DirectorGovernanceA} options={{ title: '' }} />
       <Stack.Screen name="DirectorReports" component={DirectorReportsA} options={{ title: '' }} />
       <Stack.Screen name="RINarrative" component={RINarrativeA} options={{ title: '' }} />

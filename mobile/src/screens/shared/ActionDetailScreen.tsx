@@ -16,17 +16,20 @@ export function ActionDetailScreen() {
   const { role } = useAuth();
   const { action } = useRoute<RouteProp<RootStackParams, 'ActionDetail'>>().params;
   const [note, setNote] = useState('');
+  const [outcome, setOutcome] = useState('No change');
   const [busy, setBusy] = useState(false);
 
   const done = /complete|done/i.test(action.status || '');
   const overdue = /overdue/i.test(action.status || '');
-  const canRate = role === 'REGISTERED_MANAGER' || role === 'ADMIN' || role === 'SUPER_ADMIN';
+  const canRate = role === 'REGISTERED_MANAGER';
 
   const complete = async () => {
-    if (!action.risk_id) { Alert.alert('Not linked', "This action isn't linked to a risk record here."); return; }
+    if (note.trim().length < 10) { Alert.alert('Add completion evidence', 'Explain what was done in at least 10 characters.'); return; }
     setBusy(true);
     try {
-      await api.patch(`/risks/${action.risk_id}/actions/${action.id}/status`, { status: 'Completed', note: note.trim() || undefined });
+      await api.patch(`/actions/${action.id}/complete`, {
+        completion_note: note.trim(), completion_rationale: note.trim(), completion_outcome: outcome,
+      });
       Alert.alert('Marked complete', 'Completion proves activity — an RM can now rate whether it worked.');
       nav.goBack();
     } catch (e: any) { Alert.alert("Couldn't complete", e?.message || 'Try again when back online.'); }
@@ -57,7 +60,13 @@ export function ActionDetailScreen() {
 
       {!done ? (
         <>
-          <Label>Completion note (optional)</Label>
+          <Label>Completion outcome</Label>
+          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+            {['No change', 'Partial improvement', 'Risk reduced', 'Risk escalated'].map((v) => (
+              <Button key={v} title={v} tone={outcome === v ? 'primary' : 'ghost'} onPress={() => setOutcome(v)} />
+            ))}
+          </Row>
+          <Label>Completion evidence and rationale</Label>
           <TextArea value={note} onChangeText={setNote} placeholder="What was done to complete this action…" minHeight={64} />
           <Button title="Mark complete" icon="check" onPress={complete} loading={busy} />
           <Row gap={6} style={{ justifyContent: 'center' }}>

@@ -31,8 +31,12 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   if (r === 'REGISTERED_MANAGER' || r === 'ADMIN' || r === 'SUPER_ADMIN') {
     return common([
       { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
+      { icon: 'send', label: 'Daily Governance', go: go(() => navigate('RMDailyGovernance')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('RMMyActions')) },
+      { icon: 'shield', label: 'Risk Register', go: go(() => navigate('RMRiskRegister')) },
+      { icon: 'eye', label: 'Patterns', go: go(() => navigate('RMPatterns')) },
+      { icon: 'clipboard', label: 'Weekly Review', go: go(() => navigate('RMWeeklyReview')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
       { icon: 'clipboard', label: 'Governance Review', go: go(() => navigate('RMGovernanceReview')) },
       { icon: 'home', label: 'Site Overview', go: go(() => navigate('RMHouseOverview')) },
@@ -43,11 +47,10 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
     return common([
       { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
       { icon: 'shield', label: 'Daily Governance', go: go(() => navigate('TLDailyGovernance')) },
+      { icon: 'file-text', label: 'Weekly Reviews', go: go(() => navigate('TLWeeklyReviews')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Today')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('TLMyActions')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('TLEscalations')) },
-      { icon: 'file-text', label: 'Documents', go: go(() => navigate('TLDocuments')) },
-      { icon: 'edit-3', label: 'Notes', go: go(() => navigate('TLNotes')) },
       { icon: 'users', label: 'Team Overview', go: go(() => navigate('TLTeamOverview')) },
     ]);
   }
@@ -57,6 +60,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'clipboard', label: 'Governance', go: go(() => navigate('DirectorGovernance')) },
       { icon: 'file-text', label: 'Reports', go: go(() => navigate('DirectorReports')) },
+      { icon: 'check-circle', label: 'Validate Reviews', go: go(() => navigate('DirectorReviews')) },
     ]);
   }
   if (r === 'RESPONSIBLE_INDIVIDUAL') {
@@ -65,6 +69,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'book-open', label: 'Narrative', go: go(() => navigate('RINarrative')) },
       { icon: 'file-text', label: 'Board Reports', go: go(() => navigate('RIBoardReports')) },
+      { icon: 'check-circle', label: 'Provider Sign-off', go: go(() => navigate('ProviderSignoff')) },
     ]);
   }
   // Support Worker

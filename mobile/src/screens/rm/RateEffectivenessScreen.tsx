@@ -32,10 +32,9 @@ export function RateEffectivenessScreen() {
       Alert.alert('Add evidence', 'Record what tells you this (at least 20 characters).');
       return;
     }
-    if (!action.risk_id) { Alert.alert('Missing risk', "This action isn't linked to a risk here."); return; }
     setBusy(true);
     try {
-      await api.post(`/risks/${action.risk_id}/actions/${action.id}/effectiveness`, { outcome, evidence: evidence.trim() || undefined });
+      await api.patch(`/actions/${action.id}/effectiveness`, { outcome, evidence: evidence.trim() });
       Alert.alert('Recorded', 'The rating moves the risk trajectory.');
       nav.goBack();
     } catch (e: any) {

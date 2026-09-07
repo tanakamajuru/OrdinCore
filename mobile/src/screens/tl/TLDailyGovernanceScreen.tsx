@@ -5,14 +5,14 @@ import { api } from '@/api/client';
 import { useApi } from '@/api/useApi';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/tokens';
-import { Screen, AppHeader, Card, Loading, Empty, Button, Text, Row } from '@/components/ui';
+import { Screen, AppHeader, Card, Loading, Empty, Button, Text, Row, ErrorNote, Banner } from '@/components/ui';
 
 // The Team Leader's "Daily Governance" section on mobile — the briefs the RM publishes
 // at sign-off, with Confirm-reviewed (Chapters 2/3).
 export function TLDailyGovernanceScreen() {
   const { c } = useTheme();
-  const { data, loading, refetch } = useApi<any>('/governance/daily-log/team-briefs');
-  const briefs: any[] = data?.data ?? data ?? [];
+  const { data, loading, error, refetch } = useApi<any>('/governance/daily-log/team-briefs');
+  const briefs: any[] = Array.isArray(data) ? data : [];
   const [acking, setAcking] = useState<string | null>(null);
   const [acked, setAcked] = useState<Record<string, boolean>>({});
 
@@ -31,6 +31,7 @@ export function TLDailyGovernanceScreen() {
     <Screen refreshing={loading} onRefresh={refetch}>
       <AppHeader title="Daily Governance" subtitle="Briefs published by your Registered Manager" />
       {loading && !data ? <Loading />
+        : error ? <ErrorNote message={error} onRetry={refetch} />
         : briefs.length === 0 ? <Empty icon="check-circle" title="No governance briefs yet" />
         : briefs.map((b) => {
           const nothingNew = !b.material_change || !b.team_brief;
@@ -42,7 +43,11 @@ export function TLDailyGovernanceScreen() {
                 <Text size={11} muted>{dateOf(b.published_at || b.review_date)}</Text>
               </Row>
               {nothingNew ? (
-                <Text size={13} muted>No new governance priorities. Continue with existing actions.</Text>
+                <><Banner tone="ok" icon="check-circle" title="No material change declared">The Registered Manager published a positive confirmation. Continue existing actions.</Banner>
+                <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 12 }}>
+                  {isAck ? <Text size={13} weight="600" color={c.sevLow}>Acknowledged</Text>
+                    : <Button title={acking === b.id ? 'Confirming…' : 'Confirm reviewed'} icon="check" onPress={() => acknowledge(b.id)} loading={acking === b.id} />}
+                </View></>
               ) : (
                 <>
                   <Text size={13.5} style={{ lineHeight: 20 }}>{b.team_brief}</Text>

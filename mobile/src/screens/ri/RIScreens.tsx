@@ -54,6 +54,7 @@ export function RIProviderAssuranceScreen() {
         { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0) },
         ...(d.resolution_effectiveness_rate != null ? [{ label: 'Resolution effectiveness', value: `${d.resolution_effectiveness_rate}%` }] : []),
       ]} />
+      <BoardButton label="Review provider weekly sign-off" icon="check-circle" onPress={() => nav.navigate('ProviderSignoff')} />
       <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
@@ -67,7 +68,9 @@ export function RIOversightScreen() {
   const risk = useApi<any>('/risks?limit=300');
   const themes = useApi<any>('/interventions/themes');
   const loading = risk.loading && !risk.data;
-  const risks = arr(risk.data).filter(isOpen);
+  const risks = arr(risk.data).filter((r: any) => isOpen(r) && (
+    /critical|high/.test(sevOf(r)) || r.is_strategic || r.strategic_theme || r.requires_ri_assurance
+  ));
   const lvl = (re: RegExp) => risks.filter((r) => re.test(sevOf(r))).length;
   const themeList: any[] = themes.data?.themes ?? themes.data?.data ?? (Array.isArray(themes.data) ? themes.data : []);
   const deteriorating: BoardItem[] = themeList
@@ -79,7 +82,7 @@ export function RIOversightScreen() {
   return (
     <Screen refreshing={risk.loading} onRefresh={() => { risk.refetch(); themes.refetch(); }}>
       <BoardHeader title="Oversight" subtitle="Strategic oversight across the provider" />
-      <SectionTitle>Strategic risks</SectionTitle>
+      <SectionTitle>Strategic and material risks</SectionTitle>
       <Metrics items={[
         { value: lvl(/critical/), label: 'Critical', tone: 'red' },
         { value: lvl(/high/), label: 'High', tone: 'red' },
@@ -88,6 +91,7 @@ export function RIOversightScreen() {
       ]} />
       <SectionTitle>Deteriorating themes</SectionTitle>
       <StatusList items={deteriorating} empty="No themes deteriorating across services." />
+      <BoardButton label="Review provider weekly sign-off" icon="check-circle" onPress={() => nav.navigate('ProviderSignoff')} />
       <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
   );
@@ -96,6 +100,7 @@ export function RIOversightScreen() {
 /* 3 — Inspection Readiness */
 export function RIInspectionScreen() {
   const { c } = useTheme();
+  const nav = useNavigation<any>();
   const { s, d, state, refetch } = useAssurance();
   if (s.loading && !s.data) return <Screen><Loading /></Screen>;
   return (
@@ -114,6 +119,7 @@ export function RIInspectionScreen() {
       <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }}>
         <Text size={12} muted style={{ lineHeight: 18 }}>Training, policy and audit compliance are shown only where the platform holds the underlying evidence — they are never inferred from escalation or action statistics.</Text>
       </View>
+      <BoardButton label="Check weekly evidence and sign-off" icon="check-circle" onPress={() => nav.navigate('ProviderSignoff')} />
     </Screen>
   );
 }
@@ -185,6 +191,7 @@ export function RIMoreScreen() {
   const name = `${user?.first_name || ''} ${user?.last_name || ''}`.trim() || 'You';
   const inits = `${(user?.first_name?.[0] || '')}${(user?.last_name?.[0] || '')}`.toUpperCase() || '·';
   const items: { icon: any; label: string; sub: string; go: () => void }[] = [
+    { icon: 'check-circle', label: 'Provider Sign-off', sub: 'Weekly independent assurance', go: () => nav.navigate('ProviderSignoff') },
     { icon: 'book-open', label: 'Governance Narrative', sub: 'Monthly position', go: () => nav.navigate('RINarrative') },
     { icon: 'briefcase', label: 'Reports to Board', sub: 'Board-ready packs', go: () => nav.navigate('RIBoardReports') },
     { icon: 'user', label: 'Profile', sub: 'Account & security', go: () => nav.navigate('Profile') },

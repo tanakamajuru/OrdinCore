@@ -14,10 +14,11 @@ export function TeamBriefBanner() {
   const [brief, setBrief] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [acking, setAcking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = async () => {
-    try { setBrief(await api.get('/governance/daily-log/team-brief')); }
-    catch { setBrief(null); }
+    try { setError(null); setBrief(await api.get('/governance/daily-log/team-brief')); }
+    catch (e: any) { setBrief(null); setError(e?.message || 'Daily governance brief could not be loaded.'); }
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
@@ -34,11 +35,30 @@ export function TeamBriefBanner() {
 
   if (loading) return null;
 
-  if (!brief || !brief.material_change || !brief.team_brief) {
+  if (error) {
+    return (
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.sevCrit + '18', borderWidth: 1, borderColor: c.sevCrit + '55', borderRadius: radius.md, padding: 12, marginBottom: 12 }}>
+        <Feather name="alert-triangle" size={16} color={c.sevCrit} />
+        <Text size={13} style={{ flex: 1 }}>Governance brief unavailable. Pull to refresh or open Daily Governance—do not assume there are no priorities.</Text>
+      </View>
+    );
+  }
+
+  if (!brief) {
     return (
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, padding: 12, marginBottom: 12 }}>
         <Feather name="check-circle" size={16} color={c.sevLow} />
-        <Text size={13} muted style={{ flex: 1 }}>No new governance priorities today. Continue with existing actions.</Text>
+        <Text size={13} muted style={{ flex: 1 }}>The Registered Manager has not published today's governance brief yet.</Text>
+      </View>
+    );
+  }
+
+  if (!brief.material_change || !brief.team_brief) {
+    return (
+      <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, padding: 12, marginBottom: 12 }}>
+        <Text size={13} weight="600">No material change declared by the Registered Manager.</Text>
+        <Text size={12} muted style={{ marginTop: 3 }}>Continue existing actions.</Text>
+        {!brief.acknowledged && <Pressable onPress={acknowledge} disabled={acking} style={{ marginTop: 10 }}><Text size={13} weight="600" color={c.accent}>{acking ? 'Confirming…' : 'Confirm reviewed'}</Text></Pressable>}
       </View>
     );
   }

@@ -11,7 +11,7 @@ type WorkItem = {
   tone: 'red' | 'amber' | 'blue' | 'emerald' | 'slate'; link: string; primary_action: string;
 };
 
-const ICON: Record<string, any> = { escalations: 'alert-circle', signals: 'bell', actions: 'check-square', effectiveness: 'trending-up', weekly: 'file-text' };
+const ICON: Record<string, any> = { escalations: 'alert-circle', signals: 'bell', actions: 'check-square', effectiveness: 'trending-up', weekly: 'file-text', weekly_validation: 'check-circle', weekly_ack: 'book-open', provider_signoff: 'shield' };
 
 // Chapter 1 — "My Work" on mobile: the same role-scoped read model as the web, so a user
 // opens the app and sees exactly what needs their attention. Each row jumps to the screen
@@ -23,7 +23,10 @@ function target(role: string, key: string): (() => void) | undefined {
   if (key === 'actions') return r === 'REGISTERED_MANAGER' ? go('RMMyActions') : r === 'TEAM_LEADER' ? go('TLMyActions') : tab('Actions');
   if (key === 'escalations') return r === 'REGISTERED_MANAGER' ? go('RMEscalations') : r === 'TEAM_LEADER' ? go('TLEscalations') : r === 'SUPPORT_WORKER' ? go('SWEscalations') : undefined;
   if (key === 'signals') return tab('Signals');
-  if (key === 'weekly') return r === 'REGISTERED_MANAGER' ? go('RMGovernanceReview') : r === 'TEAM_LEADER' ? go('TLDailyReview') : undefined;
+  if (key === 'weekly') return r === 'REGISTERED_MANAGER' ? go('RMWeeklyReview') : undefined;
+  if (key === 'weekly_validation' && r === 'DIRECTOR') return go('DirectorReviews');
+  if (key === 'weekly_ack' && r === 'TEAM_LEADER') return go('TLWeeklyReviews');
+  if (key === 'provider_signoff' && r === 'RESPONSIBLE_INDIVIDUAL') return go('ProviderSignoff');
   return undefined;
 }
 

@@ -11,6 +11,7 @@ export type SWSignalsStackParams = {
 export type SWActionsStackParams = {
   SWActions: undefined;
   ActionDetail: { action: any };
+  EscalationDetail: { id: string };
 };
 
 export type RootStackParams = {
@@ -21,6 +22,8 @@ export type RootStackParams = {
   TLNotes: undefined;
   TLMyActions: undefined;
   TLDailyReview: undefined;
+  TLWeeklyReviews: undefined;
+  TLWeeklyReviewDetail: { id: string };
   TLTeamOverview: undefined;
   // Registered Manager hub screens
   RMEscalations: undefined;
@@ -28,6 +31,12 @@ export type RootStackParams = {
   RMHouseOverview: undefined;
   RMCompliance: undefined;
   RMMyActions: undefined;
+  RMRiskRegister: undefined;
+  RMPatterns: undefined;
+  RMWeeklyReview: undefined;
+  RMDailyGovernance: undefined;
+  DirectorReviews: undefined;
+  ProviderSignoff: undefined;
   // Director hub screens
   DirectorGovernance: undefined;
   DirectorReports: undefined;
@@ -47,4 +56,5 @@ export type RootStackParams = {
   TLDailyGovernance: undefined;
   RateEffectiveness: { action: { id: string; risk_id?: string; title: string } };
   ActionDetail: { action: any };
+  EscalationDetail: { id: string };
 };

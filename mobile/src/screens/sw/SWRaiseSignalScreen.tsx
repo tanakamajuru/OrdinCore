@@ -9,13 +9,11 @@ import { api, ApiError } from '@/api/client';
 import { useApi } from '@/api/useApi';
 import { queue } from '@/offline/queue';
 import { pickPhoto, uploadMedia, fileToBase64, Evidence } from '@/api/media';
-import { radius, severityColor } from '@/theme/tokens';
+import { radius } from '@/theme/tokens';
 import { Screen, Row, Field, TextArea, Button, Text } from '@/components/ui';
 
 type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE' };
 type Theme = { name: string; signals: string[]; signalsMeta?: SignalMeta[] };
-const SEVERITIES = ['Low', 'Med', 'High', 'Critical'];
-const sevToApi = (s: string) => (s === 'Med' ? 'Moderate' : s);
 
 function Caption({ children }: { children: React.ReactNode }) {
   const { c } = useTheme();
@@ -47,26 +45,6 @@ function Dropdown({ value, options, onChange }: { value: string; options: string
   );
 }
 
-function SeverityRow({ value, onChange }: { value: string; onChange: (v: string) => void }) {
-  const { c } = useTheme();
-  return (
-    <Row gap={8}>
-      {SEVERITIES.map((s) => {
-        const on = value === s;
-        const col = severityColor(c, sevToApi(s));
-        return (
-          <Pressable key={s} onPress={() => onChange(s)} style={{
-            flex: 1, alignItems: 'center', paddingVertical: 11, borderRadius: radius.md,
-            borderWidth: on ? 0 : 1, borderColor: c.line, backgroundColor: on ? col : c.card,
-          }}>
-            <Text size={12.5} weight="600" color={on ? '#fff' : c.muted}>{s}</Text>
-          </Pressable>
-        );
-      })}
-    </Row>
-  );
-}
-
 /* Photo / Voice attach button — shows a spinner while uploading, and a live dot while recording. */
 function AttachButton({ icon, label, active, busy, onPress }: { icon: any; label: string; active?: boolean; busy?: boolean; onPress: () => void }) {
   const { c } = useTheme();
@@ -92,7 +70,7 @@ export function SWRaiseSignalScreen() {
 
   const [domain, setDomain] = useState('');
   const [signalLabel, setSignalLabel] = useState('');
-  const [severity, setSeverity] = useState('Critical');
+  const [requiresImmediateAction, setRequiresImmediateAction] = useState(false);
 
   const selectedTheme = themes.find((t) => t.name === domain);
   const signalMetas: SignalMeta[] = selectedTheme?.signalsMeta
@@ -102,6 +80,7 @@ export function SWRaiseSignalScreen() {
   const [residentId, setResidentId] = useState('');
   const [what, setWhat] = useState('');
   const [busy, setBusy] = useState(false);
+  const [submissionId] = useState(() => `signal-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const [evidence, setEvidence] = useState<Evidence | null>(null);
   const [attaching, setAttaching] = useState<null | 'photo' | 'voice'>(null);
   const [recording, setRecording] = useState(false);
@@ -170,7 +149,8 @@ export function SWRaiseSignalScreen() {
       governance_domain: domain,
       signal_label: signalLabel || undefined,
       signal_type: /safeguard/i.test(domain) ? 'Safeguarding' : 'Concern',
-      severity: sevToApi(severity),
+      requires_immediate_action: requiresImmediateAction,
+      client_submission_id: submissionId,
       description: what.trim(),
       evidence_url: evidence?.url,
     };
@@ -213,15 +193,18 @@ export function SWRaiseSignalScreen() {
           {selectedMeta?.escalation === 'CONDITIONAL' && (
             <Row gap={7} style={{ backgroundColor: c.sevHigh + '18', borderColor: c.sevHigh, borderWidth: 1, borderRadius: radius.md, padding: 10, marginTop: 4 }}>
               <Feather name="alert-triangle" size={15} color={c.sevHigh} />
-              <Text size={12} weight="600" color={c.sevHigh} style={{ flex: 1 }}>Escalated immediately if marked High or Critical.</Text>
+              <Text size={12} weight="600" color={c.sevHigh} style={{ flex: 1 }}>The Registered Manager will determine severity and escalation.</Text>
             </Row>
           )}
         </View>
       )}
 
       <View style={{ gap: 4 }}>
-        <Caption>Severity</Caption>
-        <SeverityRow value={severity} onChange={setSeverity} />
+        <Caption>Does this require immediate action?</Caption>
+        <Row gap={8}>
+          <Button title="No" tone={!requiresImmediateAction ? 'primary' : 'ghost'} onPress={() => setRequiresImmediateAction(false)} style={{ flex: 1 }} />
+          <Button title="Yes" tone={requiresImmediateAction ? 'primary' : 'ghost'} onPress={() => setRequiresImmediateAction(true)} style={{ flex: 1 }} />
+        </Row>
       </View>
 
       <View style={{ gap: 4 }}>
