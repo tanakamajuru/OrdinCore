@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { Search, Users, Layers } from "lucide-react";
+import { Search, Users, Layers, ArrowRightLeft, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 
@@ -24,6 +24,13 @@ export function ServiceUsers() {
   const [search, setSearch] = useState("");
   const [site, setSite] = useState("all");
   const [isLoading, setIsLoading] = useState(true);
+  const [moving, setMoving] = useState<ServiceUser | null>(null);
+  const [destinationHouseId, setDestinationHouseId] = useState("");
+  const [transferReason, setTransferReason] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
+  const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
+  const role = String(localStorage.getItem("userRole") || currentUser.role || "").toUpperCase().replace(/-/g, "_");
+  const canTransfer = ["SUPER_ADMIN", "ADMIN", "REGISTERED_MANAGER", "DIRECTOR"].includes(role);
 
   useEffect(() => { loadHouses(); }, []);
 
@@ -66,6 +73,36 @@ export function ServiceUsers() {
     } catch {
       toast.error("Failed to update vulnerability");
       load();
+    }
+  };
+
+  const openTransfer = (u: ServiceUser) => {
+    setMoving(u);
+    setDestinationHouseId("");
+    setTransferReason("");
+  };
+
+  const transfer = async () => {
+    if (!moving || !destinationHouseId) return toast.error("Select the destination service.");
+    if (transferReason.trim().length < 5) return toast.error("Record a clear reason for the transfer.");
+    setIsTransferring(true);
+    try {
+      const response: any = await apiClient.post(`/service-users/${moving.id}/transfer`, {
+        destination_house_id: destinationHouseId,
+        reason: transferReason.trim(),
+      });
+      const result = response?.data || {};
+      const kept = result.continuity || {};
+      toast.success(
+        `${moving.display_name} moved to ${result.house_name || "the new service"}. ` +
+        `History retained: ${kept.signals || 0} signals, ${kept.risks || 0} risks and ${kept.actions || 0} actions.`
+      );
+      setMoving(null);
+      await load();
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to transfer service user");
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -127,6 +164,7 @@ export function ServiceUsers() {
                   <th className="px-3">Site / Service</th>
                   <th className="px-3">Vulnerability</th>
                   <th className="px-3">Status</th>
+                  {canTransfer && <th className="px-3 text-right">Placement</th>}
                 </tr>
               </thead>
               <tbody>
@@ -150,6 +188,17 @@ export function ServiceUsers() {
                           {u.is_active ? "Active" : "Inactive"}
                         </span>
                       </td>
+                      {canTransfer && (
+                        <td className="px-3 text-right">
+                          <button
+                            type="button"
+                            onClick={() => openTransfer(u)}
+                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+                          >
+                            <ArrowRightLeft className="h-3.5 w-3.5" /> Move service
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   ))
                 ))}
@@ -157,6 +206,58 @@ export function ServiceUsers() {
             </table>
           )}
         </div>
+
+        {moving && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4" role="dialog" aria-modal="true" aria-labelledby="transfer-title">
+            <div className="w-full max-w-lg rounded-xl border border-border bg-card p-6 shadow-xl">
+              <div className="mb-5 flex items-start justify-between gap-4">
+                <div>
+                  <h2 id="transfer-title" className="text-xl font-semibold">Move service user</h2>
+                  <p className="mt-1 text-sm text-muted-foreground">{moving.display_name} is currently at {moving.house_name}.</p>
+                </div>
+                <button type="button" onClick={() => setMoving(null)} className="rounded p-1 hover:bg-muted" aria-label="Close"><X className="h-5 w-5" /></button>
+              </div>
+
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Destination service</label>
+                  <select
+                    value={destinationHouseId}
+                    onChange={(e) => setDestinationHouseId(e.target.value)}
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5"
+                  >
+                    <option value="">Select destination…</option>
+                    {houses.filter((h) => h.id !== moving.house_id).map((h) => <option key={h.id} value={h.id}>{h.name}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-sm font-medium">Reason for transfer</label>
+                  <textarea
+                    value={transferReason}
+                    onChange={(e) => setTransferReason(e.target.value)}
+                    rows={3}
+                    placeholder="For example: planned move following placement review"
+                    className="w-full rounded-lg border border-border bg-background px-3 py-2.5"
+                  />
+                </div>
+                <div className="rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+                  The person's identity and full governance history will be retained. Previous signals stay recorded against the service where they occurred. Existing actions and escalations keep their current owners until reviewed and reassigned through the normal governance process.
+                </div>
+                <div className="flex justify-end gap-2">
+                  <button type="button" onClick={() => setMoving(null)} className="rounded-lg border border-border px-4 py-2 text-sm">Cancel</button>
+                  <button
+                    type="button"
+                    onClick={transfer}
+                    disabled={isTransferring || !destinationHouseId || transferReason.trim().length < 5}
+                    className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+                  >
+                    {isTransferring ? "Moving…" : "Confirm move"}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
