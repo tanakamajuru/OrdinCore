@@ -11,6 +11,10 @@ const previousDay = (date: string) => {
 };
 
 const DECISIONS = ["Create Action", "Monitor", "Escalate", "Close"] as const;
+// The Registered Manager sets the governance severity when triaging a signal (frontline staff
+// capture without rating). The backend requires this on every signal decision, including Close.
+const SEVERITIES = ["Low", "Moderate", "High", "Critical"] as const;
+const isSeverity = (v: any) => (SEVERITIES as readonly string[]).includes(String(v));
 
 /**
  * Daily Governance decision builder.
@@ -46,6 +50,7 @@ export function GovernanceDecisions({
     owner_id: "",
     due_at: "",
     source: "",
+    severity: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
   // Date range for picking signals (defaults to the selected review date; the RM can widen it).
@@ -182,6 +187,7 @@ export function GovernanceDecisions({
       toast.error("Monitoring requires a next review date.");
       return;
     }
+    if (!form.severity) { toast.error("Set the signal severity — Registered Manager triage is required."); return; }
 
     setBusy(true);
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
@@ -192,13 +198,14 @@ export function GovernanceDecisions({
         pulse_entry_id: sid,
         what_is_happening: form.what.trim(),
         decision: form.decision,
+        severity: form.severity,
         owner_id: form.owner_id || null,
         due_at: form.due_at || null,
         action_description: form.what.trim(),
         idempotency_key: idemKey.current,
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — action assigned" : "Decision recorded");
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
     } catch (e: any) {
@@ -342,7 +349,7 @@ export function GovernanceDecisions({
                     const when = fmtWhen(s.created_at || s.entry_date);
                     const monitoringDue = String(s.review_status) === "Monitoring";
                     return (
-                      <button key={s.id} type="button" onClick={() => { setForm({ ...form, source: `signal:${s.id}` }); setSrcOpen(false); }}
+                      <button key={s.id} type="button" onClick={() => { setForm({ ...form, source: `signal:${s.id}`, severity: isSeverity(s.severity) ? String(s.severity) : "" }); setSrcOpen(false); }}
                         className={`w-full text-left px-3 py-2 border-t first:border-t-0 border-border/40 hover:bg-muted ${form.source === `signal:${s.id}` ? "bg-primary/5" : ""}`}>
                         <div className="text-[11px] text-muted-foreground">{monitoringDue ? "Monitoring review due · " : ""}{when}{s.related_person ? ` · ${s.related_person}` : ""} · {kind}</div>
                         <div className="text-sm text-foreground whitespace-pre-wrap break-words">{(s.description || "—").trim()}</div>
@@ -359,6 +366,16 @@ export function GovernanceDecisions({
               <span className="font-semibold text-foreground">Signal context:</span> {selectedSignal.related_person ? `${selectedSignal.related_person} · ` : ""}{selectedSignal.governance_domain || selectedSignal.signal_type || "Signal"} · {selectedSignal.description || "—"}
             </div>
           )}
+
+          {/* Registered Manager severity — required to triage any signal (including Close). */}
+          <div>
+            <label className="text-[11px] text-muted-foreground">Severity · Registered Manager triage <span className="text-red-500">*</span></label>
+            <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}
+              className={`w-full mt-1 p-2.5 border-2 rounded-lg bg-background text-sm ${form.severity ? "border-border" : "border-red-300"}`}>
+              <option value="">Set severity…</option>
+              {SEVERITIES.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+            </select>
+          </div>
 
           <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2}
             placeholder="Record the management decision and what is required next."
