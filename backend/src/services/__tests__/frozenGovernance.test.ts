@@ -164,7 +164,7 @@ describe('Daily Governance transaction (PDF Phase 3 / TEST_PLAN)', () => {
     await expect(
       dailyGovernanceService.completeLog('log1', {
         note: 'n', user_id: 'u1', company_id: 'co1', material_change: true, team_brief: 'brief',
-        decisions: [{ decision: 'Create Action', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1' }],
+        decisions: [{ decision: 'Create Action', severity: 'Moderate', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1' }],
       } as any)
     ).rejects.toThrow(/task insert failed/i);
 

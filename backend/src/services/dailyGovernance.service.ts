@@ -12,6 +12,7 @@ export type DecisionInput = {
   actionDescription?: string; intendedOutcome?: string; reason?: string;
   whatIsHappening?: string;
   idempotencyKey?: string;
+  severity?: 'Low' | 'Moderate' | 'High' | 'Critical';
 };
 
 export class DailyGovernanceService {
@@ -56,6 +57,7 @@ export class DailyGovernanceService {
       team_brief?: string;
       material_change?: boolean;
       decisions?: DecisionInput[];
+      exceptions_acknowledged?: boolean;
     }
   ) {
     const { note, user_id, company_id, is_deputy_review = false } = opts;
@@ -94,20 +96,7 @@ export class DailyGovernanceService {
       const leadership = (opts.leadership_narrative || note || '').trim();
       const brief = (opts.team_brief || '').trim();
       material = opts.material_change !== false && brief.length > 0;
-
-      // 2. Save leadership narrative + Team Leader brief.
-      const result = await client.query(
-        `UPDATE daily_governance_log
-         SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW(),
-             is_deputy_review = $4, review_type = $5, escalation_sent = $6, director_alerted_at = $7,
-             company_id = COALESCE(company_id, $8),
-             leadership_narrative = $9, team_brief = $10, material_change = $11,
-             published_at = NOW(), published_by = $2
-         WHERE id = $3 RETURNING *`,
-        [note, user_id, log_id, is_deputy_review, is_deputy_review ? 'Deputy Cover' : 'Primary',
-         enhanced_oversight, director_notified, company_id, leadership || null, brief || null, material]
-      );
-      const log = result.rows[0];
+      if (!material && leadership.length < 10) throw new Error('Record a positive no-material-change declaration before publishing an empty brief.');
 
       // 3–5. Create each governance decision, its linked task/escalation, and update the
       // source status — all inside the same transaction. Any failure rolls the review back.
@@ -120,6 +109,35 @@ export class DailyGovernanceService {
           else if (out.escalation && out.escalation.escalated_to === d.ownerId) allocations.push({ owner_id: d.ownerId, title: out.escalation.reason || d.actionDescription || d.reason || d.whatIsHappening || 'Escalation', kind: 'escalation', due_at: d.dueAt });
         }
       }
+
+      // Authoritative readiness is evaluated after this request's decisions have been
+      // applied, but before the log is marked complete. Counts are stored with the signed
+      // log so the published position is reconstructable later.
+      const readiness = (await client.query(
+        `SELECT
+          (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New') AS unreviewed_signals,
+          (SELECT COUNT(*)::int FROM escalations e WHERE e.company_id=$1 AND e.house_id=$2 AND COALESCE(e.lifecycle_status::text,e.status,'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS open_escalations,
+          (SELECT COUNT(*)::int FROM risk_actions a WHERE a.company_id=$1 AND a.house_id=$2 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL) AS effectiveness_due`,
+        [company_id, house_id]
+      )).rows[0];
+      if (readiness.unreviewed_signals > 0) throw new Error(`Daily governance cannot be published: ${readiness.unreviewed_signals} signal(s) still require an RM decision.`);
+      if ((readiness.open_escalations > 0 || readiness.effectiveness_due > 0) && !opts.exceptions_acknowledged) {
+        throw new Error('Review and explicitly carry forward the open escalation/effectiveness exceptions before publishing.');
+      }
+
+      const result = await client.query(
+        `UPDATE daily_governance_log
+         SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW(),
+             is_deputy_review = $4, review_type = $5, escalation_sent = $6, director_alerted_at = $7,
+             company_id = COALESCE(company_id, $8), leadership_narrative = $9,
+             team_brief = $10, material_change = $11, published_at = NOW(), published_by = $2,
+             exceptions_acknowledged = $12, exception_snapshot = $13::jsonb
+         WHERE id = $3 RETURNING *`,
+        [note, user_id, log_id, is_deputy_review, is_deputy_review ? 'Deputy Cover' : 'Primary',
+         enhanced_oversight, director_notified, company_id, leadership || null, brief || null, material,
+         !!opts.exceptions_acknowledged, JSON.stringify(readiness)]
+      );
+      const log = result.rows[0];
 
       // 6. Commit only when every required step succeeded.
       await client.query('COMMIT');
@@ -193,6 +211,7 @@ export class DailyGovernanceService {
       owner_id: d.ownerId || null, due_at: d.dueAt || null,
       intended_outcome: d.intendedOutcome || null, action_description: d.actionDescription || null,
       reason: d.reason || null,
+      severity: d.severity,
       idempotency_key: d.idempotencyKey || null,
     } as any);
   }
@@ -244,8 +263,9 @@ export class DailyGovernanceService {
     // §6 — only acknowledge a brief that belongs to the caller's company.
     const owns = await query(
       `SELECT 1 FROM daily_governance_log dgl JOIN houses h ON h.id = dgl.house_id
-        WHERE dgl.id = $1 AND h.company_id = $2`,
-      [log_id, company_id]
+        WHERE dgl.id = $1 AND h.company_id = $2 AND dgl.completed=true
+          AND EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id=$3 AND uh.house_id=dgl.house_id)`,
+      [log_id, company_id, user_id]
     );
     if (!owns.rows[0]) throw new Error('Brief not found');
     await query(

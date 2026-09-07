@@ -7,13 +7,13 @@ import { requireRole } from '../middleware/role.middleware';
 
 const router = Router();
 
-router.post('/', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.save);
-router.patch('/:id', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.update);
-router.post('/:id/complete', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.complete);
+router.post('/', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.save);
+router.patch('/:id', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.update);
+router.post('/:id/complete', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.complete);
 router.post('/:id/finalise', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), weeklyReviewsController.finalise.bind(weeklyReviewsController));
-router.post('/:id/validate', requireAuth, requireTenant, requireRole('DIRECTOR', 'ADMIN', 'SUPER_ADMIN', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.validate.bind(weeklyReviewsController));
+router.post('/:id/validate', requireAuth, requireTenant, requireRole('DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.validate.bind(weeklyReviewsController));
 // Publish a validated review to the house team (gated behind validation in the service).
-router.post('/:id/publish', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.publish.bind(weeklyReviewsController));
+router.post('/:id/publish', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.publish.bind(weeklyReviewsController));
 // Any authenticated team member can mark a published review as read.
 router.post('/:id/acknowledge', requireAuth, requireTenant, weeklyReviewsController.acknowledge.bind(weeklyReviewsController));
 router.get('/:id/acknowledgements', requireAuth, requireTenant, weeklyReviewsController.getAcknowledgements.bind(weeklyReviewsController));
@@ -21,16 +21,16 @@ router.get('/:id/acknowledgements', requireAuth, requireTenant, weeklyReviewsCon
 router.get('/:id/read-status', requireAuth, requireTenant, weeklyReviewsController.getReadStatus.bind(weeklyReviewsController));
 router.post('/:id/remind', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.remind.bind(weeklyReviewsController));
 router.get('/:id/pdf', requireAuth, requireTenant, weeklyReviewsController.downloadPdf.bind(weeklyReviewsController));
-router.get('/preview', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
+router.get('/preview', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.prepareReview.bind(weeklyReviewsController));
 // AI-drafted narrative (grounded in the week's data) — manager edits & signs off.
-router.post('/ai-draft', requireAuth, requireTenant, requireRole('DIRECTOR', 'REGISTERED_MANAGER', 'RESPONSIBLE_INDIVIDUAL'), weeklyReviewsController.aiDraft.bind(weeklyReviewsController));
+router.post('/ai-draft', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.aiDraft.bind(weeklyReviewsController));
 // Published reviews the caller may READ (their houses) — view by date & house.
 router.get('/for-me', requireAuth, requireTenant, weeklyReviewsController.publishedForMe.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).
 router.get('/service-rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.serviceRollup.bind(weeklyReviewsController));
 // Finding O: provider-level roll-up + Director/RI sign-off (defined before '/:id').
 router.get('/rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.providerRollup.bind(weeklyReviewsController));
-router.post('/rollup/sign', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.signProviderRollup.bind(weeklyReviewsController));
+router.post('/rollup/sign', requireAuth, requireTenant, requireRole('RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.signProviderRollup.bind(weeklyReviewsController));
 router.get('/house/:houseId', requireAuth, requireTenant, weeklyReviewsController.findByHouse);
 router.get('/:id', requireAuth, requireTenant, weeklyReviewsController.findById);
 

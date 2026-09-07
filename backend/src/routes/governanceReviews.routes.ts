@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { governanceReviewsController } from '../controllers/governanceReviews.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
-import { requireMinRole } from '../middleware/role.middleware';
+import { requireRole } from '../middleware/role.middleware';
 
 const router = Router();
 
@@ -35,7 +35,7 @@ router.get('/queue', requireAuth, requireTenant, governanceReviewsController.get
  *       201: { description: Created }
  */
 router.get('/', requireAuth, requireTenant, governanceReviewsController.list.bind(governanceReviewsController));
-router.post('/', requireAuth, requireTenant, requireMinRole('REGISTERED_MANAGER'), governanceReviewsController.create.bind(governanceReviewsController));
+router.post('/', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), governanceReviewsController.create.bind(governanceReviewsController));
 
 /**
  * @openapi

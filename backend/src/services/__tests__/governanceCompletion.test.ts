@@ -232,6 +232,7 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
     });
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: 'co', user_id: 'u', pulse_entry_id: 'p1',
+      severity: 'Moderate',
       what_is_happening: 'A new emerging pattern of concern.', decision: 'Create Pattern',
     });
     expect(out.pattern?.id).toBe('cl-new');
@@ -247,6 +248,7 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
     });
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: 'co', user_id: 'u', pulse_entry_id: 'p1', cluster_id: 'cl-1',
+      severity: 'Moderate',
       what_is_happening: 'Link this signal to the existing pattern.', decision: 'Link to Pattern',
     });
     expect(out.pattern?.id).toBe('cl-1');
@@ -270,6 +272,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
     });
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: CO, user_id: USER, house_id: HOUSE, pulse_entry_id: SIGNAL,
+      severity: 'High',
       what_is_happening: 'Act on this concern promptly.', decision: 'Create Action', owner_id: 'tl-1',
     });
     expect(out.task?.id).toBe('task-1');

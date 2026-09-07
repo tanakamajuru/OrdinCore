@@ -9,12 +9,12 @@ import { query } from '../config/database';
  * requires their attention instead of hunting through menus.
  */
 
-const RM_PLUS = ['SUPER_ADMIN', 'ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER'];
-const REVIEWERS = [...RM_PLUS, 'TEAM_LEADER'];
+const OPERATIONAL_MANAGERS = ['SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'];
+const ALL_SITE_ROLES = [...OPERATIONAL_MANAGERS, 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'];
 
 async function houseScope(company_id: string, user_id: string, role: string): Promise<string[]> {
   const r = String(role || '').toUpperCase().replace(/-/g, '_');
-  if (RM_PLUS.includes(r)) {
+  if (ALL_SITE_ROLES.includes(r)) {
     const res = await query(`SELECT id FROM houses WHERE company_id = $1 AND COALESCE(status,'') <> 'closed'`, [company_id]);
     return res.rows.map((x) => x.id);
   }
@@ -63,7 +63,7 @@ export const myWorkService = {
     //    different predicate here is what made My Work (all-time New) disagree with the
     //    pipeline count. Signals review is an RM+ workflow — Team Leaders work from their
     //    actions instead, so signals-awaiting-review is not surfaced on the TL My Work.
-    if (RM_PLUS.includes(r)) {
+    if (OPERATIONAL_MANAGERS.includes(r)) {
       const sig = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM governance_pulses
           WHERE company_id = $1 AND house_id = ANY($2::uuid[])
@@ -78,7 +78,7 @@ export const myWorkService = {
       // Route by role: the RM5 pipeline is RM/Director/RI-only and company-wide, so a Team
       // Leader is sent to their own house-scoped signals page instead (avoids the 403/"Failed
       // to load" they hit on /rm5).
-      const signalsLink = RM_PLUS.includes(r) ? '/rm5?stage=signals' : '/pulse-history';
+      const signalsLink = '/rm5?stage=signals';
       if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: signalsLink, primary_action: 'Review Signal' });
     }
 
@@ -94,7 +94,7 @@ export const myWorkService = {
     // 4. Effectiveness reviews due — completed controls not yet rated. This is an RM/Director/RI
     //    function (rating control effectiveness), and its destination (/rm5) is RM-only, so it
     //    is not shown to Team Leaders (who would otherwise hit a 403 on the link).
-    if (RM_PLUS.includes(r)) {
+    if (OPERATIONAL_MANAGERS.includes(r)) {
       // Same measure as the pipeline Effectiveness lens (rm5.service) so Home and the lens agree:
       // every completed action company-wide still awaiting an effectiveness verdict. Must use the
       // identical predicate — completed_at IS NOT NULL AND effectiveness_outcome IS NULL — not the
@@ -112,18 +112,51 @@ export const myWorkService = {
     }
 
     // 5. Weekly governance review — due if none published for my services this week.
-    if (REVIEWERS.includes(r)) {
+    if (OPERATIONAL_MANAGERS.includes(r)) {
       const wk = await safe(() => query(
-        `SELECT COUNT(*)::int AS n FROM weekly_reviews
-          WHERE company_id = $1 AND created_at >= date_trunc('week', NOW())`,
+        `SELECT COUNT(*)::int AS n FROM houses h
+          WHERE h.company_id = $1 AND COALESCE(h.status,'') <> 'closed'
+            AND NOT EXISTS (
+              SELECT 1 FROM weekly_reviews wr
+               WHERE wr.company_id = h.company_id AND wr.house_id = h.id
+                 AND wr.week_ending >= date_trunc('week', NOW())::date
+                 AND wr.status IN ('pending_validation','LOCKED','published')
+            )`,
         [company_id]
       ), { rows: [{ n: 0 }] } as any);
-      if ((wk.rows[0]?.n || 0) === 0) items.push({ key: 'weekly', label: RM_PLUS.includes(r) ? 'weekly review to publish this week' : 'weekly review to acknowledge', count: 1, tone: 'slate', link: '/weekly-review', primary_action: RM_PLUS.includes(r) ? 'Publish Weekly Review' : 'Confirm Reviewed' });
+      const n = wk.rows[0]?.n || 0;
+      if (n > 0) items.push({ key: 'weekly', label: 'service reviews to finalise', count: n, tone: 'slate', link: '/weekly-review', primary_action: 'Finalise Weekly Review' });
+    } else if (r === 'DIRECTOR') {
+      const wk = await safe(() => query(
+        `SELECT COUNT(*)::int AS n FROM weekly_reviews
+          WHERE company_id = $1 AND status = 'pending_validation' AND validation_status = 'Pending'`,
+        [company_id]
+      ), { rows: [{ n: 0 }] } as any);
+      const n = wk.rows[0]?.n || 0;
+      if (n > 0) items.push({ key: 'weekly_validation', label: 'weekly reviews to validate', count: n, tone: 'amber', link: '/weekly-review/validate', primary_action: 'Validate Review' });
+    } else if (r === 'RESPONSIBLE_INDIVIDUAL') {
+      const ready = await safe(() => query(
+        `SELECT COUNT(*)::int AS n FROM weekly_reviews wr
+         WHERE wr.company_id = $1 AND wr.week_ending = (SELECT MAX(week_ending) FROM weekly_reviews WHERE company_id = $1)
+           AND wr.validation_status = 'Approved'
+           AND NOT EXISTS (SELECT 1 FROM provider_review_signoffs prs WHERE prs.company_id=$1 AND prs.week_ending=wr.week_ending)`,
+        [company_id]
+      ), { rows: [{ n: 0 }] } as any);
+      if ((ready.rows[0]?.n || 0) > 0) items.push({ key: 'provider_signoff', label: 'provider position awaiting sign-off', count: 1, tone: 'amber', link: '/provider-signoff', primary_action: 'Record Assurance Decision' });
+    } else if (r === 'TEAM_LEADER') {
+      const unread = await safe(() => query(
+        `SELECT COUNT(*)::int AS n FROM weekly_reviews wr
+          WHERE wr.company_id=$1 AND wr.status='published' AND wr.house_id = ANY($3::uuid[])
+            AND NOT EXISTS (SELECT 1 FROM weekly_review_acknowledgements a WHERE a.review_id=wr.id AND a.user_id=$2)`,
+        [company_id, user_id, houses]
+      ), { rows: [{ n: 0 }] } as any);
+      const n = unread.rows[0]?.n || 0;
+      if (n > 0) items.push({ key: 'weekly_ack', label: 'published weekly reviews to read', count: n, tone: 'slate', link: '/weekly-review', primary_action: 'Read and Acknowledge' });
     }
 
     // 6. Post-escalation risk reviews (§4) — a closed escalation whose underlying risk still
     //    needs the RM's Keep Open / Add Controls / Re-escalate / Request Closure decision.
-    if (RM_PLUS.includes(r)) {
+    if (OPERATIONAL_MANAGERS.includes(r)) {
       // Count the RISKS awaiting review (distinct), not the escalations — the label and the
       // destination are about risks. Opens the Risk Register filtered to those awaiting review.
       const pcr = await safe(() => query(

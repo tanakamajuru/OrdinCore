@@ -243,7 +243,7 @@ router.get('/pulses/:id/answers', requireAuth, requireTenant, governanceControll
  *       200:
  *         description: Success
  */
-router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'TEAM_LEADER'), governanceController.updatePulseStatus.bind(governanceController));
+router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'), governanceController.updatePulseStatus.bind(governanceController));
 
 // Clusters & Candidates
 router.get('/clusters', requireAuth, requireTenant, requireScope, governanceController.getClusters.bind(governanceController));
@@ -254,8 +254,8 @@ router.get('/risk-candidates', requireAuth, requireTenant, requireScope, governa
 router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, governanceController.getActionEffectiveness.bind(governanceController));
 
 // Daily Governance Log
-router.post('/daily-log/open', requireAuth, requireTenant, requireScope, dailyGovernanceController.openLog.bind(dailyGovernanceController));
-router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, dailyGovernanceController.completeLog.bind(dailyGovernanceController));
+router.post('/daily-log/open', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), dailyGovernanceController.openLog.bind(dailyGovernanceController));
+router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), dailyGovernanceController.completeLog.bind(dailyGovernanceController));
 // Historical playback: the signed-off log for a service on a date (?house_id=&date=).
 router.get('/daily-log/by-date', requireAuth, requireTenant, dailyGovernanceController.getLogForDate.bind(dailyGovernanceController));
 // Team Brief (Chapter 2): the concise operational briefing published to Team Leaders.
@@ -275,7 +275,7 @@ router.get('/timeline', requireAuth, requireTenant, async (req, res) => {
     return res.status(400).json({ success: false, message: err?.message || 'Failed to build timeline', errors: [] });
   }
 });
-router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
+router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER'), dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
 
 // Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).
 // A Team Leader / Support Worker sees only their own house(s); RM and above see the whole company.

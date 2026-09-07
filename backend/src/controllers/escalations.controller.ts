@@ -7,7 +7,7 @@ export class EscalationsController {
       const company_id = req.user!.company_id!;
       const page = parseInt(req.query.page as string) || 1;
       const limit = parseInt(req.query.limit as string) || 50;
-      const filters = { status: req.query.status, risk_id: req.query.risk_id };
+      const filters = { status: req.query.status, risk_id: req.query.risk_id, house_id: req.query.house_id };
       const result = await escalationsService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.escalations, meta: { total: result.total, page, limit, pages: result.pages } });
     } catch (err: unknown) {
@@ -19,6 +19,13 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const escalation = await escalationsService.findById(req.params.id, company_id);
+      const role = String(req.user!.role || '').toUpperCase();
+      if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role)) {
+        const allowed = req.user!.assigned_house_ids || [];
+        if (!escalation.house_id || !allowed.includes(escalation.house_id)) {
+          return res.status(404).json({ success: false, message: 'Escalation not found', errors: [] });
+        }
+      }
       return res.json({ success: true, data: escalation, meta: {} });
     } catch (err: unknown) {
       return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Escalation not found', errors: [] });
@@ -53,6 +60,14 @@ export class EscalationsController {
   async acknowledge(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const role = String(req.user!.role || '').toUpperCase();
+      if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role)) {
+        const escalation = await escalationsService.findById(req.params.id, company_id);
+        const allowed = req.user!.assigned_house_ids || [];
+        if (!escalation.house_id || !allowed.includes(escalation.house_id)) {
+          return res.status(404).json({ success: false, message: 'Escalation not found', errors: [] });
+        }
+      }
       const result = await escalationsService.acknowledge(req.params.id, company_id, req.user!.user_id);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
@@ -128,7 +143,7 @@ export class EscalationsController {
   async transition(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const result = await escalationsService.transition(req.params.id, company_id, req.user!.user_id, req.body.lifecycle_status);
+      const result = await escalationsService.transition(req.params.id, company_id, req.user!.user_id, req.body.lifecycle_status, req.body.rationale);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to transition escalation', errors: [] });

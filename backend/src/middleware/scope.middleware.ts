@@ -38,14 +38,6 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
   const userHouseIds = req.user.assigned_house_ids || [];
   
   if (userHouseIds.length === 0) {
-    // If it's a GET request, we allow it to proceed but it will likely return empty results
-    // because of company_id isolation. This prevents the "Blue Circle" dashboard hang.
-    if (req.method === 'GET') {
-      console.warn(`User ${req.user.user_id} (${userRole}) has no house assignments but is performing a GET request.`);
-      next();
-      return;
-    }
-
     res.status(403).json({
       success: false,
       message: 'Access denied: No house assigned to this user profile. Please contact your company administrator.',
@@ -71,9 +63,9 @@ export const requireScope = (req: Request, res: Response, next: NextFunction): v
 
   // Force house_id filter for GET requests if not specified
   if (req.method === 'GET' && !req.query.house_id && !req.params.houseId) {
-    if (userHouseIds.length === 1) {
-      req.query.house_id = userHouseIds[0];
-    }
+    // Apply every assigned service. Leaving this empty when a TL had multiple
+    // assignments accidentally returned the whole company.
+    req.query.house_id = userHouseIds.join(',');
   }
   
   // Force house_id for POST/PUT if not specified

@@ -77,7 +77,7 @@ export class PulseService {
         // itself (source_pulse_id) with no risk yet. Pattern-based governance still runs in
         // parallel for everything else. Best-effort: a failure here never blocks recording.
         try {
-            if (String(pulse.severity) === 'Critical') {
+            if (String(pulse.severity) === 'Critical' || pulse.requires_immediate_action === true) {
                 const already = await query(
                     `SELECT 1 FROM escalations WHERE source_pulse_id = $1 LIMIT 1`, [pulse.id]
                 );
@@ -134,7 +134,7 @@ export class PulseService {
                 );
                 const esc = flagRes.rows[0]?.escalation;
                 const isHigh = sev === 'High';
-                const fires = esc === 'IMMEDIATE' || (esc === 'CONDITIONAL' && isHigh);
+                const fires = esc === 'IMMEDIATE' || (esc === 'CONDITIONAL' && isHigh) || pulse.requires_immediate_action === true;
                 if (fires) {
                     const already = await query(
                         `SELECT 1 FROM escalations WHERE source_pulse_id = $1 LIMIT 1`, [pulse.id]

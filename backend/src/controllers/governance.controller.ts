@@ -76,6 +76,13 @@ export class GovernanceController {
     try {
       const company_id = req.user!.company_id!;
       const pulse = await governanceService.findPulseById(req.params.id, company_id);
+      const role = String(req.user!.role || '').toUpperCase();
+      if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role)) {
+        const allowed = req.user!.assigned_house_ids || [];
+        if (!pulse.house_id || !allowed.includes(pulse.house_id)) {
+          return res.status(404).json({ success: false, message: 'Pulse not found', errors: [] });
+        }
+      }
       return res.json({ success: true, data: pulse, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Pulse not found';

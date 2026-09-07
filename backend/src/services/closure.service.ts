@@ -34,6 +34,22 @@ export class ClosureService {
     }
     this.assertClosable(input);
 
+    // Never trust UI checkboxes as proof. The canonical action rows are the gate.
+    const actionState = (await query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
+              COUNT(*) FILTER (WHERE completed_at IS NOT NULL
+                                AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
+         FROM risk_actions
+        WHERE company_id = $1
+          AND (escalation_id = $2 OR ($3::uuid IS NOT NULL AND risk_id = $3))`,
+      [companyId, escalationId, existing.rows[0].risk_id || null]
+    )).rows[0];
+    if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
+    if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
+    if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
+    if (!input.evidence || input.evidence.trim().length < 10) throw new Error('Closure blocked: record the evidence supporting closure.');
+
     await query(
       `INSERT INTO closure_reviews
         (company_id, escalation_id, reviewed_by, pattern_reduced, actions_completed,
@@ -45,12 +61,13 @@ export class ClosureService {
 
     const result = await query(
       `UPDATE escalations
-         SET lifecycle_status = 'Closed',
+       SET lifecycle_status = 'Closed',
              status = 'Closed',
              closed_at = NOW(),
              closed_by = $1,
              closure_reason = $2,
              closure_evidence = $3,
+             post_closure_risk_review_required = TRUE,
              updated_at = NOW()
        WHERE id = $4 AND company_id = $5
        RETURNING *`,
@@ -68,6 +85,19 @@ export class ClosureService {
       throw new Error('This risk is already closed.');
     }
     this.assertClosable(input);
+    const actionState = (await query(
+      `SELECT COUNT(*)::int AS total,
+              COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
+              COUNT(*) FILTER (WHERE completed_at IS NOT NULL
+                                AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
+         FROM risk_actions WHERE company_id = $1 AND risk_id = $2`,
+      [companyId, riskId]
+    )).rows[0];
+    if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
+    if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
+    if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
+    if (!input.pattern_reduced) throw new Error('Closure blocked: sustained reduction has not been evidenced.');
+    if (!input.evidence || input.evidence.trim().length < 10) throw new Error('Closure blocked: record the evidence supporting closure.');
 
     await query(
       `INSERT INTO closure_reviews

@@ -17,7 +17,9 @@ export interface PulseDto {
     risk_domain?: string[];
     description: string;
     immediate_action?: string;
-    severity: string;
+    severity?: string;
+    requires_immediate_action?: boolean;
+    client_submission_id?: string;
     has_happened_before?: string;
     pattern_concern?: string;
     escalation_required?: string;
@@ -59,6 +61,10 @@ async function resolveDefaultAssignee(house_id: string, created_by: string): Pro
 
 export const pulsesRepo = {
     async create(company_id: string, user_id: string, dto: PulseDto) {
+        if (dto.client_submission_id) {
+            const existing = await query('SELECT * FROM governance_pulses WHERE company_id = $1 AND client_submission_id = $2 LIMIT 1', [company_id, dto.client_submission_id]);
+            if (existing.rows[0]) return existing.rows[0];
+        }
         const id = uuidv4();
 
         // Normalise the simplified signal payload (spec module 1) into the
@@ -102,16 +108,16 @@ export const pulsesRepo = {
                 id, company_id, house_id, created_by, entry_date, entry_time, related_person,
                 signal_type, risk_domain, governance_domain, signal_label, description, immediate_action, severity,
                 has_happened_before, pattern_concern, escalation_required, evidence_url, review_status, medication_error_type,
-                assigned_to, assigned_at, assigned_by, allocation_is_auto, service_user_id
+                assigned_to, assigned_at, assigned_by, allocation_is_auto, service_user_id, requires_immediate_action, client_submission_id
             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, 'New', $19,
-                $20, ${'CASE WHEN $20::uuid IS NULL THEN NULL ELSE NOW() END'}, $21, TRUE, $22)
+                $20, ${'CASE WHEN $20::uuid IS NULL THEN NULL ELSE NOW() END'}, $21, TRUE, $22, $23, $24)
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
-                signalType, riskDomain, governanceDomain, dto.signal_label || null, dto.description, dto.immediate_action || null, dto.severity,
+                signalType, riskDomain, governanceDomain, dto.signal_label || null, dto.description, dto.immediate_action || null, dto.severity || 'Unrated',
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null,
-                assignedTo, assignedTo ? user_id : null, serviceUserId
+                assignedTo, assignedTo ? user_id : null, serviceUserId, !!dto.requires_immediate_action, dto.client_submission_id || null
             ]
         );
         return result.rows[0];

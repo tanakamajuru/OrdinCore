@@ -90,6 +90,13 @@ export class EscalationsService {
     if (filters.status) { conditions.push(`(e.lifecycle_status::text = $${idx} OR e.status = $${idx})`); params.push(filters.status); idx++; }
     // Finding E: narrow to a single risk server-side (governance-review modal).
     if (filters.risk_id) { conditions.push(`e.risk_id = $${idx}`); params.push(filters.risk_id); idx++; }
+    if (filters.house_id) {
+      const houseIds = Array.isArray(filters.house_id) ? filters.house_id : String(filters.house_id).split(',').filter(Boolean);
+      conditions.push(`COALESCE(e.house_id,
+        (SELECT rr.house_id FROM risks rr WHERE rr.id = e.risk_id),
+        (SELECT ii.house_id FROM incidents ii WHERE ii.id = e.incident_id)) = ANY($${idx}::uuid[])`);
+      params.push(houseIds); idx++;
+    }
     const where = conditions.join(' AND ');
 
     const [esc, countResult] = await Promise.all([
@@ -154,6 +161,11 @@ export class EscalationsService {
       `SELECT e.*,
         u1.first_name || ' ' || u1.last_name AS escalated_by_name,
         u2.first_name || ' ' || u2.last_name AS escalated_to_name,
+        r.title AS risk_title,
+        i.title AS incident_title,
+        h.name AS house_name,
+        h.name AS service_name,
+        COALESCE(e.house_id, r.house_id, i.house_id) AS resolved_house_id,
         p.description AS observation,
         p.immediate_action AS signal_immediate_action,
         p.severity AS signal_severity,
@@ -165,6 +177,9 @@ export class EscalationsService {
        FROM escalations e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
+       LEFT JOIN risks r ON r.id = e.risk_id
+       LEFT JOIN incidents i ON i.id = e.incident_id
+       LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
        LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
        LEFT JOIN users pu ON pu.id = p.created_by
        WHERE e.id = $1 AND e.company_id = $2`,
@@ -188,7 +203,7 @@ export class EscalationsService {
       const cb = await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [result.rows[0].closed_by]);
       closed_by_name = cb.rows[0]?.name || null;
     }
-    return { ...result.rows[0], closed_by_name, actions: actions.rows };
+    return { ...result.rows[0], house_id: result.rows[0].resolved_house_id || result.rows[0].house_id, closed_by_name, actions: actions.rows };
   }
 
   async resolve(id: string, company_id: string, user_id: string, resolution_notes: string) {
@@ -356,12 +371,13 @@ export class EscalationsService {
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
     const actions = await query(
-      `SELECT ea.*, u.first_name || ' ' || u.last_name AS taken_by_name
-       FROM escalation_actions ea
-       JOIN users u ON u.id = ea.taken_by
-       WHERE ea.escalation_id = $1 AND ea.company_id = $2
-       ORDER BY ea.created_at DESC`,
-      [id, company_id]
+      `SELECT a.*, u.first_name || ' ' || u.last_name AS assigned_to_name
+         FROM risk_actions a
+         LEFT JOIN users u ON u.id = a.assigned_to
+        WHERE a.company_id = $2
+          AND (a.escalation_id = $1 OR ($3::uuid IS NOT NULL AND a.risk_id = $3))
+        ORDER BY a.created_at DESC`,
+      [id, company_id, escalation.rows[0].risk_id || null]
     );
     return actions.rows;
   }
@@ -416,7 +432,7 @@ export class EscalationsService {
    * Move an escalation through its time-bound lifecycle, enforcing valid transitions.
    * Closure is handled separately by ClosureService (requires an evidenced closure review).
    */
-  async transition(id: string, company_id: string, user_id: string, nextStatus: EscalationLifecycleStatus) {
+  async transition(id: string, company_id: string, user_id: string, nextStatus: EscalationLifecycleStatus, rationale?: string) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
@@ -446,7 +462,7 @@ export class EscalationsService {
     await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
        VALUES ($1,$2,$3,'lifecycle_transition',$4,$5)`,
-      [uuidv4(), id, company_id, `Lifecycle moved to ${nextStatus}`, user_id]
+      [uuidv4(), id, company_id, `Lifecycle moved to ${nextStatus}${rationale?.trim() ? `: ${rationale.trim()}` : ''}`, user_id]
     );
 
     return result.rows[0];
@@ -556,10 +572,10 @@ export class EscalationsService {
     const actionId = uuidv4();
     const r = await query(
       `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by,
-         status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
+         status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome, escalation_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13,$14) RETURNING *`,
       [actionId, e.risk_id || null, company_id, e.house_id || null, title, title, body.assigned_to, body.due_date || null, user_id,
-       e.source_governance_review_id || null, e.source_pulse_id || null, e.source_cluster_id || null, body.intended_outcome || null]
+       e.source_governance_review_id || null, e.source_pulse_id || null, e.source_cluster_id || null, body.intended_outcome || null, id]
     );
     try {
       const { notificationsService } = await import('./notifications.service');

@@ -34,6 +34,7 @@ export type DecisionInput = {
   intended_outcome?: string | null;
   action_description?: string | null;
   idempotency_key?: string | null;
+  severity?: 'Low' | 'Moderate' | 'High' | 'Critical';
 };
 
 export const governanceDecisionsService = {
@@ -48,6 +49,7 @@ export const governanceDecisionsService = {
     }
     const c = input.company_id, u = input.user_id;
     const decision = input.decision;
+    if (input.pulse_entry_id && !input.severity) throw new Error('Registered Manager severity is required when triaging a signal.');
 
     const review = await client.query(
       `INSERT INTO governance_reviews (
@@ -176,6 +178,9 @@ export const governanceDecisionsService = {
           WHERE id = $3 AND company_id = $4`,
         [u, decision, input.pulse_entry_id, c]
       );
+    }
+    if (input.pulse_entry_id && input.severity) {
+      await client.query(`UPDATE governance_pulses SET severity = $1::severity_level, updated_at = NOW() WHERE id = $2 AND company_id = $3`, [input.severity, input.pulse_entry_id, c]);
     }
     if (decision === 'Monitor' && input.risk_id) {
       await client.query(`UPDATE risks SET last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [input.risk_id, c]);

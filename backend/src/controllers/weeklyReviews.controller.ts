@@ -37,6 +37,13 @@ export class WeeklyReviewsController {
     try {
       const company_id = req.user!.company_id!;
       const review = await weeklyReviewsService.findById(req.params.id, company_id);
+      const role = String(req.user!.role || '').toUpperCase();
+      if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role)) {
+        const allowed = req.user!.assigned_house_ids || [];
+        if (review?.status !== 'published' || !allowed.includes(review?.house_id)) {
+          return res.status(404).json({ success: false, message: 'Weekly review not found', errors: [] });
+        }
+      }
       return res.json({ success: true, data: review });
     } catch (err: unknown) {
       return res.status(404).json({ success: false, message: 'Weekly review not found' });

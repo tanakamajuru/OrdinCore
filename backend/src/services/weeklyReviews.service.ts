@@ -323,9 +323,10 @@ export class WeeklyReviewsService {
   async findByHouse(company_id: string, house_id: string, limit = 10) {
 // ...
     const result = await query(
-      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name
+      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name, h.name AS house_name
        FROM weekly_reviews wr
        JOIN users u ON u.id = wr.created_by
+       JOIN houses h ON h.id = wr.house_id
        WHERE wr.company_id = $1 AND wr.house_id = $2
        ORDER BY wr.week_ending DESC LIMIT $3`,
       [company_id, house_id, limit]
@@ -335,9 +336,10 @@ export class WeeklyReviewsService {
 
   async findById(id: string, company_id: string) {
     const result = await query(
-      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name
+      `SELECT wr.*, u.first_name || ' ' || u.last_name AS created_by_name, h.name AS house_name
        FROM weekly_reviews wr
        JOIN users u ON u.id = wr.created_by
+       JOIN houses h ON h.id = wr.house_id
        WHERE wr.id = $1 AND wr.company_id = $2`,
       [id, company_id]
     );
@@ -519,6 +521,14 @@ export class WeeklyReviewsService {
 
   // Current user marks a published review as read. Idempotent.
   async acknowledge(reviewId: string, company_id: string, user_id: string) {
+    const allowed = (await query(
+      `SELECT wr.id FROM weekly_reviews wr
+        WHERE wr.id=$1 AND wr.company_id=$2 AND wr.status='published'
+          AND (EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id=$3 AND uh.house_id=wr.house_id)
+               OR EXISTS (SELECT 1 FROM users u WHERE u.id=$3 AND u.can_view_all_houses=true))`,
+      [reviewId, company_id, user_id]
+    )).rows[0];
+    if (!allowed) throw new Error('Published weekly review not found or not authorised for your service.');
     await query(
       `INSERT INTO weekly_review_acknowledgements (company_id, review_id, user_id)
        VALUES ($1, $2, $3) ON CONFLICT (review_id, user_id) DO NOTHING`,
@@ -584,6 +594,7 @@ export class WeeklyReviewsService {
     const sitesData = sites.map((s: any) => ({
       house_id: s.house_id, house: s.house, review_id: s.review_id || null,
       status: s.status || 'not started', published: s.status === 'published',
+      validation_status: s.validation_status || 'Not submitted',
       position: s.position || null, rm_signed: !!s.rm_signed_by, rm_signed_by: s.rm_signed_by || null,
       finalised: FINALISED.includes(s.status),
     }));
@@ -608,12 +619,16 @@ export class WeeklyReviewsService {
     const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0] || {};
     const company = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0] || {};
     const position = dto.position || rollup.provider_position;
-    // Sign-off is no longer hard-blocked by outstanding sites — leadership may sign the
-    // provider position at their discretion. The statement stays honest: it records how many
-    // sites were finalised at the time of sign-off and names any that were not.
-    const coverage = rollup.outstanding.length > 0
-      ? `${rollup.sites_finalised} of ${rollup.sites_total} services finalised (outstanding: ${rollup.outstanding.join(', ')})`
-      : `all ${rollup.sites_total} services finalised`;
+    if (!rollup.sites_total) throw new Error('Provider sign-off blocked: no active services were found.');
+    if (rollup.outstanding.length > 0) {
+      throw new Error(`Provider sign-off blocked: weekly governance is outstanding for ${rollup.outstanding.join(', ')}.`);
+    }
+    const notValidated = rollup.sites.filter((s: any) => !['Approved'].includes(s.validation_status));
+    if (notValidated.length) {
+      throw new Error(`Provider sign-off blocked: Director validation is outstanding for ${notValidated.map((s: any) => s.house).join(', ')}.`);
+    }
+    if (rollup.signoff) throw new Error('The provider position for this week is already signed and immutable.');
+    const coverage = `all ${rollup.sites_total} services finalised and Director validated`;
     const statement = dto.statement ||
       `I, ${me.name} (${me.role}), have reviewed the weekly governance of ${company.name} for the week ending ` +
       `${week_ending} — ${coverage} — and acknowledge the provider-level position: ${position}.`;
@@ -621,11 +636,11 @@ export class WeeklyReviewsService {
       `INSERT INTO provider_review_signoffs
          (company_id, week_ending, position, acknowledged_by, acknowledged_by_name, acknowledged_at, statement)
        VALUES ($1, $2, $3, $4, $5, NOW(), $6)
-       ON CONFLICT (company_id, week_ending) DO UPDATE
-         SET position = $3, acknowledged_by = $4, acknowledged_by_name = $5, acknowledged_at = NOW(), statement = $6
+       ON CONFLICT (company_id, week_ending) DO NOTHING
        RETURNING *`,
       [company_id, week_ending, position, user_id, me.name, statement]
     );
+    if (!res.rows[0]) throw new Error('The provider position for this week is already signed and immutable.');
     return res.rows[0];
   }
 
@@ -639,8 +654,13 @@ export class WeeklyReviewsService {
       [company_id]
     );
     const weeks = weeksRes.rows.map((r: any) => r.week_ending);
-    const wk = weekEnding || weeks[0] || null;
-    if (!wk) return { week_ending: null, weeks: [], houses: [], summary: { services_reviewed: 0, services_total: 0, awaiting: [], total_signals: 0, positions: {} } };
+    // A missing weekly review is itself assurance evidence. Always choose the current
+    // week-ending when no review exists, then LEFT JOIN every active service below.
+    const now = new Date();
+    const day = now.getUTCDay();
+    const daysToFriday = (5 - day + 7) % 7;
+    const currentWeekEnding = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToFriday)).toISOString().slice(0, 10);
+    const wk = weekEnding || weeks[0] || currentWeekEnding;
 
     const rows = (await query(
       `SELECT wr.id, wr.house_id, wr.status, wr.validation_status, wr.content,
@@ -660,7 +680,7 @@ export class WeeklyReviewsService {
     )).rows;
     const reviewed = new Set(rows.map((r: any) => r.house_id));
 
-    const houses = rows.map((r: any) => {
+    const completedHouses = rows.map((r: any) => {
       const c = r.content || {};
       return {
         review_id: r.id,
@@ -680,7 +700,24 @@ export class WeeklyReviewsService {
       };
     });
 
-    const positions = houses.reduce((acc: Record<string, number>, h: any) => {
+    const missingHouses = allHouses.filter((h: any) => !reviewed.has(h.id)).map((h: any) => ({
+      review_id: null,
+      house_id: h.id,
+      house_name: h.name,
+      status: 'not_started',
+      validation_status: 'Not submitted',
+      created_by_name: null,
+      position: null,
+      interpretation: null,
+      narrative: null,
+      signals: 0,
+      repeats: 0,
+      risks: 0,
+      finalised: false,
+      published: false,
+    }));
+    const houses = [...completedHouses, ...missingHouses].sort((a: any, b: any) => a.house_name.localeCompare(b.house_name));
+    const positions = completedHouses.reduce((acc: Record<string, number>, h: any) => {
       const p = h.position || 'Not set';
       acc[p] = (acc[p] || 0) + 1; return acc;
     }, {});
@@ -690,10 +727,10 @@ export class WeeklyReviewsService {
       weeks,
       houses,
       summary: {
-        services_reviewed: houses.length,
+        services_reviewed: completedHouses.length,
         services_total: allHouses.length,
         awaiting: allHouses.filter((h: any) => !reviewed.has(h.id)).map((h: any) => ({ house_id: h.id, house_name: h.name })),
-        total_signals: houses.reduce((s: number, h: any) => s + (Number(h.signals) || 0), 0),
+        total_signals: completedHouses.reduce((s: number, h: any) => s + (Number(h.signals) || 0), 0),
         positions,
       },
     };
