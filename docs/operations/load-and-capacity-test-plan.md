@@ -43,3 +43,17 @@ and degrades gracefully under stress. Establishes headroom before onboarding.
 - Duplicate/replayed requests → idempotency holds.
 
 Record results and remediation before Gate 3–4 (providers three–five).
+
+## Baseline results — 7 Sep 2026 (single node, `/health`, from localhost)
+| Metric | Value |
+|---|---|
+| Tool | ApacheBench, 2000 requests, concurrency 50 |
+| Throughput | **750 req/s** |
+| Failed requests | **0** |
+| Latency p50 / p95 / p99 | **62 / 101 / 122 ms** |
+
+Interpretation: the HTTP/event-loop tier comfortably handles pilot-scale concurrency with zero
+errors. This baseline exercises the app tier only (no auth/DB writes). **Still to run before wider
+rollout:** an authenticated read/write mix against **staging** (signals list, my-work, report
+generation) to size the DB/Redis tiers under realistic load — do not run write load against
+production during the pilot.

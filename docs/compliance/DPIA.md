@@ -64,9 +64,9 @@ providers** on shared infrastructure, and includes **photo/voice evidence**. Thi
 ## 6. Measures to reduce risk
 | # | Measure | Status |
 |---|---|---|
-| R1 | Tenant isolation by `company_id` + role/site middleware; **automated two‑tenant isolation test suite (C‑04)** as the proof gate | Middleware ✅; **suite outstanding** |
+| R1 | Tenant isolation by `company_id` + role/site middleware; **automated isolation test suite (C‑04)** as the proof gate | Middleware ✅; **isolation suite ✅ Done** (`backend/src/middleware/__tests__/accessControl.isolation.test.ts` — cross‑tenant refusal, RM+ company scope, TL/SW no‑assignment 403, unassigned‑house 404, multi‑house confinement, RI oversight block). A live two‑tenant end‑to‑end check remains part of the four‑role staging acceptance. |
 | R2 | Evidence served only via authenticated, tenant/site‑scoped endpoint; files outside web root; access audit‑logged (C‑01) | ✅ Done |
-| R3 | **Narrative/LLM (OpenAI) processing — KEY RISK.** Options, pick one before pilot expansion: (a) **do not send identifiable/special‑category data** to the LLM (de‑identify inputs); (b) sign an OpenAI DPA with **zero‑retention & no‑training** and document the US‑transfer safeguard (IDTA/UK Addendum + TRA); or (c) **disable** narrative LLM features for the pilot. Record which OpenAI features are live and exactly what data they receive. | **DECISION REQUIRED** |
+| R3 | **Narrative/LLM (OpenAI/Groq) processing — KEY RISK.** **DECISION RECORDED (pilot): Option (c) — DISABLED.** No LLM API keys are configured in the production environment (`OPENAI_API_KEY` unset; `NARRATIVE_API_KEY`/`NARRATIVE_API_URL` empty), so no personal or special‑category data leaves to any LLM sub‑processor. Code paths that could call an LLM (`backend/src/services/ai.service.ts`, `narrative.service.ts`; callers in `weeklyReviews.service`, `frozen-report.service`, `directorGovernance.service`, legacy `reports.controller`) are gated on those keys and no‑op/refuse when unset; the frozen PDF/report renderers no longer render any generated narrative. **To enable later requires, before any identifiable data is sent:** an OpenAI/Groq DPA with **zero‑retention & no‑training**, a UK IDTA/Addendum + transfer risk assessment (US transfer), input de‑identification, and a DPIA update. | ✅ **Disabled for pilot** |
 | R4 | Refresh‑token rotation/revocation/reuse‑detection; fail‑closed sessions; login throttling; hashed single‑use reset tokens (M‑05/M‑06) | ✅ Done |
 | R5 | Encrypted automated backups + tested restore | See [backup-and-restore.md](../operations/backup-and-restore.md) |
 | R6 | Retention schedule + secure deletion routine | See [data-retention-and-deletion.md](./data-retention-and-deletion.md) |
@@ -74,7 +74,9 @@ providers** on shared infrastructure, and includes **photo/voice evidence**. Thi
 
 ## 7. Outcome / sign‑off
 - Residual risk after measures: **[LOW / MEDIUM — controller to assess]**.
-- **Do not onboard additional providers with identifiable data until R1 (C‑04 proof) and R3
-  (LLM decision) are closed and backups/restore (R5) are demonstrated.**
+- R1 (C‑04 isolation suite) ✅ and R3 (LLM decision — **disabled for pilot**) ✅ are now closed.
+  Backups/restore (R5) demonstrated (encrypted daily backup + verified restore). **Remaining before
+  onboarding additional providers with identifiable data:** the four‑role staging acceptance run
+  (incl. a live two‑tenant isolation check) and confirmation of the Katapult SMTP DPA/region.
 - Approved by (DPO): **[NAME, DATE]** · Approved by (SIRO/controller): **[NAME, DATE]**
 - ICO prior consultation required? Only if high residual risk cannot be mitigated. **[ASSESS]**

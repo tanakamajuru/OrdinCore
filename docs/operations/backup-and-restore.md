@@ -5,8 +5,9 @@ Status: **implemented and restore‑tested on 2026‑09‑04.**
 ## What is backed up
 - **PostgreSQL database `ordincore`** — full logical dump (`pg_dump`), the source of truth for all
   governance data.
-- **Not yet automated:** evidence media in `backend/storage/uploads` — **[ACTION: add media to the
-  backup set]** (see below).
+- **Evidence media** in `backend/storage/uploads` (C‑01 evidence store) — now backed up as an
+  encrypted tarball `ordincore-uploads-YYYYmmdd-HHMMSS.tar.gz.enc` alongside the DB dump, same
+  key and 30‑day retention (added 2026‑09‑07).
 
 ## Mechanism (on the VPS, Krystal/UK)
 - Script: `/usr/local/bin/ordincore-backup.sh` (root, `chmod 700`).
@@ -34,7 +35,8 @@ app (`backend/.env` `DB_NAME`) and restart (`pm2 restart ordincore-api`).
 ## Outstanding actions (hosting owner)
 1. **Off‑server copy:** replicate encrypted backups + the key to a **separate UK location**
    (another host/region or object storage). On‑box backups alone don't survive a host loss.
-2. **Add evidence media** (`backend/storage/uploads`) to the backup set.
+2. **Evidence media** — ✅ done (encrypted `ordincore-uploads-*.tar.gz.enc`). Restore: `openssl enc -d
+   -aes-256-cbc -pbkdf2 -pass file:/etc/ordincore/backup.key -in <file> | tar -C /var/www/ordincore/backend/storage -xzf -`.
 3. **Recovery objectives:** define and record **RPO** (≤ 24 h with daily backups) and **RTO** (target
    **[e.g. 2 h]**); rehearse a full restore **[quarterly]** and log it.
 4. **Pre‑release backups:** always run `ordincore-backup.sh` before a deploy/migration.
