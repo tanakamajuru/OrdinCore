@@ -108,7 +108,10 @@ export function GovernanceDecisions({
     if (!houseId) { setSignals([]); return; }
     try {
       const [sRes, allDecisionsRes] = await Promise.all([
-        apiClient.get(`/pulses?house_id=${houseId}&limit=100`),
+        // Pull the whole signal history for the house (not just the newest page): the RM must be
+        // able to see and clear EVERY undecided ('New') signal, or the daily sign-off gate — which
+        // counts every unreviewed signal for the house, any date — can never clear.
+        apiClient.get(`/pulses?house_id=${houseId}&limit=500`),
         apiClient.get(`/governance-decisions?house_id=${houseId}`),
       ]);
       const raw = sRes.data?.data || sRes.data || [];

@@ -72,7 +72,14 @@ export class PulseController {
     async getPulses(req: Request, res: Response) {
         try {
             const company_id = requireCompany(req);
-            const filters: any = { ...req.query };
+            // page/limit are pagination controls, not signal filters — pull them out and honour
+            // them (previously the caller's `limit` was ignored, so getPulses always returned the
+            // newest 50; a house with >50 signals silently hid its oldest, undecided backlog and
+            // the daily sign-off gate — which counts EVERY unreviewed signal — could never clear).
+            const { page: pageRaw, limit: limitRaw, ...filterQuery } = req.query as any;
+            const filters: any = { ...filterQuery };
+            const page = Math.max(1, parseInt(String(pageRaw ?? '1'), 10) || 1);
+            const limit = Math.min(500, Math.max(1, parseInt(String(limitRaw ?? '50'), 10) || 50));
             if (typeof filters.review_status === 'string' && filters.review_status.includes(',')) {
                 filters.review_status = filters.review_status.split(',');
             }
@@ -86,7 +93,7 @@ export class PulseController {
                 const houseIds = req.user!.assigned_house_ids || [];
                 filters.house_id = houseIds.length > 0 ? houseIds : ['00000000-0000-0000-0000-000000000000'];
             }
-            const pulses = await pulseService.getPulses(company_id, filters);
+            const pulses = await pulseService.getPulses(company_id, filters, page, limit);
             res.json({ success: true, data: pulses });
         } catch (err: any) {
             res.status(err.statusCode ?? 500).json({ success: false, message: err.message });
