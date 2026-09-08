@@ -47,9 +47,10 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
   // Draggable launcher — the button can be repositioned anywhere so it never covers something the
   // user needs to click. Position is remembered per browser; a plain click (no drag) still opens it.
   const [pos, setPos] = useState<{ x: number; y: number }>(() => {
-    try { const s = localStorage.getItem('screenAssistBtnPos'); if (s) return JSON.parse(s); } catch { /* default below */ }
     const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
     const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    const clamp = (p: { x: number; y: number }) => ({ x: Math.max(8, Math.min(w - 170, p.x)), y: Math.max(8, Math.min(h - 56, p.y)) });
+    try { const s = localStorage.getItem('screenAssistBtnPos'); if (s) return clamp(JSON.parse(s)); } catch { /* default below */ }
     return { x: Math.max(8, w - 190), y: h - 76 };
   });
   const posRef = useRef(pos); posRef.current = pos;
@@ -87,7 +88,7 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
 
   return <>
     <button type="button" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
-      style={{ left: pos.x, top: pos.y, touchAction: 'none' }}
+      style={{ left: pos.x, top: pos.y, touchAction: 'none', margin: 0, width: 'auto' }}
       className="fixed z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg cursor-grab active:cursor-grabbing select-none"
       title="Drag to move · click to open" aria-label="Open Screen Assist (drag to reposition)">
       <BookOpenCheck className="w-5 h-5" /> Screen Assist
