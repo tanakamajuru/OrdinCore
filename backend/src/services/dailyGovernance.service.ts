@@ -240,8 +240,17 @@ export class DailyGovernanceService {
 
   // The Team Leader's dedicated "Daily Governance" inbox: recent published briefs for
   // their services (Team Brief only — the leadership narrative stays private to leadership).
-  async recentTeamBriefs(company_id: string, house_ids: string[], user_id: string) {
+  async recentTeamBriefs(company_id: string, house_ids: string[], user_id: string, from?: string, to?: string) {
     if (!house_ids.length) return [];
+    // Date scope: with no explicit range the inbox shows a rolling recent window (14 days); when
+    // the Team Leader picks a From/To range it becomes a true by-date archive with no 14-day cap,
+    // so any historical signed-off brief can be retrieved.
+    const dateClause = (from || to)
+      ? `${from ? `AND dgl.review_date >= $4::date` : ''} ${to ? `AND dgl.review_date <= $${from ? 5 : 4}::date` : ''}`
+      : `AND dgl.review_date >= CURRENT_DATE - INTERVAL '14 days'`;
+    const dateParams: string[] = [];
+    if (from) dateParams.push(from);
+    if (to) dateParams.push(to);
     // Read-only presentation enrichment for the Team Leader Daily Brief view. Additive only —
     // no lifecycle change and no new table. Each brief carries: the governance decisions recorded
     // in that review (priorities), and the service's currently-active actions/escalations
@@ -288,10 +297,10 @@ export class DailyGovernanceService {
         WHERE dgl.house_id = ANY($1::uuid[])
           AND h.company_id = $2
           AND dgl.completed = true
-          AND dgl.review_date >= CURRENT_DATE - INTERVAL '14 days'
+          ${dateClause}
         ORDER BY dgl.published_at DESC NULLS LAST, dgl.review_date DESC
-        LIMIT 30`,
-      [house_ids, company_id, user_id]
+        LIMIT 200`,
+      [house_ids, company_id, user_id, ...dateParams]
     );
     return res.rows;
   }

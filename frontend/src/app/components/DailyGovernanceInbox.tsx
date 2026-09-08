@@ -18,13 +18,22 @@ export function DailyGovernanceInbox() {
   const PAGE_SIZE = 10;
 
   const load = async () => {
+    setLoading(true);
     try {
-      const res = await apiClient.get("/governance/daily-log/team-briefs");
+      // When a date range is chosen the server returns a true by-date archive (no 14-day cap);
+      // with no range it returns the recent rolling window and the client narrows to 24h below.
+      const qs = new URLSearchParams();
+      if (fromDate) qs.set("from", fromDate);
+      if (toDate) qs.set("to", toDate);
+      const suffix = qs.toString() ? `?${qs.toString()}` : "";
+      const res = await apiClient.get(`/governance/daily-log/team-briefs${suffix}`);
       setBriefs(res.data?.data ?? res.data ?? []);
     } catch { setBriefs([]); }
     finally { setLoading(false); }
   };
-  useEffect(() => { load(); }, []);
+  // Reload from the server whenever the chosen range changes, so earlier briefs are fetched
+  // (not just filtered out of an already-loaded window).
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [fromDate, toDate]);
 
   // The brief component drives its own submit/confirmed/error UI: resolve on success (updating the
   // acknowledged state so it re-renders confirmed), and let it surface any failure.
@@ -41,14 +50,11 @@ export function DailyGovernanceInbox() {
   const filtered = [...briefs]
     .sort((a, b) => briefTime(b) - briefTime(a)) // newest first
     .filter((b) => {
-      const t = briefTime(b);
-      if (usingRange) {
-        if (fromDate && t < new Date(fromDate + "T00:00:00").getTime()) return false;
-        if (toDate && t > new Date(toDate + "T23:59:59").getTime()) return false;
-        return true;
-      }
+      // With a range chosen the server already scoped by review_date — trust it (a brief's
+      // published_at can differ from its review_date, so re-filtering here could wrongly drop it).
+      if (usingRange) return true;
       // Default: only the last 24 hours.
-      return Date.now() - t <= 24 * 60 * 60 * 1000;
+      return Date.now() - briefTime(b) <= 24 * 60 * 60 * 1000;
     });
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const safePage = Math.min(page, totalPages);

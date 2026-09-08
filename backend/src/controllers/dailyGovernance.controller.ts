@@ -73,7 +73,11 @@ export class DailyGovernanceController {
       const user_id = req.user!.user_id;
       const hres = await query(`SELECT house_id FROM user_houses WHERE user_id = $1`, [user_id]);
       const house_ids = hres.rows.map((r: any) => r.house_id);
-      const briefs = await dailyGovernanceService.recentTeamBriefs(company_id, house_ids, user_id);
+      // Optional date range turns the inbox into a by-date archive (see recentTeamBriefs).
+      const isDate = (v: any) => typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v);
+      const from = isDate(req.query.from) ? String(req.query.from) : undefined;
+      const to = isDate(req.query.to) ? String(req.query.to) : undefined;
+      const briefs = await dailyGovernanceService.recentTeamBriefs(company_id, house_ids, user_id, from, to);
       return res.json({ success: true, data: briefs, meta: {} });
     } catch (err: any) {
       logger.error('Error fetching team briefs', err);
