@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { BookOpenCheck, LockKeyhole, Send, X } from 'lucide-react';
 import { apiClient } from '@/services/api';
 
@@ -43,6 +43,35 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
   const screenKey = useMemo(() => SCREEN_BY_ROLE[role]?.find(([pattern]) => pattern.test(pathname))?.[1] || null, [pathname, role]);
   const [open, setOpen] = useState(false); const [question, setQuestion] = useState('');
   const [reply, setReply] = useState<Reply | null>(null); const [loading, setLoading] = useState(false);
+
+  // Draggable launcher — the button can be repositioned anywhere so it never covers something the
+  // user needs to click. Position is remembered per browser; a plain click (no drag) still opens it.
+  const [pos, setPos] = useState<{ x: number; y: number }>(() => {
+    try { const s = localStorage.getItem('screenAssistBtnPos'); if (s) return JSON.parse(s); } catch { /* default below */ }
+    const w = typeof window !== 'undefined' ? window.innerWidth : 1200;
+    const h = typeof window !== 'undefined' ? window.innerHeight : 800;
+    return { x: Math.max(8, w - 190), y: h - 76 };
+  });
+  const posRef = useRef(pos); posRef.current = pos;
+  const drag = useRef<{ sx: number; sy: number; ox: number; oy: number; moved: boolean } | null>(null);
+  const onDown = (e: any) => {
+    drag.current = { sx: e.clientX, sy: e.clientY, ox: posRef.current.x, oy: posRef.current.y, moved: false };
+    try { e.currentTarget.setPointerCapture(e.pointerId); } catch { /* ignore */ }
+  };
+  const onMove = (e: any) => {
+    if (!drag.current) return;
+    const dx = e.clientX - drag.current.sx, dy = e.clientY - drag.current.sy;
+    if (Math.abs(dx) > 4 || Math.abs(dy) > 4) drag.current.moved = true;
+    const nx = Math.max(8, Math.min(window.innerWidth - 170, drag.current.ox + dx));
+    const ny = Math.max(8, Math.min(window.innerHeight - 56, drag.current.oy + dy));
+    setPos({ x: nx, y: ny });
+  };
+  const onUp = () => {
+    const moved = drag.current?.moved; drag.current = null;
+    if (moved) { try { localStorage.setItem('screenAssistBtnPos', JSON.stringify(posRef.current)); } catch { /* ignore */ } }
+    else setOpen(true);
+  };
+
   if (!SCREEN_BY_ROLE[role] || !screenKey) return null;
 
   const ask = async (text: string) => {
@@ -57,7 +86,10 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
   };
 
   return <>
-    <button type="button" onClick={() => setOpen(true)} className="fixed bottom-5 right-5 z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg" aria-label="Open Screen Assist">
+    <button type="button" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
+      style={{ left: pos.x, top: pos.y, touchAction: 'none' }}
+      className="fixed z-40 flex items-center gap-2 rounded-full bg-primary text-primary-foreground px-4 py-3 shadow-lg cursor-grab active:cursor-grabbing select-none"
+      title="Drag to move · click to open" aria-label="Open Screen Assist (drag to reposition)">
       <BookOpenCheck className="w-5 h-5" /> Screen Assist
     </button>
     {open && <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />}
