@@ -235,19 +235,34 @@ export function DailyOversightBoard() {
       const logId = openRes.data?.id || openRes.data?.data?.id;
       // The Team Brief is the daily operational output; persisted to both columns for
       // backward-compatible storage/readers (no separate leadership narrative in the daily flow).
-      await apiClient.post(`/governance/daily-log/${logId}/complete`, {
+      const complete = (exceptionsAcknowledged: boolean) => apiClient.post(`/governance/daily-log/${logId}/complete`, {
         note: dailyNote,
         team_brief: dailyNote,
         leadership_narrative: dailyNote,
         material_change: materialChange,
         is_deputy_review: isDeputyCover,
+        exceptions_acknowledged: exceptionsAcknowledged,
       });
+      try {
+        await complete(false);
+      } catch (inner: any) {
+        // The gate blocks publishing while escalation/effectiveness exceptions are open UNLESS the
+        // RM explicitly carries them forward. Signals must be decided (that's a hard block); open
+        // escalations/effectiveness reviews can be acknowledged and carried forward with a
+        // deliberate confirmation — which is exactly what the doctrine requires.
+        const msg = String(inner?.response?.data?.message || inner?.message || "");
+        if (/carry forward|exception/i.test(msg) && !/signal\(s\) still require/i.test(msg) &&
+            window.confirm(`${msg}\n\nThese open escalation/effectiveness items will remain open and be carried forward to be actioned. Acknowledge this and publish the daily brief now?`)) {
+          await complete(true);
+        } else {
+          throw inner;
+        }
+      }
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
       toast.success("Team brief signed off");
     } catch (e: any) {
-      // Surface the real governance reason (e.g. "N signal(s) still require an RM decision" or an
-      // unreviewed escalation/effectiveness exception) instead of a mystifying "Sign-off failed",
-      // so the manager knows exactly what to clear before publishing.
+      // Surface the real governance reason (e.g. "N signal(s) still require an RM decision") instead
+      // of a mystifying "Sign-off failed", so the manager knows exactly what to clear.
       toast.error(e?.response?.data?.message || e?.message || "Sign-off failed");
     }
     finally { setIsSigningOff(false); }
