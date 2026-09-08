@@ -135,7 +135,7 @@ export function RoleBasedNavigation() {
         return [
           { path: "/my-work", label: "My Work", icon: CheckCircle2 },
           { path: "/dashboard", label: "Dashboard", icon: Home },
-          { path: "/daily-governance-inbox", label: "Daily Governance", icon: ShieldCheck },
+          { path: "/daily-governance-inbox", label: "Daily Governance", icon: ShieldCheck, badgeKey: "briefs" },
           { path: "/pulse-history", label: "My Signals", icon: Activity },
           { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
           { path: "/weekly-review", label: "Weekly Review", icon: FileText, badgeKey: "weekly" },
@@ -238,6 +238,29 @@ export function RoleBasedNavigation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRole]);
 
+  // Daily Governance badge — a Team Leader had no visible cue that the RM had signed off and
+  // published today's brief. Counts material briefs published to their house(s) that they have
+  // not yet acknowledged, so a freshly published brief flags the moment they log in.
+  const [unackBriefs, setUnackBriefs] = useState(0);
+  useEffect(() => {
+    if (!navItems.some((i) => i.badgeKey === "briefs")) return;
+    let active = true;
+    const fetchBriefs = async () => {
+      try {
+        const res = await apiClient.get<any[]>("/governance/daily-log/team-briefs");
+        const rows = (res as any)?.data?.data ?? (res as any)?.data ?? [];
+        const unseen = Array.isArray(rows)
+          ? rows.filter((b: any) => b?.material_change && b?.team_brief && !b?.acknowledged).length
+          : 0;
+        if (active) setUnackBriefs(unseen);
+      } catch { /* non-fatal */ }
+    };
+    fetchBriefs();
+    const interval = setInterval(fetchBriefs, 60000);
+    return () => { active = false; clearInterval(interval); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userRole]);
+
   const handleLogout = () => {
     if (window.confirm("Are you sure you want to logout? Any unsaved changes may be lost.")) {
       logout();
@@ -285,10 +308,10 @@ export function RoleBasedNavigation() {
         {/* Attention bell: amber (pulsing) when something needs attention — open escalations or
             actions due; green when all clear. */}
         {(() => {
-          const needsAttention = openEscalations > 0 || pendingActions > 0;
+          const needsAttention = openEscalations > 0 || pendingActions > 0 || unackBriefs > 0;
           return (
             <span
-              title={needsAttention ? `${openEscalations} open escalation(s), ${pendingActions} action(s) due — attention needed` : "All clear — nothing needs attention"}
+              title={needsAttention ? `${openEscalations} open escalation(s), ${pendingActions} action(s) due${unackBriefs > 0 ? `, ${unackBriefs} new daily brief(s)` : ""} — attention needed` : "All clear — nothing needs attention"}
               className={`ml-auto relative ${needsAttention ? "text-amber-400 animate-pulse" : "text-emerald-400"}`}>
               <Bell className="w-5 h-5" />
               {needsAttention && <span className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full bg-amber-400" />}
@@ -304,9 +327,9 @@ export function RoleBasedNavigation() {
         {navItems.map((item) => {
           const Icon = item.icon;
           const isActive = location.pathname === item.path;
-          const badgeCount = item.badgeKey === "open" ? openEscalations : item.badgeKey === "actions" ? pendingActions : item.badgeKey === "weekly" ? unviewedReviews : 0;
+          const badgeCount = item.badgeKey === "open" ? openEscalations : item.badgeKey === "actions" ? pendingActions : item.badgeKey === "weekly" ? unviewedReviews : item.badgeKey === "briefs" ? unackBriefs : 0;
           const showBadge = !!item.badgeKey && badgeCount > 0;
-          const badgeTone = item.badgeKey === "actions" || item.badgeKey === "weekly" ? "bg-amber-500" : "bg-red-500";
+          const badgeTone = item.badgeKey === "actions" || item.badgeKey === "weekly" || item.badgeKey === "briefs" ? "bg-amber-500" : "bg-red-500";
           const sectionHeader = item.section && item.section !== lastSection ? item.section : null;
           lastSection = item.section;
           return (
