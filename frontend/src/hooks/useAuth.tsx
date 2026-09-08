@@ -104,6 +104,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       localStorage.setItem('userName', `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email);
       localStorage.setItem('userEmail', userData.email);
       localStorage.setItem('userId', userData.id);
+      // 45-day password expiry: the server flags an expired password; mark it so the app routes the
+      // user to change it. Cleared when the password is successfully changed.
+      if ((response as any).data.passwordExpired) localStorage.setItem('passwordExpired', '1');
+      else localStorage.removeItem('passwordExpired');
     } else {
       throw new Error((response as any).message || 'Login failed');
     }

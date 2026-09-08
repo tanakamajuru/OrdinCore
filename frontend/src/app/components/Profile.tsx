@@ -37,7 +37,10 @@ export function Profile() {
   const [user, setUser] = useState<UserProfile | null>(null);
   const [houses, setHouses] = useState<HouseInfo[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  // Auto-open the change-password form when sent here by the 45-day expiry gate (?expired=1).
+  const [isChangingPassword, setIsChangingPassword] = useState(() => {
+    try { return new URLSearchParams(window.location.search).get('expired') === '1'; } catch { return false; }
+  });
   const [passwordForm, setPasswordForm] = useState({ current: '', newPass: '', confirm: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
@@ -125,6 +128,8 @@ export function Profile() {
         newPassword: passwordForm.newPass,
       });
       toast.success('Password changed successfully');
+      // Clears the 45-day expiry gate (the server also reset the change date).
+      localStorage.removeItem('passwordExpired');
       setPasswordForm({ current: '', newPass: '', confirm: '' });
       setIsChangingPassword(false);
     } catch (err: any) {

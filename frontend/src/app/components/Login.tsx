@@ -78,7 +78,14 @@ export function Login() {
 
     try {
       await login(email, password);
-      
+
+      // 45-day password expiry: if the server flagged the password as expired, send the user
+      // straight to their profile to set a new one before anything else.
+      if (localStorage.getItem('passwordExpired')) {
+        navigate('/profile?expired=1');
+        return;
+      }
+
       // Get role from localStorage since login() sets it there
       const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
       if (role === 'SUPER_ADMIN') {

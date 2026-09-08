@@ -61,6 +61,13 @@ export class AuthService {
       }
     }
 
+    // Password expiry: policy requires a change every 45 days. Computed from the last password
+    // change (falls back to account creation). The response flags it; the client then routes the
+    // user to a mandatory change-password screen. Login still succeeds so they can change it.
+    const PASSWORD_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
+    const pwChangedAt = new Date(user.password_changed_at || user.created_at || Date.now());
+    const passwordExpired = !isNaN(pwChangedAt.getTime()) && (Date.now() - pwChangedAt.getTime()) > PASSWORD_MAX_AGE_MS;
+
     // Update last login
     await usersRepo.update(user.id, { last_login: new Date() });
 
@@ -88,9 +95,10 @@ export class AuthService {
 
     const { password_hash, ...safeUser } = user;
     void password_hash;
-    return { 
-      token, 
-      refreshToken, 
+    return {
+      token,
+      refreshToken,
+      passwordExpired,
       user: {
         ...safeUser,
         profile: profile.rows[0] || null,
@@ -150,6 +158,7 @@ export class AuthService {
     this.validatePassword(newPassword);
     const hash = await bcrypt.hash(newPassword, 12);
     await usersRepo.update(userId, { password_hash: hash });
+    await query('UPDATE users SET password_changed_at = NOW() WHERE id = $1', [userId]);
     return { message: 'Password changed successfully' };
   }
 
@@ -249,6 +258,7 @@ export class AuthService {
 
     const hash = await bcrypt.hash(newPassword, 12);
     await usersRepo.update(row.user_id, { password_hash: hash } as any);
+    await query('UPDATE users SET password_changed_at = NOW() WHERE id = $1', [row.user_id]);
     await query('UPDATE password_reset_tokens SET used_at = NOW() WHERE id = $1', [row.id]);
     // M-05 — a password reset invalidates every existing session for that user.
     await this.revokeAllForUser(row.user_id);
