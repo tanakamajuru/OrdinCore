@@ -33,7 +33,7 @@
         "NSPhotoLibraryUsageDescription": "Attach a photo from your library as evidence when you raise a signal.",
         "NSMicrophoneUsageDescription": "Record a short voice note as evidence when you raise a signal."
       },
-      "buildNumber": "23"
+      "buildNumber": "25"
     },
     "android": {
       "package": "care.ordincore.mobile",
@@ -47,7 +47,7 @@
         "android.permission.RECORD_AUDIO",
         "android.permission.MODIFY_AUDIO_SETTINGS"
       ],
-      "versionCode": 16
+      "versionCode": 17
     },
     "plugins": [
       "expo-secure-store",
