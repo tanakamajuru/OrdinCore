@@ -260,7 +260,7 @@ export class DailyGovernanceService {
               dgl.published_at, dgl.review_date,
               NULLIF(TRIM(COALESCE(pu.first_name,'') || ' ' || COALESCE(pu.last_name,'')), '') AS prepared_by,
               (a.id IS NOT NULL) AS acknowledged,
-              a.created_at AS acknowledged_at,
+              a.acknowledged_at AS acknowledged_at,
               NULLIF(TRIM(COALESCE(acu.first_name,'') || ' ' || COALESCE(acu.last_name,'')), '') AS acknowledged_by,
               (SELECT COALESCE(json_agg(json_build_object(
                         'id', gr.id, 'decision', gr.decision, 'title', gr.what_is_happening,
