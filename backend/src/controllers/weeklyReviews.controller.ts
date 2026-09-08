@@ -258,6 +258,27 @@ export class WeeklyReviewsController {
       doc.text(`Signals captured: ${signalCount}`);
       doc.text(`Repeat patterns reaching review: ${Array.isArray(c.step5_repeats) ? c.step5_repeats.length : 0}`);
 
+      const team = rev.team_report || {};
+      section('Collective Daily Team Briefing');
+      doc.text(c.collective_daily_brief_summary || 'No collective Daily Team Briefing summary was recorded by the Registered Manager.');
+      doc.moveDown(0.3).font('Helvetica-Oblique').fillColor('#555')
+        .text(`${team.brief_days || 0} of 7 days contain a completed published Daily Team Brief.`)
+        .font('Helvetica').fillColor('#000');
+      if (Array.isArray(team.events) && team.events.length) {
+        team.events.forEach((event: any) => {
+          const date = event.date ? new Date(event.date).toLocaleDateString('en-GB') : 'Date not recorded';
+          doc.font('Helvetica-Bold').text(date, { continued: true }).font('Helvetica').text(`  ${event.summary || ''}`);
+        });
+      }
+
+      if (c.unresolved_concerns_text) { section('What remains a concern or is not rectified'); doc.text(c.unresolved_concerns_text); }
+      if (c.lessons_learnt) { section('What we are learning'); doc.text(c.lessons_learnt); }
+      if (c.anticipated_risks?.rm_note) { section('What to expect next week'); doc.text(c.anticipated_risks.rm_note); }
+      if (Array.isArray(team.evidence_gaps) && team.evidence_gaps.length) {
+        section('Information still required');
+        team.evidence_gaps.forEach((gap: string) => doc.text(`- ${gap}`));
+      }
+
       const risks = Array.isArray(c.step10_risk_analysis) ? c.step10_risk_analysis : [];
       if (risks.length) {
         section('Risks under oversight');

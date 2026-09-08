@@ -40,6 +40,7 @@ export interface WeeklyGovernanceTeamReportModel {
   mainDomainCount: number;
   weekEndTrajectory: Trajectory;
   overview: string;
+  collectiveDailyBriefSummary?: string | null;
   events: WeekEvent[];
   majorIssues: MajorIssue[];
   measures: GovernanceMeasure[];

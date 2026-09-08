@@ -250,6 +250,34 @@ export class WeeklyReviewsService {
       [company_id]
     );
 
+    const dailyBriefs = (await query(
+      `SELECT dgl.id, dgl.review_date AS date, dgl.team_brief AS summary, dgl.published_at,
+              COUNT(dba.user_id)::int AS acknowledgement_count
+         FROM daily_governance_log dgl
+         LEFT JOIN daily_brief_acknowledgements dba ON dba.log_id = dgl.id
+        WHERE dgl.company_id = $1 AND dgl.house_id = $2 AND dgl.completed = true
+          AND dgl.published_at IS NOT NULL
+          AND dgl.review_date BETWEEN $3::date AND $4::date
+          AND NULLIF(TRIM(dgl.team_brief), '') IS NOT NULL
+        GROUP BY dgl.id, dgl.review_date, dgl.team_brief, dgl.published_at
+        ORDER BY dgl.review_date`, [company_id, house_id, startStr, endStr])).rows;
+
+    const activeMeasures = (await query(
+      `SELECT ra.id, ra.title AS measure,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
+              ra.due_date, ra.effectiveness_due_at AS effectiveness_review_date,
+              ra.status::text AS status, ra.completion_evidence AS evidence_expected
+         FROM risk_actions ra
+         LEFT JOIN users u ON u.id=ra.assigned_to AND u.company_id=ra.company_id
+        WHERE ra.company_id=$1 AND ra.house_id=$2
+          AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')
+        ORDER BY ra.due_date NULLS LAST LIMIT 30`, [company_id, house_id])).rows;
+
+    const evidenceGaps: string[] = [];
+    if (dailyBriefs.length < 7) evidenceGaps.push(`${7 - dailyBriefs.length} day(s) have no completed published Daily Team Brief in the selected week.`);
+    if (signals.some((s: any) => ['High','Critical'].includes(String(s.severity))) && activeMeasures.length === 0) evidenceGaps.push('High/critical activity is recorded but no active measure is linked to this service.');
+    activeMeasures.filter((m: any) => !m.owner).slice(0, 3).forEach((m: any) => evidenceGaps.push(`No owner recorded for active measure: ${m.measure}.`));
+
     return {
       house_id,
       house_name: house.name,
@@ -257,6 +285,7 @@ export class WeeklyReviewsService {
       service_users: serviceUsersRes.rows,
       week_range: { start: startStr, end: endStr },
       anticipated: await this.buildAnticipatedRisks(company_id, house_id),
+      weekly_evidence: { daily_briefs: dailyBriefs, brief_days: dailyBriefs.length, active_measures: activeMeasures, evidence_gaps: evidenceGaps },
       auto_population: {
         pulse_count: signals.length,
         signals: signals,
@@ -405,6 +434,12 @@ export class WeeklyReviewsService {
       domain_groups: domainGroups,
       events,
       measures,
+      collective_daily_brief_summary: String(row.content?.collective_daily_brief_summary || '').trim() || null,
+      brief_days: events.length,
+      evidence_gaps: [
+        ...(events.length < 7 ? [`${7 - events.length} day(s) have no completed published Daily Team Brief in the selected week.`] : []),
+        ...((row.content?.unresolved_concerns_text || '').trim() ? [] : ['The RM has not recorded a separate unresolved-concerns summary.'])
+      ],
     };
   }
 
@@ -440,6 +475,12 @@ export class WeeklyReviewsService {
     if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
     // Finding L: Lessons Learnt + a week-ahead anticipated-risks decision are required.
     if (String(content.lessons_learnt || '').trim().length < 20) throw new Error('Lessons Learnt (at least 20 characters) is required before finalising.');
+    if (String(content.collective_daily_brief_summary || '').trim().length < 20) {
+      throw new Error('A collective Daily Team Briefing summary (at least 20 characters) is required before finalising.');
+    }
+    if (String(content.unresolved_concerns_text || '').trim().length < 10) {
+      throw new Error('Record what remains a concern/not rectified, or explicitly state that none remain, before finalising.');
+    }
     const ant = content.anticipated_risks || {};
     if (!(Array.isArray(ant.items) && ant.items.length) && String(ant.rm_note || '').trim().length < 10) {
       throw new Error('Record the week-ahead anticipated risks (or a note if none are anticipated) before finalising.');
@@ -469,7 +510,7 @@ export class WeeklyReviewsService {
     );
 
     const seniorUsers = await query(
-      "SELECT id FROM users WHERE company_id = $1 AND role IN ('DIRECTOR', 'ADMIN', 'SUPER_ADMIN')",
+      "SELECT id FROM users WHERE company_id = $1 AND role IN ('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN')",
       [company_id]
     );
 

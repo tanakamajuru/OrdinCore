@@ -76,6 +76,12 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
       </section>
 
       <section className="wgr-section">
+        <h2>Collective Daily Team Briefing</h2>
+        <p className="wgr-summary">{report.collectiveDailyBriefSummary || "No collective Daily Team Briefing summary was recorded by the Registered Manager."}</p>
+        <p className="wgr-empty">The dated source briefings remain below for reconstruction.</p>
+      </section>
+
+      <section className="wgr-section">
         <h2>How events unfolded</h2>
         {report.events.length ? (
           <ol className="wgr-timeline">

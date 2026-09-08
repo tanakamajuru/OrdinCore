@@ -6,6 +6,7 @@ import apiClient from "@/services/apiClient";
 import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History, Sparkles } from "lucide-react";
 import { WeeklyGovernanceTeamReport } from "./weeklyGovernanceTeamReport/WeeklyGovernanceTeamReport";
 import { mapWeeklyReviewToTeamReport } from "./weeklyGovernanceTeamReport/mapWeeklyReviewToTeamReport";
+import { RMWeeklyGovernanceWorkspace } from "./RMWeeklyGovernanceWorkspace";
 
 // 13-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
 // auto-populate from the week's data; the RM supplies overall position and
@@ -291,6 +292,13 @@ export function WeeklyReview() {
     finally { setIsSaving(false); }
   };
 
+  const saveWorkspaceDraft = async () => {
+    setIsSaving(true);
+    try { await persist(12); toast.success("Weekly governance draft saved"); }
+    catch (e: any) { toast.error(e?.response?.data?.message || "Failed to save draft"); }
+    finally { setIsSaving(false); }
+  };
+
   const loadAcks = async (rid: string) => {
     try {
       const res = await apiClient.get(`/weekly-reviews/${rid}/acknowledgements`);
@@ -557,6 +565,12 @@ export function WeeklyReview() {
           </div>
 
           <div className="flex flex-wrap gap-2 justify-end mt-5">
+            {(vStatus === "Approved" || statusU === "LOCKED" || isPublished) && (
+              <>
+                <button onClick={downloadPdf} className="px-4 py-2 rounded-lg border border-border text-sm flex items-center gap-1.5"><FileDown size={14} /> Download PDF</button>
+                {!isPublished && <button onClick={publishToTeam} disabled={isSaving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm flex items-center gap-1.5 disabled:opacity-50"><Send size={14} /> Publish to team</button>}
+              </>
+            )}
             <button onClick={() => doValidate("Reopened")} disabled={isSaving} className="px-4 py-2 rounded-lg border border-border text-sm">Reopen</button>
             <button onClick={() => doValidate("Challenged")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm disabled:opacity-50">Challenge</button>
             <button onClick={() => doValidate("Approved")} disabled={isSaving || vStatus === "Approved"} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">{vStatus === "Approved" ? "Approved" : "Approve"}</button>
@@ -564,6 +578,10 @@ export function WeeklyReview() {
         </div>
       </div>
     );
+  }
+
+  if (userRole === "REGISTERED_MANAGER") {
+    return <div className="min-h-screen bg-background"><RoleBasedNavigation/><main className="w-full pt-28 p-6 max-w-7xl mx-auto"><div className="mb-5"><h1 className="text-2xl font-semibold">Weekly Governance Review</h1><p className="text-sm text-muted-foreground">Review the week’s evidence, record management judgement and preview what will be published.</p></div><RMWeeklyGovernanceWorkspace houses={houses} houseId={houseId} weekEnding={weekEnding} preview={preview} form={form} locked={locked} saving={isSaving} aiDrafting={aiDrafting} status={status} onHouseChange={(v) => { setHouseId(v); setReviewId(null); setStatus("Draft"); }} onWeekChange={(v) => { setWeekEnding(v); setReviewId(null); setStatus("Draft"); }} onField={set} onSave={saveWorkspaceDraft} onAiDraft={generateAiDraft} onFinalise={finalise} onDownload={downloadPdf}/></main></div>;
   }
 
   const stepBody = () => {
