@@ -56,7 +56,7 @@ router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('RE
  *     summary: Rate a completed action's effectiveness (Effective / Partially Effective / Not Effective / Too Early)
  *     security: [{ BearerAuth: [] }]
  */
-router.patch('/:id/effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), (req, res) => {
+router.patch('/:id/effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), (req, res) => {
   req.params.actionId = req.params.id;
   return actionEffectivenessController.rateEffectiveness(req, res);
 });

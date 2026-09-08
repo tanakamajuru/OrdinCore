@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/api";
 import logo from "./images/logo.png";
+import { ControlledScreenAssist } from "./ControlledScreenAssist";
 
 type NavItem = { path: string; label: string; icon: any; section?: string; badgeKey?: string; action?: "help" | "support" };
 
@@ -370,6 +371,8 @@ export function RoleBasedNavigation() {
         </button>
       </div>
     </aside>
+    {/* Floating read-only Screen Assist doctrine helper (fail-closed until v1.2.0 is published). */}
+    <ControlledScreenAssist pathname={`${location.pathname}${location.search}`} role={userRole} />
     </>
   );
 }
