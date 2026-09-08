@@ -128,11 +128,15 @@ export function GovernanceDecisions({
         if (toDate && d > toDate) return false;
         return true;
       };
-      // Signals still awaiting a decision in the chosen house + date range.
+      // Signals still awaiting a decision. UNDECIDED ('New') signals are ALWAYS shown regardless of
+      // the date range — the daily sign-off gate blocks on every unreviewed signal for the house
+      // (any date), so the RM must be able to see and clear the whole backlog here, not just the
+      // selected day's. The date range still scopes Monitoring-review-due items and the historical
+      // "actioned" list below.
       const visible = all.filter((s: any) => {
-        if (!inRange(s)) return false;
         const status = String(s.review_status || "New");
         if (status === "New" || status === "") return true;
+        if (!inRange(s)) return false;
         // Monitoring returns only when the latest Monitor decision's review date is due/overdue.
         if (status === "Monitoring") {
           const latest = latestByPulse.get(s.id);

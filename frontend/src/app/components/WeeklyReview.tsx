@@ -59,6 +59,11 @@ export function WeeklyReview() {
   const [teamReview, setTeamReview] = useState<any>(null);
 
   const isTeamLeader = userRole === "TEAM_LEADER";
+  // Director / Responsible Individual VALIDATE reviews (approve / challenge / reopen) — they do not
+  // author them, so they must never hit the RM-only authoring preview (which 403s). They get a
+  // read-only view of the finalised review plus the validation actions. ADMIN/SUPER_ADMIN retain
+  // authoring access.
+  const isValidator = ["DIRECTOR", "RESPONSIBLE_INDIVIDUAL"].includes(userRole);
 
   const [tlReviews, setTlReviews] = useState<any[]>([]);
   // Published-reviews list: default to the last 24 hours, widen with a date range, paginate.
@@ -91,15 +96,15 @@ export function WeeklyReview() {
   const myId = user.id || user.user_id;
   const myAck = acks?.roster?.find((r: any) => r.id === myId);
 
-  useEffect(() => { if (!isTeamLeader) loadHouses(); else setIsLoading(false); }, [isTeamLeader]);
-  // Authoring loader (preview + wizard) is RM/DIR/RI only — never fire it for a Team Leader,
-  // whose /preview call is access-denied. They get a read-only view instead.
-  useEffect(() => { if (houseId && !isTeamLeader) loadReview(houseId); }, [houseId, id, weekEnding, isTeamLeader]);
+  useEffect(() => { if (!isTeamLeader && !isValidator) loadHouses(); else setIsLoading(false); }, [isTeamLeader, isValidator]);
+  // Authoring loader (preview + wizard) is RM/ADMIN/SUPER_ADMIN only — never fire it for a Team
+  // Leader OR a Director/RI, whose /preview call is access-denied. They get a read-only view.
+  useEffect(() => { if (houseId && !isTeamLeader && !isValidator) loadReview(houseId); }, [houseId, id, weekEnding, isTeamLeader, isValidator]);
 
-  // Team Leader opening a specific published review: load it READ-ONLY (no preview), so they
-  // can read it and acknowledge — never the authoring wizard.
+  // Team Leader (read+acknowledge) or Director/RI (read+validate) opening a specific review: load it
+  // READ-ONLY via findById (no preview) — never the authoring wizard.
   useEffect(() => {
-    if (!isTeamLeader || !id || id === "new") return;
+    if ((!isTeamLeader && !isValidator) || !id || id === "new") return;
     (async () => {
       try {
         setIsLoading(true);
@@ -112,7 +117,7 @@ export function WeeklyReview() {
       } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to load review"); }
       finally { setIsLoading(false); }
     })();
-  }, [isTeamLeader, id]);
+  }, [isTeamLeader, isValidator, id]);
 
   const loadHouses = async () => {
     try {
@@ -359,7 +364,12 @@ export function WeeklyReview() {
     try {
       await apiClient.post(`/weekly-reviews/${id || reviewId}/validate`, { validation_status: vStatus, validation_comment: comment });
       toast.success(`Review ${vStatus.toLowerCase()}`);
-      if (houseId) loadReview(houseId);
+      // Directors/RI reload the read-only record (findById); they must not hit the RM-only preview.
+      if (isValidator && (id || reviewId)) {
+        const rv = (await apiClient.get(`/weekly-reviews/${id || reviewId}`)).data?.data;
+        setTeamReview(rv); setForm(rv.content || {}); setStatus(rv.status || "Draft");
+        setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
+      } else if (houseId) { loadReview(houseId); }
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to validate"); }
     finally { setIsSaving(false); }
   };
@@ -486,6 +496,71 @@ export function WeeklyReview() {
           ) : (
             <div className={card}><p className="text-sm text-muted-foreground">Loading the weekly report…</p></div>
           )}
+        </div>
+      </div>
+    );
+  }
+
+  // Director / Responsible Individual: validate a finalised review — read-only, plus Approve /
+  // Challenge / Reopen. Never the authoring wizard, never the RM-only preview.
+  if (isValidator) {
+    const c = form || {};
+    const vStatus = validation?.validation_status;
+    if (!id || id === "new") {
+      return (
+        <div className="min-h-screen bg-background">
+          <RoleBasedNavigation />
+          <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
+            <div className="flex items-center gap-3 mb-5">
+              <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
+              <div>
+                <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
+                <p className="text-sm text-muted-foreground">You validate reviews the Registered Manager finalises — you don't author them.</p>
+              </div>
+            </div>
+            <div className={card}><p className="text-sm text-muted-foreground">When a Registered Manager finalises a weekly review, you'll be notified with a link to open it here for validation (Approve, Challenge or Reopen).</p></div>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <div className="min-h-screen bg-background">
+        <RoleBasedNavigation />
+        <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
+          <button onClick={() => navigate(-1)} className="text-sm text-primary hover:underline mb-4 inline-flex items-center gap-1"><ArrowLeft size={14} /> Back</button>
+          <div className="flex items-center gap-3 mb-5">
+            <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
+            <div>
+              <h1 className="text-2xl font-semibold text-foreground">Validate Weekly Review</h1>
+              <p className="text-sm text-muted-foreground">Leadership position: <b>{c.step14_overall_position || "—"}</b> · {status}</p>
+            </div>
+          </div>
+
+          {vStatus && (
+            <div className={`${card} mb-4 border-l-4 ${vStatus === "Approved" ? "border-emerald-500" : "border-amber-500"}`}>
+              <p className="text-sm font-medium">Validation: {vStatus}</p>
+              {validation?.validation_comment && <p className="text-sm text-muted-foreground mt-1">{validation.validation_comment}</p>}
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <div className={card}>
+              <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Governance narrative</h2>
+              <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.step15_narrative || "—"}</p>
+            </div>
+            {c.lessons_learnt && (
+              <div className={card}>
+                <h2 className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Lessons learnt</h2>
+                <p className="text-sm leading-7 whitespace-pre-line text-foreground">{c.lessons_learnt}</p>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2 justify-end mt-5">
+            <button onClick={() => doValidate("Reopened")} disabled={isSaving} className="px-4 py-2 rounded-lg border border-border text-sm">Reopen</button>
+            <button onClick={() => doValidate("Challenged")} disabled={isSaving} className="px-4 py-2 rounded-lg bg-amber-600 text-white text-sm disabled:opacity-50">Challenge</button>
+            <button onClick={() => doValidate("Approved")} disabled={isSaving || vStatus === "Approved"} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm disabled:opacity-50">{vStatus === "Approved" ? "Approved" : "Approve"}</button>
+          </div>
         </div>
       </div>
     );
