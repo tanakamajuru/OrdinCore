@@ -74,6 +74,10 @@ export function NotificationsProvider({ children }: { children: React.ReactNode 
 
   const unread = notifications.filter(isUnread).length;
 
+  // Mirror the unread count onto the app-icon badge (the red number on the launcher/home-screen
+  // icon). Clears to 0 when everything is read. Best-effort — badge support varies by device.
+  useEffect(() => { Notifications.setBadgeCountAsync(unread).catch(() => {}); }, [unread]);
+
   return (
     <NotificationsContext.Provider value={{ notifications, unread, loading, refresh, markRead, markAllRead }}>
       {children}
