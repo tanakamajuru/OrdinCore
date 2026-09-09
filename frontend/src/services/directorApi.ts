@@ -19,6 +19,6 @@ export const directorApi = {
   getUnacknowledgedIncidents: () => 
     apiClient.get(`/director-governance/unacknowledged-incidents`).then(res => res.data.data),
   
-  createIntervention: (data: { service_id: string; intervention_type: string; message: string; target_user_id?: string }) => 
+  createIntervention: (data: { service_id: string; risk_id: string; intervention_type: string; message: string; target_user_id?: string }) => 
     apiClient.post(`/director-governance/interventions`, data).then(res => res.data.data),
 };

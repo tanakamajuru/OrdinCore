@@ -100,7 +100,8 @@ export const directorGovernanceController = {
   async createIntervention(req: Request, res: Response) {
     try {
       const directorId = (req as any).user.user_id;
-      const intervention = await directorGovernanceService.createIntervention(directorId, req.body);
+      const companyId = (req as any).user.company_id;
+      const intervention = await directorGovernanceService.createIntervention(companyId, directorId, req.body);
       res.json({ status: 'success', data: intervention });
     } catch (error: any) {
       logger.error('Failed to create intervention:', error);

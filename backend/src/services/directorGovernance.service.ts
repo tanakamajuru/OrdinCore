@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { narrativeService } from './narrative.service';
+import { emitToCompany } from '../websocket/socket.server';
 
 export class DirectorGovernanceService {
   /**
@@ -232,20 +233,40 @@ export class DirectorGovernanceService {
     return res.rows[0];
   }
 
-  async createIntervention(directorId: string, data: { service_id: string; intervention_type: string; message: string; target_user_id?: string }) {
+  async createIntervention(companyId: string, directorId: string, data: { service_id: string; risk_id: string; intervention_type: string; message: string; target_user_id?: string }) {
+    if (!data.risk_id) throw new Error('A source risk is required for a Director intervention.');
+    if (!data.message || data.message.trim().length < 10) throw new Error('A meaningful Director rationale is required.');
+
+    // Consolidation: a Director does not create a second operational intervention. Resolve the
+    // source risk to the canonical RM-owned theme intervention, then append an immutable oversight
+    // event. Legacy director_interventions remains readable for history but receives no new writes.
+    const canonical = (await query(
+      `SELECT i.id, i.theme
+         FROM risks r
+         JOIN interventions i
+           ON i.company_id = r.company_id
+          AND i.house_id IS NULL
+          AND lower(trim(i.theme)) = lower(trim(COALESCE(NULLIF(r.risk_domain,''), NULLIF(r.strategic_theme,''), r.title)))
+        WHERE r.id = $1 AND r.company_id = $2
+        LIMIT 1`,
+      [data.risk_id, companyId]
+    )).rows[0];
+
+    if (!canonical) {
+      throw new Error('No RM-owned intervention exists for this source risk. Ask the RM to establish the operational intervention before adding Director oversight.');
+    }
+
     const res = await query(
-      `INSERT INTO director_interventions (director_user_id, service_id, intervention_type, message, target_user_id)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [directorId, data.service_id, data.intervention_type, data.message, data.target_user_id]
+      `INSERT INTO intervention_oversight_events
+         (company_id, intervention_id, actor_id, actor_role, event_type, narrative)
+       VALUES ($1,$2,$3,'DIRECTOR','DIRECTOR_DIRECTION',$4)
+       RETURNING *`,
+      [companyId, canonical.id, directorId, data.message.trim()]
     );
 
-    const flagsRes = await query(`SELECT director_alert_flags FROM houses WHERE id = $1`, [data.service_id]);
-    const flags = flagsRes.rows[0]?.director_alert_flags || {};
-    flags[data.intervention_type] = true;
-    flags[`${data.intervention_type}_at`] = new Date().toISOString();
-
-    await query(`UPDATE houses SET director_alert_flags = $1 WHERE id = $2`, [flags, data.service_id]);
-
+    emitToCompany(companyId, 'intervention.updated', {
+      reason: 'director_oversight_added', intervention_id: canonical.id, risk_id: data.risk_id,
+    });
     return res.rows[0];
   }
 

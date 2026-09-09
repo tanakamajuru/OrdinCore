@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { trajectoryForRisk, TrajectoryDirection } from './trajectory.service';
 import { risksService } from './risks.service';
+import { emitToCompany } from '../websocket/socket.server';
 
 /**
  * Intervention Effectiveness — refinement of the existing Intervention Panel.
@@ -198,7 +199,17 @@ export const interventionsService = {
               ) AS effectiveness_outcome,
               ira.effectiveness_evidence,
               ira.effectiveness_reviewed_at,
-              ira.effectiveness_reviewed_by
+              ira.effectiveness_reviewed_by,
+              COALESCE((
+                SELECT JSON_AGG(JSON_BUILD_OBJECT(
+                  'id', ioe.id, 'actor_role', ioe.actor_role, 'event_type', ioe.event_type,
+                  'narrative', ioe.narrative, 'created_at', ioe.created_at,
+                  'actor_name', NULLIF(TRIM(COALESCE(eu.first_name,'') || ' ' || COALESCE(eu.last_name,'')), '')
+                ) ORDER BY ioe.created_at DESC)
+                FROM intervention_oversight_events ioe
+                LEFT JOIN users eu ON eu.id = ioe.actor_id
+                WHERE ioe.intervention_id = i.id AND ioe.company_id = i.company_id
+              ), '[]'::json) AS oversight_events
          FROM interventions i
          LEFT JOIN users u ON u.id = i.owner_id
          LEFT JOIN risk_actions ira
@@ -352,6 +363,7 @@ export const interventionsService = {
 
               // Observable pre/post evidence; no invented risk percentage.
               evidence_comparison: evidenceComparison,
+              oversight_events: Array.isArray(intv.oversight_events) ? intv.oversight_events : [],
             }
           : null,
       });
@@ -622,8 +634,9 @@ export const interventionsService = {
 
           intv.linked_risk_id = topRisk.id;
           intv.linked_action_id = action.id;
-        } catch {
-          // Non-fatal: the intervention record itself remains saved.
+      } catch (error) {
+        // Do not report a closed loop when its actionable link failed.
+        throw new Error(`Intervention saved but its required risk action could not be created: ${error instanceof Error ? error.message : 'unknown error'}`);
         }
       }
     }
@@ -653,8 +666,10 @@ export const interventionsService = {
             company_id,
           ]
         );
-      } catch {
-        // Non-fatal: the intervention itself is saved; the register sync is best-effort.
+      } catch (error) {
+        // A linked intervention and action are one governance pathway. Silent divergence is not
+        // acceptable: surface the failure so the caller cannot show a false success message.
+        throw new Error(`Intervention/action synchronisation failed: ${error instanceof Error ? error.message : 'unknown error'}`);
       }
     }
 
@@ -677,6 +692,14 @@ export const interventionsService = {
         // best-effort — the intervention is saved regardless of notification delivery.
       }
     }
+
+    emitToCompany(company_id, 'intervention.updated', {
+      intervention_id: intv.id,
+      theme: intv.theme,
+      linked_risk_id: intv.linked_risk_id || null,
+      linked_action_id: intv.linked_action_id || null,
+      updated_by: user_id,
+    });
 
     return intv;
   },

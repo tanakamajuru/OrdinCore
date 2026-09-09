@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { actionEffectivenessService } from '../services/actionEffectiveness.service';
+import { emitToCompany } from '../websocket/socket.server';
 
 export class ActionEffectivenessController {
   async rateEffectiveness(req: Request, res: Response) {
@@ -7,6 +8,9 @@ export class ActionEffectivenessController {
       const company_id = req.user!.company_id!;
       const { actionId } = req.params;
       const result = await actionEffectivenessService.rateEffectiveness(actionId, company_id, req.user!.user_id, req.body);
+      emitToCompany(company_id, 'intervention.updated', {
+        reason: 'effectiveness_reviewed', action_id: actionId,
+      });
       return res.json({ success: true, data: result });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to rate action effectiveness' });

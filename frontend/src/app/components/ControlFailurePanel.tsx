@@ -49,6 +49,7 @@ export function ControlFailurePanel() {
     try {
       await directorApi.createIntervention({
         service_id: failure.service_id,
+        risk_id: failure.risk_id,
         intervention_type: 'alert_rm',
         message: `Forensic Alert: Control failure detected (${failure.threshold_trigger}). Please review effectiveness and adjust risk controls immediately.`
       });

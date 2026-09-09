@@ -4,6 +4,8 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
+import { io, type Socket } from "socket.io-client";
+import { useAuth } from "@/hooks/useAuth";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
@@ -185,6 +187,8 @@ function Timeline({ weeks }: { weeks: any[] }) {
 
 export function InterventionPanel() {
   const navigate = useNavigate();
+  const { user } = useAuth();
+  const canManage = String(user?.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER";
   const [themes, setThemes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [users, setUsers] = useState<any[]>([]);
@@ -199,6 +203,28 @@ export function InterventionPanel() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  // Keep RM, Director and RI projections aligned. WebSocket gives prompt updates; focus and the
+  // 60-second safety poll recover anything missed during disconnection/backgrounding.
+  useEffect(() => {
+    const token = localStorage.getItem("authToken");
+    if (!token) return;
+    const base = (import.meta as any).env?.VITE_WS_URL
+      || ((import.meta as any).env?.VITE_API_URL || "http://localhost:3001/api/v1").replace(/\/api\/v1\/?$/, "");
+    const socket: Socket = io(base, { auth: { token }, transports: ["websocket", "polling"], reconnection: true });
+    const refresh = () => load();
+    socket.on("intervention.updated", refresh);
+    socket.on("connect", refresh);
+    window.addEventListener("focus", refresh);
+    const poll = window.setInterval(refresh, 60_000);
+    return () => {
+      window.clearInterval(poll);
+      window.removeEventListener("focus", refresh);
+      socket.off("intervention.updated", refresh);
+      socket.off("connect", refresh);
+      socket.disconnect();
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   useEffect(() => { apiClient.get("/users?limit=200").then((r: any) => {
     const list = Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.users) ? r.data.users : [];
     setUsers(list);
@@ -358,6 +384,23 @@ export function InterventionPanel() {
                             )}
                           </div>
                         )}
+                        {Array.isArray(intv.oversight_events) && intv.oversight_events.length > 0 && (
+                          <div className="mt-2 rounded-lg border border-border p-2.5">
+                            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Leadership oversight trail</div>
+                            <div className="space-y-2">
+                              {intv.oversight_events.map((event: any) => (
+                                <div key={event.id} className="text-xs border-l-2 border-primary/40 pl-2">
+                                  <div className="font-medium text-foreground">
+                                    {String(event.actor_role || "Leadership").replace(/_/g, " ")}
+                                    {event.actor_name ? ` · ${event.actor_name}` : ""}
+                                  </div>
+                                  <div className="text-muted-foreground whitespace-pre-wrap break-words">{event.narrative}</div>
+                                  {event.created_at && <div className="text-[10px] text-muted-foreground mt-0.5">{new Date(event.created_at).toLocaleString("en-GB")}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">No intervention set — {t.openActions} open action{t.openActions === 1 ? "" : "s"}, {t.completedActions} completed.</p>
@@ -377,7 +420,7 @@ export function InterventionPanel() {
 
                   {/* Close / rate the risks that make up this theme, in place. Only shown when the
                       theme still has open risks to act on. */}
-                  {(t.risk_refs || []).some((r: any) => r?.id && !isClosedStatus(r.status)) && (
+                  {canManage && (t.risk_refs || []).some((r: any) => r?.id && !isClosedStatus(r.status)) && (
                     <button onClick={() => setCloseTheme(t)}
                       className={`mt-3 w-full text-sm font-medium rounded-lg px-3 py-2 flex items-center justify-center gap-1.5 ${t.readyToClose ? "text-white bg-emerald-600 hover:bg-emerald-700" : "text-foreground border border-border hover:bg-muted"}`}>
                       <CheckCircle2 className="w-4 h-4" /> Close / rate risk
@@ -385,9 +428,15 @@ export function InterventionPanel() {
                   )}
 
                   <div className="mt-3 flex gap-2">
-                    <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
-                      {intv ? "Update intervention" : "Set intervention"}
-                    </button>
+                    {canManage ? (
+                      <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
+                        {intv ? "Update intervention" : "Set intervention"}
+                      </button>
+                    ) : (
+                      <div className="flex-1 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                        Assurance view — RM owns the operational intervention record.
+                      </div>
+                    )}
                     {/* Action always opens the OPEN RISK — the intervention's linked risk if set,
                         otherwise the theme's primary open risk. Only falls back to the filtered
                         register if the theme genuinely has no open risk yet. */}

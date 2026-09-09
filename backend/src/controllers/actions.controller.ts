@@ -3,6 +3,7 @@ import { risksService } from '../services/risks.service';
 import { notificationsService } from '../services/notifications.service';
 import { query } from '../config/database';
 import logger from '../utils/logger';
+import { emitToCompany } from '../websocket/socket.server';
 
 export class ActionsController {
   async complete(req: Request, res: Response) {
@@ -54,6 +55,10 @@ export class ActionsController {
         [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
       let completedAction = completedRes.rows[0];
+
+      emitToCompany(company_id, 'intervention.updated', {
+        reason: 'linked_action_completed', action_id: id, risk_id: riskId,
+      });
 
       // Risk-linked actions also update the risk trajectory + write a lineage event.
       if (riskId) {
