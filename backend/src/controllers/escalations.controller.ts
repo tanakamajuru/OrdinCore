@@ -53,7 +53,7 @@ export class EscalationsController {
         note: req.body.rationale ?? req.body.note,
         due_at: req.body.nextReviewDate ?? req.body.due_at,
       });
-      emitToCompany(company_id, 'governance.case.updated', { reason: 'post_closure_reviewed', escalation_id: req.params.id, risk_id: result?.risk_id || null });
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'post_closure_reviewed', escalation_id: req.params.id, risk_id: result?.linked_risk_id || null });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to record post-escalation risk review', errors: [] });
