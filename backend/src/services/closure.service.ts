@@ -42,7 +42,8 @@ export class ClosureService {
                                 AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
          FROM risk_actions
         WHERE company_id = $1
-          AND (escalation_id = $2 OR ($3::uuid IS NOT NULL AND risk_id = $3))`,
+          AND (escalation_id = $2 OR ($3::uuid IS NOT NULL AND risk_id = $3))
+          AND status <> 'Cancelled'`,
       [companyId, escalationId, existing.rows[0].risk_id || null]
     )).rows[0];
     if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
@@ -90,7 +91,7 @@ export class ClosureService {
               COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
               COUNT(*) FILTER (WHERE completed_at IS NOT NULL
                                 AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
-         FROM risk_actions WHERE company_id = $1 AND risk_id = $2`,
+         FROM risk_actions WHERE company_id = $1 AND risk_id = $2 AND status <> 'Cancelled'`,
       [companyId, riskId]
     )).rows[0];
     if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');

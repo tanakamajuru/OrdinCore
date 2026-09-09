@@ -36,6 +36,7 @@ interface Escalation {
   latest_effectiveness?: string | null;
   actions_completed_count?: number | string;
   actions_total_count?: number | string;
+  actions_effectiveness_reviewed_count?: number | string;
   lifecycle_status?: 'Open' | 'Under Review' | 'Actions Implemented' | 'Monitoring Effectiveness' | 'Closed' | 'Reopened';
   due_by?: string;
   closed_at?: string;
@@ -95,6 +96,7 @@ export function EscalationLog() {
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
       });
       toast.success('Task allocated — it now appears in their My Actions.');
+      await loadEscalations();
       setTaskForm({ title: "", assigned_to: "", due_date: "" });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || 'Could not allocate the task.');
@@ -122,6 +124,7 @@ export function EscalationLog() {
       const payload = (res.data as any).data || (res.data as any) || [];
       const list = Array.isArray(payload) ? payload : (payload.escalations || payload.items || []);
       setEscalations(list);
+      setSelectedEscalation((current) => current ? (list.find((e: Escalation) => e.id === current.id) || current) : null);
     } catch (err) {
       console.error('Failed to load escalations', err);
       toast.error('Failed to load escalation log');
@@ -676,7 +679,7 @@ export function EscalationLog() {
                         {/* Allocate an action to a responsible person — creates a real task on the
                             linked risk, so it lands in that person's My Actions and ages on the
                             overdue ladder. */}
-                        <details className="pt-4 border-t border-border group">
+                        <details data-escalation-action-form className="pt-4 border-t border-border group">
                           <summary className="list-none cursor-pointer flex items-center justify-between gap-2 text-sm font-semibold text-primary">
                             <span>Allocate a tracked action</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                           </summary>
@@ -775,13 +778,19 @@ export function EscalationLog() {
         open={!!closeTarget}
         target={{ type: "escalation", id: closeTarget?.id || "", title: closeTarget?.title }}
         evidence={resolutionNotes}
+        linkedActionCount={Number((selectedEscalation as any)?.actions_total_count) || 0}
+        onCreateOrLinkAction={() => {
+          setCloseTarget(null);
+          window.setTimeout(() => document.querySelector<HTMLDetailsElement>('[data-escalation-action-form]')?.setAttribute('open', ''), 0);
+        }}
         derivedActionsComplete={
-          ["actions implemented", "monitoring effectiveness"].includes((((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase())
-          || !((selectedEscalation as any)?.risk_id) /* no linked risk -> no remediation actions to complete (vacuous) */
+          Number((selectedEscalation as any)?.actions_total_count) > 0
+          && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count)
         }
         derivedEffectivenessReviewed={
-          (((selectedEscalation as any)?.lifecycle_status) || "").toLowerCase() === "monitoring effectiveness"
-          || !((selectedEscalation as any)?.risk_id)
+          Number((selectedEscalation as any)?.actions_total_count) > 0
+          && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count)
+          && Number((selectedEscalation as any)?.actions_effectiveness_reviewed_count) === Number((selectedEscalation as any)?.actions_completed_count)
         }
         onClose={() => setCloseTarget(null)}
         onClosed={(result?: any) => {

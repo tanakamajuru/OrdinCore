@@ -128,8 +128,19 @@ export class EscalationsService {
               AND (ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
             ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) DESC
             LIMIT 1) AS latest_effectiveness,
-          (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = e.risk_id AND ra.status IN ('Complete','Completed')) AS actions_completed_count,
-          (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = e.risk_id) AS actions_total_count
+          (SELECT COUNT(*) FROM risk_actions ra
+            WHERE ra.company_id = e.company_id
+              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND ra.status <> 'Cancelled') AS actions_total_count,
+          (SELECT COUNT(*) FROM risk_actions ra
+            WHERE ra.company_id = e.company_id
+              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND ra.status IN ('Complete','Completed')) AS actions_completed_count,
+          (SELECT COUNT(*) FROM risk_actions ra
+            WHERE ra.company_id = e.company_id
+              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND ra.status IN ('Complete','Completed')
+              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL) AS actions_effectiveness_reviewed_count
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to

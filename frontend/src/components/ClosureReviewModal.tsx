@@ -12,25 +12,26 @@ interface Props {
   // gate is shown as system-confirmed and locked, rather than a self-attest checkbox.
   derivedActionsComplete?: boolean;
   derivedEffectivenessReviewed?: boolean;
+  linkedActionCount?: number;
+  onCreateOrLinkAction?: () => void;
   // The decision/notes the closer already wrote on the escalation — reused as the closure
   // evidence so they don't have to type the same thing twice.
   evidence?: string;
 }
 
-export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, evidence }: Props) {
+export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, linkedActionCount = 0, onCreateOrLinkAction, evidence }: Props) {
   const [patternReduced, setPatternReduced] = useState(false);
-  const [actionsCompleted, setActionsCompleted] = useState(false);
-  const [effectivenessReviewed, setEffectivenessReviewed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   if (!open) return null;
 
-  // A gate is satisfied if the system already confirms it (derived) OR the closer attests it.
-  const actionsOk = !!derivedActionsComplete || actionsCompleted;
-  const effOk = !!derivedEffectivenessReviewed || effectivenessReviewed;
+  // These gates must come from linked records; a checkbox cannot replace system evidence.
+  const actionsOk = linkedActionCount > 0 && !!derivedActionsComplete;
+  const effOk = linkedActionCount > 0 && !!derivedEffectivenessReviewed;
 
   const blocked =
-    !actionsOk ? "All required actions must be complete." :
+    linkedActionCount === 0 ? "No linked corrective action exists. Create or link an action before closure." :
+    !actionsOk ? "All linked corrective actions must be complete." :
     !effOk ? "Effectiveness must be reviewed before closure." :
     null;
 
@@ -67,18 +68,18 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
     }
   };
 
-  // A gate row: locked + green when system-derived, otherwise an attestation checkbox.
-  const Gate = ({ label, derived, checked, onChange }: { label: string; derived?: boolean; checked: boolean; onChange: (v: boolean) => void }) =>
+  // System gate: green only when supported by linked records; never self-attested.
+  const Gate = ({ label, derived }: { label: string; derived?: boolean }) =>
     derived ? (
       <div className="flex items-start gap-2 text-sm py-1.5 text-success">
         <CheckCircle2 className="w-4 h-4 mt-0.5 shrink-0" />
         <span>{label} <span className="text-xs text-muted-foreground">(confirmed by system)</span></span>
       </div>
     ) : (
-      <label className="flex items-start gap-2 text-sm py-1.5">
-        <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="mt-0.5" />
-        <span>{label}</span>
-      </label>
+      <div className="flex items-start gap-2 text-sm py-1.5 text-amber-700">
+        <span className="w-4 h-4 mt-0.5 shrink-0 rounded-full border border-amber-500" />
+        <span>{label} <span className="text-xs text-muted-foreground">(not confirmed)</span></span>
+      </div>
     );
 
   return (
@@ -100,8 +101,14 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
             Closure requires all governance gates to pass. Only close when the concern is genuinely
             resolved — to keep it open, use “Continue monitoring”; to raise it higher, use “Escalate further”.
           </p>
-          <Gate label="All required actions are complete." derived={derivedActionsComplete} checked={actionsCompleted} onChange={setActionsCompleted} />
-          <Gate label="Effectiveness has been reviewed." derived={derivedEffectivenessReviewed} checked={effectivenessReviewed} onChange={setEffectivenessReviewed} />
+          <Gate label="All required actions are complete." derived={actionsOk} />
+          <Gate label="Effectiveness has been reviewed." derived={effOk} />
+          {linkedActionCount === 0 && onCreateOrLinkAction && (
+            <button type="button" onClick={onCreateOrLinkAction}
+              className="my-2 w-full rounded-lg border border-primary text-primary px-3 py-2 text-sm font-medium hover:bg-primary/5">
+              Create or link a corrective action
+            </button>
+          )}
           {/* Closure attestation — a human judgement, so it stays a checkbox. Doctrine: an
               escalation can originate from a single critical signal, incident, risk or governance
               decision — not only a pattern — so the escalation attestation speaks to the reason for
