@@ -376,7 +376,7 @@ export default function SuperAdminDashboard() {
                     </div>
                     <div>
                       <p className=" text-foreground">{company.name}</p>
-                      <p className="text-xs text-gray-400">{company.id.slice(0, 8)}...</p>
+                      <p className="text-xs text-gray-400">{(company as any).subdomain || (company as any).plan || ((company as any).created_at ? new Date((company as any).created_at).toLocaleDateString('en-GB') : '')}</p>
                     </div>
                   </div>
                 </td>

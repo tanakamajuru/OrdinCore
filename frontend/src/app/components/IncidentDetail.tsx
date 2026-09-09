@@ -462,11 +462,11 @@ export function IncidentDetail() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Reference</p>
-                <p className="text-foreground">#{(incident.id || '').slice(0, 8).toUpperCase()}</p>
+                <p className="text-foreground">{(incident as any).reference || (incident as any).case_number || '—'}</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground mb-1">Service ID</p>
-                <p className="text-foreground">{incident.house_id}</p>
+                <p className="text-sm text-muted-foreground mb-1">Service</p>
+                <p className="text-foreground">{(incident as any).house_name || (incident as any).service_name || '—'}</p>
               </div>
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Created Date</p>

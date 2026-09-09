@@ -105,9 +105,9 @@ const ResponsibleIndividualDashboard: React.FC = () => {
           {escalations.map((escalation) => (
             <div key={escalation.id} className="flex items-center justify-between p-4 bg-destructive/10 border border-destructive/20 rounded">
               <div className="flex-1">
-                <h4 className=" text-red-800">Escalation ID: {escalation.id.substring(0, 8)}</h4>
+                <h4 className=" text-red-800">{(escalation as any).reason || (escalation as any).riskTitle || (escalation as any).risk_title || 'Escalation'}</h4>
                 <p className="text-sm text-red-600 mt-1">
-                  Risk ID: {escalation.riskId.substring(0, 8)} • Status: {escalation.status}
+                  Status: {escalation.status}
                 </p>
                 <p className="text-xs text-red-500 mt-1">
                   Escalated: {new Date(escalation.createdAt).toLocaleDateString()}

@@ -132,7 +132,7 @@ export function MonthlyReport() {
                     <CheckCircle className="text-green-600 w-8 h-8" />
                     <div>
                       <p className=" text-foreground">Report Generation Queued</p>
-                      <p className="text-sm text-muted-foreground">Ref #{lastReport.id?.substring(0, 8).toUpperCase() || 'Pending'}</p>
+                      <p className="text-sm text-muted-foreground">{lastReport.created_at ? new Date(lastReport.created_at).toLocaleString('en-GB') : 'Queued'}</p>
                     </div>
                   </div>
                   <Button variant="outline" className="border-border">

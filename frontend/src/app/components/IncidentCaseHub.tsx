@@ -777,7 +777,7 @@ export function IncidentCaseHub() {
                         >
                           {filteredRisks.map(risk => (
                             <option key={risk.id} value={risk.id}>
-                              {risk.title || risk.id.slice(0,8).toUpperCase()}
+                              {risk.title || risk.strategic_theme || risk.risk_domain || 'Untitled risk'}
                             </option>
                           ))}
                         </select>
@@ -803,7 +803,7 @@ export function IncidentCaseHub() {
                           }}
                         >
                           {filteredEscalations.map(esc => {
-                            const display = esc.reason || esc.description || `Escalation ${esc.id.slice(0,8)}`;
+                            const display = esc.reason || esc.description || esc.risk_title || 'Escalation';
                             return (
                               <option key={esc.id} value={esc.id}>
                                 {display}

@@ -10,6 +10,15 @@ import { Screen, Card, Row, Label, Text, Pill, TextArea, Button, Loading, ErrorN
 const done = (s?: string) => /complete|completed|cancelled/i.test(s || '');
 const reviewed = (a: any) => !!(a.effectiveness_outcome || a.effectiveness);
 const fmt = (v?: string) => v ? new Date(v).toLocaleString('en-GB') : '—';
+// Never show a raw id as a heading. Prefer a real title; otherwise a concise line from the basis;
+// otherwise a plain label. (No UUIDs anywhere in the UI.)
+const escalationTitle = (e: any) => {
+  const named = e.risk_title || e.incident_title || e.title || e.cluster_label;
+  if (named) return String(named);
+  const first = String(e.reason || '').split(/\r?\n/).map((x: string) => x.trim()).find(Boolean) || '';
+  if (first) return first.length > 60 ? `${first.slice(0, 57)}…` : first;
+  return 'Escalation';
+};
 
 export function EscalationDetailScreen() {
   const { id } = useRoute<RouteProp<RootStackParams, 'EscalationDetail'>>().params;
@@ -43,7 +52,7 @@ export function EscalationDetailScreen() {
   if (q.error || !e) return <Screen><ErrorNote message={q.error || 'Escalation unavailable'} onRetry={q.refetch} /></Screen>;
   return <Screen>
     <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start' }}>
-      <View style={{ flex: 1 }}><Text size={19} weight="700">{e.risk_title || e.incident_title || `Escalation ${String(e.id).slice(0, 8)}`}</Text><Text size={11} muted>{e.service_name || e.house_name || 'Organisation-wide'}</Text></View>
+      <View style={{ flex: 1 }}><Text size={19} weight="700">{escalationTitle(e)}</Text><Text size={11} muted>{e.service_name || e.house_name || 'Organisation-wide'}</Text></View>
       <Pill tone={e.overdue ? 'crit' : closed ? 'low' : 'high'}>{e.overdue ? 'Overdue' : lifecycle}</Pill>
     </Row>
     <Card><Label>Escalation basis</Label><Text size={13}>{e.reason || 'No basis recorded.'}</Text></Card>
