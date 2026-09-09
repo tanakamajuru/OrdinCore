@@ -7,9 +7,11 @@ ALTER TABLE signal_clusters ADD COLUMN IF NOT EXISTS service_user_id UUID REFERE
 UPDATE signal_clusters SET scope='service'
 WHERE scope='person' AND linked_person IS NULL AND service_user_id IS NULL;
 
+-- service_users has no company_id column; company is derived via house_id -> houses,
+-- so matching on house_id already constrains to the correct company/tenant.
 UPDATE signal_clusters sc SET service_user_id=su.id FROM service_users su
 WHERE sc.scope='person' AND sc.service_user_id IS NULL AND sc.linked_person IS NOT NULL
-  AND su.company_id=sc.company_id AND su.house_id=sc.house_id
+  AND su.house_id=sc.house_id
   AND LOWER(TRIM(su.display_name))=LOWER(TRIM(sc.linked_person));
 
 CREATE TEMP TABLE pattern_cluster_merge (duplicate_id UUID PRIMARY KEY, keeper_id UUID NOT NULL) ON COMMIT DROP;
