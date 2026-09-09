@@ -379,6 +379,23 @@ export class WeeklyReviewsService {
     return row;
   }
 
+  // Finalised reviews awaiting a Director/RI validation decision — the queue behind the
+  // "weekly reviews to validate" item, so a validator can pick one instead of hitting a
+  // non-existent /weekly-reviews/validate id.
+  async awaitingValidation(company_id: string) {
+    const result = await query(
+      `SELECT wr.id, wr.week_ending, wr.status, wr.validation_status, wr.rm_finalised_at,
+              u.first_name || ' ' || u.last_name AS created_by_name, h.name AS house_name
+         FROM weekly_reviews wr
+         JOIN users u ON u.id = wr.created_by
+         JOIN houses h ON h.id = wr.house_id
+        WHERE wr.company_id = $1 AND wr.status = 'pending_validation'
+        ORDER BY wr.rm_finalised_at DESC NULLS LAST, wr.week_ending DESC`,
+      [company_id]
+    );
+    return result.rows;
+  }
+
   // Read-only presentation enrichment for the team-facing Weekly Governance Team Report.
   // Assembled ONLY from records already published in the selected week — signals grouped by
   // domain (with a trajectory only where one is recorded on an open risk), the week's daily

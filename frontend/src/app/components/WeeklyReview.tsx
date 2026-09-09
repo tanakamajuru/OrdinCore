@@ -103,9 +103,10 @@ export function WeeklyReview() {
   useEffect(() => { if (houseId && !isTeamLeader && !isValidator) loadReview(houseId); }, [houseId, id, weekEnding, isTeamLeader, isValidator]);
 
   // Team Leader (read+acknowledge) or Director/RI (read+validate) opening a specific review: load it
-  // READ-ONLY via findById (no preview) — never the authoring wizard.
+  // READ-ONLY via findById (no preview) — never the authoring wizard. "validate" is the queue
+  // route (My Work "reviews to validate"), not a real id — don't fetch /weekly-reviews/validate.
   useEffect(() => {
-    if ((!isTeamLeader && !isValidator) || !id || id === "new") return;
+    if ((!isTeamLeader && !isValidator) || !id || id === "new" || id === "validate") return;
     (async () => {
       try {
         setIsLoading(true);
@@ -119,6 +120,15 @@ export function WeeklyReview() {
       finally { setIsLoading(false); }
     })();
   }, [isTeamLeader, isValidator, id]);
+
+  // Validator queue: the finalised reviews awaiting a decision, shown when no specific review is open.
+  const [valQueue, setValQueue] = useState<any[]>([]);
+  useEffect(() => {
+    if (!isValidator || (id && id !== "new" && id !== "validate")) return;
+    apiClient.get("/weekly-reviews/awaiting-validation")
+      .then((r: any) => setValQueue(r.data?.data ?? r.data ?? []))
+      .catch(() => setValQueue([]));
+  }, [isValidator, id]);
 
   const loadHouses = async () => {
     try {
@@ -366,15 +376,18 @@ export function WeeklyReview() {
   };
 
   const doValidate = async (vStatus: string) => {
+    // Guard against a missing id — without one the URL becomes /weekly-reviews//validate and 404s.
+    const rid = (id && id !== "new") ? id : reviewId;
+    if (!rid) { toast.error("Open a specific finalised review before validating."); return; }
     const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
     if (comment === null) return;
     setIsSaving(true);
     try {
-      await apiClient.post(`/weekly-reviews/${id || reviewId}/validate`, { validation_status: vStatus, validation_comment: comment });
+      await apiClient.post(`/weekly-reviews/${rid}/validate`, { validation_status: vStatus, validation_comment: comment });
       toast.success(`Review ${vStatus.toLowerCase()}`);
       // Directors/RI reload the read-only record (findById); they must not hit the RM-only preview.
-      if (isValidator && (id || reviewId)) {
-        const rv = (await apiClient.get(`/weekly-reviews/${id || reviewId}`)).data?.data;
+      if (isValidator) {
+        const rv = (await apiClient.get(`/weekly-reviews/${rid}`)).data?.data;
         setTeamReview(rv); setForm(rv.content || {}); setStatus(rv.status || "Draft");
         setValidation({ validation_status: rv.validation_status, validation_comment: rv.validation_comment });
       } else if (houseId) { loadReview(houseId); }
@@ -514,7 +527,7 @@ export function WeeklyReview() {
   if (isValidator) {
     const c = form || {};
     const vStatus = validation?.validation_status;
-    if (!id || id === "new") {
+    if (!id || id === "new" || id === "validate") {
       return (
         <div className="min-h-screen bg-background">
           <RoleBasedNavigation />
@@ -522,11 +535,26 @@ export function WeeklyReview() {
             <div className="flex items-center gap-3 mb-5">
               <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><Shield size={22} /></div>
               <div>
-                <h1 className="text-2xl font-semibold text-foreground">Weekly Governance Review</h1>
+                <h1 className="text-2xl font-semibold text-foreground">Weekly Reviews to Validate</h1>
                 <p className="text-sm text-muted-foreground">You validate reviews the Registered Manager finalises — you don't author them.</p>
               </div>
             </div>
-            <div className={card}><p className="text-sm text-muted-foreground">When a Registered Manager finalises a weekly review, you'll be notified with a link to open it here for validation (Approve, Challenge or Reopen).</p></div>
+            {valQueue.length ? (
+              <div className="space-y-2">
+                {valQueue.map((r: any) => (
+                  <button key={r.id} onClick={() => navigate(`/weekly-review/${r.id}`)}
+                    className={`${card} w-full text-left hover:border-primary transition-colors flex items-center justify-between gap-3`}>
+                    <div>
+                      <p className="font-medium text-foreground">{r.house_name || "Service"}</p>
+                      <p className="text-sm text-muted-foreground">Week ending {r.week_ending} · finalised by {r.created_by_name || "Registered Manager"}{r.rm_finalised_at ? ` · ${new Date(r.rm_finalised_at).toLocaleDateString("en-GB")}` : ""}</p>
+                    </div>
+                    <span className="text-xs font-medium text-amber-700 bg-amber-50 rounded-full px-2.5 py-1 shrink-0">Awaiting validation</span>
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div className={card}><p className="text-sm text-muted-foreground">No finalised reviews are awaiting validation right now. When a Registered Manager finalises one, it appears here (and you'll be notified) to Approve, Challenge or Reopen.</p></div>
+            )}
           </div>
         </div>
       );

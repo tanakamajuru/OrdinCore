@@ -310,6 +310,16 @@ export class WeeklyReviewsController {
       if (!res.headersSent) return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to render PDF' });
     }
   }
+
+  // Queue of finalised reviews awaiting a Director/RI validation decision.
+  async awaitingValidation(req: Request, res: Response) {
+    try {
+      const data = await weeklyReviewsService.awaitingValidation(req.user!.company_id!);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to list reviews awaiting validation' });
+    }
+  }
 }
 
 

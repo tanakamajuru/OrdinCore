@@ -26,6 +26,9 @@ router.get('/preview', requireAuth, requireTenant, requireRole('REGISTERED_MANAG
 router.post('/ai-draft', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.aiDraft.bind(weeklyReviewsController));
 // Published reviews the caller may READ (their houses) — view by date & house.
 router.get('/for-me', requireAuth, requireTenant, weeklyReviewsController.publishedForMe.bind(weeklyReviewsController));
+
+// Validation queue for Director/RI (must precede '/:id' so 'awaiting-validation' isn't read as an id).
+router.get('/awaiting-validation', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.awaitingValidation.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).
 router.get('/service-rollup', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.serviceRollup.bind(weeklyReviewsController));
 // Finding O: provider-level roll-up + Director/RI sign-off (defined before '/:id').
