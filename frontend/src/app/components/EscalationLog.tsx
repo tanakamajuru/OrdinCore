@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity, SlidersHorizontal, ChevronDown } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
@@ -36,6 +36,12 @@ interface Escalation {
   latest_effectiveness?: string | null;
   actions_completed_count?: number | string;
   actions_total_count?: number | string;
+  lifecycle_status?: 'Open' | 'Under Review' | 'Actions Implemented' | 'Monitoring Effectiveness' | 'Closed' | 'Reopened';
+  due_by?: string;
+  closed_at?: string;
+  closed_by_name?: string;
+  actions?: any[];
+  overdue?: boolean;
 }
 
 // risk_domain is TEXT[] — render the first element, never the raw {…}.
@@ -63,6 +69,7 @@ export function EscalationLog() {
   const [assignees, setAssignees] = useState<any[]>([]);
   const [taskForm, setTaskForm] = useState({ title: "", assigned_to: "", due_date: "" });
   const [assigningTask, setAssigningTask] = useState(false);
+  const [showFilters, setShowFilters] = useState(false);
 
   useEffect(() => {
     apiClient.get('/users?limit=200&status=active')
@@ -191,8 +198,15 @@ export function EscalationLog() {
   const lifecycleState = (e: any): 'needs' | 'progress' | 'resolved' => {
     const s = String(e.status || '').toLowerCase();
     const ls = String(e.lifecycle_status || '').toLowerCase();
-    if (s === 'resolved' || s === 'closed' || ls === 'closed' || ls === 'resolved') return 'resolved';
-    if (s === 'pending' || ls === 'open' || (!s && !ls)) return 'needs';
+    // lifecycle_status is the frozen architecture's authoritative state. The legacy
+    // status is used only when a pre-migration record has no lifecycle value.
+    if (ls) {
+      if (ls === 'closed' || ls === 'resolved') return 'resolved';
+      if (ls === 'open' || ls === 'reopened') return 'needs';
+      return 'progress';
+    }
+    if (s === 'resolved' || s === 'closed') return 'resolved';
+    if (s === 'pending' || !s) return 'needs';
     return 'progress';
   };
   const STATE_META: Record<string, { label: string; strip: string; chip: string; weight: number }> = {
@@ -225,6 +239,31 @@ export function EscalationLog() {
     needs: escalations.filter(e => lifecycleState(e) === 'needs').length,
     progress: escalations.filter(e => lifecycleState(e) === 'progress').length,
     resolved: escalations.filter(e => lifecycleState(e) === 'resolved').length,
+  };
+  const openEscalations = counts.needs + counts.progress;
+  const overdueCount = escalations.filter((e: any) =>
+    lifecycleState(e) !== 'resolved' && (e.overdue || (e.due_by && new Date(e.due_by).getTime() < Date.now()))
+  ).length;
+  const lifecycleIndex = (e: Escalation) => {
+    const value = String(e.lifecycle_status || e.status || '').toLowerCase();
+    if (value.includes('closed') || value.includes('resolved')) return 4;
+    if (value.includes('monitoring')) return 3;
+    if (value.includes('actions implemented')) return 2;
+    if (value.includes('review') || value.includes('acknowledged') || value.includes('progress') || value.includes('reopened')) return 1;
+    return 0;
+  };
+  const deadlineLabel = (e: Escalation) => {
+    if (lifecycleState(e) === 'resolved') {
+      const at = e.closed_at || e.resolved_at;
+      return at ? `Closed ${new Date(at).toLocaleDateString('en-GB')}` : 'Closed';
+    }
+    if (e.overdue && !e.due_by) return 'Overdue';
+    if (!e.due_by) return 'Review date not set';
+    const due = new Date(e.due_by);
+    const hours = Math.ceil((due.getTime() - Date.now()) / 3600000);
+    if (hours < 0) return `Overdue by ${Math.abs(hours)}h`;
+    if (hours <= 24) return `Due in ${hours}h`;
+    return `Due ${due.toLocaleDateString('en-GB')}`;
   };
   const matchesFilter = (e: any) =>
     filter === 'all' ? true
@@ -283,29 +322,52 @@ export function EscalationLog() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
-      <div className="p-6 w-full">
-        <div className="mb-8">
-          <h1 className="text-3xl  text-foreground mb-2 flex items-center gap-3">
+      <div className="p-4 md:p-6 w-full max-w-[1600px] mx-auto">
+        <div className="mb-6 flex items-start justify-between gap-4">
+          <div>
+          <p className="text-[11px] uppercase tracking-[0.14em] font-semibold text-primary mb-1">Governance oversight</p>
+          <h1 className="text-3xl text-foreground mb-2 flex items-center gap-3">
             <ShieldAlert className="w-8 h-8" />
-            Escalation Management
+            Escalations
           </h1>
-          <p className="text-muted-foreground">Cross-site oversight of high-risk escalations requiring RI attention</p>
+          <p className="text-muted-foreground">See what needs a decision, act, and keep a clear record.</p>
+          </div>
         </div>
 
-        <div className="grid grid-cols-1 xl:grid-cols-5 gap-8 [&>*]:min-w-0">
+        {/* A short adoption-first summary. Each card is also a queue shortcut; no new
+            status or workflow is introduced. */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+          <button onClick={() => setFilter('needs')} className={`text-left rounded-xl border-2 p-4 transition-colors ${filter === 'needs' ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'}`}>
+            <span className="text-xs text-muted-foreground block">Needs your attention</span>
+            <strong className="text-2xl text-foreground block mt-1">{counts.needs}</strong>
+            <span className={`text-xs ${overdueCount ? 'text-destructive font-medium' : 'text-muted-foreground'}`}>{overdueCount ? `${overdueCount} overdue` : 'No overdue decisions'}</span>
+          </button>
+          <button onClick={() => setFilter('progress')} className={`text-left rounded-xl border-2 p-4 transition-colors ${filter === 'progress' ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'}`}>
+            <span className="text-xs text-muted-foreground block">Being managed</span>
+            <strong className="text-2xl text-foreground block mt-1">{counts.progress}</strong>
+            <span className="text-xs text-muted-foreground">Continuing oversight</span>
+          </button>
+          <button onClick={() => setFilter('resolved')} className={`text-left rounded-xl border-2 p-4 transition-colors ${filter === 'resolved' ? 'border-primary bg-primary/5' : 'border-border bg-card hover:border-primary/40'}`}>
+            <span className="text-xs text-muted-foreground block">Closed</span>
+            <strong className="text-2xl text-foreground block mt-1">{counts.resolved}</strong>
+            <span className="text-xs text-muted-foreground">Evidence recorded</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 [&>*]:min-w-0">
           {/* List Section */}
           <div className="xl:col-span-3 space-y-4">
             {/* Filter tabs — organise the queue by what needs doing */}
-            <div className="flex flex-wrap gap-2 mb-4">
+            <div className="flex flex-wrap items-center gap-2 mb-3 border-b border-border">
               {([
-                { key: 'open', label: 'Open', n: counts.needs + counts.progress },
-                { key: 'needs', label: 'Needs action', n: counts.needs },
-                { key: 'progress', label: 'In progress', n: counts.progress },
-                { key: 'resolved', label: 'Resolved', n: counts.resolved },
+                { key: 'open', label: 'All open', n: openEscalations },
+                { key: 'needs', label: 'Needs attention', n: counts.needs },
+                { key: 'progress', label: 'Being managed', n: counts.progress },
+                { key: 'resolved', label: 'Closed', n: counts.resolved },
               ] as const).map(t => (
                 <button key={t.key} onClick={() => setFilter(t.key)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border-2 transition-colors ${
-                    filter === t.key ? 'border-primary bg-primary/5 text-primary font-medium' : 'border-border text-muted-foreground hover:bg-muted'
+                  className={`px-3 py-2.5 text-sm border-b-2 transition-colors ${
+                    filter === t.key ? 'border-primary text-primary font-medium' : 'border-transparent text-muted-foreground hover:text-foreground'
                   }`}>
                   {t.label} <span className="text-xs opacity-70">({t.n})</span>
                 </button>
@@ -313,7 +375,16 @@ export function EscalationLog() {
             </div>
 
             {/* Search by date range (raised date) */}
-            <div className="flex flex-wrap items-end gap-2 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div>
+                <h2 className="font-semibold text-foreground">{filter === 'needs' ? 'Needs your attention' : filter === 'progress' ? 'Being managed' : filter === 'resolved' ? 'Closed with evidence' : 'Open escalations'}</h2>
+                <p className="text-xs text-muted-foreground">Ordered by required response and raised date</p>
+              </div>
+              <button onClick={() => setShowFilters(v => !v)} className="inline-flex items-center gap-2 px-3 py-2 border border-border rounded-lg text-sm text-muted-foreground hover:bg-muted">
+                <SlidersHorizontal className="w-4 h-4" /> Filters
+              </button>
+            </div>
+            {showFilters && <div className="flex flex-wrap items-end gap-2 mb-4 p-3 border border-border rounded-lg bg-muted/20">
               <div>
                 <label className="text-[11px] text-muted-foreground block">From</label>
                 <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
@@ -326,7 +397,7 @@ export function EscalationLog() {
                 <button onClick={() => { setFromDate(""); setToDate(""); }} className="px-3 py-2 text-sm text-primary hover:underline">Clear dates</button>
               )}
               <span className="text-xs text-muted-foreground ml-auto self-center">{visibleEscalations.length} result{visibleEscalations.length === 1 ? "" : "s"}</span>
-            </div>
+            </div>}
 
             {visibleEscalations.length > 0 ? pagedEscalations.map((esc) => {
               const st = lifecycleState(esc);
@@ -348,7 +419,10 @@ export function EscalationLog() {
                         <MapPin className="w-3 h-3" /> {esc.house_name}
                       </span>
                     </div>
-                    <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
+                    <div className="text-right shrink-0">
+                      <span className={`px-2 py-0.5 rounded text-[11px] font-semibold whitespace-nowrap ${meta.chip}`}>{meta.label}</span>
+                      <span className={`block mt-1 text-[11px] font-medium ${deadlineLabel(esc).startsWith('Overdue') ? 'text-destructive' : 'text-muted-foreground'}`}>{deadlineLabel(esc)}</span>
+                    </div>
                   </div>
 
                   <h3 className="text-lg text-foreground mb-2">{esc.risk_title || [firstDomain(esc.signal_risk_domain), esc.signal_related_person].filter(Boolean).join(' · ') || 'Escalation'}</h3>
@@ -390,10 +464,26 @@ export function EscalationLog() {
             {selectedEscalation ? (
               <div className="sticky top-6 space-y-6">
                 <Card className="border-2 border-border shadow-xl">
-                  <CardHeader className="bg-primary text-primary-foreground">
-                    <CardTitle className="text-lg">Escalation Details</CardTitle>
+                  <CardHeader className="bg-card border-b border-border">
+                    <div className="flex items-center justify-between gap-3">
+                      <CardTitle className="text-lg text-foreground">Review escalation</CardTitle>
+                      <span className={`px-2 py-1 rounded text-[11px] font-semibold ${getPriorityColor(selectedEscalation.priority)}`}>{selectedEscalation.priority}</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">{selectedEscalation.house_name} · {firstDomain(selectedEscalation.signal_risk_domain) || 'Governance concern'}</p>
                   </CardHeader>
                   <CardContent className="p-6 space-y-6">
+                    {/* The frozen lifecycle shown in plain language. This is a visual mapping
+                        only; lifecycle_status remains the server-side source of truth. */}
+                    <div className="grid grid-cols-4 gap-1" aria-label="Escalation lifecycle">
+                      {['Raised', 'Under review', 'Actions in place', 'Effectiveness checked'].map((label, index) => {
+                        const current = lifecycleIndex(selectedEscalation);
+                        const reached = current >= index;
+                        return <div key={label} className={`text-center text-[10px] ${reached ? 'text-primary font-medium' : 'text-muted-foreground'}`}>
+                          <div className={`w-6 h-6 mx-auto mb-1 rounded-full border-2 grid place-items-center ${reached ? 'bg-primary border-primary text-primary-foreground' : 'bg-background border-border'}`}>{current > index ? '✓' : index + 1}</div>
+                          {label}
+                        </div>;
+                      })}
+                    </div>
                     <div>
                       <label className="text-xs  uppercase text-muted-foreground block mb-1">Risk Context</label>
                       <h4 className=" text-primary">{selectedEscalation.risk_title}</h4>
@@ -510,7 +600,7 @@ export function EscalationLog() {
                       );
                     })()}
 
-                    {selectedEscalation.status?.toLowerCase?.() === 'pending' && (
+                    {lifecycleState(selectedEscalation) === 'needs' && selectedEscalation.status?.toLowerCase?.() === 'pending' && (
                       <Button 
                         onClick={() => handleAcknowledge(selectedEscalation.id)}
                         className="w-full bg-primary text-primary-foreground hover:bg-primary/90"
@@ -519,7 +609,7 @@ export function EscalationLog() {
                       </Button>
                     )}
 
-                    {selectedEscalation.status?.toLowerCase?.() !== 'resolved' && (
+                    {lifecycleState(selectedEscalation) !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
                         <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5">
                           Decision &amp; notes {!resolutionNotes && <span className="text-amber-600 normal-case font-medium">· required</span>}
@@ -586,8 +676,11 @@ export function EscalationLog() {
                         {/* Allocate an action to a responsible person — creates a real task on the
                             linked risk, so it lands in that person's My Actions and ages on the
                             overdue ladder. */}
-                        <div className="pt-4 border-t border-border">
-                          <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5 mb-2">Allocate a task {!selectedEscalation.risk_id && <span className="normal-case text-[10px] text-muted-foreground">(no linked risk — assigns a tracked task)</span>}</label>
+                        <details className="pt-4 border-t border-border group">
+                          <summary className="list-none cursor-pointer flex items-center justify-between gap-2 text-sm font-semibold text-primary">
+                            <span>Allocate a tracked action</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                          </summary>
+                          <p className="text-xs text-muted-foreground mt-1 mb-3">Use when another person must complete a specific action by a due date.</p>
                           <div className="space-y-2">
                             <input
                               value={taskForm.title}
@@ -621,11 +714,11 @@ export function EscalationLog() {
                               {assigningTask ? 'Allocating…' : 'Allocate task'}
                             </button>
                           </div>
-                        </div>
+                        </details>
                       </div>
                     )}
 
-                    {selectedEscalation.status?.toLowerCase?.() === 'resolved' && (
+                    {lifecycleState(selectedEscalation) === 'resolved' && (
                       <div className="bg-success/20 border border-success p-4 rounded text-sm text-success">
                         <div className="flex items-center gap-2 mb-2">
                           <CheckCircle2 className="w-4 h-4" />
@@ -640,8 +733,10 @@ export function EscalationLog() {
 
                     {/* Action History */}
                     {(selectedEscalation as any).actions && (selectedEscalation as any).actions.length > 0 && (
-                      <div className="pt-6 border-t border-border">
-                        <label className="text-xs  uppercase text-muted-foreground block mb-3">Action History</label>
+                      <details className="pt-6 border-t border-border group">
+                        <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-3">
+                          <span>Decision and action history ({(selectedEscalation as any).actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                        </summary>
                         <div className="space-y-4">
                           {(selectedEscalation as any).actions.map((action: any) => (
                             <div key={action.id} className="text-xs border-l-2 border-primary pl-3 py-1">
@@ -653,7 +748,7 @@ export function EscalationLog() {
                             </div>
                           ))}
                         </div>
-                      </div>
+                      </details>
                     )}
                   </CardContent>
                 </Card>
