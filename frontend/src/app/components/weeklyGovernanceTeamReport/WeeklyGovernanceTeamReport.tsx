@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import type {
   MajorIssue,
   Trajectory,
@@ -43,6 +43,24 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
   const [error, setError] = useState<string | null>(null);
   const acknowledged = Boolean(report.acknowledgedAt);
 
+  // View filters (non-destructive — they only change what's shown, never the locked record):
+  // narrow the dated source trail and major issues by theme and/or date to reduce clutter.
+  const [theme, setTheme] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const usingFilter = !!(theme || fromDate || toDate);
+  const themes = useMemo(() => Array.from(new Set([
+    ...report.events.map((e) => e.theme).filter(Boolean),
+    ...report.majorIssues.map((i) => i.domain).filter(Boolean),
+  ])).sort(), [report.events, report.majorIssues]);
+  const inDate = (iso: string) => (!fromDate || iso >= fromDate) && (!toDate || iso <= toDate);
+  const filteredEvents = useMemo(
+    () => report.events.filter((e) => (!theme || e.theme === theme) && (!e.date || inDate(e.date))),
+    [report.events, theme, fromDate, toDate]);
+  const filteredIssues = useMemo(
+    () => report.majorIssues.filter((i) => !theme || i.domain === theme),
+    [report.majorIssues, theme]);
+
   async function acknowledge() {
     setSaving(true);
     setError(null);
@@ -81,22 +99,36 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
         <p className="wgr-empty">The dated source briefings remain below for reconstruction.</p>
       </section>
 
+      {(themes.length > 0 || report.events.length > 0) && (
+        <section className="wgr-filter" aria-label="Filter the report view">
+          <span className="wgr-filter-label">Filter view</span>
+          <select value={theme} onChange={(e) => setTheme(e.target.value)} aria-label="Theme">
+            <option value="">All themes</option>
+            {themes.map((t) => <option key={t} value={t}>{t}</option>)}
+          </select>
+          <input type="date" value={fromDate} max={toDate || undefined} onChange={(e) => setFromDate(e.target.value)} aria-label="From date" />
+          <input type="date" value={toDate} min={fromDate || undefined} onChange={(e) => setToDate(e.target.value)} aria-label="To date" />
+          {usingFilter && <button type="button" className="wgr-filter-clear" onClick={() => { setTheme(""); setFromDate(""); setToDate(""); }}>Clear</button>}
+          <span className="wgr-filter-note">View only — the locked record is unchanged.</span>
+        </section>
+      )}
+
       <section className="wgr-section">
         <h2>How events unfolded</h2>
-        {report.events.length ? (
+        {filteredEvents.length ? (
           <ol className="wgr-timeline">
-            {report.events.map((event) => (
-              <li key={event.id}><time>{event.dateLabel}</time><p>{event.summary}</p></li>
+            {filteredEvents.map((event) => (
+              <li key={event.id}><time>{event.dateLabel}</time><p>{event.headline || event.summary}</p></li>
             ))}
           </ol>
-        ) : <p className="wgr-empty">No event summary was recorded. Review the published daily governance entries.</p>}
+        ) : <p className="wgr-empty">{usingFilter ? "No dated briefing matches this filter." : "No event summary was recorded. Review the published daily governance entries."}</p>}
       </section>
 
       <section className="wgr-section">
         <h2>Major issues and present position</h2>
-        {report.majorIssues.length
-          ? report.majorIssues.map((issue) => <IssueCard key={issue.id} issue={issue} />)
-          : <p className="wgr-empty">No major issue was identified during this period.</p>}
+        {filteredIssues.length
+          ? filteredIssues.map((issue) => <IssueCard key={issue.id} issue={issue} />)
+          : <p className="wgr-empty">{usingFilter ? "No major issue matches this filter." : "No major issue was identified during this period."}</p>}
       </section>
 
       <section className="wgr-section wgr-page-break">

@@ -3,3 +3,11 @@
 @media(max-width:700px){.wgr-report{padding:18px}.wgr-metrics{grid-template-columns:repeat(2,1fr)}.wgr-timeline li,.wgr-details div,.wgr-next-week li{grid-template-columns:1fr}.wgr-learning{grid-template-columns:1fr}.wgr-learning article{border-right:0;border-bottom:1px solid var(--wgr-line)}.wgr-learning article:last-child{border-bottom:0}.wgr-table-wrap table{min-width:760px}}
 @media print{@page{size:A4;margin:13mm}.wgr-report{max-width:none;padding:0;font-size:9pt}.wgr-title h1{font-size:23pt}.wgr-section{margin:14px 0}.wgr-page-break{break-before:page}.wgr-issue,.wgr-learning,.wgr-next-week,.wgr-acknowledgement,tr{break-inside:avoid}.wgr-acknowledgement button{display:none}}
 
+
+/* View-only filter bar (does not alter the locked record). */
+.wgr-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 12px 0 4px; padding: 10px 12px; background: #f1f5f9; border: 1px solid #e2e8f0; border-radius: 10px; }
+.wgr-filter-label { font-weight: 600; font-size: 13px; color: #334155; }
+.wgr-filter select, .wgr-filter input { border: 1px solid #cbd5e1; border-radius: 8px; padding: 6px 8px; font-size: 13px; background: #fff; }
+.wgr-filter-clear { border: none; background: none; color: #2563eb; font-size: 13px; cursor: pointer; padding: 4px 6px; }
+.wgr-filter-note { font-size: 11.5px; color: #64748b; margin-left: auto; }
+@media print { .wgr-filter { display: none; } }

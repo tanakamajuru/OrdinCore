@@ -4,7 +4,14 @@ export type MeasureStatus = "OPEN" | "MONITORING" | "OVERDUE" | "COMPLETED_PENDI
 export interface WeekEvent {
   id: string;
   dateLabel: string;
+  /** Concise one-line source entry shown in the report (the full brief lives in Daily Governance). */
+  headline: string;
+  /** Full brief text, retained for reconstruction. */
   summary: string;
+  /** ISO date (yyyy-mm-dd) for date-range filtering. */
+  date: string;
+  /** Governance domain/theme for theme filtering. */
+  theme: string;
 }
 
 export interface MajorIssue {

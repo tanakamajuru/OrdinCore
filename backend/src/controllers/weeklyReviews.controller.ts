@@ -237,53 +237,70 @@ export class WeeklyReviewsController {
       const doc = new PDFDocument({ margin: 50, size: 'A4' });
       doc.pipe(res);
 
-      doc.font('Helvetica-Bold').fontSize(10).fillColor('#15803d').text('WEEKLY GOVERNANCE REVIEW', { characterSpacing: 1 });
-      doc.moveDown(0.3).fillColor('#0f172a').fontSize(20).text(`${houseName} — week ending ${rev.week_ending}`);
+      // Render the SAME canonical report the screen and Team Leaders see (one document, one
+      // format). Values come from the stored team_report + RM content so the PDF and the web view
+      // can never diverge. Dated briefs are concise source lines, not the full daily dump.
+      const tr = rev.team_report || {};
+      const groups: any[] = Array.isArray(tr.domain_groups) ? tr.domain_groups : [];
+      const normTraj = (t: any) => { const s = String(t || '').toUpperCase(); return s.includes('DETERIOR') ? 'Deteriorating' : s.includes('IMPROV') ? 'Improving' : s.includes('STAB') ? 'Stable' : 'Not assessed'; };
+      const weekEndDirection = (() => { const ts = groups.map((g) => normTraj(g.trajectory)); return ts.includes('Deteriorating') ? 'Deteriorating' : ts.includes('Improving') ? 'Improving' : ts.includes('Stable') ? 'Stable' : 'Not assessed'; })();
+      const firstLine = (s: any) => String(s || '').split(/\r?\n/).map((x) => x.trim()).find(Boolean) || '';
+      const overview = String(c.step15_narrative || c.step14_overall_position || rev.governance_narrative || 'This report is drawn from the governance record for the week; see the sections below.').trim();
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f766e').text('PUBLISHED WEEKLY GOVERNANCE REVIEW', { characterSpacing: 1 });
+      doc.moveDown(0.3).fillColor('#0f172a').fontSize(20).text('Weekly Governance Team Report');
       doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#555');
+      doc.text(`${houseName} · week ending ${rev.week_ending}`);
       doc.text(`Prepared by ${rev.created_by_name || 'Registered Manager'}${rev.rm_finalised_at ? ' · finalised ' + new Date(rev.rm_finalised_at).toLocaleString('en-GB') : ''}`);
       if (rev.validation_status) doc.text(`Validation: ${rev.validation_status}${rev.validation_at ? ' · ' + new Date(rev.validation_at).toLocaleString('en-GB') : ''}`);
       if (rev.published_at) doc.text(`Published to team: ${new Date(rev.published_at).toLocaleString('en-GB')}`);
-      doc.fillColor('#000').moveDown(1);
+      doc.fillColor('#000').moveDown(0.8);
 
-      const section = (title: string) => { doc.moveDown(0.6).font('Helvetica-Bold').fontSize(12).fillColor('#15803d').text(title.toUpperCase()); doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#000'); };
+      const section = (title: string) => { doc.moveDown(0.6).font('Helvetica-Bold').fontSize(12).fillColor('#0f766e').text(title.toUpperCase()); doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#000'); };
 
-      section('Overall position');
-      doc.text(c.step14_overall_position || '—');
+      section('This week');
+      doc.text(`Signals reviewed: ${tr.signals_reviewed ?? 0}   ·   High / critical: ${tr.high_critical ?? 0}   ·   Main domains: ${tr.main_domain_count ?? 0}   ·   Week-end direction: ${weekEndDirection}`);
 
-      if (c.step8_interpretation) { section('Leadership interpretation'); doc.text(c.step8_interpretation); }
-      if (c.step15_narrative) { section('Governance narrative'); doc.text(c.step15_narrative); }
+      section('The week at a glance');
+      doc.text(overview);
 
-      section('This week at a glance');
-      const signalCount = c.step3_pulse_count ?? (Array.isArray(c.step4_signals) ? c.step4_signals.length : 0);
-      doc.text(`Signals captured: ${signalCount}`);
-      doc.text(`Repeat patterns reaching review: ${Array.isArray(c.step5_repeats) ? c.step5_repeats.length : 0}`);
-
-      const team = rev.team_report || {};
       section('Collective Daily Team Briefing');
       doc.text(c.collective_daily_brief_summary || 'No collective Daily Team Briefing summary was recorded by the Registered Manager.');
       doc.moveDown(0.3).font('Helvetica-Oblique').fillColor('#555')
-        .text(`${team.brief_days || 0} of 7 days contain a completed published Daily Team Brief.`)
+        .text(`${tr.brief_days || 0} of 7 days contain a completed published Daily Team Brief.`)
         .font('Helvetica').fillColor('#000');
-      if (Array.isArray(team.events) && team.events.length) {
-        team.events.forEach((event: any) => {
+
+      section('How events unfolded');
+      if (Array.isArray(tr.events) && tr.events.length) {
+        tr.events.forEach((event: any) => {
           const date = event.date ? new Date(event.date).toLocaleDateString('en-GB') : 'Date not recorded';
-          doc.font('Helvetica-Bold').text(date, { continued: true }).font('Helvetica').text(`  ${event.summary || ''}`);
+          doc.font('Helvetica-Bold').text(date, { continued: true }).font('Helvetica').text(`  ${event.headline || firstLine(event.summary)}`);
+        });
+      } else {
+        doc.font('Helvetica-Oblique').fillColor('#555').text('No dated briefing was recorded for this week.').font('Helvetica').fillColor('#000');
+      }
+
+      if (groups.length) {
+        section('Major issues and present position');
+        groups.forEach((g: any) => doc.text(`• ${g.domain} — ${g.signal_count} signal(s)${g.trajectory ? ` · ${normTraj(g.trajectory)}` : ''}`));
+      }
+
+      const measures: any[] = Array.isArray(tr.measures) ? tr.measures : [];
+      if (measures.length) {
+        section('What has been done');
+        measures.forEach((m: any) => {
+          const review = m.effectiveness_review_date || m.due_date;
+          doc.text(`• ${m.measure}${m.owner ? ` · ${m.owner}` : ' · Unassigned'}${review ? ` · review ${new Date(review).toLocaleDateString('en-GB')}` : ''} · ${m.status}`);
         });
       }
 
-      if (c.unresolved_concerns_text) { section('What remains a concern or is not rectified'); doc.text(c.unresolved_concerns_text); }
+      if (c.unresolved_concerns_text) { section('What remains a concern'); doc.text(c.unresolved_concerns_text); }
+      if (Array.isArray(tr.evidence_gaps) && tr.evidence_gaps.length) {
+        section('Information still required');
+        tr.evidence_gaps.forEach((gap: string) => doc.text(`- ${gap}`));
+      }
       if (c.lessons_learnt) { section('What we are learning'); doc.text(c.lessons_learnt); }
       if (c.anticipated_risks?.rm_note) { section('What to expect next week'); doc.text(c.anticipated_risks.rm_note); }
-      if (Array.isArray(team.evidence_gaps) && team.evidence_gaps.length) {
-        section('Information still required');
-        team.evidence_gaps.forEach((gap: string) => doc.text(`- ${gap}`));
-      }
-
-      const risks = Array.isArray(c.step10_risk_analysis) ? c.step10_risk_analysis : [];
-      if (risks.length) {
-        section('Risks under oversight');
-        risks.forEach((r: any) => doc.text(`• ${r.title || r.id}${r.current_trajectory ? ` — ${r.current_trajectory}` : ''}`));
-      }
 
       doc.moveDown(1).font('Helvetica-Oblique').fontSize(8).fillColor('#888')
         .text(`Generated ${new Date().toLocaleString('en-GB')} · OrdinCore governance record${rev.status === 'published' || rev.status === 'LOCKED' ? ' · locked' : ''}`);

@@ -403,13 +403,25 @@ export class WeeklyReviewsService {
                  ORDER BY r.updated_at DESC NULLS LAST LIMIT 1) AS trajectory
          FROM dg ORDER BY dg.signal_count DESC`, p)).rows;
 
+    // A concise one-line source entry per day: the collective summary carries the narrative, and
+    // these dated headlines are the retained "source trail" (not the full brief, which lives in
+    // Daily Governance). `summary` is kept for reconstruction; `headline` is what the report shows.
+    const headlineOf = (s: string) => {
+      const first = String(s || '').split(/\r?\n/).map((x) => x.trim()).find(Boolean) || '';
+      return first.length > 160 ? `${first.slice(0, 157)}…` : first;
+    };
     const events = (await query(
-      `SELECT dgl.review_date AS date, dgl.team_brief AS summary
+      `SELECT dgl.review_date AS date, dgl.team_brief AS summary,
+              (SELECT (gp.risk_domain)[1] FROM governance_pulses gp
+                WHERE gp.company_id = dgl.company_id AND gp.house_id = dgl.house_id
+                  AND gp.entry_date = dgl.review_date AND COALESCE(array_length(gp.risk_domain,1),0) > 0
+                LIMIT 1) AS theme
          FROM daily_governance_log dgl
         WHERE dgl.company_id = $1 AND dgl.house_id = $2 AND dgl.completed = true
           AND dgl.review_date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
           AND NULLIF(TRIM(dgl.team_brief), '') IS NOT NULL
-        ORDER BY dgl.review_date`, p)).rows;
+        ORDER BY dgl.review_date`, p)).rows
+      .map((e: any) => ({ ...e, headline: headlineOf(e.summary) }));
 
     const measures = (await query(
       `SELECT ra.id, COALESCE(rk.risk_domain::text, 'Governance') AS area, ra.title AS measure,

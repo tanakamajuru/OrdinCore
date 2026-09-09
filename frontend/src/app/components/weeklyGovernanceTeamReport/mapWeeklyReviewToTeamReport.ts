@@ -126,7 +126,12 @@ export function mapWeeklyReviewToTeamReport(review: ReviewRow): WeeklyGovernance
     weekEndTrajectory: rollupTrajectory(groups),
     overview: String(content.step15_narrative || content.step14_overall_position || review?.governance_narrative || "This report is drawn from the governance record for the week; see the sections below.").trim(),
     collectiveDailyBriefSummary: tr.collective_daily_brief_summary || content.collective_daily_brief_summary || null,
-    events: (tr.events || []).map((e: any, i: number) => ({ id: String(i), dateLabel: fmtDate(e.date), summary: String(e.summary || "").trim() })).filter((e: any) => e.summary),
+    events: (tr.events || []).map((e: any, i: number) => {
+      const summary = String(e.summary || "").trim();
+      const headline = String(e.headline || summary.split(/\r?\n/).map((x: string) => x.trim()).find(Boolean) || "").trim();
+      const iso = e.date ? new Date(e.date).toISOString().slice(0, 10) : "";
+      return { id: String(i), dateLabel: fmtDate(e.date), headline, summary, date: iso, theme: String(e.theme || "").trim() };
+    }).filter((e: any) => e.headline || e.summary),
     majorIssues,
     measures,
     unresolvedConcerns: String(content.unresolved_concerns_text || "").split(/\r?\n+/).map((x) => x.replace(/^[\s•\-*]+/, "").trim()).filter(Boolean),
