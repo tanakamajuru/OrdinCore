@@ -207,6 +207,31 @@ describe('§4/§11 Escalation closure — mandatory risk review surfaces in the 
   });
 });
 
+describe('§4 Escalation closure — follows every valid action lineage key', () => {
+  it('derives closure evidence from risk, escalation, decision, signal and pattern links', async () => {
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string) => {
+      if (/SELECT \* FROM escalations/.test(sql)) return { rows: [{
+        id: 'e1', lifecycle_status: 'Monitoring Effectiveness', risk_id: null,
+        source_governance_review_id: 'g1', source_pulse_id: 'p1', source_cluster_id: 'c1',
+      }] } as any;
+      if (/FROM risk_actions/.test(sql)) return { rows: [{ total: 1, incomplete: 0, unreviewed: 0 }] } as any;
+      if (/UPDATE escalations/.test(sql)) return { rows: [{ id: 'e1', lifecycle_status: 'Closed' }] } as any;
+      return { rows: [] } as any;
+    });
+
+    await expect(closureService.closeEscalation('co', 'e1', 'u', {
+      pattern_reduced: true, actions_completed: true, effectiveness_reviewed: true,
+      further_escalation_required: false, evidence: 'Completion and effectiveness evidence reviewed.',
+    })).resolves.toMatchObject({ id: 'e1', lifecycle_status: 'Closed' });
+
+    const actionSql = String(mockQuery.mock.calls.find((c: any[]) => /FROM risk_actions/.test(c[0]))?.[0]);
+    expect(actionSql).toMatch(/governance_review_id/);
+    expect(actionSql).toMatch(/source_pulse_id/);
+    expect(actionSql).toMatch(/source_cluster_id/);
+  });
+});
+
 describe('§6/§11 Tenant isolation — a pattern from another company cannot be reviewed', () => {
   it('rolls back and reports not found when the pattern is out of company scope', async () => {
     const client = fakeClient((sql) => {

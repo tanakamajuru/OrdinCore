@@ -42,9 +42,20 @@ export class ClosureService {
                                 AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
          FROM risk_actions
         WHERE company_id = $1
-          AND (escalation_id = $2 OR ($3::uuid IS NOT NULL AND risk_id = $3))
+          AND (escalation_id = $2
+            OR ($3::uuid IS NOT NULL AND risk_id = $3)
+            OR ($4::uuid IS NOT NULL AND governance_review_id = $4)
+            OR ($5::uuid IS NOT NULL AND source_pulse_id = $5)
+            OR ($6::uuid IS NOT NULL AND source_cluster_id = $6))
           AND status <> 'Cancelled'`,
-      [companyId, escalationId, existing.rows[0].risk_id || null]
+      [
+        companyId,
+        escalationId,
+        existing.rows[0].risk_id || null,
+        existing.rows[0].source_governance_review_id || null,
+        existing.rows[0].source_pulse_id || null,
+        existing.rows[0].source_cluster_id || null,
+      ]
     )).rows[0];
     if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
     if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);

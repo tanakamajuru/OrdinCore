@@ -42,6 +42,7 @@ interface Escalation {
   closed_at?: string;
   closed_by_name?: string;
   actions?: any[];
+  linked_actions?: any[];
   overdue?: boolean;
 }
 
@@ -734,11 +735,36 @@ export function EscalationLog() {
                       </div>
                     )}
 
-                    {/* Action History */}
+                    {/* Corrective actions are the actual delegated work and evidence trail. */}
+                    {(selectedEscalation as any).linked_actions?.length > 0 && (
+                      <details open className="pt-6 border-t border-border group">
+                        <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-3">
+                          <span>Corrective action history ({(selectedEscalation as any).linked_actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                        </summary>
+                        <div className="space-y-4">
+                          {(selectedEscalation as any).linked_actions.map((action: any) => (
+                            <div key={action.id} className="text-xs border-l-2 border-primary pl-3 py-1 space-y-1">
+                              <p className="font-semibold text-foreground">{action.title}</p>
+                              <p className="text-muted-foreground">Owner: {action.assigned_to_name} · Status: {action.status}</p>
+                              {action.completed_at && <p className="text-muted-foreground">Completed by {action.completed_by_name} · {new Date(action.completed_at).toLocaleString('en-GB')}</p>}
+                              {action.completion_evidence && <p className="text-foreground">Completion evidence: {action.completion_evidence}</p>}
+                              {(action.effectiveness_outcome || action.effectiveness) && (
+                                <p className="text-foreground">Effectiveness: {action.effectiveness_outcome || action.effectiveness}
+                                  {action.effectiveness_reviewed_at ? ` · reviewed ${new Date(action.effectiveness_reviewed_at).toLocaleString('en-GB')}` : ''}
+                                </p>
+                              )}
+                              {action.effectiveness_evidence && <p className="text-foreground">Effectiveness evidence: {action.effectiveness_evidence}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      </details>
+                    )}
+
+                    {/* Escalation diary / decision history */}
                     {(selectedEscalation as any).actions && (selectedEscalation as any).actions.length > 0 && (
                       <details className="pt-6 border-t border-border group">
                         <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-3">
-                          <span>Decision and action history ({(selectedEscalation as any).actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
+                          <span>Escalation decision and communication history ({(selectedEscalation as any).actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                         </summary>
                         <div className="space-y-4">
                           {(selectedEscalation as any).actions.map((action: any) => (

@@ -124,21 +124,40 @@ export class EscalationsService {
           -- it is NOT a second effectiveness engine and never auto-closes the escalation.
           (SELECT COALESCE(ra.effectiveness_outcome, ra.effectiveness::text)
              FROM risk_actions ra
-            WHERE ra.risk_id = e.risk_id
+            WHERE ra.company_id = e.company_id
+              AND (
+                ra.escalation_id = e.id
+                OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+                OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+                OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+                OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id)
+              )
               AND (ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
             ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) DESC
             LIMIT 1) AS latest_effectiveness,
           (SELECT COUNT(*) FROM risk_actions ra
             WHERE ra.company_id = e.company_id
-              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND (ra.escalation_id = e.id
+                OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+                OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+                OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+                OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
               AND ra.status <> 'Cancelled') AS actions_total_count,
           (SELECT COUNT(*) FROM risk_actions ra
             WHERE ra.company_id = e.company_id
-              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND (ra.escalation_id = e.id
+                OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+                OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+                OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+                OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
               AND ra.status IN ('Complete','Completed')) AS actions_completed_count,
           (SELECT COUNT(*) FROM risk_actions ra
             WHERE ra.company_id = e.company_id
-              AND (ra.escalation_id = e.id OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id))
+              AND (ra.escalation_id = e.id
+                OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+                OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+                OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+                OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
               AND ra.status IN ('Complete','Completed')
               AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL) AS actions_effectiveness_reviewed_count
          FROM escalations e
@@ -184,7 +203,11 @@ export class EscalationsService {
         p.risk_domain AS signal_risk_domain,
         p.signal_type AS signal_type,
         p.created_at AS signal_logged_at,
-        pu.first_name || ' ' || pu.last_name AS signal_logged_by_name
+        pu.first_name || ' ' || pu.last_name AS signal_logged_by_name,
+        action_state.latest_effectiveness,
+        COALESCE(action_state.actions_total_count, 0) AS actions_total_count,
+        COALESCE(action_state.actions_completed_count, 0) AS actions_completed_count,
+        COALESCE(action_state.actions_effectiveness_reviewed_count, 0) AS actions_effectiveness_reviewed_count
        FROM escalations e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
@@ -193,6 +216,23 @@ export class EscalationsService {
        LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
        LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
        LEFT JOIN users pu ON pu.id = p.created_by
+       LEFT JOIN LATERAL (
+         SELECT
+           (ARRAY_AGG(COALESCE(ra.effectiveness_outcome, ra.effectiveness::text)
+             ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) DESC)
+             FILTER (WHERE ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL))[1] AS latest_effectiveness,
+           COUNT(*) FILTER (WHERE ra.status <> 'Cancelled')::int AS actions_total_count,
+           COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed'))::int AS actions_completed_count,
+           COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
+             AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL)::int AS actions_effectiveness_reviewed_count
+         FROM risk_actions ra
+         WHERE ra.company_id = e.company_id
+           AND (ra.escalation_id = e.id
+             OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+             OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+             OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+             OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
+       ) action_state ON TRUE
        WHERE e.id = $1 AND e.company_id = $2`,
       [id, company_id]
     );
@@ -208,13 +248,40 @@ export class EscalationsService {
         ORDER BY ea.created_at DESC`,
       [id]
     );
+    // Assigned corrective actions are governance evidence, not escalation diary notes. Return
+    // them separately so clients can show completion and effectiveness without conflating the two.
+    const linkedActions = await query(
+      `SELECT DISTINCT ra.*,
+              COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unassigned') AS assigned_to_name,
+              COALESCE(NULLIF(TRIM(cu.first_name || ' ' || cu.last_name), ''), 'Not recorded') AS completed_by_name,
+              COALESCE(NULLIF(TRIM(eu.first_name || ' ' || eu.last_name), ''), 'Not reviewed') AS effectiveness_reviewed_by_name
+         FROM escalations e
+         JOIN risk_actions ra ON ra.company_id = e.company_id
+          AND (ra.escalation_id = e.id
+            OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
+            OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
+            OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
+            OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
+         LEFT JOIN users u ON u.id = ra.assigned_to
+         LEFT JOIN users cu ON cu.id = ra.completed_by
+         LEFT JOIN users eu ON eu.id = ra.effectiveness_reviewed_by
+        WHERE e.id = $1 AND e.company_id = $2 AND ra.status <> 'Cancelled'
+        ORDER BY ra.created_at DESC`,
+      [id, company_id]
+    );
     // Also resolve the name of whoever closed/resolved it for the summary block.
     let closed_by_name: string | null = null;
     if (result.rows[0].closed_by) {
       const cb = await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [result.rows[0].closed_by]);
       closed_by_name = cb.rows[0]?.name || null;
     }
-    return { ...result.rows[0], house_id: result.rows[0].resolved_house_id || result.rows[0].house_id, closed_by_name, actions: actions.rows };
+    return {
+      ...result.rows[0],
+      house_id: result.rows[0].resolved_house_id || result.rows[0].house_id,
+      closed_by_name,
+      actions: actions.rows,
+      linked_actions: linkedActions.rows,
+    };
   }
 
   async resolve(id: string, company_id: string, user_id: string, resolution_notes: string) {
