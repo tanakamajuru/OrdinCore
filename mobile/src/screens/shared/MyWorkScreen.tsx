@@ -18,11 +18,15 @@ const ICON: Record<string, any> = { escalations: 'alert-circle', signals: 'bell'
 // where the work is done (best-effort per role).
 function target(role: string, key: string): (() => void) | undefined {
   const r = normalizeRole(role);
-  const go = (screen: string) => () => navigate(screen as never);
+  const go = (screen: string, params?: any) => () => navigate(screen as never, params);
   const tab = (name: string) => () => navigateTab(name as never);
   if (key === 'actions') return r === 'REGISTERED_MANAGER' ? go('RMMyActions') : r === 'TEAM_LEADER' ? go('TLMyActions') : tab('Actions');
   if (key === 'escalations') return r === 'REGISTERED_MANAGER' ? go('RMEscalations') : r === 'TEAM_LEADER' ? go('TLEscalations') : r === 'SUPPORT_WORKER' ? go('SWEscalations') : undefined;
   if (key === 'signals') return tab('Signals');
+  // Effectiveness verdicts and post-escalation risk reviews had no destination, so those rows
+  // did nothing when tapped. Route them to the oversight lists that show the same items.
+  if (key === 'effectiveness') return r === 'REGISTERED_MANAGER' ? go('RMActionsList', { lens: 'effectiveness' }) : undefined;
+  if (key === 'post_escalation_review') return go('RMRiskRegister', { tab: 'open' });
   if (key === 'weekly') return r === 'REGISTERED_MANAGER' ? go('RMWeeklyReview') : undefined;
   if (key === 'weekly_validation' && r === 'DIRECTOR') return go('DirectorReviews');
   if (key === 'weekly_ack' && r === 'TEAM_LEADER') return go('TLWeeklyReviews');
