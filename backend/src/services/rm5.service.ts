@@ -202,23 +202,13 @@ export const rm5Service = {
 
   // Register — risks by type, each with computed trajectory.
   async register(company_id: string, type: 'active' | 'strategic' | 'closed') {
-    const where = type === 'closed' ? `r.status IN ${CLOSED_RISK}`
-      : type === 'strategic' ? `r.status NOT IN ${CLOSED_RISK} AND r.strategic_theme IS NOT NULL`
-      : `r.status NOT IN ${CLOSED_RISK} AND r.strategic_theme IS NULL`;
-    const rows = (await query(
-      `SELECT r.id, COALESCE(r.strategic_theme, r.title) AS theme, COALESCE(r.linked_person, '—') AS person,
-              h.name AS house, r.source_cluster_id AS "sourceClusterId",
-              (SELECT COUNT(*) FROM risk_actions a WHERE a.risk_id = r.id AND a.status ${OPEN_ACTION}) AS "openActions"
-         FROM risks r LEFT JOIN houses h ON h.id = r.house_id
-        WHERE r.company_id = $1 AND ${where}
-        ORDER BY r.updated_at DESC NULLS LAST`,
-      [company_id]
-    )).rows;
-    return Promise.all(rows.map(async (r: any) => ({
-      id: r.id, theme: r.theme, person: r.person, houses: [r.house].filter(Boolean), type,
-      openActions: Number(r.openActions || 0),
-      trajectory: traj(await trajectoryForRisk(r.id, r.sourceClusterId)),
-    })));
+    const projection = await risksService.getOversightSummary(company_id);
+    const rows = type === 'strategic' ? projection.strategic : type === 'closed' ? projection.closed : projection.active;
+    return rows.map((r: any) => ({
+      ...r, theme: r.concern, houses: r.service && r.service !== '—' ? [r.service] : [], type,
+      openActions: Number(r.controls || 0),
+      trajectory: { dir: r.trajectory, basis: r.trajectoryBasis || null, points: [] },
+    }));
   },
 
   // Lenses — views that link back to the owning risk (never a second copy).

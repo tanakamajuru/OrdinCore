@@ -1147,16 +1147,22 @@ export class RisksService {
       `SELECT r.id, r.title, r.strategic_theme, r.source_cluster_id, r.trajectory, r.trend, r.status, r.severity,
               r.impact_rating, r.risk_index,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
-              r.last_governance_review_at, r.review_due_date, r.house_id,
+              r.last_governance_review_at, r.review_due_date, r.next_review_date, r.house_id,
               r.closed_at, r.updated_at,
               -- Next review tracks the next open action's due date (the concrete thing that
               -- moves the risk forward), falling back to any explicit review date.
-              (SELECT MIN(ra.due_date) FROM risk_actions ra
-                 WHERE ra.risk_id = r.id AND ra.due_date IS NOT NULL
-                   AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS next_action_date,
+              LEAST(
+                (SELECT MIN(ra.due_date) FROM risk_actions ra
+                   WHERE (ra.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id))
+                     AND ra.due_date IS NOT NULL AND ra.status NOT IN ('Complete','Completed','Cancelled')),
+                (SELECT MIN(gro.due_at)::date FROM governance_review_obligations gro
+                   WHERE gro.company_id=r.company_id AND gro.source_risk_id=r.id AND gro.status='OPEN')
+              ) AS next_action_date,
               h.name AS service_name,
-              (SELECT COUNT(*) FROM risk_signal_links rsl WHERE rsl.risk_id = r.id) AS evidence_count,
-              (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id) AS controls_count,
+              (SELECT COUNT(DISTINCT rsl.pulse_entry_id) FROM risk_signal_links rsl
+                 WHERE rsl.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND rsl.cluster_id=r.source_cluster_id)) AS evidence_count,
+              (SELECT COUNT(DISTINCT ra.id) FROM risk_actions ra
+                 WHERE ra.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS controls_count,
               (SELECT ra.effectiveness_outcome FROM risk_actions ra
                  WHERE ra.risk_id = r.id AND ra.effectiveness_outcome IS NOT NULL
                  ORDER BY ra.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness,
@@ -1185,9 +1191,11 @@ export class RisksService {
     const shape = (r: any) => ({
       id: r.id,
       concern: r.strategic_theme || r.title,
-      type: Number(r.services_affected_count) > 1 ? 'Strategic' : 'Operational',
+      type: (Number(r.services_affected_count) > 1 || r.strategic_theme || !r.house_id) ? 'Strategic' : 'Operational',
       position: positionOf(r),
       trajectory: r.trajectory || r.trend || 'Stable',
+      trajectoryBasis: r.trajectory_basis || null,
+      trajectoryVersion: r.trajectory_version || null,
       severity: r.severity,
       impact: r.impact_rating || null,
       riskIndex: r.risk_index ?? null,
@@ -1196,7 +1204,7 @@ export class RisksService {
       effectiveness: r.latest_effectiveness || 'Not yet reviewed',
       owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
       service: r.service_name || '—',
-      nextReview: r.next_action_date || r.review_due_date || null,
+      nextReview: r.next_action_date || r.next_review_date || r.review_due_date || null,
       lastUpdated: r.updated_at || null,
       closed_at: r.closed_at || null,
       closed_by: null,
@@ -1213,8 +1221,9 @@ export class RisksService {
     }));
     const all = hydratedRisks.map(shape);
     const open = hydratedRisks.filter(r => !['Closed', 'Resolved'].includes(r.status));
-    const active = open.filter(r => Number(r.services_affected_count) <= 1).map(shape);
-    const strategic = open.filter(r => Number(r.services_affected_count) > 1).map(shape);
+    const isStrategic = (r: any) => Number(r.services_affected_count) > 1 || !!r.strategic_theme || !r.house_id;
+    const active = open.filter(r => !isStrategic(r)).map(shape);
+    const strategic = open.filter(isStrategic).map(shape);
     const closed = hydratedRisks.filter(r => ['Closed', 'Resolved'].includes(r.status)).map(shape);
 
     // Emerging concerns = unpromoted signal clusters + new risk candidates.
@@ -1263,8 +1272,8 @@ export class RisksService {
       else counts.stable++;
     }
     const cfRes = await query(
-      `SELECT COUNT(*) FROM risk_actions ra JOIN risks r ON r.id = ra.risk_id
-        WHERE r.company_id = $1 AND ra.effectiveness_outcome = 'Not Effective'${hasHouseFilter ? ' AND r.house_id = ANY($2::uuid[])' : ''}`,
+      `SELECT COUNT(DISTINCT source_key) FROM canonical_control_failures ccf
+        WHERE ccf.company_id = $1${hasHouseFilter ? ' AND (ccf.service_id = ANY($2::uuid[]) OR ccf.service_id IS NULL)' : ''}`,
       params
     );
     const lastReviewRes = await query(

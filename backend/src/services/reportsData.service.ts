@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { trajectoryForRisk } from './trajectory.service';
 
 /**
  * Canonical report data (spec module 10). Exactly four reports:
@@ -36,13 +37,20 @@ export class ReportsDataService {
 
   async strategicRisks(companyId: string) {
     const rows = await query(
-      `SELECT COALESCE(r.strategic_theme, r.title) AS theme,
+      `SELECT r.id, r.source_cluster_id, COALESCE(r.strategic_theme, r.title) AS theme,
               r.risk_domain AS domain, dm.kloe_label, dm.kloe_code,
               r.trend, r.trajectory, r.severity, r.status,
               EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open,
               r.last_governance_review_at,
               (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id
                  AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions,
+              (SELECT string_agg(
+                 COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
+                 || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
+                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 '; ' ORDER BY ra.created_at)
+               FROM risk_actions ra
+               WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               h.name AS service_name
        FROM risks r
        LEFT JOIN houses h ON h.id = r.house_id
@@ -50,11 +58,16 @@ export class ReportsDataService {
        -- (SUPPORTED_LIVING + DOMICILIARY) can't multiply the risk or pull a NULL.
        LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
                     FROM governance_domains GROUP BY name) dm ON dm.name = r.risk_domain
-       WHERE r.company_id = $1 AND r.status NOT IN ('Closed')
+       WHERE r.company_id = $1 AND r.status NOT IN ('Closed','Resolved')
+         AND (r.strategic_theme IS NOT NULL OR COALESCE(r.services_affected_count,1)>1 OR r.house_id IS NULL)
        ORDER BY r.created_at DESC`,
       [companyId]
     );
-    return { report: 'Strategic Risk Report', risks: rows.rows };
+    const risks = await Promise.all(rows.rows.map(async (r: any) => {
+      const tr = await trajectoryForRisk(r.id, r.source_cluster_id).catch(() => null);
+      return { ...r, trajectory: tr?.direction || r.trajectory, trajectory_basis: tr?.basis || null };
+    }));
+    return { report: 'Strategic Risk Report', risks };
   }
 
   async escalations(companyId: string, start?: string, end?: string) {
@@ -68,6 +81,16 @@ export class ReportsDataService {
               COALESCE(e.lifecycle_status::text, e.status) AS status,
               e.due_by,
               (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue,
+              (SELECT string_agg(
+                 COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
+                 || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
+                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 '; ' ORDER BY ra.created_at)
+               FROM risk_actions ra
+               WHERE ra.escalation_id=e.id OR ra.governance_review_id=e.source_governance_review_id
+                  OR (e.risk_id IS NOT NULL AND ra.risk_id=e.risk_id)
+                  OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id=e.source_pulse_id)
+                  OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id=e.source_cluster_id)) AS action_history,
               h.name AS service_name
        FROM escalations e
        LEFT JOIN users u ON u.id = e.escalated_to
@@ -87,16 +110,17 @@ export class ReportsDataService {
   async crossServiceControl(companyId: string) {
     const rows = await query(
       `SELECT sc.risk_domain AS domain,
-              COUNT(DISTINCT sc.house_id)::int AS service_count,
-              string_agg(DISTINCT h.name, ', ') AS services,
-              SUM(sc.signal_count)::int AS total_signals,
+              cardinality(COALESCE(sc.affected_house_ids,ARRAY[]::uuid[]))::int AS service_count,
+              (SELECT string_agg(h.name, ', ' ORDER BY h.name) FROM houses h
+                WHERE h.company_id=sc.company_id AND h.id=ANY(COALESCE(sc.affected_house_ids,ARRAY[]::uuid[]))) AS services,
+              sc.signal_count::int AS total_signals,
               MAX(d.kloe_label) AS kloe_label, MAX(d.kloe_code) AS kloe_code
          FROM signal_clusters sc
-         JOIN houses h ON h.id = sc.house_id
          LEFT JOIN governance_domains d ON d.name = sc.risk_domain
-        WHERE sc.company_id = $1 AND sc.cluster_status IN ('Escalated','Emerging')
-        GROUP BY sc.risk_domain
-       HAVING COUNT(DISTINCT sc.house_id) >= 2
+        WHERE sc.company_id = $1 AND sc.scope='cross_service'
+          AND sc.cluster_status IN ('Escalated','Emerging','Confirmed')
+          AND cardinality(COALESCE(sc.affected_house_ids,ARRAY[]::uuid[])) >= 2
+        GROUP BY sc.id, sc.risk_domain, sc.affected_house_ids, sc.signal_count, sc.company_id
         ORDER BY service_count DESC, total_signals DESC`,
       [companyId]
     );
@@ -117,12 +141,19 @@ export class ReportsDataService {
   // its source cluster to the signals that justified it, mapped to CQC KLOEs (S1/S2/W2).
   async inspectionEvidence(companyId: string) {
     const rows = await query(
-      `SELECT r.id AS risk_id,
+      `SELECT r.id AS risk_id, r.source_cluster_id,
               COALESCE(r.strategic_theme, r.title) AS concern,
               r.risk_domain AS domain, h.name AS service,
-              COALESCE(sc.signal_count, 0)::int AS source_signals,
+              (SELECT COUNT(DISTINCT rsl.pulse_entry_id)::int FROM risk_signal_links rsl
+                WHERE rsl.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND rsl.cluster_id=r.source_cluster_id)) AS source_signals,
               sc.cluster_label AS source_cluster,
               r.trajectory, r.status,
+              (SELECT string_agg(
+                 COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
+                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 '; ' ORDER BY ra.created_at)
+               FROM risk_actions ra
+               WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               d.kloe_label, d.kloe_code
          FROM risks r
          LEFT JOIN houses h ON h.id = r.house_id
@@ -131,11 +162,14 @@ export class ReportsDataService {
          -- can't duplicate the risk in the pack or pull a NULL CQC domain.
          LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
                       FROM governance_domains GROUP BY name) d ON d.name = r.risk_domain
-        WHERE r.company_id = $1 AND r.status NOT IN ('Closed')
+        WHERE r.company_id = $1 AND r.status NOT IN ('Closed','Resolved')
         ORDER BY r.created_at DESC`,
       [companyId]
     );
-    const evidence = rows.rows;
+    const evidence = await Promise.all(rows.rows.map(async (r: any) => {
+      const tr = await trajectoryForRisk(r.risk_id, r.source_cluster_id).catch(() => null);
+      return { ...r, trajectory: tr?.direction || r.trajectory, trajectory_basis: tr?.basis || null };
+    }));
     const traced = evidence.filter((e) => e.source_signals > 0).length;
     const narrative =
       `This evidence pack traces every active oversight risk back to the body of signals that justified it. ` +

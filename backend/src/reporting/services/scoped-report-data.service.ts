@@ -4,6 +4,7 @@
 import { query } from '../../config/database';
 import { ResolvedScope, SiteStatus } from '../domain/reporting.types';
 import { confidenceService, SiteMetrics } from './confidence.service';
+import { trajectoryForRisk } from '../../services/trajectory.service';
 
 const done = `('Complete','Completed','Cancelled')`;
 
@@ -122,9 +123,10 @@ export const scopedReportDataService = {
         ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC`, detailParams
     )).rows;
 
-    const risks = (await query(
+    const riskRows = (await query(
       `SELECT r.id, h.name AS service, COALESCE(r.strategic_theme, r.title) AS risk,
               r.description, r.severity::text AS severity, r.status::text AS status,
+              r.source_cluster_id,
               COALESCE(r.trajectory::text, r.trend::text, 'Insufficient evidence') AS direction,
               r.review_due_date, r.resolution_reason
          FROM risks r
@@ -136,6 +138,10 @@ export const scopedReportDataService = {
         ORDER BY CASE r.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END,
                  r.created_at DESC`, broadParams
     )).rows;
+    const risks = await Promise.all(riskRows.map(async (r: any) => {
+      const tr = await trajectoryForRisk(r.id, r.source_cluster_id).catch(() => null);
+      return { ...r, direction: tr?.direction || r.direction, trajectory_basis: tr?.basis || null };
+    }));
 
     const actions = (await query(
       `SELECT ra.id, COALESCE(h.name, 'Organisation-wide') AS service, ra.title AS action,

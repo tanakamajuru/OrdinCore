@@ -31,7 +31,6 @@ import { EscalationLog } from "./components/EscalationLog";
 import { Trends } from "./components/Trends";
 import { Profile } from "./components/Profile";
 import { MonthlyReport } from "./components/MonthlyReport";
-import { Reports } from "./components/Reports";
 import { FrozenReports } from "./components/FrozenReports";
 import { IncidentCaseHub } from "./components/IncidentCaseHub";
 import { IncidentDetail } from "./components/IncidentDetail";
@@ -350,9 +349,7 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/reports-classic" element={
-            <ProtectedRoute>
-              <Reports />
-            </ProtectedRoute>
+            <Navigate to="/reports" replace />
           } />
           <Route path="/incidents" element={
             <ProtectedRoute>
