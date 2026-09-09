@@ -177,6 +177,10 @@ export class RisksService {
       [id, company_id, JSON.stringify(patch)]
     );
     await risksRepo.addEvent(id, company_id, 'assessment_updated', `Risk assessment updated: ${Object.keys(patch).join(', ')}`, user_id);
+    try {
+      const { reviewObligationsService } = await import('./reviewObligations.service');
+      await reviewObligationsService.complete(company_id, 'RISK_POST_EFFECTIVENESS', id, user_id, `Risk reviewed: ${Object.keys(patch).join(', ')}`);
+    } catch { /* migration may not yet be applied during a rolling deployment */ }
     return result.rows[0];
   }
 
@@ -504,15 +508,19 @@ export class RisksService {
   // (no reopen inside the recurrence window). The real Well-Led test: did it hold? (Finding B)
   async resolutionEffectivenessRate(company_id: string) {
     const r = await query(
-      `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%')::int AS resolved,
-              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%' AND reopened_at IS NULL)::int AS stayed
+      `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
+                                AND recurrence_window_until <= NOW())::int AS resolved,
+              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
+                                AND recurrence_window_until <= NOW() AND reopened_at IS NULL)::int AS stayed,
+              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
+                                AND (recurrence_window_until IS NULL OR recurrence_window_until > NOW()))::int AS pending_observation
          FROM risks
         WHERE company_id = $1 AND resolution_outcome IS NOT NULL`,
       [company_id]
     );
     const resolved = Number(r.rows[0]?.resolved || 0);
     const stayed = Number(r.rows[0]?.stayed || 0);
-    return { resolved, stayed, rate: resolved ? Math.round((stayed / resolved) * 100) : null };
+    return { resolved, stayed, pending_observation: Number(r.rows[0]?.pending_observation || 0), rate: resolved ? Math.round((stayed / resolved) * 100) : null };
   }
 
   async updateActionStatus(action_id: string, risk_id: string, company_id: string, user_id: string, status: string) {

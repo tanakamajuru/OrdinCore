@@ -11,6 +11,7 @@ import { query } from '../config/database';
 
 const OPERATIONAL_MANAGERS = ['SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER'];
 const ALL_SITE_ROLES = [...OPERATIONAL_MANAGERS, 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'];
+const EFFECTIVENESS_READERS = ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'];
 
 async function houseScope(company_id: string, user_id: string, role: string): Promise<string[]> {
   const r = String(role || '').toUpperCase().replace(/-/g, '_');
@@ -94,21 +95,16 @@ export const myWorkService = {
     // 4. Effectiveness reviews due — completed controls not yet rated. This is an RM/Director/RI
     //    function (rating control effectiveness), and its destination (/rm5) is RM-only, so it
     //    is not shown to Team Leaders (who would otherwise hit a 403 on the link).
-    if (OPERATIONAL_MANAGERS.includes(r)) {
-      // Same measure as the pipeline Effectiveness lens (rm5.service) so Home and the lens agree:
-      // every completed action company-wide still awaiting an effectiveness verdict. Must use the
-      // identical predicate — completed_at IS NOT NULL AND effectiveness_outcome IS NULL — not the
-      // older status/effectiveness columns or a house/assignee scope, which undercounted here.
+    if (EFFECTIVENESS_READERS.includes(r)) {
+      // Durable obligations are the source of truth; a service/signal action is not dropped simply
+      // because no formal risk existed when the work was allocated.
       const eff = await safe(() => query(
-        `SELECT COUNT(*)::int AS n FROM risk_actions a
-          WHERE a.company_id = $1
-            AND a.risk_id IS NOT NULL
-            AND a.completed_at IS NOT NULL
-            AND a.effectiveness_outcome IS NULL`,
+        `SELECT COUNT(*)::int AS n FROM governance_review_obligations
+          WHERE company_id=$1 AND obligation_type='ACTION_EFFECTIVENESS' AND status='OPEN'`,
         [company_id]
       ), { rows: [{ n: 0 }] } as any);
       const n = eff.rows[0]?.n || 0;
-      if (n > 0) items.push({ key: 'effectiveness', label: 'effectiveness reviews due', count: n, tone: 'blue', link: '/rm5?stage=effectiveness', primary_action: 'Review Effectiveness' });
+      if (n > 0) items.push({ key: 'effectiveness', label: 'effectiveness reviews due', count: n, tone: 'blue', link: '/effectiveness', primary_action: r === 'REGISTERED_MANAGER' ? 'Review Effectiveness' : 'View Effectiveness' });
     }
 
     // 5. Weekly governance review — due if none published for my services this week.

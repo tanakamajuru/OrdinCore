@@ -37,6 +37,7 @@ export function Effectiveness() {
             <div className="text-right shrink-0 pl-4">
               <p className="text-2xl font-semibold text-foreground">{rer.rate == null ? "—" : `${rer.rate}%`}</p>
               <p className="text-[11px] text-muted-foreground">{rer.stayed}/{rer.resolved} resolved</p>
+              {Number(rer.pending_observation || 0) > 0 && <p className="text-[11px] text-amber-600">{rer.pending_observation} still under observation</p>}
             </div>
           </div>
         )}

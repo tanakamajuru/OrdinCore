@@ -4,6 +4,7 @@ import { notificationsService } from '../services/notifications.service';
 import { query } from '../config/database';
 import logger from '../utils/logger';
 import { emitToCompany } from '../websocket/socket.server';
+import { reviewObligationsService } from '../services/reviewObligations.service';
 
 export class ActionsController {
   async complete(req: Request, res: Response) {
@@ -55,6 +56,17 @@ export class ActionsController {
         [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
       let completedAction = completedRes.rows[0];
+
+      // Completion creates a durable review obligation. This applies equally to risk-linked and
+      // signal/service actions, so no completed Team Leader work can disappear from RM review.
+      await reviewObligationsService.open({
+        companyId: company_id,
+        type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: id,
+        actionId: id, riskId,
+        dueAt: action.rows[0].effectiveness_due_at || new Date(),
+        ownerRole: 'REGISTERED_MANAGER',
+        reason: 'Completed action requires an effectiveness decision.',
+      });
 
       emitToCompany(company_id, 'intervention.updated', {
         reason: 'linked_action_completed', action_id: id, risk_id: riskId,
@@ -151,6 +163,14 @@ export class ActionsController {
           WHERE id = $4 AND company_id = $5`,
         [rm_decision, rm_comment || null, schedule, id, company_id]
       );
+      await reviewObligationsService.open({
+        companyId: company_id,
+        type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: id,
+        actionId: id, riskId: action.risk_id || null,
+        dueAt: schedule || action.completed_at || new Date(),
+        ownerRole: 'REGISTERED_MANAGER',
+        reason: schedule ? 'Effectiveness review scheduled when completion was accepted.' : 'Accepted completion requires an effectiveness decision.',
+      });
 
       if (action.assigned_to) {
         await notificationsService.create({

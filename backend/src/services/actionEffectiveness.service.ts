@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { risksService } from './risks.service';
 import { risksRepo } from '../repositories/risks.repo';
 import logger from '../utils/logger';
+import { reviewObligationsService } from './reviewObligations.service';
 
 export type EffectivenessOutcome = 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess';
 
@@ -63,7 +64,26 @@ export class ActionEffectivenessService {
 
     // Trigger trajectory pipeline (only when the outcome maps to a directional signal).
     if (legacy) {
-      await risksService.updateTrajectoryFromActions(updatedAction.risk_id, company_id);
+      if (updatedAction.risk_id) await risksService.updateTrajectoryFromActions(updatedAction.risk_id, company_id);
+    }
+
+    await reviewObligationsService.complete(company_id, 'ACTION_EFFECTIVENESS', actionId, userId, `Effectiveness recorded: ${outcome}`);
+    if (outcome === 'Too Early To Assess') {
+      await reviewObligationsService.open({
+        companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
+        actionId, riskId: updatedAction.risk_id || null,
+        dueAt: updatedAction.effectiveness_due_at && new Date(updatedAction.effectiveness_due_at) > new Date()
+          ? updatedAction.effectiveness_due_at : new Date(Date.now() + 7 * 86400000),
+        ownerRole: 'REGISTERED_MANAGER', reason: 'Effectiveness was too early to assess; repeat the review with further evidence.',
+      });
+    } else if (updatedAction.risk_id) {
+      // The verdict changes the evidence on the risk. Create an immediate, explicit obligation so
+      // the risk is reviewed rather than silently relying on a cached trajectory.
+      await reviewObligationsService.open({
+        companyId: company_id, type: 'RISK_POST_EFFECTIVENESS', subjectType: 'RISK', subjectId: updatedAction.risk_id,
+        actionId, riskId: updatedAction.risk_id, dueAt: new Date(), ownerRole: 'REGISTERED_MANAGER',
+        reason: `Risk requires review after action effectiveness was rated ${outcome}.`,
+      });
     }
 
     return updatedAction;
@@ -75,10 +95,14 @@ export class ActionEffectivenessService {
     // list matches the count. The fixed 48-hour assumption is removed (doctrine): an action is due a
     // verdict as soon as it is completed — the RM schedules the actual review date.
     let sql = `
-      SELECT ra.*, h.name as house_name, r.title as risk_title
+      SELECT ra.*, COALESCE(h.name, 'Organisation-wide') as house_name, r.title as risk_title,
+             gro.due_at AS review_due_at, (gro.due_at < NOW()) AS review_overdue
       FROM risk_actions ra
-      JOIN risks r ON r.id = ra.risk_id
-      JOIN houses h ON h.id = r.house_id
+      LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+      LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id)
+      LEFT JOIN governance_review_obligations gro
+        ON gro.company_id=ra.company_id AND gro.subject_id=ra.id
+       AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.status='OPEN'
       WHERE ra.company_id = $1
       AND ra.completed_at IS NOT NULL
       AND ra.effectiveness_outcome IS NULL
@@ -86,13 +110,58 @@ export class ActionEffectivenessService {
     const params: any[] = [company_id];
 
     if (house_id) {
-      sql += ` AND r.house_id = $2`;
+      sql += ` AND COALESCE(ra.house_id, r.house_id) = $2`;
       params.push(house_id);
     }
 
     sql += ` ORDER BY ra.completed_at ASC`;
     const res = await query(sql, params);
     return res.rows;
+  }
+
+  async summary(company_id: string, start: string, end: string) {
+    const result = await query(
+      `WITH reviewed AS (
+         SELECT ra.id, COALESCE(ra.effectiveness_outcome,
+                  CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
+                    WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END) AS outcome,
+                ra.effectiveness_reviewed_at::date AS day,
+                COALESCE(NULLIF(TRIM(r.risk_domain),''), NULLIF(TRIM(r.strategic_theme),''),
+                         NULLIF(TRIM(sc.risk_domain),''), 'Uncategorised') AS domain,
+                COALESCE(h.name, 'Organisation-wide') AS service_name
+           FROM risk_actions ra
+           LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
+           LEFT JOIN signal_clusters sc ON sc.id=ra.source_cluster_id AND sc.company_id=ra.company_id
+           LEFT JOIN houses h ON h.id=COALESCE(ra.house_id,r.house_id)
+          WHERE ra.company_id=$1
+            AND ra.effectiveness_reviewed_at BETWEEN $2::timestamptz AND $3::timestamptz
+            AND (ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
+       )
+       SELECT
+         (SELECT JSON_BUILD_OBJECT(
+           'effective', COUNT(*) FILTER (WHERE outcome='Effective'),
+           'neutral', COUNT(*) FILTER (WHERE outcome='Partially Effective'),
+           'ineffective', COUNT(*) FILTER (WHERE outcome='Not Effective'),
+           'too_early', COUNT(*) FILTER (WHERE outcome='Too Early To Assess')) FROM reviewed) AS org_summary,
+         COALESCE((SELECT JSON_AGG(x ORDER BY service_name) FROM (
+           SELECT service_name, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
+             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+           FROM reviewed GROUP BY service_name) x), '[]'::json) AS service_comparison,
+         COALESCE((SELECT JSON_AGG(x ORDER BY domain) FROM (
+           SELECT domain, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
+             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+           FROM reviewed GROUP BY domain) x), '[]'::json) AS domain_analysis,
+         COALESCE((SELECT JSON_AGG(x ORDER BY day) FROM (
+           SELECT day, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
+             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS partial,
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+           FROM reviewed GROUP BY day) x), '[]'::json) AS daily_trend`,
+      [company_id, start, end]
+    );
+    const pending = await this.getPendingEffectiveness(company_id);
+    return { ...(result.rows[0] || {}), pending, pending_count: pending.length };
   }
 }
 

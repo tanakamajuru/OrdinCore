@@ -46,7 +46,10 @@ router.post('/:id/remind', requireAuth, requireTenant, requireRole('TEAM_LEADER'
  *     summary: Completed actions awaiting an effectiveness review (spec module 7)
  *     security: [{ BearerAuth: [] }]
  */
-router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionEffectivenessController.getPending.bind(actionEffectivenessController));
+router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), actionEffectivenessController.getPending.bind(actionEffectivenessController));
+router.get('/effectiveness-summary', requireAuth, requireTenant,
+  requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'),
+  actionEffectivenessController.getSummary.bind(actionEffectivenessController));
 
 /**
  * @openapi

@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, LabelList } from "recharts";
-import { directorApi } from "@/services/directorApi";
+import { apiClient } from "@/services/api";
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 
 export function ActionEffectivenessPanels() {
@@ -15,10 +15,11 @@ export function ActionEffectivenessPanels() {
 
   const loadData = async () => {
     try {
-      const summary = await directorApi.getEffectivenessSummary();
-      setData(summary);
+      const response: any = await apiClient.get('/actions/effectiveness-summary');
+      setData(response?.data?.data ?? response?.data ?? response);
     } catch (err) {
       console.error("Failed to load effectiveness summary", err);
+      setData({ error: err instanceof Error ? err.message : 'Effectiveness information could not be loaded.' });
     } finally {
       setIsLoading(false);
     }
@@ -26,6 +27,7 @@ export function ActionEffectivenessPanels() {
 
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
   if (!data) return null;
+  if (data.error) return <Card className="border-destructive/40"><CardContent className="p-5 text-sm text-destructive">{data.error}</CardContent></Card>;
 
   // Cast PG BigInt count strings to true JavaScript Numbers for Recharts compatibility
   const domainAnalysisWithNumbers = (data.domain_analysis || []).map((item: any) => ({
@@ -120,6 +122,17 @@ export function ActionEffectivenessPanels() {
           </CardContent>
         </Card>
       </div>
+      {(data.pending || []).length > 0 && (
+        <Card className="border-2 border-border shadow-sm">
+          <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Awaiting effectiveness review ({data.pending_count})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {data.pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm">
+              <p className="font-medium">{a.title}</p>
+              <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name}{a.review_overdue ? ' · overdue' : ''}</p>
+            </div>)}
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Service Comparison */}
