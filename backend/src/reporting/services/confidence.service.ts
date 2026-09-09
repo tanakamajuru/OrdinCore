@@ -41,7 +41,9 @@ export const confidenceService = {
   },
 
   status(m: SiteMetrics): SiteStatus {
-    if (m.critical_risks > 0 || m.overdue_escalations > 0 || m.overdue_actions >= 3) return 'CRITICAL';
+    // CRITICAL is an evidence classification, not a workload alarm. An overdue item is
+    // important, but cannot by itself upgrade the underlying concern to Critical.
+    if (m.critical_risks > 0) return 'CRITICAL';
     if (m.high_critical > 0 || m.open_escalations > 0 || m.overdue_actions > 0) return 'ATTENTION';
     return 'STABLE';
   },

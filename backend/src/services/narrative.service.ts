@@ -41,11 +41,17 @@ export interface NarrativeRequest {
 function templateFallback(req: NarrativeRequest): string {
   const scope = req.serviceName ? ` for ${req.serviceName}` : '';
   const period = req.periodLabel ? ` covering ${req.periodLabel}` : '';
-  const json = JSON.stringify(req.data ?? {}, null, 2);
+  const data: any = req.data || {};
+  const totals = data.totals || {};
+  const position = data.organisation?.status || 'not calculated';
+  const exceptions = (data.material_exceptions || []).map((x: any) => `${x.site_name} (${x.status})`).join(', ');
   return (
     `${req.reportTitle}${scope}${period}.\n\n` +
-    `Auto-drafted narrative is not available for this report. The structured governance ` +
-    `data below is provided for the registered manager to review and summarise:\n\n${json}`
+    `The recorded governance position is ${position}. The snapshot contains ${totals.signals || 0} signal(s), ` +
+    `${totals.open_risks || 0} open risk(s), ${totals.open_escalations || 0} open escalation(s), and ` +
+    `${totals.open_actions || 0} open action(s). ` +
+    (exceptions ? `Services requiring particular attention are ${exceptions}. ` : '') +
+    `No AI wording was produced. This factual summary was generated directly from the same frozen evidence used by the PDF and must be reviewed before approval.`
   );
 }
 

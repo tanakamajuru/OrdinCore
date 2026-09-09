@@ -2,6 +2,8 @@ import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { query } from '../config/database';
 import { reconstructionService, ReconstructionScope } from '../services/reconstruction.service';
+import { renderSnapshotPdf } from '../reporting/renderers/frozen-pdf.renderer';
+import { createHash } from 'crypto';
 
 const VALID_SCOPES: ReconstructionScope[] = ['client', 'service', 'theme', 'incident'];
 
@@ -75,6 +77,36 @@ export class ReconstructionController {
       return res.json({ success: true, data: r.rows[0] });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Error fetching reconstruction' });
+    }
+  }
+
+  async downloadLockedPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const record = (await query(
+        `SELECT * FROM governance_reconstructions WHERE id = $1 AND company_id = $2 AND status = 'Locked'`,
+        [req.params.id, company_id]
+      )).rows[0];
+      if (!record) return res.status(404).json({ success: false, message: 'Locked reconstruction not found.' });
+      const timeline = Array.isArray(record.timeline_events) ? record.timeline_events : [];
+      const dates = timeline.map((x: any) => new Date(x.date || x.created_at).getTime()).filter(Number.isFinite);
+      const start = dates.length ? new Date(Math.min(...dates)).toISOString() : (record.incident_date || record.created_at);
+      const end = dates.length ? new Date(Math.max(...dates)).toISOString() : (record.locked_at || record.created_at);
+      const data = {
+        scope_label: record.scope_label || `${record.scope}: ${record.scope_ref}`,
+        period: { start, end }, organisation: { status: 'RECORDED' }, per_site: [], material_exceptions: [],
+        evidence: { signals: [], decisions: [], escalations: [], actions: [], risks: [], weekly_reviews: [] },
+        reconstruction_record: { ...record, timeline_events: timeline }, limitations: [],
+      };
+      const evidence_hash = createHash('sha256').update(JSON.stringify(data)).digest('hex');
+      const buffer = await renderSnapshotPdf({ report_key: 'governance-reconstruction', scope_type: record.scope,
+        status: record.status.toUpperCase(), approved_at: record.locked_at, period_start: start, period_end: end,
+        evidence_hash, narrative: record.narrative, data });
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="governance-reconstruction-${record.id}.pdf"`);
+      return res.send(buffer);
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to create reconstruction PDF' });
     }
   }
 

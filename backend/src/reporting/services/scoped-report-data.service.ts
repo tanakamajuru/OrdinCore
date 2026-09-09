@@ -119,7 +119,7 @@ export const scopedReportDataService = {
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
           AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3 AND $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5)
-        ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC LIMIT 80`, detailParams
+        ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC`, detailParams
     )).rows;
 
     const risks = (await query(
@@ -134,7 +134,7 @@ export const scopedReportDataService = {
           AND r.created_at <= $4 AND COALESCE(r.closed_at, r.resolved_at, $4::timestamptz) >= $3
           AND ($5::uuid IS NULL OR r.service_user_id = $5)
         ORDER BY CASE r.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END,
-                 r.created_at DESC LIMIT 60`, broadParams
+                 r.created_at DESC`, broadParams
     )).rows;
 
     const actions = (await query(
@@ -153,7 +153,7 @@ export const scopedReportDataService = {
           AND ra.created_at <= $4 AND COALESCE(ra.completed_at, $4::timestamptz) >= $3
           AND ($5::uuid IS NULL OR ra.service_user_id = $5)
         ORDER BY (ra.status::text NOT IN ('Complete','Completed','Cancelled')) DESC,
-                 ra.due_date ASC NULLS LAST LIMIT 80`, broadParams
+                 ra.due_date ASC NULLS LAST`, broadParams
     )).rows;
 
     const escalations = (await query(
@@ -171,13 +171,15 @@ export const scopedReportDataService = {
                OR ($6::boolean AND COALESCE(e.house_id, r.house_id) IS NULL))
           AND e.created_at BETWEEN $3 AND $4
           AND ($5::uuid IS NULL OR e.service_user_id = $5)
-        ORDER BY e.created_at DESC LIMIT 60`, broadParams
+        ORDER BY e.created_at DESC`, broadParams
     )).rows;
 
     const decisions = (await query(
       `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
-              gr.review_date AS date, gr.what_is_happening AS concern,
-              gr.decision, gr.evidence AS reason,
+              gr.review_date AS date,
+              COALESCE(NULLIF(TRIM(gr.what_is_happening), ''), gp.description,
+                       COALESCE(r.strategic_theme, r.title), e.reason) AS concern,
+              gr.decision, NULLIF(TRIM(gr.evidence), '') AS reason,
               COALESCE(gr.decision_status::text, 'Open') AS status,
               gr.due_at,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
@@ -192,7 +194,7 @@ export const scopedReportDataService = {
                OR ($6::boolean AND gr.service_id IS NULL))
           AND gr.review_date BETWEEN $3 AND $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5 OR r.service_user_id = $5 OR e.service_user_id = $5)
-        ORDER BY gr.review_date DESC LIMIT 80`, broadParams
+        ORDER BY gr.review_date DESC`, broadParams
     )).rows;
 
     // Patterns are cluster-level (never person-level), so PERSON scope returns none. This query
@@ -214,7 +216,7 @@ export const scopedReportDataService = {
           AND (sc.house_id = ANY($2::uuid[]) OR sc.affected_house_ids && $2::uuid[])
           AND sc.created_at <= $3::timestamptz
           AND ($4::uuid IS NULL)
-        ORDER BY sc.created_at DESC LIMIT 50`, [companyId, siteIds, end, personId || null]
+        ORDER BY sc.created_at DESC`, [companyId, siteIds, end, personId || null]
     )).rows;
 
     const weeklyReviews = (await query(
@@ -224,7 +226,7 @@ export const scopedReportDataService = {
          JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
         WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])
           AND wr.week_ending BETWEEN $3::date AND $4::date
-        ORDER BY wr.week_ending DESC, h.name LIMIT 40`, [companyId, siteIds, start, end]
+        ORDER BY wr.week_ending DESC, h.name`, [companyId, siteIds, start, end]
     )).rows;
 
     // Audit rows are only included where they reference a record already inside the snapshot scope
@@ -239,7 +241,7 @@ export const scopedReportDataService = {
          FROM audit_logs a
          LEFT JOIN users u ON u.id = a.user_id AND (u.company_id = a.company_id OR u.company_id IS NULL)
         WHERE a.company_id = $1 AND a.created_at BETWEEN $2 AND $3
-        ORDER BY a.created_at DESC LIMIT 300`,
+        ORDER BY a.created_at DESC`,
       [companyId, start, end]
     )).rows;
     const audit = resolved.type === 'ORGANISATION'

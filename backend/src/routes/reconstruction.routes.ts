@@ -12,6 +12,7 @@ const recordWriters = requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE
 router.get('/persons', requireAuth, requireTenant, reconstructionController.listPersons.bind(reconstructionController));
 router.post('/record', requireAuth, requireTenant, recordWriters, reconstructionController.saveRecord.bind(reconstructionController));
 router.get('/record/:id', requireAuth, requireTenant, reconstructionController.getRecord.bind(reconstructionController));
+router.get('/record/:id/pdf', requireAuth, requireTenant, reconstructionController.downloadLockedPdf.bind(reconstructionController));
 router.post('/record/:id/lock', requireAuth, requireTenant, recordWriters, reconstructionController.lockRecord.bind(reconstructionController));
 
 /**

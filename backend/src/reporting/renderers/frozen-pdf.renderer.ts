@@ -77,7 +77,8 @@ function paragraph(doc: PDFKit.PDFDocument, text?: any, italic = false) {
 }
 
 function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 6) {
-  const shown = values.filter(Boolean).slice(0, limit);
+  // PDF is the evidence document, not a dashboard preview: paginate every frozen row.
+  const shown = values.filter(Boolean);
   if (!shown.length) return paragraph(doc, empty, true);
   for (const value of shown) {
     ensure(doc, 34);
@@ -85,14 +86,14 @@ function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 
     doc.font('Helvetica').fontSize(9).fillColor(INK).text(`• ${short(value, 230)}`, LEFT, doc.y, { width: WIDTH, indent: 10, lineGap: 3 }).moveDown(0.35);
     doc.x = LEFT;
   }
-  if (values.length > shown.length) paragraph(doc, `${values.length - shown.length} additional record(s) remain in the frozen snapshot.`, true);
 }
 
 type Col = { label: string; key: string; width: number; map?: (r: any) => string };
 
 function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col[], empty: string, limit = 8) {
   heading(doc, title);
-  const shown = (rows || []).slice(0, limit);
+  // Do not hide evidence behind "additional records". PDFKit paginates the complete set.
+  const shown = (rows || []);
   if (!shown.length) return paragraph(doc, empty, true);
 
   const header = () => {
@@ -118,7 +119,24 @@ function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col
     doc.x = LEFT; doc.y = y + rowHeight;
   }
   doc.x = LEFT; doc.moveDown(0.55);
-  if (rows.length > shown.length) paragraph(doc, `${rows.length - shown.length} additional record(s) remain in the frozen snapshot.`, true);
+}
+
+function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
+  const e = data.evidence || {};
+  const openRisks = (e.risks || []).filter((r: any) => isOpen(r.status)).length;
+  const openActions = (e.actions || []).filter((a: any) => isOpen(a.status)).length;
+  const openEscalations = (e.escalations || []).filter((x: any) => isOpen(x.status)).length;
+  const gaps = [
+    ...(e.decisions || []).filter((d: any) => !d.reason),
+    ...(e.actions || []).filter((a: any) => isOpen(a.status) && (!a.owner || !a.due_date)),
+  ].length;
+  heading(doc, 'Report summary');
+  paragraph(doc, `${position(data)} The frozen evidence records ${openRisks} open risk(s), ${openEscalations} open escalation(s), and ${openActions} open action(s). ${gaps ? `${gaps} record(s) require missing ownership, due-date or decision-rationale information to be completed.` : 'No missing ownership, due-date or decision-rationale field was identified in the records tested.'}`);
+  if (row.narrative) {
+    heading(doc, 'Narrative explanation');
+    paragraph(doc, row.narrative);
+    paragraph(doc, 'This is the exact narrative stored with this snapshot. It explains the evidence but does not replace the underlying records or determine severity.', true);
+  }
 }
 
 // ── evidence-led helpers ───────────────────────────────────────────────────────
@@ -328,12 +346,19 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
 
 function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
-  const timeline = [
+  const locked = data.reconstruction_record;
+  const storedTimeline = Array.isArray(locked?.timeline_events) ? locked.timeline_events.map((r: any) => ({
+    date: r.date || r.created_at, type: r.type || r.event_type || 'Event',
+    information: r.information || r.description || r.event || r.title,
+    response: r.response || r.outcome || r.action || r.status,
+    person: r.person || r.actor || r.source || 'Recorded source',
+  })) : [];
+  const timeline = (storedTimeline.length ? storedTimeline : [
     ...(e.signals || []).map((r: any) => ({ date: r.date, type: 'Signal', information: r.concern, response: r.review_status, person: 'Recorded source' })),
     ...(e.decisions || []).map((r: any) => ({ date: r.date, type: 'Decision', information: r.concern, response: `${clean(r.decision)}: ${clean(r.reason)}`, person: r.reviewer })),
     ...(e.escalations || []).map((r: any) => ({ date: r.date, type: 'Escalation', information: r.reason, response: r.status, person: r.escalated_to })),
     ...(e.actions || []).map((r: any) => ({ date: r.created_at, type: 'Action', information: r.action, response: `${clean(r.status)}; due ${date(r.due_date)}; ${clean(r.effectiveness)}`, person: r.owner })),
-  ].filter((r: any) => inPeriod(r.date, data))
+  ]).filter((r: any) => inPeriod(r.date, data))
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   heading(doc, '1. Scope and factual account');
   paragraph(doc, `This reconstruction covers ${clean(data.scope_label)} and uses only records retained in the frozen snapshot, limited to events within the selected period.`);
@@ -347,7 +372,9 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Completion evidence', key: 'completion_evidence', width: 115 }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
   ], 'No action was created within this reconstruction period.', 10);
   heading(doc, '4. Learning and limitations');
-  bullets(doc, (e.weekly_reviews || []).map((r: any) => r.lessons_learnt).filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
+  bullets(doc, [locked?.lessons_learned, ...(e.weekly_reviews || []).map((r: any) => r.lessons_learnt)].filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
+  if (locked?.contributing_factors) { heading(doc, '5. Contributing factors recorded'); paragraph(doc, locked.contributing_factors); }
+  if (locked?.control_failure) { heading(doc, '6. Control issue recorded'); paragraph(doc, locked.control_failure); }
 }
 
 function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
@@ -425,6 +452,9 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
     case 'governance-audit-log': renderDecisions(doc, data); break;
     default: renderSafeFallback(doc, data);
   }
+
+  // The screen and PDF use the same stored snapshot and the exact same stored narrative.
+  renderClosingSummary(doc, row, data);
 
   // Integrity block (content, not footer, so it can never overlap or create a blank page).
   heading(doc, 'Report integrity');

@@ -31,11 +31,13 @@ export function FrozenReports() {
   const [generating, setGenerating] = useState(false);
   const [snapshot, setSnapshot] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
+  const [lockedReconstructions, setLockedReconstructions] = useState<any[]>([]);
 
   useEffect(() => {
     apiClient.get("/frozen-reports/catalog").then((r) => setCatalog(unwrap(r) || [])).catch(() => setCatalog([]));
     apiClient.get("/frozen-reports/scope-options").then((r) => setOptions(unwrap(r))).catch(() => setOptions(null));
     loadHistory();
+    apiClient.get('/reports/saved-reconstructions').then((r) => setLockedReconstructions(unwrap(r) || [])).catch(() => setLockedReconstructions([]));
   }, []);
 
   const loadHistory = () =>
@@ -100,6 +102,14 @@ export function FrozenReports() {
       a.href = url; a.download = filename || `report-${id}.pdf`; a.click();
       URL.revokeObjectURL(url);
     } catch (e: any) { toast.error("Could not download the PDF."); }
+  };
+
+  const downloadLockedReconstruction = async (id: string) => {
+    try {
+      const { blob, filename } = await (apiClient as any).getBlob(`/reconstruction/record/${id}/pdf`);
+      const url = URL.createObjectURL(blob); const a = document.createElement('a');
+      a.href = url; a.download = filename || `governance-reconstruction-${id}.pdf`; a.click(); URL.revokeObjectURL(url);
+    } catch { toast.error('Could not produce the locked reconstruction PDF.'); }
   };
 
   const d = snapshot?.data || {};
@@ -260,6 +270,17 @@ export function FrozenReports() {
                     </div>
                   ))}
                 </div>
+              </div>
+            )}
+            {lockedReconstructions.length > 0 && (
+              <div className="bg-card border-2 border-border rounded-xl p-4">
+                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Locked reconstructions</p>
+                <div className="divide-y divide-border">{lockedReconstructions.map((r: any) => (
+                  <div key={r.id} className="flex items-center justify-between gap-3 py-2.5">
+                    <div><p className="text-sm font-medium">{r.scope_label || r.scope}</p><p className="text-xs text-muted-foreground">Locked governance record</p></div>
+                    <button onClick={() => downloadLockedReconstruction(r.id)} className="text-xs text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" />PDF</button>
+                  </div>
+                ))}</div>
               </div>
             )}
           </div>
