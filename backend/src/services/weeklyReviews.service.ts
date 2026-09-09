@@ -440,13 +440,19 @@ export class WeeklyReviewsService {
         ORDER BY dgl.review_date`, p)).rows
       .map((e: any) => ({ ...e, headline: headlineOf(e.summary) }));
 
+    // "Area" is the governance theme, not the word "Governance": use the linked risk's domain,
+    // else the originating signal's domain (source pulse), else the source cluster's domain.
     const measures = (await query(
-      `SELECT ra.id, COALESCE(rk.risk_domain::text, 'Governance') AS area, ra.title AS measure,
+      `SELECT ra.id,
+              COALESCE(rk.risk_domain::text, (gp.risk_domain)[1], sc.risk_domain, 'Governance') AS area,
+              ra.title AS measure,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
               ra.due_date, ra.effectiveness_due_at AS effectiveness_review_date,
               ra.status::text AS status, ra.completion_evidence AS evidence_expected, ra.created_at
          FROM risk_actions ra
          LEFT JOIN risks rk ON rk.id = ra.risk_id AND rk.company_id = ra.company_id
+         LEFT JOIN governance_pulses gp ON gp.id = ra.source_pulse_id
+         LEFT JOIN signal_clusters sc ON sc.id = ra.source_cluster_id
          LEFT JOIN users u ON u.id = ra.assigned_to AND u.company_id = ra.company_id
         WHERE ra.company_id = $1 AND ra.house_id = $2
           AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')

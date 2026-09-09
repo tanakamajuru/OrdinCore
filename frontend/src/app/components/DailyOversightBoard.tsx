@@ -34,6 +34,8 @@ export function DailyOversightBoard() {
   const [aiBusy, setAiBusy] = useState(false);
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  // Clicking a governance action opens its details here, rather than jumping to the risk register.
+  const [selectedAction, setSelectedAction] = useState<any>(null);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
@@ -388,7 +390,7 @@ export function DailyOversightBoard() {
                       const due = dueLabel(a);
                       const person = a.related_person || a.service_user_name || a.assigned_to_name || a.risk_title || a.house_name || "—";
                       const ageDays = a.created_at ? Math.max(0, Math.floor((Date.now() - new Date(a.created_at).getTime()) / 86400000)) : null;
-                      const go = () => a.risk_id ? navigate(`/risk-register/${a.risk_id}`) : navigate("/risk-register");
+                      const go = () => setSelectedAction(a);
                       return (
                         <tr key={a.id || i} className="border-b border-border/50 hover:bg-muted/40">
                           <td className="py-2.5 cursor-pointer" onClick={go}><span className={`text-[10px] font-bold px-2 py-0.5 rounded ${b.cls}`}>{b.label}</span></td>
@@ -520,6 +522,40 @@ export function DailyOversightBoard() {
           </div>
         </div>
       )}
+
+      {selectedAction && (() => {
+        const a = selectedAction;
+        const row = (label: string, value: any) => value ? (
+          <div className="flex gap-3 py-2 border-b border-border/50 last:border-0"><span className="text-xs uppercase tracking-wide text-muted-foreground w-32 shrink-0">{label}</span><span className="text-sm text-foreground">{value}</span></div>
+        ) : null;
+        const fmtDate = (d?: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : null;
+        return (
+          <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setSelectedAction(null)}>
+            <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg max-h-[85vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+              <div className="flex items-start justify-between gap-3 mb-4">
+                <h2 className="text-lg font-semibold text-foreground">{a.title || a.action || "Governance action"}</h2>
+                <button onClick={() => setSelectedAction(null)} className="text-muted-foreground hover:text-foreground text-xl leading-none">&times;</button>
+              </div>
+              {a.description && <p className="text-sm text-foreground mb-4 whitespace-pre-line">{a.description}</p>}
+              <div>
+                {row("Status", a.status)}
+                {row("Priority", a.priority || a.severity)}
+                {row("Owner", a.assigned_to_name || (a.assigned_to ? "Assigned" : "Unassigned"))}
+                {row("Related to", a.related_person || a.service_user_name || a.risk_title || a.house_name)}
+                {row("Due", fmtDate(a.due_date))}
+                {row("Created", fmtDate(a.created_at))}
+                {row("Intended outcome", a.intended_outcome)}
+                {row("Completion evidence", a.completion_evidence)}
+                {row("RM decision", a.rm_decision_comment)}
+              </div>
+              <div className="flex justify-end gap-2 mt-5">
+                {a.risk_id && <button onClick={() => { setSelectedAction(null); navigate(`/risk-register/${a.risk_id}`); }} className="px-4 py-2 rounded-lg border border-border text-sm">Open linked risk</button>}
+                <button onClick={() => setSelectedAction(null)} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm">Close</button>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
