@@ -41,6 +41,7 @@ const SEVERITIES: { value: SeverityType; tone: string }[] = [
   { value: 'High', tone: 'data-[active=true]:bg-orange-600' },
   { value: 'Critical', tone: 'data-[active=true]:bg-red-600' },
 ];
+const OTHER_SIGNAL_LABEL = 'Other concern within this theme';
 
 interface ServiceUnit { id: string; name: string; }
 
@@ -61,6 +62,7 @@ export function SignalCaptureForm() {
     service_id: '',
     governance_domain: '',
     signal_label: '',
+    suggested_signal_label: '',
     severity: '' as SeverityType | '',
     description: '',
     entry_date: now.toISOString().split('T')[0],
@@ -94,6 +96,7 @@ export function SignalCaptureForm() {
 
   const selectedDomain = domains.find(d => d.name === form.governance_domain);
   const selectedSignalMeta = selectedDomain?.signalsMeta?.find(s => s.label === form.signal_label);
+  const isOtherSignal = form.signal_label === OTHER_SIGNAL_LABEL;
 
   // Group themes under their governance pillar for the dropdown (falls back to a
   // single "Governance" group if a sector hasn't been tagged with pillars).
@@ -155,12 +158,13 @@ export function SignalCaptureForm() {
   // Immediate action is now compulsory: a signal must record what was done at the time (or an
   // explicit "no action taken, escalated to…"), so the governance record shows a response, never
   // a silent observation.
-  const isValid = !!form.service_id && !!form.governance_domain && !!form.severity
+  const isValid = !!form.service_id && !!form.governance_domain && !!form.signal_label && !!form.severity
+    && (!isOtherSignal || form.suggested_signal_label.trim().length >= 3)
     && form.description.trim().length >= 10 && form.immediate_action.trim().length >= 3;
 
   const handleSubmit = async () => {
     if (!isValid) {
-      toast.error('Please choose a service, governance domain, severity, a short description, and record the immediate action taken.');
+      toast.error('Complete the service, theme, signal, severity, factual description and immediate action. Other signals also need a short suggested label.');
       return;
     }
     setIsSubmitting(true);
@@ -169,6 +173,7 @@ export function SignalCaptureForm() {
         service_id: form.service_id,
         governance_domain: form.governance_domain,
         signal_label: form.signal_label || undefined,
+        suggested_signal_label: isOtherSignal ? form.suggested_signal_label.trim() : undefined,
         // Keep legacy category populated for back-compat dashboards.
         category: form.governance_domain,
         severity: form.severity,
@@ -221,7 +226,7 @@ export function SignalCaptureForm() {
             <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Layers size={16} /> Governance Theme</label>
             <select
               value={form.governance_domain}
-              onChange={e => { set('governance_domain', e.target.value); set('signal_label', ''); }}
+              onChange={e => setForm(prev => ({ ...prev, governance_domain: e.target.value, signal_label: '', suggested_signal_label: '' }))}
               className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
             >
               <option value="" disabled>Select a theme…</option>
@@ -244,7 +249,7 @@ export function SignalCaptureForm() {
               <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Signal</label>
               <select
                 value={form.signal_label}
-                onChange={e => set('signal_label', e.target.value)}
+                onChange={e => setForm(prev => ({ ...prev, signal_label: e.target.value, suggested_signal_label: '' }))}
                 className="w-full bg-input-background border border-border rounded-lg p-3 focus:outline-none focus:ring-2 focus:ring-primary"
               >
                 <option value="">Select a signal…</option>
@@ -266,6 +271,19 @@ export function SignalCaptureForm() {
                 <div className="mt-2 flex items-start gap-2 text-xs rounded-lg p-2.5 bg-amber-500/10 text-amber-700 border border-amber-500/30">
                   <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                   <span>If you mark this <b>High</b> or <b>Critical</b>, it is escalated to the Registered Manager immediately.</span>
+                </div>
+              )}
+              {isOtherSignal && (
+                <div className="mt-3 rounded-lg border border-primary/20 bg-primary/5 p-3">
+                  <label className="block text-sm font-medium text-foreground mb-1">What short option would have fitted?</label>
+                  <input
+                    value={form.suggested_signal_label}
+                    onChange={e => set('suggested_signal_label', e.target.value)}
+                    maxLength={120}
+                    placeholder="Example: Repeated late night visitors"
+                    className="w-full bg-input-background border border-border rounded-lg p-2.5 focus:outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <p className="text-xs text-muted-foreground mt-1">This does not create a new signal today. It goes to the periodic library review queue while this record is processed under the selected theme.</p>
                 </div>
               )}
             </div>

@@ -91,10 +91,10 @@ export class GovernanceService {
              LEFT JOIN houses h ON h.id = sc.house_id
              WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
-    // Finding D: ?scope=cross_service returns the systemic (leadership) lens. Anything
-    // else — including no scope — defaults to the per-service clusters, so every existing
-    // screen is unchanged and the systemic tier is strictly opt-in.
-    params.push(filters.scope === 'cross_service' ? 'cross_service' : 'person');
+    // Default to the service-theme lens: this prevents several person patterns hiding the
+    // combined service picture. Person and cross-service lenses remain explicit drill-downs.
+    const requestedScope = ['person','service','cross_service'].includes(filters.scope) ? filters.scope : 'service';
+    params.push(requestedScope);
     q += ` AND sc.scope = $${params.length}`;
     if (filters.house_id) {
       const houseIds = Array.isArray(filters.house_id) ? filters.house_id : (typeof filters.house_id === 'string' && filters.house_id.includes(',') ? filters.house_id.split(',') : [filters.house_id]);

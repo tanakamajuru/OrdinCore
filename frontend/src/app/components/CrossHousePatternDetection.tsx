@@ -27,6 +27,7 @@ interface RiskPattern {
   hasCritical: boolean;
   promotedRiskId: string | null;
   promotedAt: string | null;
+  scope: "service" | "person" | "cross_service";
 }
 
 type Readiness = "promoted" | "ready" | "nearly" | "forming";
@@ -46,6 +47,7 @@ export function CrossHousePatternDetection() {
   // and dismiss actions are hidden here and blocked server-side (risks/clusters routes).
   const userRole = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
   const canDecide = userRole === "REGISTERED_MANAGER";
+  const [lens, setLens] = useState<"service" | "person" | "cross_service">("service");
   const [patterns, setPatterns] = useState<RiskPattern[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPattern, setSelectedPattern] = useState<RiskPattern | null>(null);
@@ -71,14 +73,12 @@ export function CrossHousePatternDetection() {
     } finally { setDismissing(false); }
   };
 
-  useEffect(() => {
-    loadPatterns();
-  }, []);
+  useEffect(() => { loadPatterns(); }, [lens]);
 
   const loadPatterns = async () => {
     try {
       setLoading(true);
-      const res = await apiClient.get('/governance/clusters');
+      const res = await apiClient.get(`/governance/clusters?scope=${lens}`);
       const data = (res as any).data || [];
       
       const domainLabel = (rd: any): string => Array.isArray(rd) ? (rd[0] || '') : (rd || '');
@@ -99,6 +99,7 @@ export function CrossHousePatternDetection() {
         hasCritical: !!c.has_critical,
         promotedRiskId: c.linked_risk_id || null,
         promotedAt: c.promoted_at || null,
+        scope: c.scope || lens,
       }));
 
       // Ready-first, then nearly, then forming, with already-promoted patterns last.
@@ -208,6 +209,12 @@ export function CrossHousePatternDetection() {
         <div className="mb-8">
           <h1 className="text-3xl  text-foreground mb-2">Pattern Detection</h1>
           <p className="text-muted-foreground">Recurring signal patterns by service and person — review a pattern and, when the floor is met, promote it to a risk.</p>
+        </div>
+
+        <div className="mb-5 flex flex-wrap gap-2" aria-label="Pattern lens">
+          <Button variant={lens === "service" ? "default" : "outline"} onClick={() => setLens("service")}>Service themes</Button>
+          {canDecide && <Button variant={lens === "person" ? "default" : "outline"} onClick={() => setLens("person")}>Person patterns</Button>}
+          {["DIRECTOR","RESPONSIBLE_INDIVIDUAL"].includes(userRole) && <Button variant={lens === "cross_service" ? "default" : "outline"} onClick={() => setLens("cross_service")}>Cross-service themes</Button>}
         </div>
 
         {/* Filters */}

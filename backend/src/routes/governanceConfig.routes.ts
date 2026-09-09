@@ -20,6 +20,8 @@ router.delete('/domains/:id', ...edit, c.deleteDomain);
 router.get('/signals', ...view, c.listSignals);
 router.post('/signals', ...edit, c.createSignal);
 router.patch('/signals/:id', ...edit, c.updateSignal);
+router.get('/signal-suggestions', ...view, c.listSignalSuggestions);
+router.patch('/signal-suggestions/:id/review', ...edit, c.reviewSignalSuggestion);
 
 // Pattern Thresholds (drives the clustering engine)
 router.get('/thresholds', ...view, c.listThresholds);

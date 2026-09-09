@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
 
 export interface PulseDto {
     house_id?: string;
@@ -14,6 +15,7 @@ export interface PulseDto {
     category?: string;            // simplified form: single theme -> risk_domain[0]
     governance_domain?: string;   // 12-domain clustering key (Supported Living / Domiciliary)
     signal_label?: string;        // specific signal chosen within the domain
+    suggested_signal_label?: string; // proposed reusable label when virtual Other is selected
     risk_domain?: string[];
     description: string;
     immediate_action?: string;
@@ -76,10 +78,36 @@ export const pulsesRepo = {
         // The 12-domain governance clustering key. Prefer the explicit governance_domain,
         // fall back to legacy category. Clustering groups signals by this value, so it
         // also drives risk_domain.
-        const governanceDomain = dto.governance_domain || dto.category || null;
-        const riskDomain = (dto.risk_domain && dto.risk_domain.length > 0)
-            ? dto.risk_domain
-            : (governanceDomain ? [governanceDomain] : []);
+        const requestedDomain = dto.governance_domain || dto.category || dto.risk_domain?.[0] || null;
+        if (!houseId || !requestedDomain) throw new Error('A service and governance theme are required.');
+        const canonical = await query(
+            `SELECT gd.name FROM governance_domains gd JOIN houses h ON h.sector=gd.sector
+              WHERE h.id=$1 AND h.company_id=$2 AND gd.is_active=true AND LOWER(gd.name)=LOWER($3)
+              LIMIT 1`, [houseId, company_id, String(requestedDomain).trim()]
+        );
+        if (!canonical.rows[0]) throw new Error('Select an active governance theme from the service signal library.');
+        const governanceDomain = canonical.rows[0].name;
+        const requestedLabel = String(dto.signal_label || '').trim();
+        if (!requestedLabel) throw new Error('Select a signal within the governance theme.');
+        let signalLabel = requestedLabel;
+        if (requestedLabel !== OTHER_SIGNAL_LABEL) {
+            const canonicalLabel = await query(
+                `SELECT sl.signal_label FROM signal_library sl JOIN houses h ON h.sector=sl.sector
+                  WHERE h.id=$1 AND h.company_id=$2 AND sl.domain_name=$3
+                    AND sl.is_active=true AND LOWER(sl.signal_label)=LOWER($4)
+                  LIMIT 1`,
+                [houseId, company_id, governanceDomain, requestedLabel]
+            );
+            if (!canonicalLabel.rows[0]) throw new Error('Select an active signal from the service signal library, or use Other.');
+            signalLabel = canonicalLabel.rows[0].signal_label;
+        } else {
+            const proposal = String(dto.suggested_signal_label || '').trim();
+            if (proposal.length < 3 || proposal.length > 120)
+                throw new Error('When using Other, suggest a short reusable signal label (3–120 characters).');
+        }
+        // One canonical primary theme per signal prevents one event being counted into
+        // several unrelated patterns. Specific meaning remains in signal_label.
+        const riskDomain = [governanceDomain];
         // signal_type is a constrained enum; the free-text category lives in
         // risk_domain. Never put the category into signal_type.
         const signalType = dto.signal_type || 'Concern';
@@ -114,7 +142,7 @@ export const pulsesRepo = {
             RETURNING *`,
             [
                 id, company_id, houseId, user_id, entryDate, entryTime, relatedPerson,
-                signalType, riskDomain, governanceDomain, dto.signal_label || null, dto.description, dto.immediate_action || null, dto.severity || 'Unrated',
+                signalType, riskDomain, governanceDomain, signalLabel, dto.description, dto.immediate_action || null, dto.severity || 'Unrated',
                 dto.has_happened_before || null, dto.pattern_concern || null, dto.escalation_required || null, dto.evidence_url || null,
                 dto.medication_error_type || null,
                 assignedTo, assignedTo ? user_id : null, serviceUserId, !!dto.requires_immediate_action, dto.client_submission_id || null

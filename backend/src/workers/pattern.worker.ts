@@ -12,13 +12,18 @@ const CROSS_SERVICE_RULE_NUMBER = 11;
 
 export const startPatternWorker = () => {
     const worker = new Worker('pattern-detection', async (job: Job) => {
-        const { pulse_id, company_id, house_id, risk_domain } = job.data;
+        const { pulse_id, company_id, house_id, risk_domain, service_user_id } = job.data;
         logger.info(`Processing pattern detection for pulse ${pulse_id}`);
 
         // Handle multiple domains if risk_domain is an array
         const domains = Array.isArray(risk_domain) ? risk_domain : [risk_domain];
         for (const domain of domains) {
-            await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person);
+            // Every signal strengthens its service theme. A person-linked signal also
+            // strengthens a separate person lens using the immutable service_user_id.
+            await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id || null, 'service');
+            if (service_user_id) {
+                await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id, 'person');
+            }
         }
     }, { connection: redisConnection });
 
@@ -33,11 +38,11 @@ export const startPatternWorker = () => {
     return worker;
 };
 
-async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string, related_person: string | null = null) {
+async function evaluateRules(company_id: string, house_id: string, domain: string, pulse_id: string, related_person: string | null = null, service_user_id: string | null = null, scope: 'service' | 'person' = 'service') {
     // [FAST PATH] Evaluate this pulse for immediate escalation (safeguarding 1/1,
     // single High/Critical — all config-driven) BEFORE any clustering. Harm-now
     // signals must never be diluted by the slow cumulative-pattern machinery.
-    await runImmediateDetection(company_id, house_id, domain, pulse_id, related_person);
+    if (scope === 'service') await runImmediateDetection(company_id, house_id, domain, pulse_id, related_person);
 
     // [ORDI CORE DOCTRINE] The primary "Pattern Emerging" threshold is data-driven:
     // it reads threshold_rules for THIS service's sector + domain, so admins can tune
@@ -54,7 +59,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     // Memory window: at least 21 days (doctrine), widened if a rule's window is longer.
     const memoryDays = Math.max(21, windowDays);
 
-    // Filter by domain and related_person to ensure targeted clustering
+    // Service lens deliberately ignores person attribution; person lens uses the stable ID.
+    const personClause = scope === 'person' ? 'AND gp.service_user_id = $4::uuid' : '';
     const history21dRes = await query(
         `SELECT gp.*, rsl.cluster_id
          FROM governance_pulses gp
@@ -62,21 +68,23 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          WHERE gp.company_id = $1 AND gp.house_id = $2
          AND gp.entry_date >= CURRENT_DATE - (INTERVAL '1 day' * $5)
          AND $3 = ANY(gp.risk_domain)
-         AND (gp.related_person = $4 OR (gp.related_person IS NULL AND $4 IS NULL))
-         AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)
+         ${personClause}
+         -- Closed signals leave the live queue but remain historical pattern evidence.
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
-        [company_id, house_id, domain, related_person, memoryDays]
+        [company_id, house_id, domain, service_user_id, memoryDays]
     );
     const recentSignals = history21dRes.rows;
     if (recentSignals.length === 0) return;
 
-    // Find active cluster or create one for this specific person (or general if null)
+    // Find/create exactly one active cluster for the selected lens. The migration's
+    // partial unique indexes also protect this from concurrent worker races.
     let clusterRes = await query(
         `SELECT * FROM signal_clusters 
          WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3 
-         AND (linked_person = $4 OR (linked_person IS NULL AND $4 IS NULL))
+         AND scope = $4
+         AND (($4 = 'person' AND service_user_id = $5::uuid) OR ($4 = 'service' AND service_user_id IS NULL))
          AND cluster_status IN ('Emerging', 'Escalated', 'Confirmed')`,
-        [company_id, house_id, domain, related_person]
+        [company_id, house_id, domain, scope, service_user_id]
     );
 
     let cluster_id;
@@ -85,16 +93,21 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     } else {
         const houseNameRes = await query(`SELECT name FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
         const houseName = houseNameRes.rows[0]?.name || house_id;
-        const clusterLabel = related_person
+        const clusterLabel = scope === 'person' && related_person
             ? `${domain} Pattern for ${related_person} – ${houseName}`
-            : `${domain} Signal Cluster – ${houseName}`;
+            : `${domain} Service Theme – ${houseName}`;
 
         const newClusterRes = await query(
-            `INSERT INTO signal_clusters (company_id, house_id, risk_domain, linked_person, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
-             VALUES ($1, $2, $3, $4, $5, 'Emerging', 0, NOW(), NOW(), 'Stable') RETURNING id`,
-            [company_id, house_id, domain, related_person, clusterLabel]
+            `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, service_user_id, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'Emerging', 0, NOW(), NOW(), 'Stable')
+             ON CONFLICT DO NOTHING RETURNING id`,
+            [company_id, house_id, scope, domain, scope === 'person' ? related_person : null, scope === 'person' ? service_user_id : null, clusterLabel]
         );
-        cluster_id = newClusterRes.rows[0].id;
+        if (newClusterRes.rows[0]) cluster_id = newClusterRes.rows[0].id;
+        else {
+            const raced = await query(`SELECT id FROM signal_clusters WHERE company_id=$1 AND house_id=$2 AND risk_domain=$3 AND scope=$4 AND (($4='person' AND service_user_id=$5::uuid) OR ($4='service' AND service_user_id IS NULL)) AND cluster_status IN ('Emerging','Confirmed','Escalated') LIMIT 1`, [company_id, house_id, domain, scope, service_user_id]);
+            cluster_id = raced.rows[0].id;
+        }
     }
 
     // Link the current pulse to the cluster
@@ -138,7 +151,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 
     // 1b. Person-Level Pattern Emerging: same Related Person + same domain reaching the
     //     configured threshold within the configured window (higher priority).
-    if (related_person && signalsWindow.length >= triggerCount) {
+    if (scope === 'person' && service_user_id && signalsWindow.length >= triggerCount) {
         // Bump cluster priority above a plain system-level emerging pattern
         if (cluster_status === 'Emerging') cluster_status = 'Escalated';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Person-Level Pattern Emerging', output_type: 'Risk Review Required', description: `≥${triggerCount} ${domain} signals for ${related_person} within ${windowDays} days` });
@@ -282,7 +295,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     } catch (e) { logger.error('Linked-risk trajectory refresh failed', e); }
 
     // FR3.5 / FR8.2 — Cross-service (System-Level) Risk, evaluated live in the sweep.
-    await evaluateCrossServiceRisk(company_id, house_id, domain, pulse_id, cluster_id);
+    if (scope === 'service') await evaluateCrossServiceRisk(company_id, house_id, domain, pulse_id, cluster_id);
 }
 
 /**
@@ -309,7 +322,7 @@ async function evaluateCrossServiceRisk(
           WHERE gp.company_id = $1
             AND $2 = ANY(gp.risk_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '7 days'
-            AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)`,
+            `,
         [company_id, domain]
     );
     const houseCount: number = affectedRes.rows[0]?.house_count ?? 0;
@@ -327,7 +340,7 @@ async function evaluateCrossServiceRisk(
            FROM governance_pulses gp
           WHERE gp.company_id = $1 AND $2 = ANY(gp.risk_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '28 days'
-            AND (gp.review_status != 'Closed' OR gp.review_status IS NULL)`,
+            `,
         [company_id, domain]
     )).rows[0];
     const domainEsc: number = (await query(

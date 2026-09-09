@@ -1,6 +1,8 @@
 import { Request, Response } from 'express';
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 import { refreshEscalationSLAs } from '../services/escalations.service';
+import { v4 as uuidv4 } from 'uuid';
+import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
 
 // Admin Governance Configuration: the sector signal library, pattern thresholds,
 // escalation SLAs and risk domains the engine reads — plus a read-only audit log.
@@ -57,15 +59,10 @@ export const governanceConfigController = {
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }
   },
-  // Hard-delete a governance theme/domain (SUPER_ADMIN). Existing signals reference the domain by
-  // name (a string), so removing the config row never orphans historical evidence. Deactivating via
-  // the is_active toggle remains the audit-preserving alternative.
-  async deleteDomain(req: Request, res: Response) {
-    try {
-      const r = await query(`DELETE FROM governance_domains WHERE id = $1 RETURNING id`, [req.params.id]);
-      if (!r.rows[0]) return fail(res, new Error('Domain not found'), 404);
-      return ok(res, { id: r.rows[0].id });
-    } catch (e) { return fail(res, e, 400); }
+  // Themes are the stable aggregation keys. Never hard-delete one through the
+  // application; deactivate it after governance review so history stays legible.
+  async deleteDomain(_req: Request, res: Response) {
+    return fail(res, new Error('Governance themes are stable pattern keys and cannot be deleted. Deactivate the theme instead.'), 405);
   },
 
   // ---- Signal Library (signal_library) ----
@@ -88,10 +85,30 @@ export const governanceConfigController = {
     try {
       const { sector, domain_name, signal_label, sort_order } = req.body;
       if (!sector || !domain_name || !signal_label) return fail(res, new Error('sector, domain_name and signal_label are required'), 400);
-      const r = await query(
-        `INSERT INTO signal_library (sector, domain_name, signal_label, sort_order, is_active)
-         VALUES ($1, $2, $3, COALESCE($4, 99), true) RETURNING *`,
-        [sector, domain_name, signal_label, sort_order ?? null]
+      if (String(signal_label).trim().toLowerCase() === OTHER_SIGNAL_LABEL.toLowerCase())
+        return fail(res, new Error('The reserved Other option is supplied automatically and cannot be added to the library.'), 400);
+      const domain = await query(
+        `SELECT name FROM governance_domains WHERE sector=$1 AND is_active=true AND LOWER(name)=LOWER($2) LIMIT 1`,
+        [sector, String(domain_name).trim()]
+      );
+      if (!domain.rows[0]) return fail(res, new Error('Choose an active governance theme for this sector.'), 400);
+      const cleanLabel = String(signal_label).trim();
+      const existing = await query(
+        `SELECT id FROM signal_library WHERE sector=$1 AND domain_name=$2 AND LOWER(signal_label)=LOWER($3) LIMIT 1`,
+        [sector, domain.rows[0].name, cleanLabel]
+      );
+      const r = existing.rows[0]
+        ? await query(`UPDATE signal_library SET is_active=true, sort_order=COALESCE($2,sort_order) WHERE id=$1 RETURNING *`,
+            [existing.rows[0].id, sort_order ?? null])
+        : await query(
+            `INSERT INTO signal_library (sector, domain_name, signal_label, sort_order, is_active)
+             VALUES ($1, $2, $3, COALESCE($4, 99), true) RETURNING *`,
+            [sector, domain.rows[0].name, cleanLabel, sort_order ?? null]
+          );
+      await query(
+        `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+         VALUES ($1,$2,$3,'SIGNAL_LIBRARY_LABEL_ADDED','signal_library',$4,$5)`,
+        [uuidv4(), req.user!.company_id, req.user!.user_id, r.rows[0].id, JSON.stringify(r.rows[0])]
       );
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }
@@ -99,6 +116,10 @@ export const governanceConfigController = {
   async updateSignal(req: Request, res: Response) {
     try {
       const { signal_label, sort_order, is_active } = req.body;
+      if (signal_label && String(signal_label).trim().toLowerCase() === OTHER_SIGNAL_LABEL.toLowerCase())
+        return fail(res, new Error('The reserved Other option cannot be stored as a normal label.'), 400);
+      const before = await query(`SELECT * FROM signal_library WHERE id=$1`, [req.params.id]);
+      if (!before.rows[0]) return fail(res, new Error('Signal not found'), 404);
       const r = await query(
         `UPDATE signal_library SET
            signal_label = COALESCE($2, signal_label), sort_order = COALESCE($3, sort_order),
@@ -107,9 +128,95 @@ export const governanceConfigController = {
         [req.params.id, signal_label ?? null, sort_order ?? null,
          typeof is_active === 'boolean' ? is_active : null]
       );
-      if (!r.rows[0]) return fail(res, new Error('Signal not found'), 404);
+      await query(
+        `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+         VALUES ($1,$2,$3,'SIGNAL_LIBRARY_LABEL_UPDATED','signal_library',$4,$5,$6)`,
+        [uuidv4(), req.user!.company_id, req.user!.user_id, req.params.id,
+         JSON.stringify(before.rows[0]), JSON.stringify(r.rows[0])]
+      );
       return ok(res, r.rows[0]);
     } catch (e) { return fail(res, e, 400); }
+  },
+
+  // ---- Candidate labels from "Other" captures ----
+  // Grouping keeps governance review periodic: repeated staff requests become one
+  // decision with an evidence count, rather than daily taxonomy maintenance.
+  async listSignalSuggestions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const sector = req.query.sector as string | undefined;
+      const params: unknown[] = [company_id];
+      const sectorWhere = sector ? (params.push(sector), `AND s.sector=$${params.length}`) : '';
+      const r = await query(
+        `SELECT MIN(s.id::text)::uuid AS representative_id, s.sector, s.domain_name,
+                MIN(s.suggested_label) AS suggested_label, s.status, COUNT(*)::int AS occurrence_count,
+                MIN(s.created_at) AS first_seen_at, MAX(s.created_at) AS last_seen_at
+           FROM signal_label_suggestions s
+          WHERE s.company_id=$1 ${sectorWhere}
+          GROUP BY s.sector, s.domain_name, LOWER(s.suggested_label), s.status
+          ORDER BY CASE s.status WHEN 'PENDING' THEN 0 ELSE 1 END,
+                   COUNT(*) DESC, MAX(s.created_at) DESC`,
+        params
+      );
+      return ok(res, r.rows);
+    } catch (e) { return fail(res, e); }
+  },
+
+  async reviewSignalSuggestion(req: Request, res: Response) {
+    const client = await getClient();
+    try {
+      const company_id = req.user!.company_id!;
+      const decision = String(req.body.decision || '').toUpperCase();
+      const note = req.body.note ? String(req.body.note).slice(0, 1000) : null;
+      if (!['APPROVED', 'REJECTED'].includes(decision))
+        return fail(res, new Error('decision must be APPROVED or REJECTED'), 400);
+      await client.query('BEGIN');
+      const selected = await client.query(
+        `SELECT * FROM signal_label_suggestions
+          WHERE id=$1 AND company_id=$2 AND status='PENDING' FOR UPDATE`,
+        [req.params.id, company_id]
+      );
+      const s = selected.rows[0];
+      if (!s) { await client.query('ROLLBACK'); return fail(res, new Error('Pending suggestion not found'), 404); }
+
+      let libraryRow = null;
+      if (decision === 'APPROVED') {
+        const domain = await client.query(
+          `SELECT name FROM governance_domains WHERE sector=$1 AND is_active=true AND name=$2`,
+          [s.sector, s.domain_name]
+        );
+        if (!domain.rows[0]) throw new Error('The governance theme is no longer active.');
+        libraryRow = (await client.query(
+          `INSERT INTO signal_library (sector, domain_name, signal_label, sort_order, is_active)
+           VALUES ($1,$2,$3,99,true)
+           ON CONFLICT (sector, domain_name, signal_label)
+           DO UPDATE SET is_active=true RETURNING *`,
+          [s.sector, s.domain_name, s.suggested_label]
+        )).rows[0];
+      }
+
+      const reviewed = await client.query(
+        `UPDATE signal_label_suggestions SET status=$1, reviewed_by=$2,
+                reviewed_at=NOW(), review_note=$3
+          WHERE company_id=$4 AND sector=$5 AND domain_name=$6 AND status='PENDING'
+            AND LOWER(suggested_label)=LOWER($7)
+          RETURNING id`,
+        [decision, req.user!.user_id, note, company_id, s.sector, s.domain_name, s.suggested_label]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+         VALUES ($1,$2,$3,$4,'signal_label_suggestion',$5,$6)`,
+        [uuidv4(), company_id, req.user!.user_id,
+         decision === 'APPROVED' ? 'SIGNAL_LABEL_APPROVED' : 'SIGNAL_LABEL_REJECTED',
+         s.id, JSON.stringify({ sector: s.sector, domain_name: s.domain_name,
+           suggested_label: s.suggested_label, grouped_occurrences: reviewed.rowCount, library_id: libraryRow?.id || null, note })]
+      );
+      await client.query('COMMIT');
+      return ok(res, { decision, reviewed_count: reviewed.rowCount, library: libraryRow });
+    } catch (e) {
+      await client.query('ROLLBACK');
+      return fail(res, e, 400);
+    } finally { client.release(); }
   },
 
   // ---- Pattern Thresholds (threshold_rules) — drives the clustering engine ----

@@ -12,6 +12,7 @@ const TABS = [
   { key: "services", label: "Services & Sector", icon: Building2, sectorScoped: false },
   { key: "domains", label: "Risk Domains", icon: ClipboardList, sectorScoped: true },
   { key: "signals", label: "Signal Library", icon: Tags, sectorScoped: true },
+  { key: "suggestions", label: "Label Review", icon: FileSearch, sectorScoped: true },
   { key: "thresholds", label: "Pattern Thresholds", icon: Activity, sectorScoped: true },
   { key: "slas", label: "Escalation SLAs", icon: AlertTriangle, sectorScoped: false },
   { key: "templates", label: "Action Templates", icon: ClipboardList, sectorScoped: false },
@@ -46,6 +47,7 @@ export function GovernanceConfig() {
     if (tab === "slas") return `/governance-config/slas`;
     if (tab === "templates") return `/governance-config/action-templates`;
     if (tab === "cycles") return `/governance-config/review-cycles`;
+    if (tab === "suggestions") return `/governance-config/signal-suggestions?sector=${sector}`;
     return `/governance-config/${tab}?sector=${sector}`;
   };
 
@@ -115,6 +117,14 @@ export function GovernanceConfig() {
       toast.success(`${label} added`);
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message || "Add failed"); }
+  };
+
+  const reviewSuggestion = async (id: string, decision: "APPROVED" | "REJECTED") => {
+    try {
+      await apiClient.patch(`/governance-config/signal-suggestions/${id}/review`, { decision });
+      toast.success(decision === "APPROVED" ? "Label approved and added to the library" : "Suggestion rejected");
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Review failed"); }
   };
 
   const del = async (path: string, label: string) => {
@@ -290,14 +300,7 @@ export function GovernanceConfig() {
                         </td>
                         <td className={td}>{r.sort_order}</td>
                         <td className={td}>
-                          <div className="flex items-center gap-2">
-                            <ActiveToggle active={r.is_active} onToggle={() => patch(`domains/${r.id}`, { is_active: !r.is_active }, "Domain")} />
-                            {isSuper && (
-                              <button onClick={() => del(`domains/${r.id}`, "Theme")} title="Delete this theme permanently" className="text-muted-foreground hover:text-destructive">
-                                <Trash2 size={15} />
-                              </button>
-                            )}
-                          </div>
+                          <ActiveToggle active={r.is_active} onToggle={() => patch(`domains/${r.id}`, { is_active: !r.is_active }, "Domain")} />
                         </td>
                       </tr>
                     ))}
@@ -324,6 +327,30 @@ export function GovernanceConfig() {
                         <td className={td + " text-muted-foreground"}>{r.domain_name}</td>
                         <td className={td + " font-medium"}>{r.signal_label}</td>
                         <td className={td}><ActiveToggle active={r.is_active} onToggle={() => patch(`signals/${r.id}`, { is_active: !r.is_active }, "Signal")} /></td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+
+              {tab === "suggestions" && (
+                <table className="w-full">
+                  <thead><tr><th className={th}>Theme</th><th className={th}>Suggested label</th><th className={th}>Evidence</th><th className={th}>Status / decision</th></tr></thead>
+                  <tbody>
+                    {rows.length === 0 && <tr><td className={td + " text-muted-foreground"} colSpan={4}>No candidate labels have been submitted.</td></tr>}
+                    {rows.map((r) => (
+                      <tr key={`${r.representative_id}-${r.status}`}>
+                        <td className={td + " text-muted-foreground"}>{r.domain_name}</td>
+                        <td className={td + " font-medium"}>{r.suggested_label}</td>
+                        <td className={td}>{r.occurrence_count} occurrence{r.occurrence_count === 1 ? "" : "s"}<span className="block text-xs text-muted-foreground">Last seen {new Date(r.last_seen_at).toLocaleDateString()}</span></td>
+                        <td className={td}>
+                          {r.status === "PENDING" && isSuper ? (
+                            <div className="flex items-center gap-2">
+                              <button onClick={() => reviewSuggestion(r.representative_id, "APPROVED")} className="inline-flex items-center gap-1 text-emerald-700"><Check size={15} /> Approve</button>
+                              <button onClick={() => reviewSuggestion(r.representative_id, "REJECTED")} className="inline-flex items-center gap-1 text-destructive"><X size={15} /> Reject</button>
+                            </div>
+                          ) : <span className="text-xs font-medium">{r.status}</span>}
+                        </td>
                       </tr>
                     ))}
                   </tbody>

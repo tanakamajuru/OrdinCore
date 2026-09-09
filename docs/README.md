@@ -16,6 +16,8 @@ from the five‑provider pilot‑readiness report.
 - [breach-and-incident-response.md](./compliance/breach-and-incident-response.md) — breach + incident procedure.
 - [uk-hosting-and-data-transfers.md](./compliance/uk-hosting-and-data-transfers.md) — UK hosting position.
 - [data-retention-and-deletion.md](./compliance/data-retention-and-deletion.md) — retention schedule & deletion routes.
+- [dspt-readiness.md](./compliance/dspt-readiness.md) — DSPT (Data Security and Protection Toolkit) gap analysis: maps this pack onto the 10 National Data Guardian standards.
+- [dspt-answers.md](./compliance/dspt-answers.md) — full DSPT v8 (2025‑26) IT Supplier evidence-item worksheet (122 items) with a draft answer/status against each.
 
 ## Operations (`operations/`)
 - [backup-and-restore.md](./operations/backup-and-restore.md) — **implemented & restore‑tested** (daily encrypted backups).
@@ -32,3 +34,4 @@ from the five‑provider pilot‑readiness report.
 | Audit‑log integrity | 🔶 Exists; **make append‑only (revoke UPDATE/DELETE from app role)** |
 | Load/capacity test | 🔶 Plan written — run on staging |
 | **OpenAI/LLM data‑transfer decision** | ⛔ **Open — resolve before identifiable data expands** |
+| **DSPT readiness** | 🔶 Standards 1/4/6/7 largely covered by this pack; **Standards 2/3/5/8/10 not started, Standard 9 (Cyber Essentials cert) is the long-pole gap** — see [dspt-readiness.md](./compliance/dspt-readiness.md) |

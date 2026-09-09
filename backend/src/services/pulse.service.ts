@@ -6,6 +6,7 @@ import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
+import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
 
 
 const patternQueue = new Queue('pattern-detection', { connection: redis });
@@ -13,6 +14,21 @@ const patternQueue = new Queue('pattern-detection', { connection: redis });
 export class PulseService {
     async createPulse(company_id: string, user_id: string, dto: PulseDto) {
         const pulse = await pulsesRepo.create(company_id, user_id, dto);
+
+        // An "Other" capture is still processed immediately under its selected
+        // governance theme. The wording is merely queued for periodic taxonomy
+        // review; it never becomes a new pattern key automatically.
+        if (pulse.signal_label === OTHER_SIGNAL_LABEL && dto.suggested_signal_label) {
+            await query(
+                `INSERT INTO signal_label_suggestions
+                   (company_id, house_id, pulse_id, sector, domain_name, suggested_label)
+                 SELECT $1, $2, $3, h.sector, $4, $5
+                   FROM houses h WHERE h.id=$2 AND h.company_id=$1
+                 ON CONFLICT (pulse_id) DO NOTHING`,
+                [company_id, pulse.house_id, pulse.id, pulse.governance_domain,
+                 dto.suggested_signal_label.trim().slice(0, 120)]
+            );
+        }
         
         // [GOVERNANCE] Safeguarding Absence Override Rule (§5)
         // Match the safeguarding THEME (governance_domain), not the legacy signal_type —
@@ -188,7 +204,8 @@ export class PulseService {
                 company_id,
                 house_id: pulse.house_id,
                 risk_domain: pulse.risk_domain,
-                related_person: pulse.related_person
+                related_person: pulse.related_person,
+                service_user_id: pulse.service_user_id
             });
             logger.info(`Pattern detection job queued for pulse ${pulse.id}`);
         } catch (err) {

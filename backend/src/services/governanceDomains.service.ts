@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
 
 /**
  * Configurable governance domains / signal library.
@@ -78,8 +79,14 @@ export const governanceDomainsService = {
         name: d.name,
         description: d.description,
         pillar: d.pillar || null,
-        signals: signalsByDomain[d.name] || [],
-        signalsMeta: signalsMetaByDomain[d.name] || [],
+        // "Other" is virtual and therefore cannot be accidentally removed,
+        // duplicated or configured as an immediate-escalation rule. It keeps
+        // capture usable while the reusable vocabulary is reviewed in batches.
+        signals: [...(signalsByDomain[d.name] || []), OTHER_SIGNAL_LABEL],
+        signalsMeta: [
+          ...(signalsMetaByDomain[d.name] || []),
+          { label: OTHER_SIGNAL_LABEL, escalation: 'NONE' },
+        ],
         threshold: thresholdByDomain[d.name] || null,
       })),
     };
