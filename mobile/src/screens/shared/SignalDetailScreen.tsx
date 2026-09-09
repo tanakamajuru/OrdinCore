@@ -40,6 +40,14 @@ export function SignalDetailScreen() {
   const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const people: any[] = Array.isArray(users.data) ? users.data : users.data?.users || users.data?.data || [];
   const needsOwner = decision === 'Create Action' || decision === 'Escalate';
+  // An action or escalation is allocated to a person for a date — offer both here so "reviewing"
+  // a signal is also where you hand it out. Quick presets set the date without typing.
+  const showsDue = decision === 'Create Action' || decision === 'Escalate';
+  const setDueInDays = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); setDueAt(d.toISOString().slice(0, 10)); };
+  const fmtDue = (v: string) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
+  const DUE_PRESETS: { label: string; days: number }[] = [
+    { label: 'Today', days: 0 }, { label: 'In 3 days', days: 3 }, { label: 'In 1 week', days: 7 }, { label: 'In 2 weeks', days: 14 },
+  ];
   const recordDecision = async () => {
     if (rationale.trim().length < 10) { Alert.alert('Add a rationale', 'Record why this decision is appropriate (at least 10 characters).'); return; }
     if (needsOwner && !ownerId) { Alert.alert('Choose an owner', 'An action or escalation must have one accountable owner.'); return; }
@@ -107,19 +115,28 @@ export function SignalDetailScreen() {
               <Chip key={d} label={d === 'Close Signal' ? 'Close' : d} active={decision === d} onPress={() => setDecision(d)} />
             ))}
           </Row>
+          {!showsDue && <Text muted size={11.5}>Choose <Text weight="600" size={11.5}>Create Action</Text> or <Text weight="600" size={11.5}>Escalate</Text> to allocate an owner and a due date.</Text>}
           <Label>Decision rationale</Label>
           <TextArea value={rationale} onChangeText={setRationale} placeholder="What is happening and why this is the right governance response…" minHeight={72} required />
           {needsOwner && <>
             <Label>Accountable owner</Label>
-            <Row gap={6} style={{ flexWrap: 'wrap' }}>
-              {people.filter((u) => u.status !== 'suspended').map((u) => (
-                <Chip key={u.id} label={`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email} active={ownerId === u.id} onPress={() => setOwnerId(u.id)} />
-              ))}
-            </Row>
+            {people.filter((u) => u.status !== 'suspended').length === 0
+              ? <Text muted size={12}>No colleagues are available to allocate to yet.</Text>
+              : <Row gap={6} style={{ flexWrap: 'wrap' }}>
+                  {people.filter((u) => u.status !== 'suspended').map((u) => (
+                    <Chip key={u.id} label={`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email} active={ownerId === u.id} onPress={() => setOwnerId(u.id)} />
+                  ))}
+                </Row>}
           </>}
-          {decision === 'Create Action' && <>
-            <Label>Due date (YYYY-MM-DD)</Label>
-            <TextArea value={dueAt} onChangeText={setDueAt} placeholder="2026-09-10" minHeight={45} required />
+          {showsDue && <>
+            <Label>{decision === 'Escalate' ? 'Response due' : 'Due date'}{decision === 'Create Action' ? '' : ' (optional)'}</Label>
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {DUE_PRESETS.map((p) => { const d = new Date(); d.setDate(d.getDate() + p.days); const iso = d.toISOString().slice(0, 10); return (
+                <Chip key={p.label} label={p.label} active={dueAt === iso} onPress={() => setDueInDays(p.days)} />
+              ); })}
+              {!!dueAt && <Chip label="Clear" active={false} onPress={() => setDueAt('')} />}
+            </Row>
+            {!!dueAt && <Text muted size={11.5}>Due {fmtDue(dueAt)}</Text>}
           </>}
           <Button title="Record governance decision" icon="check" onPress={recordDecision} loading={decisionBusy} />
         </Card>

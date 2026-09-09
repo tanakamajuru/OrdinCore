@@ -29,6 +29,7 @@ import { RiskDetailScreen } from '@/screens/shared/RiskDetailScreen';
 import { ReportDetailScreen } from '@/screens/shared/ReportDetailScreen';
 import { RateEffectivenessScreen } from '@/screens/rm/RateEffectivenessScreen';
 import { RMSignalQueueScreen } from '@/screens/rm/RMSignalQueueScreen';
+import { RMActionsListScreen } from '@/screens/rm/RMActionsListScreen';
 import { RMPatternsScreen } from '@/screens/rm/RMPatternsScreen';
 import { RMWeeklyReviewScreen } from '@/screens/rm/RMWeeklyReviewScreen';
 import { RMDailyGovernanceScreen } from '@/screens/rm/RMDailyGovernanceScreen';
@@ -251,6 +252,8 @@ const RMGovernanceReviewA = withAccent('blue', RMGovernanceReviewScreen);
 const RMHouseOverviewA = withAccent('blue', RMHouseOverviewScreen);
 const RMComplianceA = withAccent('blue', RMComplianceScreen);
 const RMMyActionsA = withAccent('blue', RMMyActionsScreen);
+const RMSignalQueueA = withAccent('blue', RMSignalQueueScreen);
+const RMActionsListA = withAccent('blue', RMActionsListScreen);
 const RMPatternsA = withAccent('blue', RMPatternsScreen);
 const RMRiskRegisterA = withAccent('blue', RMRiskRegisterScreen);
 const RMWeeklyReviewA = withAccent('blue', RMWeeklyReviewScreen);
@@ -315,6 +318,8 @@ export function RootNavigator() {
       <Stack.Screen name="RMHouseOverview" component={RMHouseOverviewA} options={{ title: '' }} />
       <Stack.Screen name="RMCompliance" component={RMComplianceA} options={{ title: '' }} />
       <Stack.Screen name="RMMyActions" component={RMMyActionsA} options={{ title: '' }} />
+      <Stack.Screen name="RMSignalQueue" component={RMSignalQueueA} options={{ title: '' }} />
+      <Stack.Screen name="RMActionsList" component={RMActionsListA} options={{ title: '' }} />
       <Stack.Screen name="RMRiskRegister" component={RMRiskRegisterA} options={{ title: '' }} />
       <Stack.Screen name="RMPatterns" component={RMPatternsA} options={{ title: '' }} />
       <Stack.Screen name="RMWeeklyReview" component={RMWeeklyReviewA} options={{ title: '' }} />

@@ -44,9 +44,9 @@ export function RMDashboardScreen() {
 
   const attention: BoardItem[] = ([
     byKey('escalations') && { title: 'Escalations awaiting response', value: String(n(byKey('escalations')?.count)), tone: 'red', onPress: () => nav.navigate('RMEscalations') },
-    byKey('signals') && { title: 'Signals awaiting review', value: String(n(byKey('signals')?.count)), tone: 'amber', onPress: () => nav.navigate('Tabs', { screen: 'Daily Oversight' }) },
+    byKey('signals') && { title: 'Signals awaiting review', value: String(n(byKey('signals')?.count)), tone: 'amber', onPress: () => nav.navigate('RMSignalQueue', { tab: 'needs' }) },
     n(byKey('actions')?.emphasis) > 0 && { title: 'Overdue actions', value: String(n(byKey('actions')?.emphasis)), tone: 'red', onPress: () => nav.navigate('RMMyActions') },
-    byKey('effectiveness') && { title: 'Effectiveness reviews due', value: String(n(byKey('effectiveness')?.count)), tone: 'blue', onPress: () => nav.navigate('RMMyActions') },
+    byKey('effectiveness') && { title: 'Effectiveness reviews due', value: String(n(byKey('effectiveness')?.count)), tone: 'blue', onPress: () => nav.navigate('RMActionsList', { lens: 'effectiveness' }) },
     byKey('weekly') && { title: 'Weekly governance', value: 'Due', tone: 'slate', onPress: () => nav.navigate('RMWeeklyReview') },
   ].filter(Boolean) as BoardItem[]);
 
@@ -61,8 +61,8 @@ export function RMDashboardScreen() {
       <StatusList
         items={[
           { title: 'Patterns', value: String(n(cts.patterns)), tone: 'amber', onPress: () => nav.navigate('RMPatterns') },
-          { title: 'Risks', value: String(n(cts.risks)), tone: 'red', onPress: () => nav.navigate('RMRiskRegister') },
-          { title: 'Actions', value: String(n(cts.actions)), tone: 'blue', onPress: () => nav.navigate('RMMyActions') },
+          { title: 'Risks', value: String(n(cts.risks)), tone: 'red', onPress: () => nav.navigate('RMRiskRegister', { tab: 'open' }) },
+          { title: 'Actions', value: String(n(cts.actions)), tone: 'blue', onPress: () => nav.navigate('RMActionsList', { lens: 'oversight' }) },
         ]}
         button="View risk register" onButton={() => nav.navigate('RMRiskRegister')}
       />

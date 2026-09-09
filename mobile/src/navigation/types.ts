@@ -31,10 +31,16 @@ export type RootStackParams = {
   RMHouseOverview: undefined;
   RMCompliance: undefined;
   RMMyActions: undefined;
-  RMRiskRegister: undefined;
+  RMRiskRegister: { tab?: 'all' | 'high' | 'open'; house?: string } | undefined;
   RMPatterns: undefined;
   RMWeeklyReview: undefined;
   RMDailyGovernance: undefined;
+  // Signal queue reachable as a pushed, optionally house-scoped list (drill-through from the
+  // dashboard "Signals awaiting review" and the Daily Governance "Review N signals" button).
+  RMSignalQueue: { house_id?: string; house?: string; tab?: 'needs' | 'monitoring' | 'all' } | undefined;
+  // Oversight actions list: 'oversight' = every open action in the service (matches the pipeline
+  // count); 'effectiveness' = completed controls awaiting an effectiveness verdict.
+  RMActionsList: { lens?: 'oversight' | 'effectiveness' } | undefined;
   DirectorReviews: undefined;
   ProviderSignoff: undefined;
   // Director hub screens
