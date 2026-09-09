@@ -161,11 +161,7 @@ export const rm5Service = {
       [company_id]
     )).rows;
     const shape = async (c: any) => {
-      // Same safety floor the cluster board applies: a Safeguarding theme or an in-window
-      // Critical can never read calmer than Deteriorating.
       const tr0 = await trajectoryForCluster(c.id);
-      const floored = (c.hasCritical || String(c.domain || '').toLowerCase().includes('safeguard'))
-        ? 'Deteriorating' : tr0.direction;
       return {
         id: c.id, domain: c.domain, person: c.person,
         scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
@@ -173,7 +169,7 @@ export const rm5Service = {
         signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
         isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
         hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
-        trajectory: { dir: floored, basis: tr0.basis, points: tr0.points },
+        trajectory: { dir: tr0.direction, basis: tr0.basis, points: tr0.points, version: tr0.evidence?.calculationVersion },
         // SGP criteria surface: how long it has persisted, and how many escalations it drove.
         first_signal_date: c.first_signal_date, last_signal_date: c.last_signal_date,
         days_open: c.first_signal_date ? Math.max(0, Math.round((Date.now() - new Date(c.first_signal_date).getTime()) / 86400000)) : null,

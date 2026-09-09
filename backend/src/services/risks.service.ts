@@ -4,7 +4,7 @@ import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
-import { trajectoryForRisk } from './trajectory.service';
+import { trajectoryForCluster, trajectoryForRisk } from './trajectory.service';
 import { riskMetricsService } from './riskMetrics.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
@@ -769,6 +769,21 @@ export class RisksService {
     await query('UPDATE signal_clusters SET cluster_status = $1, linked_risk_id = $2, promoted_at = NOW() WHERE id = $3',
       ['Escalated', risk.id, data.cluster_id]);
 
+    // Promotion is a relationship mutation, not only a status change. Carry the formal risk id
+    // onto every source signal and action while the ids are known and the operation is auditable.
+    await query(
+      `UPDATE risk_signal_links SET risk_id=$1
+        WHERE cluster_id=$2 AND risk_id IS NULL
+          AND NOT EXISTS (SELECT 1 FROM risk_signal_links x
+                           WHERE x.risk_id=$1 AND x.pulse_entry_id=risk_signal_links.pulse_entry_id)`,
+      [risk.id, data.cluster_id]
+    );
+    await query(
+      `UPDATE risk_actions SET risk_id=$1, updated_at=NOW()
+        WHERE company_id=$3 AND risk_id IS NULL AND source_cluster_id=$2`,
+      [risk.id, data.cluster_id, company_id]
+    );
+
     await risksRepo.addEvent(risk.id, company_id, 'Promotion',
       `Promoted from signal pattern${cluster.risk_domain ? ` — ${cluster.risk_domain}` : ''}${cluster.linked_person ? ` (${cluster.linked_person})` : ''}`,
       user_id);
@@ -1129,7 +1144,7 @@ export class RisksService {
     const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
 
     const risksRes = await query(
-      `SELECT r.id, r.title, r.strategic_theme, r.trajectory, r.trend, r.status, r.severity,
+      `SELECT r.id, r.title, r.strategic_theme, r.source_cluster_id, r.trajectory, r.trend, r.status, r.severity,
               r.impact_rating, r.risk_index,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
               r.last_governance_review_at, r.review_due_date, r.house_id,
@@ -1188,11 +1203,19 @@ export class RisksService {
       awaitingReview: r.awaiting_review || false,
     });
 
-    const all = risksRes.rows.map(shape);
-    const open = risksRes.rows.filter(r => r.status !== 'Closed');
+    // Read the authoritative rolling calculation now. Stored trajectory is a cache only and may
+    // age even when no new write occurs.
+    const hydratedRisks = await Promise.all(risksRes.rows.map(async (r: any) => {
+      try {
+        const tr = await trajectoryForRisk(r.id, r.source_cluster_id);
+        return { ...r, trajectory: tr.direction, trajectory_basis: tr.basis, trajectory_version: tr.evidence?.calculationVersion };
+      } catch { return r; }
+    }));
+    const all = hydratedRisks.map(shape);
+    const open = hydratedRisks.filter(r => !['Closed', 'Resolved'].includes(r.status));
     const active = open.filter(r => Number(r.services_affected_count) <= 1).map(shape);
     const strategic = open.filter(r => Number(r.services_affected_count) > 1).map(shape);
-    const closed = risksRes.rows.filter(r => r.status === 'Closed').map(shape);
+    const closed = hydratedRisks.filter(r => ['Closed', 'Resolved'].includes(r.status)).map(shape);
 
     // Emerging concerns = unpromoted signal clusters + new risk candidates.
     const clustersRes = await query(
@@ -1204,27 +1227,32 @@ export class RisksService {
       params
     );
     const candidatesRes = await query(
-      `SELECT id, risk_domain, candidate_type, house_id
+      `SELECT id, risk_domain, candidate_type, house_id, cluster_id
          FROM risk_candidates
         WHERE company_id = $1 AND status = 'New'${hasHouseFilter ? ' AND house_id = ANY($2::uuid[])' : ''}`,
       params
     );
-    const emerging = [
-      ...clustersRes.rows.map((c: any) => ({
+    const emergingClusters = await Promise.all(clustersRes.rows.map(async (c: any) => {
+      const tr = await trajectoryForCluster(c.id).catch(() => null);
+      return {
         id: c.id, source: 'cluster',
         concern: c.cluster_label || c.risk_domain || 'Emerging cluster',
-        type: 'Emerging', position: 'Stable',
-        trajectory: c.trajectory || 'Stable',
+        type: 'Emerging', position: tr?.direction || c.trajectory || 'Stable',
+        trajectory: tr?.direction || c.trajectory || 'Stable', trajectoryBasis: tr?.basis || null,
         evidence: Number(c.signal_count) || 0,
         service: null,
-      })),
-      ...candidatesRes.rows.map((c: any) => ({
+      };
+    }));
+    const emergingCandidates = await Promise.all(candidatesRes.rows.map(async (c: any) => {
+      const tr = c.cluster_id ? await trajectoryForCluster(c.cluster_id).catch(() => null) : null;
+      return {
         id: c.id, source: 'candidate',
         concern: c.risk_domain || 'Risk candidate',
-        type: 'Emerging', position: 'Stable',
-        trajectory: 'Stable', evidence: 0, service: null,
-      })),
-    ];
+        type: 'Emerging', position: tr?.direction || 'Stable',
+        trajectory: tr?.direction || 'Stable', trajectoryBasis: tr?.basis || null, evidence: 0, service: null,
+      };
+    }));
+    const emerging = [...emergingClusters, ...emergingCandidates];
 
     // Banner
     const counts = { escalating: 0, stable: 0, improving: 0, critical: 0 };

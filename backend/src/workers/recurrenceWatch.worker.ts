@@ -24,10 +24,11 @@ export const startRecurrenceWatchWorker = () => {
         for (const risk of closedRisksRes.rows) {
             // Check if any new pulse with same domain and house exists after closed_at
             const newSignalsRes = await query(`
-                SELECT id FROM governance_pulses 
-                WHERE company_id = $1 AND house_id = $2 
-                AND completed_at > $3
-                AND EXISTS (SELECT 1 FROM jsonb_array_elements_text(categories) c WHERE c = $4)
+                SELECT gp.id FROM governance_pulses gp
+                WHERE gp.company_id = $1
+                AND ($2::uuid IS NULL OR gp.house_id = $2)
+                AND COALESCE(gp.created_at, gp.entry_date::timestamptz) > $3
+                AND $4 = ANY(gp.risk_domain)
                 LIMIT 1
             `, [risk.company_id, risk.house_id, risk.closed_at, risk.risk_domain]);
 
@@ -43,21 +44,15 @@ export const startRecurrenceWatchWorker = () => {
                     description: 'Similar signals detected within 14 days of risk closure.'
                 });
 
-                // Escalate severity (severity_level enum: Low → Moderate → High → Critical)
-                let newSeverity = 'Moderate';
-                if (risk.severity === 'Low') newSeverity = 'Moderate';
-                else if (risk.severity === 'Moderate') newSeverity = 'High';
-                else if (risk.severity === 'High') newSeverity = 'Critical';
-
-                await query(`
-                    UPDATE risks SET status = 'Open', severity = $1, reopened_at = NOW()
-                    WHERE id = $2
-                `, [newSeverity, risk.id]);
+                // Do not rewrite the closed evidential chapter. The pattern/promotion flow creates
+                // a new risk linked through previous_risk_id when the promotion floor is reached.
 
                 // Notify RM and Director
                 const usersRes = await query(`
-                    SELECT id, role FROM users 
-                    WHERE company_id = $1 AND (role = 'DIRECTOR' OR (role = 'REGISTERED_MANAGER' AND assigned_house_id = $2))
+                    SELECT u.id, u.role FROM users u
+                    WHERE u.company_id = $1 AND u.status='active' AND (
+                      u.role = 'DIRECTOR' OR (u.role = 'REGISTERED_MANAGER' AND EXISTS
+                        (SELECT 1 FROM user_houses uh WHERE uh.user_id=u.id AND uh.house_id=$2)))
                 `, [risk.company_id, risk.house_id]);
 
                 for (const user of usersRes.rows) {
@@ -65,8 +60,8 @@ export const startRecurrenceWatchWorker = () => {
                         company_id: risk.company_id,
                         user_id: user.id,
                         type: 'CONTROL_FAILURE',
-                        title: 'Control Failure: Risk Reopened',
-                        body: `Risk "${risk.title}" was reopened due to recurring signals.`
+                        title: 'Control Failure: recurrence detected',
+                        body: `New evidence matches the closed risk "${risk.title}". The closed chapter remains unchanged; review the emerging pattern for a linked new chapter.`
                     });
                 }
             }

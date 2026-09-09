@@ -21,6 +21,7 @@ import { startDirectorGovernanceWorker } from './workers/directorGovernance.work
 import { startEscalationOverdueWorker } from './workers/escalationOverdue.worker';
 import { startActionOverdueWorker } from './workers/actionOverdue.worker';
 import { startActionPatternWorker } from './workers/actionPattern.worker';
+import { startTrajectoryRefreshWorker } from './workers/trajectoryRefresh.worker';
 import { Queue } from 'bullmq';
 import { redisConnection } from './config/redis';
 import { eventBus, EVENTS } from './events/eventBus';
@@ -64,6 +65,7 @@ const directorGovernanceWorker = startSafeWorker('DirectorGov', startDirectorGov
 const escalationOverdueWorker = startSafeWorker('EscalationOverdue', startEscalationOverdueWorker);
 const actionOverdueWorker = startSafeWorker('ActionOverdue', startActionOverdueWorker);
 const actionPatternWorker = startSafeWorker('ActionPattern', startActionPatternWorker);
+const trajectoryRefreshWorker = startSafeWorker('TrajectoryRefresh', startTrajectoryRefreshWorker);
 
 
 // Simple schedule triggers for daily jobs
@@ -118,6 +120,7 @@ const shutdown = async (signal: string) => {
       await escalationOverdueWorker.close();
       await actionOverdueWorker.close();
       await actionPatternWorker.close();
+      await trajectoryRefreshWorker.close();
       await getPool().end();
 
       await redis.quit();

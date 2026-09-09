@@ -382,11 +382,32 @@ async function evaluateCrossServiceRisk(
                     [houseIds, totalSignals, csLabel, existingCs.rows[0].id]
                 );
             } else {
-                await query(
+                const inserted = await query(
                     `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, cluster_label, cluster_status, signal_count, affected_house_ids, first_signal_date, last_signal_date)
-                     VALUES ($1, NULL, 'cross_service', $2, NULL, $3, 'Emerging', $4, $5, CURRENT_DATE, CURRENT_DATE)`,
+                     VALUES ($1, NULL, 'cross_service', $2, NULL, $3, 'Emerging', $4, $5, CURRENT_DATE, CURRENT_DATE)
+                     RETURNING id`,
                     [company_id, domain, csLabel, totalSignals, houseIds]
                 );
+                existingCs.rows[0] = inserted.rows[0];
+            }
+            // A systemic pattern must carry its evidence rows, not merely a count. Materialise every
+            // qualifying signal through the same link table used by trajectory and risk promotion.
+            const crossServiceClusterId = existingCs.rows[0]?.id;
+            if (crossServiceClusterId) {
+                await query(
+                    `INSERT INTO risk_signal_links (id, cluster_id, pulse_entry_id, linked_by, link_note)
+                     SELECT uuid_generate_v4(), $1, gp.id, gp.created_by,
+                            'Contributing signal — cross-service pattern materialisation'
+                       FROM governance_pulses gp
+                      WHERE gp.company_id=$2 AND $3=ANY(gp.risk_domain)
+                        AND gp.house_id=ANY($4::uuid[])
+                        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW()-INTERVAL '28 days'
+                        AND gp.created_by IS NOT NULL
+                     ON CONFLICT DO NOTHING`,
+                    [crossServiceClusterId, company_id, domain, houseIds]
+                );
+                const tr = await trajectoryForCluster(crossServiceClusterId);
+                await query(`UPDATE signal_clusters SET trajectory=$1, updated_at=NOW() WHERE id=$2`, [tr.direction, crossServiceClusterId]);
             }
         } else if (existingCs.rows[0]) {
             await query(`UPDATE signal_clusters SET cluster_status = 'Dismissed' WHERE id = $1`, [existingCs.rows[0].id]);
