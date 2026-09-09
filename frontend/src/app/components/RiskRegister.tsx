@@ -5,6 +5,7 @@ import { AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowUpRight, ShieldAle
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 // Governance Oversight Register (doctrine): shows what leadership is actively
 // overseeing — emerging concerns, active oversight, strategic oversight, closed —
@@ -77,6 +78,7 @@ export function RiskRegister() {
       setIsLoading(false);
     }
   };
+  useGovernanceRefresh(load);
 
   const banner = data?.banner || { activeOversight: 0, escalating: 0, stable: 0, improving: 0, critical: 0, controlFailures: 0, lastReviewAt: null };
   const rows: any[] = data?.[tab] || [];

@@ -4,6 +4,7 @@ import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from ".
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, LabelList } from "recharts";
 import { apiClient } from "@/services/api";
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 export function ActionEffectivenessPanels() {
   const [data, setData] = useState<any>(null);
@@ -24,6 +25,7 @@ export function ActionEffectivenessPanels() {
       setIsLoading(false);
     }
   };
+  useGovernanceRefresh(loadData);
 
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
   if (!data) return null;

@@ -2,6 +2,7 @@ import { query, getClient } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import type { PoolClient } from 'pg';
 import { governanceDecisionsService } from './governanceDecisions.service';
+import { emitToCompany } from '../websocket/socket.server';
 
 export type DecisionInput = {
   sourceType?: 'signal' | 'pattern' | 'risk' | 'escalation';
@@ -110,6 +111,19 @@ export class DailyGovernanceService {
         }
       }
 
+      // Mobile and web may record the RM decisions from the signal queue before the user opens
+      // the publication form. Adopt those same-day, same-service decisions into this signed log
+      // instead of leaving a parallel "standalone" history. Existing explicit log links win.
+      await client.query(
+        `UPDATE governance_reviews
+            SET daily_governance_log_id=$1
+          WHERE company_id=$2 AND service_id=$3
+            AND review_type='RM_REVIEW'
+            AND daily_governance_log_id IS NULL
+            AND created_at::date=CURRENT_DATE`,
+        [log_id, company_id, house_id]
+      );
+
       // Authoritative readiness is evaluated after this request's decisions have been
       // applied, but before the log is marked complete. Counts are stored with the signed
       // log so the published position is reconstructable later.
@@ -141,6 +155,10 @@ export class DailyGovernanceService {
 
       // 6. Commit only when every required step succeeded.
       await client.query('COMMIT');
+
+      emitToCompany(company_id, 'governance.case.updated', {
+        reason: 'daily_governance_published', log_id, house_id,
+      });
 
       // 6b. Notify each person work was allocated to (post-commit, best-effort), so a
       // Monitor/Create Action decision reaches their My Work AND pings them — matching the

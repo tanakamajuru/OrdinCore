@@ -11,6 +11,9 @@ export class ActionEffectivenessController {
       emitToCompany(company_id, 'intervention.updated', {
         reason: 'effectiveness_reviewed', action_id: actionId,
       });
+      emitToCompany(company_id, 'governance.case.updated', {
+        reason: 'effectiveness_reviewed', action_id: actionId,
+      });
       return res.json({ success: true, data: result });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to rate action effectiveness' });

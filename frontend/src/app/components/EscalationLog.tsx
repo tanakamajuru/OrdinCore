@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { ClosureReviewModal } from "@/components/ClosureReviewModal";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 interface Escalation {
   id: string;
@@ -133,6 +134,7 @@ export function EscalationLog() {
       setIsLoading(false);
     }
   };
+  useGovernanceRefresh(loadEscalations);
 
   const handleAcknowledge = async (id: string) => {
     try {

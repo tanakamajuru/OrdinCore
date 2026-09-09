@@ -71,6 +71,9 @@ export class ActionsController {
       emitToCompany(company_id, 'intervention.updated', {
         reason: 'linked_action_completed', action_id: id, risk_id: riskId,
       });
+      emitToCompany(company_id, 'governance.case.updated', {
+        reason: 'action_completed', action_id: id, risk_id: riskId,
+      });
 
       // Risk-linked actions also update the risk trajectory + write a lineage event.
       if (riskId) {

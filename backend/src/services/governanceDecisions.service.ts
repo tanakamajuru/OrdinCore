@@ -1,6 +1,7 @@
 import { getClient, query } from '../config/database';
 import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
+import { emitToCompany } from '../websocket/socket.server';
 
 /**
  * The Daily Governance Review is the engine that generates management work. A Governance
@@ -265,6 +266,15 @@ export const governanceDecisionsService = {
       await client.query('BEGIN');
       const out = await this.executeInTx(client, input);
       await client.query('COMMIT');
+      emitToCompany(input.company_id, 'governance.case.updated', {
+        reason: 'governance_decision_recorded',
+        decision_id: out.decision?.id || null,
+        pulse_entry_id: input.pulse_entry_id || null,
+        cluster_id: input.cluster_id || null,
+        risk_id: input.risk_id || out.risk?.id || null,
+        escalation_id: input.escalation_id || out.escalation?.id || null,
+        action_id: out.task?.id || null,
+      });
       if (!out.idempotent && out.task && input.owner_id) {
         try {
           const { notificationsService } = await import('./notifications.service');

@@ -4,6 +4,7 @@ import { Network, ArrowUpRight, ArrowDownRight, Minus, ChevronRight } from "luci
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
@@ -39,6 +40,7 @@ export function SystemicPatterns() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  useGovernanceRefresh(load);
 
   const submitReview = async () => {
     if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }

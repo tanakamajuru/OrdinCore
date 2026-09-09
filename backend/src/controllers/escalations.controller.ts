@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { escalationsService } from '../services/escalations.service';
+import { emitToCompany } from '../websocket/socket.server';
 
 export class EscalationsController {
   async findAll(req: Request, res: Response) {
@@ -36,6 +37,7 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const result = await escalationsService.resolve(req.params.id, company_id, req.user!.user_id, req.body.resolution_notes || '');
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_resolved', escalation_id: req.params.id });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to resolve escalation', errors: [] });
@@ -51,6 +53,7 @@ export class EscalationsController {
         note: req.body.rationale ?? req.body.note,
         due_at: req.body.nextReviewDate ?? req.body.due_at,
       });
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'post_closure_reviewed', escalation_id: req.params.id, risk_id: result?.risk_id || null });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to record post-escalation risk review', errors: [] });
@@ -89,6 +92,7 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const action = await escalationsService.addAction(req.params.id, company_id, req.user!.user_id, req.body);
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_action_added', escalation_id: req.params.id, action_id: action?.id || null });
       return res.status(201).json({ success: true, data: action, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add escalation action';
@@ -100,6 +104,7 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const task = await escalationsService.addTask(req.params.id, company_id, req.user!.user_id, req.body);
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_task_added', escalation_id: req.params.id, action_id: task?.id || null });
       return res.status(201).json({ success: true, data: task, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to add task';
@@ -144,6 +149,7 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const result = await escalationsService.transition(req.params.id, company_id, req.user!.user_id, req.body.lifecycle_status, req.body.rationale);
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_transitioned', escalation_id: req.params.id, lifecycle_status: req.body.lifecycle_status });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to transition escalation', errors: [] });
@@ -154,6 +160,7 @@ export class EscalationsController {
     try {
       const company_id = req.user!.company_id!;
       const result = await escalationsService.reopen(req.params.id, company_id, req.user!.user_id, req.body.reopened_reason || req.body.reason || '');
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_reopened', escalation_id: req.params.id });
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to reopen escalation', errors: [] });
