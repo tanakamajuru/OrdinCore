@@ -190,6 +190,10 @@ export function GovernanceDecisions({
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (!form.source) { toast.error("Choose the signal this decision relates to."); return; }
     if (form.what.trim().length < 5) { toast.error("Describe the governance decision."); return; }
+    if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) {
+      toast.error("Choose an accountable owner for this decision.");
+      return;
+    }
     if (form.decision === "Monitor" && !form.due_at) {
       toast.error("Monitoring requires a next review date.");
       return;

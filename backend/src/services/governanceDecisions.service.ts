@@ -50,6 +50,16 @@ export const governanceDecisionsService = {
     const c = input.company_id, u = input.user_id;
     const decision = input.decision;
     if (input.pulse_entry_id && !input.severity) throw new Error('Registered Manager severity is required when triaging a signal.');
+    // An action must have an accountable owner, and a Monitor decision must name who is watching
+    // it and when it is reviewed — otherwise work is created that nobody holds or is "monitored"
+    // with no one accountable.
+    if (decision === 'Create Action' && !input.owner_id) {
+      throw new Error('Choose an accountable owner before creating an action.');
+    }
+    if (decision === 'Monitor') {
+      if (!input.owner_id) throw new Error('A Monitor decision needs an owner who is watching this concern.');
+      if (!input.due_at) throw new Error('A Monitor decision needs a review date.');
+    }
 
     const review = await client.query(
       `INSERT INTO governance_reviews (
