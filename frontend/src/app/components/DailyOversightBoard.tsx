@@ -381,12 +381,12 @@ export function DailyOversightBoard() {
                 <p className="text-sm text-muted-foreground py-4 text-center">No governance actions outstanding.</p>
               ) : (
                 <table className="w-full text-sm">
-                  <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border"><th className="py-2">Priority</th><th>Action</th><th>Related to</th><th>Age</th><th>Due</th><th></th></tr></thead>
+                  <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border"><th className="py-2">Priority</th><th>Action</th><th>Owner</th><th>Related to</th><th>Age</th><th>Due</th><th></th></tr></thead>
                   <tbody>
                     {[...actions].sort((a, b) => (new Date(a.due_date || 0).getTime()) - (new Date(b.due_date || 0).getTime())).slice(0, 8).map((a: any, i) => {
                       const b = prioBadge(a.priority || a.severity);
                       const due = dueLabel(a);
-                      const person = a.related_person || a.service_user_name || a.assigned_to_name || a.risk_title || a.house_name || "—";
+                      const person = a.related_person || a.service_user_name || a.risk_title || a.house_name || "—";
                       const ageDays = a.created_at ? Math.max(0, Math.floor((Date.now() - new Date(a.created_at).getTime()) / 86400000)) : null;
                       // Navigate straight to the source (same as the pipeline): the linked risk,
                       // else the originating signal. No modal — keep the system's drill-through flow.
@@ -399,6 +399,7 @@ export function DailyOversightBoard() {
                         <tr key={a.id || i} className="border-b border-border/50 hover:bg-muted/40">
                           <td className="py-2.5 cursor-pointer" onClick={go}><span className={`text-[10px] font-bold px-2 py-0.5 rounded ${b.cls}`}>{b.label}</span></td>
                           <td className="pr-2 cursor-pointer" onClick={go}>{a.title || a.action || "Action"}</td>
+                          <td className="pr-2 whitespace-nowrap">{a.assigned_to_name ? <span className="text-foreground">{a.assigned_to_name}</span> : <span className="text-red-600 font-medium">Unassigned</span>}</td>
                           <td className="pr-2 text-muted-foreground">{person}</td>
                           <td className="pr-2 text-muted-foreground whitespace-nowrap">{ageDays == null ? "—" : ageDays === 0 ? "Today" : `${ageDays}d`}</td>
                           <td className={due === "Overdue" || due === "Today" ? "text-red-600 font-medium whitespace-nowrap" : "text-muted-foreground whitespace-nowrap"}>{due}</td>
