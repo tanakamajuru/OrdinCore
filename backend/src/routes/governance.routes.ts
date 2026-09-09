@@ -275,6 +275,23 @@ router.get('/timeline', requireAuth, requireTenant, async (req, res) => {
     return res.status(400).json({ success: false, message: err?.message || 'Failed to build timeline', errors: [] });
   }
 });
+// Canonical connected-case projection. All identifiers are tenant-scoped and relationships are
+// followed only through stored foreign keys; this endpoint never infers links from text.
+router.get('/case', requireAuth, requireTenant, async (req, res) => {
+  try {
+    const { governanceCaseService } = await import('../services/governanceCase.service');
+    const data = await governanceCaseService.resolve(req.user!.company_id!, {
+      signalId: req.query.signalId as string,
+      patternId: req.query.patternId as string,
+      riskId: req.query.riskId as string,
+      escalationId: req.query.escalationId as string,
+      actionId: req.query.actionId as string,
+    });
+    return res.json({ success: true, data, meta: { projection: 'governance-case-v1' } });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || 'Failed to resolve governance case', errors: [] });
+  }
+});
 router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER'), dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
 
 // Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).

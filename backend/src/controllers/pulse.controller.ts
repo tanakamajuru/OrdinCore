@@ -167,8 +167,8 @@ export class PulseController {
         try {
             const { id } = req.params;
             const company_id = requireCompany(req);
-            const { governanceWorkflowService } = await import('../services/governanceWorkflow.service');
-            const timeline = await governanceWorkflowService.signalTimeline(company_id, id);
+            const { governanceCaseService } = await import('../services/governanceCase.service');
+            const timeline = await governanceCaseService.timeline(company_id, { signalId: id });
             res.json({ success: true, data: timeline, meta: {} });
         } catch (err: any) {
             res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
@@ -289,4 +289,3 @@ export class PulseController {
 }
 
 export const pulseController = new PulseController();
-
