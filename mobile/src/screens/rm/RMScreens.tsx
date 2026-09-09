@@ -62,7 +62,9 @@ export function RMDashboardScreen() {
         items={[
           { title: 'Patterns', value: String(n(cts.patterns)), tone: 'amber', onPress: () => nav.navigate('RMPatterns') },
           { title: 'Risks', value: String(n(cts.risks)), tone: 'red', onPress: () => nav.navigate('RMRiskRegister', { tab: 'open' }) },
-          { title: 'Actions', value: String(n(cts.actions)), tone: 'blue', onPress: () => nav.navigate('RMActionsList', { lens: 'oversight' }) },
+          // "My actions" = actions assigned to me (count and list both personal), so the number
+          // matches what opens. The whole-service actions view lives in the Action Tracker.
+          { title: 'My actions', value: String(n(byKey('actions')?.count)), tone: 'blue', onPress: () => nav.navigate('RMMyActions') },
         ]}
         button="View risk register" onButton={() => nav.navigate('RMRiskRegister')}
       />
