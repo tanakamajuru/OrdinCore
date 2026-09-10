@@ -2,6 +2,7 @@ import React from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router";
 import { Toaster } from "sonner";
 import { AuthProvider, useAuth } from "../hooks/useAuth";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 import { Login } from "./components/Login";
 import { ForgottenPassword } from "./components/ForgottenPassword";
 import { ResetPassword } from "./components/ResetPassword";
@@ -103,6 +104,7 @@ export default function App() {
     <AuthProvider>
       <Toaster position="top-right" richColors />
       <BrowserRouter>
+        <ErrorBoundary>
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
@@ -392,6 +394,7 @@ export default function App() {
           } />
           <Route path="*" element={<NotFoundRedirect />} />
         </Routes>
+        </ErrorBoundary>
       </BrowserRouter>
     </AuthProvider>
   );
