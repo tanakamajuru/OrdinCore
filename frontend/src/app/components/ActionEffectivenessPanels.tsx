@@ -5,10 +5,36 @@ import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContaine
 import { apiClient } from "@/services/api";
 import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
+
+const OUTCOMES = ["Effective", "Partially Effective", "Not Effective", "Too Early To Assess"] as const;
 
 export function ActionEffectivenessPanels() {
   const [data, setData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { user } = useAuth();
+  const canRate = String((user as any)?.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER";
+  // Inline effectiveness rating — works for any completed action awaiting a verdict, including
+  // signal/service actions with no linked risk (which have no risk-detail page to rate from).
+  const [rating, setRating] = useState<any>(null);
+  const [outcome, setOutcome] = useState<string>("");
+  const [evidence, setEvidence] = useState("");
+  const [saving, setSaving] = useState(false);
+  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); };
+  const submitRating = async () => {
+    if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
+    if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
+    setSaving(true);
+    try {
+      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim() });
+      toast.success("Effectiveness recorded");
+      setRating(null);
+      loadData();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Could not record effectiveness");
+    } finally { setSaving(false); }
+  };
 
   useEffect(() => {
     loadData();
@@ -128,9 +154,12 @@ export function ActionEffectivenessPanels() {
         <Card className="border-2 border-border shadow-sm">
           <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Awaiting effectiveness review ({data.pending_count})</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            {data.pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm">
-              <p className="font-medium">{a.title}</p>
-              <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name}{a.review_overdue ? ' · overdue' : ''}</p>
+            {data.pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{a.title}</p>
+                <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
+              </div>
+              {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
             </div>)}
           </CardContent>
         </Card>
@@ -204,6 +233,30 @@ export function ActionEffectivenessPanels() {
           </CardContent>
         </Card>
       </div>
+
+      {rating && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>
+          <div className="bg-card border-2 border-border rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
+            <p className="text-sm text-muted-foreground mb-4">{rating.title}</p>
+            <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Did the action reduce the risk?</p>
+            <div className="grid grid-cols-2 gap-2 mb-4">
+              {OUTCOMES.map((o) => (
+                <button key={o} onClick={() => setOutcome(o)}
+                  className={`px-3 py-2 rounded-lg border text-sm ${outcome === o ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{o}</button>
+              ))}
+            </div>
+            <label className="block text-sm text-muted-foreground mb-1">Evidence{outcome === "Too Early To Assess" ? " (optional)" : ""}</label>
+            <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3}
+              className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+              placeholder="What tells you this — recurrence, observation, records…" />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setRating(null)} disabled={saving} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button>
+              <button onClick={submitRating} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
