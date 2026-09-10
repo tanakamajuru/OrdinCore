@@ -81,6 +81,14 @@ export const myWorkService = {
       // to load" they hit on /rm5).
       const signalsLink = '/rm5?stage=signals';
       if (n > 0) items.push({ key: 'signals', label: 'signals awaiting review', count: n, tone: 'amber', link: signalsLink, primary_action: 'Review Signal' });
+
+      const mon = await safe(() => query(
+        `SELECT COUNT(*)::int AS n FROM governance_reviews
+          WHERE company_id=$1 AND decision='Monitor' AND decision_status='Monitoring'
+            AND decision_owner_id=$2 AND due_at <= NOW()`,
+        [company_id, user_id]
+      ), { rows: [{ n: 0 }] } as any);
+      if ((mon.rows[0]?.n || 0) > 0) items.push({ key: 'monitoring_reviews', label: 'monitoring reviews due', count: mon.rows[0].n, tone: 'amber', link: '/governance-dashboard', primary_action: 'Review Monitoring' });
     }
 
     // 3. My actions — open, with overdue highlighted (all roles).

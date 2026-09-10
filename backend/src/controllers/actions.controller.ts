@@ -51,7 +51,10 @@ export class ActionsController {
       const riskId = action.rows[0].risk_id || null;
       const completedRes = await query(
         `UPDATE risk_actions
-         SET status = 'Completed', completion_note = $1, completion_outcome = $2, completion_rationale = $3, completed_at = NOW(), completed_by = $6
+         SET status = 'Completed', completion_note = $1, completion_outcome = $2,
+             completion_rationale = $3,
+             completion_evidence = COALESCE(NULLIF($1, ''), $3),
+             completed_at = NOW(), completed_by = $6
          WHERE id = $4 AND company_id = $5 RETURNING *`,
         [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
@@ -258,18 +261,18 @@ export class ActionsController {
       if (scoped) {
         const houseIds = (u.assigned_house_ids || []);
         params.push(houseIds.length ? houseIds : ['00000000-0000-0000-0000-000000000000']);
-        houseClause = ` AND r.house_id = ANY($${params.length}::uuid[])`;
+        houseClause = ` AND COALESCE(ra.house_id,r.house_id) = ANY($${params.length}::uuid[])`;
       }
       const actions = await query(
-        `SELECT ra.*, r.title AS risk_title, r.house_id,
+        `SELECT ra.*, r.title AS risk_title, COALESCE(ra.house_id,r.house_id) AS house_id,
                 au.first_name || ' ' || au.last_name AS assigned_to_name,
                 cb.first_name || ' ' || cb.last_name AS assigned_by_name,
                 h.name AS house_name
            FROM risk_actions ra
-           JOIN risks r ON r.id = ra.risk_id
+           LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
            LEFT JOIN users au ON au.id = ra.assigned_to
            LEFT JOIN users cb ON cb.id = ra.created_by
-           LEFT JOIN houses h ON h.id = r.house_id
+           LEFT JOIN houses h ON h.id = COALESCE(ra.house_id,r.house_id)
           WHERE ra.company_id = $1
             AND ra.status NOT IN ('Complete', 'Completed', 'Cancelled')${houseClause}
           ORDER BY ra.due_date ASC NULLS LAST`,

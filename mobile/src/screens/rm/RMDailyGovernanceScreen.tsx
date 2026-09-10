@@ -1,6 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { Alert } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { useApi } from '@/api/useApi';
 import { api } from '@/api/client';
 import { Screen, AppHeader, Card, Row, Label, Text, TextArea, Button, Chip, Banner, Loading, ErrorNote } from '@/components/ui';
@@ -15,19 +15,23 @@ export function RMDailyGovernanceScreen() {
   const [exceptionsAck, setExceptionsAck] = useState(false);
   const [busy, setBusy] = useState(false);
   useEffect(() => { if (!houseId && houses.data?.[0]?.id) setHouseId(houses.data[0].id); }, [houses.data, houseId]);
-  const sig = useApi<any[]>(houseId ? `/pulses?house_id=${houseId}&limit=200` : null, [houseId]);
+  const sig = useApi<any[]>(houseId ? `/pulses?house_id=${houseId}&limit=500` : null, [houseId]);
   const esc = useApi<any[]>(houseId ? `/escalations?house_id=${houseId}&limit=200` : null, [houseId]);
+  const date = new Date().toISOString().slice(0, 10);
+  const existing = useApi<any>(houseId ? `/governance/daily-log/by-date?house_id=${houseId}&date=${date}` : null, [houseId, date]);
   const signals = (sig.data || []).filter((s: any) => String(s.review_status || 'New') === 'New');
   const escalations = (esc.data || []).filter((e: any) => !/closed|resolved/i.test(e.lifecycle_status || e.status || ''));
   const selected = (houses.data || []).find((h: any) => h.id === houseId);
-  const canPublish = !!houseId && signals.length === 0 && position.trim().length >= 10 && (!material || brief.trim().length >= 10) && (escalations.length === 0 || exceptionsAck);
+  const alreadyPublished = !!existing.data?.completed;
+  const canPublish = !!houseId && !alreadyPublished && signals.length === 0 && position.trim().length >= 10 && (!material || brief.trim().length >= 10) && (escalations.length === 0 || exceptionsAck);
+  useFocusEffect(useCallback(() => { if (houseId) { sig.refetch(); esc.refetch(); existing.refetch(); } }, [houseId]));
   const publish = async () => {
     setBusy(true);
     try {
       const log: any = await api.post('/governance/daily-log/open', { house_id: houseId });
       await api.post(`/governance/daily-log/${log.id}/complete`, { note: position.trim(), leadership_narrative: position.trim(), team_brief: material ? brief.trim() : '', material_change: material, exceptions_acknowledged: exceptionsAck, decisions: [] });
       Alert.alert('Published', `Daily governance for ${selected?.name || 'the service'} is recorded and available to the team.`);
-      setBrief(''); setPosition(''); setExceptionsAck(false); sig.refetch(); esc.refetch();
+      setBrief(''); setPosition(''); setExceptionsAck(false); sig.refetch(); esc.refetch(); existing.refetch();
     } catch (e: any) { Alert.alert("Couldn't publish", e?.message || 'Please correct the blockers and try again.'); }
     finally { setBusy(false); }
   };
@@ -37,6 +41,7 @@ export function RMDailyGovernanceScreen() {
     <AppHeader title="Daily Governance" subtitle="Review, decide and publish one canonical service brief" />
     <Label>Service</Label><Row gap={6} style={{ flexWrap: 'wrap' }}>{(houses.data || []).map((h: any) => <Chip key={h.id} label={h.name} active={houseId === h.id} onPress={() => { setHouseId(h.id); setExceptionsAck(false); }} />)}</Row>
     <Card><Text size={13} weight="600">Readiness</Text><Text size={12}>Signals awaiting RM decision: {signals.length}</Text><Text size={12}>Open escalations carried forward: {escalations.length}</Text></Card>
+    {alreadyPublished && <Banner tone="ok" icon="check-circle" title="Daily governance already published">This signed record is immutable. It remains available to the team.</Banner>}
     {signals.length > 0 && <><Banner tone="block" icon="lock" title="Publication blocked">Every outstanding signal needs an RM decision first.</Banner><Button title={`Review ${signals.length} signal(s)`} onPress={() => nav.navigate('RMSignalQueue', { house_id: houseId, house: selected?.name, tab: 'needs' })} /></>}
     {escalations.length > 0 && <><Banner tone="warn" icon="alert-triangle" title={`${escalations.length} open escalation(s)`}>Review these separately, then explicitly confirm that they are carried forward in today's governance.</Banner><Chip label={exceptionsAck ? 'Exceptions reviewed and carried forward' : 'Confirm exceptions reviewed'} active={exceptionsAck} onPress={() => setExceptionsAck(!exceptionsAck)} /></>}
     <Label>Registered Manager position</Label><TextArea value={position} onChangeText={setPosition} placeholder="What is known today and what management concluded…" minHeight={85} required />

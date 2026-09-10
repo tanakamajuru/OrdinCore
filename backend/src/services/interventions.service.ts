@@ -223,16 +223,6 @@ export const interventionsService = {
     const intvByTheme = new Map<string, any>();
     for (const i of interventions) intvByTheme.set(String(i.theme).toLowerCase(), i);
 
-    // Open escalations by risk — a theme whose risks still carry an open escalation is not ready
-    // to close. Used only as a close-readiness gate; it never alters the authoritative trajectory.
-    const openEscByRisk = new Set<string>();
-    (await query(
-      `SELECT DISTINCT risk_id FROM escalations
-        WHERE company_id = $1 AND risk_id IS NOT NULL
-          AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')`,
-      [company_id]
-    )).rows.forEach((r: any) => openEscByRisk.add(String(r.risk_id)));
-
     const out: any[] = [];
 
     for (const t of themeRows) {
@@ -282,21 +272,23 @@ export const interventionsService = {
         ? await this.themeEvidenceComparison(company_id, t.theme, intv.started_at)
         : null;
 
-      // Close-readiness (doctrine, RM-decided — never auto-closes): the intervention is rated
-      // Effective, no new risk has been added to the theme within 14 days, no open escalation
-      // remains on its risks, and the trajectory is not deteriorating. When all hold, the theme's
-      // concern is improving and the RM is prompted to close its risks (via the Close/rate manager).
-      const now = Date.now();
-      const newRiskIn14d = riskRefs.some((r: any) => r.created_at && (now - new Date(r.created_at).getTime()) < 14 * 864e5);
-      const hasOpenEscalation = riskRefs.some((r: any) => openEscByRisk.has(String(r.id)));
-      const openRiskCount = riskRefs.filter((r: any) => !['closed', 'resolved'].includes(String(r.status || '').toLowerCase())).length;
+      // Theme readiness is a roll-up of the authoritative risk-level closure reviews. It must
+      // never invent a looser rule or confuse "no new risk record" with "no linked signal".
+      const openRiskRefs = riskRefs.filter((r: any) => !['closed', 'resolved'].includes(String(r.status || '').toLowerCase()));
+      const riskClosureReviews: Array<{ risk_id: string; eligible: boolean; blockers: string[] }> = [];
+      for (const ref of openRiskRefs) {
+        try {
+          const review = await risksService.closureReview(ref.id, company_id);
+          riskClosureReviews.push({ risk_id: ref.id, eligible: review.eligible, blockers: review.blockers });
+        } catch {
+          riskClosureReviews.push({ risk_id: ref.id, eligible: false, blockers: ['Closure evidence could not be verified.'] });
+        }
+      }
       const readyToClose = effectiveness === 'Effective'
-        && trajectory.direction !== 'Deteriorating'
-        && !newRiskIn14d
-        && !hasOpenEscalation
-        && openRiskCount > 0;
+        && openRiskRefs.length > 0
+        && riskClosureReviews.every((review) => review.eligible);
       const readyToCloseReason = readyToClose
-        ? 'Effective · no new risks in 14 days · no open escalations — ready to close.'
+        ? 'Intervention effective · every open risk passed its canonical closure review — ready for an RM closure decision.'
         : null;
 
       out.push({
@@ -325,9 +317,10 @@ export const interventionsService = {
 
         needsAttention: reasons.length > 0,
         attentionReasons: reasons,
-        concern: readyToClose ? 'Ready to close' : concernOf(reasons, trajectory, effectiveness),
+        concern: readyToClose ? 'Ready for closure review' : concernOf(reasons, trajectory, effectiveness),
         readyToClose,
         readyToCloseReason,
+        closure_readiness: { eligible: readyToClose, source: 'risk-closure-review', risks: riskClosureReviews },
 
         intervention: intv
           ? {

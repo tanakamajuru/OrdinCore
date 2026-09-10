@@ -146,7 +146,7 @@ const CONCERN_TONE: Record<string, string> = {
   "Review required": "bg-red-100 text-red-700",
   "Monitor": "bg-amber-100 text-amber-700",
   "Controlled": "bg-emerald-100 text-emerald-700",
-  "Ready to close": "bg-emerald-100 text-emerald-700",
+  "Ready for closure review": "bg-emerald-100 text-emerald-700",
   "Low concern": "bg-emerald-100 text-emerald-700",
 };
 
@@ -362,11 +362,11 @@ export function InterventionPanel() {
                           </div>
                         )}
 
-                        {/* Observable 14-day before → after evidence around the intervention start.
+                        {/* Theme-wide observable 14-day before → after evidence around the intervention start.
                             Signal counts / weighted burden / high-critical — no percentage claim. */}
                         {intv.evidence_comparison && (
                           <div className="mt-2 rounded-lg border border-border p-2.5">
-                            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Observable evidence (14 days before → after)</div>
+                            <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Theme-wide observable evidence (14 days before → after)</div>
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div>
                                 <div className="text-muted-foreground">Before</div>
@@ -407,14 +407,19 @@ export function InterventionPanel() {
                     )}
                   </div>
 
-                  {/* Ready-to-close prompt — effective, no new risks in 14 days, no open escalations
-                      and not deteriorating. Doctrine: the RM still decides and closes explicitly. */}
+                  {/* Advisory only: backend readiness rolls up the same canonical risk closure reviews. */}
                   {t.readyToClose && (
                     <div className="mt-3 rounded-lg border border-emerald-300 bg-emerald-50 p-2.5 flex items-start gap-2">
                       <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
                       <div className="text-xs text-emerald-800">
-                        <span className="font-semibold">Ready to close.</span> {t.readyToCloseReason}
+                        <span className="font-semibold">Ready for closure review.</span> {t.readyToCloseReason}
                       </div>
+                    </div>
+                  )}
+                  {!t.readyToClose && intv?.effectiveness_review?.outcome === "Effective" && Array.isArray(t.closure_readiness?.risks) && (
+                    <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+                      <span className="font-semibold">Not yet ready for closure review.</span>{" "}
+                      {Array.from(new Set(t.closure_readiness.risks.flatMap((r: any) => r.blockers || []))).join(" ") || "One or more underlying risks have not passed the canonical closure gate."}
                     </div>
                   )}
 

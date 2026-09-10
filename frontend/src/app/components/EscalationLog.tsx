@@ -70,16 +70,17 @@ export function EscalationLog() {
   const [searchParams] = useSearchParams();
   // Allocate an action to a responsible person from the escalation.
   const [assignees, setAssignees] = useState<any[]>([]);
-  const [taskForm, setTaskForm] = useState({ title: "", assigned_to: "", due_date: "" });
+  const [taskForm, setTaskForm] = useState({ title: "", intended_outcome: "", assigned_to: "", due_date: "" });
   const [assigningTask, setAssigningTask] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
+  const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
 
   useEffect(() => {
     apiClient.get('/users?limit=200&status=active')
       .then((res) => {
         const all = (res.data as any)?.data || (Array.isArray((res.data as any)) ? (res.data as any) : []);
         setAssignees((Array.isArray(all) ? all : []).filter((u: any) =>
-          ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())));
+          ['DIRECTOR', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())));
       })
       .catch(() => setAssignees([]));
   }, []);
@@ -87,6 +88,7 @@ export function EscalationLog() {
   const allocateTask = async () => {
     if (!selectedEscalation) return;
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
+    if (taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
     if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
     setAssigningTask(true);
     try {
@@ -94,12 +96,13 @@ export function EscalationLog() {
       // escalation's house + lineage so it can be tracked for effectiveness.
       await apiClient.post(`/escalations/${selectedEscalation.id}/task`, {
         title: taskForm.title.trim(),
+        intended_outcome: taskForm.intended_outcome.trim(),
         assigned_to: taskForm.assigned_to,
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
       });
       toast.success('Task allocated — it now appears in their My Actions.');
       await loadEscalations();
-      setTaskForm({ title: "", assigned_to: "", due_date: "" });
+      setTaskForm({ title: "", intended_outcome: "", assigned_to: "", due_date: "" });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || 'Could not allocate the task.');
     } finally { setAssigningTask(false); }
@@ -118,6 +121,12 @@ export function EscalationLog() {
   useEffect(() => {
     loadEscalations();
   }, []);
+
+  useEffect(() => {
+    setReviewDecision("");
+    setResolutionNotes("");
+    setNextReviewAt("");
+  }, [selectedEscalation?.id]);
 
   const loadEscalations = async () => {
     try {
@@ -617,8 +626,23 @@ export function EscalationLog() {
 
                     {lifecycleState(selectedEscalation) !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
+                        <div>
+                          <label className="text-xs uppercase text-muted-foreground block mb-2">What is your decision following this review?</label>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {[
+                              ["monitor", "Continue monitoring"],
+                              ["action", "Create or allocate an action"],
+                              ["escalate", "Escalate further"],
+                              ["close", "Start closure review"],
+                            ].map(([value, label]) => <button key={value} type="button" onClick={() => setReviewDecision(value as any)}
+                              className={`rounded-lg border-2 px-3 py-2 text-sm text-left ${reviewDecision === value ? 'border-primary bg-primary/10 text-primary font-semibold' : 'border-border hover:bg-muted'}`}>
+                              {label}
+                            </button>)}
+                          </div>
+                        </div>
+                        {reviewDecision && <>
                         <label className="text-xs uppercase text-muted-foreground flex items-center gap-1.5">
-                          Decision &amp; notes {!resolutionNotes && <span className="text-amber-600 normal-case font-medium">· required</span>}
+                          Review outcome and rationale {!resolutionNotes && <span className="text-amber-600 normal-case font-medium">· required</span>}
                         </label>
                         <textarea
                           ref={notesRef}
@@ -638,7 +662,7 @@ export function EscalationLog() {
                             (a note is required). Closure is only ever via the evidence-based
                             closure review below ("Close with evidence") — the old direct
                             "Mark as Resolved" shortcut around the governance gate is removed. */}
-                        <div className="flex flex-col sm:flex-row gap-3 items-stretch">
+                        {reviewDecision === 'monitor' && <div className="flex flex-col sm:flex-row gap-3 items-stretch">
                           <div className="flex-1">
                             <label className="text-[11px] text-muted-foreground block mb-1">Next review date {!nextReviewAt && <span className="text-amber-600">· required to keep open</span>}</label>
                             <input
@@ -657,12 +681,12 @@ export function EscalationLog() {
                           >
                             <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>
-                        </div>
+                        </div>}
                         {!resolutionNotes && (
-                          <p className="text-xs text-amber-600">A note is required before you can keep this escalation open or close it — it's the record of your decision.</p>
+                          <p className="text-xs text-amber-600">Record the rationale for this leadership decision; it becomes part of the escalation audit trail.</p>
                         )}
 
-                        <div className="flex flex-col sm:flex-row gap-3">
+                        {reviewDecision === 'escalate' && <div className="flex flex-col sm:flex-row gap-3">
                           <button
                             onClick={() => { if (requireNote()) handleEscalateFurther(); }}
                             disabled={isSubmitting}
@@ -671,18 +695,18 @@ export function EscalationLog() {
                           >
                             <ShieldAlert className="w-4 h-4" /> Escalate further
                           </button>
-                          <button
-                            onClick={() => setCloseTarget({ id: selectedEscalation.id, title: selectedEscalation.risk_title || selectedEscalation.reason })}
-                            className="flex-1 px-4 py-2 rounded-lg border-2 border-success/40 text-success hover:bg-success/5 text-sm flex items-center justify-center gap-2"
-                          >
-                            <CheckCircle2 className="w-4 h-4" /> Close with evidence
-                          </button>
-                        </div>
+                        </div>}
+                        {reviewDecision === 'close' && <button
+                          onClick={() => { if (requireNote()) setCloseTarget({ id: selectedEscalation.id, title: selectedEscalation.risk_title || selectedEscalation.reason }); }}
+                          className="w-full px-4 py-2 rounded-lg border-2 border-success/40 text-success hover:bg-success/5 text-sm flex items-center justify-center gap-2"
+                        >
+                          <CheckCircle2 className="w-4 h-4" /> Review closure evidence
+                        </button>}
 
                         {/* Allocate an action to a responsible person — creates a real task on the
                             linked risk, so it lands in that person's My Actions and ages on the
                             overdue ladder. */}
-                        <details data-escalation-action-form className="pt-4 border-t border-border group">
+                        {reviewDecision === 'action' && <details open data-escalation-action-form className="pt-4 border-t border-border group">
                           <summary className="list-none cursor-pointer flex items-center justify-between gap-2 text-sm font-semibold text-primary">
                             <span>Allocate a tracked action</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                           </summary>
@@ -693,6 +717,12 @@ export function EscalationLog() {
                               onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                               placeholder="What needs doing? (e.g. review controls, complete competency check)"
                               className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                            />
+                            <textarea
+                              value={taskForm.intended_outcome}
+                              onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })}
+                              placeholder="What should change if this action works?"
+                              className="w-full min-h-20 bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
                             <div className="flex flex-col sm:flex-row gap-2">
                               <select
@@ -714,13 +744,14 @@ export function EscalationLog() {
                             </div>
                             <button
                               onClick={allocateTask}
-                              disabled={assigningTask || !taskForm.title.trim() || !taskForm.assigned_to}
+                              disabled={assigningTask || !taskForm.title.trim() || taskForm.intended_outcome.trim().length < 10 || !taskForm.assigned_to}
                               className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
                             >
                               {assigningTask ? 'Allocating…' : 'Allocate task'}
                             </button>
                           </div>
-                        </details>
+                        </details>}
+                        </>}
                       </div>
                     )}
 
@@ -809,6 +840,7 @@ export function EscalationLog() {
         linkedActionCount={Number((selectedEscalation as any)?.actions_total_count) || 0}
         onCreateOrLinkAction={() => {
           setCloseTarget(null);
+          setReviewDecision('action');
           window.setTimeout(() => document.querySelector<HTMLDetailsElement>('[data-escalation-action-form]')?.setAttribute('open', ''), 0);
         }}
         derivedActionsComplete={

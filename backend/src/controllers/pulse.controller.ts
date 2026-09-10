@@ -275,9 +275,14 @@ export class PulseController {
     async getDashboardFeed(req: Request, res: Response) {
         try {
             const company_id = requireCompany(req);
-            const houseIds = req.user!.assigned_house_ids || [];
+            const assigned = (req.user!.assigned_house_ids || []).map(String);
+            let houseIds = [...assigned];
             if (req.query.house_id) {
-                houseIds.push(req.query.house_id as string);
+                const requested = String(req.query.house_id);
+                if (!assigned.includes(requested)) {
+                    return res.status(404).json({ success: false, message: 'Service not found.' });
+                }
+                houseIds = [requested];
             }
 
             const feed = await pulseService.getDashboardFeed(company_id, houseIds);

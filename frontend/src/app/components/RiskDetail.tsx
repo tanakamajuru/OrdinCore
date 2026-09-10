@@ -1437,19 +1437,22 @@ export function RiskDetail() {
                 {[
                   ["Are all required actions complete?", closureReview.questions?.actions_complete, `${closureReview.detail?.actions_open ?? 0} open`],
                   ["Have interventions been effective?", closureReview.questions?.interventions_effective, `${closureReview.detail?.effective_controls ?? 0} rated effective`],
-                  ["Has the trajectory improved?", closureReview.questions?.trajectory_improved, `${closureReview.detail?.signals_last_14d ?? 0} vs ${closureReview.detail?.signals_prior_14d ?? 0} prior`],
-                  ["Are new signals no longer being received?", closureReview.questions?.no_recurring_signals, `${closureReview.detail?.signals_last_14d ?? 0} in last 14d`],
+                  ["Is the linked-risk trajectory non-deteriorating?", closureReview.questions?.trajectory_improved, `${closureReview.detail?.trajectory_direction ?? "Pending"}`],
+                  ["Are linked signals no longer being received?", closureReview.questions?.no_recurring_signals, `${closureReview.detail?.signals_last_14d ?? 0} in last 14d`],
                 ].map(([q, ok, detail]: any, i: number) => (
                   <div key={i} className="flex items-center justify-between gap-2 py-1 text-sm">
                     <span className="text-foreground">{q}</span>
                     <span className={`text-xs font-medium whitespace-nowrap ${ok ? "text-emerald-600" : "text-amber-600"}`}>{ok ? "✓" : "!"} {detail}</span>
                   </div>
                 ))}
+                <p className="text-[11px] text-muted-foreground mt-2">
+                  Evidence scope: signals linked to this risk/source pattern · canonical trajectory {closureReview.detail?.trajectory_calculation_version || "trajectory-v3"}
+                </p>
                 {closureReview.blockers?.length > 0 && (
                   <p className="text-xs text-red-600 mt-2 border-t border-border pt-2">{closureReview.blockers.join(" ")}</p>
                 )}
                 {closureReview.eligible && (
-                  <p className="text-xs text-emerald-600 mt-2 border-t border-border pt-2">Actions complete and no open escalation — this risk may be closed with a verdict.</p>
+                  <p className="text-xs text-emerald-600 mt-2 border-t border-border pt-2">Canonical linked-risk evidence passed the closure gate. The RM may now record a verdict and rationale.</p>
                 )}
               </div>
             )}
@@ -1504,4 +1507,3 @@ export function RiskDetail() {
   );
 
 }
-

@@ -21,18 +21,24 @@ interface Props {
 
 export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, linkedActionCount = 0, onCreateOrLinkAction, evidence }: Props) {
   const [patternReduced, setPatternReduced] = useState(false);
+  const [evidenceBasis, setEvidenceBasis] = useState("");
   const [busy, setBusy] = useState(false);
 
   if (!open) return null;
 
   // These gates must come from linked records; a checkbox cannot replace system evidence.
-  const actionsOk = linkedActionCount > 0 && !!derivedActionsComplete;
-  const effOk = linkedActionCount > 0 && !!derivedEffectivenessReviewed;
+  const hasLinkedActions = linkedActionCount > 0;
+  const actionsOk = hasLinkedActions && !!derivedActionsComplete;
+  const effOk = hasLinkedActions && !!derivedEffectivenessReviewed;
 
+  // An escalation with linked actions closes on the action/effectiveness gate. One with none may
+  // close on a genuine alternative basis — never by inventing an action to satisfy the form.
   const blocked =
-    linkedActionCount === 0 ? "No linked corrective action exists. Create or link an action before closure." :
-    !actionsOk ? "All linked corrective actions must be complete." :
-    !effOk ? "Effectiveness must be reviewed before closure." :
+    !patternReduced ? "Confirm that the reason for escalation has been addressed." :
+    !hasLinkedActions && !evidenceBasis ? "Select the genuine evidence basis for closure." :
+    hasLinkedActions && !actionsOk ? "All linked corrective actions must be complete." :
+    hasLinkedActions && !effOk ? "Effectiveness must be reviewed before closure." :
+    ((evidence || "").trim().length < 20) ? "Record meaningful closure evidence in Review outcome and rationale." :
     null;
 
   const submit = async () => {
@@ -51,6 +57,7 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
         further_escalation_required: false,
         closure_reason: "Closed after evidence-based review",
         evidence: evidenceText,
+        evidence_basis: hasLinkedActions ? "LINKED_ACTIONS" : evidenceBasis,
       };
       const res: any = target.type === "escalation"
         ? await apiClient.closeEscalation(target.id, payload)
@@ -101,14 +108,20 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
             Closure requires all governance gates to pass. Only close when the concern is genuinely
             resolved — to keep it open, use “Continue monitoring”; to raise it higher, use “Escalate further”.
           </p>
-          <Gate label="All required actions are complete." derived={actionsOk} />
-          <Gate label="Effectiveness has been reviewed." derived={effOk} />
-          {linkedActionCount === 0 && onCreateOrLinkAction && (
-            <button type="button" onClick={onCreateOrLinkAction}
-              className="my-2 w-full rounded-lg border border-primary text-primary px-3 py-2 text-sm font-medium hover:bg-primary/5">
-              Create or link a corrective action
-            </button>
-          )}
+          {hasLinkedActions ? <>
+            <Gate label="All required linked actions are complete." derived={actionsOk} />
+            <Gate label="Linked-action effectiveness has been reviewed." derived={effOk} />
+          </> : <div className="my-3 rounded-lg border border-border p-3">
+            <label className="text-xs uppercase tracking-wide text-muted-foreground block mb-2">Evidence basis where no action was required</label>
+            <select value={evidenceBasis} onChange={(e) => setEvidenceBasis(e.target.value)} className="w-full rounded-lg border border-border bg-background p-2 text-sm">
+              <option value="">Select evidence basis…</option>
+              <option value="EXISTING_CONTROL">Existing control already addressed the concern</option>
+              <option value="IMMEDIATE_MEASURE">Immediate safeguarding or safety measure</option>
+              <option value="EXTERNAL_INTERVENTION">External professional or emergency intervention</option>
+              <option value="NO_LONGER_APPLICABLE">Concern confirmed no longer applicable</option>
+            </select>
+            {onCreateOrLinkAction && <button type="button" onClick={onCreateOrLinkAction} className="mt-2 text-sm text-primary hover:underline">A new action is genuinely required instead</button>}
+          </div>}
           {/* Closure attestation — a human judgement, so it stays a checkbox. Doctrine: an
               escalation can originate from a single critical signal, incident, risk or governance
               decision — not only a pattern — so the escalation attestation speaks to the reason for

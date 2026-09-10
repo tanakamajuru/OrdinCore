@@ -21,13 +21,16 @@ export function ActionEffectivenessPanels() {
   const [outcome, setOutcome] = useState<string>("");
   const [evidence, setEvidence] = useState("");
   const [saving, setSaving] = useState(false);
-  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); };
+  const [expectedOutcome, setExpectedOutcome] = useState("");
+  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setExpectedOutcome(a?.evidence_packet?.expected?.intended_outcome || ""); };
   const submitRating = async () => {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
+    if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
+    if (expectedOutcome.trim().length < 10) { toast.error("Record the intended outcome before rating effectiveness."); return; }
     if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
     setSaving(true);
     try {
-      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim() });
+      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), intended_outcome: expectedOutcome.trim() });
       toast.success("Effectiveness recorded");
       setRating(null);
       loadData();
@@ -238,27 +241,41 @@ export function ActionEffectivenessPanels() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>
           <div className="bg-card border-2 border-border rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
-            <p className="text-sm font-medium text-foreground mb-3">{rating.title}</p>
-
-            {/* The evidence you are rating against: the action and what was actually done to close it. */}
-            <div className="rounded-lg bg-muted/50 border border-border p-3 mb-4 text-sm space-y-1.5">
-              {rating.description && rating.description !== rating.title && (
-                <p className="text-foreground"><span className="text-muted-foreground">Action: </span>{rating.description}</p>)}
-              {(rating.risk_title || rating.signal_label) && (
-                <p className="text-muted-foreground">Concern: {rating.risk_title || rating.signal_label}{rating.house_name ? ` · ${rating.house_name}` : ""}</p>)}
-              {rating.completed_at && (
-                <p className="text-muted-foreground">Completed {new Date(rating.completed_at).toLocaleDateString("en-GB")}</p>)}
-              <p className="text-foreground"><span className="text-muted-foreground">What was done: </span>{rating.completion_note || rating.completion_evidence || "No completion note was recorded."}</p>
-              {rating.completion_outcome && (
-                <p className="text-foreground"><span className="text-muted-foreground">Outcome recorded: </span>{rating.completion_outcome}</p>)}
-              {rating.completion_rationale && rating.completion_rationale !== rating.completion_note && (
-                <p className="text-foreground"><span className="text-muted-foreground">Rationale: </span>{rating.completion_rationale}</p>)}
+            <p className="text-sm text-muted-foreground mb-4">{rating.title}</p>
+            {/* One evidence packet: why the action existed, what was expected, what was done, and the
+                risk's trajectory afterwards. Rating is blocked until source + completion evidence exist. */}
+            <div className="max-h-[52vh] overflow-y-auto space-y-3 pr-1 mb-4">
+              <section className="rounded-lg border border-border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Why this action existed</p>
+                <p className="text-sm font-medium">{rating.evidence_packet?.source?.kind || "Governance action"}{rating.evidence_packet?.source?.domain ? ` · ${rating.evidence_packet.source.domain}` : ""}</p>
+                <p className="text-sm mt-1">{rating.evidence_packet?.source?.escalation_reason || rating.evidence_packet?.source?.signal_description || rating.evidence_packet?.source?.risk_description || rating.risk_title || "No originating concern is linked."}</p>
+                {rating.evidence_packet?.source?.person && <p className="text-xs text-muted-foreground mt-1">Person: {rating.evidence_packet.source.person}</p>}
+              </section>
+              <section className="rounded-lg border border-border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">What was expected</p>
+                <p className="text-sm">{rating.evidence_packet?.expected?.instruction}</p>
+                {rating.evidence_packet?.expected?.intended_outcome
+                  ? <p className="text-xs text-muted-foreground mt-1">Intended outcome: {rating.evidence_packet.expected.intended_outcome}</p>
+                  : <textarea value={expectedOutcome} onChange={(e) => setExpectedOutcome(e.target.value)} className="w-full mt-2 rounded-lg border border-amber-400 bg-background p-2 text-sm" placeholder="Record what should have changed if this action worked" />}
+              </section>
+              <section className="rounded-lg border border-border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">What was done</p>
+                <p className="text-sm">{rating.evidence_packet?.completion?.rationale || rating.evidence_packet?.completion?.note || "Completion evidence missing"}</p>
+                <p className="text-xs text-muted-foreground mt-1">Outcome: {rating.evidence_packet?.completion?.outcome || "Not recorded"}{rating.evidence_packet?.completion?.completed_by ? ` · by ${rating.evidence_packet.completion.completed_by}` : ""}{rating.evidence_packet?.completion?.completed_at ? ` · ${new Date(rating.evidence_packet.completion.completed_at).toLocaleDateString("en-GB")}` : ""}</p>
+              </section>
+              {rating.evidence_packet?.after && <section className="rounded-lg border border-border p-3">
+                <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">What happened afterwards</p>
+                <p className="text-sm font-medium">Trajectory: {rating.evidence_packet.after.direction}</p>
+                <p className="text-xs text-muted-foreground mt-1">{rating.evidence_packet.after.basis}</p>
+              </section>}
+              {!rating.evidence_packet?.review_ready && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
+                Rating blocked: {(rating.evidence_packet?.missing || ["Required evidence is missing."]).join(" ")}
+              </div>}
             </div>
-
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Did the action reduce the risk?</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {OUTCOMES.map((o) => (
-                <button key={o} onClick={() => setOutcome(o)}
+                <button key={o} onClick={() => setOutcome(o)} disabled={!rating.evidence_packet?.review_ready}
                   className={`px-3 py-2 rounded-lg border text-sm ${outcome === o ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{o}</button>
               ))}
             </div>
@@ -268,7 +285,7 @@ export function ActionEffectivenessPanels() {
               placeholder="What tells you this — recurrence, observation, records…" />
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setRating(null)} disabled={saving} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button>
-              <button onClick={submitRating} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
+              <button onClick={submitRating} disabled={saving || !rating.evidence_packet?.review_ready || expectedOutcome.trim().length < 10} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
             </div>
           </div>
         </div>

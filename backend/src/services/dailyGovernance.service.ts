@@ -76,12 +76,13 @@ export class DailyGovernanceService {
       // 1. Lock and validate the daily log — §6: scope through the owning house so a log
       //    from another tenant can never be completed (locks only the log row, not houses).
       const logRes = await client.query(
-        `SELECT dgl.house_id FROM daily_governance_log dgl
+        `SELECT dgl.house_id, dgl.completed FROM daily_governance_log dgl
            JOIN houses h ON h.id = dgl.house_id
           WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
         [log_id, company_id]
       );
       if (!logRes.rows[0]) throw new Error('Governance log not found');
+      if (logRes.rows[0].completed) throw new Error('This daily governance record is already signed off and is immutable.');
       house_id = logRes.rows[0].house_id;
 
       let enhanced_oversight = false;
@@ -102,12 +103,13 @@ export class DailyGovernanceService {
       // 3–5. Create each governance decision, its linked task/escalation, and update the
       // source status — all inside the same transaction. Any failure rolls the review back.
       // Collect the work that was allocated to a person so we can notify them post-commit.
-      const allocations: { owner_id: string; title: string; kind: 'task' | 'escalation'; due_at?: string | null }[] = [];
+      const allocations: { owner_id: string; title: string; kind: 'task' | 'escalation' | 'monitoring'; due_at?: string | null }[] = [];
       for (const d of (opts.decisions || [])) {
         const out: any = await this.createDecisionInTx(client, { company_id, user_id, log_id, house_id: house_id || null, decision: d });
         if (out && !out.idempotent && d.ownerId) {
           if (out.task) allocations.push({ owner_id: d.ownerId, title: out.task.title, kind: 'task', due_at: d.dueAt });
           else if (out.escalation && out.escalation.escalated_to === d.ownerId) allocations.push({ owner_id: d.ownerId, title: out.escalation.reason || d.actionDescription || d.reason || d.whatIsHappening || 'Escalation', kind: 'escalation', due_at: d.dueAt });
+          else if (d.decision === 'Monitor') allocations.push({ owner_id: d.ownerId, title: d.whatIsHappening || d.reason || 'Governance monitoring', kind: 'monitoring', due_at: d.dueAt });
         }
       }
 
@@ -130,8 +132,11 @@ export class DailyGovernanceService {
       const readiness = (await client.query(
         `SELECT
           (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New') AS unreviewed_signals,
-          (SELECT COUNT(*)::int FROM escalations e WHERE e.company_id=$1 AND e.house_id=$2 AND COALESCE(e.lifecycle_status::text,e.status,'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS open_escalations,
-          (SELECT COUNT(*)::int FROM risk_actions a WHERE a.company_id=$1 AND a.house_id=$2 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL) AS effectiveness_due`,
+          (SELECT COUNT(*)::int FROM escalations e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
+            WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND COALESCE(e.lifecycle_status::text,e.status,'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS open_escalations,
+          (SELECT COUNT(*)::int FROM risk_actions a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
+            WHERE a.company_id=$1 AND COALESCE(a.house_id,ar.house_id)=$2 AND a.completed_at IS NOT NULL
+              AND COALESCE(a.effectiveness_outcome,a.effectiveness::text) IS NULL) AS effectiveness_due`,
         [company_id, house_id]
       )).rows[0];
       if (readiness.unreviewed_signals > 0) throw new Error(`Daily governance cannot be published: ${readiness.unreviewed_signals} signal(s) still require an RM decision.`);
@@ -169,10 +174,10 @@ export class DailyGovernanceService {
           for (const a of allocations) {
             await notificationsService.create({
               company_id, user_id: a.owner_id,
-              type: a.kind === 'escalation' ? 'escalation_assigned' : 'task_assigned',
-              title: a.kind === 'escalation' ? 'Escalation assigned to you' : 'Governance action assigned to you',
+              type: a.kind === 'escalation' ? 'escalation_assigned' : a.kind === 'monitoring' ? 'monitoring_assigned' : 'task_assigned',
+              title: a.kind === 'escalation' ? 'Escalation assigned to you' : a.kind === 'monitoring' ? 'Governance monitoring assigned to you' : 'Governance action assigned to you',
               body: `${a.title}${a.due_at ? ` · due ${new Date(a.due_at).toLocaleDateString('en-GB')}` : ''}`,
-              link: a.kind === 'escalation' ? '/escalation-log' : '/my-actions',
+              link: a.kind === 'escalation' ? '/escalation-log' : a.kind === 'monitoring' ? '/governance-dashboard' : '/my-actions',
             });
           }
         } catch { /* best-effort */ }

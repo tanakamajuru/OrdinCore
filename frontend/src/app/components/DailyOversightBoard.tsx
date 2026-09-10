@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import {
-  AlertCircle, ChevronRight, ShieldCheck, RefreshCw, Search, Shield, AlertTriangle, Users,
-  FileText, Bell, PlusCircle, Flag, ClipboardList, Layers, CheckCircle2,
+  AlertCircle, ChevronRight, RefreshCw, Search, Shield, AlertTriangle, Users,
+  FileText, Bell, PlusCircle, ClipboardList, Layers, CheckCircle2,
   Info, Clock,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -41,15 +41,17 @@ export function DailyOversightBoard() {
   const userName = `${currentUser.first_name || ""} ${currentUser.last_name || ""}`.trim() || "Registered Manager";
   const house = houses.find((h) => h.id === selectedHouseId) || houses[0] || null;
   const isDeputyCover = !!house && house.deputy_rm_id === currentUserId;
+  const isHistoricalDate = reviewDate !== isoToday();
 
   useEffect(() => { loadDashboard(); }, []);
+  useEffect(() => { if (selectedHouseId) loadDashboard(selectedHouseId); }, [selectedHouseId]);
 
-  const loadDashboard = async () => {
+  const loadDashboard = async (scopeHouseId?: string) => {
     try {
       // Doctrine: the Daily Governance board no longer depends on /rm/patterns. Patterns live in
       // the separate Pipeline module; the daily flow is signals -> decisions -> Team Brief.
       const [dashRes, housesRes] = await Promise.all([
-        apiClient.get("/pulses/dashboard"),
+        apiClient.get(`/pulses/dashboard${scopeHouseId ? `?house_id=${encodeURIComponent(scopeHouseId)}` : ""}`),
         currentUserId ? apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
       ]);
       setData(dashRes.data.data);
@@ -59,7 +61,11 @@ export function DailyOversightBoard() {
       }
       const arr = Array.isArray(list) ? list : [];
       setHouses(arr);
-      setSelectedHouseId(arr[0]?.id || "");
+      // Do not reset an RM's selected service during a scoped refresh.  That used
+      // to reload figures for one service and then silently display another.
+      setSelectedHouseId((current) => current && arr.some((h: any) => h.id === current)
+        ? current
+        : (arr[0]?.id || ""));
     } catch { toast.error("Failed to load oversight board"); }
     finally { setIsLoading(false); }
   };
@@ -70,25 +76,18 @@ export function DailyOversightBoard() {
   const actions = data?.actions ?? [];
   const openActions = actions.length;
   const isDue = (a: any) => a.due_date && new Date(a.due_date).setHours(0, 0, 0, 0) <= new Date().setHours(0, 0, 0, 0);
-  const actionsDueToday = actions.filter(isDue).length;
-
-  // ---- Team Brief context (grounded daily summary) ----
-  const summaryPayload = {
-    high_risk_concerns: highPriority.length,
-    escalations_awaiting_review: openEsc,
-    governance_actions_due_today: actionsDueToday,
-    overall_posture: highPriority.length > 0 || openEsc > 0 ? "Attention" : "Stable",
-  };
+  const actionsDueOrOverdue = actions.filter(isDue).length;
 
   // Materiality decides whether Team Leaders must acknowledge the brief, or simply see
   // "no new governance priorities today" (Chapter 2 — proportionate acknowledgement).
-  const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueToday > 0;
+  const materialChange = highPriority.length > 0 || openEsc > 0 || actionsDueOrOverdue > 0;
 
   // Per-house narration: the RM signs off ONE house at a time. The Team Brief is assembled
   // DETERMINISTICALLY from this house's real signals, decisions, escalations and actions on
   // the selected date — no language model — so it follows the RM's paper "Daily Governance
   // Review" format exactly and can never hallucinate content that wasn't recorded.
   const generateNarrative = async () => {
+    if (isHistoricalDate) { toast.error("Historical daily governance records are read-only. Select today to record or publish a review."); return; }
     if (!selectedHouseId) return;
     setAiBusy(true);
     try {
@@ -227,6 +226,7 @@ export function DailyOversightBoard() {
   }, [isLoading, data, selectedHouseId, reviewDate]);
 
   const handleSignOff = async () => {
+    if (isHistoricalDate) { toast.error("Historical daily governance records cannot be backdated or overwritten."); return; }
     if (!dailyNote.trim()) { toast.error("A team brief is required for sign-off."); return; }
     if (!selectedHouseId) { toast.error("Choose which service you are signing off."); return; }
     setIsSigningOff(true);
@@ -302,13 +302,6 @@ export function DailyOversightBoard() {
     );
   };
 
-  const SummaryItem = ({ Icon, tone, text }: { Icon: any; tone: string; text: React.ReactNode }) => (
-    <div className="flex items-center gap-3 flex-1 min-w-[200px]">
-      <div className={`w-9 h-9 rounded-full flex items-center justify-center shrink-0 ${tone}`}><Icon size={17} /></div>
-      <p className="text-sm text-foreground">{text}</p>
-    </div>
-  );
-
   const TodoCard = ({ Icon, label, tone, onClick }: { Icon: any; label: string; tone: string; onClick: () => void }) => (
     <button onClick={onClick} className={`flex flex-col items-center gap-2 p-4 rounded-xl border-2 border-border hover:border-primary/50 hover:shadow-sm transition-all ${tone}`}>
       <Icon size={22} />
@@ -348,15 +341,7 @@ export function DailyOversightBoard() {
           </div>
           <div className="flex items-center gap-4">
             <span className="text-sm text-muted-foreground">{today()}</span>
-            <button onClick={() => { setIsLoading(true); loadDashboard(); }} className="text-sm text-primary flex items-center gap-1.5"><RefreshCw size={15} /> Refresh</button>
-          </div>
-        </div>
-
-        {/* Today's Governance Summary */}
-        <div className="bg-card border-2 border-border rounded-xl p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <ClipboardList size={18} className="text-primary" />
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Today's Governance Summary</h2>
+            <button onClick={() => { setIsLoading(true); loadDashboard(selectedHouseId); }} className="text-sm text-primary flex items-center gap-1.5"><RefreshCw size={15} /> Refresh</button>
           </div>
         </div>
 
@@ -364,8 +349,8 @@ export function DailyOversightBoard() {
             separate Pipeline module, not this daily board). */}
         <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <KPI value={highPriority.length} label="High Priority (48h)" tone="orange" Icon={Bell} onClick={() => navigate("/rm5?stage=signals")} />
-          <KPI value={actionsDueToday} label="Actions Due Today" tone="blue" Icon={ClipboardList} onClick={() => navigate("/my-actions")} />
-          <KPI value={openActions} label="Open Actions" tone="green" Icon={Layers} onClick={() => navigate("/risk-register")} />
+          <KPI value={actionsDueOrOverdue} label="Due / Overdue Actions" tone="blue" Icon={ClipboardList} onClick={() => navigate("/my-actions")} />
+          <KPI value={openActions} label="All Open Actions" tone="green" Icon={Layers} onClick={() => navigate("/my-actions")} />
           <KPI value={openEsc} label="Open Escalations" tone="slate" Icon={AlertCircle} onClick={() => navigate("/escalation-log?status=open")} />
         </div>
 
@@ -375,7 +360,7 @@ export function DailyOversightBoard() {
             <div className="bg-card border-2 border-border rounded-xl p-5">
               <div className="flex items-center justify-between mb-3">
                 <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">Governance Actions <span className="text-xs bg-muted rounded-full px-2 py-0.5">{actions.length}</span></h3>
-                <button onClick={() => navigate("/risk-register")} className="text-sm text-primary flex items-center gap-1">View all actions <ChevronRight size={14} /></button>
+                <button onClick={() => navigate("/my-actions")} className="text-sm text-primary flex items-center gap-1">View all actions <ChevronRight size={14} /></button>
               </div>
               {actions.length === 0 ? (
                 <p className="text-sm text-muted-foreground py-4 text-center">No governance actions outstanding.</p>
@@ -427,21 +412,20 @@ export function DailyOversightBoard() {
             <TodoCard Icon={AlertTriangle} label="Review Risk Register" tone="text-orange-600" onClick={() => navigate("/risk-register")} />
             <TodoCard Icon={Users} label="Review Escalations" tone="text-blue-600" onClick={() => navigate("/escalation-log")} />
             <TodoCard Icon={FileText} label="Publish / Update Weekly Review" tone="text-teal-600" onClick={() => navigate("/weekly-review")} />
-            <TodoCard Icon={Flag} label="Handle Escalations" tone="text-purple-600" onClick={() => navigate("/escalation-log")} />
             <TodoCard Icon={PlusCircle} label="Record New Signal" tone="text-slate-600" onClick={() => navigate("/governance-pulse")} />
           </div>
         </div>
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff} houses={houses} onSelectHouse={setSelectedHouseId} />
+        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId)} />
 
         {/* Team Brief (full width) — the day's signal review published to Team Leaders */}
         <div>
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· published to Team Leaders</span></h3>
-              <button onClick={generateNarrative} disabled={aiBusy || !!signedOff} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50">
+              <button onClick={generateNarrative} disabled={aiBusy || !!signedOff || isHistoricalDate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50">
                 <RefreshCw size={13} className={aiBusy ? "animate-spin" : ""} /> {aiBusy ? "Generating…" : (dailyNote.trim() ? "Regenerate team brief" : "Generate team brief")}
               </button>
             </div>
@@ -460,13 +444,16 @@ export function DailyOversightBoard() {
             {signedOff && reviewDate !== isoToday() && (
               <div className="mb-3 text-[11px] text-muted-foreground bg-muted/40 rounded px-2 py-1">Viewing the signed-off brief for {prettyDay(reviewDate)} — read only.</div>
             )}
+            {!signedOff && isHistoricalDate && (
+              <div className="mb-3 text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1">No signed record exists for this date. Historical dates cannot be backdated; select today to record a new review.</div>
+            )}
             {!materialChange && !signedOff && (
               <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5 mb-2">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." You can still record a brief below.</p>
             )}
             {!dailyNote.trim() && !signedOff && !aiBusy && (
               <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-2">Record your governance decisions and allocate today's tasks above first — then press <span className="font-semibold text-primary">Generate team brief</span> to draft the review for Team Leaders.</p>
             )}
-            <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff}
+            <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff || isHistoricalDate}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
               placeholder={aiBusy ? "Drafting today's team brief…" : "Today's priorities, emerging concerns and immediate actions for Team Leaders — grounded in the signals and actions above."} />
 
@@ -486,7 +473,7 @@ export function DailyOversightBoard() {
                   <button onClick={() => setShowPreview(true)} disabled={!dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 border-2 border-primary/40 text-primary rounded-lg text-sm font-medium disabled:opacity-50">
                     <Search size={16} /> Preview report
                   </button>
-                  <button onClick={handleSignOff} disabled={isSigningOff || !dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
+                  <button onClick={handleSignOff} disabled={isSigningOff || !dailyNote.trim() || isHistoricalDate} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
                     <CheckCircle2 size={16} /> {isSigningOff ? "Signing…" : "Accept & Sign Off"}
                   </button>
                   <button onClick={() => noteRef.current?.focus()} className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg text-sm">

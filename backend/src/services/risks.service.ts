@@ -415,30 +415,29 @@ export class RisksService {
               COUNT(*)::int AS total FROM risk_actions WHERE risk_id = $1`, [risk_id]
     )).rows[0];
     const eff = (await query(
-      `SELECT COUNT(*) FILTER (WHERE effectiveness_outcome IN ('Effective','Partially Effective') OR effectiveness IN ('Effective','Neutral'))::int AS rated_ok,
+      `SELECT COUNT(*) FILTER (WHERE effectiveness_outcome = 'Effective' OR effectiveness = 'Effective')::int AS rated_ok,
               COUNT(*) FILTER (WHERE effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)::int AS rated
          FROM risk_actions WHERE risk_id = $1`, [risk_id]
     )).rows[0];
     const openEsc = (await query(
       `SELECT COUNT(*)::int AS n FROM escalations WHERE risk_id = $1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved')`, [risk_id]
     )).rows[0];
-    // Recent vs prior signal frequency for the person/service → trajectory + recurrence.
-    const person = (risk.linked_person || risk.related_person || null) as string | null;
-    const freq = (await query(
-      `SELECT COUNT(*) FILTER (WHERE entry_date >= (NOW() - INTERVAL '14 days')::date)::int AS recent,
-              COUNT(*) FILTER (WHERE entry_date >= (NOW() - INTERVAL '28 days')::date AND entry_date < (NOW() - INTERVAL '14 days')::date)::int AS prior
-         FROM governance_pulses
-        WHERE company_id = $1 AND house_id = $2 AND ($3::text IS NULL OR related_person = $3)`,
-      [company_id, risk.house_id, person]
-    )).rows[0];
+    // One canonical trajectory and one canonical evidence scope. Do not count all signals for a
+    // person or (when linked_person is null) an entire house: that contaminates this risk with
+    // unrelated domains. trajectoryForRisk reads only signals explicitly linked to this risk or
+    // its source cluster, de-duplicates them, applies equal 14-day windows and weights severity.
+    const trajectory = await trajectoryForRisk(risk_id, risk.source_cluster_id || null);
+    const trajectoryEvidence = trajectory.evidence;
+    const recent = Number(trajectoryEvidence?.current14DaySignals) || 0;
+    const prior = Number(trajectoryEvidence?.previous14DaySignals) || 0;
 
     const q_actions_complete = actions.open === 0;
     const q_interventions_effective = eff.rated_ok > 0;
-    const q_trajectory_improved = freq.recent <= freq.prior;
-    const q_no_recurring_signals = freq.recent === 0;
+    const q_trajectory_improved = trajectory.direction !== 'Deteriorating';
+    const q_no_recurring_signals = recent === 0;
 
     // Trajectory is deteriorating when recent frequency clearly exceeds the prior window.
-    const deteriorating = freq.recent > freq.prior && freq.recent >= 2;
+    const deteriorating = trajectory.direction === 'Deteriorating';
     // "Outstanding effectiveness review": a completed control exists but none has been rated.
     const effectiveness_outstanding = actions.total > 0 && eff.rated === 0;
 
@@ -446,7 +445,7 @@ export class RisksService {
     if (!q_actions_complete) blockers.push(`${actions.open} action(s) still open — complete or cancel them first.`);
     if (openEsc.n > 0) blockers.push('An escalation on this risk is still open.');
     if (effectiveness_outstanding) blockers.push('An effectiveness review is outstanding — rate whether the control worked before closing.');
-    if (deteriorating) blockers.push(`Trajectory is deteriorating (${freq.recent} signals in the last 14 days vs ${freq.prior} before) — the risk has not reduced.`);
+    if (deteriorating) blockers.push(`Trajectory is deteriorating — ${trajectory.basis} The risk has not reduced.`);
 
     return {
       questions: {
@@ -455,7 +454,19 @@ export class RisksService {
         trajectory_improved: q_trajectory_improved,
         no_recurring_signals: q_no_recurring_signals,
       },
-      detail: { actions_open: actions.open, actions_total: actions.total, effective_controls: eff.rated_ok, controls_rated: eff.rated, open_escalations: openEsc.n, signals_last_14d: freq.recent, signals_prior_14d: freq.prior, deteriorating, effectiveness_outstanding },
+      detail: {
+        actions_open: actions.open, actions_total: actions.total,
+        effective_controls: eff.rated_ok, controls_rated: eff.rated,
+        open_escalations: openEsc.n,
+        signals_last_14d: recent, signals_prior_14d: prior,
+        weighted_burden_last_14d: Number(trajectoryEvidence?.current14DayWeight) || 0,
+        weighted_burden_prior_14d: Number(trajectoryEvidence?.previous14DayWeight) || 0,
+        trajectory_direction: trajectory.direction,
+        trajectory_basis: trajectory.basis,
+        trajectory_calculation_version: trajectoryEvidence?.calculationVersion || 'trajectory-v3',
+        evidence_scope: 'risk-linked-signals',
+        deteriorating, effectiveness_outstanding,
+      },
       // Hard gate (TEST_PLAN): actions complete, no open escalation, no outstanding
       // effectiveness review, and trajectory not deteriorating. Closure is evidence-based —
       // task completion alone never closes a risk.
@@ -483,7 +494,7 @@ export class RisksService {
     if (verdict === 'Resolved — controls effective') {
       const rated = await query(
         `SELECT 1 FROM risk_actions
-          WHERE risk_id = $1 AND (effectiveness_outcome IN ('Effective','Partially Effective') OR effectiveness IN ('Effective','Neutral'))
+          WHERE risk_id = $1 AND (effectiveness_outcome = 'Effective' OR effectiveness = 'Effective')
           LIMIT 1`,
         [risk_id]
       );

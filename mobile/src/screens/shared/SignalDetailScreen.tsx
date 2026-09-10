@@ -35,7 +35,8 @@ export function SignalDetailScreen() {
   const [rationale, setRationale] = useState('');
   const [ownerId, setOwnerId] = useState('');
   const [dueAt, setDueAt] = useState('');
-  const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'>('Moderate');
+  const [intendedOutcome, setIntendedOutcome] = useState('');
+  const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'|''>('');
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
   const people: any[] = Array.isArray(users.data) ? users.data : users.data?.users || users.data?.data || [];
@@ -44,6 +45,14 @@ export function SignalDetailScreen() {
   const needsOwner = decision === 'Create Action' || decision === 'Escalate' || decision === 'Monitor';
   const showsDue = decision === 'Create Action' || decision === 'Escalate' || decision === 'Monitor';
   const dueRequired = decision === 'Create Action' || decision === 'Monitor';
+  const intendedOutcomeRequired = decision === 'Create Action' || decision === 'Monitor';
+  const eligiblePeople = people.filter((u) => {
+    if (u.status === 'suspended') return false;
+    const r = normalizeRole(u.role || '');
+    if (decision === 'Escalate') return ['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'].includes(r);
+    if (decision === 'Monitor') return ['TEAM_LEADER','REGISTERED_MANAGER'].includes(r);
+    return ['SUPPORT_WORKER','TEAM_LEADER','REGISTERED_MANAGER','DIRECTOR'].includes(r);
+  });
   const setDueInDays = (days: number) => { const d = new Date(); d.setDate(d.getDate() + days); setDueAt(d.toISOString().slice(0, 10)); };
   const fmtDue = (v: string) => (v ? new Date(`${v}T00:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '');
   const DUE_PRESETS: { label: string; days: number }[] = [
@@ -51,8 +60,10 @@ export function SignalDetailScreen() {
   ];
   const recordDecision = async () => {
     if (rationale.trim().length < 10) { Alert.alert('Add a rationale', 'Record why this decision is appropriate (at least 10 characters).'); return; }
+    if (!rmSeverity) { Alert.alert('Set governance severity', 'The Registered Manager must explicitly rate this signal before recording the decision.'); return; }
     if (needsOwner && !ownerId) { Alert.alert('Choose an owner', 'This decision must name one accountable owner.'); return; }
     if (dueRequired && !dueAt.trim()) { Alert.alert(decision === 'Monitor' ? 'Add a review date' : 'Add a due date', 'Pick a date below.'); return; }
+    if (intendedOutcomeRequired && intendedOutcome.trim().length < 10) { Alert.alert('Add an intended outcome', decision === 'Monitor' ? 'Record what the monitoring review should establish.' : 'Record what should change if the action works.'); return; }
     setDecisionBusy(true);
     try {
       await api.post('/governance-decisions', {
@@ -60,11 +71,11 @@ export function SignalDetailScreen() {
         what_is_happening: rationale.trim(), decision, severity: rmSeverity,
         owner_id: ownerId || undefined, due_at: dueAt ? `${dueAt}T17:00:00.000Z` : undefined,
         action_description: decision === 'Create Action' ? rationale.trim() : undefined,
-        intended_outcome: decision === 'Create Action' ? 'Concern addressed and effectiveness reviewed' : undefined,
+        intended_outcome: intendedOutcomeRequired ? intendedOutcome.trim() : undefined,
         idempotency_key: decisionKey,
       });
       Alert.alert('Decision recorded', 'The signal and any linked work now use the same governance record as the web app.');
-      setRationale(''); setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
+      setRationale(''); setIntendedOutcome(''); setRmSeverity(''); setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
     } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
     finally { setDecisionBusy(false); }
   };
@@ -113,18 +124,19 @@ export function SignalDetailScreen() {
           <Row gap={6} style={{ flexWrap: 'wrap' }}>{(['Low','Moderate','High','Critical'] as const).map((v) => <Chip key={v} label={v} active={rmSeverity === v} onPress={() => setRmSeverity(v)} />)}</Row>
           <Row gap={6} style={{ flexWrap: 'wrap' }}>
             {(['Monitor','Create Action','Escalate','Close Signal'] as const).map((d) => (
-              <Chip key={d} label={d === 'Close Signal' ? 'Close' : d} active={decision === d} onPress={() => setDecision(d)} />
+              <Chip key={d} label={d === 'Close Signal' ? 'Close' : d} active={decision === d} onPress={() => { setDecision(d); setOwnerId(''); setDueAt(''); setIntendedOutcome(''); }} />
             ))}
           </Row>
           {!showsDue && <Text muted size={11.5}>Close records the decision only. Monitor, Create Action and Escalate allocate an owner and a date.</Text>}
           <Label>Decision rationale</Label>
           <TextArea value={rationale} onChangeText={setRationale} placeholder="What is happening and why this is the right governance response…" minHeight={72} required />
+          {intendedOutcomeRequired && <><Label>{decision === 'Monitor' ? 'What should the review establish?' : 'Intended outcome'}</Label><TextArea value={intendedOutcome} onChangeText={setIntendedOutcome} placeholder={decision === 'Monitor' ? 'What evidence should be available at the next review?' : 'What should change if this action is effective?'} minHeight={60} required /></>}
           {needsOwner && <>
             <Label>Accountable owner</Label>
-            {people.filter((u) => u.status !== 'suspended').length === 0
+            {eligiblePeople.length === 0
               ? <Text muted size={12}>No colleagues are available to allocate to yet.</Text>
               : <Row gap={6} style={{ flexWrap: 'wrap' }}>
-                  {people.filter((u) => u.status !== 'suspended').map((u) => (
+                  {eligiblePeople.map((u) => (
                     <Chip key={u.id} label={`${u.first_name || ''} ${u.last_name || ''}`.trim() || u.email} active={ownerId === u.id} onPress={() => setOwnerId(u.id)} />
                   ))}
                 </Row>}
@@ -132,7 +144,7 @@ export function SignalDetailScreen() {
           {showsDue && <>
             <Label>{decision === 'Monitor' ? 'Review date' : decision === 'Escalate' ? 'Response due' : 'Due date'}{decision === 'Escalate' ? ' (optional)' : ''}</Label>
             <Row gap={6} style={{ flexWrap: 'wrap' }}>
-              {DUE_PRESETS.map((p) => { const d = new Date(); d.setDate(d.getDate() + p.days); const iso = d.toISOString().slice(0, 10); return (
+              {DUE_PRESETS.filter((p) => decision !== 'Monitor' || p.days > 0).map((p) => { const d = new Date(); d.setDate(d.getDate() + p.days); const iso = d.toISOString().slice(0, 10); return (
                 <Chip key={p.label} label={p.label} active={dueAt === iso} onPress={() => setDueInDays(p.days)} />
               ); })}
               {!!dueAt && <Chip label="Clear" active={false} onPress={() => setDueAt('')} />}

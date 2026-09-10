@@ -8,6 +8,9 @@ export interface ClosureReviewInput {
   further_escalation_required: boolean;
   closure_reason?: string;
   evidence: string;
+  // Where an escalation carries no linked action, closure may still be justified by a genuine
+  // alternative basis. The system never fabricates an action to satisfy the form.
+  evidence_basis?: 'LINKED_ACTIONS' | 'EXISTING_CONTROL' | 'IMMEDIATE_MEASURE' | 'EXTERNAL_INTERVENTION' | 'NO_LONGER_APPLICABLE';
 }
 
 /**
@@ -32,7 +35,9 @@ export class ClosureService {
     if (existing.rows[0].lifecycle_status === 'Closed') {
       throw new Error('This escalation is already closed.');
     }
-    this.assertClosable(input);
+    if (input.further_escalation_required) throw new Error('Closure blocked: further escalation is required.');
+    if (!input.pattern_reduced) throw new Error('Closure blocked: confirm that the reason for escalation has been addressed.');
+    if (!input.evidence || input.evidence.trim().length < 20) throw new Error('Closure blocked: record meaningful evidence supporting closure.');
 
     // Never trust UI checkboxes as proof. The canonical action rows are the gate.
     const actionState = (await query(
@@ -57,10 +62,19 @@ export class ClosureService {
         existing.rows[0].source_cluster_id || null,
       ]
     )).rows[0];
-    if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
-    if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
-    if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
-    if (!input.evidence || input.evidence.trim().length < 10) throw new Error('Closure blocked: record the evidence supporting closure.');
+    // An escalation with linked actions closes on the action/effectiveness gate. One with none may
+    // still close on a genuine alternative basis (an existing control, an immediate safety measure,
+    // an external intervention, or the concern no longer applying) — never by inventing an action.
+    const basis = input.evidence_basis || (actionState.total ? 'LINKED_ACTIONS' : undefined);
+    const allowedBases = ['LINKED_ACTIONS', 'EXISTING_CONTROL', 'IMMEDIATE_MEASURE', 'EXTERNAL_INTERVENTION', 'NO_LONGER_APPLICABLE'];
+    if (!basis || !allowedBases.includes(basis)) throw new Error('Closure blocked: select the evidence basis for closure.');
+    if (actionState.total > 0) {
+      if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
+      if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
+    } else if (basis === 'LINKED_ACTIONS') {
+      throw new Error('Closure blocked: no linked action exists; select the genuine alternative evidence basis.');
+    }
+    const auditedEvidence = `[Evidence basis: ${basis}]\n${input.evidence.trim()}`;
 
     await query(
       `INSERT INTO closure_reviews
@@ -68,7 +82,7 @@ export class ClosureService {
          effectiveness_reviewed, further_escalation_required, closure_decision, evidence)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'Close',$8)`,
       [companyId, escalationId, userId, !!input.pattern_reduced, !!input.actions_completed,
-       !!input.effectiveness_reviewed, !!input.further_escalation_required, input.evidence]
+       actionState.total ? !!input.effectiveness_reviewed : true, !!input.further_escalation_required, auditedEvidence]
     );
 
     const result = await query(
@@ -83,7 +97,7 @@ export class ClosureService {
              updated_at = NOW()
        WHERE id = $4 AND company_id = $5
        RETURNING *`,
-      [userId, input.closure_reason || null, input.evidence, escalationId, companyId]
+      [userId, input.closure_reason || basis, auditedEvidence, escalationId, companyId]
     );
 
     await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: escalationId, company_id: companyId, resolved_by: userId });

@@ -647,6 +647,7 @@ export class EscalationsService {
     if (!e) throw new Error('Escalation not found');
     const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
+    if (!body.intended_outcome || body.intended_outcome.trim().length < 10) throw new Error('Record the intended outcome so effectiveness can later be judged.');
     const actionId = uuidv4();
     const r = await query(
       `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by,

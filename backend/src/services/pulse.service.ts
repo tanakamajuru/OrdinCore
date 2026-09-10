@@ -379,26 +379,28 @@ export class PulseService {
         let openEscalations = 0;
         try {
             const escRes = await query(
-                `SELECT COUNT(*)::int AS n FROM escalations
-                  WHERE company_id = $1 AND house_id IN (${placeholderIds})
-                    AND COALESCE(lifecycle_status, status) NOT IN ('Closed', 'Resolved')`,
+                `SELECT COUNT(*)::int AS n FROM escalations e
+                  LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
+                  WHERE e.company_id = $1 AND COALESCE(e.house_id,er.house_id) IN (${placeholderIds})
+                    AND COALESCE(e.lifecycle_status::text, e.status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')`,
                 [company_id, ...house_ids]
             );
             openEscalations = escRes.rows[0]?.n || 0;
         } catch { openEscalations = 0; }
 
-        // 4. Actions: Due today or overdue
+        // 4. All open actions for the selected services.  The client derives the
+        // due/overdue subset from this same canonical collection; returning only
+        // late work made the "Open actions" total factually incorrect.
         const actions = await query(
             `SELECT ra.*, h.name as house_name, r.title as risk_title,
                     (au.first_name || ' ' || au.last_name) AS assigned_to_name
              FROM risk_actions ra
              LEFT JOIN risks r ON r.id = ra.risk_id
-             LEFT JOIN houses h ON h.id = r.house_id
+             LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id)
              LEFT JOIN users au ON au.id = ra.assigned_to
              WHERE ra.company_id = $1 AND ra.status IN ('Pending', 'In Progress', 'Overdue')
-             AND (ra.due_date <= CURRENT_DATE OR ra.status = 'Overdue')
-             AND (r.house_id IN (${placeholderIds}) OR ra.risk_id IS NULL)
-             ORDER BY ra.due_date ASC`,
+             AND COALESCE(ra.house_id, r.house_id) IN (${placeholderIds})
+             ORDER BY ra.due_date ASC NULLS LAST, ra.created_at ASC`,
             [company_id, ...house_ids]
         );
 

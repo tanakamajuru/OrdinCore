@@ -50,16 +50,61 @@ export const governanceDecisionsService = {
     }
     const c = input.company_id, u = input.user_id;
     const decision = input.decision;
+    const allowed: GovernanceDecisionType[] = ['Monitor','Create Action','Create Pattern','Link to Pattern','Escalate','Promote to Risk','Close','Close Signal','Request Risk Closure','Reopen'];
+    if (!allowed.includes(decision)) throw new Error('Unsupported governance decision.');
     if (input.pulse_entry_id && !input.severity) throw new Error('Registered Manager severity is required when triaging a signal.');
+    if (input.severity && !['Low','Moderate','High','Critical'].includes(input.severity)) throw new Error('Invalid governance severity.');
+
+    // Resolve and tenant-check the source before writing the decision. A status update that affects
+    // zero rows must never leave behind an apparently valid governance review.
+    if (input.house_id) {
+      const h = await client.query(`SELECT id FROM houses WHERE id=$1 AND company_id=$2`, [input.house_id, c]);
+      if (!h.rows[0]) throw new Error('Service not found.');
+    }
+    if (input.pulse_entry_id) {
+      const p = await client.query(`SELECT id,house_id FROM governance_pulses WHERE id=$1 AND company_id=$2 FOR UPDATE`, [input.pulse_entry_id, c]);
+      if (!p.rows[0]) throw new Error('Signal not found.');
+      if (input.house_id && String(p.rows[0].house_id) !== String(input.house_id)) throw new Error('Signal does not belong to the selected service.');
+    }
+    if (input.cluster_id) {
+      const p = await client.query(`SELECT id FROM signal_clusters WHERE id=$1 AND company_id=$2`, [input.cluster_id, c]);
+      if (!p.rows[0]) throw new Error('Pattern not found.');
+    }
+    if (input.risk_id) {
+      const p = await client.query(`SELECT id FROM risks WHERE id=$1 AND company_id=$2`, [input.risk_id, c]);
+      if (!p.rows[0]) throw new Error('Risk not found.');
+    }
+    if (input.escalation_id) {
+      const p = await client.query(`SELECT id FROM escalations WHERE id=$1 AND company_id=$2`, [input.escalation_id, c]);
+      if (!p.rows[0]) throw new Error('Escalation not found.');
+    }
+    if (input.owner_id) {
+      const owner = await client.query(`SELECT id,role FROM users WHERE id=$1 AND company_id=$2 AND status='active'`, [input.owner_id, c]);
+      if (!owner.rows[0]) throw new Error('The selected owner is not an active user in this organisation.');
+      const ownerRole = String(owner.rows[0].role || '').toUpperCase();
+      if (decision === 'Monitor' && !['TEAM_LEADER','REGISTERED_MANAGER'].includes(ownerRole)) throw new Error('Monitoring must be owned by a Team Leader or Registered Manager.');
+      if (decision === 'Escalate' && !['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL'].includes(ownerRole)) throw new Error('Escalations must be assigned through the management accountability ladder.');
+    }
     // An action must have an accountable owner, and a Monitor decision must name who is watching
     // it and when it is reviewed — otherwise work is created that nobody holds or is "monitored"
     // with no one accountable.
     if (decision === 'Create Action' && !input.owner_id) {
       throw new Error('Choose an accountable owner before creating an action.');
     }
+    if (decision === 'Create Action') {
+      if (!input.due_at) throw new Error('A governance action needs a due date.');
+      const due = new Date(input.due_at).getTime();
+      if (!Number.isFinite(due)) throw new Error('A governance action needs a valid due date.');
+      const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
+      if (due < startToday.getTime()) throw new Error('A governance action due date cannot be in the past.');
+      if (!input.intended_outcome || input.intended_outcome.trim().length < 10) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+    }
     if (decision === 'Monitor') {
       if (!input.owner_id) throw new Error('A Monitor decision needs an owner who is watching this concern.');
       if (!input.due_at) throw new Error('A Monitor decision needs a review date.');
+      const reviewAt = new Date(input.due_at).getTime();
+      if (!Number.isFinite(reviewAt) || reviewAt <= Date.now()) throw new Error('A Monitor decision needs a valid future review date.');
+      if (!input.intended_outcome || input.intended_outcome.trim().length < 10) throw new Error('Record what the monitoring review is expected to establish.');
     }
 
     const review = await client.query(
@@ -72,7 +117,7 @@ export const governanceDecisionsService = {
        RETURNING *`,
       [c, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null, input.pulse_entry_id ?? null,
        input.cluster_id ?? null, input.daily_governance_log_id ?? null, u, input.what_is_happening.trim(), decision,
-       decision === 'Escalate', decision === 'Create Action' || (decision === 'Monitor' && !!input.owner_id), null, input.owner_id ?? null, input.due_at ?? null,
+       decision === 'Escalate', decision === 'Create Action', null, input.owner_id ?? null, input.due_at ?? null,
        input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null]
     );
     // Idempotent replay — the decision (and its consequence) already exist.
@@ -81,6 +126,16 @@ export const governanceDecisionsService = {
       return { decision: existing.rows[0] || null, idempotent: true, task: null, escalation: null, risk: null, pattern: null };
     }
     const decisionId = review.rows[0].id;
+    if (input.pulse_entry_id) {
+      // A new decision completes the previous monitoring cycle for this signal. The new Monitor
+      // row (if selected) becomes the sole active monitoring instruction.
+      await client.query(
+        `UPDATE governance_reviews SET decision_status='Completed'
+          WHERE company_id=$1 AND pulse_entry_id=$2 AND decision='Monitor'
+            AND decision_status='Monitoring' AND id<>$3`,
+        [c, input.pulse_entry_id, decisionId]
+      );
+    }
     const title = (input.action_description || input.what_is_happening).trim().slice(0, 255);
     let task: any = null, escalation: any = null, risk: any = null, pattern: any = null;
 
@@ -89,18 +144,6 @@ export const governanceDecisionsService = {
         `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
         [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id ?? null, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
-      );
-      task = t.rows[0];
-    } else if (decision === 'Monitor' && input.owner_id) {
-      // A Monitor decision that names an owner is real, ongoing work for that person
-      // (e.g. "continue to monitor medication compliance — owner Eric Ndikum"). Allocate
-      // it as an assigned action so it reaches the owner's My Work, exactly like Create
-      // Action — the signal itself still advances to 'Monitoring' below. Without this, a
-      // Monitor decision recorded no work and never reached the Team Leader.
-      const t = await client.query(
-        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
-        [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
       );
       task = t.rows[0];
     } else if (decision === 'Escalate') {
@@ -204,7 +247,8 @@ export const governanceDecisionsService = {
     // through the evidence-based closure review. Escalate promotes the alert instead (handled above).
     if (input.pulse_entry_id && decision !== 'Escalate') {
       const bits = [`Safety-net requirement satisfied through RM governance triage → ${decision}`];
-      if (input.owner_id && (decision === 'Create Action' || decision === 'Monitor')) bits.push('action allocated to owner');
+      if (input.owner_id && decision === 'Create Action') bits.push('action allocated to owner');
+      if (input.owner_id && decision === 'Monitor') bits.push('monitoring allocated to owner');
       if (input.due_at) bits.push(`due ${new Date(input.due_at).toISOString().slice(0, 10)}`);
       await client.query(
         `UPDATE escalations
@@ -279,6 +323,12 @@ export const governanceDecisionsService = {
         try {
           const { notificationsService } = await import('./notifications.service');
           await notificationsService.create({ company_id: input.company_id, user_id: input.owner_id, type: 'task_assigned', title: 'Governance decision assigned to you', body: `${out.task.title}${input.due_at ? ` · due ${new Date(input.due_at).toLocaleDateString('en-GB')}` : ''}`, link: '/my-actions' });
+        } catch { /* notification is best-effort */ }
+      }
+      if (!out.idempotent && input.decision === 'Monitor' && input.owner_id) {
+        try {
+          const { notificationsService } = await import('./notifications.service');
+          await notificationsService.create({ company_id: input.company_id, user_id: input.owner_id, type: 'monitoring_assigned', title: 'Governance monitoring assigned to you', body: `${input.what_is_happening}${input.due_at ? ` · review ${new Date(input.due_at).toLocaleDateString('en-GB')}` : ''}`, link: '/governance-dashboard' });
         } catch { /* notification is best-effort */ }
       }
       return out;

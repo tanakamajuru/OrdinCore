@@ -30,6 +30,7 @@ export function GovernanceDecisions({
   readOnly = false,
   houses = [],
   onSelectHouse,
+  onChanged,
 }: {
   houseId?: string;
   reviewDate: string;
@@ -37,6 +38,8 @@ export function GovernanceDecisions({
   /** House list + selector so the RM picks the service right here while deciding. */
   houses?: Array<{ id: string; name: string }>;
   onSelectHouse?: (id: string) => void;
+  /** Refresh the parent summary after a canonical downstream record is committed. */
+  onChanged?: () => void | Promise<void>;
 }) {
   const [owners, setOwners] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
@@ -51,6 +54,7 @@ export function GovernanceDecisions({
     due_at: "",
     source: "",
     severity: "",
+    intended_outcome: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
   // Date range for picking signals (defaults to the selected review date; the RM can widen it).
@@ -58,7 +62,7 @@ export function GovernanceDecisions({
   const [toDate, setToDate] = useState(reviewDate);
   const [actionedSignals, setActionedSignals] = useState<any[]>([]);
   // Allocate a task to a person for this service — available even when there are no new signals.
-  const [taskForm, setTaskForm] = useState({ what: "", owner_id: "", due_at: "" });
+  const [taskForm, setTaskForm] = useState({ what: "", intended_outcome: "", owner_id: "", due_at: "" });
   const [taskBusy, setTaskBusy] = useState(false);
   const idemKey = useRef<string | null>(null);
 
@@ -198,6 +202,15 @@ export function GovernanceDecisions({
       toast.error("Monitoring requires a next review date.");
       return;
     }
+    if (form.decision === "Monitor" && form.due_at <= new Date().toISOString().slice(0, 10)) {
+      toast.error("Choose a future monitoring review date.");
+      return;
+    }
+    if (form.decision === "Create Action" && !form.due_at) { toast.error("A governance action requires a due date."); return; }
+    if ((form.decision === "Create Action" || form.decision === "Monitor") && form.intended_outcome.trim().length < 10) {
+      toast.error(form.decision === "Monitor" ? "Record what the monitoring review should establish." : "Record the intended outcome so effectiveness can later be judged.");
+      return;
+    }
     if (!form.severity) { toast.error("Set the signal severity — Registered Manager triage is required."); return; }
 
     setBusy(true);
@@ -213,12 +226,14 @@ export function GovernanceDecisions({
         owner_id: form.owner_id || null,
         due_at: form.due_at || null,
         action_description: form.what.trim(),
+        intended_outcome: form.intended_outcome.trim() || null,
         idempotency_key: idemKey.current,
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — action assigned" : "Decision recorded");
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
+      await onChanged?.();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to record decision");
     } finally { setBusy(false); }
@@ -230,7 +245,9 @@ export function GovernanceDecisions({
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (taskForm.what.trim().length < 5) { toast.error("Describe the task to allocate."); return; }
+    if (taskForm.intended_outcome.trim().length < 10) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
     if (!taskForm.owner_id) { toast.error("Choose who to allocate the task to."); return; }
+    if (!taskForm.due_at) { toast.error("Set a due date for this governance task."); return; }
     setTaskBusy(true);
     try {
       await apiClient.post("/governance-decisions", {
@@ -240,11 +257,13 @@ export function GovernanceDecisions({
         owner_id: taskForm.owner_id,
         due_at: taskForm.due_at || null,
         action_description: taskForm.what.trim(),
+        intended_outcome: taskForm.intended_outcome.trim(),
         idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
       });
       toast.success("Task allocated");
-      setTaskForm({ what: "", owner_id: "", due_at: "" });
+      setTaskForm({ what: "", intended_outcome: "", owner_id: "", due_at: "" });
       await Promise.all([loadDecisions(), loadSignals()]);
+      await onChanged?.();
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to allocate task");
     } finally { setTaskBusy(false); }
@@ -263,6 +282,12 @@ export function GovernanceDecisions({
 
   const previousHasItems = previousList.length > 0;
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
+  const eligibleOwners = owners.filter((u: any) => {
+    const role = String(u.role || "").toUpperCase();
+    if (form.decision === "Escalate") return ["REGISTERED_MANAGER", "DIRECTOR"].includes(role);
+    if (form.decision === "Monitor") return ["TEAM_LEADER", "REGISTERED_MANAGER"].includes(role);
+    return true;
+  });
 
   return (
     <div className="bg-card border-2 border-border rounded-xl p-5">
@@ -392,15 +417,21 @@ export function GovernanceDecisions({
             placeholder="Record the management decision and what is required next."
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
 
+          {(form.decision === "Create Action" || form.decision === "Monitor") && <textarea
+            value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2}
+            placeholder={form.decision === "Monitor" ? "What should the next monitoring review establish?" : "What should change if this action is effective?"}
+            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />}
+
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+            <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value, owner_id: "", due_at: "", intended_outcome: "" })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
               {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"}>
-              <option value="">{form.decision === "Escalate" ? "Escalate to…" : form.decision === "Monitor" ? "Owner (optional)…" : "Assign to…"}</option>
-              {owners.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+              <option value="">{form.decision === "Escalate" ? "Escalate to…" : form.decision === "Monitor" ? "Monitoring owner…" : "Assign to…"}</option>
+              {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
             </select>
             <input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })}
+              min={form.decision === "Monitor" ? new Date(Date.now() + 86400000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}
               title={form.decision === "Monitor" ? "Next monitoring review date" : form.decision === "Escalate" ? "Response due" : "Action due date"}
               className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"} />
           </div>
@@ -423,6 +454,9 @@ export function GovernanceDecisions({
           <textarea value={taskForm.what} onChange={(e) => setTaskForm({ ...taskForm, what: e.target.value })} rows={2}
             placeholder="What needs doing? (the task / action to be completed)"
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+          <textarea value={taskForm.intended_outcome} onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })} rows={2}
+            placeholder="What should change if this task is effective?"
+            className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
             <select value={taskForm.owner_id} onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
               <option value="">Allocate to…</option>

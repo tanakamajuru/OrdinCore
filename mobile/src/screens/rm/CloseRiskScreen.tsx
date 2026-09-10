@@ -53,8 +53,8 @@ export function CloseRiskScreen() {
           {[
             ['All required actions complete?', review.questions?.actions_complete, `${review.detail?.actions_open ?? 0} open`],
             ['Interventions effective?', review.questions?.interventions_effective, `${review.detail?.effective_controls ?? 0} rated`],
-            ['Trajectory improved?', review.questions?.trajectory_improved, `${review.detail?.signals_last_14d ?? 0} vs ${review.detail?.signals_prior_14d ?? 0}`],
-            ['New signals stopped?', review.questions?.no_recurring_signals, `${review.detail?.signals_last_14d ?? 0} in 14d`],
+            ['Linked-risk trajectory non-deteriorating?', review.questions?.trajectory_improved, `${review.detail?.trajectory_direction ?? 'Pending'}`],
+            ['Linked signals stopped?', review.questions?.no_recurring_signals, `${review.detail?.signals_last_14d ?? 0} in 14d`],
           ].map(([q, ok, detail]: any, i: number) => (
             <Row key={i} style={{ justifyContent: 'space-between', paddingVertical: 3 }}>
               <Text size={12.5} style={{ flex: 1 }}>{q}</Text>
@@ -62,7 +62,7 @@ export function CloseRiskScreen() {
             </Row>
           ))}
           {(review.blockers?.length > 0) && <Text size={11} color={c.sevCrit} style={{ marginTop: 6 }}>{review.blockers.join(' ')}</Text>}
-          {review.eligible && <Text size={11} color={c.sevLow} style={{ marginTop: 6 }}>Eligible to close with a verdict.</Text>}
+          {review.eligible && <Text size={11} color={c.sevLow} style={{ marginTop: 6 }}>Canonical linked-risk evidence passed. Eligible for an RM verdict.</Text>}
         </View>
       )}
 
