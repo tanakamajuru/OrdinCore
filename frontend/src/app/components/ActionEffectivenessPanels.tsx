@@ -238,7 +238,23 @@ export function ActionEffectivenessPanels() {
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>
           <div className="bg-card border-2 border-border rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
-            <p className="text-sm text-muted-foreground mb-4">{rating.title}</p>
+            <p className="text-sm font-medium text-foreground mb-3">{rating.title}</p>
+
+            {/* The evidence you are rating against: the action and what was actually done to close it. */}
+            <div className="rounded-lg bg-muted/50 border border-border p-3 mb-4 text-sm space-y-1.5">
+              {rating.description && rating.description !== rating.title && (
+                <p className="text-foreground"><span className="text-muted-foreground">Action: </span>{rating.description}</p>)}
+              {(rating.risk_title || rating.signal_label) && (
+                <p className="text-muted-foreground">Concern: {rating.risk_title || rating.signal_label}{rating.house_name ? ` · ${rating.house_name}` : ""}</p>)}
+              {rating.completed_at && (
+                <p className="text-muted-foreground">Completed {new Date(rating.completed_at).toLocaleDateString("en-GB")}</p>)}
+              <p className="text-foreground"><span className="text-muted-foreground">What was done: </span>{rating.completion_note || rating.completion_evidence || "No completion note was recorded."}</p>
+              {rating.completion_outcome && (
+                <p className="text-foreground"><span className="text-muted-foreground">Outcome recorded: </span>{rating.completion_outcome}</p>)}
+              {rating.completion_rationale && rating.completion_rationale !== rating.completion_note && (
+                <p className="text-foreground"><span className="text-muted-foreground">Rationale: </span>{rating.completion_rationale}</p>)}
+            </div>
+
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Did the action reduce the risk?</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {OUTCOMES.map((o) => (
