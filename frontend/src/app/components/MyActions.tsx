@@ -27,12 +27,13 @@ interface AssignedAction {
 export function MyActions() {
   const navigate = useNavigate();
   const { user } = useAuth();
-  // The RM/Director owns no actions of their own — they OVERSEE Team Leader actions.
-  // Oversight roles read every open action across their service(s) (any assignee) and
-  // the view is read-only (completing an action is the assigned TL's act). A Team Leader
-  // reads their own personal queue. This matches the dashboard "Actions Due" count.
+  // An RM/Director can BOTH hold actions of their own AND oversee everyone else's. So this page
+  // has two views: "Mine" (actions assigned to me — /actions/my) and "All service" (every open
+  // action, any assignee — /actions/oversight, oversight roles only). It defaults to "Mine" so
+  // arriving from "actions assigned to you" shows your own queue, not the whole service.
   const role = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
   const isOversight = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(role);
+  const [view, setView] = useState<"mine" | "all">("mine");
   const [actions, setActions] = useState<AssignedAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAction, setSelectedAction] = useState<AssignedAction | null>(null);
@@ -67,17 +68,18 @@ export function MyActions() {
 
   useEffect(() => {
     fetchActions();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view]);
 
   const fetchActions = async () => {
     try {
       setIsLoading(true);
-      // Pick the endpoint by the cached role, but the cached role can disagree with the token the
-      // server actually sees (e.g. a stale localStorage role, or a role that endpoint doesn't
-      // allow). Rather than surface a 403, fall back to the other actions endpoint — between them,
-      // /actions/oversight (RM+) and /actions/my (the personal queue) cover every action-holder.
-      const primary = isOversight ? "/actions/oversight" : "/actions/my";
-      const secondary = isOversight ? "/actions/my" : "/actions/oversight";
+      // "All service" is only for oversight roles; everyone else (and the default) reads their own
+      // personal queue. A stale cached role can disagree with the token, so fall back to the other
+      // endpoint rather than surface a 403.
+      const wantOversight = view === "all" && isOversight;
+      const primary = wantOversight ? "/actions/oversight" : "/actions/my";
+      const secondary = wantOversight ? "/actions/my" : "/actions/oversight";
       let response: any;
       try {
         response = await apiClient.get(primary);
@@ -147,12 +149,21 @@ export function MyActions() {
             Back to Dashboard
           </Button>
           <div>
-            <h1 className="text-3xl text-foreground uppercase tracking-tighter">{isOversight ? "Action Oversight" : "My Action Tracker"}</h1>
-            <p className="text-muted-foreground">{isOversight
+            <h1 className="text-3xl text-foreground uppercase tracking-tighter">{isOversight && view === "all" ? "Action Oversight" : "My Action Tracker"}</h1>
+            <p className="text-muted-foreground">{isOversight && view === "all"
               ? "Open governance actions across your service(s) — who holds each, and where it stands. Completing an action is the assigned Team Leader's task."
               : "Governance implementation and risk mitigation tasks assigned to you."}</p>
           </div>
         </div>
+
+        {isOversight && (
+          <div className="flex gap-2 mb-4">
+            <button onClick={() => { setView("mine"); setPage(1); }}
+              className={`px-4 py-1.5 rounded-lg text-sm border ${view === "mine" ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>Assigned to me</button>
+            <button onClick={() => { setView("all"); setPage(1); }}
+              className={`px-4 py-1.5 rounded-lg text-sm border ${view === "all" ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>All service actions</button>
+          </div>
+        )}
 
         {/* Filter by due-date range */}
         <div className="flex flex-wrap items-end gap-4 mb-6">
@@ -178,7 +189,7 @@ export function MyActions() {
           {filteredActions.length === 0 ? (
             <div className="bg-card border-2 border-dashed border-border p-12 text-center rounded-lg">
               <Clock className="w-12 h-12 text-muted-foreground mx-auto mb-4 opacity-20" />
-              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">{(fromDate || toDate) ? "No actions due in this date range." : isOversight ? "No open actions across your services." : "No active actions assigned to you."}</p>
+              <p className="text-xl text-muted-foreground uppercase tracking-widest opacity-40">{(fromDate || toDate) ? "No actions due in this date range." : (isOversight && view === "all") ? "No open actions across your services." : "No active actions assigned to you."}</p>
             </div>
           ) : (
             pagedActions.map((action) => (
@@ -205,9 +216,9 @@ export function MyActions() {
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <MessageSquare className="w-4 h-4 text-primary" />
-                          <span>{isOversight
+                          <span>{isOversight && view === "all"
                             ? `Assignee: ${action.assigned_to_name || "Unassigned"}${action.house_name ? ` · ${action.house_name}` : ""}`
-                            : `Assigned by: ${action.assigned_by_name}`}</span>
+                            : `Assigned by: ${action.assigned_by_name || "—"}`}</span>
                         </div>
                         <div className="flex items-center gap-2 text-sm text-muted-foreground">
                           <Clock className="w-4 h-4 text-primary" />
@@ -220,7 +231,7 @@ export function MyActions() {
                       {/* A Team Leader completes their own open actions; everyone can open the
                           action's related risk or signal. The button only shows when there is a real
                           risk or signal to open — no more dead-end /risk-register/null links. */}
-                      {!isOversight && action.status !== 'Completed' && (
+                      {(!isOversight || view === "mine") && action.status !== 'Completed' && (
                         <Button
                           onClick={() => handleCompleteClick(action)}
                           className="bg-primary text-primary-foreground hover:bg-primary/90 px-8 py-6 text-lg tracking-tighter"
