@@ -9,6 +9,10 @@ import { reviewObligationsService } from '../reviewObligations.service';
 import { actionEffectivenessService } from '../actionEffectiveness.service';
 
 describe('canonical action effectiveness', () => {
+  // Reset the query mock between tests so mock.calls reflects only the test under way (the summary
+  // assertion inspects mock.calls[0], which otherwise carries over the previous test's calls).
+  beforeEach(() => (query as jest.Mock).mockReset());
+
   it('rates a signal-level action and completes its durable review obligation', async () => {
     (risksRepo.getActionById as jest.Mock).mockResolvedValue({ id: 'a1', status: 'Completed', risk_id: null });
     (query as jest.Mock).mockResolvedValue({ rows: [{ id: 'a1', status: 'Completed', risk_id: null, effectiveness_outcome: 'Effective' }] });
