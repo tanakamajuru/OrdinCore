@@ -43,29 +43,36 @@ export function DailyOversightBoard() {
   const isDeputyCover = !!house && house.deputy_rm_id === currentUserId;
   const isHistoricalDate = reviewDate !== isoToday();
 
-  useEffect(() => { loadDashboard(); }, []);
+  // Discover the RM's services first and pick the default; the [selectedHouseId] effect then loads
+  // the board exactly once, already scoped. Fetching the board here as well briefly showed
+  // all-service figures before snapping to the selected service (the "9 then 3" flash).
+  useEffect(() => { initHouses(); }, []);
   useEffect(() => { if (selectedHouseId) loadDashboard(selectedHouseId); }, [selectedHouseId]);
 
-  const loadDashboard = async (scopeHouseId?: string) => {
+  const initHouses = async () => {
     try {
-      // Doctrine: the Daily Governance board no longer depends on /rm/patterns. Patterns live in
-      // the separate Pipeline module; the daily flow is signals -> decisions -> Team Brief.
-      const [dashRes, housesRes] = await Promise.all([
-        apiClient.get(`/pulses/dashboard${scopeHouseId ? `?house_id=${encodeURIComponent(scopeHouseId)}` : ""}`),
-        currentUserId ? apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} })) : Promise.resolve({ data: {} }),
-      ]);
-      setData(dashRes.data.data);
-      let list = (housesRes as any).data?.data || (housesRes as any).data || [];
+      let list: any[] = [];
+      if (currentUserId) {
+        const housesRes = await apiClient.get(`/users/${currentUserId}/houses`).catch(() => ({ data: {} }));
+        list = (housesRes as any).data?.data || (housesRes as any).data || [];
+      }
       if (!Array.isArray(list) || list.length === 0) {
         try { const allRes = await apiClient.get("/houses"); list = allRes.data?.data || allRes.data || []; } catch { list = []; }
       }
       const arr = Array.isArray(list) ? list : [];
       setHouses(arr);
-      // Do not reset an RM's selected service during a scoped refresh.  That used
-      // to reload figures for one service and then silently display another.
-      setSelectedHouseId((current) => current && arr.some((h: any) => h.id === current)
-        ? current
-        : (arr[0]?.id || ""));
+      setSelectedHouseId((current) => current && arr.some((h: any) => h.id === current) ? current : (arr[0]?.id || ""));
+      // No service to scope to → load the organisation-wide board once so the page still renders.
+      if (arr.length === 0) await loadDashboard();
+    } catch { setIsLoading(false); }
+  };
+
+  const loadDashboard = async (scopeHouseId?: string) => {
+    try {
+      // Doctrine: the Daily Governance board no longer depends on /rm/patterns. Patterns live in
+      // the separate Pipeline module; the daily flow is signals -> decisions -> Team Brief.
+      const dashRes = await apiClient.get(`/pulses/dashboard${scopeHouseId ? `?house_id=${encodeURIComponent(scopeHouseId)}` : ""}`);
+      setData(dashRes.data.data);
     } catch { toast.error("Failed to load oversight board"); }
     finally { setIsLoading(false); }
   };
