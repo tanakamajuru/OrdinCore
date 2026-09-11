@@ -212,15 +212,18 @@ export function InterventionPanel() {
       || ((import.meta as any).env?.VITE_API_URL || "http://localhost:3001/api/v1").replace(/\/api\/v1\/?$/, "");
     const socket: Socket = io(base, { auth: { token }, transports: ["websocket", "polling"], reconnection: true });
     const refresh = () => load();
+    // The screen already loaded in its own mount effect above; refetching the instant the socket
+    // first connects just re-renders it a moment later (an apparent reload). Only resync on a
+    // genuine reconnect after a drop.
+    let firstConnect = true;
     socket.on("intervention.updated", refresh);
-    socket.on("connect", refresh);
+    socket.on("connect", () => { if (firstConnect) { firstConnect = false; return; } refresh(); });
     window.addEventListener("focus", refresh);
     const poll = window.setInterval(refresh, 60_000);
     return () => {
       window.clearInterval(poll);
       window.removeEventListener("focus", refresh);
       socket.off("intervention.updated", refresh);
-      socket.off("connect", refresh);
       socket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps

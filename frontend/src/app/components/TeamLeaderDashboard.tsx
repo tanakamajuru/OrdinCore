@@ -89,7 +89,10 @@ export function TeamLeaderDashboard() {
       setUnreadCount(c => c + 1);
       toast.message(n.title || "New notification", { description: n.body });
     });
-    socket.on("connect", () => { refreshNotifications(); });
+    // Skip the first connect — the mount load already fetched notifications; only resync on a
+    // genuine reconnect after a drop.
+    let firstConnect = true;
+    socket.on("connect", () => { if (firstConnect) { firstConnect = false; return; } refreshNotifications(); });
 
     const onFocus = () => refreshNotifications();
     window.addEventListener("focus", onFocus);
