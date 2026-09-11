@@ -310,7 +310,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                   {reviewTarget.trajectory && (
                     <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
                       <span className="text-muted-foreground">Current trajectory (evidence):</span>
-                      <span className="font-semibold" style={{ color: (DIR as any)[reviewTarget.trajectory]?.c || "#64748b" }}>{reviewTarget.trajectory}</span>
+                      {(() => { const d = typeof reviewTarget.trajectory === "string" ? reviewTarget.trajectory : (reviewTarget.trajectory?.dir || reviewTarget.trajectory?.direction || "Stable"); return <span className="font-semibold" style={{ color: (DIR as any)[d]?.c || "#64748b" }}>{d}</span>; })()}
                     </div>
                   )}
                   <label className="block text-sm font-medium mb-1">Governance decision</label>

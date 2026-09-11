@@ -18,6 +18,12 @@ const TRAJ: Record<string, { Icon: any; color: string; label: string }> = {
   Stable: { Icon: Minus, color: "#d97706", label: "Stable" },
 };
 
+// /rm/patterns returns trajectory as an object { dir, basis, points, version }; older shapes and
+// other endpoints send a plain direction string. Read the direction either way — rendering the
+// object itself is a React "objects are not valid as a child" crash.
+const dirOf = (x: any): string =>
+  (typeof x === "string" ? x : (x?.dir || x?.direction)) || "Stable";
+
 export function SystemicPatterns() {
   const navigate = useNavigate();
   const [items, setItems] = useState<any[]>([]);
@@ -83,7 +89,7 @@ export function SystemicPatterns() {
               </tr></thead>
               <tbody>
                 {items.map((p: any) => {
-                  const t = TRAJ[p.trajectory] || TRAJ.Stable;
+                  const t = TRAJ[dirOf(p.trajectory)] || TRAJ.Stable;
                   const houses = p.houses || p.affected_house_names || [];
                   return (
                     <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
@@ -121,7 +127,7 @@ export function SystemicPatterns() {
               {reviewTarget.trajectory && (
                 <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
                   <span className="text-muted-foreground">Current trajectory (evidence):</span>
-                  <span className="font-semibold" style={{ color: (TRAJ as any)[reviewTarget.trajectory]?.color || "#64748b" }}>{reviewTarget.trajectory}</span>
+                  <span className="font-semibold" style={{ color: (TRAJ as any)[dirOf(reviewTarget.trajectory)]?.color || "#64748b" }}>{dirOf(reviewTarget.trajectory)}</span>
                 </div>
               )}
               <label className="block text-sm font-medium mb-1">Governance decision</label>
