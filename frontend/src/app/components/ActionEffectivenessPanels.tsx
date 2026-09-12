@@ -65,14 +65,16 @@ export function ActionEffectivenessPanels() {
     ...item,
     effective: Number(item.effective || 0),
     neutral: Number(item.neutral || 0),
-    ineffective: Number(item.ineffective || 0)
+    ineffective: Number(item.ineffective || 0),
+    too_early: Number(item.too_early || 0)
   }));
 
   const dailyTrendWithNumbers = (data.daily_trend || []).map((item: any) => ({
     ...item,
     effective: Number(item.effective || 0),
     partial: Number(item.partial || 0),
-    ineffective: Number(item.ineffective || 0)
+    ineffective: Number(item.ineffective || 0),
+    too_early: Number(item.too_early || 0)
   }));
 
   return (
@@ -95,6 +97,10 @@ export function ActionEffectivenessPanels() {
             <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
               <span className=" text-destructive uppercase text-xs">Not Effective</span>
               <span className="text-2xl ">{data.org_summary?.ineffective || 0}</span>
+            </div>
+            <div className="flex justify-between items-center p-3 bg-card border-2 border-sky-300/60">
+              <span className="text-sky-700 uppercase text-xs">Too Early to Assess</span>
+              <span className="text-2xl">{data.org_summary?.too_early || 0}</span>
             </div>
           </CardContent>
         </Card>
@@ -148,6 +154,13 @@ export function ActionEffectivenessPanels() {
                     );
                   }} />
                 </Bar>
+                <Bar dataKey="too_early" fill="#0EA5E9" stackId="a" name="Too Early to Assess">
+                  <LabelList dataKey="too_early" position="center" content={(props: any) => {
+                    const { x, y, width, height, value } = props;
+                    if (!value || Number(value) === 0) return null;
+                    return <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{value}</text>;
+                  }} />
+                </Bar>
               </BarChart>
             </ResponsiveContainer>
           </CardContent>
@@ -182,6 +195,7 @@ export function ActionEffectivenessPanels() {
                   <TableHead className="text-center  uppercase text-[10px] font-bold">Effective</TableHead>
                   <TableHead className="text-center  uppercase text-[10px] font-bold">Partially Effective</TableHead>
                   <TableHead className="text-center  uppercase text-[10px] font-bold">Not Effective</TableHead>
+                  <TableHead className="text-center uppercase text-[10px] font-bold">Too Early</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -191,10 +205,11 @@ export function ActionEffectivenessPanels() {
                     <TableCell className="text-center text-success font-bold">{s.effective}</TableCell>
                     <TableCell className="text-center text-warning font-bold">{s.neutral}</TableCell>
                     <TableCell className="text-center text-destructive font-bold">{s.ineffective}</TableCell>
+                    <TableCell className="text-center text-sky-600 font-bold">{s.too_early || 0}</TableCell>
                   </TableRow>
                 )) : (
                   <TableRow>
-                    <TableCell colSpan={4} className="text-center py-8 text-muted-foreground italic">No data available for the current period</TableCell>
+                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">No data available for the current period</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -230,6 +245,7 @@ export function ActionEffectivenessPanels() {
                 <Line type="monotone" dataKey="effective" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Effective" />
                 <Line type="monotone" dataKey="partial" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Partially Effective" />
                 <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Not Effective" />
+                <Line type="monotone" dataKey="too_early" stroke="#0EA5E9" strokeWidth={3} dot={{ r: 4, fill: '#0EA5E9', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Too Early to Assess" />
               </LineChart>
             </ResponsiveContainer>
             )}

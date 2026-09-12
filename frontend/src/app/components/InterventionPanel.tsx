@@ -419,12 +419,29 @@ export function InterventionPanel() {
                       </div>
                     </div>
                   )}
-                  {!t.readyToClose && intv?.effectiveness_review?.outcome === "Effective" && Array.isArray(t.closure_readiness?.risks) && (
-                    <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
-                      <span className="font-semibold">Not yet ready for closure review.</span>{" "}
-                      {Array.from(new Set(t.closure_readiness.risks.flatMap((r: any) => r.blockers || []))).join(" ") || "One or more underlying risks have not passed the canonical closure gate."}
-                    </div>
-                  )}
+                  {!t.readyToClose && (() => {
+                    const outcome = intv?.effectiveness_review?.outcome;
+                    const canonicalBlockers = Array.isArray(t.closure_readiness?.risks)
+                      ? Array.from(new Set(t.closure_readiness.risks.flatMap((r: any) => r.blockers || []))).join(" ")
+                      : "";
+                    const message = !intv
+                      ? "Set an intervention and its expected outcome before closure can be considered."
+                      : !outcome
+                        ? "Effectiveness has not yet been reviewed."
+                        : outcome === "Too Early To Assess"
+                          ? "The observation period is incomplete. Reassess effectiveness when further evidence is available."
+                          : outcome === "Not Effective"
+                            ? "The intervention did not reduce the risk. Review the control and decide the next action."
+                            : outcome === "Partially Effective"
+                              ? "The intervention was only partially effective. Further control or review is required."
+                              : canonicalBlockers || "One or more underlying risks have not passed the canonical closure gate.";
+                    return (
+                      <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+                        <span className="font-semibold">Not yet ready for closure review.</span>{" "}{message}
+                        {outcome !== "Effective" && canonicalBlockers ? ` ${canonicalBlockers}` : ""}
+                      </div>
+                    );
+                  })()}
 
                   {/* Close / rate the risks that make up this theme, in place. Only shown when the
                       theme still has open risks to act on. */}

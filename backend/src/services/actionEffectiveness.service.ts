@@ -60,7 +60,9 @@ export class ActionEffectivenessService {
     const result = await query(
       `UPDATE risk_actions
        SET effectiveness_outcome = $1,
-           effectiveness = COALESCE($2, effectiveness),
+           -- Keep the legacy compatibility field in lock-step. Too Early maps to NULL and must
+           -- clear a previous directional value rather than leaving a stale Effective result.
+           effectiveness = $2,
            effectiveness_evidence = COALESCE($3, effectiveness_evidence),
            effectiveness_reviewed_by = $4,
            effectiveness_reviewed_at = NOW(),
@@ -131,7 +133,10 @@ export class ActionEffectivenessService {
        AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.status='OPEN'
       WHERE ra.company_id = $1
       AND ra.completed_at IS NOT NULL
-      AND ra.effectiveness_outcome IS NULL
+      AND (
+        ra.effectiveness_outcome IS NULL
+        OR (ra.effectiveness_outcome = 'Too Early To Assess' AND gro.due_at <= NOW())
+      )
     `;
     const params: any[] = [company_id];
 
@@ -200,11 +205,16 @@ export class ActionEffectivenessService {
                     WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END) AS outcome,
                 ra.effectiveness_reviewed_at::date AS day,
                 COALESCE(NULLIF(TRIM(r.risk_domain),''), NULLIF(TRIM(r.strategic_theme),''),
-                         NULLIF(TRIM(sc.risk_domain),''), 'Uncategorised') AS domain,
+                         NULLIF(TRIM(sc.risk_domain),''),
+                         NULLIF(TRIM(ra.governance_domain),''),
+                         NULLIF(TRIM(p.governance_domain),''),
+                         NULLIF(TRIM((p.risk_domain)[1]),''),
+                         'Uncategorised') AS domain,
                 COALESCE(h.name, 'Organisation-wide') AS service_name
            FROM risk_actions ra
            LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
            LEFT JOIN signal_clusters sc ON sc.id=ra.source_cluster_id AND sc.company_id=ra.company_id
+           LEFT JOIN governance_pulses p ON p.id=ra.source_pulse_id AND p.company_id=ra.company_id
            LEFT JOIN houses h ON h.id=COALESCE(ra.house_id,r.house_id)
           WHERE ra.company_id=$1
             AND ra.effectiveness_reviewed_at BETWEEN $2::timestamptz AND $3::timestamptz
@@ -219,17 +229,20 @@ export class ActionEffectivenessService {
          COALESCE((SELECT JSON_AGG(x ORDER BY service_name) FROM (
            SELECT service_name, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
              COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
+             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
            FROM reviewed GROUP BY service_name) x), '[]'::json) AS service_comparison,
          COALESCE((SELECT JSON_AGG(x ORDER BY domain) FROM (
            SELECT domain, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
              COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
+             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
            FROM reviewed GROUP BY domain) x), '[]'::json) AS domain_analysis,
          COALESCE((SELECT JSON_AGG(x ORDER BY day) FROM (
            SELECT day, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
              COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS partial,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective
+             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
+             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
            FROM reviewed GROUP BY day) x), '[]'::json) AS daily_trend`,
       [company_id, start, end]
     );

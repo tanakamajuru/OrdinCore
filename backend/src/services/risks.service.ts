@@ -416,7 +416,12 @@ export class RisksService {
     )).rows[0];
     const eff = (await query(
       `SELECT COUNT(*) FILTER (WHERE effectiveness_outcome = 'Effective' OR effectiveness = 'Effective')::int AS rated_ok,
-              COUNT(*) FILTER (WHERE effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)::int AS rated
+              COUNT(*) FILTER (WHERE effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)::int AS rated,
+              COUNT(*) FILTER (
+                WHERE status IN ('Complete','Completed')
+                  AND (effectiveness_outcome IS NULL OR effectiveness_outcome = 'Too Early To Assess')
+                  AND effectiveness IS NULL
+              )::int AS awaiting_final_review
          FROM risk_actions WHERE risk_id = $1`, [risk_id]
     )).rows[0];
     const openEsc = (await query(
@@ -438,13 +443,14 @@ export class RisksService {
 
     // Trajectory is deteriorating when recent frequency clearly exceeds the prior window.
     const deteriorating = trajectory.direction === 'Deteriorating';
-    // "Outstanding effectiveness review": a completed control exists but none has been rated.
-    const effectiveness_outstanding = actions.total > 0 && eff.rated === 0;
+    // Every completed control needs a final verdict. "Too Early To Assess" is an interim
+    // review which deliberately opens a follow-up obligation; it can never satisfy closure.
+    const effectiveness_outstanding = Number(eff.awaiting_final_review) > 0;
 
     const blockers: string[] = [];
     if (!q_actions_complete) blockers.push(`${actions.open} action(s) still open — complete or cancel them first.`);
     if (openEsc.n > 0) blockers.push('An escalation on this risk is still open.');
-    if (effectiveness_outstanding) blockers.push('An effectiveness review is outstanding — rate whether the control worked before closing.');
+    if (effectiveness_outstanding) blockers.push(`${eff.awaiting_final_review} completed action(s) still require a final effectiveness review.`);
     if (deteriorating) blockers.push(`Trajectory is deteriorating — ${trajectory.basis} The risk has not reduced.`);
 
     return {
@@ -457,6 +463,7 @@ export class RisksService {
       detail: {
         actions_open: actions.open, actions_total: actions.total,
         effective_controls: eff.rated_ok, controls_rated: eff.rated,
+        controls_awaiting_final_review: Number(eff.awaiting_final_review) || 0,
         open_escalations: openEsc.n,
         signals_last_14d: recent, signals_prior_14d: prior,
         weighted_burden_last_14d: Number(trajectoryEvidence?.current14DayWeight) || 0,
