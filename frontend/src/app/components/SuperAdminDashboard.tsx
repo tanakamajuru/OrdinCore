@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { useNavigate, useLocation } from "react-router";
+import { useLocation } from "react-router";
 import { Building2, Users, Plus, Settings, Globe, Shield, AlertCircle, CheckCircle, RefreshCw, Trash2, UserPlus, Activity, Cpu, Database, Search, Key, X, Check } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
@@ -29,7 +29,6 @@ interface PlatformStats {
 }
 
 export default function SuperAdminDashboard() {
-  const navigate = useNavigate();
   const location = useLocation();
   const currentPath = location.pathname;
 

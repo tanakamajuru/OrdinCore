@@ -79,9 +79,6 @@ export function RiskDetail() {
   
   const [showAddAction, setShowAddAction] = useState(false);
   const [risk, setRisk] = useState<RiskDetail | null>(null);
-  const [editField, setEditField] = useState<null | 'impact' | 'mitigation' | 'rootCause'>(null);
-  const [editValue, setEditValue] = useState("");
-  const [savingAssessment, setSavingAssessment] = useState(false);
   const [actions, setActions] = useState<Action[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [linkedEscalations, setLinkedEscalations] = useState<any[]>([]);
@@ -189,26 +186,6 @@ export function RiskDetail() {
       .catch(() => setActionTemplates([]));
   }, []);
 
-  const openAssessmentEdit = (field: 'impact' | 'mitigation' | 'rootCause') => {
-    setEditField(field);
-    setEditValue((risk?.metadata?.[field]) || "");
-  };
-
-  const saveAssessment = async () => {
-    if (!risk || !editField) return;
-    setSavingAssessment(true);
-    try {
-      const res = await apiClient.patch(`/risks/${risk.id}/assessment`, { [editField]: editValue.trim() });
-      const updated = (res.data as any).data || (res.data as any);
-      setRisk(prev => prev ? { ...prev, metadata: { ...(prev.metadata || {}), ...(updated?.metadata || { [editField]: editValue.trim() }) } } : prev);
-      toast.success("Assessment updated");
-      setEditField(null);
-    } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to update assessment");
-    } finally {
-      setSavingAssessment(false);
-    }
-  };
 
   const loadRiskDetails = async (riskId: string) => {
     try {
@@ -501,7 +478,6 @@ export function RiskDetail() {
     );
   }
 
-  const canEditAssessment = !['closed', 'resolved'].includes((risk.status || '').toLowerCase());
 
   // Impact (High/Medium/Low) is the compulsory human judgement of consequence. It drives S in
   // the Risk Index, and you cannot escalate or rate control effectiveness until it's recorded.
