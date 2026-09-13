@@ -31,21 +31,35 @@ export const frozenReportService = {
       narrative = gen.narrative || '';
     } catch { /* narrative is optional; the report is still valid without it */ }
 
-    const evidence_hash = hashService.hash({ reportKey, scope: resolved, data });
+    // Hash every fact that can affect the rendered document, including the narrative. Previous
+    // hashes covered data but not narrative, so a PDF could contain unverified text.
+    const contract_version = 'report-snapshot-v1';
+    const source_cutoff_at = new Date().toISOString();
+    const integrity_payload = {
+      contract_version, report_key: reportKey, scope_type: resolved.type,
+      requested_scope: req.scope, resolved_site_ids: resolved.siteIds,
+      person_id: resolved.personId || null, service_id: resolved.serviceId || null,
+      region_id: resolved.regionId || null, period_start: start, period_end: end,
+      source_cutoff_at, data, narrative,
+    };
+    const evidence_hash = hashService.hash(integrity_payload);
 
     const row = (await query(
       `INSERT INTO report_snapshots
          (company_id, report_key, scope_type, scope_json, site_ids, person_id, service_id, region_id,
-          period_start, period_end, data, narrative, confidence, evidence_hash, status, generated_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'DRAFT',$15)
+          period_start, period_end, data, narrative, confidence, evidence_hash, status, generated_by,
+          contract_version, integrity_payload, source_cutoff_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,'DRAFT',$15,$16,$17,$18)
        RETURNING id, created_at`,
       [user.company_id, reportKey, resolved.type, JSON.stringify(req.scope), resolved.siteIds,
        resolved.personId || null, resolved.serviceId || null, resolved.regionId || null,
-       start, end, JSON.stringify(data), narrative, JSON.stringify(data.organisation), evidence_hash, user.user_id]
+       start, end, JSON.stringify(data), narrative, JSON.stringify(data.organisation), evidence_hash, user.user_id,
+       contract_version, JSON.stringify(integrity_payload), source_cutoff_at]
     )).rows[0];
 
     return { id: row.id, report_key: reportKey, title: def.title, scope_label: resolved.label,
-             data, narrative, evidence_hash, status: 'DRAFT', created_at: row.created_at };
+             data, narrative, evidence_hash, contract_version, source_cutoff_at,
+             integrity_verified: true, status: 'DRAFT', created_at: row.created_at };
   },
 
   async approve(id: string, user: AuthUser) {
@@ -61,6 +75,15 @@ export const frozenReportService = {
   async get(id: string, companyId: string) {
     const r = (await query(`SELECT * FROM report_snapshots WHERE id=$1 AND company_id=$2`, [id, companyId])).rows[0];
     if (!r) throw new Error('Report not found.');
+    if (r.contract_version === 'report-snapshot-v1') {
+      if (!r.integrity_payload || hashService.hash(r.integrity_payload) !== r.evidence_hash) {
+        throw new Error('Report integrity verification failed. Regenerate the report before use.');
+      }
+      r.integrity_verified = true;
+    } else {
+      r.integrity_verified = false;
+      r.integrity_warning = 'Legacy snapshot: narrative and full render inputs were not covered by the original hash.';
+    }
     return r;
   },
 

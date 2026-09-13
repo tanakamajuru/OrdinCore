@@ -73,6 +73,9 @@ export const frozenReportsController = {
   async download(req: Request, res: Response) {
     try {
       const row = await frozenReportService.get(req.params.id, req.user!.company_id!);
+      if (row.contract_version === 'report-snapshot-v1' && !row.integrity_verified) {
+        return res.status(409).json({ success: false, message: 'Report integrity verification failed.' });
+      }
       const buffer = await renderSnapshotPdf(row);
       res.setHeader('Content-Type', 'application/pdf');
       res.setHeader('Content-Disposition', `attachment; filename="${row.report_key}-${String(row.created_at).slice(0, 10)}.pdf"`);
