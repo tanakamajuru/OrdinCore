@@ -1381,7 +1381,24 @@ export function RiskDetail() {
                   Evidence scope: signals linked to this risk/source pattern · canonical trajectory {closureReview.detail?.trajectory_calculation_version || "trajectory-v3"}
                 </p>
                 {closureReview.blockers?.length > 0 && (
-                  <p className="text-xs text-red-600 mt-2 border-t border-border pt-2">{closureReview.blockers.join(" ")}</p>
+                  <div className="text-xs text-red-600 mt-2 border-t border-border pt-2 space-y-2">
+                    <p>{closureReview.blockers.join(" ")}</p>
+                    {[
+                      ["Open actions", closureReview.blocking_records?.actions],
+                      ["Open escalations", closureReview.blocking_records?.escalations],
+                      ["Effectiveness reviews required", closureReview.blocking_records?.effectiveness_reviews],
+                    ].map(([label, records]: any) => records?.length > 0 && (
+                      <div key={label}>
+                        <p className="font-semibold">{label}</p>
+                        {records.map((record: any) => (
+                          <button key={`${label}-${record.id}`} type="button" onClick={() => navigate(record.href)}
+                            className="block text-left underline underline-offset-2 hover:text-red-800">
+                            {record.title} · {record.status || record.current_rating}
+                          </button>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
                 )}
                 {closureReview.eligible && (
                   <p className="text-xs text-emerald-600 mt-2 border-t border-border pt-2">Canonical linked-risk evidence passed the closure gate. The RM may now record a verdict and rationale.</p>

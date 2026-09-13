@@ -410,23 +410,73 @@ export class RisksService {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
 
-    const actions = (await query(
-      `SELECT COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS open,
-              COUNT(*)::int AS total FROM risk_actions WHERE risk_id = $1`, [risk_id]
-    )).rows[0];
-    const eff = (await query(
-      `SELECT COUNT(*) FILTER (WHERE effectiveness_outcome = 'Effective' OR effectiveness = 'Effective')::int AS rated_ok,
-              COUNT(*) FILTER (WHERE effectiveness_outcome IS NOT NULL OR effectiveness IS NOT NULL)::int AS rated,
-              COUNT(*) FILTER (
-                WHERE status IN ('Complete','Completed')
-                  AND (effectiveness_outcome IS NULL OR effectiveness_outcome = 'Too Early To Assess')
-                  AND effectiveness IS NULL
-              )::int AS awaiting_final_review
-         FROM risk_actions WHERE risk_id = $1`, [risk_id]
-    )).rows[0];
-    const openEsc = (await query(
-      `SELECT COUNT(*)::int AS n FROM escalations WHERE risk_id = $1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved')`, [risk_id]
-    )).rows[0];
+    // Canonical lineage lookup. An action can originate on a risk, its source pattern,
+    // an escalation, or a governance decision. Closure must follow those foreign keys;
+    // filtering only on risk_actions.risk_id loses valid effectiveness reviews.
+    const actionRows = (await query(
+      `SELECT DISTINCT ra.id, ra.title, ra.status, ra.due_date, ra.completed_at,
+              ra.effectiveness_outcome, ra.effectiveness, ra.escalation_id,
+              ra.governance_review_id, ra.source_type, ra.source_id
+         FROM risk_actions ra
+         LEFT JOIN escalations ae
+           ON ae.id = ra.escalation_id AND ae.company_id = ra.company_id
+         LEFT JOIN governance_reviews gr
+           ON gr.id = ra.governance_review_id AND gr.company_id = ra.company_id
+         LEFT JOIN escalations ge
+           ON ge.id = gr.escalation_id AND ge.company_id = ra.company_id
+        WHERE ra.company_id = $2
+          AND (
+            ra.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3)
+            OR (ra.source_type = 'RISK' AND ra.source_id = $1)
+            OR ($3::uuid IS NOT NULL AND ra.source_type = 'PATTERN' AND ra.source_id = $3)
+            OR ae.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND ae.source_cluster_id = $3)
+            OR gr.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND gr.cluster_id = $3)
+            OR ge.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND ge.source_cluster_id = $3)
+          )
+        ORDER BY ra.completed_at DESC NULLS LAST, ra.due_date ASC NULLS LAST`,
+      [risk_id, company_id, risk.source_cluster_id || null]
+    )).rows;
+
+    const openEscalations = (await query(
+      `SELECT DISTINCT e.id, e.reason AS title,
+              COALESCE(e.lifecycle_status::text, e.status) AS status,
+              e.priority, e.due_by, e.created_at
+         FROM escalations e
+         LEFT JOIN governance_reviews gr
+           ON gr.id = e.source_governance_review_id AND gr.company_id = e.company_id
+        WHERE e.company_id = $2
+          AND (
+            e.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND e.source_cluster_id = $3)
+            OR gr.risk_id = $1
+            OR ($3::uuid IS NOT NULL AND gr.cluster_id = $3)
+            OR EXISTS (
+              SELECT 1 FROM risk_actions ra
+               WHERE ra.company_id = $2 AND ra.escalation_id = e.id
+                 AND (ra.risk_id = $1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3))
+            )
+          )
+          AND LOWER(COALESCE(e.lifecycle_status::text, e.status, 'open'))
+              NOT IN ('closed','resolved','cancelled','canceled')
+        ORDER BY e.created_at DESC`,
+      [risk_id, company_id, risk.source_cluster_id || null]
+    )).rows;
+
+    const finalRatings = new Set(['effective', 'partially effective', 'not effective']);
+    const normal = (value: unknown) => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
+    const finalRating = (row: any) => [row.effectiveness_outcome, row.effectiveness]
+      .map(normal).find((value) => finalRatings.has(value)) || null;
+    const isComplete = (row: any) => ['complete', 'completed'].includes(normal(row.status));
+    const isOpen = (row: any) => !['complete', 'completed', 'cancelled', 'canceled'].includes(normal(row.status));
+
+    const openActions = actionRows.filter(isOpen);
+    const awaitingFinalReview = actionRows.filter((row: any) => isComplete(row) && !finalRating(row));
+    const ratedActions = actionRows.filter((row: any) => !!finalRating(row));
+    const effectiveActions = actionRows.filter((row: any) => finalRating(row) === 'effective');
     // One canonical trajectory and one canonical evidence scope. Do not count all signals for a
     // person or (when linked_person is null) an entire house: that contaminates this risk with
     // unrelated domains. trajectoryForRisk reads only signals explicitly linked to this risk or
@@ -436,8 +486,8 @@ export class RisksService {
     const recent = Number(trajectoryEvidence?.current14DaySignals) || 0;
     const prior = Number(trajectoryEvidence?.previous14DaySignals) || 0;
 
-    const q_actions_complete = actions.open === 0;
-    const q_interventions_effective = eff.rated_ok > 0;
+    const q_actions_complete = openActions.length === 0;
+    const q_interventions_effective = effectiveActions.length > 0;
     const q_trajectory_improved = trajectory.direction !== 'Deteriorating';
     const q_no_recurring_signals = recent === 0;
 
@@ -445,12 +495,12 @@ export class RisksService {
     const deteriorating = trajectory.direction === 'Deteriorating';
     // Every completed control needs a final verdict. "Too Early To Assess" is an interim
     // review which deliberately opens a follow-up obligation; it can never satisfy closure.
-    const effectiveness_outstanding = Number(eff.awaiting_final_review) > 0;
+    const effectiveness_outstanding = awaitingFinalReview.length > 0;
 
     const blockers: string[] = [];
-    if (!q_actions_complete) blockers.push(`${actions.open} action(s) still open — complete or cancel them first.`);
-    if (openEsc.n > 0) blockers.push('An escalation on this risk is still open.');
-    if (effectiveness_outstanding) blockers.push(`${eff.awaiting_final_review} completed action(s) still require a final effectiveness review.`);
+    if (!q_actions_complete) blockers.push(`${openActions.length} linked action(s) still open — see the named records below.`);
+    if (openEscalations.length > 0) blockers.push(`${openEscalations.length} linked escalation(s) still open — see the named records below.`);
+    if (effectiveness_outstanding) blockers.push(`${awaitingFinalReview.length} completed linked action(s) still require a final effectiveness review — see the named records below.`);
     if (deteriorating) blockers.push(`Trajectory is deteriorating — ${trajectory.basis} The risk has not reduced.`);
 
     return {
@@ -461,23 +511,38 @@ export class RisksService {
         no_recurring_signals: q_no_recurring_signals,
       },
       detail: {
-        actions_open: actions.open, actions_total: actions.total,
-        effective_controls: eff.rated_ok, controls_rated: eff.rated,
-        controls_awaiting_final_review: Number(eff.awaiting_final_review) || 0,
-        open_escalations: openEsc.n,
+        actions_open: openActions.length, actions_total: actionRows.length,
+        effective_controls: effectiveActions.length, controls_rated: ratedActions.length,
+        controls_awaiting_final_review: awaitingFinalReview.length,
+        open_escalations: openEscalations.length,
         signals_last_14d: recent, signals_prior_14d: prior,
         weighted_burden_last_14d: Number(trajectoryEvidence?.current14DayWeight) || 0,
         weighted_burden_prior_14d: Number(trajectoryEvidence?.previous14DayWeight) || 0,
         trajectory_direction: trajectory.direction,
         trajectory_basis: trajectory.basis,
         trajectory_calculation_version: trajectoryEvidence?.calculationVersion || 'trajectory-v3',
-        evidence_scope: 'risk-linked-signals',
+        evidence_scope: 'canonical-risk-lineage',
         deteriorating, effectiveness_outstanding,
+      },
+      blocking_records: {
+        actions: openActions.map((a: any) => ({
+          id: a.id, title: a.title || 'Untitled action', status: a.status,
+          due_date: a.due_date, href: `/my-actions?focus=${a.id}`,
+        })),
+        escalations: openEscalations.map((e: any) => ({
+          id: e.id, title: e.title || 'Escalation', status: e.status,
+          priority: e.priority, due_by: e.due_by, href: `/escalation-log?focus=${e.id}`,
+        })),
+        effectiveness_reviews: awaitingFinalReview.map((a: any) => ({
+          id: a.id, title: a.title || 'Untitled action', status: a.status,
+          current_rating: a.effectiveness_outcome || a.effectiveness || 'Not rated',
+          href: `/effectiveness?focus=${a.id}`,
+        })),
       },
       // Hard gate (TEST_PLAN): actions complete, no open escalation, no outstanding
       // effectiveness review, and trajectory not deteriorating. Closure is evidence-based —
       // task completion alone never closes a risk.
-      eligible: q_actions_complete && openEsc.n === 0 && !effectiveness_outstanding && !deteriorating,
+      eligible: q_actions_complete && openEscalations.length === 0 && !effectiveness_outstanding && !deteriorating,
       blockers,
     };
   }
@@ -499,13 +564,7 @@ export class RisksService {
       throw new Error(`Risk cannot be closed yet: ${review.blockers.join(' ')}`);
     }
     if (verdict === 'Resolved — controls effective') {
-      const rated = await query(
-        `SELECT 1 FROM risk_actions
-          WHERE risk_id = $1 AND (effectiveness_outcome = 'Effective' OR effectiveness = 'Effective')
-          LIMIT 1`,
-        [risk_id]
-      );
-      if (!rated.rows[0]) {
+      if (Number(review.detail.effective_controls) < 1) {
         throw new Error("Cannot close as 'controls effective' — no control on this risk has been rated effective. Rate the control first, or choose another verdict.");
       }
     }

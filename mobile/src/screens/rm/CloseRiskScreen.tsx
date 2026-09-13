@@ -61,7 +61,26 @@ export function CloseRiskScreen() {
               <Text size={11} weight="600" color={ok ? c.sevLow : c.sevHigh}>{ok ? '✓' : '!'} {detail}</Text>
             </Row>
           ))}
-          {(review.blockers?.length > 0) && <Text size={11} color={c.sevCrit} style={{ marginTop: 6 }}>{review.blockers.join(' ')}</Text>}
+          {(review.blockers?.length > 0) && (
+            <View style={{ marginTop: 6, gap: 5 }}>
+              <Text size={11} color={c.sevCrit}>{review.blockers.join(' ')}</Text>
+              {(review.blocking_records?.escalations || []).map((item: any) => (
+                <Pressable key={`escalation-${item.id}`} onPress={() => nav.navigate('EscalationDetail', { id: item.id })}>
+                  <Text size={11} color={c.accent} style={{ textDecorationLine: 'underline' }}>Open escalation: {item.title} · {item.status}</Text>
+                </Pressable>
+              ))}
+              {(review.blocking_records?.actions || []).map((item: any) => (
+                <Pressable key={`action-${item.id}`} onPress={() => nav.navigate('ActionDetail', { action: item })}>
+                  <Text size={11} color={c.accent} style={{ textDecorationLine: 'underline' }}>Open action: {item.title} · {item.status}</Text>
+                </Pressable>
+              ))}
+              {(review.blocking_records?.effectiveness_reviews || []).map((item: any) => (
+                <Pressable key={`effectiveness-${item.id}`} onPress={() => nav.navigate('RateEffectiveness', { action: item })}>
+                  <Text size={11} color={c.accent} style={{ textDecorationLine: 'underline' }}>Rate effectiveness: {item.title} · {item.current_rating}</Text>
+                </Pressable>
+              ))}
+            </View>
+          )}
           {review.eligible && <Text size={11} color={c.sevLow} style={{ marginTop: 6 }}>Canonical linked-risk evidence passed. Eligible for an RM verdict.</Text>}
         </View>
       )}

@@ -46,9 +46,22 @@ function wireClosure(s: ClosureState) {
     },
   });
   mockQuery.mockImplementation(async (sql: string) => {
-    if (/AS open/.test(sql) && /FROM risk_actions/.test(sql)) return { rows: [{ open: s.actionsOpen, total: s.actionsTotal }] } as any;
-    if (/rated_ok/.test(sql)) return { rows: [{ rated_ok: s.ratedOk, rated: s.rated, awaiting_final_review: Math.max(0, s.actionsTotal - s.rated) }] } as any;
-    if (/FROM escalations WHERE risk_id/.test(sql)) return { rows: [{ n: s.openEsc }] } as any;
+    if (/SELECT DISTINCT ra\.id/.test(sql) && /FROM risk_actions ra/.test(sql)) {
+      return { rows: Array.from({ length: s.actionsTotal }, (_, i) => ({
+        id: `action-${i + 1}`,
+        title: `Action ${i + 1}`,
+        status: i < s.actionsOpen ? 'In Progress' : 'Completed',
+        effectiveness_outcome: i < s.rated
+          ? (i < s.ratedOk ? 'Effective' : 'Partially Effective')
+          : null,
+        effectiveness: null,
+      })) } as any;
+    }
+    if (/SELECT DISTINCT e\.id/.test(sql) && /FROM escalations e/.test(sql)) {
+      return { rows: Array.from({ length: s.openEsc }, (_, i) => ({
+        id: `escalation-${i + 1}`, title: `Escalation ${i + 1}`, status: 'Open', priority: 'High',
+      })) } as any;
+    }
     if (/FROM governance_pulses/.test(sql)) return { rows: [{ recent: s.recent, prior: s.prior }] } as any;
     return { rows: [], rowCount: 0 } as any;
   });
@@ -76,6 +89,19 @@ describe('Risk closure gate (Ch6 / TEST_PLAN §Risks)', () => {
     const r = await risksService.closureReview('risk-1', 'co-1');
     expect(r.eligible).toBe(false);
     expect(r.blockers.join(' ')).toMatch(/escalation/i);
+    expect(r.blocking_records.escalations[0]).toMatchObject({ id: 'escalation-1', title: 'Escalation 1' });
+  });
+
+  it('recognises a completed Effective action through canonical lineage', async () => {
+    wireClosure(CLEAR);
+    const r = await risksService.closureReview('risk-1', 'co-1');
+    expect(r.detail.effective_controls).toBe(1);
+    expect(r.detail.controls_awaiting_final_review).toBe(0);
+    const actionSql = String(mockQuery.mock.calls.find(([sql]) => /SELECT DISTINCT ra\.id/.test(String(sql)))?.[0]);
+    expect(actionSql).toMatch(/ra\.risk_id = \$1/);
+    expect(actionSql).toMatch(/ra\.source_cluster_id = \$3/);
+    expect(actionSql).toMatch(/ae\.risk_id = \$1/);
+    expect(actionSql).toMatch(/gr\.risk_id = \$1/);
   });
 
   it('an outstanding effectiveness review blocks closure', async () => {
