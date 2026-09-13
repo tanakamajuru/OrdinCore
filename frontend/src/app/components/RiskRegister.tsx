@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useSearchParams } from "react-router";
 import { AlertTriangle, TrendingUp, TrendingDown, Minus, ArrowUpRight, ShieldAlert, Layers } from "lucide-react";
@@ -67,15 +67,19 @@ export function RiskRegister() {
     if (emergingRedirectsToPatterns && tab === "emerging") navigate("/rm5", { replace: true });
   }, [emergingRedirectsToPatterns, tab, navigate]);
 
+  // Spinner only on first load; background refreshes (poll/focus/socket) update silently.
+  const didInitialLoadRef = useRef(false);
   const load = async () => {
+    const first = !didInitialLoadRef.current;
     try {
-      setIsLoading(true);
+      if (first) setIsLoading(true);
       const res = await apiClient.get("/risks/oversight-summary");
       setData((res as any).data || null);
     } catch {
-      toast.error("Failed to load oversight register");
+      if (first) toast.error("Failed to load oversight register");
     } finally {
-      setIsLoading(false);
+      if (first) setIsLoading(false);
+      didInitialLoadRef.current = true;
     }
   };
   useGovernanceRefresh(load);

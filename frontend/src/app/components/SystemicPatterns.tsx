@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useNavigate } from "react-router";
 import { Network, ArrowUpRight, ArrowDownRight, Minus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
@@ -34,8 +34,10 @@ export function SystemicPatterns() {
   const [nextDate, setNextDate] = useState("");
   const [busy, setBusy] = useState(false);
 
+  const didInitialLoadRef = useRef(false);
   const load = async () => {
-    setLoading(true);
+    const first = !didInitialLoadRef.current;
+    if (first) setLoading(true);
     try {
       // includePromoted: a systemic pattern that has already been promoted to a strategic risk
       // must still appear on this leadership view (with its "View risk" link) — the RM5 decision
@@ -43,7 +45,7 @@ export function SystemicPatterns() {
       const data = unwrap(await apiClient.get("/rm/patterns?includePromoted=1")) || {};
       setItems(Array.isArray(data.across) ? data.across : []);
     } catch { setItems([]); }
-    finally { setLoading(false); }
+    finally { if (first) setLoading(false); didInitialLoadRef.current = true; }
   };
   useEffect(() => { load(); }, []);
   useGovernanceRefresh(load);

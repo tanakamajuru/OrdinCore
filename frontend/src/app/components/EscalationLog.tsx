@@ -128,9 +128,15 @@ export function EscalationLog() {
     setNextReviewAt("");
   }, [selectedEscalation?.id]);
 
+  // Show the full-screen loading state only on the FIRST load. Every later call (the 60s safety
+  // poll, focus, a governance.case.updated socket event, or a second mount trigger) refreshes the
+  // list silently in the background — otherwise each refresh blanked the whole list to a spinner
+  // and back, which read to the user as the page "reloading itself".
+  const didInitialLoadRef = useRef(false);
   const loadEscalations = async () => {
+    const first = !didInitialLoadRef.current;
     try {
-      setIsLoading(true);
+      if (first) setIsLoading(true);
       const res = await apiClient.get('/escalations?limit=100');
       const payload = (res.data as any).data || (res.data as any) || [];
       const list = Array.isArray(payload) ? payload : (payload.escalations || payload.items || []);
@@ -138,9 +144,10 @@ export function EscalationLog() {
       setSelectedEscalation((current) => current ? (list.find((e: Escalation) => e.id === current.id) || current) : null);
     } catch (err) {
       console.error('Failed to load escalations', err);
-      toast.error('Failed to load escalation log');
+      if (first) toast.error('Failed to load escalation log');
     } finally {
-      setIsLoading(false);
+      if (first) setIsLoading(false);
+      didInitialLoadRef.current = true;
     }
   };
   useGovernanceRefresh(loadEscalations);
