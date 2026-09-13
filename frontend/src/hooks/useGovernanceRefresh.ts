@@ -13,17 +13,16 @@ export function useGovernanceRefresh(refresh: () => void) {
     const run = () => callback.current();
     const token = localStorage.getItem("authToken");
     let socket: Socket | null = null;
-    // The consuming screen already loads its data in its own mount effect. Refetching again the
-    // instant the socket first connects just re-renders the screen a few hundred ms after it
-    // appears — which reads to the user as the page "reloading itself". Only resync on a genuine
-    // RE-connect (after a dropped connection), never on the first connect.
-    let firstConnect = true;
     if (token) {
       const base = (import.meta as any).env?.VITE_WS_URL
         || ((import.meta as any).env?.VITE_API_URL || "http://localhost:3001/api/v1").replace(/\/api\/v1\/?$/, "");
       socket = io(base, { auth: { token }, transports: ["websocket", "polling"], reconnection: true });
+      // Refetch ONLY on a real governance change. We deliberately do NOT refetch on socket
+      // "connect": behind the proxy the websocket drops and reconnects every ~10-15s, and a
+      // refetch-on-connect turned that into a constant "the screen keeps reloading itself" on
+      // large lists. The mount effect does the initial load; the focus listener and the 60s poll
+      // below cover any resync after a genuine disconnection.
       socket.on("governance.case.updated", run);
-      socket.on("connect", () => { if (firstConnect) { firstConnect = false; return; } run(); });
     }
     window.addEventListener("focus", run);
     const poll = window.setInterval(run, 60_000);
@@ -31,7 +30,6 @@ export function useGovernanceRefresh(refresh: () => void) {
       window.clearInterval(poll);
       window.removeEventListener("focus", run);
       socket?.off("governance.case.updated", run);
-      socket?.off("connect", run);
       socket?.disconnect();
     };
   }, []);

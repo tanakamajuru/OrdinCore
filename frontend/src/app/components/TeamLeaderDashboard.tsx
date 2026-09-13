@@ -89,10 +89,8 @@ export function TeamLeaderDashboard() {
       setUnreadCount(c => c + 1);
       toast.message(n.title || "New notification", { description: n.body });
     });
-    // Skip the first connect — the mount load already fetched notifications; only resync on a
-    // genuine reconnect after a drop.
-    let firstConnect = true;
-    socket.on("connect", () => { if (firstConnect) { firstConnect = false; return; } refreshNotifications(); });
+    // Do NOT refresh on socket "connect": the websocket reconnects every ~10-15s behind the proxy,
+    // which would refetch constantly. Live "notification" events + focus cover updates.
 
     const onFocus = () => refreshNotifications();
     window.addEventListener("focus", onFocus);
