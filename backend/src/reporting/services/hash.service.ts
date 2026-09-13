@@ -12,8 +12,13 @@ function canonicalJson(value: unknown): string {
 // PDF so a downloaded report can be proven to match what was generated and approved.
 export const hashService = {
   hash(obj: unknown): string {
-    // JSONB may reorder object keys. Canonical ordering makes verification stable before and
-    // after database persistence while preserving array order.
-    return crypto.createHash('sha256').update(canonicalJson(obj)).digest('hex');
+    // Normalise through JSON exactly as JSONB persistence does — Date objects (Postgres returns
+    // timestamps as Dates) become ISO strings and `undefined` keys are dropped — BEFORE hashing.
+    // Without this the hash computed at creation (raw Dates -> "{}") never matches the hash
+    // recomputed after the payload has round-tripped through JSONB (ISO strings), so every
+    // canonical report failed verification on download. Canonical key ordering then makes the
+    // hash stable regardless of how JSONB reorders object keys (array order preserved).
+    const normalised = JSON.parse(JSON.stringify(obj ?? null));
+    return crypto.createHash('sha256').update(canonicalJson(normalised)).digest('hex');
   },
 };
