@@ -1,4 +1,5 @@
 import { ApiResponse, PaginatedResponse, User, Company, House, Risk, Incident, Escalation, GovernancePulse, LoginRequest, LoginResponse, DashboardStats } from '@/types';
+import type { CanonicalGovernanceState } from '@/types/governanceState';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
 
@@ -584,6 +585,12 @@ class ApiClient {
     evidence?: string;
   }): Promise<ApiResponse<any>> {
     return this.patch<any>(`/actions/${id}/effectiveness`, data);
+  }
+
+  // Canonical facts used by all role interfaces. UI permissions may hide actions,
+  // but must never recalculate trajectory or closure readiness locally.
+  async getCanonicalGovernanceState(riskId: string): Promise<ApiResponse<CanonicalGovernanceState>> {
+    return this.get<CanonicalGovernanceState>(`/governance-state/risks/${encodeURIComponent(riskId)}`);
   }
 
   // ─── Director / RI insights (spec section 9) ─────────────────────────────────

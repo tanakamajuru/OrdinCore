@@ -54,6 +54,7 @@ import myWorkRoutes from './routes/myWork.routes';
 import governanceDecisionsRoutes from './routes/governanceDecisions.routes';
 import governanceWorkflowRoutes from './routes/governanceWorkflow.routes';
 import orgStructureRoutes from './routes/orgStructure.routes';
+import governanceStateRoutes from './routes/governanceState.routes';
 
 
 
@@ -199,6 +200,7 @@ app.use(`${API}/my-work`, myWorkRoutes);
 app.use(`${API}/governance-decisions`, governanceDecisionsRoutes);
 app.use(`${API}/governance-workflow`, governanceWorkflowRoutes);
 app.use(`${API}/org-structure`, orgStructureRoutes);
+app.use(`${API}/governance-state`, governanceStateRoutes);
 
 
 // ─── 404 Handler ────────────────────────────────────────────────────────────
