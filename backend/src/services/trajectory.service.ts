@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { effectivenessContribution, normalizeEffectiveness } from '../domain/effectiveness';
 
 /**
  * Ordin Core authoritative trajectory engine.
@@ -70,24 +71,8 @@ function severityWeight(severity?: string | null): number {
  * The value is deliberately smaller than the signal movement contribution:
  * effectiveness informs direction; it cannot unilaterally decide direction.
  */
-function effectivenessContribution(outcome?: string | null): number {
-  const v = String(outcome || '').trim().toLowerCase();
-  if (!v) return 0;
-  if (v === 'effective') return -1;
-  if (v.includes('partially effective') || v === 'partial' || v === 'partially') return -0.4;
-  if (v.includes('too early')) return 0;
-  if (v === 'ineffective' || v.includes('not effective')) return 1;
-  return 0;
-}
-
 function normalizeOutcomeLabel(outcome?: string | null): string | null {
-  const v = String(outcome || '').trim().toLowerCase();
-  if (!v) return null;
-  if (v === 'effective') return 'Effective';
-  if (v.includes('partially effective') || v === 'partial' || v === 'partially') return 'Partially Effective';
-  if (v.includes('too early')) return 'Too Early To Assess';
-  if (v === 'ineffective' || v.includes('not effective')) return 'Not Effective';
-  return String(outcome);
+  return normalizeEffectiveness(outcome);
 }
 
 /**

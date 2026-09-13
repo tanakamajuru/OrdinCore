@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { trajectoryForRisk, TrajectoryDirection } from './trajectory.service';
 import { risksService } from './risks.service';
 import { emitToCompany } from '../websocket/socket.server';
+import { EffectivenessOutcome, normalizeEffectiveness } from '../domain/effectiveness';
 
 /**
  * Intervention Effectiveness — refinement of the existing Intervention Panel.
@@ -20,8 +21,6 @@ import { emitToCompany } from '../websocket/socket.server';
  */
 
 const SEV_WEIGHT = `CASE gp.severity::text WHEN 'Critical' THEN 4 WHEN 'High' THEN 3 WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 1 END`;
-
-type EffectivenessOutcome = 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess';
 
 interface RiskRef {
   id: string;
@@ -77,15 +76,6 @@ function summariseRiskTrajectories(
       : 'No active risk trajectory is available for this theme.',
     counts,
   };
-}
-
-function normalizeEffectiveness(value: unknown): EffectivenessOutcome | null {
-  const v = String(value || '').trim();
-  if (v === 'Effective') return 'Effective';
-  if (v === 'Partially Effective' || v === 'Neutral') return 'Partially Effective';
-  if (v === 'Not Effective' || v === 'Ineffective') return 'Not Effective';
-  if (v === 'Too Early To Assess') return 'Too Early To Assess';
-  return null;
 }
 
 function isPastDate(value: unknown): boolean {

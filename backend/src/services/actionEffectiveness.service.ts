@@ -4,23 +4,10 @@ import { risksRepo } from '../repositories/risks.repo';
 import logger from '../utils/logger';
 import { reviewObligationsService } from './reviewObligations.service';
 import { trajectoryForRisk } from './trajectory.service';
+import { EffectivenessOutcome, normalizeEffectiveness, toLegacyEffectiveness } from '../domain/effectiveness';
+import { canonicalActionDomainSql } from '../domain/governanceDomain';
 
-export type EffectivenessOutcome = 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess';
-
-// Map the 4 governance outcomes back to the legacy 3-value scale the
-// trajectory pipeline (updateTrajectoryFromActions) still reads.
-const OUTCOME_TO_LEGACY: Record<EffectivenessOutcome, 'Effective' | 'Neutral' | 'Ineffective' | null> = {
-  'Effective': 'Effective',
-  'Partially Effective': 'Neutral',
-  'Not Effective': 'Ineffective',
-  'Too Early To Assess': null,
-};
-
-const LEGACY_TO_OUTCOME: Record<string, EffectivenessOutcome> = {
-  'Effective': 'Effective',
-  'Neutral': 'Partially Effective',
-  'Ineffective': 'Not Effective',
-};
+export type { EffectivenessOutcome } from '../domain/effectiveness';
 
 export class ActionEffectivenessService {
   async rateEffectiveness(
@@ -37,8 +24,7 @@ export class ActionEffectivenessService {
     }
 
     // Resolve the governance outcome from either the new or legacy field.
-    const outcome: EffectivenessOutcome | undefined =
-      data.outcome || (data.effectiveness ? LEGACY_TO_OUTCOME[data.effectiveness] : undefined);
+    const outcome = normalizeEffectiveness(data.outcome || data.effectiveness);
     if (!outcome) throw new Error('An effectiveness outcome is required.');
 
     const evidence = data.evidence || data.note;
@@ -55,7 +41,7 @@ export class ActionEffectivenessService {
       throw new Error('Governance Block: record the intended outcome before rating effectiveness.');
     }
 
-    const legacy = OUTCOME_TO_LEGACY[outcome];
+    const legacy = toLegacyEffectiveness(outcome);
 
     const result = await query(
       `UPDATE risk_actions
@@ -107,11 +93,11 @@ export class ActionEffectivenessService {
     // My Work / pipeline counts (completed_at IS NOT NULL AND effectiveness_outcome IS NULL) so the
     // list matches the count. The fixed 48-hour assumption is removed (doctrine): an action is due a
     // verdict as soon as it is completed — the RM schedules the actual review date.
+    const domain = canonicalActionDomainSql({ action: 'ra', risk: 'r', cluster: 'sc', pulse: 'p' });
     let sql = `
       SELECT ra.*, COALESCE(h.name, 'Organisation-wide') as house_name,
              r.title as risk_title, r.description AS risk_description,
-             COALESCE(NULLIF(TRIM(r.risk_domain),''), NULLIF(TRIM(r.strategic_theme),''),
-                      NULLIF(TRIM(sc.risk_domain),'')) AS governance_domain,
+             ${domain} AS governance_domain,
              p.description AS source_signal_description, p.immediate_action AS source_immediate_action,
              p.related_person AS source_person, p.created_at AS source_signal_at,
              e.reason AS source_escalation_reason, e.created_at AS source_escalation_at,
@@ -198,18 +184,14 @@ export class ActionEffectivenessService {
   }
 
   async summary(company_id: string, start: string, end: string) {
+    const domain = canonicalActionDomainSql({ action: 'ra', risk: 'r', cluster: 'sc', pulse: 'p' });
     const result = await query(
       `WITH reviewed AS (
          SELECT ra.id, COALESCE(ra.effectiveness_outcome,
                   CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
                     WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END) AS outcome,
                 ra.effectiveness_reviewed_at::date AS day,
-                COALESCE(NULLIF(TRIM(r.risk_domain),''), NULLIF(TRIM(r.strategic_theme),''),
-                         NULLIF(TRIM(sc.risk_domain),''),
-                         NULLIF(TRIM(ra.governance_domain),''),
-                         NULLIF(TRIM(p.governance_domain),''),
-                         NULLIF(TRIM((p.risk_domain)[1]),''),
-                         'Uncategorised') AS domain,
+                ${domain} AS domain,
                 COALESCE(h.name, 'Organisation-wide') AS service_name
            FROM risk_actions ra
            LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
