@@ -66,7 +66,6 @@ export default function SuperAdminDashboard() {
   const [maintenanceMode, setMaintenanceMode] = useState(false);
   const [purgingPool, setPurgingPool] = useState(false);
 
-  const adminName = localStorage.getItem('userName') || 'Super Admin';
 
   const fetchPlatformAdmins = async () => {
     setUsersLoading(true);
@@ -170,10 +169,6 @@ export default function SuperAdminDashboard() {
     }
   };
 
-  const handleLogout = () => {
-    localStorage.clear();
-    navigate("/login");
-  };
 
   const handleCreateOrg = async (e: React.FormEvent) => {
     e.preventDefault();

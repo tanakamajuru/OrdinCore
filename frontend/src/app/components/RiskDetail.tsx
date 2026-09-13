@@ -502,40 +502,6 @@ export function RiskDetail() {
   }
 
   const canEditAssessment = !['closed', 'resolved'].includes((risk.status || '').toLowerCase());
-  const assessmentCard = (field: 'impact' | 'mitigation' | 'rootCause', title: string, placeholder: string) => {
-    const value = risk.metadata?.[field];
-    const isEditing = editField === field;
-    return (
-      <div className="bg-card border-2 border-border p-6">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="text-xl text-foreground">{title}</h2>
-          {canEditAssessment && !isEditing && (
-            <button onClick={() => openAssessmentEdit(field)} className="text-sm text-primary flex items-center gap-1 hover:underline">
-              <Plus className="w-3.5 h-3.5" /> {value ? 'Edit' : 'Add'}
-            </button>
-          )}
-        </div>
-        {isEditing ? (
-          <div className="space-y-2">
-            <textarea
-              value={editValue}
-              onChange={(e) => setEditValue(e.target.value)}
-              placeholder={placeholder}
-              className="w-full h-28 bg-input-background border-2 border-border rounded p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
-            <div className="flex justify-end gap-2">
-              <button onClick={() => setEditField(null)} className="px-3 py-1.5 text-sm border border-border rounded hover:bg-muted">Cancel</button>
-              <button onClick={saveAssessment} disabled={savingAssessment} className="px-3 py-1.5 text-sm bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">
-                {savingAssessment ? 'Saving…' : 'Save'}
-              </button>
-            </div>
-          </div>
-        ) : (
-          <p className={value ? 'text-foreground whitespace-pre-wrap' : 'text-muted-foreground italic'}>{value || 'Not yet assessed'}</p>
-        )}
-      </div>
-    );
-  };
 
   // Impact (High/Medium/Low) is the compulsory human judgement of consequence. It drives S in
   // the Risk Index, and you cannot escalate or rate control effectiveness until it's recorded.

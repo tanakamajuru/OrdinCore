@@ -18,16 +18,6 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 
 // Spec module 1: a signal is a simple concern, not an incident.
 // No risk scoring, no likelihood/impact, no investigation language.
-type SignalCategory =
-  | 'Wellbeing'
-  | 'Medication'
-  | 'Behaviour'
-  | 'Safeguarding'
-  | 'Staffing'
-  | 'Environment'
-  | 'Documentation'
-  | 'Service Delivery';
-
 type SeverityType = 'Low' | 'Moderate' | 'High' | 'Critical';
 
 const SEVERITIES: { value: SeverityType; tone: string }[] = [

@@ -165,7 +165,7 @@ export function DirectorDashboard() {
   const heatTrend: Record<string, string> = {};
   heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; });
   const heatThemes = heatmap.length
-    ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map()).entries())
+    ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map<string, number>()).entries())
         .sort((a: [string, number], b: [string, number]) => b[1] - a[1]).slice(0, 6).map((e: [string, number]) => e[0])
     : topThemes.slice(0, 6);
   const heatServices = heatmap.length

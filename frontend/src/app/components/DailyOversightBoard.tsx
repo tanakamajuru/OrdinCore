@@ -521,11 +521,3 @@ export function DailyOversightBoard() {
   );
 }
 
-function SummaryLine({ Icon, tone, title, sub }: { Icon: any; tone: string; title: string; sub?: string }) {
-  return (
-    <div className="flex items-start gap-3">
-      <Icon size={18} className={`${tone} mt-0.5 shrink-0`} />
-      <div><p className="text-sm text-foreground">{title}</p>{sub && <p className="text-xs text-muted-foreground">{sub}</p>}</div>
-    </div>
-  );
-}
