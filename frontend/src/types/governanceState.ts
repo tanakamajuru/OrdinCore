@@ -8,5 +8,13 @@ export type CanonicalGovernanceState = {
     points: number[];
     evidence?: Record<string, unknown>;
   };
-  closure: Record<string, unknown>;
+  escalation: { id: string | null; lifecycle: string | null; is_open: boolean };
+  actions: { total: number; open: number; completed: number; cancelled: number };
+  effectiveness: { required: number; finalised: number; too_early: number; outstanding: number; latest_final_outcome: 'Effective' | 'Partially Effective' | 'Not Effective' | null };
+  monitoring: { required: boolean; next_review_date: string | null; review_due: boolean; reduction_evidenced: boolean };
+  closure: {
+    eligible: boolean;
+    status: 'NOT_READY' | 'MONITORING' | 'READY_FOR_CLOSURE' | 'CLOSED';
+    blockers: Array<{ code: string; message: string; record_type: string; record_id: string; route: string }>;
+  };
 };

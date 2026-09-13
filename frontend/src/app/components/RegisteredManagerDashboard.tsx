@@ -5,6 +5,7 @@ import { Activity, Shield, Flag, ClipboardCheck, TrendingUp, CheckCircle2, Eye, 
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { GovernanceReviewModal } from "@/components/GovernanceReviewModal";
+import { isClosedEscalation, isOpenEscalation, isOpenRisk } from "@/lib/governanceStatus";
 
 // Defensively unwrap the varying { data } / { data: { data } } response shapes.
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
@@ -127,17 +128,17 @@ export function RegisteredManagerDashboard() {
   );
 
   // ─── Counts for the navigator cards (no data tables are rendered) ─────────
-  const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
+  const openRisks = risks.filter(isOpenRisk);
   // Trajectory SSOT: prefer the authoritative engine result over the legacy trend field.
   const dirOf = (r: any) => r.trajectory_direction || r.trajectory || r.trend;
   const risingCount = openRisks.filter(r => ["Rising", "Deteriorating"].includes(dirOf(r))).length;
   const improvingCount = openRisks.filter(r => dirOf(r) === "Improving").length;
   const stableCount = Math.max(openRisks.length - risingCount - improvingCount, 0);
-  const openEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
+  const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
   const onTimeEsc = openEsc.length - overdueEsc;
   const actionsDue = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
-  const closedThisMonth = escalations.filter(e => e.lifecycle_status === "Closed").length;
+  const closedThisMonth = escalations.filter(isClosedEscalation).length;
 
   const jumpTo: { icon: any; label: string; path: string; tone: string }[] = [
     { icon: Activity, label: "Daily Oversight", path: "/governance-dashboard", tone: "text-blue-600" },

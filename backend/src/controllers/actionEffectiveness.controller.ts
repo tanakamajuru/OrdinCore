@@ -41,6 +41,15 @@ export class ActionEffectivenessController {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch effectiveness summary' });
     }
   }
+
+  async getHistory(req: Request, res: Response) {
+    try {
+      const data = await actionEffectivenessService.history(req.params.actionId, req.user!.company_id!);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch effectiveness history' });
+    }
+  }
 }
 
 export const actionEffectivenessController = new ActionEffectivenessController();

@@ -5,6 +5,7 @@ import { query } from '../config/database';
 import logger from '../utils/logger';
 import { emitToCompany } from '../websocket/socket.server';
 import { reviewObligationsService } from '../services/reviewObligations.service';
+import { escalationLifecycleService } from '../services/escalationLifecycle.service';
 
 export class ActionsController {
   async complete(req: Request, res: Response) {
@@ -59,6 +60,7 @@ export class ActionsController {
         [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
       );
       let completedAction = completedRes.rows[0];
+      await escalationLifecycleService.syncForAction(id, company_id);
 
       // Completion creates a durable review obligation. This applies equally to risk-linked and
       // signal/service actions, so no completed Team Leader work can disappear from RM review.
@@ -148,6 +150,7 @@ export class ActionsController {
             WHERE id = $3 AND company_id = $4`,
           [rm_decision, rm_comment || null, id, company_id]
         );
+        await escalationLifecycleService.syncForAction(id, company_id);
         if (action.assigned_to) {
           await notificationsService.create({
             company_id, user_id: action.assigned_to, type: 'action_returned',

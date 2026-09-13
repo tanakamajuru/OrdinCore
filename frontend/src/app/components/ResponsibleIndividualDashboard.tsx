@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
+import { isOpenRisk } from "@/lib/governanceStatus";
 import {
   Shield, Flag, ClipboardCheck, TrendingUp, RefreshCw, ShieldCheck,
   CheckCircle2, AlertTriangle, Download,
@@ -8,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { apiClient } from "@/services/api";
+import { isOpenEscalation } from "@/lib/governanceStatus";
 
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
 const asArray = (v: any): any[] => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
@@ -59,27 +61,29 @@ export function ResponsibleIndividualDashboard() {
   const [escStats, setEscStats] = useState<any>({});
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewQueue, setReviewQueue] = useState<any[]>([]);
-  const [actions, setActions] = useState<any[]>([]);
+  const [effectivenessSummary, setEffectivenessSummary] = useState<any>({});
 
   useEffect(() => { load(); }, []);
 
   const load = async () => {
     try {
       setLoading(true);
-      const [rk, esc, st, rv, rq, act] = await Promise.all([
+      const end = new Date().toISOString();
+      const start = new Date(Date.now() - 30 * 86400000).toISOString();
+      const [rk, esc, st, rv, rq, effSummary] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
         apiClient.getGovernanceReviews().catch(() => ({})),
         apiClient.getGovernanceReviewQueue().catch(() => ({})),
-        apiClient.getRisksActions().catch(() => ({})),
+        apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
       setEscStats(unwrap(st) || {});
       setReviews(asArray(unwrap(rv)));
       setReviewQueue(asArray(unwrap(rq)));
-      setActions(asArray(unwrap(act)));
+      setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
     } catch (err) {
       console.error(err);
       toast.error("Failed to load assurance dashboard");
@@ -94,22 +98,23 @@ export function ResponsibleIndividualDashboard() {
     </div>
   );
 
-  const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
+  const openRisks = risks.filter(isOpenRisk);
   // Trajectory SSOT: authoritative direction first, legacy trend only as last resort.
   const trendOf = (r: any) => r.trajectory_direction || r.trajectory || r.trend || "Stable";
   const rising = openRisks.filter(r => isRising(trendOf(r))).length;
   const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
   const stable = openRisks.length - rising - improving;
 
-  const openEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
+  const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
   const reopened = escalations.filter(e => e.lifecycle_status === "Reopened").length
     + openRisks.filter(r => Number(r.reopened_count) > 0).length;
 
-  const rated = actions.filter(a => a.effectiveness_outcome || a.effectiveness);
-  const effCount = (names: string[]) => rated.filter(a => names.includes(a.effectiveness_outcome) || names.includes(a.effectiveness)).length;
-  const effEffective = effCount(["Effective"]);
-  const effNot = effCount(["Not Effective", "Ineffective"]);
+  const effEffective = Number(effectivenessSummary.effective || 0);
+  const effPartial = Number(effectivenessSummary.partially_effective || 0);
+  const effNot = Number(effectivenessSummary.not_effective || 0);
+  const effTooEarly = Number(effectivenessSummary.too_early || 0);
+  const effectivenessReviewed = Number(effectivenessSummary.total_reviewed || effEffective + effPartial + effNot + effTooEarly);
 
   const reviewsCompleted = reviews.length;
   const reviewsPending = reviewQueue.length;
@@ -148,8 +153,8 @@ export function ResponsibleIndividualDashboard() {
             footer={<><span className="text-red-600">● {overdueEsc} Overdue</span><span className="text-emerald-600">● {openEsc.length - overdueEsc} On time</span></>} />
           <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Governance Reviews" value={reviewsCompleted + reviewsPending}
             footer={<><span className="text-emerald-600">{reviewsCompleted} Completed</span><span className="text-amber-600">{reviewsPending} Pending</span></>} />
-          <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews" value={rated.length}
-            footer={<><span className="text-emerald-600">{effEffective} Effective</span><span className="text-red-600">{effNot} Not effective</span></>} />
+          <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews" value={effectivenessReviewed}
+            footer={<><span className="text-emerald-600">{effEffective} Effective</span><span className="text-amber-600">{effPartial} Partial</span><span className="text-red-600">{effNot} Not effective</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
           <StatCard icon={RefreshCw} tone="bg-rose-100 text-rose-600" label="Reopened Items" value={reopened}
             footer={<span className="text-muted-foreground">risks & escalations</span>} />
           <StatCard icon={ShieldCheck} tone={assurance === "Good" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"} label="Assurance Status" value={assurance}

@@ -8,6 +8,7 @@ import {
   Activity, ClipboardList, Clock, TrendingUp, CheckCircle2, Plus, FileText,
   Bell, HelpCircle, Calendar, ArrowRight, Layers, Sparkles,
 } from "lucide-react";
+import { isClosedEscalation, isOpenEscalation } from "@/lib/governanceStatus";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
 import { io, type Socket } from "socket.io-client";
@@ -163,11 +164,11 @@ export function TeamLeaderDashboard() {
 
   const myActions = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
   const dueSoon = myActions.filter(a => a.due_date && new Date(a.due_date).getTime() <= now + 7 * 86400000);
-  const myEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
+  const myEsc = escalations.filter(isOpenEscalation);
   // "Closed This Month" counts closed ESCALATIONS (not completed actions) so a TL who
   // raised an escalation sees it resolved — matching how the RM dashboard counts. (Bug B1.)
   const closedThisMonth = escalations.filter(e =>
-    (e.lifecycle_status || "") === "Closed" &&
+    isClosedEscalation(e) &&
     (e.closed_at || e.resolved_at) &&
     new Date(e.closed_at || e.resolved_at).getTime() >= monthStart
   ).length;

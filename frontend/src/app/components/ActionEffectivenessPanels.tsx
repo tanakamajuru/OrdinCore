@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "react-router";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, LabelList } from "recharts";
@@ -22,15 +23,19 @@ export function ActionEffectivenessPanels() {
   const [evidence, setEvidence] = useState("");
   const [saving, setSaving] = useState(false);
   const [expectedOutcome, setExpectedOutcome] = useState("");
-  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setExpectedOutcome(a?.evidence_packet?.expected?.intended_outcome || ""); };
+  const [nextReviewDate, setNextReviewDate] = useState("");
+  const [searchParams] = useSearchParams();
+  const focusedRef = useRef(false);
+  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setNextReviewDate(""); setExpectedOutcome(a?.evidence_packet?.expected?.intended_outcome || ""); };
   const submitRating = async () => {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
     if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
     if (expectedOutcome.trim().length < 10) { toast.error("Record the intended outcome before rating effectiveness."); return; }
     if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
+    if (outcome === "Too Early To Assess" && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future effectiveness review date."); return; }
     setSaving(true);
     try {
-      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), intended_outcome: expectedOutcome.trim() });
+      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), intended_outcome: expectedOutcome.trim(), next_review_date: outcome === "Too Early To Assess" ? nextReviewDate : undefined });
       toast.success("Effectiveness recorded");
       setRating(null);
       loadData();
@@ -56,6 +61,13 @@ export function ActionEffectivenessPanels() {
   };
   useGovernanceRefresh(loadData);
 
+  useEffect(() => {
+    if (focusedRef.current || !data?.pending) return;
+    const id = searchParams.get('focus');
+    const target = id && data.pending.find((action: any) => String(action.id) === id);
+    if (target) { focusedRef.current = true; openRating(target); }
+  }, [data, searchParams]);
+
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
   if (!data) return null;
   if (data.error) return <Card className="border-destructive/40"><CardContent className="p-5 text-sm text-destructive">{data.error}</CardContent></Card>;
@@ -64,16 +76,16 @@ export function ActionEffectivenessPanels() {
   const domainAnalysisWithNumbers = (data.domain_analysis || []).map((item: any) => ({
     ...item,
     effective: Number(item.effective || 0),
-    neutral: Number(item.neutral || 0),
-    ineffective: Number(item.ineffective || 0),
+    partially_effective: Number(item.partially_effective || 0),
+    not_effective: Number(item.not_effective || 0),
     too_early: Number(item.too_early || 0)
   }));
 
   const dailyTrendWithNumbers = (data.daily_trend || []).map((item: any) => ({
     ...item,
     effective: Number(item.effective || 0),
-    partial: Number(item.partial || 0),
-    ineffective: Number(item.ineffective || 0),
+    partially_effective: Number(item.partially_effective || 0),
+    not_effective: Number(item.not_effective || 0),
     too_early: Number(item.too_early || 0)
   }));
 
@@ -92,11 +104,11 @@ export function ActionEffectivenessPanels() {
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
               <span className=" text-warning uppercase text-xs">Partially Effective</span>
-              <span className="text-2xl ">{data.org_summary?.neutral || 0}</span>
+              <span className="text-2xl ">{data.org_summary?.partially_effective || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
               <span className=" text-destructive uppercase text-xs">Not Effective</span>
-              <span className="text-2xl ">{data.org_summary?.ineffective || 0}</span>
+              <span className="text-2xl ">{data.org_summary?.not_effective || 0}</span>
             </div>
             <div className="flex justify-between items-center p-3 bg-card border-2 border-sky-300/60">
               <span className="text-sky-700 uppercase text-xs">Too Early to Assess</span>
@@ -132,8 +144,8 @@ export function ActionEffectivenessPanels() {
                     );
                   }} />
                 </Bar>
-                <Bar dataKey="neutral" fill="#F59E0B" stackId="a" name="Partially Effective">
-                  <LabelList dataKey="neutral" position="center" content={(props: any) => {
+                <Bar dataKey="partially_effective" fill="#F59E0B" stackId="a" name="Partially Effective">
+                  <LabelList dataKey="partially_effective" position="center" content={(props: any) => {
                     const { x, y, width, height, value } = props;
                     if (!value || Number(value) === 0) return null;
                     return (
@@ -143,8 +155,8 @@ export function ActionEffectivenessPanels() {
                     );
                   }} />
                 </Bar>
-                <Bar dataKey="ineffective" fill="#EF4444" stackId="a" name="Not Effective">
-                  <LabelList dataKey="ineffective" position="center" content={(props: any) => {
+                <Bar dataKey="not_effective" fill="#EF4444" stackId="a" name="Not Effective">
+                  <LabelList dataKey="not_effective" position="center" content={(props: any) => {
                     const { x, y, width, height, value } = props;
                     if (!value || Number(value) === 0) return null;
                     return (
@@ -203,8 +215,8 @@ export function ActionEffectivenessPanels() {
                   <TableRow key={s.service_name} className="hover:bg-muted/20 border-b border-border">
                     <TableCell className=" font-medium">{s.service_name}</TableCell>
                     <TableCell className="text-center text-success font-bold">{s.effective}</TableCell>
-                    <TableCell className="text-center text-warning font-bold">{s.neutral}</TableCell>
-                    <TableCell className="text-center text-destructive font-bold">{s.ineffective}</TableCell>
+                    <TableCell className="text-center text-warning font-bold">{s.partially_effective}</TableCell>
+                    <TableCell className="text-center text-destructive font-bold">{s.not_effective}</TableCell>
                     <TableCell className="text-center text-sky-600 font-bold">{s.too_early || 0}</TableCell>
                   </TableRow>
                 )) : (
@@ -243,8 +255,8 @@ export function ActionEffectivenessPanels() {
                 />
                 <Legend verticalAlign="top" align="right" iconType="circle" />
                 <Line type="monotone" dataKey="effective" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Effective" />
-                <Line type="monotone" dataKey="partial" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Partially Effective" />
-                <Line type="monotone" dataKey="ineffective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Not Effective" />
+                <Line type="monotone" dataKey="partially_effective" stroke="#F59E0B" strokeWidth={3} dot={{ r: 4, fill: '#F59E0B', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Partially Effective" />
+                <Line type="monotone" dataKey="not_effective" stroke="#EF4444" strokeWidth={3} dot={{ r: 4, fill: '#EF4444', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Not Effective" />
                 <Line type="monotone" dataKey="too_early" stroke="#0EA5E9" strokeWidth={3} dot={{ r: 4, fill: '#0EA5E9', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Too Early to Assess" />
               </LineChart>
             </ResponsiveContainer>
@@ -299,6 +311,10 @@ export function ActionEffectivenessPanels() {
             <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3}
               className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="What tells you this — recurrence, observation, records…" />
+            {outcome === "Too Early To Assess" && <div className="mt-3">
+              <label className="block text-sm text-muted-foreground mb-1">Next effectiveness review date</label>
+              <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm" />
+            </div>}
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setRating(null)} disabled={saving} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button>
               <button onClick={submitRating} disabled={saving || !rating.evidence_packet?.review_ready || expectedOutcome.trim().length < 10} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>

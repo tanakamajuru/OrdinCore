@@ -142,7 +142,7 @@ export const governanceDecisionsService = {
     if (decision === 'Create Action') {
       const t = await client.query(
         `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13) RETURNING *`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13) RETURNING *`,
         [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id ?? null, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
       );
       task = t.rows[0];

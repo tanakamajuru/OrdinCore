@@ -150,18 +150,19 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const openReview = (p: any) => { setReviewTarget(p); setReviewOutcome("Continue Monitoring"); setReviewRationale(""); setReviewNextDate(""); };
   const submitReview = async () => {
     if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
-    if (reviewOutcome === "Continue Monitoring" && !reviewNextDate) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
+    if (reviewOutcome === "Continue Monitoring" && (!reviewNextDate || new Date(`${reviewNextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     setReviewBusy(true);
     try {
-      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim(), nextReviewDate: reviewNextDate || undefined });
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome: reviewOutcome, rationale: reviewRationale.trim(), next_review_date: reviewOutcome === "Continue Monitoring" ? reviewNextDate : undefined });
       const data = res?.data?.data ?? res?.data ?? {};
       const na = data.next_action;
       setReviewTarget(null);
-      if (na?.type === "promote") {
-        toast.success("Review recorded — promoting to a risk");
-        navigate(`/risks/promote?cluster_id=${na.cluster_id}`, { state: { cluster_id: na.cluster_id } });
+      if (na?.type === "promoted" && na?.risk_id) {
+        toast.success("Review recorded — risk created");
+        navigate(`/risk-register/${na.risk_id}`);
         return;
       }
+      if (na?.type === "escalated" && na?.escalation_id) { toast.success("Review recorded — escalation opened for this pattern"); navigate(`/escalation-log?focus=${na.escalation_id}`); return; }
       toast.success(na?.type === "escalated" ? "Review recorded — escalation opened for this pattern" : "Pattern review recorded");
       setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
@@ -317,7 +318,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                   {reviewOutcome === "Continue Monitoring" && (
                     <div className="mb-3">
                       <label className="block text-sm font-medium mb-1">Next review date</label>
-                      <input type="date" value={reviewNextDate} onChange={(e) => setReviewNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                      <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={reviewNextDate} onChange={(e) => setReviewNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                     </div>
                   )}
                   {reviewOutcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A pattern can only close once its linked risk and escalations are resolved — it is the last thing to close.</p>}

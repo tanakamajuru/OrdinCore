@@ -8,7 +8,7 @@
     "success": { "const": true },
     "data": {
       "type": "object",
-      "required": ["risk_id", "trajectory", "closure", "calculated_at", "contract_version"],
+      "required": ["risk_id", "trajectory", "escalation", "actions", "effectiveness", "monitoring", "closure", "calculated_at", "contract_version"],
       "properties": {
         "risk_id": { "type": "string" },
         "contract_version": { "const": "governance-state-v1" },
@@ -24,7 +24,80 @@
           },
           "additionalProperties": true
         },
-        "closure": { "type": "object" }
+        "escalation": {
+          "type": "object",
+          "required": ["id", "lifecycle", "is_open"],
+          "properties": {
+            "id": { "type": ["string", "null"] },
+            "lifecycle": {
+              "type": ["string", "null"],
+              "enum": ["Open", "Under Review", "Actions In Progress", "Awaiting Effectiveness", "Monitoring", "Ready For Closure", "Closed", "Reopened", null]
+            },
+            "is_open": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "actions": {
+          "type": "object",
+          "required": ["total", "open", "completed", "cancelled"],
+          "properties": {
+            "total": { "type": "integer", "minimum": 0 },
+            "open": { "type": "integer", "minimum": 0 },
+            "completed": { "type": "integer", "minimum": 0 },
+            "cancelled": { "type": "integer", "minimum": 0 }
+          },
+          "additionalProperties": false
+        },
+        "effectiveness": {
+          "type": "object",
+          "required": ["required", "finalised", "too_early", "outstanding", "latest_final_outcome"],
+          "properties": {
+            "required": { "type": "integer", "minimum": 0 },
+            "finalised": { "type": "integer", "minimum": 0 },
+            "too_early": { "type": "integer", "minimum": 0 },
+            "outstanding": { "type": "integer", "minimum": 0 },
+            "latest_final_outcome": {
+              "type": ["string", "null"],
+              "enum": ["Effective", "Partially Effective", "Not Effective", null]
+            }
+          },
+          "additionalProperties": false
+        },
+        "monitoring": {
+          "type": "object",
+          "required": ["required", "next_review_date", "review_due", "reduction_evidenced"],
+          "properties": {
+            "required": { "type": "boolean" },
+            "next_review_date": { "type": ["string", "null"], "format": "date" },
+            "review_due": { "type": "boolean" },
+            "reduction_evidenced": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        },
+        "closure": {
+          "type": "object",
+          "required": ["eligible", "status", "blockers"],
+          "properties": {
+            "eligible": { "type": "boolean" },
+            "status": { "enum": ["NOT_READY", "MONITORING", "READY_FOR_CLOSURE", "CLOSED"] },
+            "blockers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": ["code", "message", "record_type", "record_id", "route"],
+                "properties": {
+                  "code": { "enum": ["NO_LINKED_ACTION", "ACTION_INCOMPLETE", "EFFECTIVENESS_REQUIRED", "OBSERVATION_INCOMPLETE", "CONTROL_PARTIAL", "CONTROL_FAILED", "OPEN_ESCALATION", "MONITORING_DUE", "REDUCTION_NOT_EVIDENCED"] },
+                  "message": { "type": "string", "minLength": 1 },
+                  "record_type": { "enum": ["ACTION", "EFFECTIVENESS", "ESCALATION", "MONITORING"] },
+                  "record_id": { "type": "string", "minLength": 1 },
+                  "route": { "type": "string", "minLength": 1 }
+                },
+                "additionalProperties": false
+              }
+            }
+          },
+          "additionalProperties": false
+        }
       },
       "additionalProperties": false
     },

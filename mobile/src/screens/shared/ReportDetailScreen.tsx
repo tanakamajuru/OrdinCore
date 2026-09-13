@@ -4,10 +4,10 @@ import { useApi } from '@/api/useApi';
 import { RootStackParams } from '@/navigation/types';
 import { Screen, Label, Text, Loading, ErrorNote } from '@/components/ui';
 import { BoardHeader, Metrics, SectionTitle, StatusList, BoardItem, Tone } from '@/components/board';
+import { isOpenEscalation as isOpen } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || []);
 const isDone = (a: any) => /complete|done|cancel/i.test(a?.status || '');
-const isOpen = (e: any) => (e?.status || e?.lifecycle_status || '').toLowerCase() !== 'closed';
 const domainsOf = (x: any): string[] => {
   const d = x?.risk_domain ?? x?.domain;
   if (Array.isArray(d)) return d.filter(Boolean);

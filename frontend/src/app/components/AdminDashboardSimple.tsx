@@ -6,6 +6,7 @@ import {
 import { PieChart, Pie, Cell, ResponsiveContainer } from 'recharts';
 import { apiClient } from '@/services/api';
 import AdminSidebar from './shared/AdminSidebar';
+import { isOpenEscalation } from '@/lib/governanceStatus';
 
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
 const asArray = (v: any): any[] => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
@@ -114,7 +115,7 @@ const AdminDashboardSimple: React.FC = () => {
   users.forEach(u => { const r = (u.role || 'OTHER').toUpperCase(); roleCounts[r] = (roleCounts[r] || 0) + 1; });
   const roleData = Object.entries(roleCounts).map(([r, v], i) => ({ name: ROLE_LABELS[r] || r, value: v, color: ROLE_COLORS[i % ROLE_COLORS.length] }));
 
-  const openEsc = escalations.filter(e => (e.lifecycle_status || '') !== 'Closed').length;
+  const openEsc = escalations.filter(isOpenEscalation).length;
   const overdueActions = actions.filter(a => a.status === 'Overdue' || (a.due_date && new Date(a.due_date).getTime() < Date.now() && !['Complete', 'Completed', 'Cancelled'].includes(a.status))).length;
   const closedEsc = Number(escStats.closed || 0);
 

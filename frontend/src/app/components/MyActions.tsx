@@ -1,6 +1,6 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { ArrowLeft, Clock, CheckCircle2, AlertCircle, MessageSquare, ChevronRight } from "lucide-react";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
@@ -26,6 +26,8 @@ interface AssignedAction {
 
 export function MyActions() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const focusedRef = useRef(false);
   const { user } = useAuth();
   // An RM/Director can BOTH hold actions of their own AND oversee everyone else's. So this page
   // has two views: "Mine" (actions assigned to me — /actions/my) and "All service" (every open
@@ -70,6 +72,16 @@ export function MyActions() {
     fetchActions();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [view]);
+
+  useEffect(() => {
+    if (focusedRef.current || !actions.length) return;
+    const id = searchParams.get('focus');
+    const index = id ? filteredActions.findIndex((action) => String(action.id) === id) : -1;
+    if (index < 0) return;
+    focusedRef.current = true;
+    setPage(Math.floor(index / PAGE_SIZE) + 1);
+    setTimeout(() => document.getElementById(`action-${id}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }), 100);
+  }, [actions, filteredActions, searchParams]);
 
   const fetchActions = async () => {
     try {
@@ -193,7 +205,7 @@ export function MyActions() {
             </div>
           ) : (
             pagedActions.map((action) => (
-              <Card key={action.id} className="border-2 border-border hover:border-primary/40 transition-colors">
+              <Card id={`action-${action.id}`} key={action.id} className={`border-2 hover:border-primary/40 transition-colors ${searchParams.get('focus') === String(action.id) ? 'border-primary ring-2 ring-primary/20' : 'border-border'}`}>
                 <CardContent className="p-6">
                   <div className="flex flex-col md:flex-row justify-between gap-6">
                     <div className="space-y-3 flex-1">

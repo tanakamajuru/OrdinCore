@@ -577,6 +577,7 @@ class ApiClient {
 
   async rateActionEffectiveness(id: string, data: {
     outcome: 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess';
+    next_review_date?: string;
     evidence?: string;
   }): Promise<ApiResponse<any>> {
     return this.patch<any>(`/actions/${id}/effectiveness`, data);

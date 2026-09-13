@@ -30,9 +30,6 @@ export type PatternScope = 'person' | 'house' | 'service' | 'cross_service';
 // The outcome of a Pattern Review (signal_clusters.review_outcome).
 export type PatternReviewOutcome =
   | 'Continue Monitoring'
-  | 'Improving'
-  | 'Stable'
-  | 'Deteriorating'
   | 'Promote to Risk'
   | 'Escalate'
   | 'Close';

@@ -8,6 +8,7 @@ import { useApi } from '@/api/useApi';
 import { Screen, Text, Row, Button, Pill, SeverityPill, Loading, Empty } from '@/components/ui';
 import { SyncStatus } from '@/components/SyncStatus';
 import { StatCard, Section, Donut, THEME_COLORS } from '@/components/dashboard';
+import { isClosedEscalation, isOpenEscalation } from '@/api/governanceStatus';
 
 const unwrap = (v: any) => (Array.isArray(v) ? v : v?.data || v?.actions || v?.escalations || []);
 const themeOf = (s: any) => (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain || s.signal_type || 'Other');
@@ -37,8 +38,8 @@ export function TodayScreen() {
   const wDelta = thisWeek - prevWeek;
   const myActions = actions.filter((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(a.status));
   const dueSoon = myActions.filter((a: any) => a.due_date && new Date(a.due_date).getTime() <= now + week);
-  const myEsc = escalations.filter((e: any) => (e.lifecycle_status || '') !== 'Closed');
-  const closedMonth = escalations.filter((e: any) => (e.lifecycle_status || '') === 'Closed' && (e.closed_at || e.resolved_at) && new Date(e.closed_at || e.resolved_at).getTime() >= monthStart).length;
+  const myEsc = escalations.filter(isOpenEscalation);
+  const closedMonth = escalations.filter((e: any) => isClosedEscalation(e) && (e.closed_at || e.resolved_at) && new Date(e.closed_at || e.resolved_at).getTime() >= monthStart).length;
 
   const themeCount: Record<string, number> = {};
   signals.forEach((s: any) => { const k = themeOf(s); if (k) themeCount[k] = (themeCount[k] || 0) + 1; });

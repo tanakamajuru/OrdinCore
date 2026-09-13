@@ -52,13 +52,14 @@ export function SystemicPatterns() {
 
   const submitReview = async () => {
     if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
-    if (outcome === "Continue Monitoring" && !nextDate) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
+    if (outcome === "Continue Monitoring" && (!nextDate || new Date(`${nextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     setBusy(true);
     try {
-      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim(), nextReviewDate: nextDate || undefined });
+      const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim(), next_review_date: outcome === "Continue Monitoring" ? nextDate : undefined });
       const na = (res?.data?.data ?? res?.data ?? {}).next_action;
       setReviewTarget(null); setRationale(""); setOutcome("Continue Monitoring"); setNextDate("");
-      if (na?.type === "promote") { toast.success("Review recorded — promoting to a risk"); navigate(`/risks/promote?cluster_id=${na.cluster_id}`, { state: { cluster_id: na.cluster_id } }); return; }
+      if (na?.type === "promoted" && na?.risk_id) { toast.success("Review recorded — risk created"); navigate(`/risk-register/${na.risk_id}`); return; }
+      if (na?.type === "escalated" && na?.escalation_id) { toast.success("Review recorded — escalation opened"); navigate(`/escalation-log?focus=${na.escalation_id}`); return; }
       toast.success(na?.type === "escalated" ? "Review recorded — escalation opened" : "Systemic pattern review recorded");
       load();
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
@@ -139,7 +140,7 @@ export function SystemicPatterns() {
               {outcome === "Continue Monitoring" && (
                 <div className="mb-3">
                   <label className="block text-sm font-medium mb-1">Next review date</label>
-                  <input type="date" value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                  <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                 </div>
               )}
               {outcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A systemic pattern can only close once its linked risk and escalations are resolved.</p>}

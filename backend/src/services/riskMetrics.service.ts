@@ -163,24 +163,40 @@ export const riskMetricsService = {
       if (su && su.vulnerability != null) { V = Number(su.vulnerability); vulnerabilityAssumed = false; }
     }
 
-    // Signals behind the risk (via its source cluster's links).
+    // Signals behind the risk. Canonical lineage accepts either the risk link or the source
+    // pattern link, and every branch is tenant-scoped.
     const sigCount = Number((await query(
-      `SELECT COUNT(*) n FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id WHERE rsl.cluster_id = $1`,
-      [cluster]
+      `SELECT COUNT(DISTINCT rsl.pulse_entry_id) n
+         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE gp.company_id = $2 AND (rsl.risk_id = $1 OR ($3::uuid IS NOT NULL AND rsl.cluster_id = $3))`,
+      [risk_id, company_id, cluster || null]
     )).rows[0]?.n || 0);
     const maxSev = Number((await query(
       `SELECT COALESCE(MAX(${SEV_WEIGHT_SQL} + 1), 0) m
-         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id WHERE rsl.cluster_id = $1`,
-      [cluster]
+         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE gp.company_id = $2 AND (rsl.risk_id = $1 OR ($3::uuid IS NOT NULL AND rsl.cluster_id = $3))`,
+      [risk_id, company_id, cluster || null]
     )).rows[0]?.m || 0); // weight+1 approximates 1..5
 
     // Controls / effectiveness / overdue.
     const ctl = (await query(
-      `SELECT (SELECT effectiveness_outcome FROM risk_actions WHERE risk_id = $1 AND effectiveness_outcome IS NOT NULL ORDER BY effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest,
-              (SELECT COUNT(*) FROM risk_actions WHERE risk_id = $1) AS total,
-              (SELECT COUNT(*) FROM risk_actions WHERE risk_id = $1 AND status NOT IN ('Complete','Completed','Cancelled')) AS open,
-              (SELECT COUNT(*) FROM risk_actions WHERE risk_id = $1 AND due_date < NOW() AND status NOT IN ('Complete','Completed','Cancelled')) AS overdue`,
-      [risk_id]
+      `WITH matched AS (
+         SELECT ra.* FROM risk_actions ra
+          WHERE ra.company_id = $2
+            AND (ra.risk_id = $1
+                 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3)
+                 OR EXISTS (SELECT 1 FROM governance_reviews gr
+                              WHERE gr.id = ra.governance_review_id AND gr.company_id = ra.company_id
+                                AND (gr.risk_id = $1 OR ($3::uuid IS NOT NULL AND gr.cluster_id = $3))))
+       )
+       SELECT (SELECT COALESCE(effectiveness_outcome, effectiveness) FROM matched
+                WHERE COALESCE(effectiveness_outcome, effectiveness) IS NOT NULL
+                ORDER BY effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest,
+              COUNT(*) AS total,
+              COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('complete','completed','cancelled','canceled','closed')) AS open,
+              COUNT(*) FILTER (WHERE due_date < NOW() AND LOWER(status) NOT IN ('complete','completed','cancelled','canceled','closed')) AS overdue
+         FROM matched`,
+      [risk_id, company_id, cluster || null]
     )).rows[0];
 
     // S (Severity/Impact) prefers the human Impact rating (High 5 · Medium 3 · Low 2) when set;
@@ -199,8 +215,9 @@ export const riskMetricsService = {
          SUM(${SEV_WEIGHT_SQL}) FILTER (WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= date_trunc('week', NOW())) AS cur,
          SUM(${SEV_WEIGHT_SQL}) FILTER (WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= date_trunc('week', NOW()) - INTERVAL '1 week'
                                           AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <  date_trunc('week', NOW())) AS prev
-         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id WHERE rsl.cluster_id = $1`,
-      [cluster]
+         FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE gp.company_id = $2 AND (rsl.risk_id = $1 OR ($3::uuid IS NOT NULL AND rsl.cluster_id = $3))`,
+      [risk_id, company_id, cluster || null]
     )).rows[0];
     const cur = Number(wk?.cur) || 0, prev = Number(wk?.prev) || 0;
     const rawPct = prev > 0 ? Math.round(((cur - prev) / prev) * 1000) / 10 : (cur > 0 ? 100 : 0);
@@ -229,8 +246,10 @@ export const riskMetricsService = {
     const days = Number((await query(
       `SELECT COUNT(DISTINCT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date) d
          FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
-        WHERE rsl.cluster_id = $1 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'`,
-      [cluster]
+        WHERE gp.company_id = $2
+          AND (rsl.risk_id = $1 OR ($3::uuid IS NOT NULL AND rsl.cluster_id = $3))
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'`,
+      [risk_id, company_id, cluster || null]
     )).rows[0]?.d || 0);
     const hasControls = Number(ctl?.total) > 0;
     const confidence = Math.round(clamp(

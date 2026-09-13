@@ -7,6 +7,7 @@ import { api } from '@/api/client';
 import { radius } from '@/theme/tokens';
 import { Screen, Text, Row, Label, TextArea, Loading } from '@/components/ui';
 import { BoardHeader, BoardButton } from '@/components/board';
+import { isOpenEscalation } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || []);
 const isSameDay = (x?: string) => !!x && new Date(x).toDateString() === new Date().toDateString();
@@ -23,7 +24,7 @@ export function TLDailyReviewScreen() {
   const items = [
     { key: 'signals', label: 'Check new signals', count: arr(sig.data).filter((s) => isSameDay(s.entry_date || s.created_at)).length },
     { key: 'actions', label: 'Review actions', count: arr(act.data).filter((a) => !isDone(a)).length },
-    { key: 'esc', label: 'Escalations', count: arr(esc.data).filter((e) => (e.lifecycle_status || '') !== 'Closed').length },
+    { key: 'esc', label: 'Escalations', count: arr(esc.data).filter(isOpenEscalation).length },
     { key: 'overdue', label: 'Overdue actions', count: arr(act.data).filter(isOverdue).length },
   ];
 

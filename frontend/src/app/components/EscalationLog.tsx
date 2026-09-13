@@ -38,7 +38,7 @@ interface Escalation {
   actions_completed_count?: number | string;
   actions_total_count?: number | string;
   actions_effectiveness_reviewed_count?: number | string;
-  lifecycle_status?: 'Open' | 'Under Review' | 'Actions Implemented' | 'Monitoring Effectiveness' | 'Closed' | 'Reopened';
+  lifecycle_status?: 'Open' | 'Under Review' | 'Actions In Progress' | 'Awaiting Effectiveness' | 'Monitoring' | 'Ready For Closure' | 'Closed' | 'Reopened';
   due_by?: string;
   closed_at?: string;
   closed_by_name?: string;

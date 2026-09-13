@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { canonicalReportingService } from './canonicalReporting.service';
 
 export class RiGovernanceService {
   async getDashboardOverview(company_id: string) {
@@ -38,18 +39,11 @@ export class RiGovernanceService {
     );
 
     // 3. Action Effectiveness Summary (Cross-site by domain)
-    const effectiveness = await query(
-      `SELECT r.category_id, rc.name as domain,
-              COUNT(*) FILTER (WHERE ae.outcome = 'Effective') as effective_count,
-              COUNT(*) FILTER (WHERE ae.outcome = 'Neutral') as neutral_count,
-              COUNT(*) FILTER (WHERE ae.outcome = 'Ineffective') as ineffective_count
-       FROM action_effectiveness ae
-       JOIN risks r ON r.id = ae.risk_id
-       JOIN risk_categories rc ON rc.id = r.category_id
-       WHERE r.company_id = $1
-       GROUP BY r.category_id, rc.name`,
-      [company_id]
-    );
+    const effectivenessRange = {
+      start: new Date(Date.now() - 30 * 86400000).toISOString(),
+      end: new Date().toISOString(),
+    };
+    const effectiveness = await canonicalReportingService.effectivenessSummary(company_id, effectivenessRange);
 
     // 4. Serious Incidents (Unacknowledged Sign-off feed)
      const incidents = await query(
@@ -74,7 +68,14 @@ export class RiGovernanceService {
     return {
       osp_ladder: ospLadder.rows,
       heatmap: heatmap.rows,
-      effectiveness: effectiveness.rows,
+      effectiveness: effectiveness.domain_analysis.map((row: any) => ({
+        domain: row.domain,
+        effective_count: row.effective,
+        partially_effective_count: row.partially_effective,
+        not_effective_count: row.not_effective,
+        too_early_count: row.too_early,
+      })),
+      effectiveness_period: effectivenessRange,
       serious_incidents: incidents.rows,
       deputy_cover: deputyCover.rows
     };
@@ -108,7 +109,7 @@ export class RiGovernanceService {
     );
     
     const risks = await query(
-      `SELECT * FROM risks WHERE house_id = $1 AND company_id = $2 AND status != 'Closed'`,
+      `SELECT * FROM risks WHERE house_id = $1 AND company_id = $2 AND LOWER(status::text) NOT IN ('closed','resolved')`,
       [house_id, company_id]
     );
 

@@ -26,8 +26,8 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
   )).rows[0];
 
   const risk = (await query(
-    `SELECT COUNT(*) FILTER (WHERE r.status NOT IN ('Closed','Resolved'))::int AS open_risks,
-            COUNT(*) FILTER (WHERE r.status NOT IN ('Closed','Resolved') AND LOWER(r.severity::text)='critical')::int AS critical_risks
+    `SELECT COUNT(*) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed','resolved'))::int AS open_risks,
+            COUNT(*) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed','resolved') AND LOWER(r.severity::text)='critical')::int AS critical_risks
        FROM risks r WHERE r.company_id = $1 AND r.house_id = $2 ${personRisk}`,
     [companyId, siteId]
   )).rows[0];
@@ -148,8 +148,10 @@ export const scopedReportDataService = {
               ra.status::text AS status, ra.created_at, ra.completed_at, ra.due_date,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
               ra.completion_evidence,
-              COALESCE(ra.effectiveness_outcome::text, ra.effectiveness::text, 'Not yet reviewed') AS effectiveness
+              COALESCE(cev.outcome, 'Not yet reviewed') AS effectiveness,
+              COALESCE(cev.review_state, 'NOT_REVIEWED') AS effectiveness_review_state
          FROM risk_actions ra
+         LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
          LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
          LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id) AND h.company_id = ra.company_id
          LEFT JOIN users u ON u.id = ra.assigned_to AND u.company_id = ra.company_id
@@ -254,6 +256,16 @@ export const scopedReportDataService = {
       ? auditCandidates
       : auditCandidates.filter((row: any) => row.resource_id && scopedIds.has(row.resource_id));
 
+    const effectiveness = {
+      effective: actions.filter((a: any) => a.effectiveness === 'Effective').length,
+      partially_effective: actions.filter((a: any) => a.effectiveness === 'Partially Effective').length,
+      not_effective: actions.filter((a: any) => a.effectiveness === 'Not Effective').length,
+      too_early: actions.filter((a: any) => a.effectiveness === 'Too Early To Assess').length,
+      finalised: actions.filter((a: any) => a.effectiveness_review_state === 'FINAL').length,
+      interim: actions.filter((a: any) => a.effectiveness_review_state === 'INTERIM').length,
+      not_reviewed: actions.filter((a: any) => a.effectiveness_review_state === 'NOT_REVIEWED').length,
+    };
+    Object.assign(totals, { effectiveness });
     const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit };
 
     return {

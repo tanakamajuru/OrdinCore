@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
+import { isOpenRisk } from "@/lib/governanceStatus";
 import {
   Shield, Flag, Clock, ClipboardCheck, TrendingUp, Users,
   ArrowUpRight, ArrowDownRight, Minus, Download,
@@ -8,6 +9,7 @@ import {
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { apiClient } from "@/services/api";
+import { isOpenEscalation } from "@/lib/governanceStatus";
 
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
 const asArray = (v: any): any[] => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
@@ -75,6 +77,7 @@ export function DirectorDashboard() {
   const [escalations, setEscalations] = useState<any[]>([]);
   const [escStats, setEscStats] = useState<any>({});
   const [actions, setActions] = useState<any[]>([]);
+  const [effectivenessSummary, setEffectivenessSummary] = useState<any>({});
   const [, setEffPending] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [heatmap, setHeatmap] = useState<any[]>([]);
@@ -90,7 +93,9 @@ export function DirectorDashboard() {
   const load = async () => {
     try {
       setLoading(true);
-      const [rk, esc, st, act, eff, hs, hm] = await Promise.all([
+      const end = new Date().toISOString();
+      const start = new Date(Date.now() - 30 * 86400000).toISOString();
+      const [rk, esc, st, act, eff, hs, hm, effSummary] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -98,6 +103,7 @@ export function DirectorDashboard() {
         apiClient.getPendingEffectiveness().catch(() => ({})),
         apiClient.get(`/houses?limit=100`).catch(() => ({})),
         apiClient.getCrossSiteHeatmap().catch(() => ({})),
+        apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -106,6 +112,7 @@ export function DirectorDashboard() {
       setEffPending(asArray(unwrap(eff)));
       setServices(asArray(unwrap(hs)));
       setHeatmap(asArray(unwrap(hm)));
+      setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
     } catch (err) {
       console.error(err);
       toast.error("Failed to load director dashboard");
@@ -120,7 +127,7 @@ export function DirectorDashboard() {
     </div>
   );
 
-  const openRisks = risks.filter(r => (r.status || "").toLowerCase() !== "closed");
+  const openRisks = risks.filter(isOpenRisk);
   // A risk's theme is its governance domain (risk_domain may be a text[] — take the first),
   // falling back to an explicit strategic theme, then the title. Grouping by this makes the
   // panel aggregate real themes rather than one bucket per unique risk title.
@@ -135,15 +142,15 @@ export function DirectorDashboard() {
   const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
   const stable = openRisks.length - rising - improving;
 
-  const openEsc = escalations.filter(e => (e.lifecycle_status || "") !== "Closed");
+  const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
 
-  const rated = actions.filter(a => a.effectiveness_outcome || a.effectiveness);
-  const effCount = (names: string[]) => rated.filter(a => names.includes(a.effectiveness_outcome) || names.includes(a.effectiveness)).length;
-  const effEffective = effCount(["Effective"]);
-  const effPartial = effCount(["Partially Effective", "Neutral"]);
-  const effNot = effCount(["Not Effective", "Ineffective"]);
-  const effPct = rated.length ? Math.round((effEffective / rated.length) * 100) : 0;
+  const effEffective = Number(effectivenessSummary.effective || 0);
+  const effPartial = Number(effectivenessSummary.partially_effective || 0);
+  const effNot = Number(effectivenessSummary.not_effective || 0);
+  const effTooEarly = Number(effectivenessSummary.too_early || 0);
+  const finalRatings = effEffective + effPartial + effNot;
+  const effPct = finalRatings ? Math.round((effEffective / finalRatings) * 100) : 0;
 
   const actionsDue = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
 
@@ -197,7 +204,7 @@ export function DirectorDashboard() {
           <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Actions Due" value={actionsDue.length}
             footer={<span className="text-muted-foreground">across services</span>} />
           <StatCard icon={TrendingUp} tone="bg-emerald-100 text-emerald-600" label="Action Effectiveness" value={`${effPct}%`}
-            footer={<><span className="text-amber-600">{rated.length ? Math.round(effPartial / rated.length * 100) : 0}% Partial</span><span className="text-red-600">{rated.length ? Math.round(effNot / rated.length * 100) : 0}% Not</span></>} />
+            footer={<><span className="text-amber-600">{finalRatings ? Math.round(effPartial / finalRatings * 100) : 0}% Partial</span><span className="text-red-600">{finalRatings ? Math.round(effNot / finalRatings * 100) : 0}% Not</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
           <StatCard icon={Users} tone="bg-rose-100 text-rose-600" label="Services Requiring Attention" value={servicesNeedingAttention}
             footer={<span className="text-muted-foreground">rising risk</span>} />
         </div>

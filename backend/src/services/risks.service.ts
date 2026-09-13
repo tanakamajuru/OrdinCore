@@ -51,7 +51,9 @@ export class RisksService {
       data.source_cluster_id ? 'Risk created from source cluster' : `Risk created (critical exception): ${exceptionReason}`,
       created_by
     );
-    await eventBus.emitEvent(EVENTS.RISK_CREATED, { risk_id: risk.id, company_id, created_by, severity: risk.severity });
+    await eventBus.emitEvent(EVENTS.RISK_CREATED,
+      { risk_id: risk.id, company_id, created_by, severity: risk.severity },
+      { idempotencyKey: `risk-created:${risk.id}` });
 
     // [ENGINE] Automated Escalation Trigger
     await this.checkAutoEscalation(risk);
@@ -331,7 +333,9 @@ export class RisksService {
       [risk_id, company_id]
     );
     await risksRepo.addEvent(risk_id, company_id, 'Escalated', `Risk escalated: ${data.reason}`, escalated_by);
-    await eventBus.emitEvent(EVENTS.RISK_ESCALATED, { risk_id, company_id, escalated_by, escalated_to: target });
+    await eventBus.emitEvent(EVENTS.RISK_ESCALATED,
+      { risk_id, escalation_id: id, company_id, escalated_by, escalated_to: target },
+      { idempotencyKey: `risk-escalated:${id}` });
 
     return { escalation_id: id, message: 'Risk escalated successfully' };
   }
@@ -559,12 +563,13 @@ export class RisksService {
     // Chapter 6 — the Risk Review gate. Closure is refused while required actions or a
     // linked escalation are still open, regardless of verdict. Task completion alone can
     // never close a risk; this is a separate, evidence-based governance decision.
-    const review = await this.closureReview(risk_id, company_id);
-    if (!review.eligible) {
-      throw new Error(`Risk cannot be closed yet: ${review.blockers.join(' ')}`);
+    const { canonicalGovernanceStateService } = await import('./canonicalGovernanceState.service');
+    const canonical = await canonicalGovernanceStateService.riskState(risk_id, company_id);
+    if (!canonical.closure.eligible) {
+      throw new Error(`Risk cannot be closed yet: ${canonical.closure.blockers.map((item) => `${item.message} [${item.record_type}:${item.record_id}]`).join(' ')}`);
     }
     if (verdict === 'Resolved — controls effective') {
-      if (Number(review.detail.effective_controls) < 1) {
+      if (canonical.effectiveness.latest_final_outcome !== 'Effective') {
         throw new Error("Cannot close as 'controls effective' — no control on this risk has been rated effective. Rate the control first, or choose another verdict.");
       }
     }

@@ -9,10 +9,10 @@ import { radius } from '@/theme/tokens';
 import { Screen, Row, Chip, Avatar, Text, Button, Field, Loading, ErrorNote } from '@/components/ui';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
 import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, DetailCard, PercentDonut, BoardButton, BoardItem, Tone } from '@/components/board';
+import { isOpenEscalation as isOpen } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || v?.houses || []);
 const sevOf = (r: any) => String(r.severity || r.risk_rating || r.current_severity || r.risk_level || '').toLowerCase();
-const isOpen = (r: any) => (r.status || r.lifecycle_status || '').toLowerCase() !== 'closed';
 const isDone = (a: any) => /complete|done|cancel/i.test(a.status || '');
 const isOverdue = (a: any) => /overdue/i.test(a.status || '') || (a.due_date && new Date(a.due_date) < new Date() && !isDone(a));
 const ago = (x?: string) => {

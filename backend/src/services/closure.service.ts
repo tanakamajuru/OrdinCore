@@ -1,5 +1,7 @@
 import { query } from '../config/database';
 import { eventBus, EVENTS } from '../events/eventBus';
+import { canonicalGovernanceStateService } from './canonicalGovernanceState.service';
+import { normalizeEscalationLifecycle } from '../domain/governanceVocabulary';
 
 export interface ClosureReviewInput {
   pattern_reduced: boolean;
@@ -32,19 +34,25 @@ export class ClosureService {
   async closeEscalation(companyId: string, escalationId: string, userId: string, input: ClosureReviewInput) {
     const existing = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [escalationId, companyId]);
     if (!existing.rows[0]) throw new Error('Escalation not found');
-    if (existing.rows[0].lifecycle_status === 'Closed') {
+    if (normalizeEscalationLifecycle(existing.rows[0].lifecycle_status ?? existing.rows[0].status) === 'Closed') {
       throw new Error('This escalation is already closed.');
     }
     if (input.further_escalation_required) throw new Error('Closure blocked: further escalation is required.');
     if (!input.pattern_reduced) throw new Error('Closure blocked: confirm that the reason for escalation has been addressed.');
     if (!input.evidence || input.evidence.trim().length < 20) throw new Error('Closure blocked: record meaningful evidence supporting closure.');
 
-    // Never trust UI checkboxes as proof. The canonical action rows are the gate.
+    // Never trust UI checkboxes as proof. Canonical action rows are the gate.
     const actionState = (await query(
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
-              COUNT(*) FILTER (WHERE completed_at IS NOT NULL
-                                AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
+              COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND (
+                COALESCE(effectiveness_outcome, effectiveness::text) IS NULL
+                OR COALESCE(effectiveness_outcome, effectiveness::text) = 'Too Early To Assess'))::int AS unreviewed,
+              COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND
+                COALESCE(effectiveness_outcome,
+                  CASE effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
+                    WHEN 'Ineffective' THEN 'Not Effective' ELSE effectiveness::text END)
+                  IN ('Partially Effective','Not Effective'))::int AS unsuccessful
          FROM risk_actions
         WHERE company_id = $1
           AND (escalation_id = $2
@@ -70,7 +78,8 @@ export class ClosureService {
     if (!basis || !allowedBases.includes(basis)) throw new Error('Closure blocked: select the evidence basis for closure.');
     if (actionState.total > 0) {
       if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
-      if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
+      if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need a final effectiveness review. Too Early to Assess is an interim review.`);
+      if (actionState.unsuccessful > 0) throw new Error(`Closure blocked: ${actionState.unsuccessful} linked control(s) are Partially Effective or Not Effective.`);
     } else if (basis === 'LINKED_ACTIONS') {
       throw new Error('Closure blocked: no linked action exists; select the genuine alternative evidence basis.');
     }
@@ -100,7 +109,9 @@ export class ClosureService {
       [userId, input.closure_reason || basis, auditedEvidence, escalationId, companyId]
     );
 
-    await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED, { escalation_id: escalationId, company_id: companyId, resolved_by: userId });
+    await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED,
+      { escalation_id: escalationId, company_id: companyId, resolved_by: userId },
+      { idempotencyKey: `escalation-closed:${escalationId}:${result.rows[0]?.closed_at || 'recorded'}` });
     return result.rows[0];
   }
 
@@ -111,17 +122,10 @@ export class ClosureService {
       throw new Error('This risk is already closed.');
     }
     this.assertClosable(input);
-    const actionState = (await query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
-              COUNT(*) FILTER (WHERE completed_at IS NOT NULL
-                                AND COALESCE(effectiveness_outcome, effectiveness::text) IS NULL)::int AS unreviewed
-         FROM risk_actions WHERE company_id = $1 AND risk_id = $2 AND status <> 'Cancelled'`,
-      [companyId, riskId]
-    )).rows[0];
-    if (!actionState.total) throw new Error('Closure blocked: no linked control/action evidence exists.');
-    if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
-    if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need an effectiveness review.`);
+    const canonical = await canonicalGovernanceStateService.riskState(riskId, companyId);
+    if (!canonical.closure.eligible) {
+      throw new Error(`Risk cannot be closed yet: ${canonical.closure.blockers.map((item) => `${item.message} [${item.record_type}:${item.record_id}]`).join(' ')}`);
+    }
     if (!input.pattern_reduced) throw new Error('Closure blocked: sustained reduction has not been evidenced.');
     if (!input.evidence || input.evidence.trim().length < 10) throw new Error('Closure blocked: record the evidence supporting closure.');
 

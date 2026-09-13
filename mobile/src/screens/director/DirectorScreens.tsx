@@ -10,10 +10,10 @@ import { Screen, Row, Avatar, Text, Button, Loading } from '@/components/ui';
 import { OutstandingBanner } from '@/components/OutstandingBanner';
 import { BoardHeader, Metrics, SectionTitle, StatusList, Checklist, PercentDonut, BoardButton, BoardItem, Tone } from '@/components/board';
 import { MultiLineChart } from '@/components/MultiLineChart';
+import { isOpenEscalation as isOpen } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.pulses || v?.actions || v?.escalations || v?.risks || []);
 const sevOf = (r: any) => String(r.severity || r.risk_rating || r.current_severity || '').toLowerCase();
-const isOpen = (r: any) => (r.status || r.lifecycle_status || '').toLowerCase() !== 'closed';
 const isDone = (a: any) => /complete|done|cancel/i.test(a.status || '');
 const domainOf = (s: any) => (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain || s.governance_domain || s.category || 'Other');
 const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });

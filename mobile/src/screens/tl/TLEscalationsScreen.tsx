@@ -3,6 +3,7 @@ import { useApi } from '@/api/useApi';
 import { Screen, Row, Chip, Loading, ErrorNote } from '@/components/ui';
 import { BoardHeader, StatusList, BoardItem } from '@/components/board';
 import { useNavigation } from '@react-navigation/native';
+import { isOpenEscalation } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.escalations || []);
 const ago = (x?: string) => {
@@ -16,7 +17,7 @@ export function TLEscalationsScreen() {
   const { data, loading, error, refetch } = useApi<any>('/escalations?limit=200');
   const [tab, setTab] = useState<'open' | 'overdue'>('open');
   const all = arr(data);
-  const open = all.filter((e) => (e.lifecycle_status || '') !== 'Closed');
+  const open = all.filter(isOpenEscalation);
   const overdue = open.filter((e) => e.overdue);
   const shown = tab === 'overdue' ? overdue : open;
   const items: BoardItem[] = shown.map((e) => {

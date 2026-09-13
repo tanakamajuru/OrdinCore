@@ -145,7 +145,9 @@ export class IncidentsService {
       }
     }
 
-    await eventBus.emitEvent(EVENTS.INCIDENT_CREATED, { incident_id: incident.id, company_id, created_by, severity: incident.severity });
+    await eventBus.emitEvent(EVENTS.INCIDENT_CREATED,
+      { incident_id: incident.id, company_id, created_by, severity: incident.severity },
+      { idempotencyKey: `incident-created:${incident.id}` });
     return incident;
   }
 
@@ -258,7 +260,9 @@ export class IncidentsService {
       created_by: user_id
     });
 
-    await eventBus.emitEvent(EVENTS.INCIDENT_RESOLVED, { incident_id, company_id, resolved_by: user_id });
+    await eventBus.emitEvent(EVENTS.INCIDENT_RESOLVED,
+      { incident_id, company_id, resolved_by: user_id },
+      { idempotencyKey: `incident-resolved:${incident_id}` });
     return updated;
   }
 }

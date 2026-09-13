@@ -18,7 +18,7 @@ export function RMPatternsScreen() {
   const patterns = arr(list.data).filter((p) => !/dismissed|resolved/i.test(p.cluster_status || ''));
   const submit = async () => {
     if (rationale.trim().length < 20) { Alert.alert('Add a rationale', 'Use at least one clear sentence.'); return; }
-    if (outcome === 'Continue Monitoring' && !nextDate) { Alert.alert('Add next review date', 'Use YYYY-MM-DD.'); return; }
+    if (outcome === 'Continue Monitoring' && (!nextDate || new Date(`${nextDate}T00:00:00`).getTime() <= Date.now())) { Alert.alert('Add a future review date', 'Use YYYY-MM-DD and choose a date after today.'); return; }
     setBusy(true);
     try {
       await api.post(`/governance-workflow/patterns/${selected.id}/review`, { outcome, rationale: rationale.trim(), next_review_date: nextDate || undefined });

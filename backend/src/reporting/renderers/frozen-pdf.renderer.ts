@@ -132,6 +132,8 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
   ].length;
   heading(doc, 'Report summary');
   paragraph(doc, `${position(data)} The frozen evidence records ${openRisks} open risk(s), ${openEscalations} open escalation(s), and ${openActions} open action(s). ${gaps ? `${gaps} record(s) require missing ownership, due-date or decision-rationale information to be completed.` : 'No missing ownership, due-date or decision-rationale field was identified in the records tested.'}`);
+  const eff = data.totals?.effectiveness;
+  if (eff) paragraph(doc, `Effectiveness reviews in this snapshot: ${eff.effective || 0} Effective, ${eff.partially_effective || 0} Partially Effective, ${eff.not_effective || 0} Not Effective, and ${eff.too_early || 0} Too Early to Assess. Too Early is an interim review and is not included as a final verdict.`);
   if (row.narrative) {
     heading(doc, 'Narrative explanation');
     paragraph(doc, row.narrative);
@@ -141,6 +143,7 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
 
 // ── evidence-led helpers ───────────────────────────────────────────────────────
 const isOpen = (status: any) => !/complete|completed|cancel|closed|resolved/i.test(clean(status));
+const isPositiveEffectiveness = (value: any) => ['Effective', 'Partially Effective'].includes(clean(value));
 const inPeriod = (value: any, data: any) => {
   if (!value || !data.period?.start || !data.period?.end) return false;
   const at = new Date(value).getTime();
@@ -253,7 +256,7 @@ function renderOverview(doc: PDFKit.PDFDocument, data: any) {
   heading(doc, '3. Recorded response');
   bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
   heading(doc, '4. Evidenced improvement');
-  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && /effective|improv|reduc/i.test(a.effectiveness) && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
+  bullets(doc, (e.actions || []).filter((a: any) => isPositiveEffectiveness(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
   heading(doc, '5. Unresolved work');
   bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No unresolved action or escalation was recorded.', 6);
   heading(doc, '6. Management priority'); paragraph(doc, position(data));
@@ -387,7 +390,7 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
   ], 'No service was in scope for this report.', 12);
   heading(doc, '3. What is evidenced as working');
-  bullets(doc, (e.actions || []).filter((a: any) => a.effectiveness && /effective|improv|reduc/i.test(a.effectiveness) && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
+  bullets(doc, (e.actions || []).filter((a: any) => isPositiveEffectiveness(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
   heading(doc, '4. Assurance limitations');
   bullets(doc, [
     ...(data.material_exceptions || []).map((x: any) => `${clean(x.site_name)} - ${clean(x.status)} (governance confidence ${x.governance_confidence ?? '—'}%)`),

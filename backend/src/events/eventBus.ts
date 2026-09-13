@@ -8,16 +8,21 @@ class EventBus extends EventEmitter {
     this.setMaxListeners(50);
   }
 
-  async emitEvent(event: string, payload: Record<string, unknown>) {
+  async emitEvent(event: string, payload: Record<string, unknown>, options?: { idempotencyKey?: string }) {
     logger.info(`Event emitted: ${event}`, { payload });
-    this.emit(event, payload);
-    // Persist to system_events
+    // Persist before publishing. Material callers provide a stable idempotency key; replaying
+    // the same transition then neither duplicates the durable row nor re-runs listeners.
     try {
-      await query(
-        `INSERT INTO system_events (event_type, payload, created_at)
-         VALUES ($1, $2, NOW())`,
-        [event, JSON.stringify(payload)]
+      const companyId = typeof payload.company_id === 'string' ? payload.company_id : null;
+      const inserted = await query(
+        `INSERT INTO system_events (event_type, payload, company_id, idempotency_key, created_at)
+         VALUES ($1,$2,$3,$4,NOW())
+         ON CONFLICT (company_id,event_type,idempotency_key)
+           WHERE company_id IS NOT NULL AND idempotency_key IS NOT NULL DO NOTHING
+         RETURNING id`,
+        [event, JSON.stringify(payload), companyId, options?.idempotencyKey || null]
       );
+      if (inserted.rows[0]) this.emit(event, payload);
     } catch (err) {
       logger.error('Failed to persist system event', { event, err });
     }
@@ -48,6 +53,7 @@ export const EVENTS = {
   AUDIT_LOG: 'audit_log',
   SIGNAL_CREATED: 'signal.created',
   GOVERNANCE_CONCERN: 'governance_concern',
+  ACTION_EFFECTIVENESS_REVIEWED: 'action_effectiveness_reviewed',
 } as const;
 
 export type EventType = (typeof EVENTS)[keyof typeof EVENTS];

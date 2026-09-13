@@ -5,6 +5,7 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { useApi } from '@/api/useApi';
 import { Screen, Text, Row, Pill, Button, Loading } from '@/components/ui';
 import { StatCard, Section, Donut } from '@/components/dashboard';
+import { isOpenEscalation } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.escalations || v?.actions || v?.rows || []);
 const isRising = (t?: string) => ['Rising', 'Deteriorating', 'Critical'].includes(String(t || ''));
@@ -44,7 +45,7 @@ export function DirectorAssuranceScreen() {
   const stable = Math.max(openRisks.length - rising - improving, 0);
 
   const escList = arr(esc.data);
-  const openEsc = escList.filter((e: any) => (e.lifecycle_status || '') !== 'Closed');
+  const openEsc = escList.filter(isOpenEscalation);
   const overdueEsc = escList.filter((e: any) => e.overdue).length;
 
   const actions = arr(acts.data);

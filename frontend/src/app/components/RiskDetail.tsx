@@ -51,6 +51,7 @@ interface Action {
   verification_notes?: string;
   effectiveness?: string;
   effectiveness_outcome?: string;
+  intended_outcome?: string;
   completion_outcome?: string;
   completion_rationale?: string;
   completion_note?: string;
@@ -110,13 +111,36 @@ export function RiskDetail() {
   const [closeReason, setCloseReason] = useState("");
   const [closureReview, setClosureReview] = useState<any>(null);
 
-  // Chapter 6 — when the close flow opens, fetch the derived four-question Risk Review.
+  // Chapter 6 — closure reads the same canonical state enforced by the mutation endpoint.
   useEffect(() => {
     if (!showCloseModal || !id) { setClosureReview(null); return; }
     (async () => {
       try {
-        const res: any = await apiClient.get(`/risks/${id}/closure-review`);
-        setClosureReview(res?.data?.data ?? res?.data ?? null);
+        const res: any = await apiClient.get(`/governance-state/risks/${id}`);
+        const state = res?.data?.data ?? res?.data ?? null;
+        const blockerRows = state?.closure?.blockers || [];
+        setClosureReview(state ? {
+          eligible: state.closure.eligible,
+          questions: {
+            actions_complete: state.actions.open === 0 && state.actions.total > 0,
+            interventions_effective: state.effectiveness.latest_final_outcome === 'Effective',
+            trajectory_improved: state.trajectory?.direction !== 'Deteriorating',
+            no_recurring_signals: state.monitoring.reduction_evidenced,
+          },
+          detail: {
+            actions_open: state.actions.open,
+            effective_controls: state.effectiveness.latest_final_outcome === 'Effective' ? 1 : 0,
+            trajectory_direction: state.trajectory?.direction,
+            signals_last_14d: state.trajectory?.evidence?.current14DaySignals ?? 0,
+            trajectory_calculation_version: state.trajectory?.evidence?.calculationVersion || 'trajectory-v3',
+          },
+          blockers: blockerRows.map((item: any) => item.message),
+          blocking_records: {
+            actions: blockerRows.filter((item: any) => item.record_type === 'ACTION').map((item: any) => ({ id: item.record_id, title: item.message, status: item.code, href: item.route })),
+            escalations: blockerRows.filter((item: any) => item.record_type === 'ESCALATION').map((item: any) => ({ id: item.record_id, title: item.message, status: item.code, href: item.route })),
+            effectiveness_reviews: blockerRows.filter((item: any) => item.record_type === 'EFFECTIVENESS').map((item: any) => ({ id: item.record_id, title: item.message, status: item.code, href: item.route })),
+          },
+        } : null);
       } catch { setClosureReview(null); }
     })();
   }, [showCloseModal, id]);
@@ -127,8 +151,10 @@ export function RiskDetail() {
   const [isVerifying, setIsVerifying] = useState(false);
   
   const [showEffectivenessAction, setShowEffectivenessAction] = useState<string | null>(null);
-  const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Partially Effective" | "Not Effective">("Effective");
+  const [effectivenessRating, setEffectivenessRating] = useState<"Effective" | "Partially Effective" | "Not Effective" | "Too Early To Assess">("Effective");
   const [effectivenessEvidence, setEffectivenessEvidence] = useState("");
+  const [effectivenessIntendedOutcome, setEffectivenessIntendedOutcome] = useState("");
+  const [effectivenessNextReviewDate, setEffectivenessNextReviewDate] = useState("");
   const [effectivenessFile, setEffectivenessFile] = useState<File | null>(null);
   const [isRating, setIsRating] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState<{ id: string; title: string } | null>(null);
@@ -409,15 +435,19 @@ export function RiskDetail() {
 
   const handleRateEffectiveness = async () => {
     if (!showEffectivenessAction) return;
-    if (effectivenessEvidence.trim().length < 20) {
+    if (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) {
       toast.error('Please provide at least 20 characters of evidence.');
       return;
     }
+    if (effectivenessIntendedOutcome.trim().length < 10) { toast.error('Record the intended outcome before rating effectiveness.'); return; }
+    if (effectivenessRating === 'Too Early To Assess' && (!effectivenessNextReviewDate || new Date(`${effectivenessNextReviewDate}T00:00:00`).getTime() <= Date.now())) { toast.error('Choose a future effectiveness review date.'); return; }
     setIsRating(true);
     try {
-      await apiClient.post(`/risks/${id}/actions/${showEffectivenessAction}/effectiveness`, {
+      await apiClient.patch(`/actions/${showEffectivenessAction}/effectiveness`, {
         outcome: effectivenessRating,
         evidence: effectivenessEvidence.trim(),
+        intended_outcome: effectivenessIntendedOutcome.trim(),
+        next_review_date: effectivenessRating === 'Too Early To Assess' ? effectivenessNextReviewDate : undefined,
       });
       // Optional supporting document (JPG/PDF) → stored as an evidence attachment on the risk.
       if (effectivenessFile) {
@@ -441,6 +471,8 @@ export function RiskDetail() {
       toast.success('Effectiveness rated successfully');
       setShowEffectivenessAction(null);
       setEffectivenessEvidence("");
+      setEffectivenessIntendedOutcome("");
+      setEffectivenessNextReviewDate("");
       setEffectivenessFile(null);
       if (id) loadRiskDetails(id);
     } catch (error: any) {
@@ -865,7 +897,7 @@ export function RiskDetail() {
 
                             {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
                                 <button
-                                    onClick={() => hasImpact ? setShowEffectivenessAction(action.id) : (document.getElementById('rd-actions')?.scrollIntoView({ behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — it sits above Controls & Effectiveness.'))}
+                                    onClick={() => hasImpact ? (setShowEffectivenessAction(action.id), setEffectivenessIntendedOutcome(action.intended_outcome || ''), setEffectivenessNextReviewDate('')) : (document.getElementById('rd-actions')?.scrollIntoView({ behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — it sits above Controls & Effectiveness.'))}
                                     disabled={!hasImpact}
                                     title={hasImpact ? 'Rate this control’s effectiveness' : 'Record the risk impact first'}
                                     className="text-[10px]  uppercase font-bold bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
@@ -1240,6 +1272,9 @@ export function RiskDetail() {
               </div>
             ) : null; })()}
 
+            <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Intended outcome</label>
+            <textarea value={effectivenessIntendedOutcome} onChange={(e) => setEffectivenessIntendedOutcome(e.target.value)} rows={2} placeholder="What should have changed if this action worked?" className="w-full border-2 border-border bg-card p-3 text-sm mb-4 focus:outline-none focus:border-primary" />
+
             <div className="flex gap-3 mb-8">
                 <button
                     onClick={() => setEffectivenessRating('Effective')}
@@ -1265,9 +1300,15 @@ export function RiskDetail() {
                 >
                     Not Effective
                 </button>
+                <button
+                    onClick={() => setEffectivenessRating('Too Early To Assess')}
+                    className={`flex-1 py-3 text-sm uppercase tracking-wide border-2 transition-all ${effectivenessRating === 'Too Early To Assess' ? 'bg-sky-600 text-white border-sky-600' : 'bg-card text-foreground border-border hover:bg-muted'}`}
+                >
+                    Too Early
+                </button>
             </div>
 
-            <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Evidence <span className="text-destructive">*</span></label>
+            <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Evidence {effectivenessRating !== 'Too Early To Assess' && <span className="text-destructive">*</span>}</label>
             <textarea
               value={effectivenessEvidence}
               onChange={(e) => setEffectivenessEvidence(e.target.value)}
@@ -1275,9 +1316,8 @@ export function RiskDetail() {
               placeholder="What evidence shows this control worked (or didn't)? e.g. MAR audit over 7 days, zero recurrences."
               className="w-full border-2 border-border bg-card p-3 text-sm mb-1 focus:outline-none focus:border-primary"
             />
-            <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>
-              {effectivenessEvidence.trim().length}/20 characters minimum
-            </p>
+            {effectivenessRating !== 'Too Early To Assess' && <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>{effectivenessEvidence.trim().length}/20 characters minimum</p>}
+            {effectivenessRating === 'Too Early To Assess' && <div className="mb-4"><label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Next review date</label><input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={effectivenessNextReviewDate} onChange={(e) => setEffectivenessNextReviewDate(e.target.value)} className="w-full border-2 border-border bg-card p-3 text-sm" /></div>}
 
             <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Supporting document <span className="text-muted-foreground normal-case tracking-normal">(optional · JPG or PDF)</span></label>
             <input
@@ -1290,14 +1330,14 @@ export function RiskDetail() {
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowEffectivenessAction(null); setEffectivenessEvidence(""); setEffectivenessFile(null); }}
+                onClick={() => { setShowEffectivenessAction(null); setEffectivenessEvidence(""); setEffectivenessIntendedOutcome(""); setEffectivenessNextReviewDate(""); setEffectivenessFile(null); }}
                 className="px-6 py-2 bg-card text-foreground  uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
               </button>
               <button
                 onClick={handleRateEffectiveness}
-                disabled={isRating || effectivenessEvidence.trim().length < 20}
+                disabled={isRating || effectivenessIntendedOutcome.trim().length < 10 || (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) || (effectivenessRating === 'Too Early To Assess' && !effectivenessNextReviewDate)}
                 className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}

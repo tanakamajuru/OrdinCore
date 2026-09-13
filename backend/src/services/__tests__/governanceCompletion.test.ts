@@ -125,10 +125,28 @@ describe('§5 Pattern closure — blocked while work is outstanding', () => {
     mockQuery.mockImplementation(async (sql: string) => {
       if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: null, last_reviewed_at: new Date() }] } as any;
       if (/FROM escalations/.test(sql)) return { rows: [{ n: 0 }] } as any;
-      if (/FROM risk_actions/.test(sql) && /status NOT IN/.test(sql)) return { rows: [{ n: 1 }] } as any; // open action
+      if (/FROM risk_actions/.test(sql) && /NOT IN/.test(sql) && !/effectiveness_outcome/.test(sql)) return { rows: [{ n: 1 }] } as any; // open action
       if (/FROM risk_actions/.test(sql)) return { rows: [{ n: 0 }] } as any;
       if (/FROM governance_reviews/.test(sql)) return { rows: [{ n: 0 }] } as any;
       if (/FROM risk_signal_links/.test(sql)) return { rows: [{ n: 0 }] } as any;
+      return { rows: [{ n: 0 }] } as any;
+    });
+
+    const res = await governanceWorkflowService.assessPatternClosure('co', 'cl-1');
+    expect(res.eligible).toBe(false);
+    expect(res.blockers.join(' ')).toMatch(/action from this pattern is still open/i);
+  });
+
+  it('follows the promoted risk lineage when checking pattern work', async () => {
+    mockQuery.mockReset();
+    mockQuery.mockImplementation(async (sql: string, params?: unknown[]) => {
+      if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: 'risk-1', last_reviewed_at: new Date() }] } as any;
+      if (/FROM risks WHERE id/.test(sql)) return { rows: [] } as any;
+      if (/FROM risk_actions/.test(sql) && /NOT IN/.test(sql) && !/effectiveness_outcome/.test(sql)) {
+        expect(sql).toMatch(/risk_id = \$3/);
+        expect(params).toEqual(['co', 'cl-1', 'risk-1']);
+        return { rows: [{ n: 1 }] } as any;
+      }
       return { rows: [{ n: 0 }] } as any;
     });
 
@@ -219,7 +237,7 @@ describe('§4 Escalation closure — follows every valid action lineage key', ()
         id: 'e1', lifecycle_status: 'Monitoring Effectiveness', risk_id: null,
         source_governance_review_id: 'g1', source_pulse_id: 'p1', source_cluster_id: 'c1',
       }] } as any;
-      if (/FROM risk_actions/.test(sql)) return { rows: [{ total: 1, incomplete: 0, unreviewed: 0 }] } as any;
+      if (/FROM risk_actions/.test(sql)) return { rows: [{ total: 1, incomplete: 0, unreviewed: 0, unsuccessful: 0 }] } as any;
       if (/UPDATE escalations/.test(sql)) return { rows: [{ id: 'e1', lifecycle_status: 'Closed' }] } as any;
       return { rows: [] } as any;
     });

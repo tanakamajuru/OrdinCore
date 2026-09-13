@@ -7,6 +7,10 @@ import { trajectoryForRisk } from './trajectory.service';
 import { EffectivenessOutcome, normalizeEffectiveness, toLegacyEffectiveness } from '../domain/effectiveness';
 import { canonicalActionDomainSql } from '../domain/governanceDomain';
 import { governancePropagationService } from './governancePropagation.service';
+import { escalationLifecycleService } from './escalationLifecycle.service';
+import { v4 as uuidv4 } from 'uuid';
+import { canonicalReportingService } from './canonicalReporting.service';
+import { eventBus, EVENTS } from '../events/eventBus';
 
 export type { EffectivenessOutcome } from '../domain/effectiveness';
 
@@ -15,7 +19,7 @@ export class ActionEffectivenessService {
     actionId: string,
     company_id: string,
     userId: string,
-    data: { outcome?: EffectivenessOutcome; effectiveness?: 'Effective' | 'Neutral' | 'Ineffective'; evidence?: string; note?: string; intended_outcome?: string }
+    data: { outcome?: EffectivenessOutcome; effectiveness?: 'Effective' | 'Neutral' | 'Ineffective'; evidence?: string; note?: string; intended_outcome?: string; next_review_date?: string }
   ) {
     const action = await risksRepo.getActionById(actionId, company_id);
     if (!action) throw new Error('Action not found');
@@ -43,6 +47,14 @@ export class ActionEffectivenessService {
     }
 
     const legacy = toLegacyEffectiveness(outcome);
+    let nextReviewDate: Date | null = null;
+    if (outcome === 'Too Early To Assess') {
+      if (!data.next_review_date) throw new Error('Too Early to Assess requires a future review date.');
+      nextReviewDate = new Date(`${data.next_review_date}T00:00:00.000Z`);
+      if (Number.isNaN(nextReviewDate.getTime()) || nextReviewDate.getTime() <= Date.now()) {
+        throw new Error('The next effectiveness review date must be in the future.');
+      }
+    }
 
     const result = await query(
       `UPDATE risk_actions
@@ -54,12 +66,21 @@ export class ActionEffectivenessService {
            effectiveness_reviewed_by = $4,
            effectiveness_reviewed_at = NOW(),
            verification_notes = COALESCE($3, verification_notes),
-           intended_outcome = COALESCE(NULLIF($7, ''), intended_outcome)
+           intended_outcome = COALESCE(NULLIF($7, ''), intended_outcome),
+           effectiveness_due_at = $8
        WHERE id = $5 AND company_id = $6 RETURNING *`,
-      [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome]
+      [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome, nextReviewDate]
     );
 
     const updatedAction = result.rows[0];
+    const reviewId = uuidv4();
+    await query(
+      `INSERT INTO action_effectiveness_reviews
+        (id, company_id, action_id, outcome, intended_outcome, evidence, reviewed_by, reviewed_at, next_review_date)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)`,
+      [reviewId, company_id, actionId, outcome, intendedOutcome, evidence || null, userId, nextReviewDate],
+    );
+    await escalationLifecycleService.syncForAction(actionId, company_id);
     logger.info(`Action ${actionId} rated as ${outcome} by ${userId}`);
 
     // Trigger trajectory pipeline (only when the outcome maps to a directional signal).
@@ -72,8 +93,7 @@ export class ActionEffectivenessService {
       await reviewObligationsService.open({
         companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
         actionId, riskId: updatedAction.risk_id || null,
-        dueAt: updatedAction.effectiveness_due_at && new Date(updatedAction.effectiveness_due_at) > new Date()
-          ? updatedAction.effectiveness_due_at : new Date(Date.now() + 7 * 86400000),
+        dueAt: nextReviewDate!,
         ownerRole: 'REGISTERED_MANAGER', reason: 'Effectiveness was too early to assess; repeat the review with further evidence.',
       });
     } else {
@@ -84,6 +104,11 @@ export class ActionEffectivenessService {
         outcome, actorId: userId,
       });
     }
+
+    await eventBus.emitEvent(EVENTS.ACTION_EFFECTIVENESS_REVIEWED, {
+      company_id, action_id: actionId, risk_id: updatedAction.risk_id || null,
+      review_id: reviewId, outcome, reviewed_by: userId,
+    }, { idempotencyKey: `action-effectiveness:${reviewId}` });
 
     return updatedAction;
   }
@@ -183,53 +208,22 @@ export class ActionEffectivenessService {
     }));
   }
 
-  async summary(company_id: string, start: string, end: string) {
-    const domain = canonicalActionDomainSql({ action: 'ra', risk: 'r', cluster: 'sc', pulse: 'p' });
+  async history(actionId: string, companyId: string) {
     const result = await query(
-      `WITH reviewed AS (
-         SELECT ra.id, COALESCE(ra.effectiveness_outcome,
-                  CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
-                    WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END) AS outcome,
-                ra.effectiveness_reviewed_at::date AS day,
-                ${domain} AS domain,
-                COALESCE(h.name, 'Organisation-wide') AS service_name
-           FROM risk_actions ra
-           LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
-           LEFT JOIN signal_clusters sc ON sc.id=ra.source_cluster_id AND sc.company_id=ra.company_id
-           LEFT JOIN governance_pulses p ON p.id=ra.source_pulse_id AND p.company_id=ra.company_id
-           LEFT JOIN houses h ON h.id=COALESCE(ra.house_id,r.house_id)
-          WHERE ra.company_id=$1
-            AND ra.effectiveness_reviewed_at BETWEEN $2::timestamptz AND $3::timestamptz
-            AND (ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
-       )
-       SELECT
-         (SELECT JSON_BUILD_OBJECT(
-           'effective', COUNT(*) FILTER (WHERE outcome='Effective'),
-           'neutral', COUNT(*) FILTER (WHERE outcome='Partially Effective'),
-           'ineffective', COUNT(*) FILTER (WHERE outcome='Not Effective'),
-           'too_early', COUNT(*) FILTER (WHERE outcome='Too Early To Assess')) FROM reviewed) AS org_summary,
-         COALESCE((SELECT JSON_AGG(x ORDER BY service_name) FROM (
-           SELECT service_name, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
-             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
-             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
-           FROM reviewed GROUP BY service_name) x), '[]'::json) AS service_comparison,
-         COALESCE((SELECT JSON_AGG(x ORDER BY domain) FROM (
-           SELECT domain, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
-             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS neutral,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
-             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
-           FROM reviewed GROUP BY domain) x), '[]'::json) AS domain_analysis,
-         COALESCE((SELECT JSON_AGG(x ORDER BY day) FROM (
-           SELECT day, COUNT(*) FILTER (WHERE outcome='Effective')::int AS effective,
-             COUNT(*) FILTER (WHERE outcome='Partially Effective')::int AS partial,
-             COUNT(*) FILTER (WHERE outcome='Not Effective')::int AS ineffective,
-             COUNT(*) FILTER (WHERE outcome='Too Early To Assess')::int AS too_early
-           FROM reviewed GROUP BY day) x), '[]'::json) AS daily_trend`,
-      [company_id, start, end]
+      `SELECT aer.*, u.first_name || ' ' || u.last_name AS reviewed_by_name
+         FROM action_effectiveness_reviews aer
+         JOIN users u ON u.id=aer.reviewed_by AND u.company_id=aer.company_id
+        WHERE aer.action_id=$1 AND aer.company_id=$2
+        ORDER BY aer.reviewed_at DESC`,
+      [actionId, companyId],
     );
+    return result.rows;
+  }
+
+  async summary(company_id: string, start: string, end: string) {
+    const result = await canonicalReportingService.effectivenessSummary(company_id, { start, end });
     const pending = await this.getPendingEffectiveness(company_id);
-    return { ...(result.rows[0] || {}), pending, pending_count: pending.length };
+    return { ...result, pending, pending_count: pending.length };
   }
 }
 

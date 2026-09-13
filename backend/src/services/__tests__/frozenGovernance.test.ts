@@ -46,6 +46,9 @@ function wireClosure(s: ClosureState) {
     },
   });
   mockQuery.mockImplementation(async (sql: string) => {
+    if (/SELECT id, status, source_cluster_id, next_review_date FROM risks/.test(sql)) {
+      return { rows: [{ id: 'risk-1', status: 'Open', source_cluster_id: null, next_review_date: null }] } as any;
+    }
     if (/SELECT DISTINCT ra\.id/.test(sql) && /FROM risk_actions ra/.test(sql)) {
       return { rows: Array.from({ length: s.actionsTotal }, (_, i) => ({
         id: `action-${i + 1}`,
@@ -152,6 +155,15 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
   it('requires a meaningful rationale', async () => {
     mockQuery.mockReset();
     await expect(governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Escalate', 'short')).rejects.toThrow(/rationale/i);
+  });
+
+  it('requires Continue Monitoring to use a future review date', async () => {
+    mockQuery.mockReset();
+    await expect(governanceWorkflowService.reviewPattern(
+      'co-1', 'c-1', 'u-1', 'Continue Monitoring',
+      'The pattern needs another monitoring period before a final decision.', '2000-01-01'
+    )).rejects.toThrow(/future review date/i);
+    expect(mockGetClient).not.toHaveBeenCalled();
   });
 
   it('cannot close while the linked risk is active', async () => {

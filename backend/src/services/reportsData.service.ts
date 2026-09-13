@@ -47,9 +47,10 @@ export class ReportsDataService {
               (SELECT string_agg(
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
                  || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
-                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
                FROM risk_actions ra
+               LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               h.name AS service_name
        FROM risks r
@@ -84,9 +85,10 @@ export class ReportsDataService {
               (SELECT string_agg(
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
                  || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
-                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
                FROM risk_actions ra
+               LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.escalation_id=e.id OR ra.governance_review_id=e.source_governance_review_id
                   OR (e.risk_id IS NOT NULL AND ra.risk_id=e.risk_id)
                   OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id=e.source_pulse_id)
@@ -150,9 +152,10 @@ export class ReportsDataService {
               r.trajectory, r.status,
               (SELECT string_agg(
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
-                 || CASE WHEN ra.effectiveness_outcome IS NOT NULL THEN ' — ' || ra.effectiveness_outcome::text ELSE '' END,
+                 || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
                FROM risk_actions ra
+               LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               d.kloe_label, d.kloe_code
          FROM risks r

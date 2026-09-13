@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
 import { narrativeService } from './narrative.service';
 import { emitToCompany } from '../websocket/socket.server';
+import { canonicalReportingService } from './canonicalReporting.service';
 
 export class DirectorGovernanceService {
   /**
@@ -10,73 +11,7 @@ export class DirectorGovernanceService {
    * Aggregates from risk_actions for organisational visibility.
    */
   async getActionEffectivenessSummary(companyId: string, dateRange: { start: string; end: string }) {
-    const sql = `
-      WITH stats AS (
-        SELECT 
-          h.id as service_id,
-          COALESCE(h.name, 'Organisation-wide') as service_name,
-          COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text, ra.effectiveness::text) as outcome,
-          ra.completed_at::date as day,
-          -- Never emit a nameless bar: a systemic (cross-service) risk carries its theme in
-          -- strategic_theme rather than risk_domain, and either can be blank — fall back so the
-          -- x-axis always has a readable label instead of an anonymous first column.
-          COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), 'Uncategorised') as domain
-        FROM risk_actions ra
-        JOIN risks r ON r.id = ra.risk_id
-        -- LEFT JOIN so a systemic risk (house_id NULL — it belongs to the organisation, not one
-        -- house) still contributes to effectiveness, instead of being silently dropped.
-        LEFT JOIN houses h ON h.id = r.house_id
-        WHERE r.company_id = $1
-        AND ra.completed_at BETWEEN $2 AND $3
-        AND (ra.calculated_outcome IS NOT NULL OR ra.rm_override_outcome IS NOT NULL OR ra.director_override_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
-      )
-      SELECT
-        (SELECT json_build_object(
-          'effective', COUNT(*) FILTER (WHERE outcome = 'Effective'),
-          'neutral', COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')),
-          'ineffective', COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective'))
-        ) FROM stats) as org_summary,
-
-        (SELECT json_agg(comparison) FROM (
-          SELECT
-            service_name,
-            COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as neutral,
-            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
-          FROM stats
-          GROUP BY service_name
-        ) comparison) as service_comparison,
-
-        (SELECT json_agg(domain_stats) FROM (
-          SELECT
-            domain,
-            COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as neutral,
-            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
-          FROM stats
-          GROUP BY domain
-        ) domain_stats) as domain_analysis,
-
-        (SELECT json_agg(trend) FROM (
-          SELECT
-            day,
-            COUNT(*) FILTER (WHERE outcome = 'Effective') as effective,
-            COUNT(*) FILTER (WHERE outcome IN ('Partially Effective', 'Neutral')) as partial,
-            COUNT(*) FILTER (WHERE outcome IN ('Not Effective', 'Ineffective')) as ineffective
-          FROM stats
-          GROUP BY day
-          ORDER BY day ASC
-        ) trend) as daily_trend
-    `;
-
-    // logger.info(`Executing effectiveness summary SQL: ${sql}`);
-    const res = await query(sql, [companyId, dateRange.start, dateRange.end]);
-    return res.rows[0] || {
-      org_summary: { effective: 0, neutral: 0, ineffective: 0 },
-      service_comparison: [],
-      domain_analysis: [],
-      daily_trend: []
-    };
+    return canonicalReportingService.effectivenessSummary(companyId, dateRange);
   }
 
   /**
@@ -91,8 +26,9 @@ export class DirectorGovernanceService {
       FROM risk_actions ra
       JOIN risks r ON r.id = ra.risk_id
       WHERE r.company_id = $1
-      AND COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text, ra.effectiveness::text) = 'Ineffective'
-      AND ra.completed_at >= NOW() - INTERVAL '14 days'
+      AND COALESCE(ra.effectiveness_outcome,
+            CASE ra.effectiveness::text WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END) = 'Not Effective'
+      AND ra.effectiveness_reviewed_at >= NOW() - INTERVAL '14 days'
       GROUP BY ra.risk_id, r.house_id
       HAVING COUNT(*) >= 2
     `;
@@ -107,14 +43,15 @@ export class DirectorGovernanceService {
       });
     }
 
-    // 2. Neutral outcomes threshold (≥3 on same risk)
+    // 2. Partially Effective outcomes threshold (≥3 on same risk)
     const neutralSql = `
       SELECT ra.risk_id, r.house_id as service_id, COUNT(*) as count
       FROM risk_actions ra
       JOIN risks r ON r.id = ra.risk_id
       WHERE r.company_id = $1
-      AND COALESCE(ra.director_override_outcome::text, ra.rm_override_outcome::text, ra.calculated_outcome::text) = 'Neutral'
-      AND ra.completed_at >= NOW() - INTERVAL '30 days'
+      AND COALESCE(ra.effectiveness_outcome,
+            CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective' ELSE ra.effectiveness::text END) = 'Partially Effective'
+      AND ra.effectiveness_reviewed_at >= NOW() - INTERVAL '30 days'
       GROUP BY ra.risk_id, r.house_id
       HAVING COUNT(*) >= 3
     `;
@@ -123,8 +60,8 @@ export class DirectorGovernanceService {
       await this.createControlFailureFlag({
         service_id: row.service_id,
         risk_id: row.risk_id,
-        failure_type: 'neutral_outcomes',
-        threshold_trigger: `${row.count} neutral outcomes on same risk (Stagnation)`
+        failure_type: 'partial_outcomes',
+        threshold_trigger: `${row.count} Partially Effective outcomes on the same risk (stagnation)`
       });
     }
 
@@ -191,7 +128,7 @@ export class DirectorGovernanceService {
     }, {});
     
     draft += `• Service Positions: ${positions.Stable || 0} Stable, ${positions.Watch || 0} Watch, ${positions.Concern || 0} Concern\n`;
-    draft += `• Action Effectiveness: ${effectiveness.org_summary.effective} Effective, ${effectiveness.org_summary.ineffective} Ineffective\n`;
+    draft += `• Action Effectiveness: ${effectiveness.org_summary.effective} Effective, ${effectiveness.org_summary.partially_effective} Partially Effective, ${effectiveness.org_summary.not_effective} Not Effective, ${effectiveness.org_summary.too_early} Too Early to Assess\n`;
     
     draft += `\n2. SERVICE BREAKDOWN\n`;
     reviewsRes.rows.forEach(r => {

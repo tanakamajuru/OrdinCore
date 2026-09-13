@@ -8,6 +8,7 @@ import { useApi } from '@/api/useApi';
 import { api } from '@/api/client';
 import { Screen, Text, Row, Pill, Loading } from '@/components/ui';
 import { StatCard, Section } from '@/components/dashboard';
+import { isClosedEscalation, isOpenEscalation } from '@/api/governanceStatus';
 
 const arr = (v: any): any[] => (Array.isArray(v) ? v : v?.data || v?.escalations || v?.actions || []);
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
@@ -38,10 +39,10 @@ export function PipelineScreen() {
   const improving = openRisks.filter((r: any) => (r.trend || r.trajectory) === 'Improving').length;
   const stable = Math.max(openRisks.length - rising - improving, 0);
   const escList = arr(esc.data);
-  const openEsc = escList.filter((e: any) => (e.lifecycle_status || '') !== 'Closed');
+  const openEsc = escList.filter(isOpenEscalation);
   const overdue = escList.filter((e: any) => e.overdue).length;
   const onTime = openEsc.length - overdue;
-  const closedMonth = escList.filter((e: any) => e.lifecycle_status === 'Closed').length;
+  const closedMonth = escList.filter(isClosedEscalation).length;
   const actionsDue = arr(acts.data).filter((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(a.status));
   const reviewQueue = arr(rq.data);
   const effPending = arr(eff.data);

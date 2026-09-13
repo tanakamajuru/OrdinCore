@@ -9,12 +9,12 @@ import { CheckCircle, HelpOutline, Warning } from '@mui/icons-material';
 interface EffectivenessRatingModalProps {
   open: boolean;
   onClose: () => void;
-  onRate: (rating: 'Effective' | 'Neutral' | 'Ineffective', note: string) => void;
+  onRate: (rating: 'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess', note: string) => void;
   actionTitle: string;
 }
 
 export const EffectivenessRatingModal: React.FC<EffectivenessRatingModalProps> = ({ open, onClose, onRate, actionTitle }) => {
-  const [rating, setRating] = useState<'Effective' | 'Neutral' | 'Ineffective'>('Effective');
+  const [rating, setRating] = useState<'Effective' | 'Partially Effective' | 'Not Effective' | 'Too Early To Assess'>('Effective');
   const [note, setNote] = useState('');
 
   const handleConfirm = () => {
@@ -48,24 +48,29 @@ export const EffectivenessRatingModal: React.FC<EffectivenessRatingModalProps> =
               } 
             />
             <FormControlLabel 
-              value="Neutral" 
+              value="Partially Effective" 
               control={<Radio color="info" />} 
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <HelpOutline color="info" fontSize="small" />
-                  <Typography>Neutral (Risk remains present)</Typography>
+                  <Typography>Partially Effective (Some improvement; further control or review is required)</Typography>
                 </Box>
               } 
             />
             <FormControlLabel 
-              value="Ineffective" 
+              value="Not Effective" 
               control={<Radio color="error" />} 
               label={
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Warning color="error" fontSize="small" />
-                  <Typography>Ineffective (Hazard persists or increased)</Typography>
+                  <Typography>Not Effective (The intended outcome was not achieved)</Typography>
                 </Box>
               } 
+            />
+            <FormControlLabel
+              value="Too Early To Assess"
+              control={<Radio color="info" />}
+              label={<Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}><HelpOutline color="info" fontSize="small" /><Typography>Too Early to Assess (A future review is required)</Typography></Box>}
             />
           </Box>
         </RadioGroup>
@@ -81,7 +86,7 @@ export const EffectivenessRatingModal: React.FC<EffectivenessRatingModalProps> =
           onChange={(e) => setNote(e.target.value)}
         />
 
-        {rating === 'Ineffective' && (
+        {rating === 'Not Effective' && (
           <Alert severity="warning" sx={{ mt: 2 }}>
             Rating this action as Ineffective may trigger a trajectory change to 'Deteriorating'.
           </Alert>

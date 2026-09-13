@@ -50,6 +50,9 @@ router.get('/pending-effectiveness', requireAuth, requireTenant, requireRole('RE
 router.get('/effectiveness-summary', requireAuth, requireTenant,
   requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'),
   actionEffectivenessController.getSummary.bind(actionEffectivenessController));
+router.get('/:actionId/effectiveness-history', requireAuth, requireTenant,
+  requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'),
+  actionEffectivenessController.getHistory.bind(actionEffectivenessController));
 
 /**
  * @openapi

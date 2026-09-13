@@ -159,7 +159,10 @@ export class EscalationsService {
                 OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
                 OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
               AND ra.status IN ('Complete','Completed')
-              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL) AS actions_effectiveness_reviewed_count
+              AND COALESCE(ra.effectiveness_outcome,
+                CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
+                  WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END)
+                IN ('Effective','Partially Effective','Not Effective')) AS actions_effectiveness_reviewed_count
          FROM escalations e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
@@ -224,7 +227,10 @@ export class EscalationsService {
            COUNT(*) FILTER (WHERE ra.status <> 'Cancelled')::int AS actions_total_count,
            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed'))::int AS actions_completed_count,
            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
-             AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL)::int AS actions_effectiveness_reviewed_count
+             AND COALESCE(ra.effectiveness_outcome,
+               CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
+                 WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END)
+               IN ('Effective','Partially Effective','Not Effective'))::int AS actions_effectiveness_reviewed_count
          FROM risk_actions ra
          WHERE ra.company_id = e.company_id
            AND (ra.escalation_id = e.id
@@ -328,7 +334,7 @@ export class EscalationsService {
       const actionId = uuidv4();
       await query(
         `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, source_cluster_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10)`,
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10)`,
         [actionId, riskId, company_id, esc.house_id || null, note.slice(0, 255), note, user_id, input.due_at || null, user_id, esc.source_cluster_id || null]
       );
       await risksRepo.updateStatus(riskId, company_id, 'Open');
@@ -652,7 +658,7 @@ export class EscalationsService {
     const r = await query(
       `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by,
          status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome, escalation_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Pending',$10,$11,$12,$13,$14) RETURNING *`,
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14) RETURNING *`,
       [actionId, e.risk_id || null, company_id, e.house_id || null, title, title, body.assigned_to, body.due_date || null, user_id,
        e.source_governance_review_id || null, e.source_pulse_id || null, e.source_cluster_id || null, body.intended_outcome || null, id]
     );
