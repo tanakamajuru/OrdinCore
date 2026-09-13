@@ -1,42 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { 
-  AdminPageHeader, 
-  AdminStatsCard, 
-  AdminDataTable,
-  AdminSearchBar,
-  AdminPagination,
-  getStatusBadge,
-  AdminFormField,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  toast
-} from './shared/AdminLayout';
-import { Activity, Calendar, Filter, Plus, Edit, Trash2, Search, AlertTriangle } from 'lucide-react';
+import { AdminPageHeader, AdminStatsCard, AdminDataTable, AdminSearchBar, AdminPagination, getStatusBadge, AdminFormField, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Switch, TableCell, TableRow, toast } from './shared/AdminLayout';
+import { Activity, Edit, AlertTriangle } from 'lucide-react';
 
 interface GovernancePulse {
   id: string;
@@ -74,10 +38,9 @@ interface PulseStats {
 }
 
 const AdminPulseManagement: React.FC = () => {
-  const navigate = useNavigate();
   const [pulses, setPulses] = useState<GovernancePulse[]>([]);
   const [stats, setStats] = useState<PulseStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
@@ -85,7 +48,6 @@ const AdminPulseManagement: React.FC = () => {
   const [houseFilter, setHouseFilter] = useState<string | undefined>(undefined);
   const [selectedPulse, setSelectedPulse] = useState<GovernancePulse | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [houses, setHouses] = useState<any[]>([]);
 
   // Fetch pulses
@@ -240,7 +202,7 @@ const AdminPulseManagement: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 {statusOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value ?? ""}>
                     {option.label}
                   </SelectItem>
                 ))}

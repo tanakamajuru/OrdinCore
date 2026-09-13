@@ -29,8 +29,8 @@ export function EvidencePackViewer() {
   const loadEvidencePack = async () => {
     try {
       setIsLoading(true);
-      const res = await apiClient.get(`/ri-governance/houses/${house_id}/evidence-pack`);
-      setData(res.data?.data);
+      const res = await apiClient.get<any>(`/ri-governance/houses/${house_id}/evidence-pack`);
+      setData((res.data as any)?.data);
     } catch (error) {
       toast.error("Failed to load evidence pack");
     } finally {

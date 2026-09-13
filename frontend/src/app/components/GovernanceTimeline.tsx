@@ -56,7 +56,7 @@ export function GovernanceTimeline() {
   const [incident, setIncident] = useState<IncidentDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const eventsLoadedRef = useRef(false);
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showCommentary, setShowCommentary] = useState(false);
   const [commentary, setCommentary] = useState("");
   const [savingCommentary, setSavingCommentary] = useState(false);

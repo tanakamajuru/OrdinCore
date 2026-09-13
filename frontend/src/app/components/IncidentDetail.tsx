@@ -302,7 +302,7 @@ export function IncidentDetail() {
           )}
 
           {/* Linked Risks & Escalations */}
-          {(incident.linked_risks?.length > 0 || incident.linked_escalations?.length > 0) && (
+          {((incident.linked_risks?.length ?? 0) > 0 || (incident.linked_escalations?.length ?? 0) > 0) && (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <div className="bg-card border-2 border-border p-6">
                 <h2 className="text-xl  mb-4 text-foreground flex items-center gap-2">

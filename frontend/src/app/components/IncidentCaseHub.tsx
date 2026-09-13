@@ -78,7 +78,6 @@ export function IncidentCaseHub() {
 
   useEffect(() => {
     if (location.state?.fromSignal) {
-      const { title, description, severity, houseId } = location.state;
       setIncidentForm((prev: any) => ({
         ...prev,
         title: location.state.title || prev.title,
@@ -772,7 +771,7 @@ export function IncidentCaseHub() {
                           value={incidentForm.linked_risks || []}
                           onChange={(e) => {
                             const values = Array.from(e.target.selectedOptions, option => option.value);
-                            setIncidentForm(prev => ({ ...prev, linked_risks: values }));
+                            setIncidentForm((prev: any) => ({ ...prev, linked_risks: values }));
                           }}
                         >
                           {filteredRisks.map(risk => (
@@ -799,7 +798,7 @@ export function IncidentCaseHub() {
                           value={incidentForm.linked_escalations || []}
                           onChange={(e) => {
                             const values = Array.from(e.target.selectedOptions, option => option.value);
-                            setIncidentForm(prev => ({ ...prev, linked_escalations: values }));
+                            setIncidentForm((prev: any) => ({ ...prev, linked_escalations: values }));
                           }}
                         >
                           {filteredEscalations.map(esc => {

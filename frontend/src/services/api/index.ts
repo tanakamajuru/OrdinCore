@@ -7,11 +7,8 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/
 class ApiClient {
   public baseURL: string;
 
-  private token: string | null = null;
-
   constructor(baseURL: string) {
     this.baseURL = baseURL;
-    this.token = localStorage.getItem('authToken');
   }
 
   private async request<T>(endpoint: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<ApiResponse<T>> {
@@ -62,12 +59,10 @@ class ApiClient {
   }
 
   setToken(token: string) {
-    this.token = token;
     localStorage.setItem('authToken', token);
   }
 
   clearToken() {
-    this.token = null;
     localStorage.removeItem('authToken');
     localStorage.removeItem('user');
   }

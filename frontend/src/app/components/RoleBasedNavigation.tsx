@@ -1,10 +1,6 @@
 import { useState, useEffect } from "react";
 import { useLocation, useNavigate } from "react-router";
-import {
-  Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3,
-  Eye, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag,
-  HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck, ChevronLeft, Menu,
-} from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, FileDown, BarChart3, Ambulance, Settings, Building2, ClipboardList, CheckCircle2, Flag, HelpCircle, LifeBuoy, LogOut, Layers, RefreshCw, Target, Bell, ShieldCheck, ChevronLeft, Menu } from "lucide-react";
 import { toast } from "sonner";
 import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/api";

@@ -412,16 +412,6 @@ export function RiskDetail() {
     }
   };
 
-  const handleUpdateActionStatus = async (actionId: string, newStatus: string) => {
-    try {
-      await apiClient.patch(`/risks/${id}/actions/${actionId}/status`, { status: newStatus });
-      toast.success(`Action marked as ${newStatus}`);
-      if (id) loadRiskDetails(id);
-    } catch (error: any) {
-      toast.error(error.response?.data?.message || 'Failed to update action status');
-    }
-  };
-
   const handleVerifyAction = async () => {
     if (!showVerifyAction) return;
     setIsVerifying(true);

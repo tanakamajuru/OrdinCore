@@ -1,10 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
-import {
-  AlertCircle, ChevronRight, RefreshCw, Search, Shield, AlertTriangle, Users,
-  FileText, Bell, PlusCircle, ClipboardList, Layers, CheckCircle2,
-  Info, Clock,
-} from "lucide-react";
+import { AlertCircle, ChevronRight, RefreshCw, Search, Shield, AlertTriangle, Users, FileText, Bell, PlusCircle, ClipboardList, Layers, CheckCircle2, Info } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";

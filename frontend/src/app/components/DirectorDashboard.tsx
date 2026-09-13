@@ -75,11 +75,11 @@ export function DirectorDashboard() {
   const [escalations, setEscalations] = useState<any[]>([]);
   const [escStats, setEscStats] = useState<any>({});
   const [actions, setActions] = useState<any[]>([]);
-  const [effPending, setEffPending] = useState<any[]>([]);
+  const [, setEffPending] = useState<any[]>([]);
   const [services, setServices] = useState<any[]>([]);
   const [heatmap, setHeatmap] = useState<any[]>([]);
   const [escPage, setEscPage] = useState(1);
-  const [health, setHealth] = useState<any>(null);
+  const [, setHealth] = useState<any>(null);
   const [themeTrends, setThemeTrends] = useState<any[]>([]);
 
   useEffect(() => { apiClient.get("/interventions/governance-health").then((r: any) => setHealth(r?.data ?? null)).catch(() => setHealth(null)); }, []);
@@ -166,7 +166,7 @@ export function DirectorDashboard() {
   heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; });
   const heatThemes = heatmap.length
     ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map()).entries())
-        .sort((a, b) => b[1] - a[1]).slice(0, 6).map((e) => e[0])
+        .sort((a: [string, number], b: [string, number]) => b[1] - a[1]).slice(0, 6).map((e: [string, number]) => e[0])
     : topThemes.slice(0, 6);
   const heatServices = heatmap.length
     ? Array.from(new Map(heatmap.map((h: any) => [h.service_id, { id: h.service_id, name: h.service_name }])).values()).slice(0, 7)

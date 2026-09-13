@@ -3,7 +3,7 @@ import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "./ui/table";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, LineChart, Line, Legend, LabelList } from "recharts";
 import { apiClient } from "@/services/api";
-import { Loader2, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";

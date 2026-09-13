@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
-import { AlertTriangle, ShieldAlert, CheckCircle, Bell, Loader2 } from "lucide-react";
+import { ShieldAlert, CheckCircle, Bell, Loader2 } from "lucide-react";
 import { directorApi } from "@/services/directorApi";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "./ui/dialog";

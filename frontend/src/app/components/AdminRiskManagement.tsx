@@ -1,42 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router';
-import { 
-  AdminPageHeader, 
-  AdminStatsCard, 
-  AdminDataTable,
-  AdminSearchBar,
-  AdminPagination,
-  getStatusBadge,
-  AdminFormField,
-  Button,
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-  Input,
-  Label,
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-  Switch,
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-  toast
-} from './shared/AdminLayout';
-import { AlertTriangle, Plus, Edit, Trash2, Search, TrendingUp, Activity } from 'lucide-react';
+import { AdminPageHeader, AdminStatsCard, AdminDataTable, AdminSearchBar, AdminPagination, AdminFormField, Button, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, TableCell, TableRow, toast } from './shared/AdminLayout';
+import { AlertTriangle, Plus, TrendingUp, Activity } from 'lucide-react';
 
 interface RiskActivity {
   id: string;
@@ -68,18 +32,15 @@ interface RiskStats {
 }
 
 const AdminRiskManagement: React.FC = () => {
-  const navigate = useNavigate();
   const [risks, setRisks] = useState<RiskActivity[]>([]);
   const [stats, setStats] = useState<RiskStats | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading] = useState(true);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [searchTerm, setSearchTerm] = useState('');
   const [activityTypeFilter, setActivityTypeFilter] = useState<string | undefined>(undefined);
   const [houseFilter, setHouseFilter] = useState<string | undefined>(undefined);
-  const [selectedRisk, setSelectedRisk] = useState<RiskActivity | null>(null);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [houses, setHouses] = useState<any[]>([]);
 
   // Fetch risks
@@ -250,7 +211,7 @@ const AdminRiskManagement: React.FC = () => {
               </SelectTrigger>
               <SelectContent>
                 {activityTypeOptions.map(option => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value ?? ""}>
                     {option.label}
                   </SelectItem>
                 ))}

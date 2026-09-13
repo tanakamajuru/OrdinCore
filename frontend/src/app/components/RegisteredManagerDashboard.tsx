@@ -1,10 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import {
-  Activity, Shield, Flag, ClipboardCheck, TrendingUp, CheckCircle2,
-  Clock, Eye, AlertTriangle, FileText, Ambulance, FileDown,
-} from "lucide-react";
+import { Activity, Shield, Flag, ClipboardCheck, TrendingUp, CheckCircle2, Eye, AlertTriangle, FileText, Ambulance, FileDown } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { GovernanceReviewModal } from "@/components/GovernanceReviewModal";

@@ -1,22 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { 
-  AlertCircle, 
-  CheckCircle, 
-  Calendar, 
-  Clock, 
-  MapPin, 
-  User, 
-  Activity, 
-  Shield, 
-  FileText, 
-  ShieldAlert, 
-  RotateCcw, 
-  TrendingUp, 
-  Send,
-  Upload
-} from "lucide-react";
+import { CheckCircle, Calendar, Clock, MapPin, User, Activity, Shield, FileText, ShieldAlert, RotateCcw, Send, Upload } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { useAuth } from "@/hooks/useAuth";
@@ -66,7 +51,7 @@ export function GovernancePulse() {
       setSites(list);
 
       if (user.assigned_house_id) {
-        setFormData(prev => ({ ...prev, house_id: user.assigned_house_id }));
+        setFormData(prev => ({ ...prev, house_id: user.assigned_house_id ?? "" }));
       } else if (list.length > 0) {
         setFormData(prev => ({ ...prev, house_id: list[0].id }));
       }

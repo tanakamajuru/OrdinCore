@@ -1,10 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import {
-  Home, GitBranch, FileText, Ambulance, FileDown, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers,
-  ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus,
-} from "lucide-react";
+import { Ambulance, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers, ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
 import { toast } from "sonner";

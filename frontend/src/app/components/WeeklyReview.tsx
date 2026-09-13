@@ -54,7 +54,7 @@ export function WeeklyReview() {
   // site across the review week), so the weekly review is grounded in the daily record.
   const [weekLogs, setWeekLogs] = useState<any[]>([]);
   const [weekLogsBusy, setWeekLogsBusy] = useState(false);
-  const [tlNoReview, setTlNoReview] = useState(false);
+  const [, setTlNoReview] = useState(false);
   // The full published review (incl. the backend-enriched team_report) for the Team Leader's
   // structured Weekly Governance Team Report view.
   const [teamReview, setTeamReview] = useState<any>(null);

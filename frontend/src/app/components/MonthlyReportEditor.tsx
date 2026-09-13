@@ -2,7 +2,7 @@ import { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "./ui/card";
 import { Button } from "./ui/button";
 import { Textarea } from "./ui/textarea";
-import { FileText, Save, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
+import { FileText, CheckCircle2, Loader2, ArrowLeft } from "lucide-react";
 import { directorApi } from "@/services/directorApi";
 import { toast } from "sonner";
 

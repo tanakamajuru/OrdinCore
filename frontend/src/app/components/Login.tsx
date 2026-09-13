@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate } from "react-router";
-import { apiClient } from "@/services/api";
+
 import { useAuth } from "@/hooks/useAuth";
 import logo from "./images/logo.png";
 

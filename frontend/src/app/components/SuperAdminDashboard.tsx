@@ -1,16 +1,12 @@
 import { useState, useEffect, useMemo } from "react";
 import { useNavigate, useLocation } from "react-router";
-import {
-  Building2, Users, Plus, Settings, LogOut, Globe, Shield,
-  AlertCircle, CheckCircle, BarChart3, RefreshCw, Trash2,
-  UserPlus, ChevronRight, Activity, Cpu, Database, Search, Key, X, Check
-} from "lucide-react";
+import { Building2, Users, Plus, Settings, Globe, Shield, AlertCircle, CheckCircle, RefreshCw, Trash2, UserPlus, Activity, Cpu, Database, Search, Key, X, Check } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import CreateOrgModal from "./modals/CreateOrgModal";
 import CreateAdminModal from "./modals/CreateAdminModal";
 import ManageAdminsModal from "./modals/ManageAdminsModal";
-import { ThemeToggle } from "./ThemeToggle";
+
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { Switch } from "./ui/switch";
 

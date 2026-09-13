@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, AlertCircle, Shield, Clock, User, AlertTriangle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Shield, User, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
@@ -356,12 +356,12 @@ export function SignalDetail() {
             <div className="bg-card border-2 border-border p-6 flex justify-between">
                <div>
                   <h3 className="text-sm  text-muted-foreground uppercase">Pattern Concern</h3>
-                  {signal.cluster_promoted_risk_id ? (
+                  {(signal as any).cluster_promoted_risk_id ? (
                     // The pattern has already been promoted — this signal is now evidence on a live
                     // risk, not a pattern still awaiting a decision. Point to the risk, don't imply
                     // it still needs promoting.
                     <button
-                      onClick={() => navigate(`/risks/${signal.cluster_promoted_risk_id}`)}
+                      onClick={() => navigate(`/risks/${(signal as any).cluster_promoted_risk_id}`)}
                       className="text-lg text-primary font-semibold underline underline-offset-2 text-left"
                     >
                       Already a registered risk — view it →

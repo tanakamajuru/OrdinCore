@@ -30,11 +30,6 @@ type SignalCategory =
 
 type SeverityType = 'Low' | 'Moderate' | 'High' | 'Critical';
 
-const CATEGORIES: SignalCategory[] = [
-  'Wellbeing', 'Medication', 'Behaviour', 'Safeguarding',
-  'Staffing', 'Environment', 'Documentation', 'Service Delivery',
-];
-
 const SEVERITIES: { value: SeverityType; tone: string }[] = [
   { value: 'Low', tone: 'data-[active=true]:bg-emerald-600' },
   { value: 'Moderate', tone: 'data-[active=true]:bg-amber-500' },

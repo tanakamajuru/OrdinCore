@@ -257,7 +257,7 @@ export function Trends() {
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
                   <Bar dataKey="incidents" radius={[4, 4, 0, 0]} barSize={40}>
-                    {(safeguardingData?.trends || []).map((entry: any, index: number) => (
+                    {(safeguardingData?.trends || []).map((_entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={chartColors[index % chartColors.length]} />
                     ))}
                     <LabelList dataKey="incidents" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />
@@ -297,7 +297,7 @@ export function Trends() {
                   <YAxis stroke="hsl(var(--muted-foreground))" fontSize={12} />
                   <Tooltip cursor={{fill: 'hsl(var(--muted)/0.3)'}} />
                   <Bar dataKey="count" radius={[4, 4, 0, 0]} barSize={40}>
-                    {(escalationData?.trends || []).map((entry: any, index: number) => (
+                    {(escalationData?.trends || []).map((_entry: any, index: number) => (
                       <Cell key={`cell-${index}`} fill={chartColors[(index + 4) % chartColors.length]} />
                     ))}
                     <LabelList dataKey="count" position="top" style={{ fill: 'hsl(var(--foreground))', fontSize: 10, fontWeight: 'bold' }} />

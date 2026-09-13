@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
-import { ArrowLeft, CheckCircle, Shield, Calendar, User, MapPin } from "lucide-react";
+import { ArrowLeft, CheckCircle, Shield, Calendar, User } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 

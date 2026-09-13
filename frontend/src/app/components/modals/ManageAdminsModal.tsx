@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { 
-  Users, Search, RefreshCw, Key, ShieldCheck, ShieldAlert,
-  Edit, Trash2, CheckCircle, AlertCircle, X
-} from 'lucide-react';
+import { Users, Search, RefreshCw, Key, X } from 'lucide-react';
 import { apiClient } from '@/services/api';
 import { toast } from 'sonner';
 import { Switch } from '../ui/switch';

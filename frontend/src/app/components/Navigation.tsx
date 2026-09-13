@@ -1,5 +1,5 @@
 import { useLocation, useNavigate } from "react-router";
-import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown, Shield, Network, Building, Settings } from "lucide-react";
+import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileDown, Shield, Building, Settings } from "lucide-react";
 import { Button } from "./ui/button";
 import logo from "./images/logo.png";
 import { useEffect, useState } from "react";

@@ -1,14 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
-import { 
-  ArrowLeft, 
-  Search, 
-  Calendar, 
-  AlertCircle, 
-  ExternalLink,
-  ChevronRight,
-  X
-} from "lucide-react";
+import { ArrowLeft, Search, Calendar, AlertCircle, ChevronRight, X } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";

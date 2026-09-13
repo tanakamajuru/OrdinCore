@@ -168,9 +168,8 @@ export function ReconstructionReport() {
         }
       };
       
-      const res = await apiClient.post('/reports/request', requestPayload);
-      const data = (res.data as any).data || (res.data as any);
-      
+      await apiClient.post('/reports/request', requestPayload);
+
       alert(`Report generation requested! You can download it from the Reports page once ready.`);
       navigate('/reports');
     } catch (err: any) {
@@ -188,7 +187,7 @@ export function ReconstructionReport() {
       if (data.file_url) {
         const downloadUrl = data.file_url.startsWith('http') 
           ? data.file_url 
-          : `${apiClient.baseURL?.replace('/api/v1', '') || ''}${data.file_url}`;
+          : `${(import.meta.env.VITE_API_URL || '').replace('/api/v1', '')}${data.file_url}`;
         window.open(downloadUrl, '_blank');
       } else {
         alert('Download URL not available yet.');
@@ -262,7 +261,7 @@ export function ReconstructionReport() {
             </Button>
             <div>
               <h1 className="text-3xl  text-foreground">Governance Reconstruction Report</h1>
-              <p className="text-muted-foreground">Official oversight documentation for {incident.title || 'this incident'}</p>
+              <p className="text-muted-foreground">Official oversight documentation for {(incident as any).title || 'this incident'}</p>
             </div>
           </div>
           
