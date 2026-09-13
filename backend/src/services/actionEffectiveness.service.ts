@@ -6,6 +6,7 @@ import { reviewObligationsService } from './reviewObligations.service';
 import { trajectoryForRisk } from './trajectory.service';
 import { EffectivenessOutcome, normalizeEffectiveness, toLegacyEffectiveness } from '../domain/effectiveness';
 import { canonicalActionDomainSql } from '../domain/governanceDomain';
+import { governancePropagationService } from './governancePropagation.service';
 
 export type { EffectivenessOutcome } from '../domain/effectiveness';
 
@@ -75,13 +76,12 @@ export class ActionEffectivenessService {
           ? updatedAction.effectiveness_due_at : new Date(Date.now() + 7 * 86400000),
         ownerRole: 'REGISTERED_MANAGER', reason: 'Effectiveness was too early to assess; repeat the review with further evidence.',
       });
-    } else if (updatedAction.risk_id) {
-      // The verdict changes the evidence on the risk. Create an immediate, explicit obligation so
-      // the risk is reviewed rather than silently relying on a cached trajectory.
-      await reviewObligationsService.open({
-        companyId: company_id, type: 'RISK_POST_EFFECTIVENESS', subjectType: 'RISK', subjectId: updatedAction.risk_id,
-        actionId, riskId: updatedAction.risk_id, dueAt: new Date(), ownerRole: 'REGISTERED_MANAGER',
-        reason: `Risk requires review after action effectiveness was rated ${outcome}.`,
+    } else {
+      // One propagation service updates every explicitly linked oversight surface. It opens review
+      // obligations; it never automatically closes an escalation, intervention or risk.
+      await governancePropagationService.afterEffectiveness({
+        companyId: company_id, actionId, riskId: updatedAction.risk_id || null,
+        outcome, actorId: userId,
       });
     }
 
