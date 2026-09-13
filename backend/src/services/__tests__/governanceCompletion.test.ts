@@ -51,6 +51,7 @@ function paramsOf(client: any, re: RegExp): any[] | undefined {
 describe('§3 Promote to Risk — idempotent (no duplicate risk)', () => {
   it('returns the pattern\'s existing linked risk instead of creating a second one', async () => {
     const client = fakeClient((sql) => {
+      if (/SELECT id FROM signal_clusters WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
       if (/FROM signal_clusters/.test(sql) && /FOR UPDATE/.test(sql)) {
         return { rows: [{ id: 'cl-1', linked_risk_id: 'risk-existing', risk_domain: 'Behaviour', house_id: 'h1', linked_person: null }] };
@@ -72,6 +73,7 @@ describe('§3 Promote to Risk — idempotent (no duplicate risk)', () => {
 describe('§3 Escalate — idempotent (reuses an open escalation)', () => {
   it('does not open a second escalation for a pattern that already has one open', async () => {
     const client = fakeClient((sql) => {
+      if (/SELECT id FROM signal_clusters WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
       if (/FROM escalations WHERE company_id/.test(sql) && /NOT IN/.test(sql)) {
         return { rows: [{ id: 'esc-open' }] };
@@ -93,6 +95,8 @@ describe('§3/§9 Pattern review — a failed downstream write rolls back (no ph
   it('rolls back and rethrows if the escalation insert fails; never commits', async () => {
     const client = fakeClient((sql) => {
       if (/BEGIN/.test(sql)) return { rows: [] };
+      if (/SELECT id FROM houses WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'h1' }] };
+      if (/SELECT id FROM signal_clusters WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/FROM signal_clusters/.test(sql) && /FOR UPDATE/.test(sql)) {
         return { rows: [{ id: 'cl-1', cluster_label: 'Falls', risk_domain: 'Safety', house_id: 'h1', affected_house_ids: null, linked_risk_id: null }] };
       }
@@ -251,7 +255,7 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
   it('Create Pattern creates a cluster and links the originating signal', async () => {
     const client = fakeClient((sql) => {
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
-      if (/FROM governance_pulses WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'p1', house_id: 'h1', risk_domain: ['Behaviour'], related_person: null }] };
+      if (/FROM governance_pulses WHERE id\s*=\s*\$1 AND company_id/.test(sql)) return { rows: [{ id: 'p1', house_id: 'h1', risk_domain: ['Behaviour'], related_person: null }] };
       if (/INSERT INTO signal_clusters/.test(sql)) return { rows: [{ id: 'cl-new' }] };
       return { rows: [] };
     });
@@ -266,8 +270,9 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
 
   it('Link to Pattern links to an existing cluster without creating one', async () => {
     const client = fakeClient((sql) => {
+      if (/FROM governance_pulses WHERE id\s*=\s*\$1 AND company_id/.test(sql)) return { rows: [{ id: 'p1', house_id: 'h1' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
-      if (/FROM signal_clusters WHERE id = \$1 AND company_id/.test(sql)) return { rows: [{ id: 'cl-1' }] };
+      if (/FROM signal_clusters WHERE id\s*=\s*\$1 AND company_id/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/INSERT INTO risk_signal_links/.test(sql)) return { rows: [{ id: 'link-1' }] };
       return { rows: [] };
     });
@@ -291,6 +296,9 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
 
   it('signal → decision → task carries source signal + decision lineage', async () => {
     const client = fakeClient((sql) => {
+      if (/SELECT id FROM houses WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: HOUSE }] };
+      if (/FROM governance_pulses WHERE id\s*=\s*\$1 AND company_id/.test(sql)) return { rows: [{ id: SIGNAL, house_id: HOUSE }] };
+      if (/SELECT id,role FROM users WHERE id=\$1/.test(sql)) return { rows: [{ id: 'tl-1', role: 'TEAM_LEADER' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-1' }] };
       if (/INSERT INTO risk_actions/.test(sql)) return { rows: [{ id: 'task-1', title: 'do it' }] };
       return { rows: [] };
@@ -299,6 +307,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
       company_id: CO, user_id: USER, house_id: HOUSE, pulse_entry_id: SIGNAL,
       severity: 'High',
       what_is_happening: 'Act on this concern promptly.', decision: 'Create Action', owner_id: 'tl-1',
+      due_at: '2099-01-01T12:00:00.000Z', intended_outcome: 'The underlying concern reduces.',
     });
     expect(out.task?.id).toBe('task-1');
     const p = paramsOf(client, /INSERT INTO risk_actions/)!;
@@ -308,6 +317,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
 
   it('signal → pattern → promote: risk carries source cluster, pattern gets linked_risk_id', async () => {
     const client = fakeClient((sql) => {
+      if (/SELECT id FROM signal_clusters WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-2' }] };
       if (/FROM signal_clusters/.test(sql) && /FOR UPDATE/.test(sql)) return { rows: [{ id: 'cl-1', linked_risk_id: null, risk_domain: 'Safety', house_id: HOUSE, affected_house_ids: null, linked_person: null }] };
       if (/INSERT INTO risks/.test(sql)) return { rows: [{ id: 'risk-1' }] };
@@ -326,6 +336,8 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
 
   it('pattern → escalate: escalation retains source-pattern and decision lineage', async () => {
     const client = fakeClient((sql) => {
+      if (/SELECT id FROM houses WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: HOUSE }] };
+      if (/SELECT id FROM signal_clusters WHERE id=\$1 AND company_id=\$2/.test(sql)) return { rows: [{ id: 'cl-1' }] };
       if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'dec-3' }] };
       if (/FROM escalations WHERE company_id/.test(sql)) return { rows: [] };     // no existing open one
       if (/FROM users WHERE company_id/.test(sql)) return { rows: [{ id: 'rm-1' }] };

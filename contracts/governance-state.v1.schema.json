@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ordincore.local/contracts/governance-state.v1.schema.json",
+  "title": "OrdinCore Canonical Governance State v1",
+  "type": "object",
+  "required": ["success", "data", "meta"],
+  "properties": {
+    "success": { "const": true },
+    "data": {
+      "type": "object",
+      "required": ["risk_id", "trajectory", "closure", "calculated_at", "contract_version"],
+      "properties": {
+        "risk_id": { "type": "string" },
+        "contract_version": { "const": "governance-state-v1" },
+        "calculated_at": { "type": "string", "format": "date-time" },
+        "trajectory": {
+          "type": "object",
+          "required": ["direction", "basis", "points"],
+          "properties": {
+            "direction": { "enum": ["Improving", "Stable", "Deteriorating"] },
+            "basis": { "type": "string" },
+            "points": { "type": "array", "minItems": 4, "maxItems": 4, "items": { "type": "number" } },
+            "evidence": { "type": "object" }
+          },
+          "additionalProperties": true
+        },
+        "closure": { "type": "object" }
+      },
+      "additionalProperties": false
+    },
+    "meta": {
+      "type": "object",
+      "required": ["contract_version", "permissions"],
+      "properties": {
+        "contract_version": { "const": "governance-state-v1" },
+        "permissions": {
+          "type": "object",
+          "required": ["can_review_effectiveness", "can_make_closure_decision", "assurance_read_only"],
+          "properties": {
+            "can_review_effectiveness": { "type": "boolean" },
+            "can_make_closure_decision": { "type": "boolean" },
+            "assurance_read_only": { "type": "boolean" }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false
+}

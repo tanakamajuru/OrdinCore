@@ -9,6 +9,7 @@ jest.mock('../../config/database', () => ({
   getClient: jest.fn(),
 }));
 jest.mock('../notifications.service', () => ({ notificationsService: { create: jest.fn() } }));
+jest.mock('../trajectory.service', () => ({ trajectoryForRisk: jest.fn() }));
 jest.mock('../../repositories/risks.repo', () => ({
   risksRepo: {
     findById: jest.fn(async () => ({ id: 'risk-1', house_id: 'house-1', linked_person: null, status: 'Open' })),
@@ -21,6 +22,7 @@ import { query, getClient } from '../../config/database';
 import { risksService } from '../risks.service';
 import { governanceWorkflowService } from '../governanceWorkflow.service';
 import { dailyGovernanceService } from '../dailyGovernance.service';
+import { trajectoryForRisk } from '../trajectory.service';
 
 const mockQuery = query as jest.MockedFunction<typeof query>;
 const mockGetClient = getClient as jest.MockedFunction<typeof getClient>;
@@ -32,9 +34,20 @@ type ClosureState = { actionsOpen: number; actionsTotal: number; ratedOk: number
 
 function wireClosure(s: ClosureState) {
   mockQuery.mockReset();
+  (trajectoryForRisk as jest.Mock).mockResolvedValue({
+    direction: s.recent > s.prior ? 'Deteriorating' : s.recent < s.prior ? 'Improving' : 'Stable',
+    basis: `signal counts changed from ${s.prior} to ${s.recent}`,
+    points: [0, 0, 0, 0],
+    evidence: {
+      previous14DayWeight: s.prior, current14DayWeight: s.recent,
+      previous14DaySignals: s.prior, current14DaySignals: s.recent,
+      latestEffectiveness: s.ratedOk ? 'Effective' : null,
+      sufficientHistory: true, windowDays: 14, calculationVersion: 'trajectory-v3',
+    },
+  });
   mockQuery.mockImplementation(async (sql: string) => {
     if (/AS open/.test(sql) && /FROM risk_actions/.test(sql)) return { rows: [{ open: s.actionsOpen, total: s.actionsTotal }] } as any;
-    if (/rated_ok/.test(sql)) return { rows: [{ rated_ok: s.ratedOk, rated: s.rated }] } as any;
+    if (/rated_ok/.test(sql)) return { rows: [{ rated_ok: s.ratedOk, rated: s.rated, awaiting_final_review: Math.max(0, s.actionsTotal - s.rated) }] } as any;
     if (/FROM escalations WHERE risk_id/.test(sql)) return { rows: [{ n: s.openEsc }] } as any;
     if (/FROM governance_pulses/.test(sql)) return { rows: [{ recent: s.recent, prior: s.prior }] } as any;
     return { rows: [], rowCount: 0 } as any;
@@ -152,6 +165,9 @@ describe('Daily Governance transaction (PDF Phase 3 / TEST_PLAN)', () => {
         seen.push(sql.trim().split('\n')[0].trim());
         if (/^BEGIN/.test(sql.trim())) return {};
         if (/FOR UPDATE/.test(sql)) return { rows: [{ house_id: 'h1' }] };
+        if (/SELECT id FROM houses WHERE/.test(sql)) return { rows: [{ id: 'h1' }] };
+        if (/FROM governance_pulses WHERE/.test(sql)) return { rows: [{ id: 's1', house_id: 'h1' }] };
+        if (/SELECT id,role FROM users WHERE/.test(sql)) return { rows: [{ id: 'u2', role: 'TEAM_LEADER' }] };
         if (/UPDATE daily_governance_log/.test(sql)) return { rows: [{ id: 'log1', completed: true }] };
         if (/INSERT INTO governance_reviews/.test(sql)) return { rows: [{ id: 'rev1' }] };
         if (/INSERT INTO risk_actions/.test(sql)) throw new Error('task insert failed');
@@ -164,7 +180,7 @@ describe('Daily Governance transaction (PDF Phase 3 / TEST_PLAN)', () => {
     await expect(
       dailyGovernanceService.completeLog('log1', {
         note: 'n', user_id: 'u1', company_id: 'co1', material_change: true, team_brief: 'brief',
-        decisions: [{ decision: 'Create Action', severity: 'Moderate', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1' }],
+        decisions: [{ decision: 'Create Action', severity: 'Moderate', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1', dueAt: '2099-01-01T12:00:00.000Z', intendedOutcome: 'The audit confirms the concern is controlled.' }],
       } as any)
     ).rejects.toThrow(/task insert failed/i);
 

@@ -14,7 +14,11 @@ describe('canonical action effectiveness', () => {
   beforeEach(() => (query as jest.Mock).mockReset());
 
   it('rates a signal-level action and completes its durable review obligation', async () => {
-    (risksRepo.getActionById as jest.Mock).mockResolvedValue({ id: 'a1', status: 'Completed', risk_id: null });
+    (risksRepo.getActionById as jest.Mock).mockResolvedValue({
+      id: 'a1', status: 'Completed', risk_id: null,
+      completion_evidence: 'The assigned work was completed and checked.',
+      intended_outcome: 'The underlying concern reduces after the action.',
+    });
     (query as jest.Mock).mockResolvedValue({ rows: [{ id: 'a1', status: 'Completed', risk_id: null, effectiveness_outcome: 'Effective' }] });
     await actionEffectivenessService.rateEffectiveness('a1', 'co', 'rm', { outcome: 'Effective', evidence: 'No recurrence was observed after the completed action.' });
     expect(reviewObligationsService.complete).toHaveBeenCalledWith('co', 'ACTION_EFFECTIVENESS', 'a1', 'rm', expect.stringContaining('Effective'));
