@@ -420,6 +420,15 @@ export function InterventionPanel() {
                     </div>
                   )}
                   {!t.readyToClose && (() => {
+                    // Prefer the backend's canonical closure decision (one facade for every
+                    // consumer); fall back to the local interpretation only if it is absent.
+                    if (t.closure_position?.message) {
+                      return (
+                        <div className="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5 text-xs text-amber-900">
+                          <span className="font-semibold">Not yet ready for closure review.</span>{" "}{t.closure_position.message}
+                        </div>
+                      );
+                    }
                     const outcome = intv?.effectiveness_review?.outcome;
                     const canonicalBlockers = Array.isArray(t.closure_readiness?.risks)
                       ? Array.from(new Set(t.closure_readiness.risks.flatMap((r: any) => r.blockers || []))).join(" ")

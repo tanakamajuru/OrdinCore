@@ -1,8 +1,10 @@
 import { query } from '../config/database';
-import { trajectoryForRisk, TrajectoryDirection } from './trajectory.service';
+import { TrajectoryDirection } from './trajectory.service';
 import { risksService } from './risks.service';
+import { canonicalGovernanceStateService } from './canonicalGovernanceState.service';
 import { emitToCompany } from '../websocket/socket.server';
 import { EffectivenessOutcome, normalizeEffectiveness } from '../domain/effectiveness';
+import { closurePosition } from '../domain/closurePosition';
 
 /**
  * Intervention Effectiveness — refinement of the existing Intervention Panel.
@@ -223,7 +225,7 @@ export const interventionsService = {
       for (const ref of riskRefs) {
         if (!ref?.id) continue;
         try {
-          const tr = await trajectoryForRisk(ref.id, ref.source_cluster_id || null);
+          const tr = await canonicalGovernanceStateService.trajectory(ref.id, ref.source_cluster_id || null);
           riskTrajectories.push({ risk_id: ref.id, direction: tr.direction, basis: tr.basis });
         } catch {
           // A failed trajectory read must not create an alternative trajectory.
@@ -268,7 +270,7 @@ export const interventionsService = {
       const riskClosureReviews: Array<{ risk_id: string; eligible: boolean; blockers: string[] }> = [];
       for (const ref of openRiskRefs) {
         try {
-          const review = await risksService.closureReview(ref.id, company_id);
+          const review = await canonicalGovernanceStateService.closure(ref.id, company_id);
           riskClosureReviews.push({ risk_id: ref.id, eligible: review.eligible, blockers: review.blockers });
         } catch {
           riskClosureReviews.push({ risk_id: ref.id, eligible: false, blockers: ['Closure evidence could not be verified.'] });
@@ -280,6 +282,12 @@ export const interventionsService = {
       const readyToCloseReason = readyToClose
         ? 'Intervention effective · every open risk passed its canonical closure review — ready for an RM closure decision.'
         : null;
+      const uniqueBlockers = Array.from(new Set(riskClosureReviews.flatMap((r) => r.blockers || [])));
+      const canonicalClosurePosition = closurePosition({
+        interventionExists: !!intv,
+        effectiveness,
+        blockers: uniqueBlockers,
+      });
 
       out.push({
         theme: t.theme,
@@ -310,6 +318,7 @@ export const interventionsService = {
         concern: readyToClose ? 'Ready for closure review' : concernOf(reasons, trajectory, effectiveness),
         readyToClose,
         readyToCloseReason,
+        closure_position: canonicalClosurePosition,
         closure_readiness: { eligible: readyToClose, source: 'risk-closure-review', risks: riskClosureReviews },
 
         intervention: intv
