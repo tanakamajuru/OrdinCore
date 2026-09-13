@@ -20,7 +20,8 @@
 }
 
 .dark {
-  --background: #0B1628;
+  /* Night mode kept dark, lifted a little from near-black (#0B1628) for a softer feel. */
+  --background: #142845;
   --foreground: #DCE8F0;
   --card: #1A3259;
   --border: #2A4A6B;

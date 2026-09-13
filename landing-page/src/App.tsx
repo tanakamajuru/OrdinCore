@@ -391,7 +391,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F0F7F3] dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
+    <div className="min-h-screen bg-[#F0F7F3] dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
 
       {/* ── NAVBAR ── */}
       <header className="sticky top-0 z-40 border-b border-[#B0D4C0] dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
@@ -418,8 +418,8 @@ export default function App() {
           </nav>
 
           <div className="flex items-center gap-3">
-            <Button onClick={() => setIsDemoModalOpen(true)} className="rounded-full px-5 py-2 text-sm shadow-md hover:shadow-lg transition">
-              Book a Demo
+            <Button onClick={() => setIsPilotModalOpen(true)} className="rounded-full px-5 py-2 text-sm shadow-md hover:shadow-lg transition">
+              Book a Pilot
             </Button>
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
@@ -468,8 +468,8 @@ export default function App() {
               </div>
 
               <div className="flex flex-wrap items-center gap-3.5 pt-2">
-                <Button onClick={() => setIsDemoModalOpen(true)} className="rounded-full gap-2 px-6 py-3.5 shadow-md">
-                  Book a Demo
+                <Button onClick={() => setIsPilotModalOpen(true)} className="rounded-full gap-2 px-6 py-3.5 shadow-md">
+                  Book a Pilot
                   <img src={rightArrowImg} alt="" className="h-4 w-4 object-contain invert brightness-200" />
                 </Button>
                 <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#B0D4C0] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/30 transition shadow-sm">
@@ -557,7 +557,7 @@ export default function App() {
         </section>
 
         {/* ── THE FOUR QUESTIONS ── */}
-        <section className="py-20 bg-white dark:bg-slate-950 border-b border-[#B0D4C0]/40 dark:border-slate-800">
+        <section className="py-20 bg-white dark:bg-slate-900 border-b border-[#B0D4C0]/40 dark:border-slate-800">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-14">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
@@ -579,7 +579,7 @@ export default function App() {
         </section>
 
         {/* ── GOVERNANCE PROBLEMS ── */}
-        <section className="py-20 bg-white dark:bg-slate-950" id="why">
+        <section className="py-20 bg-white dark:bg-slate-900" id="why">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
@@ -642,7 +642,7 @@ export default function App() {
               ))}
 
               {/* Quote card */}
-              <Card key="quote" className="p-5 bg-[#E2F0EA] dark:bg-slate-950 border border-[#B0D4C0] dark:border-emerald-800/40 flex flex-col justify-between shadow">
+              <Card key="quote" className="p-5 bg-[#E2F0EA] dark:bg-slate-900 border border-[#B0D4C0] dark:border-emerald-800/40 flex flex-col justify-between shadow">
                 <div>
                   <p className="text-3xl font-serif text-[#1E7D4F] dark:text-emerald-500 leading-none mb-2">"</p>
                   <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-200 leading-relaxed">
@@ -659,7 +659,7 @@ export default function App() {
         </section>
 
         {/* ── BUILT FOR ── */}
-        <section className="py-20 bg-white dark:bg-slate-950" id="audience">
+        <section className="py-20 bg-white dark:bg-slate-900" id="audience">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
@@ -809,7 +809,7 @@ export default function App() {
         </section>
 
         {/* ── EXAMPLE OUTPUTS ── */}
-        <section className="py-20 bg-white dark:bg-slate-950">
+        <section className="py-20 bg-white dark:bg-slate-900">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#1A3D28] dark:text-white sm:text-4xl">
@@ -852,10 +852,10 @@ export default function App() {
                   <p className="text-sm text-slate-500">Examine how data is presented</p>
                 </div>
                 <Button
-                  onClick={() => setIsDemoModalOpen(true)}
+                  onClick={() => setIsPilotModalOpen(true)}
                   className="w-full text-sm rounded-full py-2.5 bg-emerald-500 text-slate-950 hover:bg-emerald-400 font-bold transition"
                 >
-                  Request Live Demo →
+                  Request Live Pilot →
                 </Button>
               </div>
             </div>
@@ -938,7 +938,7 @@ export default function App() {
              Hidden for now (pricing / pilot commercial). Kept in the code so it can be
              re-enabled later by changing `{false && (` back to `{(`. */}
         {false && (
-        <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="pricing">
+        <section className="py-20 bg-white dark:bg-slate-900 border-t border-[#B0D4C0]/35 dark:border-slate-800" id="pricing">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
 
             {/* Pilot Structure */}
@@ -1015,7 +1015,7 @@ export default function App() {
             </div>
             <div className="space-y-4">
               {FAQ_ITEMS.map((item) => (
-                <Card key={item.q} className="p-6 dark:border-slate-800 dark:bg-slate-950">
+                <Card key={item.q} className="p-6 dark:border-slate-800 dark:bg-slate-900">
                   <h3 className="text-base font-bold text-[#1A3D28] dark:text-white mb-2">{item.q}</h3>
                   <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{item.a}</p>
                 </Card>
@@ -1027,7 +1027,7 @@ export default function App() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-white text-slate-700 border-t border-slate-200 dark:bg-slate-950 dark:text-slate-400 dark:border-slate-900" id="footer">
+      <footer className="bg-white text-slate-700 border-t border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-900" id="footer">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
           <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-5 mb-14">
             {/* Brand */}
@@ -1128,7 +1128,7 @@ export default function App() {
                     placeholder="Jane Smith"
                     value={demoFormName}
                     onChange={(e) => setDemoFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1144,7 +1144,7 @@ export default function App() {
                       placeholder="you@company.com"
                       value={demoFormEmail}
                       onChange={(e) => setDemoFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1158,7 +1158,7 @@ export default function App() {
                       placeholder="e.g. +44 7123 456789"
                       value={demoFormPhone}
                       onChange={(e) => setDemoFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1174,7 +1174,7 @@ export default function App() {
                     placeholder="Your organisation"
                     value={demoFormOrg}
                     onChange={(e) => setDemoFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1190,7 +1190,7 @@ export default function App() {
                       placeholder="e.g. Registered Manager"
                       value={demoFormRole}
                       onChange={(e) => setDemoFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1204,7 +1204,7 @@ export default function App() {
                       placeholder="e.g. 5"
                       value={demoFormServices}
                       onChange={(e) => setDemoFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1219,7 +1219,7 @@ export default function App() {
                       required
                       value={demoFormServiceType}
                       onChange={(e) => setDemoFormServiceType(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     >
                       <option value="">Select…</option>
                       <option value="Supported Living">Supported Living</option>
@@ -1237,7 +1237,7 @@ export default function App() {
                       required
                       value={demoFormContactMethod}
                       onChange={(e) => setDemoFormContactMethod(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     >
                       <option value="Email">Email</option>
                       <option value="Phone">Phone</option>
@@ -1255,7 +1255,7 @@ export default function App() {
                     rows={4}
                     value={demoFormMessage}
                     onChange={(e) => setDemoFormMessage(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1323,7 +1323,7 @@ export default function App() {
                     placeholder="Jane Smith"
                     value={pilotFormName}
                     onChange={(e) => setPilotFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1339,7 +1339,7 @@ export default function App() {
                       placeholder="you@company.com"
                       value={pilotFormEmail}
                       onChange={(e) => setPilotFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1353,7 +1353,7 @@ export default function App() {
                       placeholder="e.g. +44 7123 456789"
                       value={pilotFormPhone}
                       onChange={(e) => setPilotFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1369,7 +1369,7 @@ export default function App() {
                     placeholder="Your organisation"
                     value={pilotFormOrg}
                     onChange={(e) => setPilotFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1385,7 +1385,7 @@ export default function App() {
                       placeholder="e.g. Registered Manager"
                       value={pilotFormRole}
                       onChange={(e) => setPilotFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1399,7 +1399,7 @@ export default function App() {
                       placeholder="e.g. 5"
                       value={pilotFormServices}
                       onChange={(e) => setPilotFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1413,7 +1413,7 @@ export default function App() {
                     required
                     value={pilotFormServiceType}
                     onChange={(e) => setPilotFormServiceType(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   >
                     <option value="">Select…</option>
                     <option value="Supported Living">Supported Living</option>
@@ -1434,7 +1434,7 @@ export default function App() {
                     placeholder="What governance challenge are you currently facing?"
                     value={pilotFormChallenge}
                     onChange={(e) => setPilotFormChallenge(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1449,7 +1449,7 @@ export default function App() {
                     placeholder="Tell us what you'd like to achieve."
                     value={pilotFormHelp}
                     onChange={(e) => setPilotFormHelp(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-950 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
                   />
                 </div>
 
