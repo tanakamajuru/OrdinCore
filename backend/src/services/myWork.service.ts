@@ -106,9 +106,15 @@ export const myWorkService = {
     if (EFFECTIVENESS_READERS.includes(r)) {
       // Durable obligations are the source of truth; a service/signal action is not dropped simply
       // because no formal risk existed when the work was allocated.
+      // Only obligations whose review is actually due now — matching the Effectiveness screen's
+      // pending list (actionEffectiveness.getPendingEffectiveness). A "Too Early To Assess" review
+      // re-opens the obligation with a FUTURE due_at; it must not inflate the badge (and send the
+      // user to an empty screen) until that scheduled re-review date arrives. Fresh completions get
+      // due_at = now, so they still count.
       const eff = await safe(() => query(
         `SELECT COUNT(*)::int AS n FROM governance_review_obligations
-          WHERE company_id=$1 AND obligation_type='ACTION_EFFECTIVENESS' AND status='OPEN'`,
+          WHERE company_id=$1 AND obligation_type='ACTION_EFFECTIVENESS' AND status='OPEN'
+            AND (due_at IS NULL OR due_at <= NOW())`,
         [company_id]
       ), { rows: [{ n: 0 }] } as any);
       const n = eff.rows[0]?.n || 0;

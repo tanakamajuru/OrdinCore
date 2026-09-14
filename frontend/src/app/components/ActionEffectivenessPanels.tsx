@@ -267,12 +267,16 @@ export function ActionEffectivenessPanels() {
 
       {rating && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>
-          <div className="bg-card border-2 border-border rounded-xl w-full max-w-md p-6" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
-            <p className="text-sm text-muted-foreground mb-4">{rating.title}</p>
+          <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
+            <div className="p-6 pb-3 shrink-0">
+              <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
+              <p className="text-sm text-muted-foreground">{rating.title}</p>
+            </div>
             {/* One evidence packet: why the action existed, what was expected, what was done, and the
-                risk's trajectory afterwards. Rating is blocked until source + completion evidence exist. */}
-            <div className="max-h-[52vh] overflow-y-auto space-y-3 pr-1 mb-4">
+                risk's trajectory afterwards. Rating is blocked until source + completion evidence exist.
+                The whole body scrolls as one region so the Record button is always reachable — including
+                when "Too Early To Assess" reveals the extra next-review-date field. */}
+            <div className="flex-1 overflow-y-auto px-6 space-y-3">
               <section className="rounded-lg border border-border p-3">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">Why this action existed</p>
                 <p className="text-sm font-medium">{rating.evidence_packet?.source?.kind || "Governance action"}{rating.evidence_packet?.source?.domain ? ` · ${rating.evidence_packet.source.domain}` : ""}</p>
@@ -299,7 +303,6 @@ export function ActionEffectivenessPanels() {
               {!rating.evidence_packet?.review_ready && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
                 Rating blocked: {(rating.evidence_packet?.missing || ["Required evidence is missing."]).join(" ")}
               </div>}
-            </div>
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Did the action reduce the risk?</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {OUTCOMES.map((o) => (
@@ -315,7 +318,8 @@ export function ActionEffectivenessPanels() {
               <label className="block text-sm text-muted-foreground mb-1">Next effectiveness review date</label>
               <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm" />
             </div>}
-            <div className="flex justify-end gap-2 mt-4">
+            </div>
+            <div className="flex justify-end gap-2 p-6 pt-3 shrink-0 border-t border-border">
               <button onClick={() => setRating(null)} disabled={saving} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button>
               <button onClick={submitRating} disabled={saving || !rating.evidence_packet?.review_ready || expectedOutcome.trim().length < 10} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
             </div>
