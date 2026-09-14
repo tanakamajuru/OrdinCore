@@ -1,4 +1,6 @@
 import PDFDocument from 'pdfkit';
+import fs from 'fs';
+import path from 'path';
 import { findReport } from '../config/report-catalog';
 
 // Renders a PDF from the STORED snapshot only — never from live data, and never from a legacy
@@ -6,9 +8,11 @@ import { findReport } from '../config/report-catalog';
 // report-specific structured renderer over the immutable snapshot (row.data + data.evidence).
 // Missing information is stated ("Not recorded - follow-up required"); it is never invented.
 
-const NAVY = '#12233f', BLUE = '#17689b', INK = '#1e2936', MUTED = '#607080';
-const LINE = '#d6e0e7', PALE = '#eaf3f7';
+const NAVY = '#102A43', BLUE = '#2474C6', AQUA = '#14A0A8';
+const INK = '#172B3A', MUTED = '#475D6E', SOFT = '#667A8B';
+const LINE = '#CFDEE8', PALE = '#F0F6FA', HEADER_PALE = '#E8F2F9';
 const LEFT = 50, WIDTH = 495, PAGE_BOTTOM = 742;
+const LOGO_SIZE = 54;
 
 const MISSING = 'Not recorded - follow-up required';
 const date = (v?: any) => {
@@ -48,20 +52,120 @@ const short = (v: any, max = 180) => (clean(v).length > max ? `${clean(v).slice(
 // is treated as absent so no database identifier can leak into a narrative field.
 const asText = (v: any) => (typeof v === 'string' || typeof v === 'number' ? clean(v) : '');
 
+const roleLabel = (value?: any) => {
+  const raw = String(value || '').trim().toLowerCase();
+  const labels: Record<string, string> = {
+    rm: 'Registered Manager', registered_manager: 'Registered Manager',
+    team_leader: 'Team Leader', tl: 'Team Leader',
+    director: 'Director', ri: 'Responsible Individual', responsible_individual: 'Responsible Individual',
+    admin: 'Administrator', super_admin: 'Super Administrator', superadmin: 'Super Administrator',
+  };
+  return labels[raw] || (raw ? label(raw) : 'Not recorded');
+};
+
+const dateTime = (v?: any) => {
+  if (!v) return 'Not recorded';
+  const d = new Date(v);
+  return isNaN(d.getTime()) ? 'Not recorded' : d.toLocaleString('en-GB', {
+    day: '2-digit', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false,
+  });
+};
+
+function resolveLogoPath(): string | null {
+  const candidates = [
+    path.resolve(__dirname, '../assets/ordin-core-logo.png'),
+    path.resolve(process.cwd(), 'src/reporting/assets/ordin-core-logo.png'),
+    path.resolve(process.cwd(), 'backend/src/reporting/assets/ordin-core-logo.png'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
+function metadataValue(data: any, row: any, key: string, fallback?: any): string {
+  const metadata = data?.report_metadata || {};
+  const value = metadata[key] ?? fallback;
+  return clean(value);
+}
+
+function reportMasthead(doc: PDFKit.PDFDocument, row: any, data: any, title: string) {
+  const top = 44;
+  const logoPath = resolveLogoPath();
+
+  // Brand identifier - same on every report.
+  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLUE)
+    .text('ORDIN CORE', LEFT, top, { width: 280, characterSpacing: 1.4 });
+  doc.font('Helvetica-Bold').fontSize(13).fillColor(NAVY)
+    .text('Governance & Oversight', LEFT, top + 16, { width: 320 });
+
+  if (logoPath) {
+    doc.image(logoPath, LEFT + WIDTH - LOGO_SIZE, top - 7, { fit: [LOGO_SIZE, LOGO_SIZE], align: 'right' });
+  } else {
+    // Visible fallback if packaging omitted the image: retain brand identity without breaking PDF generation.
+    doc.roundedRect(LEFT + WIDTH - 48, top - 3, 44, 44, 9).lineWidth(1.5).strokeColor(BLUE).stroke();
+    doc.font('Helvetica-Bold').fontSize(20).fillColor(BLUE)
+      .text('O', LEFT + WIDTH - 48, top + 7, { width: 44, align: 'center' });
+  }
+
+  doc.moveTo(LEFT, top + 58).lineTo(LEFT + WIDTH, top + 58).lineWidth(1.2).strokeColor(BLUE).stroke();
+  doc.y = top + 72;
+  doc.x = LEFT;
+
+  // Report title is visually distinct from the Ordin Core masthead.
+  doc.font('Helvetica-Bold').fontSize(19).fillColor(NAVY)
+    .text(title, LEFT, doc.y, { width: WIDTH - 8, lineGap: 2 });
+  doc.moveDown(0.55);
+
+  const organisation = metadataValue(data, row, 'organisation', row.organisation_name || 'Not recorded');
+  const producedAt = metadataValue(data, row, 'produced_at', row.created_at);
+  const producedByName = metadataValue(data, row, 'produced_by_name', row.generated_by_name || 'Not recorded');
+  const producedByRole = metadataValue(data, row, 'produced_by_role', row.generated_by_role || 'Not recorded');
+  const scope = clean(data.scope_label) === MISSING ? clean(row.scope_type) : clean(data.scope_label);
+  const reportStatus = `${clean(row.status)}${row.approved_at ? ` - approved ${dateTime(row.approved_at)}` : ''}`;
+
+  const metadataRows = [
+    ['Organisation', organisation],
+    ['Date and time produced', producedAt === 'Not recorded' ? producedAt : dateTime(producedAt)],
+    ['Produced by', `${producedByName}${producedByRole !== 'Not recorded' ? ` - ${roleLabel(producedByRole)}` : ''}`],
+    ['Title of report', title],
+    ['Reporting period', `${date(row.period_start)} to ${date(row.period_end)}`],
+    ['Scope', scope],
+    ['Status', reportStatus],
+  ];
+
+  const labelWidth = 132;
+  const valueWidth = WIDTH - labelWidth;
+  const rowX = LEFT;
+  let y = doc.y;
+  metadataRows.forEach(([metaLabel, value], index) => {
+    const valueHeight = doc.font('Helvetica').fontSize(9.5).heightOfString(value, { width: valueWidth - 14, lineGap: 1.5 });
+    const rowHeight = Math.max(24, valueHeight + 10);
+    if (index % 2 === 0) doc.rect(rowX, y, WIDTH, rowHeight).fill(HEADER_PALE);
+    doc.font('Helvetica-Bold').fontSize(9.2).fillColor(NAVY)
+      .text(metaLabel, rowX + 8, y + 7, { width: labelWidth - 12 });
+    doc.font('Helvetica').fontSize(9.5).fillColor(INK)
+      .text(value, rowX + labelWidth, y + 7, { width: valueWidth - 10, lineGap: 1.5 });
+    doc.moveTo(rowX, y + rowHeight).lineTo(rowX + WIDTH, y + rowHeight).lineWidth(0.45).strokeColor(LINE).stroke();
+    y += rowHeight;
+  });
+  doc.y = y + 12;
+  doc.x = LEFT;
+}
+
 // ── layout primitives (every one resets doc.x to the left margin and uses explicit x/width) ────
 function ensure(doc: PDFKit.PDFDocument, needed = 90, continuation?: string) {
   if (doc.y + needed > PAGE_BOTTOM) {
     doc.addPage();
     doc.x = LEFT;
-    if (continuation) doc.font('Helvetica-Bold').fontSize(11).fillColor(NAVY).text(`${continuation} - continued`, LEFT, doc.y, { width: WIDTH }).moveDown(0.4);
+    if (continuation) doc.font('Helvetica-Bold').fontSize(12).fillColor(NAVY).text(`${continuation} - continued`, LEFT, doc.y, { width: WIDTH, lineGap: 2 }).moveDown(0.5);
   }
 }
 
 function heading(doc: PDFKit.PDFDocument, title: string) {
   ensure(doc, 46);
   doc.x = LEFT;
-  doc.moveDown(0.9);
-  doc.font('Helvetica-Bold').fontSize(11).fillColor(BLUE).text(title, LEFT, doc.y, { width: WIDTH }).moveDown(0.3);
+  doc.moveDown(1.0);
+  doc.font('Helvetica-Bold').fontSize(12.5).fillColor(NAVY).text(title, LEFT, doc.y, { width: WIDTH, lineGap: 2 });
+  doc.moveDown(0.18).moveTo(LEFT, doc.y).lineTo(LEFT + WIDTH, doc.y).lineWidth(0.7).strokeColor(LINE).stroke();
+  doc.moveDown(0.35);
   doc.x = LEFT;
 }
 
@@ -70,8 +174,8 @@ function paragraph(doc: PDFKit.PDFDocument, text?: any, italic = false) {
   doc.x = LEFT;
   const blocks = clean(text).split(/\n\s*\n/).filter(Boolean);
   for (const block of blocks) {
-    doc.font(italic ? 'Helvetica-Oblique' : 'Helvetica').fontSize(9).fillColor(italic ? MUTED : INK)
-      .text(block, LEFT, doc.y, { width: WIDTH, lineGap: 3 }).moveDown(0.55);
+    doc.font(italic ? 'Helvetica-Oblique' : 'Helvetica').fontSize(10.2).fillColor(italic ? MUTED : INK)
+      .text(block, LEFT, doc.y, { width: WIDTH, lineGap: 4 }).moveDown(0.65);
     doc.x = LEFT;
   }
 }
@@ -83,7 +187,7 @@ function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 
   for (const value of shown) {
     ensure(doc, 34);
     doc.x = LEFT;
-    doc.font('Helvetica').fontSize(9).fillColor(INK).text(`• ${short(value, 230)}`, LEFT, doc.y, { width: WIDTH, indent: 10, lineGap: 3 }).moveDown(0.35);
+    doc.font('Helvetica').fontSize(10).fillColor(INK).text(`• ${short(value, 230)}`, LEFT, doc.y, { width: WIDTH, indent: 12, lineGap: 4 }).moveDown(0.45);
     doc.x = LEFT;
   }
 }
@@ -99,26 +203,26 @@ function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col
   const header = () => {
     ensure(doc, 40, title);
     const y = doc.y;
-    doc.rect(LEFT, y, WIDTH, 20).fill(PALE);
+    doc.rect(LEFT, y, WIDTH, 24).fill(PALE);
     let x = LEFT + 4;
-    doc.font('Helvetica-Bold').fontSize(7.2).fillColor(NAVY);
-    for (const c of columns) { doc.text(c.label, x, y + 6, { width: c.width - 7 }); x += c.width; }
-    doc.x = LEFT; doc.y = y + 24;
+    doc.font('Helvetica-Bold').fontSize(8.3).fillColor(NAVY);
+    for (const c of columns) { doc.text(c.label, x, y + 7, { width: c.width - 7, lineGap: 1.5 }); x += c.width; }
+    doc.x = LEFT; doc.y = y + 28;
   };
   header();
 
   for (const row of shown) {
     const values = columns.map((c) => (c.map ? clean(c.map(row)) : clean(row[c.key])));
-    const rowHeight = Math.min(72, Math.max(16, ...values.map((v, i) => doc.heightOfString(v, { width: columns[i].width - 7 }) + 8)));
+    const rowHeight = Math.min(86, Math.max(22, ...values.map((v, i) => doc.font('Helvetica').fontSize(8.5).heightOfString(v, { width: columns[i].width - 9, lineGap: 2 }) + 11)));
     if (doc.y + rowHeight > PAGE_BOTTOM) { doc.addPage(); doc.x = LEFT; header(); }
     const y = doc.y;
     let x = LEFT + 4;
-    doc.font('Helvetica').fontSize(7.4).fillColor(INK);
-    values.forEach((v, i) => { doc.text(v, x, y + 4, { width: columns[i].width - 7, height: rowHeight - 7, ellipsis: true }); x += columns[i].width; });
+    doc.font('Helvetica').fontSize(8.5).fillColor(INK);
+    values.forEach((v, i) => { doc.text(v, x, y + 6, { width: columns[i].width - 9, height: rowHeight - 10, ellipsis: true, lineGap: 2 }); x += columns[i].width; });
     doc.moveTo(LEFT, y + rowHeight).lineTo(LEFT + WIDTH, y + rowHeight).strokeColor(LINE).lineWidth(0.5).stroke();
     doc.x = LEFT; doc.y = y + rowHeight;
   }
-  doc.x = LEFT; doc.moveDown(0.55);
+  doc.x = LEFT; doc.moveDown(0.75);
 }
 
 function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
@@ -143,7 +247,10 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
 
 // ── evidence-led helpers ───────────────────────────────────────────────────────
 const isOpen = (status: any) => !/complete|completed|cancel|closed|resolved/i.test(clean(status));
-const isPositiveEffectiveness = (value: any) => clean(value) === 'Effective';
+const isDemonstratedEffective = (a: any) => clean(a?.effectiveness) === 'Effective'
+  && clean(a?.effectiveness_review_state) === 'FINAL'
+  && !!a?.effectiveness_reviewed_at
+  && !!String(a?.effectiveness_evidence || '').trim();
 const inPeriod = (value: any, data: any) => {
   if (!value || !data.period?.start || !data.period?.end) return false;
   const at = new Date(value).getTime();
@@ -256,7 +363,7 @@ function renderOverview(doc: PDFKit.PDFDocument, data: any) {
   heading(doc, '3. Recorded response');
   bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
   heading(doc, '4. Evidenced improvement');
-  bullets(doc, (e.actions || []).filter((a: any) => isPositiveEffectiveness(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
+  bullets(doc, (e.actions || []).filter((a: any) => isDemonstratedEffective(a)).map((a: any) => `${clean(a.action)}: Demonstrated Effective - ${clean(a.effectiveness_evidence)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
   heading(doc, '5. Unresolved work');
   bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No unresolved action or escalation was recorded.', 6);
   heading(doc, '6. Management priority'); paragraph(doc, position(data));
@@ -400,7 +507,7 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
   ], 'No service was in scope for this report.', 12);
   heading(doc, '3. Demonstrated effective controls');
-  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Effective' && clean(a.effectiveness_review_state) === 'FINAL').map((a: any) => `${clean(a.action)} — evidence: ${clean(a.effectiveness_evidence || a.completion_evidence)}`), 'No control is yet supported by a final Effective judgement and recorded evidence.', 5);
+  bullets(doc, (e.actions || []).filter((a: any) => isDemonstratedEffective(a)).map((a: any) => `${clean(a.action)} - evidence: ${clean(a.effectiveness_evidence)}`), 'No control is yet supported by a final Effective judgement and recorded evidence.', 5);
   heading(doc, '4. Improvement evident but control incomplete');
   bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Partially Effective').map((a: any) => `${clean(a.action)} — evidence: ${clean(a.effectiveness_evidence || a.completion_evidence)}`), 'No partially effective control was recorded.', 5);
   heading(doc, '5. Control not demonstrated / awaiting review');
@@ -445,15 +552,8 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
   doc.on('data', (c: Buffer) => chunks.push(c));
   const finished = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
 
-  // Masthead
-  doc.x = LEFT;
-  doc.font('Helvetica-Bold').fontSize(18).fillColor(NAVY).text(title, LEFT, doc.y, { width: WIDTH });
-  doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor(MUTED)
-    .text(`${clean(data.scope_label) === MISSING ? row.scope_type : clean(data.scope_label)}  ·  ${date(row.period_start)} to ${date(row.period_end)}`, LEFT, doc.y, { width: WIDTH });
-  doc.font('Helvetica').fontSize(9).fillColor(MUTED)
-    .text(`Status: ${clean(row.status)}${row.approved_at ? ` | Approved ${date(row.approved_at)}` : ''}`, LEFT, doc.y, { width: WIDTH });
-  doc.moveDown(0.5).moveTo(LEFT, doc.y).lineTo(LEFT + WIDTH, doc.y).strokeColor(LINE).stroke();
-  doc.x = LEFT; doc.moveDown(0.4);
+  // Shared branded masthead and immutable report provenance.
+  reportMasthead(doc, row, data, title);
 
   // Body — route to the report-specific structured template. No legacy narrative is appended.
   switch (row.report_key) {
@@ -486,8 +586,8 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
     // overflowing the content frame and append a blank page; restore it immediately afterwards.
     const bottomMargin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
-    doc.font('Helvetica').fontSize(7).fillColor(MUTED)
-      .text(`Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
+    doc.font('Helvetica').fontSize(7.8).fillColor(SOFT)
+      .text(`Ordin Core Governance & Oversight   |   Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
     doc.page.margins.bottom = bottomMargin;
   }
 

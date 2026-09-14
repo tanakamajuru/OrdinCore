@@ -19,6 +19,24 @@ export const frozenReportService = {
 
     const data = await scopedReportDataService.build(resolved, start, end);
 
+    // Freeze report provenance at generation time so every PDF can identify the organisation,
+    // producer and production timestamp without relying on mutable live profile data.
+    const producedAt = new Date().toISOString();
+    const producer = (await query(
+      `SELECT c.name AS organisation_name,
+              TRIM(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')) AS produced_by_name
+         FROM companies c
+         LEFT JOIN users u ON u.id=$2 AND u.company_id=c.id
+        WHERE c.id=$1`,
+      [user.company_id, user.user_id]
+    )).rows[0] || {};
+    (data as any).report_metadata = {
+      organisation: producer.organisation_name || 'Not recorded',
+      produced_at: producedAt,
+      produced_by_name: producer.produced_by_name || 'Not recorded',
+      produced_by_role: user.role || 'Not recorded',
+    };
+
     // Optional narrative drafted strictly from these facts — same engine as every other report.
     let narrative = '';
     try {
@@ -34,7 +52,7 @@ export const frozenReportService = {
     // Hash every fact that can affect the rendered document, including the narrative. Previous
     // hashes covered data but not narrative, so a PDF could contain unverified text.
     const contract_version = 'report-snapshot-v1';
-    const source_cutoff_at = new Date().toISOString();
+    const source_cutoff_at = producedAt;
     const integrity_payload = {
       contract_version, report_key: reportKey, scope_type: resolved.type,
       requested_scope: req.scope, resolved_site_ids: resolved.siteIds,
@@ -73,7 +91,16 @@ export const frozenReportService = {
   },
 
   async get(id: string, companyId: string) {
-    const r = (await query(`SELECT * FROM report_snapshots WHERE id=$1 AND company_id=$2`, [id, companyId])).rows[0];
+    const r = (await query(
+      `SELECT rs.*, c.name AS organisation_name,
+              TRIM(COALESCE(gu.first_name, '') || ' ' || COALESCE(gu.last_name, '')) AS generated_by_name,
+              gu.role AS generated_by_role
+         FROM report_snapshots rs
+         LEFT JOIN companies c ON c.id=rs.company_id
+         LEFT JOIN users gu ON gu.id=rs.generated_by
+        WHERE rs.id=$1 AND rs.company_id=$2`,
+      [id, companyId]
+    )).rows[0];
     if (!r) throw new Error('Report not found.');
     if (r.contract_version === 'report-snapshot-v1') {
       if (!r.integrity_payload || hashService.hash(r.integrity_payload) !== r.evidence_hash) {
