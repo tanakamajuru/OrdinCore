@@ -68,7 +68,7 @@ export function SignalDetailScreen() {
     try {
       await api.post('/governance-decisions', {
         pulse_entry_id: id, house_id: s?.house_id || s?.service_id,
-        what_is_happening: rationale.trim(), decision, severity: rmSeverity,
+        what_is_happening: rationale.trim(), decision_rationale: rationale.trim(), decision, severity: rmSeverity,
         owner_id: ownerId || undefined, due_at: dueAt ? `${dueAt}T17:00:00.000Z` : undefined,
         action_description: decision === 'Create Action' ? rationale.trim() : undefined,
         intended_outcome: intendedOutcomeRequired ? intendedOutcome.trim() : undefined,
