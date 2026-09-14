@@ -63,6 +63,7 @@ describe('§3 Promote to Risk — idempotent (no duplicate risk)', () => {
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: 'co', user_id: 'u', cluster_id: 'cl-1',
       what_is_happening: 'promote this recurring pattern', decision: 'Promote to Risk',
+      decision_rationale: 'The pattern is recurring and warrants a formal risk.',
     });
 
     expect(out.risk?.id).toBe('risk-existing');
@@ -84,6 +85,7 @@ describe('§3 Escalate — idempotent (reuses an open escalation)', () => {
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: 'co', user_id: 'u', cluster_id: 'cl-1',
       what_is_happening: 'escalate this pattern now', decision: 'Escalate',
+      decision_rationale: 'This pattern needs manager escalation now.',
     });
 
     expect(out.escalation?.id).toBe('esc-open');
@@ -281,6 +283,7 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
       company_id: 'co', user_id: 'u', pulse_entry_id: 'p1',
       severity: 'Moderate',
       what_is_happening: 'A new emerging pattern of concern.', decision: 'Create Pattern',
+      decision_rationale: 'Repeated signals justify grouping into a pattern.',
     });
     expect(out.pattern?.id).toBe('cl-new');
     expect(client.sqls.some((s) => /INSERT INTO risk_signal_links/.test(s))).toBe(true);
@@ -298,6 +301,7 @@ describe('§2 Create Pattern / Link to Pattern decisions', () => {
       company_id: 'co', user_id: 'u', pulse_entry_id: 'p1', cluster_id: 'cl-1',
       severity: 'Moderate',
       what_is_happening: 'Link this signal to the existing pattern.', decision: 'Link to Pattern',
+      decision_rationale: 'This signal belongs with the existing pattern.',
     });
     expect(out.pattern?.id).toBe('cl-1');
     expect(client.sqls.some((s) => /INSERT INTO signal_clusters/.test(s))).toBe(false);
@@ -325,6 +329,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
       company_id: CO, user_id: USER, house_id: HOUSE, pulse_entry_id: SIGNAL,
       severity: 'High',
       what_is_happening: 'Act on this concern promptly.', decision: 'Create Action', owner_id: 'tl-1',
+      decision_rationale: 'Immediate action is needed to address this concern.',
       due_at: '2099-01-01T12:00:00.000Z', intended_outcome: 'The underlying concern reduces.',
     });
     expect(out.task?.id).toBe('task-1');
@@ -344,6 +349,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: CO, user_id: USER, cluster_id: 'cl-1',
       what_is_happening: 'Promote this recurring pattern to a formal risk.', decision: 'Promote to Risk',
+      decision_rationale: 'The recurring pattern now meets the risk threshold.',
     });
     expect(out.risk?.id).toBe('risk-1');
     const riskParams = paramsOf(client, /INSERT INTO risks/)!;
@@ -365,6 +371,7 @@ describe('§14 Full governance journey — lineage is threaded at every hop', ()
     const out = await governanceDecisionsService.executeInTx(client as any, {
       company_id: CO, user_id: USER, cluster_id: 'cl-1', house_id: HOUSE,
       what_is_happening: 'Escalate this pattern to the Registered Manager.', decision: 'Escalate',
+      decision_rationale: 'This pattern requires Registered Manager oversight.',
     });
     expect(out.escalation?.id).toBe('esc-1');
     const escParams = paramsOf(client, /INSERT INTO escalations/)!;

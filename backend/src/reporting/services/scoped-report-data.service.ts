@@ -25,28 +25,42 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
     [companyId, siteId, start, end]
   )).rows[0];
 
+  // All lifecycle metrics are evaluated AS AT the report end, never NOW(). A record
+  // created before the period but still open at the cut-off remains material to the report.
   const risk = (await query(
-    `SELECT COUNT(*) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed','resolved'))::int AS open_risks,
-            COUNT(*) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed','resolved') AND LOWER(r.severity::text)='critical')::int AS critical_risks
+    `SELECT COUNT(*) FILTER (WHERE r.created_at <= $3::timestamptz
+                              AND ((COALESCE(r.closed_at, r.resolved_at) IS NULL AND LOWER(r.status::text) NOT IN ('closed','resolved')) OR COALESCE(r.closed_at, r.resolved_at) > $3::timestamptz))::int AS open_risks,
+            COUNT(*) FILTER (WHERE r.created_at <= $3::timestamptz
+                              AND ((COALESCE(r.closed_at, r.resolved_at) IS NULL AND LOWER(r.status::text) NOT IN ('closed','resolved')) OR COALESCE(r.closed_at, r.resolved_at) > $3::timestamptz)
+                              AND LOWER(r.severity::text)='critical')::int AS critical_risks
        FROM risks r WHERE r.company_id = $1 AND r.house_id = $2 ${personRisk}`,
-    [companyId, siteId]
+    [companyId, siteId, end]
   )).rows[0];
 
   const esc = (await query(
-    `SELECT COUNT(*) FILTER (WHERE COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','closed','resolved'))::int AS open_escalations,
-            COUNT(*) FILTER (WHERE COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','closed','resolved') AND e.due_by < NOW())::int AS overdue_escalations
+    `SELECT COUNT(*) FILTER (WHERE e.created_at <= $3::timestamptz
+                              AND ((COALESCE(e.closed_at, e.resolved_at) IS NULL AND COALESCE(e.lifecycle_status::text,e.status::text) NOT IN ('Closed','Resolved','closed','resolved')) OR COALESCE(e.closed_at, e.resolved_at) > $3::timestamptz))::int AS open_escalations,
+            COUNT(*) FILTER (WHERE e.created_at <= $3::timestamptz
+                              AND ((COALESCE(e.closed_at, e.resolved_at) IS NULL AND COALESCE(e.lifecycle_status::text,e.status::text) NOT IN ('Closed','Resolved','closed','resolved')) OR COALESCE(e.closed_at, e.resolved_at) > $3::timestamptz)
+                              AND e.due_by < $3::timestamptz)::int AS overdue_escalations
        FROM escalations e WHERE e.company_id = $1 AND e.house_id = $2 ${personEsc}`,
-    [companyId, siteId]
+    [companyId, siteId, end]
   )).rows[0];
 
   const act = (await query(
-    `SELECT COUNT(*) FILTER (WHERE ra.status NOT IN ${done})::int AS open_actions,
-            COUNT(*) FILTER (WHERE ra.status NOT IN ${done} AND ra.due_date < NOW())::int AS overdue_actions,
-            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed'))::int AS completed_actions,
-            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed') AND ra.completed_at IS NOT NULL AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time
-       FROM risk_actions ra JOIN risks r ON r.id = ra.risk_id
-      WHERE ra.company_id = $1 AND r.house_id = $2 ${personAct}`,
-    [companyId, siteId]
+    `SELECT COUNT(*) FILTER (WHERE ra.created_at <= $3::timestamptz
+                              AND ((ra.completed_at IS NULL AND ra.status NOT IN ${done}) OR ra.completed_at > $3::timestamptz))::int AS open_actions,
+            COUNT(*) FILTER (WHERE ra.created_at <= $3::timestamptz
+                              AND ((ra.completed_at IS NULL AND ra.status NOT IN ${done}) OR ra.completed_at > $3::timestamptz)
+                              AND ra.due_date < $3::timestamptz)::int AS overdue_actions,
+            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
+                              AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz)::int AS completed_actions,
+            COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
+                              AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz
+                              AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time
+       FROM risk_actions ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+      WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) = $2 ${personAct}`,
+    [companyId, siteId, end, start]
   )).rows[0];
 
   return {
@@ -125,7 +139,8 @@ export const scopedReportDataService = {
 
     const riskRows = (await query(
       `SELECT r.id, h.name AS service, COALESCE(r.strategic_theme, r.title) AS risk,
-              r.description, r.severity::text AS severity, r.status::text AS status,
+              r.description, r.severity::text AS severity,
+              CASE WHEN COALESCE(r.closed_at,r.resolved_at) IS NOT NULL AND COALESCE(r.closed_at,r.resolved_at) <= $4::timestamptz THEN r.status::text ELSE CASE WHEN LOWER(r.status::text) IN ('closed','resolved') THEN 'Open' ELSE r.status::text END END AS status,
               r.source_cluster_id,
               COALESCE(r.trajectory::text, r.trend::text, 'Insufficient evidence') AS direction,
               r.review_due_date, r.resolution_reason
@@ -145,11 +160,13 @@ export const scopedReportDataService = {
 
     const actions = (await query(
       `SELECT ra.id, COALESCE(h.name, 'Organisation-wide') AS service, ra.title AS action,
-              ra.status::text AS status, ra.created_at, ra.completed_at, ra.due_date,
+              CASE WHEN ra.completed_at IS NOT NULL AND ra.completed_at > $4::timestamptz THEN 'Open' ELSE ra.status::text END AS status, ra.created_at, ra.completed_at, ra.due_date,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
-              ra.completion_evidence,
+              ra.completion_evidence, ra.intended_outcome,
+              cev.effectiveness_evidence, cev.effectiveness_reviewer, cev.effectiveness_reviewed_at,
               COALESCE(cev.outcome, 'Not yet reviewed') AS effectiveness,
-              COALESCE(cev.review_state, 'NOT_REVIEWED') AS effectiveness_review_state
+              COALESCE(cev.review_state, 'NOT_REVIEWED') AS effectiveness_review_state,
+              ra.source_cluster_id, ra.risk_id, ra.escalation_id, ra.governance_review_id
          FROM risk_actions ra
          LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
          LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
@@ -167,8 +184,10 @@ export const scopedReportDataService = {
     const escalations = (await query(
       `SELECT e.id, COALESCE(h.name, 'Organisation-wide') AS service, e.created_at AS date,
               e.reason, e.priority::text AS priority,
-              COALESCE(e.lifecycle_status::text, e.status::text) AS status,
+              CASE WHEN COALESCE(e.closed_at,e.resolved_at) IS NOT NULL AND COALESCE(e.closed_at,e.resolved_at) <= $4::timestamptz
+                   THEN 'Closed' ELSE COALESCE(e.lifecycle_status::text, e.status::text) END AS status,
               e.due_by, COALESCE(e.closure_evidence, e.resolution_notes) AS outcome,
+              e.risk_id, e.source_cluster_id, e.source_governance_review_id,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to
          FROM escalations e
          LEFT JOIN risks r ON r.id = e.risk_id AND r.company_id = e.company_id
@@ -177,7 +196,8 @@ export const scopedReportDataService = {
         WHERE e.company_id = $1
           AND (COALESCE(e.house_id, r.house_id) = ANY($2::uuid[])
                OR ($6::boolean AND COALESCE(e.house_id, r.house_id) IS NULL))
-          AND e.created_at BETWEEN $3 AND $4
+          AND e.created_at <= $4::timestamptz
+          AND COALESCE(e.closed_at, e.resolved_at, $4::timestamptz) >= $3::timestamptz
           AND ($5::uuid IS NULL OR e.service_user_id = $5)
         ORDER BY e.created_at DESC`, broadParams
     )).rows;
@@ -187,7 +207,7 @@ export const scopedReportDataService = {
               gr.review_date AS date,
               COALESCE(NULLIF(TRIM(gr.what_is_happening), ''), gp.description,
                        COALESCE(r.strategic_theme, r.title), e.reason) AS concern,
-              gr.decision, NULLIF(TRIM(gr.evidence), '') AS reason,
+              gr.decision, COALESCE(NULLIF(TRIM(gr.decision_rationale), ''), NULLIF(TRIM(gr.evidence), '')) AS reason,
               COALESCE(gr.decision_status::text, 'Open') AS status,
               gr.due_at,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
@@ -209,22 +229,22 @@ export const scopedReportDataService = {
     // takes its own fully-typed param list — it does not use `start`, and passing an unreferenced
     // parameter makes Postgres unable to infer its type ("could not determine data type").
     const patterns = (await query(
-      `SELECT sc.id, COALESCE(sc.cluster_label, sc.risk_domain) AS pattern,
+      `SELECT sc.id, COALESCE(NULLIF(TRIM(sc.risk_domain), ''), 'Uncategorised') AS pattern,
               sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status,
-              sc.signal_count, sc.review_outcome, sc.next_review_date,
-              COALESCE(
-                (SELECT string_agg(h2.name, ', ' ORDER BY h2.name)
-                   FROM houses h2
-                  WHERE h2.company_id = sc.company_id
-                    AND (h2.id = sc.house_id OR h2.id = ANY(COALESCE(sc.affected_house_ids, ARRAY[]::uuid[])))),
-                'Service not recorded'
-              ) AS affected_scope
+              COUNT(DISTINCT gp.id)::int AS signal_count, sc.review_outcome, sc.next_review_date,
+              MIN(gp.entry_date) AS first_signal_date, MAX(gp.entry_date) AS last_signal_date,
+              COUNT(DISTINCT gp.house_id)::int AS service_count,
+              COALESCE(string_agg(DISTINCT h2.name, ', ' ORDER BY h2.name), 'Service not recorded') AS affected_scope
          FROM signal_clusters sc
+         JOIN risk_signal_links rsl ON rsl.cluster_id = sc.id
+         JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id AND gp.company_id = sc.company_id
+         LEFT JOIN houses h2 ON h2.id = gp.house_id AND h2.company_id = sc.company_id
         WHERE sc.company_id = $1
-          AND (sc.house_id = ANY($2::uuid[]) OR sc.affected_house_ids && $2::uuid[])
-          AND sc.created_at <= $3::timestamptz
-          AND ($4::uuid IS NULL)
-        ORDER BY sc.created_at DESC`, [companyId, siteIds, end, personId || null]
+          AND gp.house_id = ANY($2::uuid[])
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3::timestamptz AND $4::timestamptz
+          AND ($5::uuid IS NULL)
+        GROUP BY sc.id, sc.risk_domain, sc.scope, sc.cluster_status, sc.review_outcome, sc.next_review_date
+        ORDER BY MAX(gp.entry_date) DESC`, [companyId, siteIds, start, end, personId || null]
     )).rows;
 
     const weeklyReviews = (await query(
@@ -241,7 +261,8 @@ export const scopedReportDataService = {
     // (except organisation reports, which see all company audit rows) — never another provider's.
     const scopedIds = new Set<string>([
       ...signals, ...risks, ...actions, ...escalations, ...decisions, ...patterns, ...weeklyReviews,
-    ].map((row: any) => row.id).filter(Boolean));
+    ].flatMap((row: any) => [row.id, row.risk_id, row.source_cluster_id, row.escalation_id, row.governance_review_id, row.source_governance_review_id])
+      .filter(Boolean));
     const auditCandidates = (await query(
       `SELECT a.id, a.created_at AS date, a.action, a.resource,
               a.resource_id, COALESCE(a.new_values->>'reason', a.new_values->>'rationale', '') AS reason,
@@ -267,6 +288,17 @@ export const scopedReportDataService = {
     };
     Object.assign(totals, { effectiveness });
     const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit };
+    const narrative_facts = {
+      position: organisationStatus,
+      governance_confidence: avgGov, evidence_confidence: avgEvidence,
+      signals: totals.signals, high_critical_signals: totals.high_critical,
+      open_risks: totals.open_risks, critical_risks: totals.critical_risks,
+      open_escalations: totals.open_escalations, overdue_escalations: totals.overdue_escalations,
+      open_actions: totals.open_actions, overdue_actions: totals.overdue_actions,
+      effectiveness,
+      themes: themes.map((t: any) => ({ theme: t.theme, signals: t.n })),
+      material_exceptions: materialExceptions,
+    };
 
     return {
       scope_label: resolved.label,
@@ -278,6 +310,7 @@ export const scopedReportDataService = {
       organisation: { status: organisationStatus, governance_confidence: avgGov, evidence_confidence: avgEvidence },
       material_exceptions: materialExceptions,
       evidence,
+      narrative_facts,
       limitations: [] as string[],
     };
   },

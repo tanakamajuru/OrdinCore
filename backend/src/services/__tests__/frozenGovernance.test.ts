@@ -218,7 +218,7 @@ describe('Daily Governance transaction (PDF Phase 3 / TEST_PLAN)', () => {
     await expect(
       dailyGovernanceService.completeLog('log1', {
         note: 'n', user_id: 'u1', company_id: 'co1', material_change: true, team_brief: 'brief',
-        decisions: [{ decision: 'Create Action', severity: 'Moderate', whatIsHappening: 'do the audit', ownerId: 'u2', sourceType: 'signal', sourceId: 's1', dueAt: '2099-01-01T12:00:00.000Z', intendedOutcome: 'The audit confirms the concern is controlled.' }],
+        decisions: [{ decision: 'Create Action', severity: 'Moderate', whatIsHappening: 'do the audit', reason: 'An audit is required to confirm the concern is controlled.', ownerId: 'u2', sourceType: 'signal', sourceId: 's1', dueAt: '2099-01-01T12:00:00.000Z', intendedOutcome: 'The audit confirms the concern is controlled.' }],
       } as any)
     ).rejects.toThrow(/task insert failed/i);
 

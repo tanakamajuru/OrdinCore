@@ -275,6 +275,7 @@ export const governanceWorkflowService = {
           company_id, user_id, cluster_id,
           house_id: cur.house_id || (Array.isArray(cur.affected_house_ids) ? cur.affected_house_ids[0] : null),
           what_is_happening: `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900),
+          decision_rationale: rationale.trim(),
           decision: outcome === 'Promote to Risk' ? 'Promote to Risk' : 'Escalate',
           idempotency_key: `pattern-review:${cluster_id}:${outcome}:${today}`,
         });
@@ -282,9 +283,9 @@ export const governanceWorkflowService = {
       } else {
         // Monitoring outcomes are still governance records — even "no change".
         await client.query(
-          `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_status)
-           VALUES ($1,$2,'RM_REVIEW',$3,$4,'Monitor','Completed')`,
-          [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900)]
+          `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_rationale, decision_status)
+           VALUES ($1,$2,'RM_REVIEW',$3,$4,'Monitor',$5,'Completed')`,
+          [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900), rationale.trim()]
         );
       }
 

@@ -143,7 +143,7 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
 
 // ── evidence-led helpers ───────────────────────────────────────────────────────
 const isOpen = (status: any) => !/complete|completed|cancel|closed|resolved/i.test(clean(status));
-const isPositiveEffectiveness = (value: any) => ['Effective', 'Partially Effective'].includes(clean(value));
+const isPositiveEffectiveness = (value: any) => clean(value) === 'Effective';
 const inPeriod = (value: any, data: any) => {
   if (!value || !data.period?.start || !data.period?.end) return false;
   const at = new Date(value).getTime();
@@ -296,9 +296,17 @@ function renderManager(doc: PDFKit.PDFDocument, data: any) {
   heading(doc, '2. What the information may be telling us');
   bullets(doc, (data.cross_site_themes || []).map((t: any) => `${clean(t.theme)} appeared in ${t.n} recorded signal(s). This is not by itself proof of a pattern.`), 'No recurring theme was visible.', 4);
   heading(doc, '3. Important decisions made');
-  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management decision was recorded.', 5);
+  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)} · ${short(d.concern, 110)} — ${clean(d.decision)}. Rationale: ${clean(d.reason)}${d.reviewer ? ` · ${clean(d.reviewer)}` : ''}${d.due_at ? ` · review/due ${date(d.due_at)}` : ''}`), 'No management decision was recorded.', 5);
   heading(doc, '4. What requires continued attention');
-  bullets(doc, (e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - ${clean(a.owner) === MISSING ? 'owner not recorded' : clean(a.owner)} - due ${date(a.due_date)}`), 'No continuing action was identified.', 4);
+  const continuedAttention = [
+    ...(e.risks || []).filter((r: any) => isOpen(r.status)).map((r: any) => `Risk: ${clean(r.risk)} (${clean(r.service)}) · ${clean(r.severity)} · review ${date(r.review_due_date)}`),
+    ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${short(x.reason, 120)} · ${clean(x.status)} · due ${date(x.due_by)}`),
+    ...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `Action: ${clean(a.action)} · ${clean(a.owner) === MISSING ? 'owner not recorded' : clean(a.owner)} · due ${date(a.due_date)}`),
+    ...(e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Not Effective').map((a: any) => `Control not effective: ${clean(a.action)} · evidence: ${clean(a.effectiveness_evidence)}`),
+    ...(e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Partially Effective').map((a: any) => `Control only partially effective: ${clean(a.action)} · evidence: ${clean(a.effectiveness_evidence)}`),
+    ...(e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Too Early To Assess').map((a: any) => `Effectiveness review pending: ${clean(a.action)} · too early to assess`),
+  ];
+  bullets(doc, continuedAttention, 'No open risk, escalation, action or unresolved effectiveness concern was identified in the frozen snapshot.', 4);
   heading(doc, '5. Reflections recorded by managers'); renderWeeklyReviews(doc, e.weekly_reviews || [], 3);
   heading(doc, '6. Management conclusion'); paragraph(doc, position(data));
 }
@@ -312,7 +320,8 @@ function renderPatterns(doc: PDFKit.PDFDocument, data: any) {
   ], 'No active cross-service pattern was recorded.', 8);
   heading(doc, '2. Why the connection matters');
   paragraph(doc, 'A repeated category alone is not enough. Management must confirm the shared feature, consider alternatives and record why organisation-wide oversight is justified.');
-  table(doc, '3. Organisation-wide response', (e.actions || []).filter((a: any) => a.service === 'Organisation-wide'), [
+  const patternIds = new Set((e.patterns || []).filter((p: any) => p.scope === 'cross_service' && !/dismissed|closed/i.test(clean(p.status))).map((p: any) => p.id));
+  table(doc, '3. Organisation-wide response', (e.actions || []).filter((a: any) => a.source_cluster_id && patternIds.has(a.source_cluster_id)), [
     { label: 'Required response', key: 'action', width: 230 }, { label: 'Owner', key: 'owner', width: 110 },
     { label: 'Position / due', key: 'status', width: 155, map: (r) => `${clean(r.status)} / ${date(r.due_date)}` },
   ], 'No organisation-wide response was recorded.', 6);
@@ -331,9 +340,10 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Severity', key: 'severity', width: 90 }, { label: 'Status', key: 'status', width: 105 },
   ], 'No risk was recorded in this period.', 6);
   table(doc, '4. Decisions on record', e.decisions || [], [
-    { label: 'Date', key: 'date', width: 62, map: (r) => date(r.date) }, { label: 'Decision', key: 'decision', width: 130 },
-    { label: 'Reason', key: 'reason', width: 155 }, { label: 'Reviewer', key: 'reviewer', width: 148 },
-  ], 'No decision was recorded in this period.', 6);
+    { label: 'Date', key: 'date', width: 55, map: (r) => date(r.date) }, { label: 'Concern', key: 'concern', width: 155 },
+    { label: 'Decision', key: 'decision', width: 75 }, { label: 'Rationale', key: 'reason', width: 145 },
+    { label: 'Reviewer', key: 'reviewer', width: 65 },
+  ], 'No decision was recorded in this period.', 8);
   heading(doc, '5. Evidence gaps and limitations');
   const decNoReason = (e.decisions || []).filter((d: any) => !d.reason).length;
   const riskNoReview = (e.risks || []).filter((r: any) => !r.review_due_date && isOpen(r.status)).length;
@@ -372,7 +382,7 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   ], 'No in-period governance event was recorded for this reconstruction.', 20);
   table(doc, '3. Actions and follow-through', (e.actions || []).filter((a: any) => inPeriod(a.created_at, data)), [
     { label: 'Action', key: 'action', width: 190 }, { label: 'Completed / status', key: 'status', width: 100, map: (r) => `${clean(r.status)} (created ${date(r.created_at)})` },
-    { label: 'Completion evidence', key: 'completion_evidence', width: 115 }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
+    { label: 'Evidence', key: 'completion_evidence', width: 115, map: (r) => `${clean(r.completion_evidence)}${r.effectiveness_evidence ? ` / Effectiveness: ${clean(r.effectiveness_evidence)}` : ''}` }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
   ], 'No action was created within this reconstruction period.', 10);
   heading(doc, '4. Learning and limitations');
   bullets(doc, [locked?.lessons_learned, ...(e.weekly_reviews || []).map((r: any) => r.lessons_learnt)].filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
@@ -389,16 +399,20 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Open risks', key: 'open_risks', width: 75, map: (r) => String(r.open_risks ?? 0) },
     { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
   ], 'No service was in scope for this report.', 12);
-  heading(doc, '3. What is evidenced as working');
-  bullets(doc, (e.actions || []).filter((a: any) => isPositiveEffectiveness(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
-  heading(doc, '4. Assurance limitations');
+  heading(doc, '3. Demonstrated effective controls');
+  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Effective' && clean(a.effectiveness_review_state) === 'FINAL').map((a: any) => `${clean(a.action)} — evidence: ${clean(a.effectiveness_evidence || a.completion_evidence)}`), 'No control is yet supported by a final Effective judgement and recorded evidence.', 5);
+  heading(doc, '4. Improvement evident but control incomplete');
+  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Partially Effective').map((a: any) => `${clean(a.action)} — evidence: ${clean(a.effectiveness_evidence || a.completion_evidence)}`), 'No partially effective control was recorded.', 5);
+  heading(doc, '5. Control not demonstrated / awaiting review');
+  bullets(doc, (e.actions || []).filter((a: any) => ['Not Effective','Too Early To Assess','Not yet reviewed'].includes(clean(a.effectiveness))).map((a: any) => `${clean(a.action)} — ${clean(a.effectiveness)}${a.effectiveness_evidence ? ` — evidence: ${clean(a.effectiveness_evidence)}` : ''}`), 'No failed, interim or unreviewed control was recorded.', 5);
+  heading(doc, '6. Assurance limitations');
   bullets(doc, [
     ...(data.material_exceptions || []).map((x: any) => `${clean(x.site_name)} - ${clean(x.status)} (governance confidence ${x.governance_confidence ?? '—'}%)`),
     ...(Array.isArray(data.limitations) ? data.limitations : []),
   ], 'No material exception was recorded for this period.', 6);
-  heading(doc, '5. Required response');
+  heading(doc, '7. Required response');
   bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No outstanding response was recorded.', 5);
-  heading(doc, '6. Conclusion');
+  heading(doc, '8. Conclusion');
   paragraph(doc, 'This assurance is limited to the recorded evidence, scope and period shown. Where evidence is absent, assurance cannot be given and management confirmation is required.', true);
 }
 

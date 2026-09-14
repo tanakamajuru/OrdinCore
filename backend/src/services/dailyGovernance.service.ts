@@ -233,7 +233,7 @@ export class DailyGovernanceService {
       what_is_happening: what, decision: d.decision as any,
       owner_id: d.ownerId || null, due_at: d.dueAt || null,
       intended_outcome: d.intendedOutcome || null, action_description: d.actionDescription || null,
-      reason: d.reason || null,
+      decision_rationale: d.reason || null,
       severity: d.severity,
       idempotency_key: d.idempotencyKey || null,
     } as any);

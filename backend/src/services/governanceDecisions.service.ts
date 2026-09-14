@@ -33,6 +33,7 @@ export type DecisionInput = {
   owner_id?: string | null;
   due_at?: string | null;
   intended_outcome?: string | null;
+  decision_rationale?: string | null;
   action_description?: string | null;
   idempotency_key?: string | null;
   severity?: 'Low' | 'Moderate' | 'High' | 'Critical';
@@ -54,6 +55,9 @@ export const governanceDecisionsService = {
     if (!allowed.includes(decision)) throw new Error('Unsupported governance decision.');
     if (input.pulse_entry_id && !input.severity) throw new Error('Registered Manager severity is required when triaging a signal.');
     if (input.severity && !['Low','Moderate','High','Critical'].includes(input.severity)) throw new Error('Invalid governance severity.');
+    if (!input.decision_rationale || input.decision_rationale.trim().length < 10) {
+      throw new Error('Record why this governance decision is appropriate (at least 10 characters).');
+    }
 
     // Resolve and tenant-check the source before writing the decision. A status update that affects
     // zero rows must never leave behind an apparently valid governance review.
@@ -110,14 +114,14 @@ export const governanceDecisionsService = {
     const review = await client.query(
       `INSERT INTO governance_reviews (
          company_id, service_id, risk_id, escalation_id, pulse_entry_id, cluster_id, daily_governance_log_id,
-         review_type, reviewed_by, what_is_happening, decision, escalation_required, action_required, evidence,
+         review_type, reviewed_by, what_is_happening, decision, escalation_required, action_required, evidence, decision_rationale,
          decision_owner_id, due_at, intended_outcome, decision_status, idempotency_key
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'RM_REVIEW',$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'RM_REVIEW',$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
        RETURNING *`,
       [c, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null, input.pulse_entry_id ?? null,
        input.cluster_id ?? null, input.daily_governance_log_id ?? null, u, input.what_is_happening.trim(), decision,
-       decision === 'Escalate', decision === 'Create Action', null, input.owner_id ?? null, input.due_at ?? null,
+       decision === 'Escalate', decision === 'Create Action', null, input.decision_rationale.trim(), input.owner_id ?? null, input.due_at ?? null,
        input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null]
     );
     // Idempotent replay — the decision (and its consequence) already exist.

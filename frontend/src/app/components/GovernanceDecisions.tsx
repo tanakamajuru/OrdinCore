@@ -55,6 +55,7 @@ export function GovernanceDecisions({
     source: "",
     severity: "",
     intended_outcome: "",
+    rationale: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
   // Date range for picking signals (defaults to the selected review date; the RM can widen it).
@@ -62,7 +63,7 @@ export function GovernanceDecisions({
   const [toDate, setToDate] = useState(reviewDate);
   const [actionedSignals, setActionedSignals] = useState<any[]>([]);
   // Allocate a task to a person for this service — available even when there are no new signals.
-  const [taskForm, setTaskForm] = useState({ what: "", intended_outcome: "", owner_id: "", due_at: "" });
+  const [taskForm, setTaskForm] = useState({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "" });
   const [taskBusy, setTaskBusy] = useState(false);
   const idemKey = useRef<string | null>(null);
 
@@ -194,6 +195,7 @@ export function GovernanceDecisions({
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (!form.source) { toast.error("Choose the signal this decision relates to."); return; }
     if (form.what.trim().length < 5) { toast.error("Describe the governance decision."); return; }
+    if (form.rationale.trim().length < 10) { toast.error("Record why this decision is appropriate."); return; }
     if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) {
       toast.error("Choose an accountable owner for this decision.");
       return;
@@ -222,6 +224,7 @@ export function GovernanceDecisions({
         pulse_entry_id: sid,
         what_is_happening: form.what.trim(),
         decision: form.decision,
+        decision_rationale: form.rationale.trim(),
         severity: form.severity,
         owner_id: form.owner_id || null,
         due_at: form.due_at || null,
@@ -230,7 +233,7 @@ export function GovernanceDecisions({
         idempotency_key: idemKey.current,
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — action assigned" : "Decision recorded");
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", rationale: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
@@ -245,6 +248,7 @@ export function GovernanceDecisions({
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (taskForm.what.trim().length < 5) { toast.error("Describe the task to allocate."); return; }
+    if (taskForm.rationale.trim().length < 10) { toast.error("Record why this governance task is required."); return; }
     if (taskForm.intended_outcome.trim().length < 10) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
     if (!taskForm.owner_id) { toast.error("Choose who to allocate the task to."); return; }
     if (!taskForm.due_at) { toast.error("Set a due date for this governance task."); return; }
@@ -254,6 +258,7 @@ export function GovernanceDecisions({
         house_id: houseId,
         what_is_happening: taskForm.what.trim(),
         decision: "Create Action",
+        decision_rationale: taskForm.rationale.trim(),
         owner_id: taskForm.owner_id,
         due_at: taskForm.due_at || null,
         action_description: taskForm.what.trim(),
@@ -261,7 +266,7 @@ export function GovernanceDecisions({
         idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
       });
       toast.success("Task allocated");
-      setTaskForm({ what: "", intended_outcome: "", owner_id: "", due_at: "" });
+      setTaskForm({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "" });
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
     } catch (e: any) {
@@ -417,6 +422,10 @@ export function GovernanceDecisions({
             placeholder="Record the management decision and what is required next."
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
 
+          <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
+            placeholder="Why is this the appropriate governance decision?"
+            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+
           {(form.decision === "Create Action" || form.decision === "Monitor") && <textarea
             value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2}
             placeholder={form.decision === "Monitor" ? "What should the next monitoring review establish?" : "What should change if this action is effective?"}
@@ -454,6 +463,9 @@ export function GovernanceDecisions({
           <textarea value={taskForm.what} onChange={(e) => setTaskForm({ ...taskForm, what: e.target.value })} rows={2}
             placeholder="What needs doing? (the task / action to be completed)"
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+          <textarea value={taskForm.rationale} onChange={(e) => setTaskForm({ ...taskForm, rationale: e.target.value })} rows={2}
+            placeholder="Why is this governance task required?"
+            className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
           <textarea value={taskForm.intended_outcome} onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })} rows={2}
             placeholder="What should change if this task is effective?"
             className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
