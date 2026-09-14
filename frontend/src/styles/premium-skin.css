@@ -1,0 +1,514 @@
+/* ============================================================================
+   ORDIN CORE — GLOBAL PREMIUM VISUAL SKIN
+   Presentation layer only.
+
+   HARD RULE:
+   - No route changes
+   - No navigation changes
+   - No component rearrangement
+   - No handler/API/permission changes
+   - No governance lifecycle changes
+   - No trajectory/escalation/effectiveness/pattern/reporting logic changes
+   - RM Daily Oversight functions remain exactly as implemented
+
+   This stylesheet is intentionally loaded AFTER theme.css and Tailwind so it
+   can standardise legacy utility-colour usage without touching component logic.
+   ========================================================================== */
+
+:root {
+  /* Brand */
+  --oc-navy-950: #081B2E;
+  --oc-navy-900: #0D2944;
+  --oc-navy-800: #173D60;
+  --oc-cobalt-700: #1F65AD;
+  --oc-cobalt-600: #2474C6;
+  --oc-cobalt-500: #3B8DDA;
+  --oc-sky-300: #9DC9EB;
+  --oc-aqua-600: #148B94;
+  --oc-aqua-500: #14A0A8;
+
+  /* Surfaces */
+  --oc-canvas: #F4F8FC;
+  --oc-surface: #FFFFFF;
+  --oc-surface-soft: #F8FBFD;
+  --oc-ice: #EAF3FA;
+  --oc-ice-strong: #DFEDF7;
+  --oc-border: #D7E4EE;
+  --oc-border-strong: #C4D8E7;
+
+  /* Ink */
+  --oc-ink: #142435;
+  --oc-ink-soft: #40566A;
+  --oc-muted: #66798B;
+
+  /* Semantic governance states */
+  --oc-success: #2B7A57;
+  --oc-success-bg: #EAF6F0;
+  --oc-success-border: #C6E7D6;
+  --oc-warning: #A9680A;
+  --oc-warning-bg: #FFF4DE;
+  --oc-warning-border: #F2D59A;
+  --oc-danger: #B83B3B;
+  --oc-danger-bg: #FCEDED;
+  --oc-danger-border: #F0C8C8;
+  --oc-info: #2474C6;
+  --oc-info-bg: #EAF3FA;
+  --oc-info-border: #CADFF0;
+  --oc-neutral: #5D6C7B;
+  --oc-neutral-bg: #EEF2F5;
+  --oc-neutral-border: #DCE3E9;
+  --oc-violet: #6E5AA8;
+  --oc-violet-bg: #F2EEFA;
+
+  /* Radius / depth */
+  --oc-radius-sm: 8px;
+  --oc-radius-md: 10px;
+  --oc-radius-lg: 12px;
+  --oc-radius-xl: 16px;
+  --oc-shadow-1: 0 1px 2px rgba(8, 27, 46, 0.05), 0 4px 12px rgba(8, 27, 46, 0.04);
+  --oc-shadow-2: 0 8px 24px rgba(8, 27, 46, 0.07);
+  --oc-shadow-focus: 0 0 0 3px rgba(36, 116, 198, 0.16);
+
+  /* Spacing rhythm */
+  --oc-space-1: 4px;
+  --oc-space-2: 8px;
+  --oc-space-3: 12px;
+  --oc-space-4: 16px;
+  --oc-space-5: 20px;
+  --oc-space-6: 24px;
+  --oc-space-8: 32px;
+
+  /* Map existing theme vars onto premium skin. */
+  --background: var(--oc-canvas);
+  --foreground: var(--oc-ink);
+  --card: var(--oc-surface);
+  --card-foreground: var(--oc-ink);
+  --popover: var(--oc-surface);
+  --popover-foreground: var(--oc-ink);
+  --primary: var(--oc-cobalt-600);
+  --primary-foreground: #FFFFFF;
+  --secondary: var(--oc-ice);
+  --secondary-foreground: var(--oc-navy-900);
+  --muted: #EEF3F7;
+  --muted-foreground: var(--oc-muted);
+  --accent: var(--oc-navy-800);
+  --accent-foreground: #FFFFFF;
+  --success: var(--oc-success);
+  --warning: var(--oc-warning);
+  --destructive: var(--oc-danger);
+  --border: var(--oc-border);
+  --input: var(--oc-border-strong);
+  --input-background: #FFFFFF;
+  --ring: var(--oc-cobalt-600);
+  --radius: var(--oc-radius-sm);
+  --radius-card: var(--oc-radius-lg);
+  --shadow-sm: var(--oc-shadow-1);
+  --shadow-md: var(--oc-shadow-1);
+  --shadow-lg: var(--oc-shadow-2);
+  --sidebar: var(--oc-navy-900);
+  --sidebar-foreground: #D9E8F3;
+  --sidebar-primary: var(--oc-cobalt-600);
+  --sidebar-primary-foreground: #FFFFFF;
+  --sidebar-accent: #1B466C;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: rgba(255,255,255,.10);
+  --sidebar-ring: #65B9EE;
+}
+
+.dark,
+:root.dark {
+  --background: #071827;
+  --foreground: #E9F2F8;
+  --card: #102A43;
+  --card-foreground: #E9F2F8;
+  --popover: #102A43;
+  --popover-foreground: #E9F2F8;
+  --secondary: #173D60;
+  --secondary-foreground: #D7EAF7;
+  --muted: #15344F;
+  --muted-foreground: #A9C2D5;
+  --accent: #276B9D;
+  --accent-foreground: #FFFFFF;
+  --border: #294D68;
+  --input: #315A78;
+  --input-background: #0D2944;
+  --sidebar: #061524;
+  --sidebar-foreground: #D8E8F4;
+  --sidebar-accent: #173D60;
+  --sidebar-accent-foreground: #FFFFFF;
+  --oc-shadow-1: 0 1px 2px rgba(0,0,0,.16), 0 6px 18px rgba(0,0,0,.14);
+  --oc-shadow-2: 0 14px 34px rgba(0,0,0,.24);
+}
+
+/* --------------------------------------------------------------------------
+   Typography — restore hierarchy flattened by the legacy global 400 rule.
+   -------------------------------------------------------------------------- */
+html,
+body,
+button,
+input,
+select,
+textarea,
+label,
+table {
+  font-family: 'Inter', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  color: var(--foreground);
+  background: var(--background);
+  line-height: 1.5;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: var(--foreground);
+  text-wrap: balance;
+}
+
+h1 { font-size: 28px !important; line-height: 1.2 !important; font-weight: 700 !important; letter-spacing: -0.025em !important; }
+h2 { font-size: 22px !important; line-height: 1.25 !important; font-weight: 700 !important; letter-spacing: -0.02em !important; }
+h3 { font-size: 18px !important; line-height: 1.35 !important; font-weight: 650 !important; letter-spacing: -0.012em !important; }
+h4 { font-size: 16px !important; line-height: 1.4 !important; font-weight: 650 !important; }
+h5, h6 { font-weight: 600 !important; }
+
+.font-black,
+.font-extrabold { font-weight: 750 !important; }
+.font-bold { font-weight: 700 !important; }
+.font-semibold { font-weight: 600 !important; }
+.font-medium { font-weight: 500 !important; }
+.font-normal { font-weight: 400 !important; }
+
+strong,
+b { font-weight: 650 !important; }
+
+label {
+  font-weight: 600 !important;
+  color: var(--foreground);
+}
+
+button,
+[role="button"] {
+  font-weight: 600 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Canvas / page polish. Layout dimensions are intentionally untouched.
+   -------------------------------------------------------------------------- */
+.min-h-screen.bg-background,
+.bg-background {
+  background-color: var(--background) !important;
+}
+
+/* Cards and major surfaces */
+.bg-card {
+  background-color: var(--card) !important;
+}
+
+.rounded-xl.bg-card,
+.rounded-lg.bg-card,
+[class*="rounded-"][class*="bg-card"][class*="border"],
+[class*="rounded-"][class*="bg-white"][class*="border"] {
+  box-shadow: var(--oc-shadow-1) !important;
+}
+
+.shadow-sm,
+.shadow-md,
+.shadow-lg {
+  box-shadow: var(--oc-shadow-1) !important;
+}
+
+/* Avoid visual lift on compact utility elements that happen to carry shadow classes. */
+button.shadow-sm,
+button.shadow-md,
+button.shadow-lg,
+.badge.shadow-sm,
+[role="status"].shadow-sm {
+  box-shadow: none !important;
+}
+
+/* Borders */
+.border-border { border-color: var(--oc-border) !important; }
+.border-input { border-color: var(--oc-border-strong) !important; }
+
+/* --------------------------------------------------------------------------
+   Form controls — presentation only.
+   -------------------------------------------------------------------------- */
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea {
+  border-color: var(--oc-border-strong) !important;
+  background: var(--input-background) !important;
+  color: var(--foreground) !important;
+  border-radius: var(--oc-radius-sm) !important;
+  transition: border-color .16s ease, box-shadow .16s ease, background-color .16s ease;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):hover,
+select:hover,
+textarea:hover {
+  border-color: #A9C9DF !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus {
+  border-color: var(--oc-cobalt-600) !important;
+  box-shadow: var(--oc-shadow-focus) !important;
+  outline: none !important;
+}
+
+::placeholder { color: #8798A7 !important; opacity: 1; }
+
+/* --------------------------------------------------------------------------
+   Buttons — no handler or semantic change.
+   -------------------------------------------------------------------------- */
+button,
+[role="button"] {
+  transition: background-color .16s ease, border-color .16s ease, color .16s ease, box-shadow .16s ease, transform .12s ease, opacity .16s ease;
+}
+
+button:not(:disabled):active,
+[role="button"]:not([aria-disabled="true"]):active {
+  transform: translateY(1px);
+}
+
+button:focus-visible,
+[role="button"]:focus-visible,
+a:focus-visible {
+  outline: 2px solid var(--oc-cobalt-600) !important;
+  outline-offset: 2px !important;
+  box-shadow: var(--oc-shadow-focus) !important;
+}
+
+.bg-primary { background-color: var(--oc-cobalt-600) !important; }
+.text-primary { color: var(--oc-cobalt-600) !important; }
+.border-primary { border-color: var(--oc-cobalt-600) !important; }
+.hover\:bg-primary\/90:hover { background-color: var(--oc-cobalt-700) !important; }
+
+/* --------------------------------------------------------------------------
+   Navigation — same items, same widths, same behaviour. Styling only.
+   -------------------------------------------------------------------------- */
+.ordin-sidebar {
+  background: linear-gradient(180deg, var(--oc-navy-900) 0%, var(--oc-navy-950) 100%) !important;
+  border-right: 1px solid rgba(255,255,255,.08);
+  box-shadow: 8px 0 28px rgba(5,20,34,.10) !important;
+}
+
+.ordin-sidebar > div:first-child {
+  border-bottom-color: rgba(255,255,255,.08) !important;
+}
+
+.ordin-sidebar nav button {
+  border-radius: 9px !important;
+  font-weight: 500 !important;
+  letter-spacing: 0 !important;
+}
+
+.ordin-sidebar nav button.bg-primary {
+  background: linear-gradient(90deg, #226DB7 0%, #2474C6 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: inset 3px 0 0 #71C4EE !important;
+}
+
+.ordin-sidebar nav button:not(.bg-primary):hover {
+  background-color: rgba(255,255,255,.07) !important;
+  color: #FFFFFF !important;
+}
+
+.ordin-sidebar nav button > svg,
+.ordin-sidebar button > svg {
+  stroke-width: 1.8;
+}
+
+.ordin-sidebar nav button.bg-primary > svg {
+  color: #DFF4FF !important;
+}
+
+.ordin-sidebar select {
+  background-color: rgba(255,255,255,.07) !important;
+  border-color: rgba(255,255,255,.13) !important;
+  color: #FFFFFF !important;
+}
+
+/* --------------------------------------------------------------------------
+   Icon treatment. Do not touch chart SVG geometry.
+   -------------------------------------------------------------------------- */
+button > svg,
+a > svg,
+.flex > svg:not(.recharts-surface),
+.inline-flex > svg:not(.recharts-surface) {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* --------------------------------------------------------------------------
+   Premium semantic colour remapping for existing Tailwind utilities.
+   Existing meaning is preserved; only the visual palette changes.
+   -------------------------------------------------------------------------- */
+.bg-blue-50 { background-color: #F2F8FD !important; }
+.bg-blue-100 { background-color: var(--oc-info-bg) !important; }
+.text-blue-500, .text-blue-600, .text-blue-700 { color: var(--oc-info) !important; }
+.border-blue-200, .border-blue-300 { border-color: var(--oc-info-border) !important; }
+
+.bg-sky-50, .bg-sky-100 { background-color: #EAF6FC !important; }
+.text-sky-500, .text-sky-600, .text-sky-700 { color: #267FAA !important; }
+.border-sky-200, .border-sky-300 { border-color: #C8E2EE !important; }
+
+.bg-cyan-50, .bg-cyan-100, .bg-teal-50, .bg-teal-100 { background-color: #EAF7F7 !important; }
+.text-cyan-500, .text-cyan-600, .text-cyan-700,
+.text-teal-500, .text-teal-600, .text-teal-700 { color: var(--oc-aqua-600) !important; }
+.border-cyan-200, .border-cyan-300, .border-teal-200, .border-teal-300 { border-color: #C8E7E7 !important; }
+
+.bg-emerald-50, .bg-emerald-100, .bg-green-50, .bg-green-100 { background-color: var(--oc-success-bg) !important; }
+.text-emerald-500, .text-emerald-600, .text-emerald-700,
+.text-green-500, .text-green-600, .text-green-700 { color: var(--oc-success) !important; }
+.border-emerald-200, .border-emerald-300, .border-green-200, .border-green-300 { border-color: var(--oc-success-border) !important; }
+.bg-emerald-500, .bg-emerald-600, .bg-green-500, .bg-green-600 { background-color: var(--oc-success) !important; }
+
+.bg-amber-50, .bg-amber-100, .bg-orange-50, .bg-orange-100, .bg-yellow-50, .bg-yellow-100 { background-color: var(--oc-warning-bg) !important; }
+.text-amber-500, .text-amber-600, .text-amber-700,
+.text-orange-500, .text-orange-600, .text-orange-700,
+.text-yellow-600, .text-yellow-700 { color: var(--oc-warning) !important; }
+.border-amber-200, .border-amber-300, .border-orange-200, .border-orange-300, .border-yellow-200, .border-yellow-300 { border-color: var(--oc-warning-border) !important; }
+.bg-amber-400, .bg-amber-500, .bg-amber-600, .bg-orange-500, .bg-orange-600 { background-color: var(--oc-warning) !important; }
+
+.bg-red-50, .bg-red-100, .bg-rose-50, .bg-rose-100 { background-color: var(--oc-danger-bg) !important; }
+.text-red-500, .text-red-600, .text-red-700,
+.text-rose-500, .text-rose-600, .text-rose-700 { color: var(--oc-danger) !important; }
+.border-red-200, .border-red-300, .border-rose-200, .border-rose-300 { border-color: var(--oc-danger-border) !important; }
+.bg-red-500, .bg-red-600, .bg-rose-500, .bg-rose-600 { background-color: var(--oc-danger) !important; }
+
+.bg-violet-50, .bg-violet-100, .bg-purple-50, .bg-purple-100 { background-color: var(--oc-violet-bg) !important; }
+.text-violet-500, .text-violet-600, .text-violet-700,
+.text-purple-500, .text-purple-600, .text-purple-700 { color: var(--oc-violet) !important; }
+.border-violet-200, .border-violet-300, .border-purple-200, .border-purple-300 { border-color: #DDD4F2 !important; }
+
+/* Neutral utility palette */
+.bg-slate-50 { background-color: #F8FAFC !important; }
+.bg-slate-100 { background-color: #EEF3F7 !important; }
+.text-slate-500, .text-slate-600 { color: var(--oc-muted) !important; }
+
+/* --------------------------------------------------------------------------
+   Status badges / pills — supports existing badge variants and utility pills.
+   -------------------------------------------------------------------------- */
+[class*="rounded-full"][class*="text-xs"],
+[class*="rounded-full"][class*="text-[10px]"],
+[class*="rounded-[20px]"] {
+  font-weight: 650 !important;
+  letter-spacing: .01em;
+}
+
+/* Existing shadcn badge variants emitted by badge.tsx */
+.bg-destructive { background-color: var(--oc-danger) !important; }
+.text-destructive { color: var(--oc-danger) !important; }
+
+/* Make neutral/closed states visibly quieter than active exceptions. */
+.bg-gray-100, .bg-gray-200 { background-color: var(--oc-neutral-bg) !important; }
+.text-gray-500, .text-gray-600, .text-gray-700 { color: var(--oc-neutral) !important; }
+
+/* --------------------------------------------------------------------------
+   Tables — same columns/order/data, premium readability only.
+   -------------------------------------------------------------------------- */
+table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+thead th {
+  color: var(--oc-ink-soft) !important;
+  font-size: 11px !important;
+  line-height: 1.3;
+  text-transform: uppercase;
+  letter-spacing: .075em;
+  font-weight: 700 !important;
+  background-color: #F4F8FB !important;
+}
+
+tbody td {
+  border-color: var(--oc-border) !important;
+}
+
+tbody tr {
+  transition: background-color .14s ease;
+}
+
+tbody tr:hover {
+  background-color: rgba(36, 116, 198, .025);
+}
+
+/* --------------------------------------------------------------------------
+   Tabs and segmented controls.
+   -------------------------------------------------------------------------- */
+[role="tablist"] {
+  background-color: #EEF4F8 !important;
+  border-color: var(--oc-border) !important;
+}
+
+[role="tab"][data-state="active"] {
+  color: var(--oc-navy-900) !important;
+  background-color: #FFFFFF !important;
+  box-shadow: 0 1px 3px rgba(8,27,46,.08) !important;
+  font-weight: 650 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Modals/dialogs/popovers.
+   -------------------------------------------------------------------------- */
+[role="dialog"] {
+  border-color: var(--oc-border) !important;
+  box-shadow: 0 24px 64px rgba(8,27,46,.18) !important;
+}
+
+/* --------------------------------------------------------------------------
+   Progress / loading / selection feedback.
+   -------------------------------------------------------------------------- */
+.animate-spin {
+  border-color: rgba(36,116,198,.20) !important;
+  border-bottom-color: var(--oc-cobalt-600) !important;
+}
+
+::selection {
+  background: rgba(36,116,198,.20);
+  color: var(--oc-navy-950);
+}
+
+/* --------------------------------------------------------------------------
+   Scrollbars — restrained, brand-aligned.
+   -------------------------------------------------------------------------- */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: #AFC6D7 transparent;
+}
+
+*::-webkit-scrollbar { width: 9px; height: 9px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb { background: #B8CCDA; border-radius: 999px; border: 2px solid transparent; background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: #8FAFC4; border: 2px solid transparent; background-clip: padding-box; }
+
+/* --------------------------------------------------------------------------
+   Motion safety.
+   -------------------------------------------------------------------------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    transition-duration: .01ms !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+}
+
+/* --------------------------------------------------------------------------
+   Mobile polish without moving or reordering anything.
+   -------------------------------------------------------------------------- */
+@media (max-width: 767px) {
+  h1 { font-size: 24px !important; }
+  h2 { font-size: 20px !important; }
+  input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
+}

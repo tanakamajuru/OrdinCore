@@ -1,6 +1,7 @@
 @import './fonts.css';
 @import './tailwind.css';
 @import './theme.css';
+@import './premium-skin.css';
 
 /* ─── Left sidebar layout ─────────────────────────────────────────────────────
    RoleBasedNavigation renders a fixed left sidebar (.ordin-sidebar). Every page
