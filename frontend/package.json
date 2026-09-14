@@ -24,6 +24,7 @@
     "test:director": "playwright test tests/04-director.spec.ts",
     "test:smoke": "playwright test --grep \"smoke\"",
     "test:regression": "playwright test --grep \"regression\"",
+    "test:stage10j": "playwright test tests/stage10j-pilot-acceptance.spec.ts --project=chromium",
     "pretest:e2e": "cd ../backend && NODE_ENV=test npx ts-node seeds/seedTestData.ts",
     "posttest:e2e": "playwright show-report"
   },

@@ -10,6 +10,9 @@ describe('Stage 10J acceptance pack', () => {
     expect(runner).toContain('DATABASE_URL CLEAN_TENANT_ID MIGRATED_TENANT_ID BASE_URL STAGE10J_RM_EMAIL STAGE10J_RM_PASSWORD');
     expect(runner).toContain('PENDING_PRODUCT_OWNER_AND_DEVELOPER_SIGN_OFF');
     expect(runner).toContain('stage10i_validate_constraints.sql');
+    const frontendPackage = JSON.parse(read('frontend/package.json'));
+    expect(frontendPackage.scripts['test:stage10j']).toContain('stage10j-pilot-acceptance.spec.ts');
+    expect(fs.existsSync(path.join(root, 'frontend/tests/stage10j-pilot-acceptance.spec.ts'))).toBe(true);
   });
 
   it('checks canonical values, lineage, duplicate escalations and remediation', () => {

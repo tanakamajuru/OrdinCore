@@ -6,6 +6,7 @@ import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
 import { trajectoryForCluster, trajectoryForRisk } from './trajectory.service';
 import { riskMetricsService } from './riskMetrics.service';
+import { riskReviewObligationsService } from './riskReviewObligations.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 
 // Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
@@ -1218,6 +1219,9 @@ export class RisksService {
    * cluster, candidate and action data — no new tables.
    */
   async getOversightSummary(company_id: string, houseIds?: string[]) {
+    // Make every due date actionable before reading the register. The database unique index
+    // ensures repeated refreshes cannot create duplicate open review obligations.
+    await riskReviewObligationsService.syncDue(company_id);
     const hasHouseFilter = Array.isArray(houseIds) && houseIds.length > 0;
     // Scoped roles (RM/TL) see their own sites' risks PLUS strategic / cross-service risks,
     // which have house_id = null — those belong to every service the RM governs, so they must
@@ -1248,14 +1252,23 @@ export class RisksService {
               (SELECT ra.effectiveness_outcome FROM risk_actions ra
                  WHERE ra.risk_id = r.id AND ra.effectiveness_outcome IS NOT NULL
                  ORDER BY ra.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness,
-              -- The RM's post-closure review is outstanding on this risk (a closed escalation left
-              -- its underlying risk needing a Keep-open / Add-controls / Re-escalate / Close call).
-              EXISTS (SELECT 1 FROM escalations e
-                        WHERE e.risk_id = r.id AND e.post_closure_risk_review_required = TRUE) AS awaiting_review,
+              CASE
+                WHEN LOWER(r.status::text)='under review' THEN 'UNDER_REVIEW'
+                WHEN review_obligation.status='OPEN' AND review_obligation.due_at < NOW() THEN 'OVERDUE'
+                WHEN review_obligation.status='OPEN' THEN 'DUE'
+                ELSE 'NOT_DUE'
+              END AS review_state,
               u.first_name || ' ' || u.last_name AS owner_name, u.role AS owner_role
          FROM risks r
          LEFT JOIN houses h ON h.id = r.house_id
          LEFT JOIN users u ON u.id = r.assigned_to
+         LEFT JOIN LATERAL (
+           SELECT gro.status, gro.due_at
+             FROM governance_review_obligations gro
+            WHERE gro.company_id=r.company_id AND gro.subject_type='RISK'
+              AND gro.subject_id=r.id AND gro.status='OPEN'
+            ORDER BY gro.due_at ASC LIMIT 1
+         ) review_obligation ON TRUE
         WHERE r.company_id = $1${houseClause}
         ORDER BY r.created_at DESC`,
       params
@@ -1290,7 +1303,8 @@ export class RisksService {
       lastUpdated: r.updated_at || null,
       closed_at: r.closed_at || null,
       closed_by: null,
-      awaitingReview: r.awaiting_review || false,
+      awaitingReview: ['DUE','OVERDUE','UNDER_REVIEW'].includes(r.review_state),
+      reviewState: r.review_state || 'NOT_DUE',
     });
 
     // Read the authoritative rolling calculation now. Stored trajectory is a cache only and may

@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { riskReviewObligationsService } from './riskReviewObligations.service';
 
 export interface GovernanceReviewInput {
   service_id?: string;
@@ -10,6 +11,7 @@ export interface GovernanceReviewInput {
   escalation_required?: boolean;
   action_required?: boolean;
   evidence?: string;
+  next_review_date?: string;
 }
 
 /**
@@ -37,9 +39,15 @@ export class GovernanceReviewsService {
     // Stamp the linked risk so the strategic dashboard reflects the review.
     if (dto.risk_id) {
       await query(
-        `UPDATE risks SET last_governance_review_at = NOW(), updated_at = NOW()
+        `UPDATE risks SET last_governance_review_at = NOW(),
+                          next_review_date = COALESCE($3::date, CURRENT_DATE + 7),
+                          updated_at = NOW()
          WHERE id = $1 AND company_id = $2`,
-        [dto.risk_id, companyId]
+        [dto.risk_id, companyId, dto.next_review_date || null]
+      );
+      await riskReviewObligationsService.complete(
+        companyId, dto.risk_id, userId,
+        `Governance review recorded: ${dto.decision}. ${dto.what_is_happening}`
       );
     }
 

@@ -208,7 +208,9 @@ export function RiskRegister() {
                       {tab !== "emerging" && (
                         <td className="px-2">
                           {r.awaitingReview
-                            ? <span className="text-[10px] font-semibold uppercase rounded px-2 py-0.5 bg-amber-100 text-amber-700" title="A closed escalation left this risk needing your review">Awaiting</span>
+                            ? <span className={`text-[10px] font-semibold uppercase rounded px-2 py-0.5 ${r.reviewState === "OVERDUE" ? "bg-red-100 text-red-700" : r.reviewState === "UNDER_REVIEW" ? "bg-sky-100 text-sky-700" : "bg-amber-100 text-amber-700"}`} title="Canonical scheduled risk-review state">
+                                {r.reviewState === "OVERDUE" ? "Overdue" : r.reviewState === "UNDER_REVIEW" ? "Under review" : "Due"}
+                              </span>
                             : <span className="text-xs text-muted-foreground">—</span>}
                         </td>
                       )}
