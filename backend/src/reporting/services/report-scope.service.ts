@@ -22,7 +22,7 @@ class ReportAuthError extends Error {
 
 /** All non-closed sites in the company. */
 async function companySites(companyId: string): Promise<string[]> {
-  return (await query(`SELECT id FROM houses WHERE company_id = $1 AND status <> 'closed'`, [companyId]))
+  return (await query(`SELECT id FROM canonical_house_state_v WHERE company_id = $1 AND is_active`, [companyId]))
     .rows.map((r: any) => r.id);
 }
 
@@ -94,7 +94,7 @@ export const reportScopeService = {
     if (type === 'REGION') {
       if (!scope.regionId) throw new ReportAuthError('A region must be selected.');
       const sites = (await query(
-        `SELECT id FROM houses WHERE company_id = $1 AND region_id = $2 AND status <> 'closed'`,
+        `SELECT id FROM canonical_house_state_v WHERE company_id = $1 AND region_id = $2 AND is_active`,
         [company, scope.regionId]
       )).rows.map((r: any) => r.id).filter((id: string) => allowed.has(id));
       if (sites.length === 0) throw new ReportAuthError('No authorised sites in that region.');
@@ -105,7 +105,7 @@ export const reportScopeService = {
     if (type === 'SERVICE') {
       if (!scope.serviceId) throw new ReportAuthError('A service must be selected.');
       const sites = (await query(
-        `SELECT id FROM houses WHERE company_id = $1 AND service_id = $2 AND status <> 'closed'`,
+        `SELECT id FROM canonical_house_state_v WHERE company_id = $1 AND service_id = $2 AND is_active`,
         [company, scope.serviceId]
       )).rows.map((r: any) => r.id).filter((id: string) => allowed.has(id));
       if (sites.length === 0) throw new ReportAuthError('No authorised sites in that service.');

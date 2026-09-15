@@ -12,7 +12,7 @@ export class AnalyticsService {
           COUNT(*) FILTER (WHERE LOWER(severity::text) = 'medium') AS medium,
           COUNT(*) FILTER (WHERE LOWER(severity::text) = 'low') AS low,
           COUNT(*) AS total
-         FROM risks
+         FROM canonical_risk_state_v
          WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '${days} days'
          GROUP BY created_at::date
          ORDER BY date`,
@@ -44,7 +44,7 @@ export class AnalyticsService {
       // each one plots as a proper trajectory line.
       const result = await query(
         `SELECT r.created_at::date AS date, h.name AS house_name
-           FROM risks r
+           FROM canonical_risk_state_v r
            JOIN houses h ON h.id = r.house_id
           WHERE r.company_id = $1 AND r.created_at >= NOW() - INTERVAL '${days} days'`,
         [company_id]
@@ -65,7 +65,7 @@ export class AnalyticsService {
       // flat line at zero, which is honest ("no promoted risks yet") and — importantly — makes
       // domiciliary services appear on the cross-house chart instead of silently dropping off.
       const activeHouses = (await query(
-        `SELECT name FROM houses WHERE company_id = $1 AND status <> 'closed' ORDER BY name`,
+        `SELECT name FROM canonical_house_state_v WHERE company_id = $1 AND is_active ORDER BY name`,
         [company_id]
       )).rows.map((r: any) => r.name);
       const houseNames = Array.from(new Set([...activeHouses, ...result.rows.map((row: any) => row.house_name)]));
@@ -167,7 +167,7 @@ export class AnalyticsService {
           COUNT(*) AS total_escalations,
           COUNT(*) FILTER (WHERE LOWER(status::text) = 'resolved') AS resolved,
           COUNT(*) FILTER (WHERE LOWER(priority::text) = 'critical') AS critical
-         FROM escalations
+         FROM canonical_escalation_state_v
          WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '${days} days'
          GROUP BY created_at::date
          ORDER BY date`,
@@ -180,7 +180,7 @@ export class AnalyticsService {
           COUNT(*) FILTER (WHERE LOWER(status::text) = 'resolved') AS resolved,
           COUNT(*) FILTER (WHERE LOWER(status::text) = 'pending') AS pending,
           ROUND(AVG(EXTRACT(EPOCH FROM (resolved_at - created_at))/3600)::numeric, 2) AS avg_resolution_hours
-         FROM escalations
+         FROM canonical_escalation_state_v
          WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '${days} days'`,
         [company_id]
       );
@@ -389,8 +389,8 @@ export class AnalyticsService {
           h.name as house_name,
           100 as avg_compliance,
           COUNT(DISTINCT sc.id) as open_signal_clusters,
-          COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed', 'resolved')) as open_risks,
-          (100 - (COUNT(DISTINCT sc.id) * 5) - (COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed', 'resolved')) * 10)) as stability_score
+          COUNT(DISTINCT r.id) FILTER (WHERE r.is_active) as open_risks,
+          (100 - (COUNT(DISTINCT sc.id) * 5) - (COUNT(DISTINCT r.id) FILTER (WHERE r.is_active) * 10)) as stability_score
          FROM houses h
          LEFT JOIN governance_pulses gp ON gp.house_id = h.id AND gp.review_status != 'New'
          LEFT JOIN signal_clusters sc ON sc.house_id = h.id AND LOWER(sc.cluster_status::text) != 'closed'

@@ -92,7 +92,8 @@ export const riskMetricsService = {
     const li = gradeToScore(m.grade);
     await query(
       `UPDATE risks SET severity = $1, likelihood = $2, impact = $3, risk_index = $4, updated_at = NOW()
-        WHERE id = $5 AND company_id = $6 AND LOWER(status::text) NOT IN ('closed','resolved')`,
+        WHERE id = $5 AND company_id = $6
+          AND EXISTS (SELECT 1 FROM canonical_risk_state_v cr WHERE cr.id=risks.id AND cr.company_id=risks.company_id AND cr.is_active)`,
       [m.grade, li.likelihood, li.impact, m.riskIndex, risk_id, company_id]
     );
     return m;
@@ -104,13 +105,13 @@ export const riskMetricsService = {
   // D = data confidence %.
   async governanceHealth(company_id: string) {
     const R = Math.round(Number((await query(
-      `SELECT COALESCE(AVG(risk_index), 0) v FROM risks
-        WHERE company_id = $1 AND LOWER(status::text) NOT IN ('closed','resolved') AND risk_index IS NOT NULL`,
+      `SELECT COALESCE(AVG(risk_index), 0) v FROM canonical_risk_state_v
+        WHERE company_id = $1 AND is_active AND risk_index IS NOT NULL`,
       [company_id]
     )).rows[0]?.v || 0));
 
     const acts = (await query(
-      `SELECT COUNT(*) t, COUNT(*) FILTER (WHERE status IN ('Complete','Completed')) c FROM risk_actions WHERE company_id = $1`,
+      `SELECT COUNT(*) t, COUNT(*) FILTER (WHERE is_completed) c FROM canonical_action_state_v WHERE company_id = $1`,
       [company_id]
     )).rows[0];
     const A = Number(acts?.t) > 0 ? Math.round((Number(acts.c) / Number(acts.t)) * 100) : 100;
@@ -143,7 +144,7 @@ export const riskMetricsService = {
 
   async forRisk(risk_id: string, company_id: string) {
     const r = (await query(
-      `SELECT id, severity, source_cluster_id, linked_person, impact_rating FROM risks WHERE id = $1 AND company_id = $2`,
+      `SELECT id, severity, source_cluster_id, linked_person, impact_rating FROM canonical_risk_state_v WHERE id = $1 AND company_id = $2`,
       [risk_id, company_id]
     )).rows[0];
     if (!r) return null;
@@ -181,7 +182,7 @@ export const riskMetricsService = {
     // Controls / effectiveness / overdue.
     const ctl = (await query(
       `WITH matched AS (
-         SELECT ra.* FROM risk_actions ra
+         SELECT ra.* FROM canonical_action_state_v ra
           WHERE ra.company_id = $2
             AND (ra.risk_id = $1
                  OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3)
@@ -193,8 +194,8 @@ export const riskMetricsService = {
                 WHERE COALESCE(effectiveness_outcome, effectiveness) IS NOT NULL
                 ORDER BY effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest,
               COUNT(*) AS total,
-              COUNT(*) FILTER (WHERE LOWER(status) NOT IN ('complete','completed','cancelled','canceled','closed')) AS open,
-              COUNT(*) FILTER (WHERE due_date < NOW() AND LOWER(status) NOT IN ('complete','completed','cancelled','canceled','closed')) AS overdue
+              COUNT(*) FILTER (WHERE is_open) AS open,
+              COUNT(*) FILTER (WHERE due_date < NOW() AND is_open) AS overdue
          FROM matched`,
       [risk_id, company_id, cluster || null]
     )).rows[0];

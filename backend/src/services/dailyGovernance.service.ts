@@ -132,9 +132,9 @@ export class DailyGovernanceService {
       const readiness = (await client.query(
         `SELECT
           (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New') AS unreviewed_signals,
-          (SELECT COUNT(*)::int FROM escalations e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
-            WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND COALESCE(e.lifecycle_status::text,e.status,'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS open_escalations,
-          (SELECT COUNT(*)::int FROM risk_actions a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
+          (SELECT COUNT(*)::int FROM canonical_escalation_state_v e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
+            WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND e.is_open) AS open_escalations,
+          (SELECT COUNT(*)::int FROM canonical_action_state_v a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
             WHERE a.company_id=$1 AND COALESCE(a.house_id,ar.house_id)=$2 AND a.completed_at IS NOT NULL
               AND COALESCE(a.effectiveness_outcome,a.effectiveness::text) IS NULL) AS effectiveness_due`,
         [company_id, house_id]
@@ -299,7 +299,7 @@ export class DailyGovernanceService {
                         'owner', NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')), ''),
                         'dueDate', ra.due_date, 'completionEvidence', ra.completion_evidence
                       ) ORDER BY ra.due_date NULLS LAST), '[]'::json)
-                 FROM risk_actions ra
+                 FROM canonical_action_state_v ra
                  LEFT JOIN users au ON au.id = ra.assigned_to
                 WHERE ra.house_id = dgl.house_id AND ra.company_id = $2
                   AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')) AS actions,
@@ -308,10 +308,10 @@ export class DailyGovernanceService {
                         'owner', NULLIF(TRIM(COALESCE(eu.first_name,'') || ' ' || COALESCE(eu.last_name,'')), ''),
                         'responseDue', e.due_by
                       ) ORDER BY e.created_at DESC), '[]'::json)
-                 FROM escalations e
+                 FROM canonical_escalation_state_v e
                  LEFT JOIN users eu ON eu.id = e.escalated_to
                 WHERE e.house_id = dgl.house_id AND e.company_id = $2
-                  AND COALESCE(e.lifecycle_status::text, e.status::text, 'Open') NOT IN ('Closed','Resolved','closed','resolved')) AS escalations
+                  AND e.is_open) AS escalations
          FROM daily_governance_log dgl
          JOIN houses h ON h.id = dgl.house_id
          LEFT JOIN users pu ON pu.id = dgl.published_by

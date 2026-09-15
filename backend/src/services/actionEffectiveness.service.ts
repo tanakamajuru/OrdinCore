@@ -130,8 +130,8 @@ export class ActionEffectivenessService {
              ab.first_name || ' ' || ab.last_name AS assigned_by_name,
              au.first_name || ' ' || au.last_name AS assigned_to_name,
              gro.due_at AS review_due_at, (gro.due_at < NOW()) AS review_overdue
-      FROM risk_actions ra
-      LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+      FROM canonical_action_state_v ra
+      LEFT JOIN canonical_risk_state_v r ON r.id = ra.risk_id AND r.company_id=ra.company_id
       LEFT JOIN signal_clusters sc ON sc.id=ra.source_cluster_id AND sc.company_id=ra.company_id
       LEFT JOIN governance_pulses p ON p.id=ra.source_pulse_id AND p.company_id=ra.company_id
       LEFT JOIN escalations e ON e.id=ra.escalation_id AND e.company_id=ra.company_id
@@ -139,14 +139,14 @@ export class ActionEffectivenessService {
       LEFT JOIN users cb ON cb.id=ra.completed_by
       LEFT JOIN users ab ON ab.id=ra.created_by
       LEFT JOIN users au ON au.id=ra.assigned_to
-      LEFT JOIN governance_review_obligations gro
+      LEFT JOIN canonical_review_obligation_state_v gro
         ON gro.company_id=ra.company_id AND gro.subject_id=ra.id
-       AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.status='OPEN'
+       AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
       WHERE ra.company_id = $1
-      AND ra.completed_at IS NOT NULL
+      AND ra.requires_effectiveness_review
       AND (
         ra.effectiveness_outcome IS NULL
-        OR (ra.effectiveness_outcome = 'Too Early To Assess' AND gro.due_at <= NOW())
+        OR (ra.effectiveness_outcome = 'Too Early To Assess' AND gro.is_due)
       )
     `;
     const params: any[] = [company_id];

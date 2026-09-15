@@ -104,10 +104,10 @@ export class GovernanceReviewsService {
               r.last_governance_review_at,
               r.created_at AS since,
               EXTRACT(DAY FROM NOW() - COALESCE(r.last_governance_review_at, r.created_at))::int AS days_since_review
-       FROM risks r
+       FROM canonical_risk_state_v r
        LEFT JOIN houses h ON h.id = r.house_id
        WHERE r.company_id = $1
-         AND r.status NOT IN ('Closed')
+         AND r.is_active
          AND (r.last_governance_review_at IS NULL OR r.last_governance_review_at < NOW() - INTERVAL '7 days')
        ORDER BY
          CASE r.severity WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Moderate' THEN 2 WHEN 'Medium' THEN 2 ELSE 3 END,

@@ -150,20 +150,20 @@ export const interventionsService = {
                   r.created_at AS risk_created_at,
                   r.source_cluster_id,
                   COALESCE(NULLIF(TRIM(r.risk_domain), ''), NULLIF(TRIM(r.strategic_theme), ''), r.title) AS theme,
-                  (SELECT COUNT(*) FROM risk_actions ra
+                  (SELECT COUNT(*) FROM canonical_action_state_v ra
                     WHERE ra.risk_id = r.id
-                      AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions,
-                  (SELECT COUNT(*) FROM risk_actions ra
+                      AND ra.is_open) AS open_actions,
+                  (SELECT COUNT(*) FROM canonical_action_state_v ra
                     WHERE ra.risk_id = r.id
-                      AND ra.status IN ('Complete','Completed')) AS completed_actions,
-                  (SELECT COUNT(*) FROM risk_actions ra
+                      AND ra.is_completed) AS completed_actions,
+                  (SELECT COUNT(*) FROM canonical_action_state_v ra
                     WHERE ra.risk_id = r.id
-                      AND ra.status NOT IN ('Complete','Completed','Cancelled')
+                      AND ra.is_open
                       AND ra.due_date IS NOT NULL
                       AND ra.due_date::date < CURRENT_DATE) AS overdue_actions
-             FROM risks r
+             FROM canonical_risk_state_v r
             WHERE r.company_id = $1
-              AND LOWER(r.status::text) NOT IN ('closed','resolved')
+              AND r.is_active
          ) t
         WHERE theme IS NOT NULL AND TRIM(theme) <> ''
         GROUP BY theme
@@ -562,9 +562,9 @@ export const interventionsService = {
     // pattern only. Never fabricate a risk without provenance.
     if (starting && intv && !intv.linked_action_id) {
       let topRisk = (await query(
-        `SELECT id FROM risks
+        `SELECT id FROM canonical_risk_state_v
           WHERE company_id = $1
-            AND LOWER(status::text) NOT IN ('closed','resolved')
+            AND is_active
             AND COALESCE(services_affected_count, 1) > 1
             AND COALESCE(NULLIF(TRIM(risk_domain), ''), NULLIF(TRIM(strategic_theme), ''), title) = $2
           ORDER BY COALESCE(risk_index, 0) DESC

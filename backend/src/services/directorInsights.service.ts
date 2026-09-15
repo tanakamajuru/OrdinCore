@@ -56,8 +56,8 @@ export class DirectorInsightsService {
   async riAssuranceSummary(companyId: string) {
     const esc = await query(
       `SELECT
-         COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed') AS open,
-         COUNT(*) FILTER (WHERE lifecycle_status <> 'Closed' AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
+         COUNT(*) FILTER (WHERE is_open) AS open,
+         COUNT(*) FILTER (WHERE is_overdue) AS overdue,
          COUNT(*) FILTER (WHERE lifecycle_status = 'Reopened') AS reopened
        FROM escalations WHERE company_id = $1`,
       [companyId]

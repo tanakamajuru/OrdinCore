@@ -44,7 +44,7 @@ export class ClosureService {
     // Never trust UI checkboxes as proof. Canonical action rows are the gate.
     const actionState = (await query(
       `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS incomplete,
+              COUNT(*) FILTER (WHERE is_open)::int AS incomplete,
               COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND (
                 COALESCE(effectiveness_outcome, effectiveness::text) IS NULL
                 OR COALESCE(effectiveness_outcome, effectiveness::text) = 'Too Early To Assess'))::int AS unreviewed,
@@ -53,7 +53,7 @@ export class ClosureService {
                   CASE effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
                     WHEN 'Ineffective' THEN 'Not Effective' ELSE effectiveness::text END)
                   IN ('Partially Effective','Not Effective'))::int AS unsuccessful
-         FROM risk_actions
+         FROM canonical_action_state_v
         WHERE company_id = $1
           AND (escalation_id = $2
             OR ($3::uuid IS NOT NULL AND risk_id = $3)

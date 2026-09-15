@@ -10,8 +10,6 @@ import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 import { risksService } from './risks.service';
 
 const ACTIVE_CLUSTER = `('Emerging','Escalated','Confirmed')`;
-const OPEN_ACTION = `NOT IN ('Complete','Completed','Cancelled')`;
-const CLOSED_RISK = `('Closed','Resolved')`;
 
 const traj = (t: Trajectory) => ({ dir: t.direction, basis: t.basis, points: t.points });
 
@@ -44,8 +42,8 @@ export const rm5Service = {
       `SELECT a.id, a.risk_id AS "riskId", a.title,
               COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned') AS assignee,
               to_char(a.due_date, 'DD Mon') AS due, a.status
-         FROM risk_actions a LEFT JOIN users u ON u.id = a.assigned_to
-        WHERE a.company_id = $1 AND a.status ${OPEN_ACTION}
+         FROM canonical_action_state_v a LEFT JOIN users u ON u.id = a.assigned_to
+        WHERE a.company_id = $1 AND a.is_open
         ORDER BY a.due_date ASC NULLS LAST LIMIT 25`,
       [company_id]
     )).rows;
@@ -82,14 +80,14 @@ export const rm5Service = {
         WHERE company_id = $1 AND COALESCE(created_at, entry_date) >= date_trunc('week', NOW())`);
     const esc = await one(
       `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE COALESCE(lifecycle_status::text, status, 'Open') IN ('Closed','Resolved','closed','resolved'))::int AS reviewed
-         FROM escalations WHERE company_id = $1`);
+              COUNT(*) FILTER (WHERE is_closed)::int AS reviewed
+         FROM canonical_escalation_state_v WHERE company_id = $1`);
     const actionsReview = Number((await one(
-      `SELECT COUNT(*)::int AS n FROM risk_actions
-        WHERE company_id = $1 AND status IN ('Complete','Completed') AND effectiveness_outcome IS NULL`)).n || 0);
+      `SELECT COUNT(*)::int AS n FROM canonical_action_state_v
+        WHERE company_id = $1 AND requires_effectiveness_review`)).n || 0);
     const risksDecision = Number((await one(
-      `SELECT COUNT(*)::int AS n FROM risks
-        WHERE company_id = $1 AND closure_eligible = true AND LOWER(status::text) NOT IN ('closed','resolved')`)).n || 0);
+      `SELECT COUNT(*)::int AS n FROM canonical_risk_state_v
+        WHERE company_id = $1 AND closure_eligible = true AND is_active`)).n || 0);
     const signalsOutstanding = Number(sig.total || 0) - Number(sig.reviewed || 0);
     const escOutstanding = Number(esc.total || 0) - Number(esc.reviewed || 0);
     const outstanding = signalsOutstanding + escOutstanding + actionsReview + risksDecision;
@@ -109,10 +107,10 @@ export const rm5Service = {
     return {
       signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'') NOT IN ('Linked','Closed','Monitoring')`),
       patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND scope='person'`),
-      risks: await one(`SELECT COUNT(*) n FROM risks WHERE company_id=$1 AND status NOT IN ${CLOSED_RISK}`),
-      actions: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND status ${OPEN_ACTION}`),
-      effectiveness: await one(`SELECT COUNT(*) n FROM risk_actions WHERE company_id=$1 AND completed_at IS NOT NULL AND effectiveness_outcome IS NULL`),
-      escalations: await one(`SELECT COUNT(*) n FROM escalations WHERE company_id=$1 AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')`),
+      risks: await one(`SELECT COUNT(*) n FROM canonical_risk_state_v WHERE company_id=$1 AND is_active`),
+      actions: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND is_open`),
+      effectiveness: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND requires_effectiveness_review`),
+      escalations: await one(`SELECT COUNT(*) n FROM canonical_escalation_state_v WHERE company_id=$1 AND is_open`),
     };
   },
 
@@ -155,7 +153,7 @@ export const rm5Service = {
               (SELECT COUNT(*)::int FROM escalations e WHERE e.source_cluster_id = c.id) AS escalation_count,
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
-         FROM signal_clusters c LEFT JOIN houses h ON h.id = c.house_id
+         FROM canonical_pattern_state_v c LEFT JOIN houses h ON h.id = c.house_id
         WHERE c.company_id = $1 AND ${promotedClause}
         ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
       [company_id]
@@ -222,11 +220,11 @@ export const rm5Service = {
               (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · '
                 || COALESCE(u.first_name || ' ' || u.last_name, 'Unassigned')
                 || ' · due ' || COALESCE(to_char(a.due_date,'DD Mon'),'—')) AS meta, a.status
-         FROM risk_actions a
-         LEFT JOIN risks r ON r.id = a.risk_id
+         FROM canonical_action_state_v a
+         LEFT JOIN canonical_risk_state_v r ON r.id = a.risk_id
          LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
          LEFT JOIN users u ON u.id = a.assigned_to
-        WHERE a.company_id = $1 AND a.status ${OPEN_ACTION}
+        WHERE a.company_id = $1 AND a.is_open
         ORDER BY a.due_date ASC NULLS LAST`,
       [company_id]
     )).rows;
@@ -242,10 +240,10 @@ export const rm5Service = {
       `SELECT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
               (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · completed '
                 || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
-         FROM risk_actions a
-         LEFT JOIN risks r ON r.id = a.risk_id AND r.company_id = a.company_id
+         FROM canonical_action_state_v a
+         LEFT JOIN canonical_risk_state_v r ON r.id = a.risk_id AND r.company_id = a.company_id
          LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
-        WHERE a.company_id = $1 AND a.completed_at IS NOT NULL AND a.effectiveness_outcome IS NULL
+        WHERE a.company_id = $1 AND a.requires_effectiveness_review
         ORDER BY a.completed_at ASC`,
       [company_id]
     )).rows;
@@ -261,14 +259,14 @@ export const rm5Service = {
                 || ' · raised ' || COALESCE(to_char(e.created_at,'DD Mon'),'—')
                 || COALESCE(' · ' || NULLIF(u.first_name || ' ' || u.last_name, ' '), '')) AS meta,
               COALESCE(e.lifecycle_status::text, e.status) AS status,
-              (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue
-         FROM escalations e
-         LEFT JOIN risks r ON r.id = e.risk_id
+              e.is_overdue AS overdue
+         FROM canonical_escalation_state_v e
+         LEFT JOIN canonical_risk_state_v r ON r.id = e.risk_id
          LEFT JOIN incidents i ON i.id = e.incident_id
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
          LEFT JOIN users u ON u.id = e.escalated_to
         WHERE e.company_id = $1
-          AND COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','resolved','closed')
+          AND e.is_open
         ORDER BY (e.due_by IS NOT NULL AND e.due_by < NOW()) DESC, e.created_at DESC`,
       [company_id]
     )).rows;

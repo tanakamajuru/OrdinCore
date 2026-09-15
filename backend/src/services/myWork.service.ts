@@ -48,9 +48,9 @@ export const myWorkService = {
       const esc = await safe(() => query(
         `SELECT COUNT(*)::int AS n,
                 COUNT(*) FILTER (WHERE priority IN ('Urgent','Critical'))::int AS urgent
-           FROM escalations
+           FROM canonical_escalation_state_v
           WHERE company_id = $1
-            AND COALESCE(lifecycle_status::text, status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')
+            AND is_open
             AND (escalated_to = $2 OR house_id = ANY($3::uuid[]))`,
         [company_id, user_id, houses]
       ), { rows: [{ n: 0, urgent: 0 }] } as any);
@@ -93,9 +93,9 @@ export const myWorkService = {
 
     // 3. My actions — open, with overdue highlighted (all roles).
     const act = await safe(() => query(
-      `SELECT COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled'))::int AS open,
-              COUNT(*) FILTER (WHERE status NOT IN ('Complete','Completed','Cancelled') AND due_date < NOW())::int AS overdue
-         FROM risk_actions WHERE company_id = $1 AND assigned_to = $2`,
+      `SELECT COUNT(*) FILTER (WHERE is_open)::int AS open,
+              COUNT(*) FILTER (WHERE is_open AND due_date < NOW())::int AS overdue
+         FROM canonical_action_state_v WHERE company_id = $1 AND assigned_to = $2`,
       [company_id, user_id]
     ), { rows: [{ open: 0, overdue: 0 }] } as any);
     if ((act.rows[0]?.open || 0) > 0) items.push({ key: 'actions', label: 'actions assigned to you', count: act.rows[0].open, emphasis: act.rows[0]?.overdue || 0, tone: (act.rows[0]?.overdue || 0) > 0 ? 'red' : 'blue', link: '/my-actions', primary_action: 'Complete Action' });
@@ -170,7 +170,7 @@ export const myWorkService = {
       // Count the RISKS awaiting review (distinct), not the escalations — the label and the
       // destination are about risks. Opens the Risk Register filtered to those awaiting review.
       const pcr = await safe(() => query(
-        `SELECT COUNT(DISTINCT risk_id)::int AS n FROM escalations
+        `SELECT COUNT(DISTINCT risk_id)::int AS n FROM canonical_escalation_state_v
           WHERE company_id = $1 AND post_closure_risk_review_required = TRUE AND risk_id IS NOT NULL
             AND (escalated_to = $2 OR escalated_by = $2 OR house_id = ANY($3::uuid[]))`,
         [company_id, user_id, houses]

@@ -63,7 +63,7 @@ export const risksRepo = {
     const params: unknown[] = [company_id];
     let idx = 2;
 
-    if (filters.status) { conditions.push(`LOWER(r.status) = LOWER($${idx++})`); params.push(filters.status); }
+    if (filters.status) { const raw=String(filters.status).toLowerCase(); const canonical=['closed','resolved'].includes(raw)?'CLOSED':raw==='under review'?'UNDER_REVIEW':raw==='in progress'?'IN_PROGRESS':raw==='escalated'?'ESCALATED':'OPEN'; conditions.push(`cr.canonical_status = $${idx++}`); params.push(canonical); }
     if (filters.severity) { conditions.push(`r.severity = $${idx++}`); params.push(filters.severity); }
     if (filters.house_id) { conditions.push(`r.house_id = $${idx++}`); params.push(filters.house_id); }
     if (filters.assigned_to) { conditions.push(`r.assigned_to = $${idx++}`); params.push(filters.assigned_to); }
@@ -72,19 +72,17 @@ export const risksRepo = {
     const result = await query(
       `SELECT r.*, rc.name AS category_name, h.name AS house_name, h.name AS service_name,
         COALESCE(r.strategic_theme, r.title) AS strategic_theme_display,
-        -- The RM's post-closure review is outstanding on this risk (a closed escalation left it
-        -- needing review) — lets clients filter to "risks to review".
-        EXISTS (SELECT 1 FROM escalations e2 WHERE e2.risk_id = r.id
-                  AND e2.post_closure_risk_review_required = TRUE) AS awaiting_review,
+        -- Canonical review-due state comes from the shared review-obligation projection.
+        cr.needs_review AS awaiting_review, cr.review_overdue,
         EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open_computed,
-        (SELECT COUNT(*) FROM risk_actions ra2 WHERE ra2.risk_id = r.id
-           AND ra2.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions_count,
+        cr.open_actions_count,
         u.first_name || ' ' || u.last_name AS assigned_to_name,
         i.title AS incident_title, i.description AS incident_description, i.severity AS incident_severity,
         string_agg(DISTINCT gp.description, '; ') FILTER (WHERE gp.description IS NOT NULL) AS pulse_descriptions,
         json_agg(DISTINCT jsonb_build_object('id', gp.id, 'description', gp.description, 'immediate_action', gp.immediate_action)) FILTER (WHERE gp.id IS NOT NULL) AS pulses,
         json_agg(DISTINCT jsonb_build_object('id', e.id, 'reason', e.reason, 'status', e.status, 'priority', e.priority)) FILTER (WHERE e.id IS NOT NULL) AS escalations
        FROM risks r
+       JOIN canonical_risk_state_v cr ON cr.id=r.id AND cr.company_id=r.company_id
        LEFT JOIN risk_categories rc ON rc.id = r.category_id
        LEFT JOIN houses h ON h.id = r.house_id
        LEFT JOIN users u ON u.id = r.assigned_to
@@ -95,8 +93,8 @@ export const risksRepo = {
        LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
        LEFT JOIN escalations e ON e.risk_id = r.id
        WHERE ${where}
-       GROUP BY r.id, rc.id, h.id, u.id, i.id
-       ORDER BY CASE WHEN LOWER(r.status) = 'escalated' THEN 1 ELSE 2 END, r.created_at DESC
+       GROUP BY r.id, cr.id, cr.needs_review, cr.review_overdue, cr.open_actions_count, rc.id, h.id, u.id, i.id
+       ORDER BY CASE WHEN cr.canonical_status = 'ESCALATED' THEN 1 ELSE 2 END, r.created_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
       params
     );
@@ -107,9 +105,9 @@ export const risksRepo = {
     const conditions = ['company_id = $1'];
     const params: unknown[] = [company_id];
     let idx = 2;
-    if (filters.status) { conditions.push(`LOWER(status) = LOWER($${idx++})`); params.push(filters.status); }
+    if (filters.status) { const raw=String(filters.status).toLowerCase(); const canonical=['closed','resolved'].includes(raw)?'CLOSED':raw==='under review'?'UNDER_REVIEW':raw==='in progress'?'IN_PROGRESS':raw==='escalated'?'ESCALATED':'OPEN'; conditions.push(`canonical_status = $${idx++}`); params.push(canonical); }
     if (filters.severity) { conditions.push(`severity = $${idx++}`); params.push(filters.severity); }
-    const result = await query(`SELECT COUNT(*) FROM risks WHERE ${conditions.join(' AND ')}`, params);
+    const result = await query(`SELECT COUNT(*) FROM canonical_risk_state_v WHERE ${conditions.join(' AND ')}`, params);
     return parseInt(result.rows[0].count);
   },
 

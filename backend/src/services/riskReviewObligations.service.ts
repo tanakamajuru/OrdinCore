@@ -14,6 +14,8 @@ export function deriveRiskReviewState(input: {
 
 export const riskReviewObligationsService = {
   async syncDue(companyId: string) {
+    // First retire stale scheduler rows, then materialise any explicit risk review dates now due.
+    try { await query('SELECT * FROM reconcile_canonical_read_side($1::uuid)', [companyId]); } catch { /* migration-safe */ }
     const result = await query('SELECT sync_due_risk_review_obligations($1::uuid) AS inserted', [companyId]);
     return Number(result.rows[0]?.inserted || 0);
   },

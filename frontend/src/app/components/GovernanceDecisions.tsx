@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 const isoDay = (d: any) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch { return ""; } };
 const previousDay = (date: string) => {
@@ -180,6 +181,15 @@ export function GovernanceDecisions({
     loadSignals();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId, reviewDate, fromDate, toDate]);
+
+  // If another Ordin Core screen changes the same canonical case (for example an action is
+  // completed, an escalation is transitioned or an effectiveness review is recorded), refresh
+  // the decision evidence without altering the decision workflow. This prevents Daily Oversight
+  // from showing a stale signal/decision position until the page is manually reloaded.
+  useGovernanceRefresh(() => {
+    if (!houseId) return;
+    void Promise.all([loadDecisions(), loadSignals()]);
+  });
 
   // Auto-open the signal picker once a service's signals have loaded, so choosing the house
   // drops the RM straight into picking which signal to decide on (no extra click). Only when

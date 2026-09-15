@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { GovernanceDecisions } from "./GovernanceDecisions";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 interface DashboardData {
   highPriority: any[]; pattern_signals: any[]; risk_candidates: any[]; actions: any[];
@@ -63,15 +64,27 @@ export function DailyOversightBoard() {
     } catch { setIsLoading(false); }
   };
 
-  const loadDashboard = async (scopeHouseId?: string) => {
+  const loadDashboard = async (scopeHouseId?: string, silent = false) => {
     try {
-      // Doctrine: the Daily Governance board no longer depends on /rm/patterns. Patterns live in
-      // the separate Pipeline module; the daily flow is signals -> decisions -> Team Brief.
+      // Canonical read projection: /pulses/dashboard now derives open actions and escalations
+      // from the shared canonical read-side views. The Daily Oversight decision functions remain
+      // unchanged; only the source of the displayed current state is canonicalised.
       const dashRes = await apiClient.get(`/pulses/dashboard${scopeHouseId ? `?house_id=${encodeURIComponent(scopeHouseId)}` : ""}`);
       setData(dashRes.data.data);
-    } catch { toast.error("Failed to load oversight board"); }
-    finally { setIsLoading(false); }
+    } catch {
+      if (!silent) toast.error("Failed to load oversight board");
+    } finally {
+      if (!silent) setIsLoading(false);
+    }
   };
+
+  // Keep Daily Oversight in sync with every canonical governance mutation. Action completion,
+  // effectiveness, escalation transitions and risk/pattern reviews emit governance.case.updated.
+  // Focus + 60s safety polling are provided by the shared hook. This changes refresh behaviour
+  // only; Monitor/Create Action/Escalate/Close remain the same functions and handlers.
+  useGovernanceRefresh(() => {
+    if (selectedHouseId) void loadDashboard(selectedHouseId, true);
+  });
 
   // ---- derived daily posture (signals, escalations, actions — NOT patterns) ----
   const openEsc = data?.open_escalations ?? 0;
@@ -421,7 +434,7 @@ export function DailyOversightBoard() {
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId)} />
+        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId, true)} />
 
         {/* Team Brief (full width) — the day's signal review published to Team Leaders */}
         <div>

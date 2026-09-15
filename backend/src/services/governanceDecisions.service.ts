@@ -79,7 +79,7 @@ export const governanceDecisionsService = {
       if (!p.rows[0]) throw new Error('Risk not found.');
     }
     if (input.escalation_id) {
-      const p = await client.query(`SELECT id FROM escalations WHERE id=$1 AND company_id=$2`, [input.escalation_id, c]);
+      const p = await client.query(`SELECT id FROM canonical_escalation_state_v WHERE id=$1 AND company_id=$2`, [input.escalation_id, c]);
       if (!p.rows[0]) throw new Error('Escalation not found.');
     }
     if (input.owner_id) {
@@ -157,8 +157,8 @@ export const governanceDecisionsService = {
         : input.pulse_entry_id ? ['source_pulse_id', input.pulse_entry_id] : null;
       if (dupSrc) {
         const existing = await client.query(
-          `SELECT * FROM escalations WHERE company_id = $1 AND ${dupSrc[0]} = $2
-             AND COALESCE(lifecycle_status::text, status, 'Open') NOT IN ('Closed','Resolved','closed','resolved') LIMIT 1`,
+          `SELECT * FROM canonical_escalation_state_v WHERE company_id = $1 AND ${dupSrc[0]} = $2
+             AND is_open LIMIT 1`,
           [c, dupSrc[1]]
         );
         if (existing.rows[0]) { escalation = existing.rows[0]; }

@@ -271,13 +271,13 @@ export class ActionsController {
                 au.first_name || ' ' || au.last_name AS assigned_to_name,
                 cb.first_name || ' ' || cb.last_name AS assigned_by_name,
                 h.name AS house_name
-           FROM risk_actions ra
-           LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+           FROM canonical_action_state_v ra
+           LEFT JOIN canonical_risk_state_v r ON r.id = ra.risk_id AND r.company_id=ra.company_id
            LEFT JOIN users au ON au.id = ra.assigned_to
            LEFT JOIN users cb ON cb.id = ra.created_by
-           LEFT JOIN houses h ON h.id = COALESCE(ra.house_id,r.house_id)
+           LEFT JOIN canonical_house_state_v h ON h.id = COALESCE(ra.house_id,r.house_id)
           WHERE ra.company_id = $1
-            AND ra.status NOT IN ('Complete', 'Completed', 'Cancelled')${houseClause}
+            AND ra.is_open${houseClause}
           ORDER BY ra.due_date ASC NULLS LAST`,
         params
       );

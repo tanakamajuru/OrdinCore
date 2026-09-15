@@ -109,7 +109,7 @@ export class RiGovernanceService {
     );
     
     const risks = await query(
-      `SELECT * FROM risks WHERE house_id = $1 AND company_id = $2 AND LOWER(status::text) NOT IN ('closed','resolved')`,
+      `SELECT * FROM canonical_risk_state_v WHERE house_id = $1 AND company_id = $2 AND is_active`,
       [house_id, company_id]
     );
 

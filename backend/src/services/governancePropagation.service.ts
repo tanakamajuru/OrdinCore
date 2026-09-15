@@ -26,8 +26,8 @@ export const governancePropagationService = {
     // Strategic/systemic risks are included only through the exact source-cluster FK.
     if (context.source_cluster_id) {
       const linked = (await query(
-        `SELECT id FROM risks WHERE company_id=$1 AND source_cluster_id=$2
-          AND status NOT IN ('Closed','Resolved')`, [input.companyId, context.source_cluster_id]
+        `SELECT id FROM canonical_risk_state_v WHERE company_id=$1 AND source_cluster_id=$2
+          AND is_active`, [input.companyId, context.source_cluster_id]
       )).rows;
       linked.forEach((r: any) => riskIds.add(r.id));
     }
@@ -45,8 +45,8 @@ export const governancePropagationService = {
     if (context.escalation_id) escalationIds.add(context.escalation_id);
     if (context.risk_id) {
       const rows = (await query(
-        `SELECT id FROM escalations WHERE company_id=$1 AND risk_id=$2
-          AND COALESCE(lifecycle_status::text,status) NOT IN ('Closed','Resolved')`,
+        `SELECT id FROM canonical_escalation_state_v WHERE company_id=$1 AND risk_id=$2
+          AND is_open`,
         [input.companyId, context.risk_id]
       )).rows;
       rows.forEach((e: any) => escalationIds.add(e.id));

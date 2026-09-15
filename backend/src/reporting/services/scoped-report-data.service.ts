@@ -33,7 +33,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
             COUNT(*) FILTER (WHERE r.created_at <= $3::timestamptz
                               AND ((COALESCE(r.closed_at, r.resolved_at) IS NULL AND LOWER(r.status::text) NOT IN ('closed','resolved')) OR COALESCE(r.closed_at, r.resolved_at) > $3::timestamptz)
                               AND LOWER(r.severity::text)='critical')::int AS critical_risks
-       FROM risks r WHERE r.company_id = $1 AND r.house_id = $2 ${personRisk}`,
+       FROM canonical_risk_state_v r WHERE r.company_id = $1 AND r.house_id = $2 ${personRisk}`,
     [companyId, siteId, end]
   )).rows[0];
 
@@ -43,7 +43,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
             COUNT(*) FILTER (WHERE e.created_at <= $3::timestamptz
                               AND ((COALESCE(e.closed_at, e.resolved_at) IS NULL AND COALESCE(e.lifecycle_status::text,e.status::text) NOT IN ('Closed','Resolved','closed','resolved')) OR COALESCE(e.closed_at, e.resolved_at) > $3::timestamptz)
                               AND e.due_by < $3::timestamptz)::int AS overdue_escalations
-       FROM escalations e WHERE e.company_id = $1 AND e.house_id = $2 ${personEsc}`,
+       FROM canonical_escalation_state_v e WHERE e.company_id = $1 AND e.house_id = $2 ${personEsc}`,
     [companyId, siteId, end]
   )).rows[0];
 
@@ -58,7 +58,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
             COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
                               AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz
                               AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time
-       FROM risk_actions ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+       FROM canonical_action_state_v ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
       WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) = $2 ${personAct}`,
     [companyId, siteId, end, start]
   )).rows[0];
@@ -144,7 +144,7 @@ export const scopedReportDataService = {
               r.source_cluster_id,
               COALESCE(r.trajectory::text, r.trend::text, 'Insufficient evidence') AS direction,
               r.review_due_date, r.resolution_reason
-         FROM risks r
+         FROM canonical_risk_state_v r
          LEFT JOIN houses h ON h.id = r.house_id AND h.company_id = r.company_id
         WHERE r.company_id = $1
           AND (r.house_id = ANY($2::uuid[]) OR ($6::boolean AND r.house_id IS NULL))
@@ -167,7 +167,7 @@ export const scopedReportDataService = {
               COALESCE(cev.outcome, 'Not yet reviewed') AS effectiveness,
               COALESCE(cev.review_state, 'NOT_REVIEWED') AS effectiveness_review_state,
               ra.source_cluster_id, ra.risk_id, ra.escalation_id, ra.governance_review_id
-         FROM risk_actions ra
+         FROM canonical_action_state_v ra
          LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
          LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
          LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id) AND h.company_id = ra.company_id
@@ -189,7 +189,7 @@ export const scopedReportDataService = {
               e.due_by, COALESCE(e.closure_evidence, e.resolution_notes) AS outcome,
               e.risk_id, e.source_cluster_id, e.source_governance_review_id,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to
-         FROM escalations e
+         FROM canonical_escalation_state_v e
          LEFT JOIN risks r ON r.id = e.risk_id AND r.company_id = e.company_id
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id) AND h.company_id = e.company_id
          LEFT JOIN users u ON u.id = e.escalated_to AND u.company_id = e.company_id
@@ -235,7 +235,7 @@ export const scopedReportDataService = {
               MIN(gp.entry_date) AS first_signal_date, MAX(gp.entry_date) AS last_signal_date,
               COUNT(DISTINCT gp.house_id)::int AS service_count,
               COALESCE(string_agg(DISTINCT h2.name, ', ' ORDER BY h2.name), 'Service not recorded') AS affected_scope
-         FROM signal_clusters sc
+         FROM canonical_pattern_state_v sc
          JOIN risk_signal_links rsl ON rsl.cluster_id = sc.id
          JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id AND gp.company_id = sc.company_id
          LEFT JOIN houses h2 ON h2.id = gp.house_id AND h2.company_id = sc.company_id

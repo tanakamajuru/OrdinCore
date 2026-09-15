@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router';
+import { useLocation, useNavigate } from 'react-router';
 import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, ListChecks, RefreshCw, ShieldCheck } from 'lucide-react';
 import apiClient from '@/services/apiClient';
 import { RoleBasedNavigation } from './RoleBasedNavigation';
+import { useGovernanceRefresh } from '@/hooks/useGovernanceRefresh';
 
 type Priority='URGENT'|'DUE'|'NORMAL';
 type State='NEEDS_YOU'|'WAITING'|'COMPLETE';
@@ -19,6 +20,7 @@ const fmt=(v?:string|null)=>v?new Date(v).toLocaleString(undefined,{day:'2-digit
 
 export function MyWork(){
   const navigate=useNavigate();
+  const location=useLocation();
   const [data,setData]=useState<QueueData>({needsYou:[],waiting:[],completedToday:[],counts:{needsYou:0,waiting:0,completedToday:0}});
   const [tab,setTab]=useState<State>('NEEDS_YOU');
   const [loading,setLoading]=useState(true);
@@ -29,8 +31,8 @@ export function MyWork(){
   const firstName=user.first_name||(user.name?String(user.name).split(' ')[0]:'');
 
   const load=async()=>{setLoading(true);try{const res=await apiClient.get('/guided-work');setData(res.data?.data||data);}catch{setData({needsYou:[],waiting:[],completedToday:[],counts:{needsYou:0,waiting:0,completedToday:0}});}finally{setLoading(false)}};
-  useEffect(()=>{load();},[]);
-  useEffect(()=>{const onFocus=()=>load();window.addEventListener('focus',onFocus);return()=>window.removeEventListener('focus',onFocus)},[]);
+  useEffect(()=>{load();},[location.key]);
+  useGovernanceRefresh(load);
 
   const list=tab==='NEEDS_YOU'?data.needsYou:tab==='WAITING'?data.waiting:data.completedToday;
   const open=(item:GuidedWorkItem)=>navigate(item.route);

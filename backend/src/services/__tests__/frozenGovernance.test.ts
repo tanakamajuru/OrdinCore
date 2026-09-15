@@ -60,7 +60,7 @@ function wireClosure(s: ClosureState) {
         effectiveness: null,
       })) } as any;
     }
-    if (/SELECT DISTINCT e\.id/.test(sql) && /FROM escalations e/.test(sql)) {
+    if (/SELECT DISTINCT e\.id/.test(sql) && /FROM canonical_escalation_state_v e/.test(sql)) {
       return { rows: Array.from({ length: s.openEsc }, (_, i) => ({
         id: `escalation-${i + 1}`, title: `Escalation ${i + 1}`, status: 'Open', priority: 'High',
       })) } as any;
@@ -170,8 +170,9 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
     mockQuery.mockReset();
     mockQuery.mockImplementation(async (sql: string) => {
       if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'c-1', linked_risk_id: 'risk-1' }] } as any;
-      if (/FROM risks WHERE id/.test(sql)) return { rows: [{ id: 'risk-1' }] } as any; // still active
-      if (/FROM escalations/.test(sql)) return { rows: [{ n: 0 }] } as any;
+      if (/canonical_risk_state_v/.test(sql)) return { rows: [{ active: 1 }] } as any; // still active
+      if (/canonical_escalation_state_v/.test(sql)) return { rows: [{ n: 0 }] } as any;
+      if (/canonical_action_state_v/.test(sql)) return { rows: [{ n: 0 }] } as any;
       return { rows: [], rowCount: 0 } as any;
     });
     await expect(
@@ -183,7 +184,8 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
     mockQuery.mockReset();
     mockQuery.mockImplementation(async (sql: string) => {
       if (/FROM signal_clusters WHERE id/.test(sql)) return { rows: [{ id: 'c-1', linked_risk_id: null }] } as any;
-      if (/FROM escalations/.test(sql)) return { rows: [{ n: 1 }] } as any; // open escalation
+      if (/canonical_escalation_state_v/.test(sql)) return { rows: [{ n: 1 }] } as any; // open escalation
+      if (/canonical_action_state_v/.test(sql)) return { rows: [{ n: 0 }] } as any;
       return { rows: [], rowCount: 0 } as any;
     });
     await expect(

@@ -111,7 +111,7 @@ async function generateRiskSummary(company_id: string, parameters: Record<string
   const activeRisks = await query(
     `SELECT r.title, r.severity, r.trajectory, h.name as house_name, r.status,
             (SELECT COUNT(*) FROM risk_signal_links WHERE risk_id = r.id) as signal_count
-     FROM risks r LEFT JOIN houses h ON r.house_id = h.id 
+     FROM canonical_risk_state_v r LEFT JOIN houses h ON r.house_id = h.id 
      WHERE r.company_id = $1 AND r.status != 'closed' AND r.status != 'resolved' ${clause.replace(/created_at/g, 'r.created_at').replace(/house_id/g, 'r.house_id').replace(/severity/g, 'r.severity').replace(/status/g, 'r.status')} LIMIT 50`,
     [company_id, ...values]
   );
@@ -120,7 +120,7 @@ async function generateRiskSummary(company_id: string, parameters: Record<string
   const { clause: houseClause, values: houseValues } = buildFilterClause({ houses: parameters.houses, house_id: parameters.house_id });
   const closedRisks = await query(
     `SELECT r.title, r.severity, r.updated_at 
-     FROM risks r 
+     FROM canonical_risk_state_v r 
      WHERE r.company_id = $1 AND r.status IN ('closed', 'resolved') ${houseClause.replace(/house_id/g, 'r.house_id')}
      ORDER BY r.updated_at DESC LIMIT 20`,
     [company_id, ...houseValues]
@@ -194,7 +194,7 @@ async function generateEscalationReport(company_id: string, parameters: Record<s
 
   const escRes = await query(
     `SELECT e.reason as title, e.priority, e.status, h.name as house_name, e.created_at
-     FROM escalations e LEFT JOIN houses h ON e.house_id = h.id
+     FROM canonical_escalation_state_v e LEFT JOIN houses h ON e.house_id = h.id
      WHERE e.company_id = $1 ${clause}
      ORDER BY e.created_at DESC LIMIT 50`,
     [company_id, ...values]
@@ -280,7 +280,7 @@ async function generateCrossSiteSummary(company_id: string, parameters: Record<s
   const result = await query(
     `SELECT 
       h.name AS house_name,
-      COUNT(DISTINCT r.id) FILTER (WHERE LOWER(r.status::text) NOT IN ('closed', 'resolved')) AS open_risks,
+      COUNT(DISTINCT r.id) FILTER (WHERE r.is_active) AS open_risks,
       COUNT(DISTINCT i.id) FILTER (WHERE LOWER(i.status::text) NOT IN ('closed', 'resolved')) AS open_incidents,
       COALESCE(
         ROUND(
@@ -330,7 +330,7 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
   // 1. Risk Core Data
   const riskRes = await query(
     `SELECT r.*, h.name as house_name, u.first_name || ' ' || u.last_name as created_by_name
-     FROM risks r 
+     FROM canonical_risk_state_v r 
      JOIN houses h ON r.house_id = h.id
      JOIN users u ON r.created_by = u.id
      WHERE r.id = $1 AND r.company_id = $2`,
@@ -354,7 +354,7 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
     `SELECT ra.title, ra.description, ra.status, ra.completed_at, ra.verification_notes,
             u_rm.first_name || ' ' || u_rm.last_name as verifier_rm_name,
             u_ri.first_name || ' ' || u_ri.last_name as verifier_ri_name
-     FROM risk_actions ra
+     FROM canonical_action_state_v ra
      LEFT JOIN users u_rm ON ra.verified_by_rm = u_rm.id
      LEFT JOIN users u_ri ON ra.verified_by_ri = u_ri.id
      WHERE ra.risk_id = $1

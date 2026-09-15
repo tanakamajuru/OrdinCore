@@ -23,7 +23,7 @@ function ragFor(overdue: number): Rag {
 
 // Qualified with the risk_actions alias `a`: both risk_actions AND users carry a `status` column,
 // so an unqualified `status` is ambiguous once the two are joined (teamCompliance).
-const OPEN = `a.status NOT IN ('Complete','Completed','Cancelled')`;
+const OPEN = `a.is_open`;
 
 export const governanceComplianceService = {
   /**
@@ -42,10 +42,10 @@ export const governanceComplianceService = {
               COUNT(a.id) FILTER (WHERE ${OPEN}) AS open,
               COUNT(a.id) FILTER (WHERE ${OPEN} AND a.due_date < NOW()) AS overdue,
               COUNT(a.id) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
-              COUNT(a.id) FILTER (WHERE a.status IN ('Complete','Completed')
+              COUNT(a.id) FILTER (WHERE a.is_completed
                                  AND a.completed_at IS NOT NULL
                                  AND (a.due_date IS NULL OR a.completed_at <= a.due_date)) AS completed_on_time,
-              COUNT(a.id) FILTER (WHERE a.status IN ('Complete','Completed')) AS completed_total,
+              COUNT(a.id) FILTER (WHERE a.is_completed) AS completed_total,
               MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
                        THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
          FROM users u
@@ -90,7 +90,7 @@ export const governanceComplianceService = {
               COUNT(*) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
               MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
                        THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
-         FROM risk_actions a
+         FROM canonical_action_state_v a
         WHERE a.company_id = $1 AND a.assigned_to = $2`,
       [company_id, user_id]
     )).rows[0];

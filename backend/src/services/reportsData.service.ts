@@ -26,9 +26,9 @@ export class ReportsDataService {
     const summary = await query(
       `SELECT
         (SELECT COUNT(*) FROM governance_pulses gp WHERE gp.company_id = $1 AND gp.created_at BETWEEN $2 AND $3) AS signals_recorded,
-        (SELECT COUNT(*) FROM risk_actions ra WHERE ra.company_id = $1 AND ra.created_at BETWEEN $2 AND $3) AS actions_opened,
-        (SELECT COUNT(*) FROM risk_actions ra WHERE ra.company_id = $1 AND ra.completed_at BETWEEN $2 AND $3) AS actions_completed,
-        (SELECT COUNT(*) FROM escalations e WHERE e.company_id = $1 AND e.created_at BETWEEN $2 AND $3) AS escalations_made`,
+        (SELECT COUNT(*) FROM canonical_action_state_v ra WHERE ra.company_id = $1 AND ra.created_at BETWEEN $2 AND $3) AS actions_opened,
+        (SELECT COUNT(*) FROM canonical_action_state_v ra WHERE ra.company_id = $1 AND ra.completed_at BETWEEN $2 AND $3) AS actions_completed,
+        (SELECT COUNT(*) FROM canonical_escalation_state_v e WHERE e.company_id = $1 AND e.created_at BETWEEN $2 AND $3) AS escalations_made`,
       [companyId, startTs, endTs]
     );
 
@@ -42,24 +42,24 @@ export class ReportsDataService {
               r.trend, r.trajectory, r.severity, r.status,
               EXTRACT(DAY FROM NOW() - r.created_at)::int AS days_open,
               r.last_governance_review_at,
-              (SELECT COUNT(*) FROM risk_actions ra WHERE ra.risk_id = r.id
-                 AND ra.status NOT IN ('Complete','Completed','Cancelled')) AS open_actions,
+              (SELECT COUNT(*) FROM canonical_action_state_v ra WHERE ra.risk_id = r.id
+                 AND ra.is_open) AS open_actions,
               (SELECT string_agg(
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
                  || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
                  || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
-               FROM risk_actions ra
+               FROM canonical_action_state_v ra
                LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               h.name AS service_name
-       FROM risks r
+       FROM canonical_risk_state_v r
        LEFT JOIN houses h ON h.id = r.house_id
        -- Deduplicated domain lookup: one KLOE per name so the sector-duplicated rows
        -- (SUPPORTED_LIVING + DOMICILIARY) can't multiply the risk or pull a NULL.
        LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
                     FROM governance_domains GROUP BY name) dm ON dm.name = r.risk_domain
-       WHERE r.company_id = $1 AND r.status NOT IN ('Closed','Resolved')
+       WHERE r.company_id = $1 AND r.is_active
          AND (r.strategic_theme IS NOT NULL OR COALESCE(r.services_affected_count,1)>1 OR r.house_id IS NULL)
        ORDER BY r.created_at DESC`,
       [companyId]
@@ -81,20 +81,20 @@ export class ReportsDataService {
               e.reason, e.priority,
               COALESCE(e.lifecycle_status::text, e.status) AS status,
               e.due_by,
-              (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue,
+              e.is_overdue AS overdue,
               (SELECT string_agg(
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
                  || CASE WHEN ra.completed_at IS NOT NULL THEN ' completed ' || to_char(ra.completed_at,'DD Mon YYYY') ELSE '' END
                  || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
-               FROM risk_actions ra
+               FROM canonical_action_state_v ra
                LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.escalation_id=e.id OR ra.governance_review_id=e.source_governance_review_id
                   OR (e.risk_id IS NOT NULL AND ra.risk_id=e.risk_id)
                   OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id=e.source_pulse_id)
                   OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id=e.source_cluster_id)) AS action_history,
               h.name AS service_name
-       FROM escalations e
+       FROM canonical_escalation_state_v e
        LEFT JOIN users u ON u.id = e.escalated_to
        LEFT JOIN risks r ON r.id = e.risk_id
        LEFT JOIN incidents i ON i.id = e.incident_id
@@ -117,7 +117,7 @@ export class ReportsDataService {
                 WHERE h.company_id=sc.company_id AND h.id=ANY(COALESCE(sc.affected_house_ids,ARRAY[]::uuid[]))) AS services,
               sc.signal_count::int AS total_signals,
               MAX(d.kloe_label) AS kloe_label, MAX(d.kloe_code) AS kloe_code
-         FROM signal_clusters sc
+         FROM canonical_pattern_state_v sc
          LEFT JOIN governance_domains d ON d.name = sc.risk_domain
         WHERE sc.company_id = $1 AND sc.scope='cross_service'
           AND sc.cluster_status IN ('Escalated','Emerging','Confirmed')
@@ -154,18 +154,18 @@ export class ReportsDataService {
                  COALESCE(ra.title,'Action') || ' [' || ra.status::text || ']'
                  || CASE WHEN cev.outcome IS NOT NULL THEN ' — ' || cev.outcome ELSE '' END,
                  '; ' ORDER BY ra.created_at)
-               FROM risk_actions ra
+               FROM canonical_action_state_v ra
                LEFT JOIN canonical_action_effectiveness_v cev ON cev.action_id=ra.id AND cev.company_id=ra.company_id
                WHERE ra.risk_id=r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS action_history,
               d.kloe_label, d.kloe_code
-         FROM risks r
+         FROM canonical_risk_state_v r
          LEFT JOIN houses h ON h.id = r.house_id
          LEFT JOIN signal_clusters sc ON sc.id = r.source_cluster_id
          -- Deduplicated domain lookup (one KLOE per name) so sector-duplicated rows
          -- can't duplicate the risk in the pack or pull a NULL CQC domain.
          LEFT JOIN (SELECT name, MAX(kloe_label) AS kloe_label, MAX(kloe_code) AS kloe_code
                       FROM governance_domains GROUP BY name) d ON d.name = r.risk_domain
-        WHERE r.company_id = $1 AND r.status NOT IN ('Closed','Resolved')
+        WHERE r.company_id = $1 AND r.is_active
         ORDER BY r.created_at DESC`,
       [companyId]
     );

@@ -364,10 +364,10 @@ export class PulseService {
                          AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
                          AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
                     ) AS has_critical
-             FROM signal_clusters sc
-             JOIN houses h ON h.id = sc.house_id
+             FROM canonical_pattern_state_v sc
+             JOIN canonical_house_state_v h ON h.id = sc.house_id AND h.is_active
              WHERE sc.company_id = $1 AND sc.house_id IN (${placeholderIds})
-             AND sc.cluster_status IN ('Emerging', 'Confirmed', 'Escalated')
+             AND sc.is_active
              ORDER BY sc.last_signal_date DESC`,
             [company_id, ...house_ids]
         );
@@ -379,10 +379,10 @@ export class PulseService {
         let openEscalations = 0;
         try {
             const escRes = await query(
-                `SELECT COUNT(*)::int AS n FROM escalations e
+                `SELECT COUNT(*)::int AS n FROM canonical_escalation_state_v e
                   LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
                   WHERE e.company_id = $1 AND COALESCE(e.house_id,er.house_id) IN (${placeholderIds})
-                    AND COALESCE(e.lifecycle_status::text, e.status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')`,
+                    AND e.is_open`,
                 [company_id, ...house_ids]
             );
             openEscalations = escRes.rows[0]?.n || 0;
@@ -394,11 +394,11 @@ export class PulseService {
         const actions = await query(
             `SELECT ra.*, h.name as house_name, r.title as risk_title,
                     (au.first_name || ' ' || au.last_name) AS assigned_to_name
-             FROM risk_actions ra
-             LEFT JOIN risks r ON r.id = ra.risk_id
-             LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id)
+             FROM canonical_action_state_v ra
+             LEFT JOIN canonical_risk_state_v r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+             LEFT JOIN canonical_house_state_v h ON h.id = COALESCE(ra.house_id, r.house_id) AND h.is_active
              LEFT JOIN users au ON au.id = ra.assigned_to
-             WHERE ra.company_id = $1 AND ra.status IN ('Pending', 'In Progress', 'Overdue')
+             WHERE ra.company_id = $1 AND ra.is_open
              AND COALESCE(ra.house_id, r.house_id) IN (${placeholderIds})
              ORDER BY ra.due_date ASC NULLS LAST, ra.created_at ASC`,
             [company_id, ...house_ids]

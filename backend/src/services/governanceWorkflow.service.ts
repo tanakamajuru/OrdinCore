@@ -49,7 +49,7 @@ export const governanceWorkflowService = {
 
     // Tasks created from this signal.
     const tasks = await query(
-      `SELECT id, title, status, due_date, created_at FROM risk_actions
+      `SELECT id, title, status, due_date, created_at FROM canonical_action_state_v
         WHERE company_id = $1 AND source_pulse_id = $2 ORDER BY created_at`,
       [company_id, pulse_id]
     );
@@ -85,7 +85,7 @@ export const governanceWorkflowService = {
     // Escalation(s) raised from this signal.
     const escs = await query(
       `SELECT id, reason, COALESCE(lifecycle_status::text, status) AS status, created_at
-         FROM escalations WHERE company_id = $1 AND source_pulse_id = $2 ORDER BY created_at`,
+         FROM canonical_escalation_state_v WHERE company_id = $1 AND source_pulse_id = $2 ORDER BY created_at`,
       [company_id, pulse_id]
     );
     for (const e of escs.rows) rows.push({
@@ -113,7 +113,7 @@ export const governanceWorkflowService = {
     const escalationId = filters.escalationId || null;
 
     if (escalationId) {
-      const e = (await query(`SELECT id, reason, source_pulse_id, source_cluster_id, risk_id, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE id=$1 AND company_id=$2`, [escalationId, company_id])).rows[0];
+      const e = (await query(`SELECT id, reason, source_pulse_id, source_cluster_id, risk_id, COALESCE(lifecycle_status::text,status) AS status, created_at FROM canonical_escalation_state_v WHERE id=$1 AND company_id=$2`, [escalationId, company_id])).rows[0];
       if (e) {
         push({ record: 'Escalation', id: e.id, relationship: 'Escalation', label: e.reason, status: e.status, at: e.created_at, link: `/escalation-log?focus=${e.id}` });
         clusterId = clusterId || e.source_cluster_id; riskId = riskId || e.risk_id;
@@ -125,8 +125,8 @@ export const governanceWorkflowService = {
       if (r) {
         push({ record: 'Risk', id: r.id, relationship: 'Risk', label: r.title, status: r.status, at: r.created_at, link: `/risk-register/${r.id}` });
         clusterId = clusterId || r.source_cluster_id;
-        for (const a of (await query(`SELECT id, title, status, created_at FROM risk_actions WHERE risk_id=$1 AND company_id=$2 ORDER BY created_at`, [riskId, company_id])).rows) push({ record: 'Task', id: a.id, relationship: 'Risk action', label: a.title, status: a.status, at: a.created_at, link: `/my-actions?focus=${a.id}` });
-        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE risk_id=$1 AND company_id=$2`, [riskId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'On this risk', label: e.reason, status: e.status, at: e.created_at, link: `/escalation-log?focus=${e.id}` });
+        for (const a of (await query(`SELECT id, title, status, created_at FROM canonical_action_state_v WHERE risk_id=$1 AND company_id=$2 ORDER BY created_at`, [riskId, company_id])).rows) push({ record: 'Task', id: a.id, relationship: 'Risk action', label: a.title, status: a.status, at: a.created_at, link: `/my-actions?focus=${a.id}` });
+        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM canonical_escalation_state_v WHERE risk_id=$1 AND company_id=$2`, [riskId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'On this risk', label: e.reason, status: e.status, at: e.created_at, link: `/escalation-log?focus=${e.id}` });
       }
     }
     if (clusterId) {
@@ -135,7 +135,7 @@ export const governanceWorkflowService = {
         push({ record: 'Pattern', id: c.id, relationship: 'Pattern', label: c.cluster_label || c.risk_domain, status: c.review_outcome || c.cluster_status, at: c.created_at, link: '/rm5' });
         for (const s of (await query(`SELECT gp.id, gp.description, gp.severity, gp.created_at FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id=rsl.pulse_entry_id WHERE rsl.cluster_id=$1 AND gp.company_id=$2 ORDER BY gp.created_at`, [clusterId, company_id])).rows) push({ record: 'Signal', id: s.id, relationship: 'Contributing signal', label: s.description, status: s.severity, at: s.created_at, link: `/signals/${s.id}` });
         for (const d of (await query(`SELECT id, what_is_happening, decision, decision_status, created_at FROM governance_reviews WHERE cluster_id=$1 AND company_id=$2 ORDER BY created_at`, [clusterId, company_id])).rows) push({ record: 'Governance Decision', id: d.id, relationship: 'Decision on this pattern', label: d.what_is_happening, status: d.decision_status || d.decision, at: d.created_at, link: null });
-        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM escalations WHERE source_cluster_id=$1 AND company_id=$2`, [clusterId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'From this pattern', label: e.reason, status: e.status, at: e.created_at, link: `/escalation-log?focus=${e.id}` });
+        for (const e of (await query(`SELECT id, reason, COALESCE(lifecycle_status::text,status) AS status, created_at FROM canonical_escalation_state_v WHERE source_cluster_id=$1 AND company_id=$2`, [clusterId, company_id])).rows) push({ record: 'Escalation', id: e.id, relationship: 'From this pattern', label: e.reason, status: e.status, at: e.created_at, link: `/escalation-log?focus=${e.id}` });
         if (c.linked_risk_id && !riskId) { const r = (await query(`SELECT id, title, status, created_at FROM risks WHERE id=$1 AND company_id=$2`, [c.linked_risk_id, company_id])).rows[0]; if (r) push({ record: 'Risk', id: r.id, relationship: 'Promoted risk', label: r.title, status: r.status, at: r.created_at, link: `/risk-register/${r.id}` }); }
       }
     }
@@ -153,13 +153,13 @@ export const governanceWorkflowService = {
     if (!c) throw new Error('Pattern not found.');
     if (c.linked_risk_id) {
       const active = await query(
-        `SELECT 1 FROM risks WHERE id = $1 AND company_id = $2 AND status NOT IN ('Closed','Resolved') LIMIT 1`,
+        `SELECT 1 FROM canonical_risk_state_v WHERE id = $1 AND company_id = $2 AND is_active LIMIT 1`,
         [c.linked_risk_id, company_id]
       );
       if (active.rows[0]) blockers.push('The linked risk remains active.');
     }
     const openEsc = await query(
-      `SELECT COUNT(*)::int AS n FROM escalations
+      `SELECT COUNT(*)::int AS n FROM canonical_escalation_state_v escalations
         WHERE company_id = $1
           AND (source_cluster_id = $2
                OR ($3::uuid IS NOT NULL AND risk_id = $3)
@@ -167,7 +167,7 @@ export const governanceWorkflowService = {
                             WHERE gr.id = escalations.source_governance_review_id
                               AND gr.company_id = escalations.company_id
                               AND (gr.cluster_id = $2 OR ($3::uuid IS NOT NULL AND gr.risk_id = $3))))
-          AND LOWER(COALESCE(lifecycle_status::text, status)) NOT IN ('closed','resolved')`,
+          AND is_open`,
       [company_id, cluster_id, c.linked_risk_id || null]
     );
     if (openEsc.rows[0].n > 0) blockers.push('A linked escalation remains open.');
@@ -176,7 +176,7 @@ export const governanceWorkflowService = {
     // decisions or effectiveness reviews are still outstanding, or while fresh signals or an
     // as-yet-unmonitored period mean the concern has not actually been seen through.
     const openActions = await query(
-      `SELECT COUNT(*)::int AS n FROM risk_actions
+      `SELECT COUNT(*)::int AS n FROM canonical_action_state_v risk_actions
         WHERE company_id = $1
           AND (source_cluster_id = $2
                OR ($3::uuid IS NOT NULL AND risk_id = $3)
@@ -184,13 +184,13 @@ export const governanceWorkflowService = {
                             WHERE gr.id = risk_actions.governance_review_id
                               AND gr.company_id = risk_actions.company_id
                               AND (gr.cluster_id = $2 OR ($3::uuid IS NOT NULL AND gr.risk_id = $3))))
-          AND LOWER(status) NOT IN ('complete','completed','cancelled','canceled','closed')`,
+          AND is_open`,
       [company_id, cluster_id, c.linked_risk_id || null]
     );
     if ((openActions.rows[0]?.n || 0) > 0) blockers.push('An action from this pattern is still open.');
 
     const pendingEff = await query(
-      `SELECT COUNT(*)::int AS n FROM risk_actions
+      `SELECT COUNT(*)::int AS n FROM canonical_action_state_v risk_actions
         WHERE company_id = $1
           AND (source_cluster_id = $2
                OR ($3::uuid IS NOT NULL AND risk_id = $3)
@@ -198,7 +198,7 @@ export const governanceWorkflowService = {
                             WHERE gr.id = risk_actions.governance_review_id
                               AND gr.company_id = risk_actions.company_id
                               AND (gr.cluster_id = $2 OR ($3::uuid IS NOT NULL AND gr.risk_id = $3))))
-          AND LOWER(status) IN ('complete','completed')
+          AND is_completed
           AND LOWER(COALESCE(effectiveness_outcome, effectiveness, '')) NOT IN
               ('effective','partially effective','neutral','not effective','ineffective')`,
       [company_id, cluster_id, c.linked_risk_id || null]

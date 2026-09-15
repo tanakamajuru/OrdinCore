@@ -87,7 +87,7 @@ export class EscalationsService {
     let idx = 2;
     // Match either the lifecycle status (Open/Under Review/Closed…) or the legacy
     // status (Pending/Acknowledged/Resolved…) so dashboard filters work regardless.
-    if (filters.status) { conditions.push(`(e.lifecycle_status::text = $${idx} OR e.status = $${idx})`); params.push(filters.status); idx++; }
+    if (filters.status) { const raw=String(filters.status).toLowerCase(); const canonical=['closed','resolved'].includes(raw)?'CLOSED':raw==='under review'?'UNDER_REVIEW':['acknowledged','in progress'].includes(raw)?'IN_PROGRESS':'OPEN'; conditions.push(`e.canonical_status = $${idx}`); params.push(canonical); idx++; }
     // Finding E: narrow to a single risk server-side (governance-review modal).
     if (filters.risk_id) { conditions.push(`e.risk_id = $${idx}`); params.push(filters.risk_id); idx++; }
     if (filters.house_id) {
@@ -109,7 +109,7 @@ export class EscalationsService {
           h.name AS house_name,
           h.name AS service_name,
           COALESCE(e.house_id, r.house_id, i.house_id) AS house_id,
-          (e.due_by IS NOT NULL AND e.due_by < NOW() AND e.lifecycle_status <> 'Closed') AS overdue,
+          e.is_overdue AS overdue,
           -- Originating signal — the decision-making evidence the detail pane needs.
           p.description AS observation,
           p.immediate_action AS signal_immediate_action,
@@ -123,7 +123,7 @@ export class EscalationsService {
           -- latest formal effectiveness verdict + action completion counts for the linked risk;
           -- it is NOT a second effectiveness engine and never auto-closes the escalation.
           (SELECT COALESCE(ra.effectiveness_outcome, ra.effectiveness::text)
-             FROM risk_actions ra
+             FROM canonical_action_state_v ra
             WHERE ra.company_id = e.company_id
               AND (
                 ra.escalation_id = e.id
@@ -135,35 +135,35 @@ export class EscalationsService {
               AND (ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL)
             ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) DESC
             LIMIT 1) AS latest_effectiveness,
-          (SELECT COUNT(*) FROM risk_actions ra
+          (SELECT COUNT(*) FROM canonical_action_state_v ra
             WHERE ra.company_id = e.company_id
               AND (ra.escalation_id = e.id
                 OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
                 OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
                 OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
                 OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
-              AND ra.status <> 'Cancelled') AS actions_total_count,
-          (SELECT COUNT(*) FROM risk_actions ra
+              AND ra.canonical_status <> 'CANCELLED') AS actions_total_count,
+          (SELECT COUNT(*) FROM canonical_action_state_v ra
             WHERE ra.company_id = e.company_id
               AND (ra.escalation_id = e.id
                 OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
                 OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
                 OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
                 OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
-              AND ra.status IN ('Complete','Completed')) AS actions_completed_count,
-          (SELECT COUNT(*) FROM risk_actions ra
+              AND ra.is_completed) AS actions_completed_count,
+          (SELECT COUNT(*) FROM canonical_action_state_v ra
             WHERE ra.company_id = e.company_id
               AND (ra.escalation_id = e.id
                 OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
                 OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
                 OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id = e.source_pulse_id)
                 OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id = e.source_cluster_id))
-              AND ra.status IN ('Complete','Completed')
+              AND ra.is_completed
               AND COALESCE(ra.effectiveness_outcome,
                 CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
                   WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END)
                 IN ('Effective','Partially Effective','Not Effective')) AS actions_effectiveness_reviewed_count
-         FROM escalations e
+         FROM canonical_escalation_state_v e
          JOIN users u1 ON u1.id = e.escalated_by
          LEFT JOIN users u2 ON u2.id = e.escalated_to
          LEFT JOIN risks r ON r.id = e.risk_id
@@ -174,8 +174,8 @@ export class EscalationsService {
          WHERE ${where}
          ORDER BY
            CASE
-             WHEN COALESCE(e.lifecycle_status::text, e.status) IN ('Closed', 'Resolved', 'resolved', 'closed') THEN 2
-             WHEN e.status = 'pending' OR e.lifecycle_status::text = 'Open' THEN 0
+             WHEN e.is_closed THEN 2
+             WHEN e.canonical_status = 'OPEN' THEN 0
              ELSE 1
            END,
            (e.due_by IS NOT NULL AND e.due_by < NOW()) DESC,
@@ -183,7 +183,7 @@ export class EscalationsService {
          LIMIT ${limit} OFFSET ${offset}`,
         params
       ),
-      query(`SELECT COUNT(*) FROM escalations e WHERE ${where}`, params),
+      query(`SELECT COUNT(*) FROM canonical_escalation_state_v e WHERE ${where}`, params),
     ]);
 
     return { escalations: esc.rows, total: parseInt(countResult.rows[0].count), page, limit, pages: Math.ceil(parseInt(countResult.rows[0].count) / limit) };
@@ -211,7 +211,7 @@ export class EscalationsService {
         COALESCE(action_state.actions_total_count, 0) AS actions_total_count,
         COALESCE(action_state.actions_completed_count, 0) AS actions_completed_count,
         COALESCE(action_state.actions_effectiveness_reviewed_count, 0) AS actions_effectiveness_reviewed_count
-       FROM escalations e
+       FROM canonical_escalation_state_v e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
        LEFT JOIN risks r ON r.id = e.risk_id
@@ -224,14 +224,14 @@ export class EscalationsService {
            (ARRAY_AGG(COALESCE(ra.effectiveness_outcome, ra.effectiveness::text)
              ORDER BY COALESCE(ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at) DESC)
              FILTER (WHERE ra.effectiveness_outcome IS NOT NULL OR ra.effectiveness IS NOT NULL))[1] AS latest_effectiveness,
-           COUNT(*) FILTER (WHERE ra.status <> 'Cancelled')::int AS actions_total_count,
-           COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed'))::int AS actions_completed_count,
-           COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
+           COUNT(*) FILTER (WHERE ra.canonical_status <> 'CANCELLED')::int AS actions_total_count,
+           COUNT(*) FILTER (WHERE ra.is_completed)::int AS actions_completed_count,
+           COUNT(*) FILTER (WHERE ra.is_completed
              AND COALESCE(ra.effectiveness_outcome,
                CASE ra.effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
                  WHEN 'Ineffective' THEN 'Not Effective' ELSE ra.effectiveness::text END)
                IN ('Effective','Partially Effective','Not Effective'))::int AS actions_effectiveness_reviewed_count
-         FROM risk_actions ra
+         FROM canonical_action_state_v ra
          WHERE ra.company_id = e.company_id
            AND (ra.escalation_id = e.id
              OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
@@ -261,8 +261,8 @@ export class EscalationsService {
               COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unassigned') AS assigned_to_name,
               COALESCE(NULLIF(TRIM(cu.first_name || ' ' || cu.last_name), ''), 'Not recorded') AS completed_by_name,
               COALESCE(NULLIF(TRIM(eu.first_name || ' ' || eu.last_name), ''), 'Not reviewed') AS effectiveness_reviewed_by_name
-         FROM escalations e
-         JOIN risk_actions ra ON ra.company_id = e.company_id
+         FROM canonical_escalation_state_v e
+         JOIN canonical_action_state_v ra ON ra.company_id = e.company_id
           AND (ra.escalation_id = e.id
             OR (e.risk_id IS NOT NULL AND ra.risk_id = e.risk_id)
             OR (e.source_governance_review_id IS NOT NULL AND ra.governance_review_id = e.source_governance_review_id)
@@ -271,7 +271,7 @@ export class EscalationsService {
          LEFT JOIN users u ON u.id = ra.assigned_to
          LEFT JOIN users cu ON cu.id = ra.completed_by
          LEFT JOIN users eu ON eu.id = ra.effectiveness_reviewed_by
-        WHERE e.id = $1 AND e.company_id = $2 AND ra.status <> 'Cancelled'
+        WHERE e.id = $1 AND e.company_id = $2 AND ra.canonical_status <> 'CANCELLED'
         ORDER BY ra.created_at DESC`,
       [id, company_id]
     );
@@ -342,7 +342,7 @@ export class EscalationsService {
       created = { action_id: actionId };
     } else if (input.outcome === 'Re-escalate') {
       if (!riskId) throw new Error('No linked risk to re-escalate.');
-      const dup = await query(`SELECT id FROM escalations WHERE company_id=$1 AND risk_id=$2 AND COALESCE(lifecycle_status::text,status,'Open') NOT IN ('Closed','Resolved','closed','resolved') LIMIT 1`, [company_id, riskId]);
+      const dup = await query(`SELECT id FROM canonical_escalation_state_v WHERE company_id=$1 AND risk_id=$2 AND is_open LIMIT 1`, [company_id, riskId]);
       if (dup.rows[0]) {
         created = { escalation_id: dup.rows[0].id, reused: true };
       } else {
@@ -594,7 +594,7 @@ export class EscalationsService {
     }
     const escRes = await query(
       `SELECT e.*, u.role AS current_role
-         FROM escalations e LEFT JOIN users u ON u.id = e.escalated_to
+         FROM canonical_escalation_state_v e LEFT JOIN users u ON u.id = e.escalated_to
         WHERE e.id = $1 AND e.company_id = $2`,
       [id, company_id]
     );
@@ -673,7 +673,7 @@ export class EscalationsService {
     // SSOT for "open": either lifecycle or legacy status may be set, so an escalation is
     // open unless one of them says Closed/Resolved. My Work, the nav badge and the daily
     // board all use this identical definition so the numbers can never disagree.
-    const OPEN = `COALESCE(lifecycle_status::text, status, 'Open') NOT IN ('Closed','Resolved','closed','resolved')`;
+    const OPEN = `is_open`;
     const result = await query(
       `SELECT
         COUNT(*) AS total,

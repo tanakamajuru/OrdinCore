@@ -296,9 +296,9 @@ export class RisksService {
     // open one (guards against the status field drifting out of sync with the escalations
     // table). A resolved/closed escalation does not block re-escalation.
     const openEsc = await query(
-      `SELECT 1 FROM escalations
+      `SELECT 1 FROM canonical_escalation_state_v
         WHERE risk_id = $1 AND company_id = $2
-          AND COALESCE(lifecycle_status::text, status) NOT IN ('Closed','Resolved','resolved','closed')
+          AND is_open
         LIMIT 1`,
       [risk_id, company_id]
     );
@@ -450,7 +450,7 @@ export class RisksService {
       `SELECT DISTINCT e.id, e.reason AS title,
               COALESCE(e.lifecycle_status::text, e.status) AS status,
               e.priority, e.due_by, e.created_at
-         FROM escalations e
+         FROM canonical_escalation_state_v e
          LEFT JOIN governance_reviews gr
            ON gr.id = e.source_governance_review_id AND gr.company_id = e.company_id
         WHERE e.company_id = $2
@@ -1140,7 +1140,7 @@ export class RisksService {
   private async triggerEscalation(risk: any, reason: string) {
     // Check if already escalated
     const existing = await query(
-      "SELECT id FROM escalations WHERE risk_id = $1 AND status = 'Pending'",
+      "SELECT id FROM canonical_escalation_state_v WHERE risk_id = $1 AND status = 'Pending'",
       [risk.id]
     );
     if (existing.rows.length > 0) return;
@@ -1230,7 +1230,7 @@ export class RisksService {
     const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
 
     const risksRes = await query(
-      `SELECT r.id, r.title, r.strategic_theme, r.source_cluster_id, r.trajectory, r.trend, r.status, r.severity,
+      `SELECT r.id, r.title, r.strategic_theme, r.source_cluster_id, r.trajectory, r.trend, r.status, r.canonical_status, r.is_active, r.is_closed, r.needs_review, r.review_overdue, r.review_due_at, r.severity,
               r.impact_rating, r.risk_index,
               COALESCE(r.services_affected_count, 1) AS services_affected_count,
               r.last_governance_review_at, r.review_due_date, r.next_review_date, r.house_id,
@@ -1238,44 +1238,37 @@ export class RisksService {
               -- Next review tracks the next open action's due date (the concrete thing that
               -- moves the risk forward), falling back to any explicit review date.
               LEAST(
-                (SELECT MIN(ra.due_date) FROM risk_actions ra
+                (SELECT MIN(ra.due_date) FROM canonical_action_state_v ra
                    WHERE (ra.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id))
-                     AND ra.due_date IS NOT NULL AND ra.status NOT IN ('Complete','Completed','Cancelled')),
-                (SELECT MIN(gro.due_at)::date FROM governance_review_obligations gro
-                   WHERE gro.company_id=r.company_id AND gro.source_risk_id=r.id AND gro.status='OPEN')
+                     AND ra.due_date IS NOT NULL AND ra.is_open),
+                (SELECT MIN(gro.due_at)::date FROM canonical_review_obligation_state_v gro
+                   WHERE gro.company_id=r.company_id AND gro.source_risk_id=r.id AND gro.is_actionable)
               ) AS next_action_date,
               h.name AS service_name,
               (SELECT COUNT(DISTINCT rsl.pulse_entry_id) FROM risk_signal_links rsl
                  WHERE rsl.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND rsl.cluster_id=r.source_cluster_id)) AS evidence_count,
-              (SELECT COUNT(DISTINCT ra.id) FROM risk_actions ra
+              (SELECT COUNT(DISTINCT ra.id) FROM canonical_action_state_v ra
                  WHERE ra.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND ra.source_cluster_id=r.source_cluster_id)) AS controls_count,
-              (SELECT ra.effectiveness_outcome FROM risk_actions ra
+              (SELECT ra.effectiveness_outcome FROM canonical_action_state_v ra
                  WHERE ra.risk_id = r.id AND ra.effectiveness_outcome IS NOT NULL
                  ORDER BY ra.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness,
               CASE
-                WHEN LOWER(r.status::text)='under review' THEN 'UNDER_REVIEW'
-                WHEN review_obligation.status='OPEN' AND review_obligation.due_at < NOW() THEN 'OVERDUE'
-                WHEN review_obligation.status='OPEN' THEN 'DUE'
+                WHEN r.canonical_status='UNDER_REVIEW' THEN 'UNDER_REVIEW'
+                WHEN r.review_overdue THEN 'OVERDUE'
+                WHEN r.needs_review THEN 'DUE'
                 ELSE 'NOT_DUE'
               END AS review_state,
               u.first_name || ' ' || u.last_name AS owner_name, u.role AS owner_role
-         FROM risks r
+         FROM canonical_risk_state_v r
          LEFT JOIN houses h ON h.id = r.house_id
          LEFT JOIN users u ON u.id = r.assigned_to
-         LEFT JOIN LATERAL (
-           SELECT gro.status, gro.due_at
-             FROM governance_review_obligations gro
-            WHERE gro.company_id=r.company_id AND gro.subject_type='RISK'
-              AND gro.subject_id=r.id AND gro.status='OPEN'
-            ORDER BY gro.due_at ASC LIMIT 1
-         ) review_obligation ON TRUE
         WHERE r.company_id = $1${houseClause}
         ORDER BY r.created_at DESC`,
       params
     );
 
     const positionOf = (r: any): string => {
-      if (r.status === 'Escalated') return 'Escalating';
+      if (r.canonical_status === 'ESCALATED') return 'Escalating';
       const t = (r.trajectory || r.trend || 'Stable').toString().toLowerCase();
       if (t.includes('critical')) return 'Critical';
       if (t.includes('deteriorat') || t.includes('escalat') || t.includes('worsen')) return 'Escalating';
@@ -1316,11 +1309,11 @@ export class RisksService {
       } catch { return r; }
     }));
     const all = hydratedRisks.map(shape);
-    const open = hydratedRisks.filter(r => !['Closed', 'Resolved'].includes(r.status));
+    const open = hydratedRisks.filter(r => r.is_active);
     const isStrategic = (r: any) => Number(r.services_affected_count) > 1 || !!r.strategic_theme || !r.house_id;
     const active = open.filter(r => !isStrategic(r)).map(shape);
     const strategic = open.filter(isStrategic).map(shape);
-    const closed = hydratedRisks.filter(r => ['Closed', 'Resolved'].includes(r.status)).map(shape);
+    const closed = hydratedRisks.filter(r => r.is_closed).map(shape);
 
     // Emerging concerns = unpromoted signal clusters + new risk candidates.
     const clustersRes = await query(

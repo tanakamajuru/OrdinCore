@@ -144,10 +144,10 @@ export class WeeklyReviewsService {
   async buildAnticipatedRisks(company_id: string, house_id: string) {
     const risks = (await query(
       `SELECT r.id, COALESCE(r.strategic_theme, r.title) AS theme, r.source_cluster_id,
-              EXISTS (SELECT 1 FROM escalations e WHERE e.risk_id = r.id AND COALESCE(e.lifecycle_status::text, e.status) NOT IN ('Closed','Resolved','closed','resolved')) AS has_open_esc,
-              EXISTS (SELECT 1 FROM risk_actions a WHERE a.risk_id = r.id AND a.status NOT IN ('Complete','Completed','Cancelled') AND a.due_date < NOW()) AS has_overdue
-         FROM risks r
-        WHERE r.house_id = $1 AND r.company_id = $2 AND LOWER(r.status) NOT IN ('closed','resolved')`,
+              EXISTS (SELECT 1 FROM canonical_escalation_state_v e WHERE e.risk_id = r.id AND e.is_open) AS has_open_esc,
+              EXISTS (SELECT 1 FROM canonical_action_state_v a WHERE a.risk_id = r.id AND a.is_open AND a.due_date < NOW()) AS has_overdue
+         FROM canonical_risk_state_v r
+        WHERE r.house_id = $1 AND r.company_id = $2 AND r.is_active`,
       [house_id, company_id]
     )).rows;
     const out: Array<{ risk_id: string; theme: string; reason: string }> = [];
@@ -225,8 +225,8 @@ export class WeeklyReviewsService {
     // Step 9 & 10: Risks
     const risksRes = await query(
       `SELECT r.id, r.title, r.trajectory, r.status, NULL as last_effectiveness
-       FROM risks r
-       WHERE r.house_id = $1 AND r.company_id = $2 AND LOWER(r.status) NOT IN ('closed')`,
+       FROM canonical_risk_state_v r
+       WHERE r.house_id = $1 AND r.company_id = $2 AND r.is_active`,
       [house_id, company_id]
     );
 
@@ -267,7 +267,7 @@ export class WeeklyReviewsService {
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
               ra.due_date, ra.effectiveness_due_at AS effectiveness_review_date,
               ra.status::text AS status, ra.completion_evidence AS evidence_expected
-         FROM risk_actions ra
+         FROM canonical_action_state_v ra
          LEFT JOIN users u ON u.id=ra.assigned_to AND u.company_id=ra.company_id
         WHERE ra.company_id=$1 AND ra.house_id=$2
           AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')
@@ -414,7 +414,7 @@ export class WeeklyReviewsService {
           GROUP BY (gp.risk_domain)[1]
        )
        SELECT dg.domain, dg.signal_count, dg.high_critical,
-              (SELECT r.trajectory::text FROM risks r
+              (SELECT r.trajectory::text FROM canonical_risk_state_v r
                  WHERE r.company_id = $1 AND r.house_id = $2 AND r.risk_domain::text = dg.domain
                    AND r.status::text NOT IN ('Closed','Resolved','closed','resolved')
                  ORDER BY r.updated_at DESC NULLS LAST LIMIT 1) AS trajectory
@@ -449,7 +449,7 @@ export class WeeklyReviewsService {
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner,
               ra.due_date, ra.effectiveness_due_at AS effectiveness_review_date,
               ra.status::text AS status, ra.completion_evidence AS evidence_expected, ra.created_at
-         FROM risk_actions ra
+         FROM canonical_action_state_v ra
          LEFT JOIN risks rk ON rk.id = ra.risk_id AND rk.company_id = ra.company_id
          LEFT JOIN governance_pulses gp ON gp.id = ra.source_pulse_id
          LEFT JOIN signal_clusters sc ON sc.id = ra.source_cluster_id
