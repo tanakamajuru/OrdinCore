@@ -81,17 +81,35 @@ export function Profile() {
 
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      if (file.size > 1024 * 1024) {
-        toast.error('Image is too large. Please select an image under 1MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setTempAvatar(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+    if (!file) return;
+    if (!file.type.startsWith('image/')) {
+      toast.error('Please choose an image file.');
+      return;
     }
+    // Accept full-size phone photos, then downscale in the browser to a small square-ish
+    // avatar (max 512px, JPEG). The stored data URL stays tiny (~tens of KB), so uploads
+    // no longer fail with "photo too large" and the users table is not bloated.
+    if (file.size > 15 * 1024 * 1024) {
+      toast.error('Image is too large. Please choose one under 15MB.');
+      return;
+    }
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 512;
+      let { width, height } = img;
+      if (width >= height && width > MAX) { height = Math.round((height * MAX) / width); width = MAX; }
+      else if (height > width && height > MAX) { width = Math.round((width * MAX) / height); height = MAX; }
+      const canvas = document.createElement('canvas');
+      canvas.width = width; canvas.height = height;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) { URL.revokeObjectURL(url); toast.error('Could not process that image.'); return; }
+      ctx.drawImage(img, 0, 0, width, height);
+      URL.revokeObjectURL(url);
+      setTempAvatar(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); toast.error('Could not read that image.'); };
+    img.src = url;
   };
 
   const handleUpdateProfile = async () => {
