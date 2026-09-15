@@ -134,7 +134,7 @@ export const guidedWorkService = {
       const obligations = await safeRows(`
         SELECT o.id,o.obligation_type,o.subject_type,o.subject_id,o.due_at,o.reason,o.source_action_id,o.source_risk_id,o.source_escalation_id,o.source_cluster_id,
                COALESCE(r.title,ra.title,sc.cluster_label,e.reason) AS subject_title, h.name AS service_name,
-               r.severity::text AS risk_severity
+               r.severity::text AS risk_severity, sc.linked_risk_id AS pattern_linked_risk_id
           FROM canonical_review_obligation_state_v o
           LEFT JOIN risks r ON r.id=COALESCE(o.source_risk_id, CASE WHEN o.subject_type='RISK' THEN o.subject_id END) AND r.company_id=o.company_id
           LEFT JOIN risk_actions ra ON ra.id=COALESCE(o.source_action_id, CASE WHEN o.subject_type='ACTION' THEN o.subject_id END) AND ra.company_id=o.company_id
@@ -151,9 +151,13 @@ export const guidedWorkService = {
         else if (kind==='PATTERN_REVIEW') { entity='pattern'; route='/systemic-patterns'; label='Review Pattern'; }
         else if (kind==='POST_ESCALATION_RISK') { entity='risk'; route='/risk-register?review=awaiting'; label='Review Risk'; }
         const critical = o.risk_severity==='Critical';
+        // A pattern review opens the actual promoted/linked risk when one exists, not the register.
+        const patternRiskId = kind === 'PATTERN_REVIEW' ? o.pattern_linked_risk_id : null;
         const deepRoute = entity === 'risk'
           ? `/risk-register/${o.subject_id}?guided=1&gw=obligation:${o.id}`
-          : `${route}${route.includes('?')?'&':'?'}guided=1&gw=obligation:${o.id}&subjectId=${o.subject_id}`;
+          : patternRiskId
+            ? `/risk-register/${patternRiskId}?guided=1&gw=obligation:${o.id}`
+            : `${route}${route.includes('?')?'&':'?'}guided=1&gw=obligation:${o.id}&subjectId=${o.subject_id}`;
         needsYou.push({ id:`obligation:${o.id}`, role, state:'NEEDS_YOU', priority:priorityFor(o.due_at,critical), taskType:kind,
           title:o.subject_title || o.reason || 'Governance review due', summary:o.reason || 'A governance review obligation is due.', reason:o.reason || 'Review due.', dueAt:o.due_at, serviceName:o.service_name,
           canonicalEntityType:entity, canonicalEntityId:o.subject_id, route:deepRoute,
@@ -200,8 +204,9 @@ export const guidedWorkService = {
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
       for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${w.week_ending}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,route:`/weekly-review/validate?guided=1&gw=director_weekly:${w.id}`,actionLabel:'Validate Review',whyAmISeeingThis:'This weekly review has been submitted for Director validation.'});
 
-      const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND (sc.review_due OR sc.canonical_status='ESCALATED') ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
-      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:'pattern',canonicalEntityId:p.id,route:`/systemic-patterns?guided=1&gw=director_pattern:${p.id}&clusterId=${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
+      const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,sc.linked_risk_id,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND (sc.review_due OR sc.canonical_status='ESCALATED') ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
+      // A promoted pattern opens the actual linked risk; an unpromoted one opens the pattern register.
+      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:p.linked_risk_id?'risk':'pattern',canonicalEntityId:p.linked_risk_id||p.id,route:p.linked_risk_id?`/risk-register/${p.linked_risk_id}?guided=1&gw=director_pattern:${p.id}`:`/systemic-patterns?guided=1&gw=director_pattern:${p.id}&clusterId=${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
 
       const risks = await safeRows(`SELECT id,title,severity::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND (severity::text='Critical' OR needs_review) ORDER BY (severity::text='Critical') DESC,review_due_at NULLS LAST,updated_at DESC LIMIT 20`,[companyId]);
       for (const r of risks) needsYou.push({id:`director_risk:${r.id}`,role,state:'NEEDS_YOU',priority:r.severity==='Critical'?'URGENT':priorityFor(r.due_at),taskType:'STRATEGIC_RISK_REVIEW',title:r.title||'Review strategic risk',summary:`${r.severity} risk`,reason:'A material risk requires Director oversight.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,route:`/risk-register/${r.id}?guided=1&gw=director_risk:${r.id}`,actionLabel:'Review Risk',whyAmISeeingThis:'This risk is critical or deteriorating and requires leadership scrutiny.'});

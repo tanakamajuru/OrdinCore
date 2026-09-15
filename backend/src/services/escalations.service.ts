@@ -686,7 +686,7 @@ export class EscalationsService {
         COUNT(*) FILTER (WHERE ${OPEN} AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
         COUNT(*) FILTER (WHERE ${OPEN} AND (due_by IS NULL OR due_by >= NOW())) AS on_time,
         COUNT(*) FILTER (WHERE ${OPEN} AND (priority = 'Critical' OR priority = 'Urgent')) AS urgent_count
-       FROM escalations
+       FROM canonical_escalation_state_v
        WHERE company_id = $1`,
       [company_id]
     );

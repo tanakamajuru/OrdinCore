@@ -93,7 +93,7 @@ export const risksRepo = {
        LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
        LEFT JOIN escalations e ON e.risk_id = r.id
        WHERE ${where}
-       GROUP BY r.id, cr.id, cr.needs_review, cr.review_overdue, cr.open_actions_count, rc.id, h.id, u.id, i.id
+       GROUP BY r.id, cr.id, cr.needs_review, cr.review_overdue, cr.open_actions_count, cr.canonical_status, rc.id, h.id, u.id, i.id
        ORDER BY CASE WHEN cr.canonical_status = 'ESCALATED' THEN 1 ELSE 2 END, r.created_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
       params
