@@ -41,6 +41,7 @@ import { GovernanceTimeline } from "./components/GovernanceTimeline";
 import { ReconstructionReport } from "./components/ReconstructionReport";
 import { SignalDetail } from "./components/SignalDetail";
 import AdminDashboard from "./components/AdminDashboard";
+import OrganisationAdmin from "./components/OrganisationAdmin";
 import AdminDashboardSimple from "./components/AdminDashboardSimple";
 import AdminUserManagement from "./components/AdminUserManagement";
 import AdminHouseManagement from "./components/AdminHouseManagement";
@@ -163,6 +164,16 @@ export default function App() {
             </SuperAdminRoute>
           } />
           <Route path="/admin" element={
+            <ProtectedRoute>
+              <OrganisationAdmin />
+            </ProtectedRoute>
+          } />
+          <Route path="/organisation-admin" element={
+            <ProtectedRoute>
+              <OrganisationAdmin />
+            </ProtectedRoute>
+          } />
+          <Route path="/admin-classic" element={
             <ProtectedRoute>
               <AdminLayout><AdminDashboard /></AdminLayout>
             </ProtectedRoute>

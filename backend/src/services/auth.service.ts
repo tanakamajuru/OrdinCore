@@ -47,7 +47,18 @@ export class AuthService {
     // which would reveal that the email is registered — is only reachable once the correct
     // password has been supplied (P2.9: errors must not disclose whether an account exists).
     const valid = await bcrypt.compare(password, user.password_hash);
-    if (!valid) throw new Error('Invalid credentials');
+    if (!valid) {
+      // Record the failed sign-in against the account's company so the Company Admin
+      // security overview can surface it. Best-effort; never blocks the auth path.
+      if (user.company_id) {
+        await query(
+          `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id)
+           VALUES (uuid_generate_v4(), $1, $2, 'auth.login_failed', 'auth', $2)`,
+          [user.company_id, user.id]
+        ).catch(() => {});
+      }
+      throw new Error('Invalid credentials');
+    }
 
     if (user.status !== 'active') throw new Error('Account is inactive or suspended');
 
