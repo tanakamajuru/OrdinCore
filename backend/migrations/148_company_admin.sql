@@ -47,7 +47,8 @@ BEGIN
   INSERT INTO access_reviews (company_id, subject_user_id, reason, due_at)
   SELECT u.company_id, u.id, 'Periodic access review is due.', NOW()
     FROM users u
-   WHERE (target_company IS NULL OR u.company_id = target_company)
+   WHERE u.company_id IS NOT NULL
+     AND (target_company IS NULL OR u.company_id = target_company)
      AND LOWER(COALESCE(u.status,'active')) = 'active'
      AND NOT EXISTS (
        SELECT 1 FROM access_reviews ar
