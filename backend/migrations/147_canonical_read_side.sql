@@ -6,8 +6,11 @@ BEGIN;
 
 -- Active service scope. Historical/closed services stay queryable, but operational readers
 -- consume is_active instead of reinterpreting free-text status themselves.
+-- NOTE: houses/risks already carry a base `is_active` column, so `h.*`/`r.*` would collide
+-- with the derived is_active. List base columns explicitly (minus is_active) and expose the
+-- canonical status-derived is_active instead (base risks.is_active is unreliable — 40/58 stale).
 CREATE OR REPLACE VIEW canonical_house_state_v AS
-SELECT h.*,
+SELECT h.id, h.company_id, h.name, h.address, h.postcode, h.city, h.status, h.capacity, h.manager_id, h.registration_number, h.ofsted_rating, h.created_at, h.updated_at, h.primary_rm_id, h.deputy_rm_id, h.deputy_cover_started_at, h.deputy_cover_ended_at, h.deputy_cover_total_seconds, h.director_alert_flags, h.last_daily_review_at, h.sector, h.service_id, h.region_id,
        CASE
          WHEN LOWER(BTRIM(COALESCE(h.status::text,''))) IN ('closed','inactive','archived') THEN 'CLOSED'
          ELSE 'ACTIVE'
@@ -118,7 +121,7 @@ SELECT o.*,
   FROM governance_review_obligations o;
 
 CREATE OR REPLACE VIEW canonical_risk_state_v AS
-SELECT r.*,
+SELECT r.id, r.company_id, r.house_id, r.category_id, r.source_cluster_id, r.title, r.description, r.severity, r.trajectory, r.status, r.likelihood, r.impact, r.risk_score, r.assigned_to, r.created_by, r.control_effectiveness, r.next_review_date, r.review_due_date, r.last_reviewed_at, r.resolved_at, r.closure_reason, r.metadata, r.created_at, r.updated_at, r.last_linked_signal_date, r.recurrence_watch_until, r.reopened_at, r.closed_at, r.risk_domain, r.strategic_theme, r.trend, r.trend_changed_at, r.services_affected_count, r.clients_affected_count, r.days_open, r.last_governance_review_at, r.closure_eligible, r.reopened_count, r.linked_person, r.escalation_recommended, r.escalation_recommended_reason, r.escalation_recommended_at, r.acted_as_role, r.resolution_outcome, r.resolution_reason, r.resolved_by, r.recurrence_window_until, r.initial_severity, r.risk_index, r.impact_rating, r.previous_risk_id, r.recurrence_count, r.service_user_id,
        CASE
          WHEN LOWER(BTRIM(COALESCE(r.status::text,''))) IN ('closed','resolved')
               OR (COALESCE(r.closed_at,r.resolved_at) IS NOT NULL AND (r.reopened_at IS NULL OR r.reopened_at <= COALESCE(r.closed_at,r.resolved_at))) THEN 'CLOSED'
