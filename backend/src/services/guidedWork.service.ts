@@ -98,7 +98,7 @@ export const guidedWorkService = {
         id:`weekly_ack:${w.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_ACK',
         title:'Read published weekly governance review', summary:`Week ending ${w.week_ending}`,
         reason:'A published weekly governance review is awaiting your acknowledgement.', serviceName:w.service_name,
-        canonicalEntityType:'weekly_governance', canonicalEntityId:w.id, route:`/weekly-review?guided=1&gw=weekly_ack:${w.id}`,
+        canonicalEntityType:'weekly_governance', canonicalEntityId:w.id, route:`/weekly-review/${w.id}?guided=1&gw=weekly_ack:${w.id}`,
         actionLabel:'Read & Acknowledge', whyAmISeeingThis:'This weekly review has been published for your service and has not yet been acknowledged by you.'
       });
     }
