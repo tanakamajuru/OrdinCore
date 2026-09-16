@@ -76,7 +76,7 @@ export class DailyGovernanceService {
       // 1. Lock and validate the daily log — §6: scope through the owning house so a log
       //    from another tenant can never be completed (locks only the log row, not houses).
       const logRes = await client.query(
-        `SELECT dgl.house_id, dgl.completed, dgl.review_date FROM daily_governance_log dgl
+        `SELECT dgl.house_id, dgl.completed, dgl.review_date::text AS review_date FROM daily_governance_log dgl
            JOIN houses h ON h.id = dgl.house_id
           WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
         [log_id, company_id]
