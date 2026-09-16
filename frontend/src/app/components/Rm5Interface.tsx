@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
+import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
 import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { Ambulance, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers, ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
@@ -57,6 +59,7 @@ function GovHead({ q, sub }: { q: string; sub?: string }) {
 
 export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "today" | "pipeline" }) {
   const navigate = useNavigate();
+  const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   // Deep-link support: /rm5?stage=signals opens the pipeline on the signals tab so
   // "signals awaiting review" links land on signals, not patterns.
   const stageParam = (() => { try { return new URLSearchParams(window.location.search).get("stage"); } catch { return null; } })();
@@ -200,6 +203,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
+      <div className="px-6 pt-20"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
       <div className="p-6 pt-20 w-full">
         {/* ribbon (the pipeline spine) */}
         <div className="bg-card border border-border rounded-xl px-2 py-3 flex items-stretch mb-6 overflow-x-auto">

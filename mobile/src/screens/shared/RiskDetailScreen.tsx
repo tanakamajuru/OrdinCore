@@ -28,6 +28,7 @@ export function RiskDetailScreen() {
   const riskQ = useApi<any>(id ? `/risks/${id}` : null);
   const actionsQ = useApi<any>(id ? `/risks/${id}/actions` : null);
   const escQ = useApi<any>(id ? `/escalations?risk_id=${id}` : null);
+  const evidenceQ = useApi<any>(id ? `/canonical-evidence/risks/${id}` : null);
 
   const r = riskQ.data || seed;
   const m = r?.metrics;
@@ -43,7 +44,7 @@ export function RiskDetailScreen() {
   const narrative = m?.narrative || r.trajectory_narrative;
 
   return (
-    <Screen refreshing={riskQ.loading} onRefresh={() => { riskQ.refetch(); actionsQ.refetch(); escQ.refetch(); }}>
+    <Screen refreshing={riskQ.loading} onRefresh={() => { riskQ.refetch(); actionsQ.refetch(); escQ.refetch(); evidenceQ.refetch(); }}>
       {/* Title + status */}
       <View style={{ gap: 6 }}>
         <Text size={20} weight="700" style={{ letterSpacing: -0.3 }}>{title}</Text>
@@ -58,6 +59,14 @@ export function RiskDetailScreen() {
           {r.created_by_name ? ` by ${r.created_by_name}` : ''}
         </Text>
       </View>
+
+      {evidenceQ.data && <Card>
+        <Label>Canonical evidence</Label>
+        <Text size={13}>{evidenceQ.data.evidence_scope?.signal_count || 0} genuine linked signals</Text>
+        <Text size={12} muted>As of {evidenceQ.data.as_of ? new Date(evidenceQ.data.as_of).toLocaleString() : '—'}</Text>
+        <Text size={12} muted>Source: governance_pulses via canonical_signal_evidence_v</Text>
+        {(evidenceQ.data.evidence_scope?.signal_ids || []).slice(0,10).map((sid:string)=><Text key={sid} size={11} color={c.accent}>{sid}</Text>)}
+      </Card>}
 
       {/* Recurrence — this risk continues a previously closed one */}
       {prev && (

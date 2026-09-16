@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+import { useCanonicalEvidenceSummary } from "@/hooks/useCanonicalEvidenceSummary";
+import { CanonicalEvidenceStrip } from "./canonical/CanonicalEvidenceStrip";
 
 // Governance Oversight Register (doctrine): shows what leadership is actively
 // overseeing — emerging concerns, active oversight, strategic oversight, closed —
@@ -29,6 +31,7 @@ function TrajIcon({ t }: { t: string }) {
 
 export function RiskRegister() {
   const navigate = useNavigate();
+  const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const { user } = useAuth();
   const [searchParams] = useSearchParams();
   const initialTab = (["active", "strategic", "emerging", "closed"].includes(searchParams.get("tab") || "") ? searchParams.get("tab") : "active") as Tab;
@@ -145,6 +148,8 @@ export function RiskRegister() {
           <h1 className="text-3xl text-foreground font-semibold">Risk Register</h1>
           <p className="text-muted-foreground mt-1">What leadership is actively overseeing — emerging concerns, active and strategic risks, and closed items. Promote an emerging concern to a risk to act on it.</p>
         </div>
+
+        <div className="mb-5"><CanonicalEvidenceStrip summary={evidenceSummary} types={['RISK_REVIEW']} /></div>
 
         {/* Summary banner */}
         <div className="grid grid-cols-3 sm:grid-cols-6 gap-2 mb-5">

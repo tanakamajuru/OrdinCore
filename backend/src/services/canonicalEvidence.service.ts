@@ -21,6 +21,35 @@ export const canonicalEvidenceService = {
     };
   },
 
+
+  async summary(companyId:string, houseId?:string) {
+    const params:any[]=[companyId];
+    let house='';
+    if (houseId) { params.push(houseId); house=' AND house_id=$2'; }
+    const rows=(await query(
+      `SELECT count_type, evidence_id, house_id, due_at
+         FROM canonical_material_count_v
+        WHERE company_id=$1${house}
+        ORDER BY count_type, due_at NULLS LAST, evidence_id`, params)).rows;
+
+    const types=['RISK_REVIEW','ACTION_OPEN','EFFECTIVENESS_REVIEW','ESCALATION_OPEN','PATTERN_REVIEW'];
+    const groups:any={};
+    for (const type of types) {
+      const evidence=rows.filter((r:any)=>r.count_type===type);
+      groups[type]={
+        count:evidence.length,
+        evidence_ids:evidence.map((r:any)=>r.evidence_id),
+        evidence
+      };
+    }
+    return {
+      as_of:new Date().toISOString(),
+      scope:{company_id:companyId,house_id:houseId||null},
+      source:'canonical_material_count_v',
+      groups
+    };
+  },
+
   async riskEvidence(companyId:string, riskId:string) {
     const risk=(await query(
       `SELECT * FROM canonical_risk_state_v WHERE company_id=$1 AND id=$2`,[companyId,riskId])).rows[0];

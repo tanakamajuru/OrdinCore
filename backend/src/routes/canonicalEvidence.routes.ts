@@ -5,6 +5,14 @@ import { canonicalEvidenceService } from '../services/canonicalEvidence.service'
 
 const router=Router();
 
+
+router.get('/summary',requireAuth,requireTenant,async(req,res)=>{
+  try {
+    const data=await canonicalEvidenceService.summary(req.user!.company_id!,req.query.house_id as string|undefined);
+    return res.json({success:true,data,meta:{canonical:true,evidence_addressable:true}});
+  } catch(e:any) { return res.status(500).json({success:false,message:e?.message||'Failed to load canonical evidence summary'}); }
+});
+
 router.get('/counts/:countType',requireAuth,requireTenant,async(req,res)=>{
   try {
     const data=await canonicalEvidenceService.materialCount(req.user!.company_id!,String(req.params.countType||'').toUpperCase(),req.query.house_id as string|undefined);

@@ -4,6 +4,8 @@ import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, ListChecks, RefreshC
 import apiClient from '@/services/apiClient';
 import { RoleBasedNavigation } from './RoleBasedNavigation';
 import { useGovernanceRefresh } from '@/hooks/useGovernanceRefresh';
+import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
+import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
 
 type Priority='URGENT'|'DUE'|'NORMAL';
 type State='NEEDS_YOU'|'WAITING'|'COMPLETE';
@@ -28,6 +30,7 @@ export function MyWork(){
   const user=useMemo(()=>{try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return {}}},[]);
   const role=String(user.role||localStorage.getItem('userRole')||'').toUpperCase().replace(/-/g,'_');
   const canDoDailyGovernance=['REGISTERED_MANAGER','ADMIN','SUPER_ADMIN'].includes(role);
+  const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const firstName=user.first_name||(user.name?String(user.name).split(' ')[0]:'');
 
   const load=async()=>{setLoading(true);try{const res=await apiClient.get('/guided-work');setData(res.data?.data||data);}catch{setData({needsYou:[],waiting:[],completedToday:[],counts:{needsYou:0,waiting:0,completedToday:0}});}finally{setLoading(false)}};
@@ -44,6 +47,8 @@ export function MyWork(){
         <div><div className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Guided Work</div><h1 className="text-3xl font-bold text-foreground mt-1">{firstName?`${firstName}, `:''}here's what needs you.</h1><p className="text-muted-foreground mt-2">Ordin Core is showing the next work derived from existing governance records. No separate task lifecycle is created here.</p></div>
         <button onClick={load} className="min-h-10 px-3 rounded-lg border border-border inline-flex items-center gap-2 text-sm font-medium"><RefreshCw size={15}/>Refresh</button>
       </div>
+
+      <div className="mt-6"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
 
       {canDoDailyGovernance && !loading && <button onClick={()=>navigate('/governance-dashboard')} className="mt-6 w-full text-left bg-primary/5 border border-primary/30 rounded-xl p-4 flex items-center gap-4 hover:bg-primary/10">
         <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><ShieldCheck size={20}/></div><div className="flex-1"><div className="font-semibold">Do Daily Governance</div><div className="text-xs text-muted-foreground">Existing RM Daily Oversight functions remain unchanged.</div></div><ChevronRight size={18} className="text-primary"/>

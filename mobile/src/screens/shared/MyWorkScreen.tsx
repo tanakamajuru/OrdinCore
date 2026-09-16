@@ -38,6 +38,7 @@ export function MyWorkScreen() {
   const { c } = useTheme();
   const { role } = useAuth();
   const { data, loading, error, refetch } = useApi<any>('/my-work');
+  const { data: evidence, refetch: refetchEvidence } = useApi<any>('/canonical-evidence/summary');
 
   const items: WorkItem[] = data?.items ?? data?.data?.items ?? [];
   const allClear = (data?.all_clear ?? data?.data?.all_clear) || (!loading && !error && items.length === 0);
@@ -45,8 +46,22 @@ export function MyWorkScreen() {
   const toneColor: Record<string, string> = { red: c.sevCrit, amber: c.sevHigh, blue: c.accent, emerald: c.sevLow, slate: c.muted };
 
   return (
-    <Screen refreshing={loading} onRefresh={refetch}>
+    <Screen refreshing={loading} onRefresh={()=>{refetch();refetchEvidence();}}>
       <AppHeader title="My Work" subtitle="What needs your attention today" />
+      {evidence?.groups && <Card>
+        <Text weight="700">Canonical evidence</Text>
+        <Text size={12} color={c.muted}>As of {evidence.as_of ? new Date(evidence.as_of).toLocaleString() : '—'} · server-derived</Text>
+        {[
+          ['RISK_REVIEW','Risk reviews'],
+          ['ACTION_OPEN','Open actions'],
+          ['EFFECTIVENESS_REVIEW','Effectiveness due'],
+          ['ESCALATION_OPEN','Open escalations'],
+          ['PATTERN_REVIEW','Pattern reviews'],
+        ].map(([key,label],i)=><View key={key}>
+          {i>0&&<View style={{height:1,backgroundColor:c.lineSoft}}/>}
+          <ListItem icon="database" title={`${evidence.groups[key]?.count||0}  ${label}`} meta={`${evidence.groups[key]?.evidence_ids?.length||0} evidence IDs`} />
+        </View>)}
+      </Card>}
       {loading && !data ? <Loading />
         : error ? <ErrorNote message={error} onRetry={refetch} />
         : allClear ? <Empty icon="check-circle" title="You're all caught up" />

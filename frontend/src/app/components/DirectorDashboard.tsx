@@ -10,6 +10,8 @@ import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
 import { apiClient } from "@/services/api";
 import { isOpenEscalation } from "@/lib/governanceStatus";
+import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
+import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
 
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
 const asArray = (v: any): any[] => (Array.isArray(v) ? v : Array.isArray(v?.data) ? v.data : []);
@@ -71,6 +73,7 @@ function HeatCell({ trend }: { trend?: string }) {
 }
 
 export function DirectorDashboard() {
+  const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [risks, setRisks] = useState<any[]>([]);
@@ -183,6 +186,7 @@ export function DirectorDashboard() {
   return (
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
+      <div className="px-6 pt-20"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
       <div className="p-6 max-w-[1500px]">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-6">
           <div>
