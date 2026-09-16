@@ -57,7 +57,7 @@ const byPriority = (a: GuidedWorkItem, b: GuidedWorkItem) => {
 };
 
 export const guidedWorkService = {
-  async getForUser(companyId: string, userId: string, rawRole: string, excludeId?: string) {
+  async getForUser(companyId: string, userId: string, rawRole: string) {
     const role = normalizeRole(rawRole);
     // Read-side housekeeping only: resolves stale scheduler rows against canonical subject state.
     try { await query('SELECT * FROM reconcile_canonical_read_side($1::uuid)', [companyId]); } catch { /* migration-safe */ }
@@ -250,8 +250,10 @@ export const guidedWorkService = {
     const completedActions = await safeRows(`SELECT id,title,completed_at FROM canonical_action_state_v WHERE company_id=$1 AND assigned_to=$2 AND is_completed AND completed_at::date=CURRENT_DATE ORDER BY completed_at DESC LIMIT 20`,[companyId,userId]);
     for (const a of completedActions) completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:a.completed_at,canonicalEntityType:'action',canonicalEntityId:a.id,route:'/my-actions',actionLabel:'View',whyAmISeeingThis:'This action was completed by you today.'});
 
-    const filteredNeeds = needsYou.filter(i => i.id !== excludeId).sort(byPriority);
-    const filteredWaiting = waiting.filter(i => i.id !== excludeId).sort(byPriority);
+    // Guided Work never hides active work: the full canonical population is returned and
+    // ordered by priority. Completion removes an item only by changing canonical state.
+    const filteredNeeds = needsYou.slice().sort(byPriority);
+    const filteredWaiting = waiting.slice().sort(byPriority);
     return {
       needsYou: filteredNeeds,
       waiting: filteredWaiting,
