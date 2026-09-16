@@ -76,7 +76,7 @@ export class DailyGovernanceService {
       // 1. Lock and validate the daily log — §6: scope through the owning house so a log
       //    from another tenant can never be completed (locks only the log row, not houses).
       const logRes = await client.query(
-        `SELECT dgl.house_id, dgl.completed FROM daily_governance_log dgl
+        `SELECT dgl.house_id, dgl.completed, dgl.review_date FROM daily_governance_log dgl
            JOIN houses h ON h.id = dgl.house_id
           WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
         [log_id, company_id]
@@ -84,13 +84,14 @@ export class DailyGovernanceService {
       if (!logRes.rows[0]) throw new Error('Governance log not found');
       if (logRes.rows[0].completed) throw new Error('This daily governance record is already signed off and is immutable.');
       house_id = logRes.rows[0].house_id;
+      const governanceDate = String(logRes.rows[0].review_date).slice(0,10);
 
       let enhanced_oversight = false;
       let director_notified: Date | null = null;
       if (is_deputy_review && house_id) {
         const sig = await client.query(
-          `SELECT COUNT(*) FROM governance_pulses WHERE company_id = $2 AND house_id = $1 AND entry_date = CURRENT_DATE AND severity IN ('High','Critical')`,
-          [house_id, company_id]
+          `SELECT COUNT(*) FROM governance_pulses WHERE company_id = $2 AND house_id = $1 AND entry_date = $3::date AND severity IN ('High','Critical')`,
+          [house_id, company_id, governanceDate]
         );
         if (parseInt(sig.rows[0].count) > 0) { enhanced_oversight = true; director_notified = new Date(); }
       }
@@ -154,15 +155,15 @@ export class DailyGovernanceService {
             'decision',(SELECT gr2.decision FROM governance_reviews gr2 WHERE gr2.company_id=p.company_id AND gr2.pulse_entry_id=p.id ORDER BY gr2.created_at DESC LIMIT 1),
             'decisionId',(SELECT gr2.id FROM governance_reviews gr2 WHERE gr2.company_id=p.company_id AND gr2.pulse_entry_id=p.id ORDER BY gr2.created_at DESC LIMIT 1)
           ) ORDER BY p.created_at) FROM governance_pulses p
-            WHERE p.company_id=$1 AND p.house_id=$2 AND p.entry_date=CURRENT_DATE), '[]'::jsonb),
+            WHERE p.company_id=$1 AND p.house_id=$2 AND p.entry_date=$4::date), '[]'::jsonb),
           'decisions', COALESCE((SELECT jsonb_agg(jsonb_build_object(
             'id',gr.id,'pulse_entry_id',gr.pulse_entry_id,'decision',gr.decision,
             'rationale',gr.decision_rationale,'created_at',gr.created_at
           ) ORDER BY gr.created_at) FROM governance_reviews gr
-            WHERE gr.company_id=$1 AND gr.service_id=$2 AND gr.review_date=CURRENT_DATE), '[]'::jsonb),
+            WHERE gr.company_id=$1 AND gr.service_id=$2 AND gr.review_date=$4::date), '[]'::jsonb),
           'readiness', $3::jsonb,
-          'provenance', jsonb_build_object('signals','governance_pulses only','captured_at',NOW())
-        ) AS snapshot`, [company_id, house_id, JSON.stringify(readiness)])).rows[0]?.snapshot || {};
+          'provenance', jsonb_build_object('signals','governance_pulses only','governance_date',$4::date,'captured_at',NOW())
+        ) AS snapshot`, [company_id, house_id, JSON.stringify(readiness), governanceDate])).rows[0]?.snapshot || {};
 
       const result = await client.query(
         `UPDATE daily_governance_log

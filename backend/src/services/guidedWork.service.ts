@@ -175,15 +175,40 @@ export const guidedWorkService = {
         canonicalEntityType:'escalation', canonicalEntityId:e.id, route:`/escalation-log?guided=1&gw=escalation:${e.id}&escalationId=${e.id}`,
         actionLabel:'Review Escalation', whyAmISeeingThis:'This escalation is still open and its review/due point has been reached.' });
 
+      // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
+      // It becomes actionable only when the provider-local configured cadence is reached.
       const weekly = await safeRows(`
-        SELECT h.id,h.name FROM canonical_house_state_v h WHERE h.company_id=$1 AND h.is_active
-          AND NOT EXISTS (SELECT 1 FROM weekly_reviews wr WHERE wr.company_id=h.company_id AND wr.house_id=h.id
-            AND wr.week_ending >= date_trunc('week',NOW())::date AND wr.status IN ('pending_validation','LOCKED','published'))
-        ORDER BY h.name`, [companyId]);
-      for (const h of weekly) needsYou.push({ id:`weekly:${h.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
-        summary:'The current weekly governance review has not been finalised.', reason:'Weekly governance is due for this service.', serviceName:h.name,
-        canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, route:`/weekly-review?guided=1&gw=weekly:${h.id}&houseId=${h.id}`,
-        actionLabel:'Start Weekly Review', whyAmISeeingThis:'The service does not yet have a finalised weekly governance review for the current week.' });
+        WITH cfg AS (
+          SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
+                 COALESCE(weekly_governance_review_dow,1) AS review_dow,
+                 COALESCE(weekly_governance_review_time,'09:00'::time) AS review_time
+            FROM companies WHERE id=$1
+        ), local_clock AS (
+          SELECT (NOW() AT TIME ZONE cfg.tz) AS local_now, cfg.*
+            FROM cfg
+        ), period AS (
+          SELECT (date_trunc('week',local_now)::date - 1) AS week_ending,
+                 (date_trunc('week',local_now)::date
+                   + ((review_dow + 7 - EXTRACT(DOW FROM date_trunc('week',local_now)::date)::int) % 7)
+                   + review_time) AS due_local,
+                 local_now
+            FROM local_clock
+        )
+        SELECT h.id,h.name,p.week_ending,p.due_local
+          FROM canonical_house_state_v h CROSS JOIN period p
+         WHERE h.company_id=$1 AND h.is_active
+           AND p.local_now >= p.due_local
+           AND NOT EXISTS (
+             SELECT 1 FROM weekly_reviews wr
+              WHERE wr.company_id=h.company_id AND wr.house_id=h.id
+                AND wr.week_ending=p.week_ending
+                AND wr.status IN ('pending_validation','LOCKED','published')
+           )
+         ORDER BY h.name`, [companyId]);
+      for (const h of weekly) needsYou.push({ id:`weekly:${h.id}:${h.week_ending}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
+        summary:`Review the completed week ending ${h.week_ending}.`, reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
+        canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, route:`/weekly-review?guided=1&gw=weekly:${h.id}:${h.week_ending}&houseId=${h.id}&weekEnding=${h.week_ending}`,
+        actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' });
 
       // Waiting = open actions in scoped services owned by someone else.
       const waitingActions = await safeRows(`
