@@ -512,3 +512,26 @@ tbody tr:hover {
   h2 { font-size: 20px !important; }
   input:not([type="checkbox"]):not([type="radio"]), select, textarea { font-size: 16px !important; }
 }
+
+/* --------------------------------------------------------------------------
+   Toasts — error notifications use the brand blue, not red. sonner (richColors)
+   themes each type via CSS variables; remap the error type to the info palette
+   so the text, icon, border and surface read blue instead of alarming red.
+   -------------------------------------------------------------------------- */
+[data-sonner-toast][data-type="error"] {
+  --error-bg: var(--oc-info-bg, #EAF3FA) !important;
+  --error-border: var(--oc-info-border, #CADFF0) !important;
+  --error-text: var(--oc-info, #2474C6) !important;
+  color: var(--oc-info, #2474C6) !important;
+}
+[data-sonner-toast][data-type="error"] [data-icon],
+[data-sonner-toast][data-type="error"] [data-icon] svg {
+  color: var(--oc-info, #2474C6) !important;
+}
+:root:not([data-theme="light"]) [data-sonner-toast][data-type="error"],
+:root[data-theme="dark"] [data-sonner-toast][data-type="error"] {
+  --error-bg: #102A43 !important;
+  --error-border: #276B9D !important;
+  --error-text: #9DC9EB !important;
+  color: #9DC9EB !important;
+}
