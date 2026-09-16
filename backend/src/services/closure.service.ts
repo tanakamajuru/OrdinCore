@@ -2,6 +2,7 @@ import { query } from '../config/database';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { canonicalGovernanceStateService } from './canonicalGovernanceState.service';
 import { normalizeEscalationLifecycle } from '../domain/governanceVocabulary';
+import { canonicalControlPositionService } from './canonicalControlPosition.service';
 
 export interface ClosureReviewInput {
   pattern_reduced: boolean;
@@ -41,45 +42,19 @@ export class ClosureService {
     if (!input.pattern_reduced) throw new Error('Closure blocked: confirm that the reason for escalation has been addressed.');
     if (!input.evidence || input.evidence.trim().length < 20) throw new Error('Closure blocked: record meaningful evidence supporting closure.');
 
-    // Never trust UI checkboxes as proof. Canonical action rows are the gate.
-    const actionState = (await query(
-      `SELECT COUNT(*)::int AS total,
-              COUNT(*) FILTER (WHERE is_open)::int AS incomplete,
-              COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND (
-                COALESCE(effectiveness_outcome, effectiveness::text) IS NULL
-                OR COALESCE(effectiveness_outcome, effectiveness::text) = 'Too Early To Assess'))::int AS unreviewed,
-              COUNT(*) FILTER (WHERE completed_at IS NOT NULL AND
-                COALESCE(effectiveness_outcome,
-                  CASE effectiveness::text WHEN 'Neutral' THEN 'Partially Effective'
-                    WHEN 'Ineffective' THEN 'Not Effective' ELSE effectiveness::text END)
-                  IN ('Partially Effective','Not Effective'))::int AS unsuccessful
-         FROM canonical_action_state_v
-        WHERE company_id = $1
-          AND (escalation_id = $2
-            OR ($3::uuid IS NOT NULL AND risk_id = $3)
-            OR ($4::uuid IS NOT NULL AND governance_review_id = $4)
-            OR ($5::uuid IS NOT NULL AND source_pulse_id = $5)
-            OR ($6::uuid IS NOT NULL AND source_cluster_id = $6))
-          AND status <> 'Cancelled'`,
-      [
-        companyId,
-        escalationId,
-        existing.rows[0].risk_id || null,
-        existing.rows[0].source_governance_review_id || null,
-        existing.rows[0].source_pulse_id || null,
-        existing.rows[0].source_cluster_id || null,
-      ]
-    )).rows[0];
-    // An escalation with linked actions closes on the action/effectiveness gate. One with none may
-    // still close on a genuine alternative basis (an existing control, an immediate safety measure,
-    // an external intervention, or the concern no longer applying) — never by inventing an action.
-    const basis = input.evidence_basis || (actionState.total ? 'LINKED_ACTIONS' : undefined);
+    // Never trust UI checkboxes as proof. One canonical control-position contract is the gate.
+    // Historical partial/failed controls remain in the audit trail, but a later FINAL outcome in
+    // the same governance domain supersedes the older outcome for CURRENT closure readiness.
+    const controlPosition = await canonicalControlPositionService.forEscalation(companyId, existing.rows[0]);
+    const basis = input.evidence_basis || (controlPosition.total ? 'LINKED_ACTIONS' : undefined);
     const allowedBases = ['LINKED_ACTIONS', 'EXISTING_CONTROL', 'IMMEDIATE_MEASURE', 'EXTERNAL_INTERVENTION', 'NO_LONGER_APPLICABLE'];
     if (!basis || !allowedBases.includes(basis)) throw new Error('Closure blocked: select the evidence basis for closure.');
-    if (actionState.total > 0) {
-      if (actionState.incomplete > 0) throw new Error(`Closure blocked: ${actionState.incomplete} linked action(s) are incomplete.`);
-      if (actionState.unreviewed > 0) throw new Error(`Closure blocked: ${actionState.unreviewed} completed action(s) still need a final effectiveness review. Too Early to Assess is an interim review.`);
-      if (actionState.unsuccessful > 0) throw new Error(`Closure blocked: ${actionState.unsuccessful} linked control(s) are Partially Effective or Not Effective.`);
+    if (controlPosition.total > 0) {
+      if (controlPosition.open > 0) throw new Error(`Closure blocked: ${controlPosition.open} linked action(s) are incomplete.`);
+      if (controlPosition.awaiting_final > 0 || controlPosition.current.unreviewed > 0) throw new Error(`Closure blocked: ${Math.max(controlPosition.awaiting_final, controlPosition.current.unreviewed)} current control(s) still need a final effectiveness review. Too Early to Assess is an interim review.`);
+      if (controlPosition.current.partially_effective > 0 || controlPosition.current.not_effective > 0) {
+        throw new Error(`Closure blocked: current control position is ${controlPosition.current.overall} (${controlPosition.current.partially_effective} Partially Effective, ${controlPosition.current.not_effective} Not Effective). Historical superseded outcomes remain visible but do not by themselves permanently block closure.`);
+      }
     } else if (basis === 'LINKED_ACTIONS') {
       throw new Error('Closure blocked: no linked action exists; select the genuine alternative evidence basis.');
     }
@@ -91,7 +66,7 @@ export class ClosureService {
          effectiveness_reviewed, further_escalation_required, closure_decision, evidence)
        VALUES ($1,$2,$3,$4,$5,$6,$7,'Close',$8)`,
       [companyId, escalationId, userId, !!input.pattern_reduced, !!input.actions_completed,
-       actionState.total ? !!input.effectiveness_reviewed : true, !!input.further_escalation_required, auditedEvidence]
+       controlPosition.total ? !!input.effectiveness_reviewed : true, !!input.further_escalation_required, auditedEvidence]
     );
 
     const result = await query(

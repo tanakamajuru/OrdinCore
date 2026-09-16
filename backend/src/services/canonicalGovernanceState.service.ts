@@ -3,8 +3,9 @@ import type { CanonicalGovernanceState, GovernanceBlocker } from '../domain/gove
 import { effectivenessReviewState, normalizeActionStatus, normalizeEscalationLifecycle } from '../domain/governanceVocabulary';
 import { normalizeEffectiveness } from '../domain/effectiveness';
 import { trajectoryForRisk } from './trajectory.service';
+import { deriveCanonicalControlPosition } from './canonicalControlPosition.service';
 
-type ActionFact = { id: string; title?: string | null; status?: unknown; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null };
+type ActionFact = { id: string; title?: string | null; status?: unknown; governance_domain?: string|null; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null; created_at?: string | Date | null };
 type EscalationFact = { id: string; title?: string | null; lifecycle_status?: unknown; status?: unknown };
 export type GovernanceFacts = { riskId: string; riskClosed: boolean; actions: ActionFact[]; escalations: EscalationFact[]; trajectory: { direction: string; evidence?: Record<string, unknown> }; calculatedAt?: string };
 
@@ -23,6 +24,7 @@ export function deriveCanonicalGovernanceState(facts: GovernanceFacts): Canonica
   const openEscalations = facts.escalations.filter((e) => normalizeEscalationLifecycle(e.lifecycle_status ?? e.status) !== 'Closed');
   const latestFinal = [...finalised].sort((a, b) => new Date(b.effectiveness_reviewed_at || b.completed_at || 0).getTime() - new Date(a.effectiveness_reviewed_at || a.completed_at || 0).getTime())[0];
   const latestOutcome = latestFinal ? normalizeEffectiveness(latestFinal.effectiveness_outcome ?? latestFinal.effectiveness) : null;
+  const controlPosition = deriveCanonicalControlPosition(activeActions);
   const currentSignals = Number(facts.trajectory.evidence?.current14DaySignals ?? 0);
   const reductionEvidenced = facts.trajectory.direction !== 'Deteriorating' && currentSignals === 0;
   const blockers: GovernanceBlocker[] = [];
@@ -34,18 +36,21 @@ export function deriveCanonicalGovernanceState(facts: GovernanceFacts): Canonica
     blockers.push(blocker(interim ? 'OBSERVATION_INCOMPLETE' : 'EFFECTIVENESS_REQUIRED', interim ? `${a.title || 'Completed action'} was rated Too Early to Assess and still requires a final review.` : `${a.title || 'Completed action'} requires an effectiveness review.`, 'EFFECTIVENESS', a.id, `/effectiveness?focus=${a.id}`));
   }
   for (const e of openEscalations) blockers.push(blocker('OPEN_ESCALATION', `${e.title || 'Linked escalation'} remains open.`, 'ESCALATION', e.id, `/escalation-log?focus=${e.id}`));
-  if (latestOutcome === 'Partially Effective') blockers.push(blocker('CONTROL_PARTIAL', 'The latest final control judgement is Partially Effective.', 'EFFECTIVENESS', latestFinal!.id, `/effectiveness?focus=${latestFinal!.id}`));
-  if (latestOutcome === 'Not Effective') blockers.push(blocker('CONTROL_FAILED', 'The latest final control judgement is Not Effective.', 'EFFECTIVENESS', latestFinal!.id, `/effectiveness?focus=${latestFinal!.id}`));
+  for (const c of controlPosition.current_controls) {
+    if (c.outcome === 'Partially Effective') blockers.push(blocker('CONTROL_PARTIAL', `${c.domain} current control judgement is Partially Effective.`, 'EFFECTIVENESS', c.action_id, `/effectiveness?focus=${c.action_id}`));
+    if (c.outcome === 'Not Effective') blockers.push(blocker('CONTROL_FAILED', `${c.domain} current control judgement is Not Effective.`, 'EFFECTIVENESS', c.action_id, `/effectiveness?focus=${c.action_id}`));
+  }
   if (!reductionEvidenced) blockers.push(blocker('REDUCTION_NOT_EVIDENCED', 'Sustained risk reduction has not yet been evidenced.', 'MONITORING', facts.riskId, `/risks/${facts.riskId}`));
 
-  const eligible = !facts.riskClosed && activeActions.length > 0 && openActions.length === 0 && awaiting.length === 0 && openEscalations.length === 0 && latestOutcome === 'Effective' && reductionEvidenced;
+  const controlsCurrentlyEffective = controlPosition.current_controls.length > 0 && controlPosition.current.partially_effective === 0 && controlPosition.current.not_effective === 0 && controlPosition.current.unreviewed === 0;
+  const eligible = !facts.riskClosed && activeActions.length > 0 && openActions.length === 0 && awaiting.length === 0 && openEscalations.length === 0 && controlsCurrentlyEffective && reductionEvidenced;
   const selectedEscalation = openEscalations[0] || facts.escalations[0];
   const selectedLifecycle = selectedEscalation ? normalizeEscalationLifecycle(selectedEscalation.lifecycle_status ?? selectedEscalation.status) : null;
   return {
     risk_id: facts.riskId, contract_version: 'governance-state-v1', calculated_at: facts.calculatedAt || new Date().toISOString(),
     escalation: { id: selectedEscalation?.id || null, lifecycle: selectedLifecycle, is_open: openEscalations.length > 0 },
     actions: { total: activeActions.length, open: openActions.length, completed: completed.length, cancelled: facts.actions.length - activeActions.length },
-    effectiveness: { required: completed.length, finalised: finalised.length, too_early: tooEarly.length, outstanding: awaiting.length, latest_final_outcome: latestOutcome === 'Too Early To Assess' ? null : latestOutcome },
+    effectiveness: { required: completed.length, finalised: finalised.length, too_early: tooEarly.length, outstanding: awaiting.length, latest_final_outcome: latestOutcome === 'Too Early To Assess' ? null : latestOutcome, control_position: controlPosition } as any,
     monitoring: { required: tooEarly.length > 0 || !reductionEvidenced, next_review_date: null, review_due: false, reduction_evidenced: reductionEvidenced },
     closure: { eligible, status: facts.riskClosed ? 'CLOSED' : eligible ? 'READY_FOR_CLOSURE' : tooEarly.length ? 'MONITORING' : 'NOT_READY', blockers: facts.riskClosed ? [] : blockers },
   };
@@ -67,7 +72,7 @@ export const canonicalGovernanceStateService = {
     const risk = riskResult.rows[0];
     if (!risk) throw new Error('Risk not found');
     const [actions, escalations, trajectory] = await Promise.all([
-      query(`SELECT DISTINCT ra.id, ra.title, ra.status, ra.effectiveness_outcome, ra.effectiveness, ra.effectiveness_reviewed_at, ra.completed_at FROM risk_actions ra LEFT JOIN governance_reviews gr ON gr.id=ra.governance_review_id AND gr.company_id=ra.company_id WHERE ra.company_id=$2 AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3))`, [riskId, companyId, risk.source_cluster_id || null]),
+      query(`SELECT DISTINCT ra.id, ra.title, ra.status, ra.governance_domain, ra.effectiveness_outcome, ra.effectiveness, ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at FROM risk_actions ra LEFT JOIN governance_reviews gr ON gr.id=ra.governance_review_id AND gr.company_id=ra.company_id WHERE ra.company_id=$2 AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3))`, [riskId, companyId, risk.source_cluster_id || null]),
       query(`SELECT DISTINCT e.id, COALESCE(e.reason, 'Escalation') AS title, e.lifecycle_status, e.status FROM escalations e LEFT JOIN governance_reviews gr ON gr.id=e.source_governance_review_id AND gr.company_id=e.company_id WHERE e.company_id=$2 AND (e.risk_id=$1 OR ($3::uuid IS NOT NULL AND e.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3) OR EXISTS (SELECT 1 FROM risk_actions ra WHERE ra.company_id=e.company_id AND ra.escalation_id=e.id AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3))))`, [riskId, companyId, risk.source_cluster_id || null]),
       trajectoryForRisk(riskId, risk.source_cluster_id || null),
     ]);

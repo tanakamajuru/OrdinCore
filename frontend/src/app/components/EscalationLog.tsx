@@ -35,6 +35,11 @@ interface Escalation {
   signal_logged_by_name?: string;
   // Read-only effectiveness context (from existing risk_actions; not an escalation engine).
   latest_effectiveness?: string | null;
+  control_position?: {
+    total:number; completed:number; open:number; awaiting_final:number;
+    current:{effective:number;partially_effective:number;not_effective:number;unreviewed:number;overall:string};
+    historical:{partially_or_not_effective:number};
+  };
   actions_completed_count?: number | string;
   actions_total_count?: number | string;
   actions_effectiveness_reviewed_count?: number | string;
@@ -529,19 +534,32 @@ export function EscalationLog() {
                     {/* Read-only effectiveness context — the existing risk_actions verdict and
                         action completion for the linked risk. Evidence only; it never closes the
                         escalation (closure is the separate evidence-based review). */}
-                    {(selectedEscalation.latest_effectiveness || Number(selectedEscalation.actions_total_count) > 0) && (
+                    {(selectedEscalation.control_position || selectedEscalation.latest_effectiveness || Number(selectedEscalation.actions_total_count) > 0) && (
                       <div>
-                        <label className="text-xs uppercase text-muted-foreground block mb-1">Control effectiveness (read-only)</label>
-                        <div className="flex items-center justify-between gap-3 border-2 border-border rounded-lg p-3 text-sm">
-                          <span className={`font-semibold ${
-                            selectedEscalation.latest_effectiveness === 'Effective' ? 'text-emerald-600'
-                            : /not effective|ineffective/i.test(String(selectedEscalation.latest_effectiveness)) ? 'text-destructive'
-                            : 'text-foreground'}`}>
-                            {selectedEscalation.latest_effectiveness || 'Not yet rated'}
-                          </span>
-                          <span className="text-xs text-muted-foreground">
-                            {Number(selectedEscalation.actions_completed_count) || 0}/{Number(selectedEscalation.actions_total_count) || 0} actions complete
-                          </span>
+                        <label className="text-xs uppercase text-muted-foreground block mb-1">Linked control position (read-only)</label>
+                        <div className="border-2 border-border rounded-lg p-3 text-sm space-y-2">
+                          <div className="flex items-center justify-between gap-3">
+                            <span className={`font-semibold ${
+                              selectedEscalation.control_position?.current?.overall === 'Effective' ? 'text-emerald-600'
+                              : /not effective/i.test(String(selectedEscalation.control_position?.current?.overall)) ? 'text-destructive'
+                              : 'text-foreground'}`}>
+                              Current position: {selectedEscalation.control_position?.current?.overall || 'Not yet reviewed'}
+                            </span>
+                            <span className="text-xs text-muted-foreground">
+                              {selectedEscalation.control_position?.completed ?? Number(selectedEscalation.actions_completed_count) ?? 0}/{selectedEscalation.control_position?.total ?? Number(selectedEscalation.actions_total_count) ?? 0} actions complete
+                            </span>
+                          </div>
+                          {selectedEscalation.control_position && (
+                            <div className="flex flex-wrap gap-2 text-xs">
+                              <span className="px-2 py-1 rounded bg-emerald-50 text-emerald-700">{selectedEscalation.control_position.current.effective} Effective</span>
+                              <span className="px-2 py-1 rounded bg-amber-50 text-amber-700">{selectedEscalation.control_position.current.partially_effective} Partially Effective</span>
+                              <span className="px-2 py-1 rounded bg-red-50 text-red-700">{selectedEscalation.control_position.current.not_effective} Not Effective</span>
+                              {selectedEscalation.control_position.current.unreviewed > 0 && <span className="px-2 py-1 rounded bg-muted">{selectedEscalation.control_position.current.unreviewed} awaiting final review</span>}
+                            </div>
+                          )}
+                          {selectedEscalation.latest_effectiveness && (
+                            <div className="text-xs text-muted-foreground">Latest individual effectiveness review: {selectedEscalation.latest_effectiveness}. Historical partial/failed outcomes remain in the audit trail.</div>
+                          )}
                         </div>
                       </div>
                     )}

@@ -60,7 +60,7 @@ function wireClosure(s: ClosureState) {
         effectiveness: null,
       })) } as any;
     }
-    if (/SELECT DISTINCT e\.id/.test(sql) && /FROM canonical_escalation_state_v e/.test(sql)) {
+    if (/SELECT DISTINCT e\.id/.test(sql) && /FROM escalations e/.test(sql)) {
       return { rows: Array.from({ length: s.openEsc }, (_, i) => ({
         id: `escalation-${i + 1}`, title: `Escalation ${i + 1}`, status: 'Open', priority: 'High',
       })) } as any;
@@ -92,7 +92,8 @@ describe('Risk closure gate (Ch6 / TEST_PLAN §Risks)', () => {
     const r = await risksService.closureReview('risk-1', 'co-1');
     expect(r.eligible).toBe(false);
     expect(r.blockers.join(' ')).toMatch(/escalation/i);
-    expect(r.blocking_records.escalations[0]).toMatchObject({ id: 'escalation-1', title: 'Escalation 1' });
+    expect(r.blocking_records.escalations[0]).toMatchObject({ record_id: 'escalation-1' });
+    expect(r.blocking_records.escalations[0].message).toMatch(/Escalation 1/);
   });
 
   it('recognises a completed Effective action through canonical lineage', async () => {
@@ -101,10 +102,12 @@ describe('Risk closure gate (Ch6 / TEST_PLAN §Risks)', () => {
     expect(r.detail.effective_controls).toBe(1);
     expect(r.detail.controls_awaiting_final_review).toBe(0);
     const actionSql = String(mockQuery.mock.calls.find(([sql]) => /SELECT DISTINCT ra\.id/.test(String(sql)))?.[0]);
-    expect(actionSql).toMatch(/ra\.risk_id = \$1/);
-    expect(actionSql).toMatch(/ra\.source_cluster_id = \$3/);
-    expect(actionSql).toMatch(/ae\.risk_id = \$1/);
-    expect(actionSql).toMatch(/gr\.risk_id = \$1/);
+    // closureReview now delegates to canonicalGovernanceStateService, whose action query
+    // discovers lineage via ra.risk_id / ra.source_cluster_id and the governance_reviews join.
+    expect(actionSql).toMatch(/ra\.risk_id=\$1/);
+    expect(actionSql).toMatch(/ra\.source_cluster_id=\$3/);
+    expect(actionSql).toMatch(/gr\.risk_id=\$1/);
+    expect(actionSql).toMatch(/gr\.cluster_id=\$3/);
   });
 
   it('an outstanding effectiveness review blocks closure', async () => {
@@ -118,7 +121,7 @@ describe('Risk closure gate (Ch6 / TEST_PLAN §Risks)', () => {
     wireClosure({ ...CLEAR, recent: 5, prior: 1 });
     const r = await risksService.closureReview('risk-1', 'co-1');
     expect(r.eligible).toBe(false);
-    expect(r.blockers.join(' ')).toMatch(/deteriorat/i);
+    expect(r.blockers.join(' ')).toMatch(/reduction|deteriorat/i);
   });
 
   it('closeRisk refuses while the risk is not eligible', async () => {

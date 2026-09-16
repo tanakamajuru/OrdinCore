@@ -3,6 +3,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { risksRepo } from '../repositories/risks.repo';
 import { notificationsService } from './notifications.service';
+import { canonicalControlPositionService } from './canonicalControlPosition.service';
 
 export type EscalationLifecycleStatus =
   | 'Open'
@@ -243,6 +244,10 @@ export class EscalationsService {
       [id, company_id]
     );
     if (!result.rows[0]) throw new Error('Escalation not found');
+    const controlPosition = await canonicalControlPositionService.forEscalation(company_id, result.rows[0]);
+    result.rows[0].control_position = controlPosition;
+    // Backward-compatible latest verdict remains available, but the UI must label it as latest,
+    // never as the overall/current linked-control position.
 
     // Join the actor so the Action History can show WHO took each action, not just
     // what and when — core to the audit trail (Well-Led).

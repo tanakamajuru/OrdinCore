@@ -412,144 +412,49 @@ export class RisksService {
   // come from task completion alone; it comes from a deliberate review that asks whether
   // the underlying risk has genuinely reduced. Returns the four answers + blockers.
   async closureReview(risk_id: string, company_id: string) {
-    const risk = await risksRepo.findById(risk_id, company_id);
-    if (!risk) throw new Error('Risk not found');
-
-    // Canonical lineage lookup. An action can originate on a risk, its source pattern,
-    // an escalation, or a governance decision. Closure must follow those foreign keys;
-    // filtering only on risk_actions.risk_id loses valid effectiveness reviews.
-    const actionRows = (await query(
-      `SELECT DISTINCT ra.id, ra.title, ra.status, ra.due_date, ra.completed_at,
-              ra.effectiveness_outcome, ra.effectiveness, ra.escalation_id,
-              ra.governance_review_id, ra.source_type, ra.source_id
-         FROM risk_actions ra
-         LEFT JOIN escalations ae
-           ON ae.id = ra.escalation_id AND ae.company_id = ra.company_id
-         LEFT JOIN governance_reviews gr
-           ON gr.id = ra.governance_review_id AND gr.company_id = ra.company_id
-         LEFT JOIN escalations ge
-           ON ge.id = gr.escalation_id AND ge.company_id = ra.company_id
-        WHERE ra.company_id = $2
-          AND (
-            ra.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3)
-            OR (ra.source_type = 'RISK' AND ra.source_id = $1)
-            OR ($3::uuid IS NOT NULL AND ra.source_type = 'PATTERN' AND ra.source_id = $3)
-            OR ae.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND ae.source_cluster_id = $3)
-            OR gr.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND gr.cluster_id = $3)
-            OR ge.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND ge.source_cluster_id = $3)
-          )
-        ORDER BY ra.completed_at DESC NULLS LAST, ra.due_date ASC NULLS LAST`,
-      [risk_id, company_id, risk.source_cluster_id || null]
-    )).rows;
-
-    const openEscalations = (await query(
-      `SELECT DISTINCT e.id, e.reason AS title,
-              COALESCE(e.lifecycle_status::text, e.status) AS status,
-              e.priority, e.due_by, e.created_at
-         FROM canonical_escalation_state_v e
-         LEFT JOIN governance_reviews gr
-           ON gr.id = e.source_governance_review_id AND gr.company_id = e.company_id
-        WHERE e.company_id = $2
-          AND (
-            e.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND e.source_cluster_id = $3)
-            OR gr.risk_id = $1
-            OR ($3::uuid IS NOT NULL AND gr.cluster_id = $3)
-            OR EXISTS (
-              SELECT 1 FROM risk_actions ra
-               WHERE ra.company_id = $2 AND ra.escalation_id = e.id
-                 AND (ra.risk_id = $1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id = $3))
-            )
-          )
-          AND LOWER(COALESCE(e.lifecycle_status::text, e.status, 'open'))
-              NOT IN ('closed','resolved','cancelled','canceled')
-        ORDER BY e.created_at DESC`,
-      [risk_id, company_id, risk.source_cluster_id || null]
-    )).rows;
-
-    const finalRatings = new Set(['effective', 'partially effective', 'not effective']);
-    const normal = (value: unknown) => String(value || '').trim().toLowerCase().replace(/[_-]+/g, ' ').replace(/\s+/g, ' ');
-    const finalRating = (row: any) => [row.effectiveness_outcome, row.effectiveness]
-      .map(normal).find((value) => finalRatings.has(value)) || null;
-    const isComplete = (row: any) => ['complete', 'completed'].includes(normal(row.status));
-    const isOpen = (row: any) => !['complete', 'completed', 'cancelled', 'canceled'].includes(normal(row.status));
-
-    const openActions = actionRows.filter(isOpen);
-    const awaitingFinalReview = actionRows.filter((row: any) => isComplete(row) && !finalRating(row));
-    const ratedActions = actionRows.filter((row: any) => !!finalRating(row));
-    const effectiveActions = actionRows.filter((row: any) => finalRating(row) === 'effective');
-    // One canonical trajectory and one canonical evidence scope. Do not count all signals for a
-    // person or (when linked_person is null) an entire house: that contaminates this risk with
-    // unrelated domains. trajectoryForRisk reads only signals explicitly linked to this risk or
-    // its source cluster, de-duplicates them, applies equal 14-day windows and weights severity.
-    const trajectory = await trajectoryForRisk(risk_id, risk.source_cluster_id || null);
-    const trajectoryEvidence = trajectory.evidence;
-    const recent = Number(trajectoryEvidence?.current14DaySignals) || 0;
-    const prior = Number(trajectoryEvidence?.previous14DaySignals) || 0;
-
-    const q_actions_complete = openActions.length === 0;
-    const q_interventions_effective = effectiveActions.length > 0;
-    const q_trajectory_improved = trajectory.direction !== 'Deteriorating';
-    const q_no_recurring_signals = recent === 0;
-
-    // Trajectory is deteriorating when recent frequency clearly exceeds the prior window.
-    const deteriorating = trajectory.direction === 'Deteriorating';
-    // Every completed control needs a final verdict. "Too Early To Assess" is an interim
-    // review which deliberately opens a follow-up obligation; it can never satisfy closure.
-    const effectiveness_outstanding = awaitingFinalReview.length > 0;
-
-    const blockers: string[] = [];
-    if (!q_actions_complete) blockers.push(`${openActions.length} linked action(s) still open — see the named records below.`);
-    if (openEscalations.length > 0) blockers.push(`${openEscalations.length} linked escalation(s) still open — see the named records below.`);
-    if (effectiveness_outstanding) blockers.push(`${awaitingFinalReview.length} completed linked action(s) still require a final effectiveness review — see the named records below.`);
-    if (deteriorating) blockers.push(`Trajectory is deteriorating — ${trajectory.basis} The risk has not reduced.`);
-
+    // Compatibility endpoint only: delegate to the single canonical governance-state engine.
+    // Do not independently recalculate actions/effectiveness/escalations/trajectory here.
+    const { canonicalGovernanceStateService } = await import('./canonicalGovernanceState.service');
+    const state:any = await canonicalGovernanceStateService.riskState(risk_id, company_id);
+    const trajectory:any = state.trajectory || {};
+    const evidence:any = trajectory.evidence || {};
+    const cp:any = state.effectiveness?.control_position || {};
+    const blockers:any[] = state.closure?.blockers || [];
     return {
       questions: {
-        actions_complete: q_actions_complete,
-        interventions_effective: q_interventions_effective,
-        trajectory_improved: q_trajectory_improved,
-        no_recurring_signals: q_no_recurring_signals,
+        actions_complete: Number(state.actions?.open || 0) === 0,
+        interventions_effective: cp.current?.overall === 'Effective',
+        trajectory_improved: trajectory.direction !== 'Deteriorating',
+        no_recurring_signals: Number(evidence.current14DaySignals || 0) === 0,
       },
       detail: {
-        actions_open: openActions.length, actions_total: actionRows.length,
-        effective_controls: effectiveActions.length, controls_rated: ratedActions.length,
-        controls_awaiting_final_review: awaitingFinalReview.length,
-        open_escalations: openEscalations.length,
-        signals_last_14d: recent, signals_prior_14d: prior,
-        weighted_burden_last_14d: Number(trajectoryEvidence?.current14DayWeight) || 0,
-        weighted_burden_prior_14d: Number(trajectoryEvidence?.previous14DayWeight) || 0,
+        actions_open: Number(state.actions?.open || 0),
+        actions_total: Number(state.actions?.total || 0),
+        effective_controls: Number(cp.current?.effective || 0),
+        controls_rated: Number(cp.current?.effective || 0)+Number(cp.current?.partially_effective || 0)+Number(cp.current?.not_effective || 0),
+        controls_awaiting_final_review: Number(state.effectiveness?.outstanding || 0),
+        current_control_position: cp.current?.overall || 'Not yet reviewed',
+        historical_partial_or_failed_controls: Number(cp.historical?.partially_or_not_effective || 0),
+        open_escalations: state.escalation?.is_open ? 1 : 0,
+        signals_last_14d: Number(evidence.current14DaySignals || 0),
+        signals_prior_14d: Number(evidence.previous14DaySignals || 0),
+        weighted_burden_last_14d: Number(evidence.current14DayWeight || 0),
+        weighted_burden_prior_14d: Number(evidence.previous14DayWeight || 0),
         trajectory_direction: trajectory.direction,
         trajectory_basis: trajectory.basis,
-        trajectory_calculation_version: trajectoryEvidence?.calculationVersion || 'trajectory-v3',
-        evidence_scope: 'governance_pulses via canonical risk lineage only',
-        signal_provenance_rule: 'Only governance_pulses records count as signals; actions, effectiveness reviews, leadership decisions and trajectory events never increment signal counts.',
-        deteriorating, effectiveness_outstanding,
+        trajectory_calculation_version: evidence.calculationVersion || 'trajectory-v3',
+        evidence_scope: 'canonicalGovernanceStateService + canonical control-position + governance_pulses lineage',
+        signal_provenance_rule: 'Only governance_pulses records count as signals.',
       },
       blocking_records: {
-        actions: openActions.map((a: any) => ({
-          id: a.id, title: a.title || 'Untitled action', status: a.status,
-          due_date: a.due_date, href: `/my-actions?focus=${a.id}`,
-        })),
-        escalations: openEscalations.map((e: any) => ({
-          id: e.id, title: e.title || 'Escalation', status: e.status,
-          priority: e.priority, due_by: e.due_by, href: `/escalation-log?focus=${e.id}`,
-        })),
-        effectiveness_reviews: awaitingFinalReview.map((a: any) => ({
-          id: a.id, title: a.title || 'Untitled action', status: a.status,
-          current_rating: a.effectiveness_outcome || a.effectiveness || 'Not rated',
-          href: `/effectiveness?focus=${a.id}`,
-        })),
+        actions: blockers.filter((b:any)=>b.record_type==='ACTION'),
+        escalations: blockers.filter((b:any)=>b.record_type==='ESCALATION'),
+        effectiveness_reviews: blockers.filter((b:any)=>b.record_type==='EFFECTIVENESS'),
       },
-      // Hard gate (TEST_PLAN): actions complete, no open escalation, no outstanding
-      // effectiveness review, and trajectory not deteriorating. Closure is evidence-based —
-      // task completion alone never closes a risk.
-      eligible: q_actions_complete && openEscalations.length === 0 && !effectiveness_outstanding && !deteriorating,
-      blockers,
+      eligible: !!state.closure?.eligible,
+      blockers: blockers.map((b:any)=>b.message),
+      contract_version: state.contract_version,
+      calculated_at: state.calculated_at,
     };
   }
 
@@ -571,8 +476,9 @@ export class RisksService {
       throw new Error(`Risk cannot be closed yet: ${canonical.closure.blockers.map((item) => `${item.message} [${item.record_type}:${item.record_id}]`).join(' ')}`);
     }
     if (verdict === 'Resolved — controls effective') {
-      if (canonical.effectiveness.latest_final_outcome !== 'Effective') {
-        throw new Error("Cannot close as 'controls effective' — no control on this risk has been rated effective. Rate the control first, or choose another verdict.");
+      const cp:any = (canonical.effectiveness as any).control_position;
+      if (!cp || cp.current?.overall !== 'Effective') {
+        throw new Error("Cannot close as 'controls effective' — the current canonical linked-control position is not Effective.");
       }
     }
     const updated = await query(
