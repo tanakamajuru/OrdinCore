@@ -38,22 +38,21 @@ export class ReconstructionService {
       [companyId, id, startTs, endTs]
     );
 
-    // Governance reviews are service-level, not person-level. For a by-service
-    // reconstruction they are matched on the service; for by-theme/incident they fall
-    // back to the time window; for by-CLIENT they are excluded, because a service-wide
-    // review concerns every person in the service and would otherwise leak other people
-    // into one person's account.
+    // Reviews are included only when their provenance matches the requested scope.
+    // For a client reconstruction this means a direct pulse_entry_id whose signal names
+    // that person; service-wide reviews are never sprayed into a person's history.
     const reviews = await query(
-      `SELECT 'review' AS item_type, gr.review_date AS event_time,
+      `SELECT 'review' AS item_type, COALESCE(gr.created_at,gr.review_date::timestamptz) AS event_time,
               gr.review_type AS theme, gr.what_is_happening AS description,
-              gr.decision AS status, NULL::text AS related_person, gr.service_id AS house_id
+              gr.decision AS status, gp.related_person, gr.service_id AS house_id
        FROM governance_reviews gr
+       LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id AND gp.company_id=gr.company_id
        WHERE gr.company_id = $1
          AND (CASE WHEN $5 = 'service' THEN gr.service_id::text = $2
-                   WHEN $5 = 'client'  THEN FALSE
+                   WHEN $5 = 'client'  THEN gp.related_person::text = $6
                    ELSE TRUE END)
-         AND gr.review_date BETWEEN $3 AND $4`,
-      [companyId, scope === 'service' ? id : null, startTs, endTs, scope]
+         AND COALESCE(gr.created_at,gr.review_date::timestamptz) BETWEEN $3 AND $4`,
+      [companyId, scope === 'service' ? id : null, startTs, endTs, scope, scope === 'client' ? id : null]
     );
 
     // Escalations: by-service match the house; by-CLIENT restrict to escalations whose

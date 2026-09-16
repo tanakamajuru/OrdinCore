@@ -282,8 +282,8 @@ export function SignalDetail() {
                 </p>
             </div>
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Escalation</h3>
-                <p className="text-lg  text-foreground">{signal.escalation_required || 'None'}</p>
+                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Immediate escalation at recording</h3>
+                <p className="text-lg  text-foreground">{signal.escalation_required || 'None recorded'}</p>
             </div>
             <div className="bg-card border-2 border-border p-4">
                 <h3 className="text-xs  text-muted-foreground uppercase mb-1">Related Person</h3>
@@ -457,7 +457,7 @@ export function SignalDetail() {
             <div className="mt-8 border-t border-border pt-6">
               <div className="flex items-center justify-between gap-3 mb-4">
                 <div className="flex items-center gap-2">
-                  <h3 className="text-lg font-semibold text-foreground">Linked Governance Activity</h3>
+                  <h3 className="text-lg font-semibold text-foreground">Direct Governance History</h3>
                   {(signal as any).leadership_attention && (
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 font-medium">Leadership attention</span>
                   )}
@@ -469,9 +469,9 @@ export function SignalDetail() {
                   </button>
                 )}
               </div>
-              <p className="text-xs text-muted-foreground mb-4">This signal remains the permanent evidence record. Every later governance record extends its history — nothing replaces it.</p>
+              <p className="text-xs text-muted-foreground mb-4">This is the direct history of this signal only. Wider pattern/risk context is not mixed into this timeline. Downstream actions, effectiveness reviews and escalations appear only when directly linked to this signal.</p>
               {activity.length === 0 ? (
-                <p className="text-sm text-muted-foreground">No linked governance records yet. Decisions, tasks, patterns, risks and escalations created from this signal will appear here.</p>
+                <p className="text-sm text-muted-foreground">No direct governance records yet. A decision, action or escalation created directly from this signal will appear here.</p>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">

@@ -54,7 +54,7 @@ export function CloseRiskScreen() {
             ['All required actions complete?', review.questions?.actions_complete, `${review.detail?.actions_open ?? 0} open`],
             ['Interventions effective?', review.questions?.interventions_effective, `${review.detail?.effective_controls ?? 0} rated`],
             ['Linked-risk trajectory non-deteriorating?', review.questions?.trajectory_improved, `${review.detail?.trajectory_direction ?? 'Pending'}`],
-            ['Linked signals stopped?', review.questions?.no_recurring_signals, `${review.detail?.signals_last_14d ?? 0} in 14d`],
+            ['Genuine linked signals stopped?', review.questions?.no_recurring_signals, `${review.detail?.signals_last_14d ?? 0} governance_pulses signal(s) in 14d`],
           ].map(([q, ok, detail]: any, i: number) => (
             <Row key={i} style={{ justifyContent: 'space-between', paddingVertical: 3 }}>
               <Text size={12.5} style={{ flex: 1 }}>{q}</Text>

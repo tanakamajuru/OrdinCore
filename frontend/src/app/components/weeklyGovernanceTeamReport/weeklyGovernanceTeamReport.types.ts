@@ -12,6 +12,7 @@ export interface WeekEvent {
   date: string;
   /** Governance domain/theme for theme filtering. */
   theme: string;
+  signals?: Array<{ id:string; person?:string|null; domain?:string|null; description:string; severity?:string|null; reviewStatus?:string|null; decision?:string|null; decisionId?:string|null }>;
 }
 
 export interface MajorIssue {

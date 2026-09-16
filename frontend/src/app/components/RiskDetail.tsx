@@ -1410,7 +1410,7 @@ export function RiskDetail() {
                   ["Are all required actions complete?", closureReview.questions?.actions_complete, `${closureReview.detail?.actions_open ?? 0} open`],
                   ["Have interventions been effective?", closureReview.questions?.interventions_effective, `${closureReview.detail?.effective_controls ?? 0} rated effective`],
                   ["Is the linked-risk trajectory non-deteriorating?", closureReview.questions?.trajectory_improved, `${closureReview.detail?.trajectory_direction ?? "Pending"}`],
-                  ["Are linked signals no longer being received?", closureReview.questions?.no_recurring_signals, `${closureReview.detail?.signals_last_14d ?? 0} in last 14d`],
+                  ["Are genuine linked signals no longer being received?", closureReview.questions?.no_recurring_signals, `${closureReview.detail?.signals_last_14d ?? 0} governance_pulses signal(s) in last 14d`],
                 ].map(([q, ok, detail]: any, i: number) => (
                   <div key={i} className="flex items-center justify-between gap-2 py-1 text-sm">
                     <span className="text-foreground">{q}</span>

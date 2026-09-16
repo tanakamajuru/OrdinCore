@@ -96,6 +96,18 @@ export class DailyGovernanceController {
     }
   }
 
+  async getReadiness(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const house_id = String(req.query.house_id || '');
+      if (!house_id) return res.status(400).json({ success:false, message:'house_id is required' });
+      const data = await dailyGovernanceService.readiness(company_id, house_id);
+      return res.json({ success:true, data, meta:{ canonical:true } });
+    } catch (err:any) {
+      return res.status(400).json({ success:false, message:err.message });
+    }
+  }
+
   async getCoverage(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

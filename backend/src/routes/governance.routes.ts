@@ -255,6 +255,7 @@ router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, go
 
 // Daily Governance Log
 router.post('/daily-log/open', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), dailyGovernanceController.openLog.bind(dailyGovernanceController));
+router.get('/daily-log/readiness', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), dailyGovernanceController.getReadiness.bind(dailyGovernanceController));
 router.post('/daily-log/:id/complete', requireAuth, requireTenant, requireScope, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), dailyGovernanceController.completeLog.bind(dailyGovernanceController));
 // Historical playback: the signed-off log for a service on a date (?house_id=&date=).
 router.get('/daily-log/by-date', requireAuth, requireTenant, dailyGovernanceController.getLogForDate.bind(dailyGovernanceController));

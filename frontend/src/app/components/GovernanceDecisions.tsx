@@ -32,6 +32,7 @@ export function GovernanceDecisions({
   houses = [],
   onSelectHouse,
   onChanged,
+  focusPulseId,
 }: {
   houseId?: string;
   reviewDate: string;
@@ -41,6 +42,7 @@ export function GovernanceDecisions({
   onSelectHouse?: (id: string) => void;
   /** Refresh the parent summary after a canonical downstream record is committed. */
   onChanged?: () => void | Promise<void>;
+  focusPulseId?: string | null;
 }) {
   const [owners, setOwners] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
@@ -199,6 +201,15 @@ export function GovernanceDecisions({
     else setSrcOpen(false);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId, signals.length, readOnly]);
+
+  // Guided Work deep-link: select the exact canonical signal when pulseId is supplied.
+  useEffect(() => {
+    if (!focusPulseId || readOnly) return;
+    const target = signals.find((s:any) => s.id === focusPulseId);
+    if (!target) return;
+    setForm((f:any) => ({ ...f, source:`signal:${target.id}`, severity:isSeverity(target.severity) ? String(target.severity) : "" }));
+    setSrcOpen(false);
+  }, [focusPulseId, signals, readOnly]);
 
   const record = async () => {
     if (readOnly) return;

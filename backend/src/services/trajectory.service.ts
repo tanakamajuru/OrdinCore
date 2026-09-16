@@ -224,13 +224,21 @@ async function signalEvidenceForRisk(
 ): Promise<SignalEvidence[]> {
   if (!risk_id && !source_cluster_id) return [];
   const r = await query(
-    `SELECT DISTINCT gp.id,
+    `WITH target AS (
+       SELECT id, linked_person FROM risks WHERE id=$1::uuid
+     )
+     SELECT DISTINCT gp.id,
             COALESCE(gp.created_at, gp.entry_date::timestamptz) AS occurred_at,
             gp.severity
        FROM risk_signal_links rsl
        JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
-      WHERE (($1::uuid IS NOT NULL AND rsl.risk_id = $1::uuid)
-          OR ($2::uuid IS NOT NULL AND rsl.cluster_id = $2::uuid))
+       LEFT JOIN target t ON TRUE
+      WHERE (
+          ($1::uuid IS NOT NULL AND rsl.risk_id = $1::uuid)
+          OR ($2::uuid IS NOT NULL AND rsl.cluster_id = $2::uuid
+              AND (t.linked_person IS NULL OR BTRIM(t.linked_person)=''
+                   OR LOWER(BTRIM(COALESCE(gp.related_person,'')))=LOWER(BTRIM(t.linked_person))))
+        )
         AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '28 days'
         AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <= NOW()
       ORDER BY occurred_at ASC`,

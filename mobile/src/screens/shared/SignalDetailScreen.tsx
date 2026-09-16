@@ -185,10 +185,10 @@ export function SignalDetailScreen() {
         </View>
       )) : <Text muted size={12.5}>Not yet part of a pattern.</Text>}
 
-      {/* Linked Governance Activity — decisions, tasks, patterns, risks, escalations. */}
+      {/* Direct signal lineage only. Wider pattern/risk context stays in History & pattern above. */}
       {linked.length > 0 && (
         <Card>
-          <Label>Linked governance activity</Label>
+          <Label>Direct governance history</Label>
           {linked.map((a: any, i: number) => (
             <View key={i} style={{ borderLeftWidth: 2, borderLeftColor: c.accent + '66', paddingLeft: 10, paddingVertical: 5 }}>
               <Row style={{ justifyContent: 'space-between' }} gap={8}>

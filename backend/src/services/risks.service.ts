@@ -526,7 +526,8 @@ export class RisksService {
         trajectory_direction: trajectory.direction,
         trajectory_basis: trajectory.basis,
         trajectory_calculation_version: trajectoryEvidence?.calculationVersion || 'trajectory-v3',
-        evidence_scope: 'canonical-risk-lineage',
+        evidence_scope: 'governance_pulses via canonical risk lineage only',
+        signal_provenance_rule: 'Only governance_pulses records count as signals; actions, effectiveness reviews, leadership decisions and trajectory events never increment signal counts.',
         deteriorating, effectiveness_outstanding,
       },
       blocking_records: {
@@ -1180,7 +1181,7 @@ export class RisksService {
     await risksRepo.update(risk_id, company_id, { trajectory: tr.direction });
     await risksRepo.addEvent(
       risk_id, company_id, 'trajectory_auto_update',
-      `Trajectory updated to ${tr.direction} based on action effectiveness. ${tr.basis}`,
+      `Trajectory recalculated to ${tr.direction}. Signal movement is derived only from genuine linked governance_pulses; control effectiveness is supporting evidence. ${tr.basis}`,
       risk.created_by
     );
 

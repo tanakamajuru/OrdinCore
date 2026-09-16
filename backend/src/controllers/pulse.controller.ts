@@ -168,8 +168,12 @@ export class PulseController {
             const { id } = req.params;
             const company_id = requireCompany(req);
             const { governanceCaseService } = await import('../services/governanceCase.service');
-            const timeline = await governanceCaseService.timeline(company_id, { signalId: id });
-            res.json({ success: true, data: timeline, meta: {} });
+            const direct = await governanceCaseService.directSignalTimeline(company_id, id);
+            res.json({ success: true, data: direct.timeline, meta: {
+                wider_context: direct.context,
+                current_escalation: direct.current_escalation,
+                lineage_scope: 'DIRECT_SIGNAL_ONLY'
+            } });
         } catch (err: any) {
             res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
         }

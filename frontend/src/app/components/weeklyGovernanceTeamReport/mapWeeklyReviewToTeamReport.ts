@@ -130,7 +130,7 @@ export function mapWeeklyReviewToTeamReport(review: ReviewRow): WeeklyGovernance
       const summary = String(e.summary || "").trim();
       const headline = String(e.headline || summary.split(/\r?\n/).map((x: string) => x.trim()).find(Boolean) || "").trim();
       const iso = e.date ? new Date(e.date).toISOString().slice(0, 10) : "";
-      return { id: String(i), dateLabel: fmtDate(e.date), headline, summary, date: iso, theme: String(e.theme || "").trim() };
+      return { id: String(e.id || i), dateLabel: fmtDate(e.date), headline, summary, date: iso, theme: String(e.theme || "").trim(), signals: Array.isArray(e.signals) ? e.signals : [] };
     }).filter((e: any) => e.headline || e.summary),
     majorIssues,
     measures,

@@ -428,17 +428,26 @@ export class WeeklyReviewsService {
       return first.length > 160 ? `${first.slice(0, 157)}…` : first;
     };
     const events = (await query(
-      `SELECT dgl.review_date AS date, dgl.team_brief AS summary,
+      `SELECT dgl.id, dgl.review_date AS date, dgl.team_brief AS summary,
               (SELECT (gp.risk_domain)[1] FROM governance_pulses gp
-                WHERE gp.company_id = dgl.company_id AND gp.house_id = dgl.house_id
-                  AND gp.entry_date = dgl.review_date AND COALESCE(array_length(gp.risk_domain,1),0) > 0
-                LIMIT 1) AS theme
+                WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date
+                  AND COALESCE(array_length(gp.risk_domain,1),0)>0 ORDER BY gp.created_at LIMIT 1) AS theme,
+              COALESCE(dgl.evidence_snapshot->'signals',
+                (SELECT COALESCE(json_agg(json_build_object(
+                   'id',gp.id,'person',gp.related_person,'domain',(gp.risk_domain)[1],
+                   'description',gp.description,'severity',gp.severity,'reviewStatus',gp.review_status,
+                   'decision',(SELECT gr.decision FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1),
+                   'decisionId',(SELECT gr.id FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1)
+                 ) ORDER BY COALESCE(gp.created_at,gp.entry_date::timestamptz)), '[]'::json)
+                   FROM governance_pulses gp
+                  WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date)
+              ) AS signals
          FROM daily_governance_log dgl
-        WHERE dgl.company_id = $1 AND dgl.house_id = $2 AND dgl.completed = true
+        WHERE dgl.company_id=$1 AND dgl.house_id=$2 AND dgl.completed=true
           AND dgl.review_date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
-          AND NULLIF(TRIM(dgl.team_brief), '') IS NOT NULL
+          AND NULLIF(TRIM(dgl.team_brief),'') IS NOT NULL
         ORDER BY dgl.review_date`, p)).rows
-      .map((e: any) => ({ ...e, headline: headlineOf(e.summary) }));
+      .map((e:any)=>({ ...e, headline: headlineOf(e.summary) }));
 
     // "Area" is the governance theme, not the word "Governance": use the linked risk's domain,
     // else the originating signal's domain (source pulse), else the source cluster's domain.

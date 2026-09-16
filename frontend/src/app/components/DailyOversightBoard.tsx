@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useLocation, useNavigate } from "react-router";
 import { AlertCircle, ChevronRight, RefreshCw, Search, Shield, AlertTriangle, Users, FileText, Bell, PlusCircle, ClipboardList, Layers, CheckCircle2, Info } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -18,6 +18,10 @@ const prettyDay = (isoStr: string) => { try { return new Date(isoStr).toLocaleDa
 
 export function DailyOversightBoard() {
   const navigate = useNavigate();
+  const location = useLocation();
+  const guidedParams = new URLSearchParams(location.search);
+  const guidedPulseId = guidedParams.get("pulseId");
+  const guidedHouseId = guidedParams.get("houseId");
   const [data, setData] = useState<DashboardData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [houses, setHouses] = useState<any[]>([]);
@@ -58,7 +62,7 @@ export function DailyOversightBoard() {
       }
       const arr = Array.isArray(list) ? list : [];
       setHouses(arr);
-      setSelectedHouseId((current) => current && arr.some((h: any) => h.id === current) ? current : (arr[0]?.id || ""));
+      setSelectedHouseId((current) => guidedHouseId && arr.some((h:any)=>h.id===guidedHouseId) ? guidedHouseId : (current && arr.some((h: any) => h.id === current) ? current : (arr[0]?.id || "")));
       // No service to scope to → load the organisation-wide board once so the page still renders.
       if (arr.length === 0) await loadDashboard();
     } catch { setIsLoading(false); }
@@ -259,21 +263,22 @@ export function DailyOversightBoard() {
         is_deputy_review: isDeputyCover,
         exceptions_acknowledged: exceptionsAcknowledged,
       });
-      try {
-        await complete(false);
-      } catch (inner: any) {
-        // The gate blocks publishing while escalation/effectiveness exceptions are open UNLESS the
-        // RM explicitly carries them forward. Signals must be decided (that's a hard block); open
-        // escalations/effectiveness reviews can be acknowledged and carried forward with a
-        // deliberate confirmation — which is exactly what the doctrine requires.
-        const msg = String(inner?.response?.data?.message || inner?.message || "");
-        if (/carry forward|exception/i.test(msg) && !/signal\(s\) still require/i.test(msg) &&
-            window.confirm(`${msg}\n\nThese open escalation/effectiveness items will remain open and be carried forward to be actioned. Acknowledge this and publish the daily brief now?`)) {
-          await complete(true);
-        } else {
-          throw inner;
-        }
+      // Preflight the canonical readiness state before attempting publication. This avoids a
+      // failed first transaction and records carry-forward acknowledgement deliberately.
+      const readinessRes = await apiClient.get('/governance/daily-log/readiness', { params:{ house_id:selectedHouseId } });
+      const readiness = readinessRes.data?.data || {};
+      if (Number(readiness.unreviewed_signals || 0) > 0) {
+        throw new Error(`Daily governance cannot be published: ${readiness.unreviewed_signals} signal(s) still require an RM decision.`);
       }
+      let acknowledgeExceptions = false;
+      if (readiness.requires_exception_acknowledgement) {
+        acknowledgeExceptions = window.confirm(
+          `${Number(readiness.open_escalations||0)} open escalation(s) and ${Number(readiness.effectiveness_due||0)} effectiveness review(s) remain open.\n\n` +
+          'These matters will remain open and be carried forward under governance oversight. Acknowledge and publish the daily brief?'
+        );
+        if (!acknowledgeExceptions) throw new Error('Daily governance sign-off cancelled: outstanding matters were not acknowledged for carry-forward.');
+      }
+      await complete(acknowledgeExceptions);
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
       toast.success("Team brief signed off");
     } catch (e: any) {
@@ -434,7 +439,7 @@ export function DailyOversightBoard() {
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId, true)} />
+        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId, true)} focusPulseId={guidedPulseId} />
 
         {/* Team Brief (full width) — the day's signal review published to Team Leaders */}
         <div>

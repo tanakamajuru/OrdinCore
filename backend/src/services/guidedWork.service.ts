@@ -106,7 +106,7 @@ export const guidedWorkService = {
     // RM: signal decisions, monitoring reviews, effectiveness, escalation/risk/pattern reviews, weekly governance.
     if (['REGISTERED_MANAGER','ADMIN','SUPER_ADMIN'].includes(role)) {
       const signals = await safeRows(`
-        SELECT gp.id, gp.description, gp.related_person, gp.created_at, gp.severity::text, h.name AS service_name
+        SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.created_at, gp.severity::text, h.name AS service_name
           FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
          WHERE gp.company_id=$1 AND gp.house_id=ANY($2::uuid[]) AND COALESCE(gp.review_status::text,'New')='New'
          ORDER BY CASE gp.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END, gp.created_at`, [companyId, houses]);
@@ -114,7 +114,7 @@ export const guidedWorkService = {
         id:`signal:${s.id}`, role, state:'NEEDS_YOU', priority:priorityFor(null, ['Critical','High'].includes(s.severity)), taskType:'SIGNAL_DECISION',
         title:`Review ${s.related_person ? `${s.related_person} · ` : ''}signal`, summary:s.description || 'New governance signal',
         reason:'A new signal is awaiting an RM Daily Governance decision.', serviceName:s.service_name,
-        canonicalEntityType:'signal', canonicalEntityId:s.id, route:`/governance-dashboard?guided=1&gw=signal:${s.id}&pulseId=${s.id}`,
+        canonicalEntityType:'signal', canonicalEntityId:s.id, route:`/governance-dashboard?guided=1&gw=signal:${s.id}&pulseId=${s.id}&houseId=${s.house_id}`,
         actionLabel:'Review Signal', whyAmISeeingThis:'This signal has not yet received an RM governance decision.'
       });
 

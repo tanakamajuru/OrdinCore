@@ -165,6 +165,39 @@ export class GovernanceCaseService {
     };
   }
 
+  /**
+   * Direct lineage for ONE signal. This deliberately does not expand through a
+   * pattern/risk to sibling signals. Signal Detail must use this method.
+   */
+  async directSignalTimeline(companyId: string, signalId: string) {
+    const signal = (await query(`SELECT gp.* FROM governance_pulses gp WHERE gp.id=$1 AND gp.company_id=$2`, [signalId, companyId])).rows[0];
+    if (!signal) throw new Error('Signal not found');
+    const decisions = (await query(`SELECT gr.*, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewed_by_name
+      FROM governance_reviews gr LEFT JOIN users u ON u.id=gr.reviewed_by
+      WHERE gr.company_id=$2 AND gr.pulse_entry_id=$1 ORDER BY gr.created_at`, [signalId, companyId])).rows;
+    const decisionIds = ids(decisions);
+    const actions = (await query(`SELECT DISTINCT ra.*, NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')), '') AS assigned_to_name
+      FROM risk_actions ra LEFT JOIN users au ON au.id=ra.assigned_to
+      WHERE ra.company_id=$2 AND (ra.source_pulse_id=$1 OR ($3::uuid[] <> '{}' AND ra.governance_review_id=ANY($3::uuid[]))) ORDER BY ra.created_at`, [signalId, companyId, decisionIds])).rows;
+    const escalations = (await query(`SELECT DISTINCT e.* FROM escalations e
+      WHERE e.company_id=$2 AND (e.source_pulse_id=$1 OR ($3::uuid[] <> '{}' AND e.source_governance_review_id=ANY($3::uuid[]))) ORDER BY e.created_at`, [signalId, companyId, decisionIds])).rows;
+    const rows:any[] = [{ record:'Signal', relationship:'Source evidence', id:signal.id, label:signal.description, status:signal.review_status || signal.severity, at:signal.created_at || signal.entry_date, link:`/signals/${signal.id}`, evidence:signal.immediate_action || null }];
+    for (const d of decisions) rows.push({ record:'Governance Decision', relationship:'Direct RM decision', id:d.id, label:d.what_is_happening, status:d.decision_status || d.decision, at:d.created_at, link:null, evidence:d.evidence || d.decision_rationale || null });
+    for (const a of actions) {
+      rows.push({ record:'Action', relationship:'Direct action from this signal', id:a.id, label:a.title || a.action_description || 'Governance action', status:a.status, at:a.created_at, link:`/my-actions?focus=${a.id}`, evidence:a.completion_evidence || null });
+      if (a.completed_at) rows.push({ record:'Action Completion', relationship:'Completion evidence', id:a.id, label:a.completion_evidence || a.title || 'Action completed', status:'Completed', at:a.completed_at, link:`/my-actions?focus=${a.id}` });
+      if (a.effectiveness_outcome || a.effectiveness) rows.push({ record:'Effectiveness Review', relationship:'Control effectiveness', id:a.id, label:a.effectiveness_evidence || a.effectiveness_notes || a.title || 'Effectiveness reviewed', status:a.effectiveness_outcome || a.effectiveness, at:a.effectiveness_reviewed_at || a.effectiveness_measured_at || a.completed_at, link:`/effectiveness?focus=${a.id}` });
+    }
+    for (const e of escalations) rows.push({ record:'Escalation', relationship:'Direct escalation from this signal', id:e.id, label:e.reason || 'Escalation', status:e.lifecycle_status || e.status, at:e.created_at, link:`/escalation-log?escalationId=${e.id}` });
+    rows.sort((a,b)=>new Date(a.at||0).getTime()-new Date(b.at||0).getTime());
+    const context = await query(`SELECT DISTINCT sc.id AS pattern_id, sc.cluster_label, r.id AS risk_id, r.title AS risk_title
+      FROM risk_signal_links rsl LEFT JOIN signal_clusters sc ON sc.id=rsl.cluster_id AND sc.company_id=$2
+      LEFT JOIN risks r ON r.company_id=$2 AND (r.id=rsl.risk_id OR r.source_cluster_id=sc.id OR sc.linked_risk_id=r.id)
+      WHERE rsl.pulse_entry_id=$1`, [signalId, companyId]);
+    return { timeline: rows, context: context.rows, current_escalation: escalations.length ? { id:escalations[escalations.length-1].id, status:escalations[escalations.length-1].lifecycle_status || escalations[escalations.length-1].status } : null };
+  }
+
+
   async timeline(companyId: string, anchor: GovernanceCaseAnchor) {
     const c = await this.resolve(companyId, anchor);
     const rows: any[] = [];

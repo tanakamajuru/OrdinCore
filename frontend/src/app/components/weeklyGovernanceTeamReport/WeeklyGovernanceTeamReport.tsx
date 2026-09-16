@@ -118,7 +118,12 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
         {filteredEvents.length ? (
           <ol className="wgr-timeline">
             {filteredEvents.map((event) => (
-              <li key={event.id}><time>{event.dateLabel}</time><p>{event.headline || event.summary}</p></li>
+              <li key={event.id}><time>{event.dateLabel}</time>
+                <p>{event.headline || event.summary}</p>
+                {!!event.signals?.length && <div className="mt-2 space-y-1">{event.signals.map((sig) =>
+                  <p key={sig.id} className="text-sm"><strong>{sig.person || "Service-level"} · {sig.domain || "Governance signal"}</strong> — {sig.description}{sig.decision ? ` · RM: ${sig.decision}` : " · RM decision not recorded"}</p>
+                )}</div>}
+              </li>
             ))}
           </ol>
         ) : <p className="wgr-empty">{usingFilter ? "No dated briefing matches this filter." : "No event summary was recorded. Review the published daily governance entries."}</p>}

@@ -144,17 +144,38 @@ export class DailyGovernanceService {
         throw new Error('Review and explicitly carry forward the open escalation/effectiveness exceptions before publishing.');
       }
 
+      // Freeze the evidence actually known at sign-off. Weekly Governance and reports can
+      // reconstruct the signed day without later edits/current-state joins rewriting history.
+      const evidenceSnapshot = (await client.query(
+        `SELECT jsonb_build_object(
+          'signals', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'id',p.id,'person',p.related_person,'domain',(p.risk_domain)[1],'description',p.description,
+            'severity',p.severity,'reviewStatus',p.review_status,'created_at',p.created_at,
+            'decision',(SELECT gr2.decision FROM governance_reviews gr2 WHERE gr2.company_id=p.company_id AND gr2.pulse_entry_id=p.id ORDER BY gr2.created_at DESC LIMIT 1),
+            'decisionId',(SELECT gr2.id FROM governance_reviews gr2 WHERE gr2.company_id=p.company_id AND gr2.pulse_entry_id=p.id ORDER BY gr2.created_at DESC LIMIT 1)
+          ) ORDER BY p.created_at) FROM governance_pulses p
+            WHERE p.company_id=$1 AND p.house_id=$2 AND p.entry_date=CURRENT_DATE), '[]'::jsonb),
+          'decisions', COALESCE((SELECT jsonb_agg(jsonb_build_object(
+            'id',gr.id,'pulse_entry_id',gr.pulse_entry_id,'decision',gr.decision,
+            'rationale',gr.decision_rationale,'created_at',gr.created_at
+          ) ORDER BY gr.created_at) FROM governance_reviews gr
+            WHERE gr.company_id=$1 AND gr.service_id=$2 AND gr.review_date=CURRENT_DATE), '[]'::jsonb),
+          'readiness', $3::jsonb,
+          'provenance', jsonb_build_object('signals','governance_pulses only','captured_at',NOW())
+        ) AS snapshot`, [company_id, house_id, JSON.stringify(readiness)])).rows[0]?.snapshot || {};
+
       const result = await client.query(
         `UPDATE daily_governance_log
          SET completed = true, daily_note = $1, reviewed_by = $2, completed_at = NOW(),
              is_deputy_review = $4, review_type = $5, escalation_sent = $6, director_alerted_at = $7,
              company_id = COALESCE(company_id, $8), leadership_narrative = $9,
              team_brief = $10, material_change = $11, published_at = NOW(), published_by = $2,
-             exceptions_acknowledged = $12, exception_snapshot = $13::jsonb
+             exceptions_acknowledged = $12, exception_snapshot = $13::jsonb,
+             evidence_snapshot = $14::jsonb
          WHERE id = $3 RETURNING *`,
         [note, user_id, log_id, is_deputy_review, is_deputy_review ? 'Deputy Cover' : 'Primary',
          enhanced_oversight, director_notified, company_id, leadership || null, brief || null, material,
-         !!opts.exceptions_acknowledged, JSON.stringify(readiness)]
+         !!opts.exceptions_acknowledged, JSON.stringify(readiness), JSON.stringify(evidenceSnapshot)]
       );
       const log = result.rows[0];
 
@@ -237,6 +258,44 @@ export class DailyGovernanceService {
       severity: d.severity,
       idempotency_key: d.idempotencyKey || null,
     } as any);
+  }
+
+  async readiness(company_id: string, house_id: string) {
+    const row = (await query(`SELECT
+      (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New') AS unreviewed_signals,
+      (SELECT COUNT(*)::int FROM canonical_escalation_state_v e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
+        WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND e.is_open) AS open_escalations,
+      (SELECT COUNT(*)::int FROM canonical_action_state_v a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
+        WHERE a.company_id=$1 AND COALESCE(a.house_id,ar.house_id)=$2 AND a.completed_at IS NOT NULL
+          AND COALESCE(a.effectiveness_outcome,a.effectiveness::text) IS NULL) AS effectiveness_due`, [company_id,house_id])).rows[0];
+    return { ...row, can_sign_off: Number(row.unreviewed_signals||0)===0,
+      requires_exception_acknowledgement: Number(row.open_escalations||0)>0 || Number(row.effectiveness_due||0)>0 };
+  }
+
+  /** Canonical daily evidence snapshot used by Daily/Weekly Governance reconstruction. */
+  async canonicalSnapshot(company_id: string, house_id: string, review_date: string) {
+    const signals = (await query(`SELECT gp.id,gp.entry_date,gp.created_at,gp.related_person,gp.description,gp.risk_domain,gp.severity,gp.review_status
+      FROM governance_pulses gp WHERE gp.company_id=$1 AND gp.house_id=$2 AND gp.entry_date=$3::date
+      ORDER BY COALESCE(gp.created_at,gp.entry_date::timestamptz),gp.id`, [company_id,house_id,review_date])).rows;
+    const signalIds = signals.map((x:any)=>x.id);
+    const decisions = (await query(`SELECT gr.id,gr.pulse_entry_id,gr.decision,gr.decision_status,gr.what_is_happening,gr.decision_rationale,gr.created_at,gr.due_at,gr.decision_owner_id
+      FROM governance_reviews gr WHERE gr.company_id=$1 AND gr.service_id=$2
+        AND (gr.review_date=$3::date OR ($4::uuid[] <> '{}' AND gr.pulse_entry_id=ANY($4::uuid[])))
+      ORDER BY gr.created_at`, [company_id,house_id,review_date,signalIds])).rows;
+    const decisionIds=decisions.map((x:any)=>x.id);
+    const actions=(await query(`SELECT ra.id,ra.source_pulse_id,ra.governance_review_id,ra.title,ra.status,ra.assigned_to,ra.due_date,ra.completed_at,ra.completion_evidence,ra.effectiveness_outcome,ra.effectiveness,ra.effectiveness_reviewed_at
+      FROM canonical_action_state_v ra WHERE ra.company_id=$1 AND ra.house_id=$2
+        AND (($3::uuid[] <> '{}' AND ra.source_pulse_id=ANY($3::uuid[])) OR ($4::uuid[] <> '{}' AND ra.governance_review_id=ANY($4::uuid[])))
+      ORDER BY ra.created_at`,[company_id,house_id,signalIds,decisionIds])).rows;
+    const escalations=(await query(`SELECT e.id,e.source_pulse_id,e.source_governance_review_id,e.reason,e.lifecycle_status,e.status,e.due_by,e.created_at
+      FROM canonical_escalation_state_v e WHERE e.company_id=$1 AND e.house_id=$2
+        AND (($3::uuid[] <> '{}' AND e.source_pulse_id=ANY($3::uuid[])) OR ($4::uuid[] <> '{}' AND e.source_governance_review_id=ANY($4::uuid[])))
+      ORDER BY e.created_at`,[company_id,house_id,signalIds,decisionIds])).rows;
+    const log=(await query(`SELECT id,review_date,team_brief,material_change,completed,published_at,exceptions_acknowledged,exception_snapshot
+      FROM daily_governance_log WHERE company_id=$1 AND house_id=$2 AND review_date=$3::date ORDER BY created_at DESC LIMIT 1`,
+      [company_id,house_id,review_date])).rows[0]||null;
+    return { review_date, house_id, signals, decisions, actions, escalations, log,
+      provenance:{ signals:'governance_pulses only', lineage:'direct daily signal/decision links', generated_at:new Date().toISOString() } };
   }
 
   // The latest published Team Brief for a set of services (the TL's assigned houses),
