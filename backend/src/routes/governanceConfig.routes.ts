@@ -50,7 +50,7 @@ router.delete('/review-cycles/:id', ...tenantEdit, c.deleteReviewCycle);
 
 // Immediate Detection Rules (fast-path escalation). Tenant-owned overrides, so a
 // Director/Admin may tune them per service; platform defaults are read-only.
-const immediate = [requireAuth, requireTenant, requireRole('DIRECTOR', 'ADMIN', 'SUPER_ADMIN')];
+const immediate = [requireAuth, requireTenant, requireRole('SUPER_ADMIN')];
 router.get('/immediate-rules', ...immediate, c.listImmediateRules);
 router.post('/immediate-rules', ...immediate, c.createImmediateRule);
 router.patch('/immediate-rules/:id', ...immediate, c.updateImmediateRule);

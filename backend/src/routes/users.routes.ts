@@ -19,7 +19,8 @@ const router = Router();
  *       200:
  *         description: Success
  */
-router.get('/search', requireAuth, requireTenant, usersController.search.bind(usersController));
+router.get('/search', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.search.bind(usersController));
+router.get('/directory', requireAuth, requireTenant, usersController.directory.bind(usersController));
 
 /**
  * @openapi
@@ -48,7 +49,7 @@ router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN')
  *       200:
  *         description: Success
  */
-router.get('/', requireAuth, requireTenant, usersController.findAll.bind(usersController));
+router.get('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.findAll.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:
@@ -68,7 +69,7 @@ router.get('/', requireAuth, requireTenant, usersController.findAll.bind(usersCo
  *       200:
  *         description: Success
  */
-router.get('/:id', requireAuth, requireTenant, usersController.findById.bind(usersController));
+router.get('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.findById.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}:
@@ -178,7 +179,7 @@ router.get('/:id/houses', requireAuth, requireTenant, usersController.getHouses.
  *       200:
  *         description: Success
  */
-router.get('/:id/permissions', requireAuth, requireTenant, usersController.getPermissions.bind(usersController));
+router.get('/:id/permissions', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.getPermissions.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}/roles:
@@ -198,7 +199,7 @@ router.get('/:id/permissions', requireAuth, requireTenant, usersController.getPe
  *       200:
  *         description: Success
  */
-router.get('/:id/roles', requireAuth, requireTenant, usersController.getRoles.bind(usersController));
+router.get('/:id/roles', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.getRoles.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}/roles:
@@ -281,7 +282,7 @@ router.patch('/:id/activate', requireAuth, requireTenant, requireRole('SUPER_ADM
  *       200:
  *         description: Success
  */
-router.get('/:id/sessions', requireAuth, requireTenant, usersController.getSessions.bind(usersController));
+router.get('/:id/sessions', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.getSessions.bind(usersController));
 /**
  * @openapi
  * /api/v1/users/{id}/sessions:
@@ -301,6 +302,6 @@ router.get('/:id/sessions', requireAuth, requireTenant, usersController.getSessi
  *       200:
  *         description: Success
  */
-router.delete('/:id/sessions', requireAuth, requireTenant, usersController.revokeSessions.bind(usersController));
+router.delete('/:id/sessions', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.revokeSessions.bind(usersController));
 
 export default router;

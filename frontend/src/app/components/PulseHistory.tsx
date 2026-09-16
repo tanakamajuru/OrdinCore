@@ -54,7 +54,7 @@ export function PulseHistory() {
     if (!canAllocate) return;
     (async () => {
       try {
-        const res = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
+        const res = await apiClient.get('/users/directory?role=TEAM_LEADER');
         const list = (res.data as any).data?.users ?? (res.data as any).data ?? [];
         setTeamLeaders(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })));
       } catch { /* picker stays empty */ }

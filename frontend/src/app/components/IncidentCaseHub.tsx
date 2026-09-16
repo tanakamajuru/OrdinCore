@@ -120,7 +120,7 @@ export function IncidentCaseHub() {
       // People Involved picker: system users (staff) + service users (patients).
       try {
         const [usersRes, suRes] = await Promise.all([
-          apiClient.get('/users?limit=200'),
+          apiClient.get('/users/directory'),
           apiClient.get('/service-users?limit=200'),
         ]);
         const uData = (usersRes.data as any).data || (usersRes.data as any) || [];

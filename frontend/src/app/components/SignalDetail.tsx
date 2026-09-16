@@ -120,7 +120,7 @@ export function SignalDetail() {
     if (!canAllocate) return;
     (async () => {
       try {
-        const res: any = await apiClient.get('/users?role=TEAM_LEADER&limit=100&status=active');
+        const res: any = await apiClient.get('/users/directory?role=TEAM_LEADER');
         const list: any[] = Array.isArray(res?.data?.users) ? res.data.users
           : Array.isArray(res?.data) ? res.data
           : Array.isArray(res) ? res : [];

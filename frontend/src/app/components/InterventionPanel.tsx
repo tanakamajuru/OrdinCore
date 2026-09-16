@@ -226,8 +226,8 @@ export function InterventionPanel() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => { apiClient.get("/users?limit=200").then((r: any) => {
-    const list = Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.users) ? r.data.users : [];
+  useEffect(() => { apiClient.get("/users/directory").then((r: any) => {
+    const list = Array.isArray(r?.data?.data) ? r.data.data : Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.users) ? r.data.users : [];
     setUsers(list);
   }).catch(() => setUsers([])); }, []);
 
@@ -522,7 +522,7 @@ export function InterventionPanel() {
                   <label className="block text-sm font-medium mb-1">Owner</label>
                   <select value={edit.owner_id} onChange={(e) => setEdit({ ...edit, owner_id: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-sm bg-background">
                     <option value="">Unassigned</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+                    {users.map((u) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
                   </select>
                 </div>
               </div>

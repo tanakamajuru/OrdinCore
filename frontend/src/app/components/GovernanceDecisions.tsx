@@ -90,7 +90,7 @@ export function GovernanceDecisions({
 
   const loadOwners = async () => {
     try {
-      const r: any = await apiClient.get("/users?limit=200");
+      const r: any = await apiClient.get("/users/directory");
       const list = r.data?.data || r.data || [];
       setOwners((Array.isArray(list) ? list : list.users || []).filter((u: any) =>
         ["TEAM_LEADER", "REGISTERED_MANAGER", "DIRECTOR"].includes(String(u.role || "").toUpperCase())
@@ -458,7 +458,7 @@ export function GovernanceDecisions({
             </select>
             <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"}>
               <option value="">{form.decision === "Escalate" ? "Escalate to…" : form.decision === "Monitor" ? "Monitoring owner…" : "Assign to…"}</option>
-              {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+              {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
             </select>
             <input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })}
               min={form.decision === "Monitor" ? new Date(Date.now() + 86400000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}

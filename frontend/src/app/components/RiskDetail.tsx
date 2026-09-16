@@ -191,7 +191,7 @@ export function RiskDetail() {
       try {
         // Assignees include Registered Managers and Support Workers, not just Team Leaders — a
         // strategic / cross-service risk is often owned by an RM, so they must be assignable too.
-        const res = await apiClient.get('/users?limit=200&status=active');
+        const res = await apiClient.get('/users/directory');
         const all = res.data?.data || (Array.isArray(res.data) ? res.data : []);
         const assignable = (Array.isArray(all) ? all : []).filter((u: any) =>
           ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())
@@ -869,7 +869,7 @@ export function RiskDetail() {
                                     className="text-[10px] uppercase border-2 border-border bg-card px-1 py-1"
                                 >
                                     <option value="">Reassign…</option>
-                                    {teamLeaders.map((tl) => <option key={tl.id} value={tl.id}>{tl.first_name} {tl.last_name}</option>)}
+                                    {teamLeaders.map((tl) => <option key={tl.id} value={tl.id}>{tl.name || `${tl.first_name || ''} ${tl.last_name || ''}`.trim()}</option>)}
                                 </select>
                             )}
 
@@ -1081,7 +1081,7 @@ export function RiskDetail() {
                   <option value="">Auto-assign to service Team Leader</option>
                   {teamLeaders.map((tl) => (
                     <option key={tl.id} value={tl.id}>
-                      {tl.first_name} {tl.last_name}{tl.role ? ` (${tl.role.replace(/_/g, ' ').toLowerCase()})` : ''}
+                      {tl.name || `${tl.first_name || ''} ${tl.last_name || ''}`.trim()}{tl.role ? ` (${tl.role.replace(/_/g, ' ').toLowerCase()})` : ''}
                     </option>
                   ))}
                 </select>

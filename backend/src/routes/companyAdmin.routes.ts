@@ -5,7 +5,9 @@ import { requireRole } from '../middleware/role.middleware';
 import { companyAdminService } from '../services/companyAdmin.service';
 
 const router = Router();
-const admin = [requireAuth, requireTenant, requireRole('ADMIN', 'SUPER_ADMIN')] as const;
+// Platform Super Admin has no provider tenant and uses the platform workspace.
+// Company administration is intentionally ADMIN-only.
+const admin = [requireAuth, requireTenant, requireRole('ADMIN')] as const;
 
 router.get('/overview', ...admin, async (req, res) => {
   try {

@@ -111,6 +111,10 @@ export const companyAdminService = {
        (patch.session_timeout_minutes < 5 || patch.session_timeout_minutes > 480)) {
       throw new Error('Session timeout must be between 5 and 480 minutes.');
     }
+    // Export access is enforced by server roles and cannot be opened by a tenant
+    // preference. MFA and timeout are recorded as provider policy targets until
+    // the authentication layer reports them as enforced.
+    patch.exports_restricted = true;
     const res = await query(
       `INSERT INTO company_security_settings (company_id, mfa_required, session_timeout_minutes, exports_restricted, updated_by, updated_at)
        VALUES ($1, COALESCE($2, TRUE), COALESCE($3, 30), COALESCE($4, TRUE), $5, NOW())

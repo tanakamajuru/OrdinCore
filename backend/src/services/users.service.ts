@@ -34,6 +34,9 @@ export class UsersService {
     if (!allowedRoles.includes(data.role.toUpperCase())) {
       throw new Error(`Invalid role: ${data.role}`);
     }
+    if (data.role === 'SUPER_ADMIN' && company_id) {
+      throw new Error('SUPER_ADMIN is a platform role and cannot belong to a provider tenant.');
+    }
 
     this.validatePassword(data.password);
     const password_hash = await bcrypt.hash(data.password, 12);
@@ -101,6 +104,9 @@ export class UsersService {
     }
     const user = await usersRepo.findById(id, company_id);
     if (!user) throw new Error('User not found');
+    if (data.role === 'SUPER_ADMIN' && (company_id || user.company_id)) {
+      throw new Error('SUPER_ADMIN is a platform role and cannot belong to a provider tenant.');
+    }
     
     // Map is_active to status if provided
     if (data.is_active !== undefined) {
@@ -171,6 +177,11 @@ export class UsersService {
   }
 
   async assignToHouse(userId: string, houseId: string, company_id: string, roleInHouse?: string) {
+    const [user, house] = await Promise.all([
+      usersRepo.findById(userId, company_id),
+      housesRepo.findById(houseId, company_id),
+    ]);
+    if (!user || !house) throw new Error('User or service not found in this organisation');
     return usersRepo.assignToHouse(userId, houseId, company_id, roleInHouse);
   }
 
@@ -193,15 +204,19 @@ export class UsersService {
   }
 
   async assignRole(userId: string, company_id: string, roleName: string) {
+    const normalised = String(roleName || '').toUpperCase().replace(/-/g, '_');
+    if (normalised === 'SUPER_ADMIN') throw new Error('Company Admin cannot grant platform access.');
     const user = await usersRepo.findById(userId);
     if (!user || user.company_id !== company_id) throw new Error('User not found');
-    return usersRepo.assignRole(userId, roleName);
+    return usersRepo.assignRole(userId, normalised);
   }
 
   async suspend(userId: string, company_id: string | null) {
     const user = await usersRepo.findById(userId);
     if (!user || (company_id && user.company_id !== company_id)) throw new Error('User not found');
-    return usersRepo.updateStatus(userId, 'inactive');
+    const result = await usersRepo.updateStatus(userId, 'inactive');
+    await authService.revokeAllForUser(userId);
+    return result;
   }
 
   async activate(userId: string, company_id: string | null) {
@@ -217,6 +232,7 @@ export class UsersService {
     this.validatePassword(passwordString);
     const password_hash = await bcrypt.hash(passwordString, 12);
     await usersRepo.update(userId, { password_hash } as any);
+    await authService.revokeAllForUser(userId);
   }
 
   // Multi-role grants: set the full set of roles a user may act as, with one marked

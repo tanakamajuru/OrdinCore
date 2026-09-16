@@ -51,7 +51,7 @@ export function RiskPromotion() {
     try {
       const [catRes, uRes] = await Promise.all([
         apiClient.get('/risks/categories'),
-        apiClient.get('/users')
+        apiClient.get('/users/directory')
       ]);
 
       // Coerce to an array no matter what envelope the API returns ({data:[…]},
@@ -307,7 +307,7 @@ export function RiskPromotion() {
                       })
                       .map(u => (
                         <option key={u.id} value={u.id}>
-                          {u.first_name} {u.last_name} ({u.role?.replace('_', ' ')})
+                          {u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim()} ({u.role?.replace('_', ' ')})
                         </option>
                       ))
                     }

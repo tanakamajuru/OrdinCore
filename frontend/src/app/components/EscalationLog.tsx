@@ -81,7 +81,7 @@ export function EscalationLog() {
   const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
 
   useEffect(() => {
-    apiClient.get('/users?limit=200&status=active')
+    apiClient.get('/users/directory')
       .then((res) => {
         const all = (res.data as any)?.data || (Array.isArray((res.data as any)) ? (res.data as any) : []);
         setAssignees((Array.isArray(all) ? all : []).filter((u: any) =>
@@ -757,7 +757,7 @@ export function EscalationLog() {
                               >
                                 <option value="">Responsible person…</option>
                                 {assignees.map((u) => (
-                                  <option key={u.id} value={u.id}>{u.first_name} {u.last_name} ({String(u.role || '').replace(/_/g, ' ').toLowerCase()})</option>
+                                  <option key={u.id} value={u.id}>{u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim()} ({String(u.role || '').replace(/_/g, ' ').toLowerCase()})</option>
                                 ))}
                               </select>
                               <input

@@ -189,8 +189,8 @@ function OverviewSection({ data, go, reload }: { data: Overview | null; go: (s: 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <Panel title="Security controls" right={<button onClick={() => go("security")} className="text-muted-foreground hover:text-primary"><ChevronRight size={18} /></button>}>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-            <SecTile ok={data.security.mfa_required} title="MFA required" sub={data.security.mfa_required ? "Enabled for all users" : "Not enforced"} />
-            <SecTile ok title={`Session timeout ${data.security.session_timeout_minutes} min`} sub="Automatically ends idle sessions" />
+            <SecTile ok={data.security.mfa_required && data.attention.accounts_without_mfa === 0} title="MFA coverage" sub={data.attention.accounts_without_mfa === 0 ? "All active accounts enrolled" : `${data.attention.accounts_without_mfa} account(s) not enrolled`} />
+            <SecTile ok={false} title={`Timeout policy ${data.security.session_timeout_minutes} min`} sub="Policy target; platform token controls apply" />
             <SecTile ok={data.security.exports_restricted} title="Exports restricted" sub={data.security.exports_restricted ? "Limited to authorised users" : "Open to all roles"} />
           </div>
         </Panel>
@@ -441,9 +441,9 @@ function SecuritySection({ data, onChanged }: { data: Overview | null; onChanged
     <div className="space-y-5">
       <Panel title="Security policy">
         <div className="space-y-4">
-          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">Require multi-factor authentication</span><span className="block text-xs text-muted-foreground">All users must set up MFA to sign in.</span></span><input type="checkbox" checked={form.mfa_required} onChange={e => setForm({ ...form, mfa_required: e.target.checked })} className="w-5 h-5" /></label>
-          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">Session timeout (minutes)</span><span className="block text-xs text-muted-foreground">Idle sessions end automatically. 5–480.</span></span><input type="number" min={5} max={480} value={form.session_timeout_minutes} onChange={e => setForm({ ...form, session_timeout_minutes: Number(e.target.value) })} className="w-24 rounded-lg border-2 border-border bg-background p-2 text-sm" /></label>
-          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">Restrict data exports</span><span className="block text-xs text-muted-foreground">Only authorised roles may export data.</span></span><input type="checkbox" checked={form.exports_restricted} onChange={e => setForm({ ...form, exports_restricted: e.target.checked })} className="w-5 h-5" /></label>
+          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">MFA policy target</span><span className="block text-xs text-muted-foreground">Records the organisation's requirement. Coverage is shown separately; this control does not claim that authentication enforcement is live.</span></span><input type="checkbox" checked={form.mfa_required} onChange={e => setForm({ ...form, mfa_required: e.target.checked })} className="w-5 h-5" /></label>
+          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">Idle-timeout policy target (minutes)</span><span className="block text-xs text-muted-foreground">Records the organisation's target. Actual token expiry remains controlled by the platform authentication service.</span></span><input type="number" min={5} max={480} value={form.session_timeout_minutes} onChange={e => setForm({ ...form, session_timeout_minutes: Number(e.target.value) })} className="w-24 rounded-lg border-2 border-border bg-background p-2 text-sm" /></label>
+          <label className="flex items-center justify-between gap-4"><span><span className="text-sm font-medium text-foreground">Data exports restricted</span><span className="block text-xs text-muted-foreground">Enforced by server roles. A Company Admin cannot switch this protection off.</span></span><input type="checkbox" checked disabled className="w-5 h-5" /></label>
           <div className="flex justify-end"><button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{saving ? "Saving…" : "Save policy"}</button></div>
         </div>
       </Panel>
@@ -465,11 +465,11 @@ function SecuritySection({ data, onChanged }: { data: Overview | null; onChanged
 }
 
 /* ---------- Data & Retention ---------- */
-function RetentionSection({ data }: { data: Overview | null }) {
+function RetentionSection(_props: { data: Overview | null }) {
   return (
     <Panel title="Data & retention">
       <div className="space-y-3 text-sm text-foreground">
-        <div className="flex items-center gap-3"><FileDown size={18} className="text-primary" /><span>Data exports are <strong>{data?.security.exports_restricted ? "restricted to authorised users" : "open to all roles"}</strong>. Change this under Audit &amp; Security.</span></div>
+        <div className="flex items-center gap-3"><FileDown size={18} className="text-primary" /><span>Data exports are <strong>restricted to authorised roles by the server</strong>. Company Admin cannot disable this control.</span></div>
         <div className="flex items-center gap-3"><Database size={18} className="text-emerald-600" /><span>Governance records (signals, risks, escalations, reports) are retained as an immutable audit trail and are never hard-deleted by the app.</span></div>
         <div className="flex items-center gap-3"><ArrowRight size={18} className="text-muted-foreground" /><span>Service-user transfers keep original governance history with the originating service.</span></div>
       </div>
@@ -483,7 +483,7 @@ function HelpSection() {
     { icon: UserPlus, t: "People & Access", d: "Invite staff, set their role, suspend or reactivate accounts, and confirm periodic access reviews." },
     { icon: Building2, t: "Services", d: "Add and view the services (houses) in your organisation." },
     { icon: UsersRound, t: "Service Users", d: "View service users and transfer them between services; governance history stays intact." },
-    { icon: ShieldCheck, t: "Audit & Security", d: "Set your security policy (MFA, session timeout, export restrictions) and clear access reviews." },
+    { icon: ShieldCheck, t: "Audit & Security", d: "Record MFA and timeout policy targets, review actual MFA coverage, inspect audit activity and complete access reviews. Export restrictions remain server-enforced." },
     { icon: Mail, t: "Support", d: "Contact support@ordincore.co.uk for help with your organisation's administration." },
   ];
   return (

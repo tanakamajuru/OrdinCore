@@ -101,6 +101,20 @@ const SuperAdminRoute = ({ children }: { children: React.ReactNode }) => {
   return <>{children}</>;
 };
 
+// Organisation administration is a provider trust boundary. It must never be
+// unlocked merely because a user is authenticated or can guess the URL.
+const CompanyAdminRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+    </div>
+  );
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const role = user?.role?.toUpperCase().replace(/-/g, '_') || '';
+  return role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />;
+};
+
 export default function App() {
   return (
     <AuthProvider>
@@ -129,9 +143,9 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/org-structure" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <OrgStructureAdmin />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/governance-compliance" element={
             <ProtectedRoute>
@@ -164,59 +178,59 @@ export default function App() {
             </SuperAdminRoute>
           } />
           <Route path="/admin" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <OrganisationAdmin />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/organisation-admin" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <OrganisationAdmin />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-classic" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminDashboard /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-dashboard" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminDashboardSimple />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-users" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminUserManagement /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-houses" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminHouseManagement /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin/houses" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminHouseManagement /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-pulses" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminPulseManagement /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-risks" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminRiskManagement /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin-settings" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminLayout><AdminSettings /></AdminLayout>
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/admin/service-users" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <AdminServiceUsers />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/governance-pulse" element={
             <ProtectedRoute>
@@ -239,9 +253,9 @@ export default function App() {
             </ProtectedRoute>
           } />
           <Route path="/help-admin" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <HelpAdmin />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           {/* /oversight-board retired — clusters consolidated to /patterns; its daily
               governance sign-off moved to /governance-dashboard and its RI-query channel
@@ -300,14 +314,14 @@ export default function App() {
           {/* Legacy clinical path — redirect to the anonymised "Service Users" view. */}
           <Route path="/patients" element={<Navigate to="/service-users" replace />} />
           <Route path="/governance-config" element={
-            <ProtectedRoute>
+            <CompanyAdminRoute>
               <GovernanceConfig />
-            </ProtectedRoute>
+            </CompanyAdminRoute>
           } />
           <Route path="/governance-config/immediate-rules" element={
-            <ProtectedRoute>
+            <SuperAdminRoute>
               <ImmediateRulesAdmin />
-            </ProtectedRoute>
+            </SuperAdminRoute>
           } />
           <Route path="/reconstruction" element={
             <ProtectedRoute>

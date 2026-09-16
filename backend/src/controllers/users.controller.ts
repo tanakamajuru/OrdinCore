@@ -1,15 +1,47 @@
 import { Request, Response } from 'express';
 import { usersService } from '../services/users.service';
+import { query } from '../config/database';
 
 export class UsersController {
   async create(req: Request, res: Response) {
     try {
+      const requestedRole = String(req.body.role || '').toUpperCase().replace(/-/g, '_');
+      if (req.user!.role !== 'SUPER_ADMIN' && requestedRole === 'SUPER_ADMIN') {
+        return res.status(403).json({ success: false, message: 'Company Admin cannot create a platform administrator.', errors: [] });
+      }
       const company_id = req.user!.role === 'SUPER_ADMIN' ? req.body.company_id : req.user!.company_id!;
       const user = await usersService.create(company_id, req.body);
       return res.status(201).json({ success: true, data: user, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create user';
       return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  /** Minimal staff picker for operational screens. Never returns email,
+   * permissions, login/session data or another provider's users. */
+  async directory(req: Request, res: Response) {
+    try {
+      const companyId = req.user!.company_id!;
+      const wantedRole = req.query.role ? String(req.query.role).toUpperCase() : null;
+      const senior = ['ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(req.user!.role);
+      const siteIds = req.user!.assigned_house_ids || [];
+      const result = await query(
+        `SELECT u.id, TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')) AS name,
+                u.role, ARRAY_REMOVE(ARRAY_AGG(DISTINCT uh.house_id), NULL) AS house_ids
+           FROM users u LEFT JOIN user_houses uh ON uh.user_id=u.id
+          WHERE u.company_id=$1 AND LOWER(COALESCE(u.status,'active'))='active'
+            AND u.role<>'SUPER_ADMIN'
+            AND ($2::text IS NULL OR u.role=$2 OR EXISTS
+                (SELECT 1 FROM user_roles ur WHERE ur.user_id=u.id AND ur.role=$2))
+          GROUP BY u.id
+         HAVING ($3::boolean OR ARRAY_AGG(uh.house_id) && $4::uuid[])
+          ORDER BY u.first_name, u.last_name`,
+        [companyId, wantedRole, senior, siteIds]
+      );
+      return res.json({ success: true, data: result.rows, meta: {} });
+    } catch {
+      return res.status(500).json({ success: false, message: 'Failed to load eligible staff directory', errors: [] });
     }
   }
 
@@ -89,6 +121,10 @@ export class UsersController {
 
   async update(req: Request, res: Response) {
     try {
+      const requestedRole = String(req.body.role || '').toUpperCase().replace(/-/g, '_');
+      if (req.user!.role !== 'SUPER_ADMIN' && requestedRole === 'SUPER_ADMIN') {
+        return res.status(403).json({ success: false, message: 'Company Admin cannot grant platform access.', errors: [] });
+      }
       const company_id = req.user?.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
       const user = await usersService.update(req.params.id, company_id!, { ...req.body, house_ids: req.body.house_ids });
       return res.json({ success: true, data: user });
@@ -146,6 +182,9 @@ export class UsersController {
 
   async getHouses(req: Request, res: Response) {
     try {
+      if (req.params.id !== req.user!.user_id && !['ADMIN', 'SUPER_ADMIN'].includes(req.user!.role)) {
+        return res.status(403).json({ success: false, message: 'You may only view your own service assignments.', errors: [] });
+      }
       const company_id = req.user!.company_id!;
       const result = await usersService.getHouses(req.params.id, company_id);
       return res.json({ success: true, data: result, meta: {} });
@@ -168,6 +207,10 @@ export class UsersController {
 
   async assignRole(req: Request, res: Response) {
     try {
+      const requestedRole = String(req.body.role || '').toUpperCase().replace(/-/g, '_');
+      if (req.user!.role !== 'SUPER_ADMIN' && requestedRole === 'SUPER_ADMIN') {
+        return res.status(403).json({ success: false, message: 'Company Admin cannot grant platform access.', errors: [] });
+      }
       const company_id = req.user!.company_id!;
       const result = await usersService.assignRole(req.params.id, company_id, req.body.role);
       return res.json({ success: true, data: result, meta: {} });
@@ -214,7 +257,14 @@ export class UsersController {
 
   async getSessions(req: Request, res: Response) {
     try {
-      return res.json({ success: true, data: [], meta: {} });
+      const companyId = req.user!.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      await usersService.findById(req.params.id, companyId);
+      const sessions = await query(
+        `SELECT id, created_at, expires_at, revoked_at,
+                CASE WHEN revoked_at IS NULL AND expires_at>NOW() THEN 'active' ELSE 'ended' END AS status
+           FROM refresh_tokens WHERE user_id=$1 ORDER BY created_at DESC LIMIT 25`, [req.params.id]
+      );
+      return res.json({ success: true, data: sessions.rows, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to get sessions';
       return res.status(500).json({ success: false, message, errors: [] });
@@ -223,7 +273,15 @@ export class UsersController {
 
   async revokeSessions(req: Request, res: Response) {
     try {
-      return res.json({ success: true, data: { message: 'Sessions revoked' }, meta: {} });
+      const companyId = req.user!.role === 'SUPER_ADMIN' ? null : req.user!.company_id!;
+      const target = await usersService.findById(req.params.id, companyId);
+      await query(`UPDATE refresh_tokens SET revoked_at=NOW() WHERE user_id=$1 AND revoked_at IS NULL`, [req.params.id]);
+      await query(
+        `INSERT INTO audit_logs (company_id,user_id,action,resource,resource_id,new_values)
+         VALUES ($1,$2,'user.sessions_revoked','user',$3,$4)`,
+        [target.company_id, req.user!.user_id, req.params.id, JSON.stringify({ target_user_id: req.params.id })]
+      );
+      return res.json({ success: true, data: { message: 'All active sessions revoked' }, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to revoke sessions';
       return res.status(400).json({ success: false, message, errors: [] });
