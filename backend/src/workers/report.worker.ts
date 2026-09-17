@@ -121,7 +121,7 @@ async function generateRiskSummary(company_id: string, parameters: Record<string
   const closedRisks = await query(
     `SELECT r.title, r.severity, r.updated_at 
      FROM canonical_risk_state_v r 
-     WHERE r.company_id = $1 AND r.status IN ('closed', 'resolved') ${houseClause.replace(/house_id/g, 'r.house_id')}
+     WHERE r.company_id = $1 AND r.is_closed ${houseClause.replace(/house_id/g, 'r.house_id')}
      ORDER BY r.updated_at DESC LIMIT 20`,
     [company_id, ...houseValues]
   );

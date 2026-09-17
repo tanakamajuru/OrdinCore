@@ -270,7 +270,7 @@ export class WeeklyReviewsService {
          FROM canonical_action_state_v ra
          LEFT JOIN users u ON u.id=ra.assigned_to AND u.company_id=ra.company_id
         WHERE ra.company_id=$1 AND ra.house_id=$2
-          AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')
+          AND ra.is_open
         ORDER BY ra.due_date NULLS LAST LIMIT 30`, [company_id, house_id])).rows;
 
     const evidenceGaps: string[] = [];
@@ -416,7 +416,7 @@ export class WeeklyReviewsService {
        SELECT dg.domain, dg.signal_count, dg.high_critical,
               (SELECT r.trajectory::text FROM canonical_risk_state_v r
                  WHERE r.company_id = $1 AND r.house_id = $2 AND r.risk_domain::text = dg.domain
-                   AND r.status::text NOT IN ('Closed','Resolved','closed','resolved')
+                   AND r.is_active
                  ORDER BY r.updated_at DESC NULLS LAST LIMIT 1) AS trajectory
          FROM dg ORDER BY dg.signal_count DESC`, p)).rows;
 
@@ -464,7 +464,7 @@ export class WeeklyReviewsService {
          LEFT JOIN signal_clusters sc ON sc.id = ra.source_cluster_id
          LEFT JOIN users u ON u.id = ra.assigned_to AND u.company_id = ra.company_id
         WHERE ra.company_id = $1 AND ra.house_id = $2
-          AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')
+          AND ra.is_open
         ORDER BY ra.due_date NULLS LAST LIMIT 20`, [company_id, row.house_id])).rows;
 
     const signals_reviewed = domainGroups.reduce((n: number, g: any) => n + (g.signal_count || 0), 0);

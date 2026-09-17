@@ -87,7 +87,7 @@ export class GovernanceService {
                          AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
                          AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
                     ) AS has_critical
-             FROM signal_clusters sc
+             FROM canonical_pattern_state_v sc
              LEFT JOIN houses h ON h.id = sc.house_id
              WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
@@ -128,7 +128,7 @@ export class GovernanceService {
              sc.trajectory as pattern_trajectory,
              COALESCE(sc.signal_count::text, '0') || ' ' || sc.risk_domain || ' signals detected in last period' as reason
       FROM risk_candidates rc
-      LEFT JOIN signal_clusters sc ON rc.cluster_id = sc.id
+      LEFT JOIN canonical_pattern_state_v sc ON rc.cluster_id = sc.id
       WHERE rc.company_id = $1
       -- [DEDUP] An item must appear in exactly one queue. When a person-level
       -- candidate exists for the same house+domain, suppress the redundant

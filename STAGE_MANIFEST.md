@@ -26,6 +26,13 @@ Deployment order: **147 → 149 → 150 → Stage 2B → 151**.
 | Stage 2B — Canonical Evidence Consumer Adoption | *(no migration; uses 150 contracts)* | `fde0070` | `/canonical-evidence/summary`; shared `CanonicalEvidenceStrip` adopted by web My Work / Risk Register / RM5 / Director / RI and mobile My Work + Risk Detail. |
 | Final Truth-Chain Release Gate | `151_truth_chain_release_gate.sql` | `cd6f4b0` | Daily evidence anchored to log `review_date`; provider-local governance timezone/cadence (`companies.governance_timezone` / `_dow` / `_time`); Guided Work cannot hide active work via `exclude`. |
 
+### Canonical Action Evidence Contract & Consolidation
+
+| Stage | Migration | Purpose |
+|---|---|---|
+| Action Evidence Contract | `152_canonical_action_evidence_contract.sql` | `risk_actions.review_requirement` (`COMPLETION_ONLY`/`EFFECTIVENESS_REQUIRED`); only effectiveness-bearing actions raise an effectiveness obligation; sole writer remains `canonicalGovernanceAction.service`. |
+| Canonical Consolidation Release (#78) | `153_legacy_action_remediation.sql` | Phase 3 of the Stabilisation Plan. Read-side consolidation: all open/closed reads route through canonical view flags (`is_open`/`is_active`/`is_closed`) instead of free-text status literals (daily/weekly/reports services + escalation/report/trajectory workers); `signal_count`/`trajectory` reads route through `canonical_pattern_state_v`. Migration 153 remediates legacy unclassified `risk_actions` to `COMPLETION_ONLY` with a no-NULL post-condition guard. Governed by [docs/canonical/CANONICAL_VIOLATION_REGISTER.md](docs/canonical/CANONICAL_VIOLATION_REGISTER.md) + [docs/canonical/TRUTH_CHAIN_DEPENDENCY_MAP.md](docs/canonical/TRUTH_CHAIN_DEPENDENCY_MAP.md). |
+
 Notes:
 - Migration 148 (`company_security_settings` / `access_reviews`, Organisation Administration workspace) and 144–146 are separate feature migrations, not part of the truth chain above.
 - Guided Work's `excludeId` parameter and its two `.filter(... !== excludeId)` statements were physically removed (`guidedWork.service.getForUser`): the full canonical population is always returned; completion removes an item only by changing canonical state.

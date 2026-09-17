@@ -362,7 +362,7 @@ export class DailyGovernanceService {
                  FROM canonical_action_state_v ra
                  LEFT JOIN users au ON au.id = ra.assigned_to
                 WHERE ra.house_id = dgl.house_id AND ra.company_id = $2
-                  AND ra.status::text NOT IN ('Complete','Completed','Cancelled','Closed')) AS actions,
+                  AND ra.is_open) AS actions,
               (SELECT COALESCE(json_agg(json_build_object(
                         'id', e.id, 'title', e.reason,
                         'owner', NULLIF(TRIM(COALESCE(eu.first_name,'') || ' ' || COALESCE(eu.last_name,'')), ''),

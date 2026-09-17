@@ -120,7 +120,7 @@ export class ReportsDataService {
          FROM canonical_pattern_state_v sc
          LEFT JOIN governance_domains d ON d.name = sc.risk_domain
         WHERE sc.company_id = $1 AND sc.scope='cross_service'
-          AND sc.cluster_status IN ('Escalated','Emerging','Confirmed')
+          AND sc.is_active
           AND cardinality(COALESCE(sc.affected_house_ids,ARRAY[]::uuid[])) >= 2
         GROUP BY sc.id, sc.risk_domain, sc.affected_house_ids, sc.signal_count, sc.company_id
         ORDER BY service_count DESC, total_signals DESC`,

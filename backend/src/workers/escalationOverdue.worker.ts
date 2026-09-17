@@ -50,9 +50,9 @@ export const startEscalationOverdueWorker = () => {
       const overdue = await query(
         `SELECT e.id, e.company_id, e.escalated_to, e.reason, e.trigger_type, e.priority,
                 u.role AS current_role
-           FROM escalations e
+           FROM canonical_escalation_state_v e
            LEFT JOIN users u ON u.id = e.escalated_to
-          WHERE e.lifecycle_status NOT IN ('Closed')
+          WHERE e.is_open
             AND e.due_by IS NOT NULL
             AND e.due_by < NOW()`
       );
