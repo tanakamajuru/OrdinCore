@@ -20,9 +20,25 @@ router.get('/next', requireAuth, requireTenant, async (req, res) => {
     // the client supplied its id as `exclude`; canonical completion must remove it.
     const currentId = String(req.query.current || '');
     const data = await guidedWorkService.getForUser(req.user!.company_id!, req.user!.user_id, req.user!.role);
-    const currentStillNeedsWork = currentId ? data.needsYou.some((item:any) => item.id === currentId) : false;
+    const currentTask = currentId ? data.needsYou.find((item:any) => item.id === currentId) : null;
+    const currentStillNeedsWork = !!currentTask;
     if (currentStillNeedsWork) {
-      return res.status(409).json({ success:false, message:'Current governance task still requires completion.', data:{ next:null, counts:data.counts, currentStillNeedsWork:true }, meta:{ read_model:true, writes:false, canonical_reprojection:true } });
+      return res.status(409).json({
+        success:false,
+        message:`${currentTask.requiredAction || currentTask.taskType || 'Governance work'} still requires completion.`,
+        data:{
+          next:null, counts:data.counts, currentStillNeedsWork:true,
+          current:{
+            workItemId:currentTask.id, obligationId:currentTask.obligationId || null,
+            subjectType:currentTask.canonicalEntityType, subjectId:currentTask.canonicalEntityId,
+            requiredAction:currentTask.requiredAction || currentTask.taskType,
+            completionCondition:currentTask.completionCondition || null,
+            reason:currentTask.whyAmISeeingThis || currentTask.reason,
+            exactRoute:currentTask.route
+          }
+        },
+        meta:{ read_model:true, writes:false, canonical_reprojection:true }
+      });
     }
     return res.json({ success:true, data:{ next:data.next, counts:data.counts, currentStillNeedsWork:false }, meta:{ read_model:true, writes:false, canonical_reprojection:true } });
   } catch (err:any) {

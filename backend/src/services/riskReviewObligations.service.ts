@@ -24,7 +24,9 @@ export const riskReviewObligationsService = {
       `UPDATE governance_review_obligations
           SET status='COMPLETED', completed_at=NOW(), completed_by=$3,
               completion_note=$4, updated_at=NOW()
-        WHERE company_id=$1 AND subject_type='RISK' AND subject_id=$2 AND status='OPEN'`,
+        WHERE company_id=$1 AND status='OPEN'
+          AND obligation_type IN ('RISK_SCHEDULED_REVIEW','RISK_POST_EFFECTIVENESS','POST_ESCALATION_RISK')
+          AND (source_risk_id=$2 OR (subject_type='RISK' AND subject_id=$2))`,
       [companyId, riskId, userId, note]
     );
   },

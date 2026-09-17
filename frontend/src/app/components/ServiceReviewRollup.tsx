@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { BackButton } from "./ui/BackButton";
 import { Layers, Building2, Activity, AlertTriangle, CheckCircle2, ChevronRight } from "lucide-react";
@@ -18,8 +18,9 @@ const POSITION_TONE: Record<string, string> = {
 
 export function ServiceReviewRollup() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [data, setData] = useState<any>(null);
-  const [week, setWeek] = useState<string>("");
+  const [week, setWeek] = useState<string>(() => new URLSearchParams(window.location.search).get("weekEnding") || "");
   const [loading, setLoading] = useState(true);
   const [rollup, setRollup] = useState<any>(null);
   const [signing, setSigning] = useState(false);

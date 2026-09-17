@@ -19,6 +19,9 @@ export type GuidedWorkItem = {
   serviceName?: string | null;
   canonicalEntityType: EntityType;
   canonicalEntityId: string;
+  obligationId?: string | null;
+  requiredAction?: string;
+  completionCondition?: string;
   route: string;
   actionLabel: string;
   whyAmISeeingThis: string;
@@ -84,7 +87,9 @@ export const guidedWorkService = {
         id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
         title:a.title || 'Complete assigned action', summary:'Complete the assigned intervention and record factual completion evidence.',
         reason:'Management has assigned this action to you.', dueAt:a.due_date, serviceName:a.service_name,
-        canonicalEntityType:'action', canonicalEntityId:a.id, route:`/my-actions?guided=1&gw=action:${a.id}`,
+        canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
+        completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
+        route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
         actionLabel:'Complete Action', whyAmISeeingThis:'This action is assigned to you and remains open.'
       });
 
@@ -98,7 +103,9 @@ export const guidedWorkService = {
         id:`weekly_ack:${w.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_ACK',
         title:'Read published weekly governance review', summary:`Week ending ${w.week_ending}`,
         reason:'A published weekly governance review is awaiting your acknowledgement.', serviceName:w.service_name,
-        canonicalEntityType:'weekly_governance', canonicalEntityId:w.id, route:`/weekly-review/${w.id}?guided=1&gw=weekly_ack:${w.id}`,
+        canonicalEntityType:'weekly_governance', canonicalEntityId:w.id, requiredAction:'ACKNOWLEDGE_WEEKLY_GOVERNANCE',
+        completionCondition:'Your acknowledgement of this exact published weekly review is persisted.',
+        route:`/weekly-review/${w.id}?guided=1&gw=weekly_ack:${w.id}`,
         actionLabel:'Read & Acknowledge', whyAmISeeingThis:'This weekly review has been published for your service and has not yet been acknowledged by you.'
       });
     }
@@ -114,12 +121,12 @@ export const guidedWorkService = {
         id:`signal:${s.id}`, role, state:'NEEDS_YOU', priority:priorityFor(null, ['Critical','High'].includes(s.severity)), taskType:'SIGNAL_DECISION',
         title:`Review ${s.related_person ? `${s.related_person} · ` : ''}signal`, summary:s.description || 'New governance signal',
         reason:'A new signal is awaiting an RM Daily Governance decision.', serviceName:s.service_name,
-        canonicalEntityType:'signal', canonicalEntityId:s.id, route:`/governance-dashboard?guided=1&gw=signal:${s.id}&pulseId=${s.id}&houseId=${s.house_id}`,
+        canonicalEntityType:'signal', canonicalEntityId:s.id, requiredAction:'RM_SIGNAL_DECISION', completionCondition:'A canonical RM Daily Governance decision is persisted for this signal.', route:`/governance-dashboard?guided=1&gw=signal:${s.id}&pulseId=${s.id}&houseId=${s.house_id}`,
         actionLabel:'Review Signal', whyAmISeeingThis:'This signal has not yet received an RM governance decision.'
       });
 
       const monitoring = await safeRows(`
-        SELECT gr.id, gr.what_is_happening, gr.due_at, h.name AS service_name
+        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.due_at, h.name AS service_name
           FROM governance_reviews gr LEFT JOIN houses h ON h.id=gr.service_id
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
            AND gr.decision_owner_id=$2 AND gr.due_at <= NOW()
@@ -127,7 +134,9 @@ export const guidedWorkService = {
       for (const m of monitoring) needsYou.push({
         id:`monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'DUE', taskType:'MONITORING_REVIEW', title:'Review monitored concern',
         summary:m.what_is_happening || 'Monitoring review due', reason:'The monitoring review point has been reached.', dueAt:m.due_at, serviceName:m.service_name,
-        canonicalEntityType:'risk', canonicalEntityId:m.id, route:`/governance-dashboard?guided=1&gw=monitor:${m.id}`,
+        canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'RM_MONITORING_REVIEW',
+        completionCondition:'A new canonical RM decision is persisted for the monitored signal at its due review point.',
+        route:m.pulse_entry_id ? `/governance-dashboard?pulseId=${m.pulse_entry_id}&houseId=${m.service_id}&guided=1&gw=monitor:${m.id}` : `/governance-dashboard?guided=1&gw=monitor:${m.id}`,
         actionLabel:'Review Monitoring', whyAmISeeingThis:'You previously chose Monitor and the review date is now due.'
       });
 
@@ -146,29 +155,38 @@ export const guidedWorkService = {
          ORDER BY o.due_at`, [companyId, userId]);
       for (const o of obligations) {
         const kind = String(o.obligation_type);
-        let entity: EntityType='risk', route='/risk-register', label='Review';
-        if (kind==='ACTION_EFFECTIVENESS') { entity='effectiveness_review'; route='/effectiveness'; label='Review Effectiveness'; }
-        else if (kind==='PATTERN_REVIEW') { entity='pattern'; route='/systemic-patterns'; label='Review Pattern'; }
-        else if (kind==='POST_ESCALATION_RISK') { entity='risk'; route='/risk-register?review=awaiting'; label='Review Risk'; }
+        let entity: EntityType='risk', label='Review', requiredAction=kind, canonicalId=o.subject_id, deepRoute='';
         const critical = o.risk_severity==='Critical';
-        // A pattern review opens the actual promoted/linked risk when one exists, not the register.
+        const riskId = o.source_risk_id || (o.subject_type === 'RISK' ? o.subject_id : null);
+        const actionId = o.source_action_id || (o.subject_type === 'ACTION' ? o.subject_id : null);
+        const escalationId = o.source_escalation_id || (o.subject_type === 'ESCALATION' ? o.subject_id : null);
+        const patternId = o.source_cluster_id || (o.subject_type === 'PATTERN' ? o.subject_id : null);
         const patternRiskId = kind === 'PATTERN_REVIEW' ? o.pattern_linked_risk_id : null;
-        // For a risk-type obligation the actual risk is source_risk_id (or subject_id only when the
-        // subject IS the risk). subject_id can be the escalation/action that triggered the review,
-        // so linking to /risk-register/:subject_id gave "Risk not found". Fall back to the awaiting
-        // register rather than a dead id.
-        const riskId = entity === 'risk'
-          ? (o.source_risk_id || (o.subject_type === 'RISK' ? o.subject_id : null))
-          : null;
-        const deepRoute = entity === 'risk'
-          ? (riskId ? `/risk-register/${riskId}?guided=1&gw=obligation:${o.id}` : `/risk-register?review=awaiting&guided=1&gw=obligation:${o.id}`)
-          : patternRiskId
+
+        if (kind==='ACTION_EFFECTIVENESS') {
+          entity='effectiveness_review'; label='Review Effectiveness'; requiredAction='FINAL_EFFECTIVENESS_REVIEW';
+          canonicalId=actionId || o.subject_id;
+          deepRoute=`/effectiveness?focus=${canonicalId}&guided=1&gw=obligation:${o.id}`;
+        } else if (kind==='PATTERN_REVIEW') {
+          entity='pattern'; label='Review Pattern'; requiredAction='PATTERN_GOVERNANCE_REVIEW';
+          canonicalId=patternId || o.subject_id;
+          deepRoute=patternRiskId
             ? `/risk-register/${patternRiskId}?guided=1&gw=obligation:${o.id}`
-            : `${route}${route.includes('?')?'&':'?'}guided=1&gw=obligation:${o.id}&subjectId=${o.subject_id}`;
+            : `/systemic-patterns?focus=${canonicalId}&guided=1&gw=obligation:${o.id}`;
+        } else {
+          entity='risk'; label='Review Risk'; requiredAction='RM_RISK_REVIEW';
+          canonicalId=riskId || o.subject_id;
+          deepRoute=riskId
+            ? `/risk-register/${riskId}?review=1&guided=1&gw=obligation:${o.id}`
+            : `/risk-register?review=awaiting&guided=1&gw=obligation:${o.id}`;
+        }
         needsYou.push({ id:`obligation:${o.id}`, role, state:'NEEDS_YOU', priority:priorityFor(o.due_at,critical), taskType:kind,
           title:o.subject_title || o.reason || 'Governance review due', summary:o.reason || 'A governance review obligation is due.', reason:o.reason || 'Review due.', dueAt:o.due_at, serviceName:o.service_name,
-          canonicalEntityType:entity, canonicalEntityId:(entity==='risk' ? (riskId || o.subject_id) : o.subject_id), route:deepRoute,
-          actionLabel:label, whyAmISeeingThis:o.reason || 'This governance review obligation is due.' });
+          canonicalEntityType:entity, canonicalEntityId:canonicalId, obligationId:o.id, requiredAction,
+          completionCondition: kind==='ACTION_EFFECTIVENESS' ? 'A FINAL effectiveness review is persisted for this action.'
+            : kind==='PATTERN_REVIEW' ? 'A canonical pattern governance review is persisted and the review obligation is completed.'
+            : 'An RM risk-review decision is persisted and all due obligations for this risk are completed.',
+          route:deepRoute, actionLabel:label, whyAmISeeingThis:o.reason || 'This governance review obligation is due.' });
       }
 
       const escalations = await safeRows(`
@@ -179,7 +197,9 @@ export const guidedWorkService = {
          ORDER BY e.due_by`, [companyId, houses]);
       for (const e of escalations) needsYou.push({ id:`escalation:${e.id}`, role, state:'NEEDS_YOU', priority:priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
         title:'Review open escalation', summary:e.reason || 'Escalation review due', reason:'The escalation review date has been reached.', dueAt:e.due_by, serviceName:e.service_name,
-        canonicalEntityType:'escalation', canonicalEntityId:e.id, route:`/escalation-log?guided=1&gw=escalation:${e.id}&escalationId=${e.id}`,
+        canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
+        completionCondition:'The escalation is closed or its canonical next review point is moved into the future.',
+        route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
         actionLabel:'Review Escalation', whyAmISeeingThis:'This escalation is still open and its review/due point has been reached.' });
 
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
@@ -214,7 +234,9 @@ export const guidedWorkService = {
          ORDER BY h.name`, [companyId]);
       for (const h of weekly) needsYou.push({ id:`weekly:${h.id}:${h.week_ending}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
         summary:`Review the completed week ending ${h.week_ending}.`, reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
-        canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, route:`/weekly-review?guided=1&gw=weekly:${h.id}:${h.week_ending}&houseId=${h.id}&weekEnding=${h.week_ending}`,
+        canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, requiredAction:'WEEKLY_GOVERNANCE_REVIEW',
+        completionCondition:'The specified service/week review is submitted into the existing weekly governance lifecycle.',
+        route:`/weekly-review?guided=1&gw=weekly:${h.id}:${h.week_ending}&houseId=${h.id}&weekEnding=${h.week_ending}`,
         actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' });
 
       // Waiting = open actions in scoped services owned by someone else.
@@ -227,30 +249,32 @@ export const guidedWorkService = {
          ORDER BY ra.due_date NULLS LAST LIMIT 20`, [companyId,houses,userId]);
       for (const a of waitingActions) waiting.push({ id:`waiting_action:${a.id}`, role, state:'WAITING', priority:'NORMAL', taskType:'WAITING_ACTION', title:a.title || 'Action in progress',
         summary:`Assigned to ${[a.first_name,a.last_name].filter(Boolean).join(' ') || 'another owner'}`, reason:'Another owner has the next action.', dueAt:a.due_date, serviceName:a.service_name,
-        canonicalEntityType:'action', canonicalEntityId:a.id, route:`/my-actions?guided=1&gw=waiting_action:${a.id}`,
+        canonicalEntityType:'action', canonicalEntityId:a.id, route:`/my-actions?focus=${a.id}&guided=1&gw=waiting_action:${a.id}`,
         actionLabel:'View', whyAmISeeingThis:'This linked action remains open, but another owner is responsible for the next step.' });
     }
 
     // DIRECTOR: weekly validations, cross-service patterns, strategic/critical risks and incomplete effectiveness.
     if (role === 'DIRECTOR') {
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
-      for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${w.week_ending}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,route:`/weekly-review/validate?guided=1&gw=director_weekly:${w.id}`,actionLabel:'Validate Review',whyAmISeeingThis:'This weekly review has been submitted for Director validation.'});
+      for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${w.week_ending}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,requiredAction:'DIRECTOR_WEEKLY_VALIDATION',
+completionCondition:'The specified weekly review is validated through the existing Director validation function.',
+route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'Validate Review',whyAmISeeingThis:'This weekly review has been submitted for Director validation.'});
 
       const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,sc.linked_risk_id,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND (sc.review_due OR sc.canonical_status='ESCALATED') ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
       // A promoted pattern opens the actual linked risk; an unpromoted one opens the pattern register.
-      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:p.linked_risk_id?'risk':'pattern',canonicalEntityId:p.linked_risk_id||p.id,route:p.linked_risk_id?`/risk-register/${p.linked_risk_id}?guided=1&gw=director_pattern:${p.id}`:`/systemic-patterns?guided=1&gw=director_pattern:${p.id}&clusterId=${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
+      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:'pattern',canonicalEntityId:p.id,requiredAction:'DIRECTOR_PATTERN_REVIEW',completionCondition:'The exact systemic pattern receives the required leadership review.',route:`/systemic-patterns?focus=${p.id}&guided=1&gw=director_pattern:${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
 
       const risks = await safeRows(`SELECT id,title,severity::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND (severity::text='Critical' OR needs_review) ORDER BY (severity::text='Critical') DESC,review_due_at NULLS LAST,updated_at DESC LIMIT 20`,[companyId]);
-      for (const r of risks) needsYou.push({id:`director_risk:${r.id}`,role,state:'NEEDS_YOU',priority:r.severity==='Critical'?'URGENT':priorityFor(r.due_at),taskType:'STRATEGIC_RISK_REVIEW',title:r.title||'Review strategic risk',summary:`${r.severity} risk`,reason:'A material risk requires Director oversight.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,route:`/risk-register/${r.id}?guided=1&gw=director_risk:${r.id}`,actionLabel:'Review Risk',whyAmISeeingThis:'This risk is critical or deteriorating and requires leadership scrutiny.'});
+      for (const r of risks) needsYou.push({id:`director_risk:${r.id}`,role,state:'NEEDS_YOU',priority:r.severity==='Critical'?'URGENT':priorityFor(r.due_at),taskType:'STRATEGIC_RISK_REVIEW',title:r.title||'Review strategic risk',summary:`${r.severity} risk`,reason:'A material risk requires Director oversight.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,requiredAction:'DIRECTOR_RISK_REVIEW',completionCondition:'The required leadership review of this exact risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=director_risk:${r.id}`,actionLabel:'Review Risk',whyAmISeeingThis:'This risk is critical or deteriorating and requires leadership scrutiny.'});
     }
 
     // RI: material assurance exceptions and provider sign-off.
     if (role === 'RESPONSIBLE_INDIVIDUAL') {
       const risks = await safeRows(`SELECT id,title,severity::text,trajectory::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND severity::text='Critical' ORDER BY updated_at DESC LIMIT 20`,[companyId]);
-      for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
+      for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,requiredAction:'RI_ASSURANCE_RISK_REVIEW',completionCondition:'The required RI assurance review of this exact critical risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
 
       const ready = await safeRows(`SELECT DISTINCT wr.week_ending FROM weekly_reviews wr WHERE wr.company_id=$1 AND wr.week_ending=(SELECT MAX(week_ending) FROM weekly_reviews WHERE company_id=$1) AND wr.validation_status='Approved' AND NOT EXISTS (SELECT 1 FROM provider_review_signoffs prs WHERE prs.company_id=$1 AND prs.week_ending=wr.week_ending)`,[companyId]);
-      if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${ready[0].week_ending}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),route:`/provider-signoff?guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
+      if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${ready[0].week_ending}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${ready[0].week_ending}&guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
     }
 
     // Completed today is informational only; no state is owned by Guided Work.

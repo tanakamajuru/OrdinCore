@@ -331,7 +331,7 @@ export function EscalationLog() {
   const focusedRef = useRef(false);
   useEffect(() => {
     if (focusedRef.current) return;
-    const fid = searchParams.get('focus');
+    const fid = searchParams.get('focus') || searchParams.get('escalationId');
     if (!fid || escalations.length === 0) return;
     const target = escalations.find((e: any) => String(e.id) === String(fid));
     if (target) { focusedRef.current = true; handleSelectEscalation(target); }

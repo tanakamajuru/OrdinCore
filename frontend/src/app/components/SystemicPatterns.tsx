@@ -26,6 +26,8 @@ const dirOf = (x: any): string =>
 
 export function SystemicPatterns() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const guidedFocusRef = useRef(false);
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewTarget, setReviewTarget] = useState<any>(null);
@@ -67,6 +69,13 @@ export function SystemicPatterns() {
   };
 
   const openReview = (p: any) => { setReviewTarget(p); setOutcome("Continue Monitoring"); setRationale(""); setNextDate(""); };
+  useEffect(() => {
+    if (guidedFocusRef.current || !items.length) return;
+    const focusId = searchParams.get('focus') || searchParams.get('clusterId');
+    if (!focusId) return;
+    const target = items.find((p:any) => String(p.id) === String(focusId));
+    if (target) { guidedFocusRef.current = true; openReview(target); }
+  }, [items, searchParams]);
 
   return (
     <div className="min-h-screen bg-background">
