@@ -115,6 +115,23 @@ const CompanyAdminRoute = ({ children }: { children: React.ReactNode }) => {
   return role === 'ADMIN' ? <>{children}</> : <Navigate to="/dashboard" replace />;
 };
 
+// RM Daily Oversight is a Registered-Manager command centre. Team Leaders and
+// Support Workers must not reach it (its board endpoint is RM-scoped and 403s),
+// so block the direct URL as well as hiding the nav item.
+const RmRoute = ({ children }: { children: React.ReactNode }) => {
+  const { user, isAuthenticated, isLoading } = useAuth();
+  if (isLoading) return (
+    <div className="min-h-screen bg-background flex items-center justify-center">
+      <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary" />
+    </div>
+  );
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+  const role = user?.role?.toUpperCase().replace(/-/g, '_') || '';
+  return ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(role)
+    ? <>{children}</>
+    : <Navigate to="/dashboard" replace />;
+};
+
 export default function App() {
   return (
     <AuthProvider>
@@ -262,9 +279,9 @@ export default function App() {
               to the RM dashboard. */}
           <Route path="/oversight-board" element={<Navigate to="/governance-dashboard" replace />} />
           <Route path="/governance-dashboard" element={
-            <ProtectedRoute>
+            <RmRoute>
               <DailyOversightBoard />
-            </ProtectedRoute>
+            </RmRoute>
           } />
           <Route path="/governance-pulse/:id" element={
             <ProtectedRoute>
