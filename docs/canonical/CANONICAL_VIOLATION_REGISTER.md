@@ -125,9 +125,15 @@ None of these touch `status`, `completion_evidence`, `effectiveness_outcome`, or
 
 ## HISTORICAL — data remediation (feeds Phase 6, not code)
 
-- **13 legacy unclassified `risk_actions`** with no `review_requirement` (from migration 152 dry-run: 140 classified, 13 unclassified). These pre-date the Action Evidence Contract. They must be remediated (classified `COMPLETION_ONLY` / `EFFECTIVENESS_REQUIRED`) before they can carry an effectiveness rating. **Queue for Phase 6 historical remediation.**
+- **Legacy unclassified `risk_actions`** — RESOLVED by migration 153 (#78): live had 36 unclassified rows, all confirmed to carry no effectiveness signals, classified `COMPLETION_ONLY` with a no-NULL post-condition guard. Verified live: 0 remain NULL.
+- **9 active signal clusters carry `signal_count > 0` with no linked-pulse evidence** (invariant I5, reported by `verify:invariants`). `signal_count` is maintained independently of `risk_signal_links`, so these clusters count signals that are not addressable to pulse evidence. **Open Phase 6 item:** either backfill the pulse links or recompute `signal_count` from `canonical_signal_evidence_v`. Reported as a warning, not a release-blocking gate.
 
 ---
+
+## Phase 4 & 5 (#79)
+
+- **Phase 5 — canonical invariants:** `backend/scripts/verify-canonical-invariants.sql` (`npm run verify:invariants`). Six data-level invariants: I1 evidence-contract completeness, I2 evidence addressability, I3 flag coherence, I4 obligation referential integrity, I5 signal-count cache coherence (soft/Phase-6), I6 contract routing. Validated on live: I1–I4, I6 hold (0 violations); I5 reports 9 legacy clusters → Phase 6.
+- **Phase 4 — E2E harness:** `backend/src/__e2e__/canonicalTruthChain.e2e.test.ts` + `jest.e2e.config.js` (`npm run test:e2e`), isolated from the unit suite. Contract layer (DB-free) runs now — proves protected canonical routes reject anonymous/invalid callers and login validates. Truth-chain layer self-skips until `E2E_DATABASE_URL` + seed fixtures are wired (CI), with `it.todo` markers for the seeded journey.
 
 ## Register summary
 

@@ -16,8 +16,10 @@
     "worker:reports": "ts-node src/workers/report.worker.ts",
     "workers": "ts-node src/run_workers.ts",
     "test": "jest",
+    "test:e2e": "jest --config jest.e2e.config.js --forceExit",
     "typecheck": "tsc --noEmit -p tsconfig.json",
     "verify:canonical": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/verify-canonical-governance.sql",
+    "verify:invariants": "psql \"$DATABASE_URL\" -v ON_ERROR_STOP=1 -f scripts/verify-canonical-invariants.sql",
     "verify:contract": "node -e \"JSON.parse(require('fs').readFileSync('../contracts/governance-state.v1.schema.json','utf8')); console.log('governance-state-v1 schema valid JSON')\""
   },
   "dependencies": {
