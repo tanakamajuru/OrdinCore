@@ -23,6 +23,12 @@ export class ActionEffectivenessService {
   ) {
     const action = await risksRepo.getActionById(actionId, company_id);
     if (!action) throw new Error('Action not found');
+    if (action.review_requirement === 'COMPLETION_ONLY') {
+      throw new Error('Governance Block: this action is completion-only and does not require an effectiveness rating.');
+    }
+    if (!action.review_requirement) {
+      throw new Error('Governance Block: legacy action is not classified. Record historical evidence remediation before rating effectiveness.');
+    }
 
     if (action.status !== 'Completed') {
       throw new Error('Governance Block: Effectiveness can only be rated for Completed actions.');
@@ -41,7 +47,7 @@ export class ActionEffectivenessService {
     if (!action.completion_evidence && !action.completion_rationale && !action.completion_note) {
       throw new Error('Governance Block: completion evidence is missing. Return the action for completion notes before rating effectiveness.');
     }
-    const intendedOutcome = String(action.intended_outcome || data.intended_outcome || '').trim();
+    const intendedOutcome = String(action.intended_outcome || '').trim();
     if (intendedOutcome.length < 10) {
       throw new Error('Governance Block: record the intended outcome before rating effectiveness.');
     }
@@ -66,7 +72,7 @@ export class ActionEffectivenessService {
            effectiveness_reviewed_by = $4,
            effectiveness_reviewed_at = NOW(),
            verification_notes = COALESCE($3, verification_notes),
-           intended_outcome = COALESCE(NULLIF($7, ''), intended_outcome),
+           intended_outcome = intended_outcome,
            effectiveness_due_at = $8
        WHERE id = $5 AND company_id = $6 RETURNING *`,
       [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome, nextReviewDate]
@@ -208,6 +214,20 @@ export class ActionEffectivenessService {
     }));
   }
 
+  async getLegacyEvidenceGaps(company_id:string){
+    return (await query(`SELECT ra.id,ra.title,ra.description,ra.status,ra.completed_at,ra.completion_evidence,
+      ra.completion_rationale,ra.completion_note,ra.intended_outcome,ra.risk_id,ra.source_pulse_id,
+      ra.source_cluster_id,ra.escalation_id,ra.governance_review_id,ra.review_requirement,ra.evidence_contract_version,
+      COALESCE(h.name,'Organisation-wide') AS house_name
+      FROM risk_actions ra
+      LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
+      LEFT JOIN houses h ON h.id=COALESCE(ra.house_id,r.house_id)
+      WHERE ra.company_id=$1 AND ra.completed_at IS NOT NULL
+        AND ra.review_requirement IS NULL
+        AND ra.effectiveness_outcome IS NULL
+      ORDER BY ra.completed_at ASC`,[company_id])).rows;
+  }
+
   async history(actionId: string, companyId: string) {
     const result = await query(
       `SELECT aer.*, u.first_name || ' ' || u.last_name AS reviewed_by_name
@@ -223,7 +243,8 @@ export class ActionEffectivenessService {
   async summary(company_id: string, start: string, end: string) {
     const result = await canonicalReportingService.effectivenessSummary(company_id, { start, end });
     const pending = await this.getPendingEffectiveness(company_id);
-    return { ...result, pending, pending_count: pending.length };
+    const legacy_evidence_gaps = await this.getLegacyEvidenceGaps(company_id);
+    return { ...result, pending, pending_count: pending.length, legacy_evidence_gaps, legacy_evidence_gap_count: legacy_evidence_gaps.length };
   }
 }
 

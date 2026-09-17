@@ -8,6 +8,7 @@ import { trajectoryForCluster, trajectoryForRisk } from './trajectory.service';
 import { riskMetricsService } from './riskMetrics.service';
 import { riskReviewObligationsService } from './riskReviewObligations.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
+import { canonicalGovernanceActionService, ActionReviewRequirement } from './canonicalGovernanceAction.service';
 
 // Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
 // (likelihood × impact) always agrees with the severity badge: Critical→25, High→16,
@@ -198,7 +199,7 @@ export class RisksService {
     return risksRepo.addEvent(risk_id, company_id, data.event_type, data.description, user_id);
   }
 
-  async addAction(risk_id: string, company_id: string, user_id: string, data: { title: string; description?: string; assigned_to?: string; due_date?: Date }) {
+  async addAction(risk_id: string, company_id: string, user_id: string, data: { title: string; description?: string; assigned_to?: string; due_date?: Date; intended_outcome?: string; review_requirement?: ActionReviewRequirement }) {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
 
@@ -228,7 +229,12 @@ export class RisksService {
       }
     }
 
-    const action = await risksRepo.addAction(risk_id, company_id, { ...data, assigned_to, created_by: user_id });
+    const action = await canonicalGovernanceActionService.create({
+      companyId:company_id,createdBy:user_id,title:data.title,description:data.description||null,
+      assignedTo:assigned_to,dueDate:data.due_date||null,houseId:risk.house_id||null,riskId:risk_id,
+      governanceDomain:risk.risk_domain||null,reviewRequirement:data.review_requirement||'EFFECTIVENESS_REQUIRED',
+      intendedOutcome:data.intended_outcome||null,
+    });
     // Notify the Team Leader the action is now theirs — previously they only discovered
     // it by opening their queue (Finding F).
     if (assigned_to) {

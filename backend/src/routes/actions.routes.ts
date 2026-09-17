@@ -17,6 +17,7 @@ const router = Router();
  *     security:
  *       - BearerAuth: []
  */
+router.patch('/:id/remediate-evidence', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionsController.remediateLegacyEvidence.bind(actionsController));
 router.patch('/:id/complete', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER'), actionsController.complete.bind(actionsController));
 
 router.get('/my', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionsController.getMyActions.bind(actionsController));

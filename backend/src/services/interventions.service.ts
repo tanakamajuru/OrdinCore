@@ -614,6 +614,8 @@ export const interventionsService = {
               : `Leadership intervention for the ${data.theme} theme.`,
             assigned_to: data.owner_id || undefined,
             due_date: data.review_date ? new Date(data.review_date) : undefined,
+            intended_outcome: data.expected_outcome || undefined,
+            review_requirement: 'EFFECTIVENESS_REQUIRED',
           });
 
           await query(

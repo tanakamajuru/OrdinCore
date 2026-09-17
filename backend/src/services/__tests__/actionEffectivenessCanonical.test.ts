@@ -15,6 +15,9 @@ describe('canonical action effectiveness', () => {
 
   const completedAction = {
     id: 'a1', status: 'Completed', risk_id: null,
+    // Classified effectiveness-bearing under the Canonical Action Evidence Contract, so it is
+    // eligible for an effectiveness rating (legacy unclassified actions must be remediated first).
+    review_requirement: 'EFFECTIVENESS_REQUIRED',
     completion_evidence: 'The assigned work was completed and checked.',
     intended_outcome: 'The underlying concern reduces after the action.',
   };

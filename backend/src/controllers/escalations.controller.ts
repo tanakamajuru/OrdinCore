@@ -52,6 +52,7 @@ export class EscalationsController {
         // Spec field names are rationale/nextReviewDate; keep note/due_at for back-compat.
         note: req.body.rationale ?? req.body.note,
         due_at: req.body.nextReviewDate ?? req.body.due_at,
+        intended_outcome: req.body.intended_outcome,
       });
       emitToCompany(company_id, 'governance.case.updated', { reason: 'post_closure_reviewed', escalation_id: req.params.id, risk_id: result?.linked_risk_id || null });
       return res.json({ success: true, data: result, meta: {} });

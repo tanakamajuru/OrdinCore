@@ -163,15 +163,7 @@ export const risksRepo = {
     return result.rows[0];
   },
 
-  async addAction(risk_id: string, company_id: string, data: { title: string; description?: string; assigned_to?: string; due_date?: Date; created_by: string }) {
-    const id = uuidv4();
-    const result = await query(
-      `INSERT INTO risk_actions (id, risk_id, company_id, title, description, assigned_to, due_date, created_by)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8) RETURNING *`,
-      [id, risk_id, company_id, data.title, data.description || null, data.assigned_to || null, data.due_date || null, data.created_by]
-    );
-    return result.rows[0];
-  },
+  // Action creation is intentionally centralised in canonicalGovernanceActionService.
 
   async getActions(risk_id: string, company_id: string) {
     const result = await query(

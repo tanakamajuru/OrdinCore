@@ -6,6 +6,7 @@ import logger from '../utils/logger';
 import { emitToCompany } from '../websocket/socket.server';
 import { reviewObligationsService } from '../services/reviewObligations.service';
 import { escalationLifecycleService } from '../services/escalationLifecycle.service';
+import { canonicalGovernanceActionService } from '../services/canonicalGovernanceAction.service';
 
 export class ActionsController {
   async complete(req: Request, res: Response) {
@@ -45,32 +46,12 @@ export class ActionsController {
         return res.status(400).json({ success: false, message: 'Action is already completed.' });
       }
 
-      // 3. Persist the completion directly — this works whether or not the action is linked
-      // to a risk. Governance-decision actions (Create Action from a signal/pattern) carry NO
-      // risk_id, so the risk trajectory/event side-effects below must be skipped for them,
-      // otherwise addEvent(null,…) violates risk_events.risk_id and the whole completion fails.
+      // 3. One canonical completion contract for every risk_actions origin.
       const riskId = action.rows[0].risk_id || null;
-      const completedRes = await query(
-        `UPDATE risk_actions
-         SET status = 'Completed', completion_note = $1, completion_outcome = $2,
-             completion_rationale = $3,
-             completion_evidence = COALESCE(NULLIF($1, ''), $3),
-             completed_at = NOW(), completed_by = $6
-         WHERE id = $4 AND company_id = $5 RETURNING *`,
-        [completion_note || null, completion_outcome, completion_rationale, id, company_id, user_id]
-      );
-      let completedAction = completedRes.rows[0];
-      await escalationLifecycleService.syncForAction(id, company_id);
-
-      // Completion creates a durable review obligation. This applies equally to risk-linked and
-      // signal/service actions, so no completed Team Leader work can disappear from RM review.
-      await reviewObligationsService.open({
-        companyId: company_id,
-        type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: id,
-        actionId: id, riskId,
-        dueAt: action.rows[0].effectiveness_due_at || new Date(),
-        ownerRole: 'REGISTERED_MANAGER',
-        reason: 'Completed action requires an effectiveness decision.',
+      let completedAction = await canonicalGovernanceActionService.complete({
+        companyId: company_id, actionId: id, completedBy: user_id,
+        completionNote: completion_note || null, completionOutcome: completion_outcome,
+        completionRationale: completion_rationale,
       });
 
       emitToCompany(company_id, 'intervention.updated', {
@@ -96,8 +77,8 @@ export class ActionsController {
           company_id,
           user_id: manager_id,
           type: 'action_completed',
-          title: 'Action completed — review & rate effectiveness',
-          body: `"${action.rows[0].title || action.rows[0].description}" was completed (${completion_outcome}). Open the risk to rate its effectiveness and impact, then close it.`,
+          title: action.rows[0].review_requirement === 'EFFECTIVENESS_REQUIRED' ? 'Action completed — review & rate effectiveness' : 'Action completed — review completion',
+          body: action.rows[0].review_requirement === 'EFFECTIVENESS_REQUIRED' ? `"${action.rows[0].title || action.rows[0].description}" was completed (${completion_outcome}). Review the completion evidence and rate effectiveness when due.` : `"${action.rows[0].title || action.rows[0].description}" was completed (${completion_outcome}). Review the completion evidence.`,
           // Open the risk record (correct route is /risk-register/:id) where effectiveness + impact
           // are rated and the risk is closed. Risk-less actions go to the Action Effectiveness page.
           link: riskId ? `/risk-register/${riskId}` : '/effectiveness',
@@ -110,6 +91,19 @@ export class ActionsController {
       logger.error('Error completing action', err);
       res.status(500).json({ success: false, message: err.message });
     }
+  }
+
+  async remediateLegacyEvidence(req: Request, res: Response) {
+    try {
+      const { company_id, user_id } = (req as any).user;
+      const data = await canonicalGovernanceActionService.remediateLegacyEvidence({
+        companyId: company_id, actionId: req.params.id, userId: user_id,
+        evidence: req.body.evidence, reason: req.body.reason, source: req.body.source,
+        intendedOutcome: req.body.intended_outcome || null,
+        reviewRequirement: req.body.review_requirement,
+      });
+      return res.json({success:true,data,meta:{historical_remediation:true,audit_preserved:true}});
+    } catch(err:any) { return res.status(400).json({success:false,message:err.message}); }
   }
 
   async rmReview(req: Request, res: Response) {
@@ -172,14 +166,16 @@ export class ActionsController {
           WHERE id = $4 AND company_id = $5`,
         [rm_decision, rm_comment || null, schedule, id, company_id]
       );
-      await reviewObligationsService.open({
-        companyId: company_id,
-        type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: id,
-        actionId: id, riskId: action.risk_id || null,
-        dueAt: schedule || action.completed_at || new Date(),
-        ownerRole: 'REGISTERED_MANAGER',
-        reason: schedule ? 'Effectiveness review scheduled when completion was accepted.' : 'Accepted completion requires an effectiveness decision.',
-      });
+      if (action.review_requirement === 'EFFECTIVENESS_REQUIRED') {
+        await reviewObligationsService.open({
+          companyId: company_id,
+          type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: id,
+          actionId: id, riskId: action.risk_id || null,
+          dueAt: schedule || action.completed_at || new Date(),
+          ownerRole: 'REGISTERED_MANAGER',
+          reason: schedule ? 'Effectiveness review scheduled when completion was accepted.' : 'Accepted effectiveness-bearing action requires an effectiveness decision.',
+        });
+      }
 
       if (action.assigned_to) {
         await notificationsService.create({

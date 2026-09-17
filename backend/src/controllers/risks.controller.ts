@@ -192,12 +192,14 @@ export class RisksController {
   async addAction(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const { title, description, assigned_to, due_date, action_date } = req.body;
+      const { title, description, assigned_to, due_date, action_date, intended_outcome, review_requirement } = req.body;
       const action = await risksService.addAction(req.params.id, company_id, req.user!.user_id, {
         title,
         description,
         assigned_to: assigned_to || undefined,
         due_date: due_date || action_date || undefined,
+        intended_outcome: intended_outcome || undefined,
+        review_requirement: review_requirement || 'EFFECTIVENESS_REQUIRED',
       });
       return res.status(201).json({ success: true, data: action, meta: {} });
     } catch (err: unknown) {

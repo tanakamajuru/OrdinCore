@@ -4,6 +4,7 @@ import { eventBus, EVENTS } from '../events/eventBus';
 import { risksRepo } from '../repositories/risks.repo';
 import { notificationsService } from './notifications.service';
 import { canonicalControlPositionService } from './canonicalControlPosition.service';
+import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
 
 export type EscalationLifecycleStatus =
   | 'Open'
@@ -312,7 +313,7 @@ export class EscalationsService {
   // underlying risk. Closing the urgent response never closes the risk; this mandatory review
   // records one of four outcomes and creates the matching record. It is the ONLY thing that
   // clears the post-closure review flag.
-  async postClosureRiskReview(id: string, company_id: string, user_id: string, input: { outcome: string; note?: string; due_at?: string }) {
+  async postClosureRiskReview(id: string, company_id: string, user_id: string, input: { outcome: string; note?: string; due_at?: string; intended_outcome?: string }) {
     const OUTCOMES = ['Keep Open', 'Add Controls', 'Re-escalate', 'Request Risk Closure'];
     if (!OUTCOMES.includes(input.outcome)) throw new Error('Choose a valid post-escalation review outcome.');
     const note = (input.note || '').trim();
@@ -336,12 +337,13 @@ export class EscalationsService {
       }
     } else if (input.outcome === 'Add Controls') {
       if (!riskId) throw new Error('No linked risk to add controls to.');
-      const actionId = uuidv4();
-      await query(
-        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, source_cluster_id)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10)`,
-        [actionId, riskId, company_id, esc.house_id || null, note.slice(0, 255), note, user_id, input.due_at || null, user_id, esc.source_cluster_id || null]
-      );
+      const action = await canonicalGovernanceActionService.create({
+        companyId:company_id,createdBy:user_id,title:note.slice(0,255),description:note,assignedTo:user_id,
+        dueDate:input.due_at||null,houseId:esc.house_id||null,riskId,sourceClusterId:esc.source_cluster_id||null,
+        escalationId:id,reviewRequirement:'EFFECTIVENESS_REQUIRED',
+        intendedOutcome:input.intended_outcome||null,
+      });
+      const actionId=action.id;
       await risksRepo.updateStatus(riskId, company_id, 'Open');
       await risksRepo.addEvent(riskId, company_id, 'post_escalation_review', `New control added after escalation closure: ${note}`, user_id);
       created = { action_id: actionId };
@@ -659,19 +661,18 @@ export class EscalationsService {
     const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
     if (!body.intended_outcome || body.intended_outcome.trim().length < 10) throw new Error('Record the intended outcome so effectiveness can later be judged.');
-    const actionId = uuidv4();
-    const r = await query(
-      `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by,
-         status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome, escalation_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14) RETURNING *`,
-      [actionId, e.risk_id || null, company_id, e.house_id || null, title, title, body.assigned_to, body.due_date || null, user_id,
-       e.source_governance_review_id || null, e.source_pulse_id || null, e.source_cluster_id || null, body.intended_outcome || null, id]
-    );
+    const action = await canonicalGovernanceActionService.create({
+      companyId:company_id,createdBy:user_id,title,description:title,assignedTo:body.assigned_to,
+      dueDate:body.due_date||null,houseId:e.house_id||null,riskId:e.risk_id||null,
+      governanceReviewId:e.source_governance_review_id||null,sourcePulseId:e.source_pulse_id||null,
+      sourceClusterId:e.source_cluster_id||null,escalationId:id,
+      reviewRequirement:'EFFECTIVENESS_REQUIRED',intendedOutcome:body.intended_outcome||null,
+    });
     try {
       const { notificationsService } = await import('./notifications.service');
       await notificationsService.create({ company_id, user_id: body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });
     } catch { /* best-effort */ }
-    return r.rows[0];
+    return action;
   }
 
   async getEscalationStats(company_id: string) {

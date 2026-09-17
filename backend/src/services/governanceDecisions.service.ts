@@ -2,6 +2,7 @@ import { getClient, query } from '../config/database';
 import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { emitToCompany } from '../websocket/socket.server';
+import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
 
 /**
  * The Daily Governance Review is the engine that generates management work. A Governance
@@ -144,12 +145,13 @@ export const governanceDecisionsService = {
     let task: any = null, escalation: any = null, risk: any = null, pattern: any = null;
 
     if (decision === 'Create Action') {
-      const t = await client.query(
-        `INSERT INTO risk_actions (id, risk_id, company_id, house_id, title, description, assigned_to, due_date, created_by, status, governance_review_id, source_pulse_id, source_cluster_id, intended_outcome)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13) RETURNING *`,
-        [uuidv4(), input.risk_id ?? null, c, input.house_id ?? null, title, input.what_is_happening.trim(), input.owner_id ?? null, input.due_at ?? null, u, decisionId, input.pulse_entry_id ?? null, input.cluster_id ?? null, input.intended_outcome ?? null]
-      );
-      task = t.rows[0];
+      task = await canonicalGovernanceActionService.create({
+        companyId:c, createdBy:u, title, description:input.what_is_happening.trim(),
+        assignedTo:input.owner_id??null, dueDate:input.due_at??null, houseId:input.house_id??null,
+        riskId:input.risk_id??null, governanceReviewId:decisionId, sourcePulseId:input.pulse_entry_id??null,
+        sourceClusterId:input.cluster_id??null, reviewRequirement:'EFFECTIVENESS_REQUIRED',
+        intendedOutcome:input.intended_outcome??null,
+      }, client);
     } else if (decision === 'Escalate') {
       // Dedup: never open a second live escalation for the same source pattern/risk/signal.
       const dupSrc = input.cluster_id ? ['source_cluster_id', input.cluster_id]

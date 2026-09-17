@@ -22,20 +22,24 @@ export function ActionEffectivenessPanels() {
   const [outcome, setOutcome] = useState<string>("");
   const [evidence, setEvidence] = useState("");
   const [saving, setSaving] = useState(false);
-  const [expectedOutcome, setExpectedOutcome] = useState("");
   const [nextReviewDate, setNextReviewDate] = useState("");
+  const [remediating,setRemediating]=useState<any>(null);
+  const [remediationEvidence,setRemediationEvidence]=useState("");
+  const [remediationReason,setRemediationReason]=useState("");
+  const [remediationSource,setRemediationSource]=useState("");
+  const [remediationOutcome,setRemediationOutcome]=useState("");
+  const [remediationRequirement,setRemediationRequirement]=useState<"COMPLETION_ONLY"|"EFFECTIVENESS_REQUIRED">("EFFECTIVENESS_REQUIRED");
   const [searchParams] = useSearchParams();
   const focusedRef = useRef(false);
-  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setNextReviewDate(""); setExpectedOutcome(a?.evidence_packet?.expected?.intended_outcome || ""); };
+  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setNextReviewDate(""); };
   const submitRating = async () => {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
     if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
-    if (expectedOutcome.trim().length < 10) { toast.error("Record the intended outcome before rating effectiveness."); return; }
     if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
     if (outcome === "Too Early To Assess" && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future effectiveness review date."); return; }
     setSaving(true);
     try {
-      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), intended_outcome: expectedOutcome.trim(), next_review_date: outcome === "Too Early To Assess" ? nextReviewDate : undefined });
+      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: outcome === "Too Early To Assess" ? nextReviewDate : undefined });
       toast.success("Effectiveness recorded");
       setRating(null);
       loadData();
@@ -265,6 +269,36 @@ export function ActionEffectivenessPanels() {
         </Card>
       </div>
 
+      {(data.legacy_evidence_gaps || []).length > 0 && (
+        <Card className="border-2 border-amber-300">
+          <CardHeader><CardTitle className="text-lg">Legacy action evidence gaps</CardTitle></CardHeader>
+          <CardContent className="space-y-3">
+            <p className="text-sm text-muted-foreground">These completed historical actions are not silently treated as effectiveness-bearing. An RM must classify the action and document the source of any retrospective evidence.</p>
+            {(data.legacy_evidence_gaps || []).map((a:any)=><div key={a.id} className="flex items-center justify-between gap-3 rounded-lg border border-border p-3">
+              <div><p className="text-sm font-medium">{a.title || a.description}</p><p className="text-xs text-muted-foreground">{a.house_name} · completed {a.completed_at ? new Date(a.completed_at).toLocaleDateString("en-GB") : "historically"}</p></div>
+              {canRate && <button onClick={()=>{setRemediating(a);setRemediationEvidence("");setRemediationReason("");setRemediationSource("");setRemediationOutcome(a.intended_outcome||"");setRemediationRequirement("EFFECTIVENESS_REQUIRED");}} className="px-3 py-2 rounded-lg border border-amber-400 text-sm">Review evidence gap</button>}
+            </div>)}
+          </CardContent>
+        </Card>
+      )}
+
+      {remediating && <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={()=>setRemediating(null)}>
+        <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg p-6 space-y-3" onClick={e=>e.stopPropagation()}>
+          <h2 className="text-lg font-semibold">Historical evidence remediation</h2>
+          <p className="text-sm text-muted-foreground">This records what is known now and clearly marks it as retrospective. It does not rewrite the original action history.</p>
+          <select value={remediationRequirement} onChange={e=>setRemediationRequirement(e.target.value as any)} className="w-full rounded-lg border border-border p-2 bg-background">
+            <option value="EFFECTIVENESS_REQUIRED">Effectiveness-bearing intervention</option>
+            <option value="COMPLETION_ONLY">Completion-only governance action</option>
+          </select>
+          {remediationRequirement==="EFFECTIVENESS_REQUIRED" && <textarea value={remediationOutcome} onChange={e=>setRemediationOutcome(e.target.value)} className="w-full rounded-lg border border-border p-2 bg-background" placeholder="Retrospectively reconstructed intended outcome (state evidence source below)" />}
+          <textarea value={remediationEvidence} onChange={e=>setRemediationEvidence(e.target.value)} className="w-full rounded-lg border border-border p-2 bg-background" placeholder="Historical completion evidence now available" />
+          <input value={remediationSource} onChange={e=>setRemediationSource(e.target.value)} className="w-full rounded-lg border border-border p-2 bg-background" placeholder="Evidence source — e.g. signed note, invoice, audit record" />
+          <textarea value={remediationReason} onChange={e=>setRemediationReason(e.target.value)} className="w-full rounded-lg border border-border p-2 bg-background" placeholder="Why this evidence is being recorded retrospectively" />
+          <div className="flex justify-end gap-2"><button onClick={()=>setRemediating(null)} className="px-4 py-2 border rounded-lg">Cancel</button>
+          <button onClick={async()=>{try{await apiClient.patch(`/actions/${remediating.id}/remediate-evidence`,{evidence:remediationEvidence,reason:remediationReason,source:remediationSource,intended_outcome:remediationOutcome,review_requirement:remediationRequirement});toast.success("Historical evidence remediation recorded");setRemediating(null);loadData();}catch(err:any){toast.error(err?.response?.data?.message||err?.message||"Could not record remediation");}}} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Record remediation</button></div>
+        </div>
+      </div>}
+
       {rating && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>
           <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg max-h-[90vh] flex flex-col" onClick={(e) => e.stopPropagation()}>
@@ -288,7 +322,7 @@ export function ActionEffectivenessPanels() {
                 <p className="text-sm">{rating.evidence_packet?.expected?.instruction}</p>
                 {rating.evidence_packet?.expected?.intended_outcome
                   ? <p className="text-xs text-muted-foreground mt-1">Intended outcome: {rating.evidence_packet.expected.intended_outcome}</p>
-                  : <textarea value={expectedOutcome} onChange={(e) => setExpectedOutcome(e.target.value)} className="w-full mt-2 rounded-lg border border-amber-400 bg-background p-2 text-sm" placeholder="Record what should have changed if this action worked" />}
+                  : <p className="text-xs text-amber-700 mt-1">No pre-existing intended outcome is recorded. This cannot be repaired inside an effectiveness rating.</p>}
               </section>
               <section className="rounded-lg border border-border p-3">
                 <p className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1">What was done</p>
@@ -321,7 +355,7 @@ export function ActionEffectivenessPanels() {
             </div>
             <div className="flex justify-end gap-2 p-6 pt-3 shrink-0 border-t border-border">
               <button onClick={() => setRating(null)} disabled={saving} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button>
-              <button onClick={submitRating} disabled={saving || !rating.evidence_packet?.review_ready || expectedOutcome.trim().length < 10} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
+              <button onClick={submitRating} disabled={saving || !rating.evidence_packet?.review_ready} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{saving ? "Saving…" : "Record"}</button>
             </div>
           </div>
         </div>
