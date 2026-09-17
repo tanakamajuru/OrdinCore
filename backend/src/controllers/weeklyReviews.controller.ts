@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { weeklyReviewsService } from '../services/weeklyReviews.service';
+import { query } from '../config/database';
 
 export class WeeklyReviewsController {
   async save(req: Request, res: Response) {
@@ -39,8 +40,17 @@ export class WeeklyReviewsController {
       const review = await weeklyReviewsService.findById(req.params.id, company_id);
       const role = String(req.user!.role || '').toUpperCase();
       if (['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role)) {
-        const allowed = req.user!.assigned_house_ids || [];
-        if (review?.status !== 'published' || !allowed.includes(review?.house_id)) {
+        // A TL/SW may read a PUBLISHED review for a service they are assigned to.
+        // Check the live user_houses table (not just the token's assigned_house_ids,
+        // which is a login-time snapshot and can be stale after a later assignment) so
+        // this stays consistent with the Guided Work list that surfaced the task.
+        const tokenAllowed = req.user!.assigned_house_ids || [];
+        let allowed = review?.status === 'published' && tokenAllowed.includes(review?.house_id);
+        if (review?.status === 'published' && !allowed) {
+          const uh = await query('SELECT 1 FROM user_houses WHERE user_id=$1 AND house_id=$2 LIMIT 1', [req.user!.user_id, review?.house_id]);
+          allowed = uh.rows.length > 0;
+        }
+        if (!allowed) {
           return res.status(404).json({ success: false, message: 'Weekly review not found', errors: [] });
         }
       }
