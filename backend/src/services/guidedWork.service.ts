@@ -153,14 +153,21 @@ export const guidedWorkService = {
         const critical = o.risk_severity==='Critical';
         // A pattern review opens the actual promoted/linked risk when one exists, not the register.
         const patternRiskId = kind === 'PATTERN_REVIEW' ? o.pattern_linked_risk_id : null;
+        // For a risk-type obligation the actual risk is source_risk_id (or subject_id only when the
+        // subject IS the risk). subject_id can be the escalation/action that triggered the review,
+        // so linking to /risk-register/:subject_id gave "Risk not found". Fall back to the awaiting
+        // register rather than a dead id.
+        const riskId = entity === 'risk'
+          ? (o.source_risk_id || (o.subject_type === 'RISK' ? o.subject_id : null))
+          : null;
         const deepRoute = entity === 'risk'
-          ? `/risk-register/${o.subject_id}?guided=1&gw=obligation:${o.id}`
+          ? (riskId ? `/risk-register/${riskId}?guided=1&gw=obligation:${o.id}` : `/risk-register?review=awaiting&guided=1&gw=obligation:${o.id}`)
           : patternRiskId
             ? `/risk-register/${patternRiskId}?guided=1&gw=obligation:${o.id}`
             : `${route}${route.includes('?')?'&':'?'}guided=1&gw=obligation:${o.id}&subjectId=${o.subject_id}`;
         needsYou.push({ id:`obligation:${o.id}`, role, state:'NEEDS_YOU', priority:priorityFor(o.due_at,critical), taskType:kind,
           title:o.subject_title || o.reason || 'Governance review due', summary:o.reason || 'A governance review obligation is due.', reason:o.reason || 'Review due.', dueAt:o.due_at, serviceName:o.service_name,
-          canonicalEntityType:entity, canonicalEntityId:o.subject_id, route:deepRoute,
+          canonicalEntityType:entity, canonicalEntityId:(entity==='risk' ? (riskId || o.subject_id) : o.subject_id), route:deepRoute,
           actionLabel:label, whyAmISeeingThis:o.reason || 'This governance review obligation is due.' });
       }
 
