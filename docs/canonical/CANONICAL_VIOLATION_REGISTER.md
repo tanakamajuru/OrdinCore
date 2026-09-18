@@ -126,7 +126,7 @@ None of these touch `status`, `completion_evidence`, `effectiveness_outcome`, or
 ## HISTORICAL — data remediation (feeds Phase 6, not code)
 
 - **Legacy unclassified `risk_actions`** — RESOLVED by migration 153 (#78): live had 36 unclassified rows, all confirmed to carry no effectiveness signals, classified `COMPLETION_ONLY` with a no-NULL post-condition guard. Verified live: 0 remain NULL.
-- **9 active signal clusters carry `signal_count > 0` with no linked-pulse evidence** (invariant I5, reported by `verify:invariants`). `signal_count` is maintained independently of `risk_signal_links`, so these clusters count signals that are not addressable to pulse evidence. **Open Phase 6 item:** either backfill the pulse links or recompute `signal_count` from `canonical_signal_evidence_v`. Reported as a warning, not a release-blocking gate.
+- **9 active signal clusters carried `signal_count > 0` with no linked-pulse evidence** (invariant I5) — RESOLVED by migration **154** (#80). Evidence-led: backfilled `risk_signal_links` from the governance_pulses genuinely belonging to each cluster (matching company/domain/window; company-wide for cross_service), reconciled `signal_count` to the distinct linked-pulse evidence, and zeroed any cluster with no addressable evidence. Post-condition guard enforces I5 == 0. Verified live.
 
 ---
 
