@@ -174,8 +174,12 @@ export default function SuperAdminDashboard() {
     setFormError("");
     setFormSuccess("");
     setIsSubmitting(true);
+    if (!newOrg.name.trim()) { setFormError("Organisation name is required"); setIsSubmitting(false); return; }
     try {
-      const res = await apiClient.createCompany(newOrg as any);
+      // The backend stores the contact address as `email`; the modal collects it as `contactEmail`.
+      // Map it so the organisation is created WITH its contact email (needed to invite its admin).
+      const payload = { ...newOrg, email: (newOrg as any).contactEmail || null };
+      const res = await apiClient.createCompany(payload as any);
       if ((res as any).success) {
         setFormSuccess("Organisation created successfully!");
         setNewOrg({ name: "", domain: "", contactEmail: "", plan: "professional", sector: "SUPPORTED_LIVING" });
