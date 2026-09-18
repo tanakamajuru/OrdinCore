@@ -3,7 +3,7 @@ import * as fs from 'fs';
 import * as path from 'path';
 import { getPool } from '../config/database';
 import logger from '../utils/logger';
-import { migrationChecksum, selectMigrationFiles } from './migrationIntegrity';
+import { migrationChecksum, selectMigrationFiles, splitSqlStatements } from './migrationIntegrity';
 
 async function runMigrations() {
   const pool = getPool();
@@ -71,11 +71,11 @@ async function runMigrations() {
       } else {
         logger.info(`Running non-transactional migration: ${file}`);
         try {
-          // Split by semicolon, filter out empty statements, and execute each sequentially
-          const statements = sql
-            .split(';')
-            .map(s => s.trim())
-            .filter(s => s.length > 0);
+          // Split into top-level statements, respecting dollar-quoted blocks / strings / comments.
+          // A naive split(';') shreds DO $$ ... $$ bodies at their internal semicolons (the clean-build
+          // failure in 035_stabilize_schema.sql). Each statement runs in autocommit so a lone
+          // `ALTER TYPE ... ADD VALUE` is permitted while DO blocks stay intact.
+          const statements = splitSqlStatements(sql);
 
           for (const stmt of statements) {
             await client.query(stmt);
