@@ -47,9 +47,14 @@ export function CanonicalEvidenceStrip({summary,types,compact=false}:{summary:Ca
           <div className="text-xs text-muted-foreground flex items-center justify-between gap-1">{LABELS[type]||type}<ChevronRight size={13} className="opacity-0 group-hover:opacity-100 text-primary shrink-0" /></div>
         </button>
         {g.count>0 && <button type="button" onClick={()=>setOpen(open===type?null:type)} className="mt-1 text-[11px] text-primary hover:underline px-1">{open===type?'Hide':'Show'} {g.count} record{g.count===1?'':'s'}</button>}
-        {open===type&&g.evidence_ids.length>0&&<div className="mt-1 rounded-lg border border-border bg-background p-2 max-h-44 overflow-auto">
-          {g.evidence_ids.map((id:string)=><button key={id} onClick={()=>navigate(routeFor(type,id))} className="block w-full text-left text-xs text-primary hover:underline px-2 py-1.5 truncate" title={id}>{id}</button>)}
-        </div>}
+        {open===type&&g.count>0&&(()=>{
+          // Prefer the server-resolved route (opens the record where it is actually visible for this
+          // role — e.g. an action opens on its owning risk, not the person-scoped /my-actions).
+          const recs=(g.evidence&&g.evidence.length)?g.evidence:(g.evidence_ids||[]).map((id:string)=>({evidence_id:id,route:routeFor(type,id)}));
+          return <div className="mt-1 rounded-lg border border-border bg-background p-2 max-h-44 overflow-auto">
+            {recs.map((rec:any)=><button key={rec.evidence_id} onClick={()=>navigate(rec.route||routeFor(type,rec.evidence_id))} className="block w-full text-left text-xs text-primary hover:underline px-2 py-1.5 truncate" title={rec.evidence_id}>{rec.evidence_id}</button>)}
+          </div>;
+        })()}
       </div>})}
     </div>
   </div>;

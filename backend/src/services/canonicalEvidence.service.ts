@@ -26,16 +26,35 @@ export const canonicalEvidenceService = {
     const params:any[]=[companyId];
     let house='';
     if (houseId) { params.push(houseId); house=' AND house_id=$2'; }
+    // Action/effectiveness evidence is an action id; its natural, role-agnostic home is the owning
+    // risk (visible to every oversight role), so we resolve risk_id here. Screens like /my-actions
+    // are person-scoped and show nothing to a Director/RI, which is why opening a count led nowhere.
     const rows=(await query(
-      `SELECT count_type, evidence_id, house_id, due_at
-         FROM canonical_material_count_v
-        WHERE company_id=$1${house}
-        ORDER BY count_type, due_at NULLS LAST, evidence_id`, params)).rows;
+      `SELECT m.count_type, m.evidence_id, m.house_id, m.due_at, ra.risk_id AS action_risk_id
+         FROM canonical_material_count_v m
+         LEFT JOIN canonical_action_state_v ra
+           ON ra.company_id = m.company_id AND ra.id = m.evidence_id
+          AND m.count_type IN ('ACTION_OPEN','EFFECTIVENESS_REVIEW')
+        WHERE m.company_id=$1${house}
+        ORDER BY m.count_type, m.due_at NULLS LAST, m.evidence_id`, params)).rows;
+
+    // The exact working destination for one evidence record, for any role.
+    const routeFor=(type:string,r:any):string=>{
+      const id=r.evidence_id;
+      switch(type){
+        case 'RISK_REVIEW': return `/risk-register/${id}?review=1`;
+        case 'ACTION_OPEN': return r.action_risk_id ? `/risk-register/${r.action_risk_id}?section=actions&focus=${id}` : `/my-actions?focus=${id}`;
+        case 'EFFECTIVENESS_REVIEW': return r.action_risk_id ? `/risk-register/${r.action_risk_id}?section=effectiveness&focus=${id}` : `/effectiveness?focus=${id}`;
+        case 'ESCALATION_OPEN': return `/escalation-log?focus=${id}`;
+        case 'PATTERN_REVIEW': return `/systemic-patterns?clusterId=${id}`;
+        default: return '#';
+      }
+    };
 
     const types=['RISK_REVIEW','ACTION_OPEN','EFFECTIVENESS_REVIEW','ESCALATION_OPEN','PATTERN_REVIEW'];
     const groups:any={};
     for (const type of types) {
-      const evidence=rows.filter((r:any)=>r.count_type===type);
+      const evidence=rows.filter((r:any)=>r.count_type===type).map((r:any)=>({...r, route:routeFor(type,r)}));
       groups[type]={
         count:evidence.length,
         evidence_ids:evidence.map((r:any)=>r.evidence_id),
