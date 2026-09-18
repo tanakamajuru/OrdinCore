@@ -341,6 +341,14 @@ export function RiskDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [risk, searchParams]);
 
+  // Guided Work RM_RISK_REVIEW deep-link (?review=1) opens the Risk Review decision directly, so
+  // "Open required work" lands the RM on the actual review control (the four-question Risk Review +
+  // verdict, which shows any remaining blockers), not just the top of the risk record.
+  useEffect(() => {
+    if (risk && searchParams.get("review") === "1") setShowCloseModal(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [risk, searchParams]);
+
   const reassignAction = async (actionId: string, assigned_to: string) => {
     if (!assigned_to || !id) return;
     try {
