@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { Network, ArrowUpRight, ArrowDownRight, Minus, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
