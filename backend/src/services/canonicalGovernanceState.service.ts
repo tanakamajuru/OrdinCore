@@ -37,12 +37,15 @@ export function deriveCanonicalGovernanceState(facts: GovernanceFacts): Canonica
   }
   for (const e of openEscalations) blockers.push(blocker('OPEN_ESCALATION', `${e.title || 'Linked escalation'} remains open.`, 'ESCALATION', e.id, `/escalation-log?focus=${e.id}`));
   for (const c of controlPosition.current_controls) {
-    if (c.outcome === 'Partially Effective') blockers.push(blocker('CONTROL_PARTIAL', `${c.domain} current control judgement is Partially Effective.`, 'EFFECTIVENESS', c.action_id, `/effectiveness?focus=${c.action_id}`));
+    // Governance policy: a Partially Effective control no longer HARD-BLOCKS closure — the RM may
+    // close with recorded evidence at their discretion. Only a Not Effective control blocks.
     if (c.outcome === 'Not Effective') blockers.push(blocker('CONTROL_FAILED', `${c.domain} current control judgement is Not Effective.`, 'EFFECTIVENESS', c.action_id, `/effectiveness?focus=${c.action_id}`));
   }
   if (!reductionEvidenced) blockers.push(blocker('REDUCTION_NOT_EVIDENCED', 'Sustained risk reduction has not yet been evidenced.', 'MONITORING', facts.riskId, `/risks/${facts.riskId}`));
 
-  const controlsCurrentlyEffective = controlPosition.current_controls.length > 0 && controlPosition.current.partially_effective === 0 && controlPosition.current.not_effective === 0 && controlPosition.current.unreviewed === 0;
+  // Controls must be reviewed (nothing unreviewed) and none Not Effective. Partially Effective is
+  // permitted (see policy note above).
+  const controlsCurrentlyEffective = controlPosition.current_controls.length > 0 && controlPosition.current.not_effective === 0 && controlPosition.current.unreviewed === 0;
   const eligible = !facts.riskClosed && activeActions.length > 0 && openActions.length === 0 && awaiting.length === 0 && openEscalations.length === 0 && controlsCurrentlyEffective && reductionEvidenced;
   const selectedEscalation = openEscalations[0] || facts.escalations[0];
   const selectedLifecycle = selectedEscalation ? normalizeEscalationLifecycle(selectedEscalation.lifecycle_status ?? selectedEscalation.status) : null;

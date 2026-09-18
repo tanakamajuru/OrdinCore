@@ -52,8 +52,10 @@ export class ClosureService {
     if (controlPosition.total > 0) {
       if (controlPosition.open > 0) throw new Error(`Closure blocked: ${controlPosition.open} linked action(s) are incomplete.`);
       if (controlPosition.awaiting_final > 0 || controlPosition.current.unreviewed > 0) throw new Error(`Closure blocked: ${Math.max(controlPosition.awaiting_final, controlPosition.current.unreviewed)} current control(s) still need a final effectiveness review. Too Early to Assess is an interim review.`);
-      if (controlPosition.current.partially_effective > 0 || controlPosition.current.not_effective > 0) {
-        throw new Error(`Closure blocked: current control position is ${controlPosition.current.overall} (${controlPosition.current.partially_effective} Partially Effective, ${controlPosition.current.not_effective} Not Effective). Historical superseded outcomes remain visible but do not by themselves permanently block closure.`);
+      // Governance policy: a Partially Effective control no longer hard-blocks closure — the RM may
+      // close with recorded evidence at their discretion. Only a Not Effective control blocks.
+      if (controlPosition.current.not_effective > 0) {
+        throw new Error(`Closure blocked: ${controlPosition.current.not_effective} current control(s) are rated Not Effective. Review the failed control before closing.`);
       }
     } else if (basis === 'LINKED_ACTIONS') {
       throw new Error('Closure blocked: no linked action exists; select the genuine alternative evidence basis.');

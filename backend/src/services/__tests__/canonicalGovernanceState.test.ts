@@ -17,9 +17,15 @@ describe('canonical governance state resolver', () => {
     expect(state.escalation).toMatchObject({ id: 'e2', is_open: true });
     expect(state.closure.blockers).toContainEqual(expect.objectContaining({ code: 'OPEN_ESCALATION', record_id: 'e2' }));
   });
-  it('does not mistake a partial review for closure readiness', () => {
+  it('allows closure with a Partially Effective control — policy: only Not Effective hard-blocks', () => {
     const state = deriveCanonicalGovernanceState({ ...base, actions: [{ id: 'a1', status: 'Completed', effectiveness: 'Neutral' }] });
     expect(state.effectiveness.latest_final_outcome).toBe('Partially Effective');
-    expect(state.closure.blockers).toContainEqual(expect.objectContaining({ code: 'CONTROL_PARTIAL' }));
+    expect(state.closure.blockers).not.toContainEqual(expect.objectContaining({ code: 'CONTROL_PARTIAL' }));
+    expect(state.closure).toMatchObject({ eligible: true, status: 'READY_FOR_CLOSURE' });
+  });
+  it('still hard-blocks closure on a Not Effective control', () => {
+    const state = deriveCanonicalGovernanceState({ ...base, actions: [{ id: 'a1', status: 'Completed', effectiveness_outcome: 'Not Effective' }] });
+    expect(state.closure.blockers).toContainEqual(expect.objectContaining({ code: 'CONTROL_FAILED' }));
+    expect(state.closure.eligible).toBe(false);
   });
 });
