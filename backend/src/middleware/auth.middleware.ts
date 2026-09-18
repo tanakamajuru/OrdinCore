@@ -45,6 +45,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     // Verify user still exists and is active, and fetch assigned houses
     const result = await query(
       `SELECT u.id, u.company_id, u.email, u.role, u.active_role, u.status, u.can_view_all_houses, c.status AS company_status,
+              c.subscription_status, c.subscription_current_period_end,
               ARRAY_AGG(DISTINCT COALESCE(uh.house_id, h_direct.id)) FILTER (WHERE COALESCE(uh.house_id, h_direct.id) IS NOT NULL) AS house_ids,
               ARRAY_AGG(DISTINCT ur.role) FILTER (WHERE ur.role IS NOT NULL) AS granted_roles
        FROM users u
@@ -53,7 +54,7 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
        LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        WHERE u.id = $1
-       GROUP BY u.id, c.status`,
+       GROUP BY u.id, c.status, c.subscription_status, c.subscription_current_period_end`,
       [decoded.user_id]
     );
 
@@ -72,6 +73,22 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
     if (user.company_id && user.company_status && user.company_status !== 'active') {
       res.status(401).json({ success: false, message: 'Organisation suspended', errors: [] });
       return;
+    }
+    // Billing gate — INERT by default. Only bites when a subscription has explicitly lapsed AND the
+    // paid period has ended. Companies that never subscribed (pilots / pre-billing) have a NULL
+    // subscription_status and are never gated, so the platform runs normally before Stripe is set up.
+    // Admins are exempt so they can log in and re-subscribe; front-line staff lose service on lapse.
+    {
+      const s = user.subscription_status as string | null;
+      const lapsed = s === 'canceled' || s === 'unpaid' || s === 'incomplete_expired';
+      const periodEnded = !user.subscription_current_period_end
+        || new Date(user.subscription_current_period_end).getTime() <= Date.now();
+      const isAdmin = ['ADMIN', 'SUPER_ADMIN'].includes(String(user.active_role || user.role).toUpperCase());
+      if (user.company_id && lapsed && periodEnded && !isAdmin) {
+        res.status(402).json({ success: false, code: 'SUBSCRIPTION_REQUIRED',
+          message: 'Your organisation’s subscription has ended. An administrator must renew it to restore access.', errors: [] });
+        return;
+      }
     }
 
     // Multi-role: the ACTIVE capacity (active_role) drives the UI, authorisation AND

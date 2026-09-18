@@ -89,8 +89,8 @@ export class CompanyService {
     return result.rows[0] || null;
   }
 
-  async update(id: string, data: Partial<{ name: string; domain: string; status: string; plan: string; email: string; phone: string; address: string; logo_url: string; sector: string }>) {
-    const allowed = ['name', 'domain', 'status', 'plan', 'email', 'phone', 'address', 'logo_url', 'sector'];
+  async update(id: string, data: Partial<{ name: string; domain: string; status: string; plan: string; email: string; phone: string; address: string; logo_url: string; sector: string; care_model: string; is_pilot: boolean }>) {
+    const allowed = ['name', 'domain', 'status', 'plan', 'email', 'phone', 'address', 'logo_url', 'sector', 'care_model', 'is_pilot'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) { if (key in data) filteredData[key] = (data as Record<string, unknown>)[key]; }
     const fields = Object.keys(filteredData).map((k, i) => `${k} = $${i + 2}`).join(', ');

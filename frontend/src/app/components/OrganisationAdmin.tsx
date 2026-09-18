@@ -5,6 +5,7 @@ import {
   Home, Users, Building2, UsersRound, SlidersHorizontal, ShieldCheck, Database, HelpCircle,
   Shield, Lock, Calendar, AlertTriangle, ChevronRight, UserPlus, ArrowLeftRight, KeyRound,
   RefreshCw, CheckCircle2, UserX, FileDown, ArrowRight, X, Plus, Search, Mail, ExternalLink,
+  CreditCard,
 } from "lucide-react";
 import apiClient from "@/services/apiClient";
 
@@ -18,7 +19,7 @@ type Overview = {
   security: { mfa_required: boolean; session_timeout_minutes: number; exports_restricted: boolean };
 };
 type AccessReview = { id: string; due_at: string; user_id: string; user_name: string; email: string; role: string; account_status: string; last_login: string | null };
-type Section = "overview" | "people" | "services" | "serviceusers" | "governance" | "security" | "retention" | "help";
+type Section = "overview" | "people" | "services" | "serviceusers" | "governance" | "security" | "retention" | "billing" | "help";
 
 const ROLES = ["DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "REGISTERED_MANAGER", "TEAM_LEADER", "SUPPORT_WORKER", "ADMIN"];
 const roleLabel = (r: string) => String(r || "").replace(/_/g, " ").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
@@ -90,6 +91,7 @@ export default function OrganisationAdmin() {
     { key: "governance", label: "Governance Configuration", icon: SlidersHorizontal },
     { key: "security", label: "Audit & Security", icon: ShieldCheck },
     { key: "retention", label: "Data & Retention", icon: Database },
+    { key: "billing", label: "Billing & Subscription", icon: CreditCard },
     { key: "help", label: "Help", icon: HelpCircle },
   ];
 
@@ -136,6 +138,8 @@ export default function OrganisationAdmin() {
           : section === "governance" ? <GovernanceSection navigate={navigate} />
           : section === "security" ? <SecuritySection data={data} onChanged={load} />
           : section === "retention" ? <RetentionSection data={data} />
+          : section === "billing" ? <BillingSection />
+
           : <HelpSection />}
       </main>
     </div>
@@ -474,6 +478,81 @@ function RetentionSection(_props: { data: Overview | null }) {
         <div className="flex items-center gap-3"><ArrowRight size={18} className="text-muted-foreground" /><span>Service-user transfers keep original governance history with the originating service.</span></div>
       </div>
     </Panel>
+  );
+}
+
+/* ---------- Billing & Subscription ---------- */
+function BillingSection() {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState<string | null>(null);
+
+  const load = async () => {
+    setLoading(true);
+    try { const r = await apiClient.get("/billing/status"); setStatus(r.data?.data || null); }
+    catch (e: any) { toast.error(e?.response?.data?.message || "Failed to load billing status."); }
+    finally { setLoading(false); }
+  };
+  useEffect(() => { load(); }, []);
+
+  const go = async (path: "checkout" | "portal") => {
+    setBusy(path);
+    try {
+      const r = await apiClient.post(`/billing/${path}`, {});
+      const url = r.data?.data?.url;
+      if (url) window.location.href = url;
+      else toast.error("No billing session URL returned.");
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Billing action failed."); }
+    finally { setBusy(null); }
+  };
+
+  if (loading) return <Spinner />;
+  if (!status) return <Panel title="Billing & subscription"><p className="text-sm text-muted-foreground">Billing status is unavailable.</p></Panel>;
+
+  const money = (pence: number, ccy = "GBP") => new Intl.NumberFormat("en-GB", { style: "currency", currency: ccy }).format((pence || 0) / 100);
+  const s = String(status.subscription_status || "").toLowerCase();
+  const tone = !status.subscription_status ? "slate" : ["active", "trialing", "pilot"].includes(s) ? "green" : ["past_due", "incomplete"].includes(s) ? "amber" : "red";
+  const statusLabel = status.subscription_status ? status.subscription_status.replace(/_/g, " ") : "Not subscribed";
+
+  return (
+    <div className="space-y-6">
+      {!status.configured && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 px-4 py-3 flex items-center gap-3">
+          <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+          <span className="text-sm text-amber-900">Online payments are not switched on yet. You can review your plan here; subscribing becomes available once billing is enabled.</span>
+        </div>
+      )}
+      <Panel title="Your subscription" right={<Badge tone={tone as any}>{statusLabel}</Badge>}>
+        {!status.care_model ? (
+          <p className="text-sm text-muted-foreground">Your billing basis has not been set. Please contact <a className="text-primary underline" href="mailto:support@ordincore.co.uk">support@ordincore.co.uk</a> to configure it.</p>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Billed on</div>
+              <div className="text-lg font-semibold text-foreground mt-1">{status.billable_units} {status.unit_label}</div>
+              <div className="text-xs text-muted-foreground mt-0.5">{status.care_model === "DOMICILIARY" ? "Domiciliary care" : "Residential / supported living"}{status.is_pilot ? " · Pilot" : ""}</div>
+            </div>
+            <div className="rounded-lg border border-border bg-background p-4">
+              <div className="text-xs uppercase tracking-wide text-muted-foreground">Monthly price</div>
+              <div className="text-lg font-semibold text-foreground mt-1">{status.current_tier ? `${money(status.current_tier.monthly_amount_pence, status.current_tier.currency)}/mo` : "—"}</div>
+              {status.current_tier && <div className="text-xs text-muted-foreground mt-0.5">Tier {status.current_tier.min_units}{status.current_tier.max_units ? `–${status.current_tier.max_units}` : "+"} {status.unit_label}</div>}
+            </div>
+          </div>
+        )}
+        {status.current_period_end && (
+          <p className="text-xs text-muted-foreground mt-4">{status.cancel_at_period_end ? "Access ends" : "Renews"} on {new Date(status.current_period_end).toLocaleDateString("en-GB")}.</p>
+        )}
+        <div className="flex flex-wrap gap-3 mt-5">
+          {["active", "trialing", "past_due", "pilot"].includes(s) ? (
+            <button onClick={() => go("portal")} disabled={busy !== null} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "portal" ? "Opening…" : "Manage billing"}</button>
+          ) : (
+            <button onClick={() => go("checkout")} disabled={busy !== null || !status.configured || !status.current_tier?.price_ready} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "checkout" ? "Opening…" : "Subscribe"}</button>
+          )}
+          <button onClick={load} disabled={busy !== null} className="px-4 py-2 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-2"><RefreshCw size={15} /> Refresh</button>
+        </div>
+        <p className="text-xs text-muted-foreground mt-4">Payments are collected automatically each month. You can cancel any time from “Manage billing” — access continues until the end of the period you have paid for, after which staff access is suspended until you renew.</p>
+      </Panel>
+    </div>
   );
 }
 

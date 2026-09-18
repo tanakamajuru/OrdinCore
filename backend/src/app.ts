@@ -31,6 +31,7 @@ import exportsRoutes from './routes/exports.routes';
 import weeklyReviewsRoutes from './routes/weeklyReviews.routes';
 import adminRoutes from './routes/admin.routes';
 import companyAdminRoutes from './routes/companyAdmin.routes';
+import billingRoutes from './routes/billing.routes';
 import canonicalEvidenceRoutes from './routes/canonicalEvidence.routes';
 import dailyGovernanceRoutes from './routes/dailyGovernance.routes';
 import incidentReconstructionRoutes from './routes/incidentReconstruction.routes';
@@ -119,6 +120,13 @@ app.use(cors({
 }));
 
 
+// Stripe webhook needs the RAW body for signature verification, so it is mounted before the JSON
+// body parser. It has its own signature-based auth (no requireAuth) and is idempotent.
+app.post('/api/v1/billing/webhook', express.raw({ type: 'application/json' }), (req, res) => {
+  // Lazy import avoids loading Stripe when billing is never used.
+  import('./routes/billing.routes').then(m => m.stripeWebhookHandler(req, res)).catch(() => res.status(500).end());
+});
+
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
 
@@ -180,6 +188,7 @@ app.use(`${API}/exports`, exportsRoutes);
 app.use(`${API}/weekly-reviews`, weeklyReviewsRoutes);
 app.use(`${API}/admin`, adminRoutes);
 app.use(`${API}/company-admin`, companyAdminRoutes);
+app.use(`${API}/billing`, billingRoutes);
 app.use(`${API}/canonical-evidence`, canonicalEvidenceRoutes);
 app.use(`${API}/daily-governance`, dailyGovernanceRoutes);
 app.use(`${API}/incident-reconstructions`, incidentReconstructionRoutes);
