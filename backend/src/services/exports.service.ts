@@ -32,7 +32,10 @@ export class ExportsService {
 
   async exportEvidencePack(company_id: string, house_id: string) {
     const data = await riGovernanceService.getEvidencePack(company_id, house_id);
-    const houseRes = await query('SELECT name FROM houses WHERE id = $1', [house_id]);
+    // Tenant isolation: scope the house name to the caller's company so an evidence-pack export
+    // for another tenant's house_id cannot leak that house's name in the PDF header (the pack body
+    // is already company-scoped and therefore empty for a foreign house).
+    const houseRes = await query('SELECT name FROM houses WHERE id = $1 AND company_id = $2', [house_id, company_id]);
     const houseName = houseRes.rows[0]?.name || 'Unknown House';
 
     const doc = new PDFDocument();
