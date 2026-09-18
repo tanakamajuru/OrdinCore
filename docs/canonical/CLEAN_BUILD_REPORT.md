@@ -33,8 +33,16 @@ Because the full history is not re-runnable from zero (and must stay immutable),
 3. Seed `_migrations` with every historical filename through the baseline point as already-executed (so the runner does not attempt to replay them), then run `npm run db:migrate` for anything newer.
 4. Verify with `npm run verify:invariants` and the other `verify:*` gates.
 
-This keeps production history immutable while giving new tenants/environments a deterministic, fast, correct starting schema. Adopting it is an infrastructure decision (where the baseline lives, how often it is refreshed) and is intentionally **not** committed here as a one-off 8k-line dump that would go stale — it is generated on demand from the reference DB.
+This keeps production history immutable while giving new tenants/environments a deterministic, fast, correct starting schema. The baseline is generated on demand from the reference DB (never committed as a stale dump).
 
-## Verified now
-- Clean build applies migrations **001–151** with no error after #82.
-- The single remaining from-zero blocker (152) is understood, bounded, and has a defined remediation path that does not require mutating immutable history.
+## Implemented — `scripts/clean-build.sh` (#83)
+The baseline approach is now a **working, tested script**:
+```
+REF_DB=ordincore TARGET_DB=ordincore_cleanbuild bash scripts/clean-build.sh
+```
+It baselines the reference schema (stripping extension DDL), provisions a fresh app-owned DB, seeds the historical `_migrations` ledger so the immutable history (including 152) is treated as applied, runs only genuinely-new migrations, and verifies the canonical invariants. Objects are created app-owned via `SET SESSION AUTHORIZATION`.
+
+## Verified
+- Clean build applies migrations **001–151** from zero with no error after #82.
+- The order-dependent 152 is bypassed by the baseline path (never replayed), and immutable history is preserved.
+- **End-to-end run is green:** baseline → seed → migrate → `canonical invariants I1-I6 hold` → "Clean build OK." (verified on the server against a throwaway DB).
