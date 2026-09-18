@@ -28,7 +28,10 @@ TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
 
 echo "==> Baselining schema from reference DB: $REF_DB"
-pg_dump --schema-only --no-owner --no-privileges -d "$REF_DB" > "$TMP/schema_baseline.sql"
+# Extensions are created as superuser during provisioning below; strip their DDL from the dump so
+# the app-role load (SET SESSION AUTHORIZATION) does not fail on "must be owner of extension".
+pg_dump --schema-only --no-owner --no-privileges -d "$REF_DB" \
+  | grep -vE '^(CREATE EXTENSION|COMMENT ON EXTENSION)' > "$TMP/schema_baseline.sql"
 # Historical migration ledger (rows only) so the runner treats the baseline as applied.
 pg_dump --data-only --table=_migrations -d "$REF_DB" > "$TMP/migrations_ledger.sql"
 
