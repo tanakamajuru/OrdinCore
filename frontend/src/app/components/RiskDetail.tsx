@@ -9,7 +9,10 @@ import { ActionCompletionModal } from "@/components/ActionCompletionModal";
 
 interface RiskDetail {
   id: string;
+  house_id?: string | null;
   house_name: string;
+  services_affected_count?: number;
+  strategic_theme?: string | null;
   title: string;
   description: string;
   severity: string;
@@ -91,11 +94,12 @@ export function RiskDetail() {
   const [newAction, setNewAction] = useState({
     title: "",
     action: "",
-    status: "Pending" as "Pending" | "In Progress" | "Complete" | "Ongoing",
-    date: "",
-    assigned_to: ""
+    due_date: "",
+    assigned_to: "",
+    review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
+    intended_outcome: ""
   });
-  const [teamLeaders, setTeamLeaders] = useState<{ id: string; first_name: string; last_name: string; role: string }[]>([]);
+  const [teamLeaders, setTeamLeaders] = useState<{ id: string; name?: string; first_name: string; last_name: string; role: string }[]>([]);
   const [actionTemplates, setActionTemplates] = useState<{ id: string; title: string; description: string; domain_name: string | null }[]>([]);
   
   const [showAddEvent, setShowAddEvent] = useState(false);
@@ -161,6 +165,13 @@ export function RiskDetail() {
 
 
   const currentUserId = JSON.parse(localStorage.getItem('user') || '{}').id;
+  const isStrategicRisk = !!risk && (Number(risk.services_affected_count || 0) > 1 || !!risk.strategic_theme || !risk.house_id);
+  const eligibleActionOwners = teamLeaders.filter((u) => {
+    const role = String(u.role || '').toUpperCase().replace(/-/g, '_');
+    return isStrategicRisk
+      ? ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN'].includes(role)
+      : ['SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'].includes(role);
+  });
 
   const handleEscalate = async () => {
     if (!id || !escalationReason) return;
@@ -194,7 +205,7 @@ export function RiskDetail() {
         const res = await apiClient.get('/users/directory');
         const all = res.data?.data || (Array.isArray(res.data) ? res.data : []);
         const assignable = (Array.isArray(all) ? all : []).filter((u: any) =>
-          ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER'].includes(String(u.role || '').toUpperCase())
+          ['TEAM_LEADER', 'REGISTERED_MANAGER', 'SUPPORT_WORKER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN'].includes(String(u.role || '').toUpperCase())
         );
         setTeamLeaders(assignable);
       } catch (err) {
@@ -369,21 +380,35 @@ export function RiskDetail() {
       toast.error('Please enter an action description');
       return;
     }
+    if (!newAction.due_date) {
+      toast.error('Please set a due date');
+      return;
+    }
+    if (isStrategicRisk && !newAction.assigned_to) {
+      toast.error('Choose a leadership owner for this strategic risk action');
+      return;
+    }
+    if (newAction.review_requirement === 'EFFECTIVENESS_REQUIRED' && newAction.intended_outcome.trim().length < 10) {
+      toast.error('Record what should change if this action works');
+      return;
+    }
     
     setIsSubmitting(true);
     try {
       await apiClient.post(`/risks/${id}/action`, {
         title: newAction.title,
         description: newAction.action,
-        status: newAction.status,
         assigned_to: newAction.assigned_to || undefined,
-        due_date: newAction.date || new Date().toISOString().split('T')[0],
-        action_date: newAction.date || new Date().toISOString().split('T')[0]
+        due_date: newAction.due_date,
+        review_requirement: newAction.review_requirement,
+        intended_outcome: newAction.review_requirement === 'EFFECTIVENESS_REQUIRED'
+          ? newAction.intended_outcome.trim()
+          : undefined,
       });
       
       toast.success('Action added successfully');
       setShowAddAction(false);
-      setNewAction({ title: "", action: "", status: "Pending", date: "", assigned_to: "" });
+      setNewAction({ title: "", action: "", due_date: "", assigned_to: "", review_requirement: "EFFECTIVENESS_REQUIRED", intended_outcome: "" });
       
       if (id) {
         loadRiskDetails(id);
@@ -1086,15 +1111,21 @@ export function RiskDetail() {
                   onChange={(e) => setNewAction({...newAction, assigned_to: e.target.value})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
-                  <option value="">Auto-assign to service Team Leader</option>
-                  {teamLeaders.map((tl) => (
+                  <option value="">{isStrategicRisk ? 'Select leadership owner…' : 'Auto-assign to service Team Leader'}</option>
+                  {eligibleActionOwners.map((tl) => (
                     <option key={tl.id} value={tl.id}>
                       {tl.name || `${tl.first_name || ''} ${tl.last_name || ''}`.trim()}{tl.role ? ` (${tl.role.replace(/_/g, ' ').toLowerCase()})` : ''}
                     </option>
                   ))}
                 </select>
-                {teamLeaders.length === 0 && (
+                {eligibleActionOwners.length === 0 && !isStrategicRisk && (
                   <p className="mt-2 text-[11px] text-amber-600">No named Team Leaders available — the action will auto-assign to the service Team Leader. To pick a specific person, ensure a TL is granted the role, active, and mapped to this service (Admin → Users).</p>
+                )}
+                {eligibleActionOwners.length === 0 && isStrategicRisk && (
+                  <p className="mt-2 text-[11px] text-red-600">No eligible leadership owner is available. Add or activate an RM, Director or Responsible Individual before creating this action.</p>
+                )}
+                {isStrategicRisk && (
+                  <p className="mt-2 text-[11px] text-indigo-700">Strategic and cross-service actions require an explicitly selected leadership owner; they are never auto-assigned to an arbitrary service Team Leader.</p>
                 )}
                 {/* Prevent new work before old work — soft advisory, never a hard block. */}
                 {newAction.assigned_to && (overdueByUser[newAction.assigned_to] ?? 0) >= 3 && (
@@ -1105,35 +1136,59 @@ export function RiskDetail() {
               </div>
 
               <div>
-                <label className="block mb-2 text-foreground ">Status</label>
+                <label className="block mb-2 text-foreground ">Review requirement</label>
                 <select
-                  value={newAction.status}
-                  onChange={(e) => setNewAction({...newAction, status: e.target.value as any})}
+                  value={newAction.review_requirement}
+                  onChange={(e) => setNewAction({...newAction, review_requirement: e.target.value as any, intended_outcome: e.target.value === 'COMPLETION_ONLY' ? '' : newAction.intended_outcome})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
-                  <option value="Pending">Pending</option>
-                  <option value="In Progress">In Progress</option>
-                  <option value="Complete">Complete</option>
-                  <option value="Ongoing">Ongoing</option>
+                  <option value="EFFECTIVENESS_REQUIRED">Review whether this worked</option>
+                  <option value="COMPLETION_ONLY">Confirm completion only</option>
                 </select>
               </div>
+
+              {newAction.review_requirement === 'EFFECTIVENESS_REQUIRED' && (
+                <div>
+                  <label className="block mb-2 text-foreground">Intended outcome</label>
+                  <textarea
+                    value={newAction.intended_outcome}
+                    onChange={(e) => setNewAction({...newAction, intended_outcome: e.target.value})}
+                    className="w-full h-20 px-4 py-3 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground resize-none"
+                    placeholder="What should change if this action works?"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">This becomes the benchmark for the later effectiveness review.</p>
+                </div>
+              )}
               
               <div>
-                <label className="block mb-2 text-foreground ">Date of Action</label>
+                <label className="block mb-2 text-foreground ">Due date</label>
                 <input
                   type="date"
-                  value={newAction.date}
-                  onChange={(e) => setNewAction({...newAction, date: e.target.value})}
+                  value={newAction.due_date}
+                  min={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setNewAction({...newAction, due_date: e.target.value})}
                   className="w-full px-4 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 />
               </div>
+
+              {actions.some((a) => !['Complete', 'Completed', 'Cancelled'].includes(a.status)) && (
+                <div className="rounded border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                  <p className="font-semibold">Existing open actions for this risk</p>
+                  <ul className="mt-1 list-disc pl-4">
+                    {actions.filter((a) => !['Complete', 'Completed', 'Cancelled'].includes(a.status)).slice(0, 5).map((a) => (
+                      <li key={a.id}>{a.title || a.description}{a.assigned_to_name ? ` — ${a.assigned_to_name}` : ''}</li>
+                    ))}
+                  </ul>
+                  <p className="mt-2">Check that this is additional work rather than a duplicate.</p>
+                </div>
+              )}
             </div>
             
             <div className="flex justify-end gap-3 mt-6">
               <button
                 onClick={() => {
                   setShowAddAction(false);
-                  setNewAction({ title: "", action: "", status: "Pending", date: "", assigned_to: "" });
+                  setNewAction({ title: "", action: "", due_date: "", assigned_to: "", review_requirement: "EFFECTIVENESS_REQUIRED", intended_outcome: "" });
                 }}
                 className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >

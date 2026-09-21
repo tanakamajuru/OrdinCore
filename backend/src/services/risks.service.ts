@@ -9,6 +9,7 @@ import { riskMetricsService } from './riskMetrics.service';
 import { riskReviewObligationsService } from './riskReviewObligations.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 import { canonicalGovernanceActionService, ActionReviewRequirement } from './canonicalGovernanceAction.service';
+import { escalationLifecycleService } from './escalationLifecycle.service';
 
 // Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
 // (likelihood × impact) always agrees with the severity badge: Critical→25, High→16,
@@ -203,8 +204,34 @@ export class RisksService {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
 
+    const isStrategic = Number(risk.services_affected_count || 0) > 1 || !!risk.strategic_theme || !risk.house_id;
+
+    // Strategic/cross-service controls must have a deliberately selected leadership owner.
+    // Falling back to an arbitrary Team Leader would silently turn an organisation-level
+    // control into one service's task and weaken reconstructable accountability.
+    if (isStrategic && !data.assigned_to) {
+      throw new Error('Strategic risk actions require an explicitly selected Registered Manager, Director or Responsible Individual.');
+    }
+
+    if (data.assigned_to) {
+      const owner = (await query(
+        `SELECT id, role FROM users WHERE id=$1 AND company_id=$2 AND status='active'`,
+        [data.assigned_to, company_id]
+      )).rows[0];
+      if (!owner) throw new Error('The selected action owner is not an active user in this organisation.');
+      const role = String(owner.role || '').toUpperCase().replace(/-/g, '_');
+      const allowed = isStrategic
+        ? ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN']
+        : ['SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'];
+      if (!allowed.includes(role)) {
+        throw new Error(isStrategic
+          ? 'Strategic risk actions must be owned by a Registered Manager, Director or Responsible Individual.'
+          : 'The selected person cannot own this action.');
+      }
+    }
+
     let assigned_to = data.assigned_to;
-    if (!assigned_to) {
+    if (!assigned_to && !isStrategic) {
       // Find Team Leader(s) mapped to this house — prefer an AVAILABLE one (Finding F),
       // falling back to any house TL, then any company TL.
       const tlRes = await query(
@@ -235,6 +262,9 @@ export class RisksService {
       governanceDomain:risk.risk_domain||null,reviewRequirement:data.review_requirement||'EFFECTIVENESS_REQUIRED',
       intendedOutcome:data.intended_outcome||null,
     });
+    // A risk may already have an open escalation. Keep every linked escalation on the
+    // same canonical lifecycle immediately after action creation; do not wait for completion.
+    await escalationLifecycleService.syncForAction(action.id, company_id);
     // Notify the Team Leader the action is now theirs — previously they only discovered
     // it by opening their queue (Finding F).
     if (assigned_to) {

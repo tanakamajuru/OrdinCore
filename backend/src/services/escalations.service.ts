@@ -5,6 +5,7 @@ import { risksRepo } from '../repositories/risks.repo';
 import { notificationsService } from './notifications.service';
 import { canonicalControlPositionService } from './canonicalControlPosition.service';
 import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
+import { escalationLifecycleService } from './escalationLifecycle.service';
 
 export type EscalationLifecycleStatus =
   | 'Open'
@@ -655,19 +656,21 @@ export class EscalationsService {
   // Add an assignable task (risk_action) from an escalation — WITH or WITHOUT a linked
   // risk. The task carries the escalation's house + source lineage, so a control/action can
   // be assigned for effectiveness even when the escalation isn't yet tied to a formal risk.
-  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string }) {
+  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string; review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED' }) {
     const e = (await query(`SELECT id, house_id, risk_id, source_governance_review_id, source_pulse_id, source_cluster_id, reason FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
     if (!e) throw new Error('Escalation not found');
     const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
-    if (!body.intended_outcome || body.intended_outcome.trim().length < 10) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+    const reviewRequirement = body.review_requirement || 'EFFECTIVENESS_REQUIRED';
+    if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!body.intended_outcome || body.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
     const action = await canonicalGovernanceActionService.create({
       companyId:company_id,createdBy:user_id,title,description:title,assignedTo:body.assigned_to,
       dueDate:body.due_date||null,houseId:e.house_id||null,riskId:e.risk_id||null,
       governanceReviewId:e.source_governance_review_id||null,sourcePulseId:e.source_pulse_id||null,
       sourceClusterId:e.source_cluster_id||null,escalationId:id,
-      reviewRequirement:'EFFECTIVENESS_REQUIRED',intendedOutcome:body.intended_outcome||null,
+      reviewRequirement,intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? body.intended_outcome||null : null,
     });
+    await escalationLifecycleService.syncForAction(action.id, company_id);
     try {
       const { notificationsService } = await import('./notifications.service');
       await notificationsService.create({ company_id, user_id: body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });

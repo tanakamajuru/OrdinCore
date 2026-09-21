@@ -58,10 +58,12 @@ export const startActionOverdueWorker = () => {
     queueName,
     async (_job: Job) => {
       const overdue = await query(
-        `SELECT a.id, a.company_id, a.title, a.assigned_to, a.escalation_stage, r.house_id,
+        `SELECT a.id, a.company_id, a.title, a.assigned_to, a.escalation_stage,
+                COALESCE(a.house_id, r.house_id, e.house_id) AS house_id,
                 FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400)::int AS days_overdue
            FROM risk_actions a
            LEFT JOIN risks r ON r.id = a.risk_id
+           LEFT JOIN escalations e ON e.id = a.escalation_id
           WHERE a.status NOT IN ('Complete','Completed','Cancelled')
             AND a.due_date IS NOT NULL AND a.due_date < NOW()`
       );

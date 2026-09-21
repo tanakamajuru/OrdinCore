@@ -3,6 +3,7 @@ import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { emitToCompany } from '../websocket/socket.server';
 import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
+import { escalationLifecycleService } from './escalationLifecycle.service';
 
 /**
  * The Daily Governance Review is the engine that generates management work. A Governance
@@ -34,6 +35,7 @@ export type DecisionInput = {
   owner_id?: string | null;
   due_at?: string | null;
   intended_outcome?: string | null;
+  review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED';
   decision_rationale?: string | null;
   action_description?: string | null;
   idempotency_key?: string | null;
@@ -97,12 +99,13 @@ export const governanceDecisionsService = {
       throw new Error('Choose an accountable owner before creating an action.');
     }
     if (decision === 'Create Action') {
+      const reviewRequirement = input.review_requirement || 'EFFECTIVENESS_REQUIRED';
       if (!input.due_at) throw new Error('A governance action needs a due date.');
       const due = new Date(input.due_at).getTime();
       if (!Number.isFinite(due)) throw new Error('A governance action needs a valid due date.');
       const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
       if (due < startToday.getTime()) throw new Error('A governance action due date cannot be in the past.');
-      if (!input.intended_outcome || input.intended_outcome.trim().length < 10) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+      if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!input.intended_outcome || input.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
     }
     if (decision === 'Monitor') {
       if (!input.owner_id) throw new Error('A Monitor decision needs an owner who is watching this concern.');
@@ -145,12 +148,13 @@ export const governanceDecisionsService = {
     let task: any = null, escalation: any = null, risk: any = null, pattern: any = null;
 
     if (decision === 'Create Action') {
+      const reviewRequirement = input.review_requirement || 'EFFECTIVENESS_REQUIRED';
       task = await canonicalGovernanceActionService.create({
         companyId:c, createdBy:u, title, description:input.what_is_happening.trim(),
         assignedTo:input.owner_id??null, dueDate:input.due_at??null, houseId:input.house_id??null,
         riskId:input.risk_id??null, governanceReviewId:decisionId, sourcePulseId:input.pulse_entry_id??null,
-        sourceClusterId:input.cluster_id??null, reviewRequirement:'EFFECTIVENESS_REQUIRED',
-        intendedOutcome:input.intended_outcome??null,
+        sourceClusterId:input.cluster_id??null, reviewRequirement,
+        intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? input.intended_outcome??null : null,
       }, client);
     } else if (decision === 'Escalate') {
       // Dedup: never open a second live escalation for the same source pattern/risk/signal.
@@ -275,19 +279,27 @@ export const governanceDecisionsService = {
   async promoteToRiskInTx(client: PoolClient, input: DecisionInput, decisionId: string) {
     const c = input.company_id, u = input.user_id;
     if (input.cluster_id) {
-      const cl = (await client.query(`SELECT id, risk_domain, linked_person, house_id, linked_risk_id, affected_house_ids FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [input.cluster_id, c])).rows[0];
+      const cl = (await client.query(`SELECT id, risk_domain, linked_person, house_id, linked_risk_id, affected_house_ids, scope FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [input.cluster_id, c])).rows[0];
       if (!cl) throw new Error('Pattern not found.');
       if (cl.linked_risk_id) {
         const existing = (await client.query(`SELECT * FROM risks WHERE id = $1`, [cl.linked_risk_id])).rows[0];
         if (existing) return existing; // already promoted — no duplicate
       }
       const riskId = uuidv4();
+      const affectedIds: string[] = Array.isArray(cl.affected_house_ids) ? cl.affected_house_ids : [];
+      const isCrossService = cl.scope === 'cross_service' || affectedIds.length > 1;
       const r = await client.query(
-        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, source_cluster_id, risk_domain, linked_person, trajectory)
-         VALUES ($1,$2,$3,$4,$5,'Moderate','Open',$6,$7,$8,$9,'Stable') RETURNING *`,
-        [riskId, c, cl.house_id || (Array.isArray(cl.affected_house_ids) ? cl.affected_house_ids[0] : null), (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), u, cl.id, cl.risk_domain, cl.linked_person || null]
+        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, source_cluster_id, risk_domain, linked_person, trajectory, services_affected_count, strategic_theme)
+         VALUES ($1,$2,$3,$4,$5,'Moderate','Open',$6,$7,$8,$9,'Stable',$10,$11) RETURNING *`,
+        [riskId, c, isCrossService ? null : (cl.house_id || affectedIds[0] || null), (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), u, cl.id, cl.risk_domain, cl.linked_person || null, isCrossService ? Math.max(2, affectedIds.length) : 1, isCrossService ? cl.risk_domain : null]
       );
       await client.query(`UPDATE signal_clusters SET linked_risk_id = $1, cluster_status = 'Confirmed', updated_at = NOW() WHERE id = $2`, [riskId, cl.id]);
+      await client.query(
+        `UPDATE risk_signal_links SET risk_id=$1
+          WHERE cluster_id=$2 AND risk_id IS NULL
+            AND NOT EXISTS (SELECT 1 FROM risk_signal_links x WHERE x.risk_id=$1 AND x.pulse_entry_id=risk_signal_links.pulse_entry_id)`,
+        [riskId, cl.id]
+      );
       await client.query(`UPDATE governance_reviews SET risk_id = $1 WHERE id = $2`, [riskId, decisionId]);
       return r.rows[0];
     }
@@ -316,6 +328,9 @@ export const governanceDecisionsService = {
       await client.query('BEGIN');
       const out = await this.executeInTx(client, input);
       await client.query('COMMIT');
+      if (!out.idempotent && out.task?.id) {
+        await escalationLifecycleService.syncForAction(out.task.id, input.company_id);
+      }
       emitToCompany(input.company_id, 'governance.case.updated', {
         reason: 'governance_decision_recorded',
         decision_id: out.decision?.id || null,

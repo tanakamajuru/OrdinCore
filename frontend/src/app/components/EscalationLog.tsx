@@ -75,7 +75,10 @@ export function EscalationLog() {
   const [searchParams] = useSearchParams();
   // Allocate an action to a responsible person from the escalation.
   const [assignees, setAssignees] = useState<any[]>([]);
-  const [taskForm, setTaskForm] = useState({ title: "", intended_outcome: "", assigned_to: "", due_date: "" });
+  const [taskForm, setTaskForm] = useState({
+    title: "", intended_outcome: "", assigned_to: "", due_date: "",
+    review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
+  });
   const [assigningTask, setAssigningTask] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
@@ -93,7 +96,7 @@ export function EscalationLog() {
   const allocateTask = async () => {
     if (!selectedEscalation) return;
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
-    if (taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
+    if (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
     if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
     setAssigningTask(true);
     try {
@@ -102,12 +105,13 @@ export function EscalationLog() {
       await apiClient.post(`/escalations/${selectedEscalation.id}/task`, {
         title: taskForm.title.trim(),
         intended_outcome: taskForm.intended_outcome.trim(),
+        review_requirement: taskForm.review_requirement,
         assigned_to: taskForm.assigned_to,
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
       });
       toast.success('Task allocated — it now appears in their My Actions.');
       await loadEscalations();
-      setTaskForm({ title: "", intended_outcome: "", assigned_to: "", due_date: "" });
+      setTaskForm({ title: "", intended_outcome: "", assigned_to: "", due_date: "", review_requirement: "EFFECTIVENESS_REQUIRED" });
     } catch (e: any) {
       toast.error(e?.response?.data?.message || e?.message || 'Could not allocate the task.');
     } finally { setAssigningTask(false); }
@@ -737,18 +741,38 @@ export function EscalationLog() {
                           </summary>
                           <p className="text-xs text-muted-foreground mt-1 mb-3">Use when another person must complete a specific action by a due date.</p>
                           <div className="space-y-2">
+                            {Array.isArray((selectedEscalation as any).linked_actions) && (selectedEscalation as any).linked_actions.some((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(String(a.status))) && (
+                              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                                <p className="font-semibold">Existing open corrective actions</p>
+                                <ul className="mt-1 list-disc pl-4">
+                                  {(selectedEscalation as any).linked_actions
+                                    .filter((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(String(a.status)))
+                                    .slice(0, 5)
+                                    .map((a: any) => <li key={a.id}>{a.title || a.description}{a.assigned_to_name ? ` — ${a.assigned_to_name}` : ''}</li>)}
+                                </ul>
+                                <p className="mt-2">Create another action only when it is genuinely additional work.</p>
+                              </div>
+                            )}
                             <input
                               value={taskForm.title}
                               onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
                               placeholder="What needs doing? (e.g. review controls, complete competency check)"
                               className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
                             />
-                            <textarea
+                            <select
+                              value={taskForm.review_requirement}
+                              onChange={(e) => setTaskForm({ ...taskForm, review_requirement: e.target.value as any, intended_outcome: e.target.value === 'COMPLETION_ONLY' ? '' : taskForm.intended_outcome })}
+                              className="w-full bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
+                            >
+                              <option value="EFFECTIVENESS_REQUIRED">Review whether this worked</option>
+                              <option value="COMPLETION_ONLY">Confirm completion only</option>
+                            </select>
+                            {taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && <textarea
                               value={taskForm.intended_outcome}
                               onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })}
                               placeholder="What should change if this action works?"
                               className="w-full min-h-20 bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
-                            />
+                            />}
                             <div className="flex flex-col sm:flex-row gap-2">
                               <select
                                 value={taskForm.assigned_to}
@@ -769,7 +793,7 @@ export function EscalationLog() {
                             </div>
                             <button
                               onClick={allocateTask}
-                              disabled={assigningTask || !taskForm.title.trim() || taskForm.intended_outcome.trim().length < 10 || !taskForm.assigned_to}
+                              disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) || !taskForm.assigned_to || !taskForm.due_date}
                               className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
                             >
                               {assigningTask ? 'Allocating…' : 'Allocate task'}

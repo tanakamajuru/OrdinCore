@@ -58,6 +58,7 @@ export function GovernanceDecisions({
     source: "",
     severity: "",
     intended_outcome: "",
+    review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
     rationale: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
@@ -66,7 +67,7 @@ export function GovernanceDecisions({
   const [toDate, setToDate] = useState(reviewDate);
   const [actionedSignals, setActionedSignals] = useState<any[]>([]);
   // Allocate a task to a person for this service — available even when there are no new signals.
-  const [taskForm, setTaskForm] = useState({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "" });
+  const [taskForm, setTaskForm] = useState({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "", review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED" });
   const [taskBusy, setTaskBusy] = useState(false);
   const idemKey = useRef<string | null>(null);
 
@@ -230,7 +231,7 @@ export function GovernanceDecisions({
       return;
     }
     if (form.decision === "Create Action" && !form.due_at) { toast.error("A governance action requires a due date."); return; }
-    if ((form.decision === "Create Action" || form.decision === "Monitor") && form.intended_outcome.trim().length < 10) {
+    if ((form.decision === "Monitor" || (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED")) && form.intended_outcome.trim().length < 10) {
       toast.error(form.decision === "Monitor" ? "Record what the monitoring review should establish." : "Record the intended outcome so effectiveness can later be judged.");
       return;
     }
@@ -251,10 +252,11 @@ export function GovernanceDecisions({
         due_at: form.due_at || null,
         action_description: form.what.trim(),
         intended_outcome: form.intended_outcome.trim() || null,
+        review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
         idempotency_key: idemKey.current,
       });
       toast.success(form.decision === "Create Action" ? "Decision recorded — action assigned" : "Decision recorded");
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", rationale: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
@@ -270,7 +272,7 @@ export function GovernanceDecisions({
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (taskForm.what.trim().length < 5) { toast.error("Describe the task to allocate."); return; }
     if (taskForm.rationale.trim().length < 10) { toast.error("Record why this governance task is required."); return; }
-    if (taskForm.intended_outcome.trim().length < 10) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
+    if (taskForm.review_requirement === "EFFECTIVENESS_REQUIRED" && taskForm.intended_outcome.trim().length < 10) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
     if (!taskForm.owner_id) { toast.error("Choose who to allocate the task to."); return; }
     if (!taskForm.due_at) { toast.error("Set a due date for this governance task."); return; }
     setTaskBusy(true);
@@ -284,10 +286,11 @@ export function GovernanceDecisions({
         due_at: taskForm.due_at || null,
         action_description: taskForm.what.trim(),
         intended_outcome: taskForm.intended_outcome.trim(),
+        review_requirement: taskForm.review_requirement,
         idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
       });
       toast.success("Task allocated");
-      setTaskForm({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "" });
+      setTaskForm({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "", review_requirement: "EFFECTIVENESS_REQUIRED" });
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
     } catch (e: any) {
@@ -447,13 +450,21 @@ export function GovernanceDecisions({
             placeholder="Why is this the appropriate governance decision?"
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
 
-          {(form.decision === "Create Action" || form.decision === "Monitor") && <textarea
+          {form.decision === "Create Action" && <select
+            value={form.review_requirement}
+            onChange={(e) => setForm({ ...form, review_requirement: e.target.value as any, intended_outcome: e.target.value === "COMPLETION_ONLY" ? "" : form.intended_outcome })}
+            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+            <option value="EFFECTIVENESS_REQUIRED">Review whether this worked</option>
+            <option value="COMPLETION_ONLY">Confirm completion only</option>
+          </select>}
+
+          {(form.decision === "Monitor" || (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED")) && <textarea
             value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2}
             placeholder={form.decision === "Monitor" ? "What should the next monitoring review establish?" : "What should change if this action is effective?"}
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />}
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value, owner_id: "", due_at: "", intended_outcome: "" })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+            <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value, owner_id: "", due_at: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED" })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
               {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
             </select>
             <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"}>
@@ -487,9 +498,15 @@ export function GovernanceDecisions({
           <textarea value={taskForm.rationale} onChange={(e) => setTaskForm({ ...taskForm, rationale: e.target.value })} rows={2}
             placeholder="Why is this governance task required?"
             className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
-          <textarea value={taskForm.intended_outcome} onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })} rows={2}
+          <select value={taskForm.review_requirement}
+            onChange={(e) => setTaskForm({ ...taskForm, review_requirement: e.target.value as any, intended_outcome: e.target.value === "COMPLETION_ONLY" ? "" : taskForm.intended_outcome })}
+            className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+            <option value="EFFECTIVENESS_REQUIRED">Review whether this worked</option>
+            <option value="COMPLETION_ONLY">Confirm completion only</option>
+          </select>
+          {taskForm.review_requirement === "EFFECTIVENESS_REQUIRED" && <textarea value={taskForm.intended_outcome} onChange={(e) => setTaskForm({ ...taskForm, intended_outcome: e.target.value })} rows={2}
             placeholder="What should change if this task is effective?"
-            className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+            className="w-full mt-2 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
             <select value={taskForm.owner_id} onChange={(e) => setTaskForm({ ...taskForm, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
               <option value="">Allocate to…</option>
