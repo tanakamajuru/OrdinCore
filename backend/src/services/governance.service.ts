@@ -62,7 +62,7 @@ export class GovernanceService {
   // The signals linked to a cluster (via risk_signal_links) — the evidence behind a pattern.
   async getClusterSignals(company_id: string, clusterId: string) {
     const r = await query(
-      `SELECT gp.id, gp.entry_date, gp.entry_time, gp.severity, gp.signal_type, gp.risk_domain,
+      `SELECT gp.id, gp.entry_date, gp.entry_time, gp.severity, gp.signal_type, gp.signal_label, gp.risk_domain,
               gp.related_person, gp.description, gp.pattern_concern, gp.created_at,
               h.name AS house_name
          FROM risk_signal_links rsl
@@ -80,6 +80,8 @@ export class GovernanceService {
     // so the Patterns view's readiness states and the backend promote guard never disagree.
     // SSOT: shared constant (config/governance.constants).
     let q = `SELECT sc.*, h.name AS house_name,
+                    pf.current_window_count, pf.qualifying_count, pf.historical_evidence_count,
+                    pf.window_days, pf.threshold AS configured_threshold, pf.subthemes, pf.formation_basis,
                     (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(sc.affected_house_ids)) AS affected_house_names,
                     EXISTS (
                       SELECT 1 FROM governance_pulses gp
@@ -89,6 +91,7 @@ export class GovernanceService {
                     ) AS has_critical
              FROM canonical_pattern_state_v sc
              LEFT JOIN houses h ON h.id = sc.house_id
+             LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=sc.id
              WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
     // Default to the service-theme lens: this prevents several person patterns hiding the
@@ -111,10 +114,10 @@ export class GovernanceService {
     // Anonymization for RI/Director roles (§7 Visibility Rule)
     const anonymize = userRole === 'RESPONSIBLE_INDIVIDUAL' || userRole === 'DIRECTOR';
     return res.rows.map(cluster => {
-      const c = { ...cluster, promotion_threshold: PROMOTION_THRESHOLD };
+      const c = { ...cluster, promotion_threshold: Number(cluster.configured_threshold) || PROMOTION_THRESHOLD };
       // Finding D (display floor): a single-signal cluster is a "watch", not yet a pattern —
       // let the UI badge/soften it so the board isn't crowded with one-signal cards.
-      c.is_watch = (Number(cluster.signal_count) || 0) < 2;
+      c.is_watch = (Number(cluster.qualifying_count) || 0) < 2;
       if (anonymize && c.linked_person) {
         c.linked_person = 'Service user (Redacted)';
       }

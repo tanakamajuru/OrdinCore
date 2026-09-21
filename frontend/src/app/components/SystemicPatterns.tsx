@@ -119,7 +119,10 @@ export function SystemicPatterns() {
                         </div>
                       </td>
                       <td className="px-3"><span className="inline-flex items-center gap-1 font-medium" style={{ color: t.color }}><t.Icon size={15} />{t.label}</span></td>
-                      <td className="px-3 text-foreground">{p.signalCount}</td>
+                      <td className="px-3 text-foreground">
+                        {p.signalCount}<span className="text-[10px] text-muted-foreground"> in {p.windowDays || 7}d</span>
+                        {p.historicalSignalCount > p.signalCount && <div className="text-[10px] text-muted-foreground">{p.historicalSignalCount} historical</div>}
+                      </td>
                       <td className="px-3">{p.promotedRiskId ? <button onClick={() => navigate(`/risk-register/${p.promotedRiskId}`)} className="text-primary hover:underline inline-flex items-center gap-0.5">View risk <ChevronRight size={13} /></button> : <span className="text-muted-foreground">—</span>}</td>
                       <td className="px-3"><button onClick={() => openReview(p)} className="text-xs font-medium text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10">Review</button></td>
                     </tr>

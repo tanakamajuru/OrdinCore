@@ -358,6 +358,9 @@ export class PulseService {
         const placeholderIds = house_ids.map((_, i) => `$${i + 2}`).join(', ');
         const patternSignals = await query(
             `SELECT sc.*, h.name as house_name,
+                    COALESCE(pf.qualifying_count,sc.signal_count) AS qualifying_count,
+                    COALESCE(pf.historical_evidence_count,sc.signal_count) AS historical_evidence_count,
+                    pf.threshold AS configured_threshold, pf.window_days, pf.formation_basis,
                     EXISTS (
                       SELECT 1 FROM governance_pulses gp
                        WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
@@ -366,6 +369,7 @@ export class PulseService {
                     ) AS has_critical
              FROM canonical_pattern_state_v sc
              JOIN canonical_house_state_v h ON h.id = sc.house_id AND h.is_active
+             LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=sc.id
              WHERE sc.company_id = $1 AND sc.house_id IN (${placeholderIds})
              AND sc.is_active
              ORDER BY sc.last_signal_date DESC`,
@@ -373,7 +377,7 @@ export class PulseService {
         );
 
         // 3. Risk Candidates: clusters at/over threshold OR carrying a Critical, not yet promoted.
-        const riskCandidates = patternSignals.rows.filter((c: any) => (c.signal_count >= PROMOTION_THRESHOLD || c.has_critical) && !c.linked_risk_id);
+        const riskCandidates = patternSignals.rows.filter((c: any) => (c.qualifying_count >= (Number(c.configured_threshold) || PROMOTION_THRESHOLD) || c.has_critical) && !c.linked_risk_id);
 
         // Open escalations across these houses (for the shape-of-day strip).
         let openEscalations = 0;

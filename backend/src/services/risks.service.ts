@@ -677,14 +677,18 @@ export class RisksService {
     // EXCEPTION: Safeguarding — a lone safeguarding concern should not have to wait
     // for a pattern; a single signal is promotable (doctrine: safeguarding 1/1).
     const linkCountRes = await query(
-      `SELECT COUNT(*)::int AS count FROM risk_signal_links WHERE cluster_id = $1`,
+      `SELECT historical_evidence_count AS count, qualifying_count, threshold
+         FROM canonical_pattern_formation_v WHERE cluster_id = $1`,
       [data.cluster_id]
     );
     // COUNT() returns 0 (not null) when a cluster has no direct risk_signal_links — which
     // is the case for a cross-service (systemic) cluster whose evidence lives on its
     // per-service child clusters. Fall back to the cluster's own signal_count (the figure
     // the RM actually sees) so a genuine cross-service pattern isn't blocked as "0 signals".
-    const linkedSignals = linkCountRes.rows[0]?.count || Number(cluster.signal_count) || 0;
+    const linkedSignals = Number(linkCountRes.rows[0]?.count) || Number(cluster.signal_count) || 0;
+    const qualifyingSignals = process.env.PATTERN_COHERENCE_V3 === 'false'
+      ? linkedSignals : Number(linkCountRes.rows[0]?.qualifying_count || 0);
+    const promotionThreshold = Number(linkCountRes.rows[0]?.threshold || PROMOTION_THRESHOLD);
     const criticalRes = await query(
       `SELECT 1
          FROM risk_signal_links rsl
@@ -695,10 +699,11 @@ export class RisksService {
     );
     const hasCritical = criticalRes.rows.length > 0;
     const isSafeguarding = String(cluster.risk_domain || '').toLowerCase().includes('safeguard');
-    if (linkedSignals < PROMOTION_THRESHOLD && !hasCritical && !isSafeguarding) {
+    if (qualifyingSignals < promotionThreshold && !hasCritical && !isSafeguarding) {
       throw new Error(
-        `Cluster does not meet the promotion threshold: ${linkedSignals} signal(s) and no Critical signal. ` +
-        `A risk requires at least ${PROMOTION_THRESHOLD} linked signals, or one Critical signal (Governance Integrity §9).`
+        `Cluster does not meet the promotion threshold: ${qualifyingSignals} coherent signal(s) ` +
+        `from ${linkedSignals} historical signal(s), and no Critical signal. ` +
+        `A risk requires at least ${promotionThreshold} related signals in the configured window, or one Critical signal.`
       );
     }
 

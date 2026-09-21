@@ -150,7 +150,10 @@ export const rm5Service = {
       : `c.cluster_status IN ${ACTIVE_CLUSTER} AND c.linked_risk_id IS NULL`;
     const rows = (await query(
       `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
-              c.scope, c.signal_count AS "signalCount", c.linked_risk_id AS "promotedRiskId",
+              c.scope, COALESCE(pf.qualifying_count,c.signal_count) AS "signalCount",
+              COALESCE(pf.historical_evidence_count,c.signal_count) AS "historicalSignalCount",
+              pf.threshold AS configured_threshold, pf.window_days, pf.formation_basis, pf.subthemes,
+              c.linked_risk_id AS "promotedRiskId",
               h.name AS house_name, c.affected_house_ids,
               (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names,
               c.first_signal_date, c.last_signal_date, c.last_reviewed_at, c.review_outcome,
@@ -158,6 +161,7 @@ export const rm5Service = {
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
          FROM canonical_pattern_state_v c LEFT JOIN houses h ON h.id = c.house_id
+         LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=c.id
         WHERE c.company_id = $1 AND ${promotedClause}
         ORDER BY (c.scope = 'cross_service') DESC, c.last_signal_date DESC`,
       [company_id]
@@ -168,7 +172,10 @@ export const rm5Service = {
         id: c.id, domain: c.domain, person: c.person,
         scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
         houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
-        signalCount: Number(c.signalCount) || 0, threshold: PROMOTION_THRESHOLD,
+        signalCount: Number(c.signalCount) || 0,
+        historicalSignalCount: Number(c.historicalSignalCount) || 0,
+        threshold: Number(c.configured_threshold) || PROMOTION_THRESHOLD, windowDays: Number(c.window_days) || 7,
+        formationBasis: c.formation_basis || 'FORMING', subthemes: c.subthemes || [],
         isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
         hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
         trajectory: { dir: tr0.direction, basis: tr0.basis, points: tr0.points, version: tr0.evidence?.calculationVersion },

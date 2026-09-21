@@ -9,6 +9,30 @@ import logger from '../utils/logger';
 
 // Cross-service detection uses this rule slot (rules 8–10 are descoped for the pilot).
 const CROSS_SERVICE_RULE_NUMBER = 11;
+const PATTERN_COHERENCE_V3 = process.env.PATTERN_COHERENCE_V3 !== 'false';
+
+// "Other" and missing labels are deliberately unique. They remain visible in the
+// parent domain theme but cannot manufacture a coherent pattern merely by sharing
+// a broad domain. Set PATTERN_COHERENCE_V3=false for an immediate code rollback.
+function coherentSignals<T extends { id: string; signal_label?: string | null }>(signals: T[]): T[] {
+    if (!PATTERN_COHERENCE_V3) return signals;
+    const groups = new Map<string, T[]>();
+    for (const signal of signals) {
+        const raw = String(signal.signal_label || '').trim();
+        const key = !raw || raw.toLowerCase() === 'other'
+            ? `__unclassified__:${signal.id}`
+            : raw.toLowerCase();
+        groups.set(key, [...(groups.get(key) || []), signal]);
+    }
+    return [...groups.entries()]
+        .sort((a, b) => b[1].length - a[1].length || a[0].localeCompare(b[0]))[0]?.[1] || [];
+}
+
+function preserveLifecycle(existing: string | undefined, proposed: string): string {
+    const rank: Record<string, number> = { Emerging: 1, Confirmed: 2, Escalated: 3 };
+    if (!existing || !(existing in rank)) return proposed;
+    return rank[existing] > (rank[proposed] || 0) ? existing : proposed;
+}
 
 export const startPatternWorker = () => {
     const worker = new Worker('pattern-detection', async (job: Job) => {
@@ -62,9 +86,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     // Service lens deliberately ignores person attribution; person lens uses the stable ID.
     const personClause = scope === 'person' ? 'AND gp.service_user_id = $4::uuid' : '';
     const history21dRes = await query(
-        `SELECT gp.*, rsl.cluster_id
+        `SELECT gp.*
          FROM governance_pulses gp
-         LEFT JOIN risk_signal_links rsl ON gp.id = rsl.pulse_entry_id
          WHERE gp.company_id = $1 AND gp.house_id = $2
          AND gp.entry_date >= CURRENT_DATE - (INTERVAL '1 day' * $5)
          AND $3 = ANY(gp.risk_domain)
@@ -88,8 +111,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     );
 
     let cluster_id;
+    let existingClusterStatus: string | undefined;
     if (clusterRes.rows.length > 0) {
         cluster_id = clusterRes.rows[0].id;
+        existingClusterStatus = clusterRes.rows[0].cluster_status;
     } else {
         const houseNameRes = await query(`SELECT name FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
         const houseName = houseNameRes.rows[0]?.name || house_id;
@@ -129,6 +154,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     const signals7d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000));
     const signals10d = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000));
     const signals48h = recentSignals.filter(s => new Date(s.entry_date) >= new Date(now.getTime() - 48 * 60 * 60 * 1000));
+    const qualifyingWindow = coherentSignals(signalsWindow);
+    const qualifying10d = coherentSignals(signals10d);
 
     // Get RM user ID for notifications
     const rmRes = await query(`SELECT COALESCE(primary_rm_id, manager_id) as id FROM houses WHERE id = $1 LIMIT 1`, [house_id]);
@@ -139,19 +166,19 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 
     // 1. Pattern Emerging: ≥{triggerCount} same-domain signals within {windowDays} days
     //    (both values come from threshold_rules for this service's sector + domain).
-    if (signalsWindow.length >= triggerCount) {
+    if (qualifyingWindow.length >= triggerCount) {
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 1, rule_name: 'Pattern Emerging', output_type: 'Signal Flag', description: `≥${triggerCount} same-domain signals in ${windowDays} days` });
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
-            [company_id, house_id, cluster_id, domain, signalsWindow.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
         );
     }
 
     // 1b. Person-Level Pattern Emerging: same Related Person + same domain reaching the
     //     configured threshold within the configured window (higher priority).
-    if (scope === 'person' && service_user_id && signalsWindow.length >= triggerCount) {
+    if (scope === 'person' && service_user_id && qualifyingWindow.length >= triggerCount) {
         // Bump cluster priority above a plain system-level emerging pattern
         if (cluster_status === 'Emerging') cluster_status = 'Escalated';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 6, rule_name: 'Person-Level Pattern Emerging', output_type: 'Risk Review Required', description: `≥${triggerCount} ${domain} signals for ${related_person} within ${windowDays} days` });
@@ -159,20 +186,21 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Person-Level Pattern Emerging', $5, $6)
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
-            [company_id, house_id, cluster_id, domain, signalsWindow.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
         );
     }
 
     // 2. Risk Review Required: ≥5 signals in 10 days OR ≥2 Escalating flags
     const escalating = signals10d.filter(s => s.pattern_concern === 'Escalating');
-    if (signals10d.length >= 5 || escalating.length >= 2) {
+    const coherentEscalating = coherentSignals(escalating);
+    if (qualifying10d.length >= 5 || coherentEscalating.length >= 2) {
         cluster_status = 'Escalated';
         await thresholdEventsRepo.create({ company_id, house_id, pulse_id, cluster_id, rule_number: 2, rule_name: 'Risk Review Required', output_type: 'Risk Review Required', description: '≥5 in 10 days OR ≥2 escalating entries' });
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Risk Review Required', $5, $6) 
              ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
-            [company_id, house_id, cluster_id, domain, signals10d.map(s => s.id), related_person]
+            [company_id, house_id, cluster_id, domain, qualifying10d.map(s => s.id), related_person]
         );
     }
 
@@ -279,7 +307,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     await query(
         `UPDATE signal_clusters SET cluster_status = $1, trajectory = $2, signal_count = $3, last_signal_date = NOW()
          WHERE id = $4`,
-        [cluster_status, storedTrajectory, signal_count, cluster_id]
+        [preserveLifecycle(existingClusterStatus, cluster_status), storedTrajectory, signal_count, cluster_id]
     );
 
     // SSOT: if this cluster is already promoted to a risk, refresh that risk's cached
@@ -312,6 +340,26 @@ async function evaluateCrossServiceRisk(
     pulse_id: string,
     cluster_id: string,
 ) {
+    // A systemic concern requires the same canonical subtheme in multiple services.
+    // Sharing only a broad governance domain is a watch, not a systemic pattern.
+    const shared = (await query(
+        `SELECT LOWER(BTRIM(gp.signal_label)) AS coherence_key,
+                MIN(BTRIM(gp.signal_label)) AS signal_label,
+                COUNT(DISTINCT gp.house_id)::int AS house_count,
+                ARRAY_AGG(DISTINCT gp.house_id) AS house_ids,
+                ARRAY_AGG(DISTINCT h.name) AS house_names,
+                COUNT(*)::int AS total_signals,
+                MIN(gp.entry_date) AS first_signal
+           FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
+          WHERE gp.company_id=$1 AND $2=ANY(gp.risk_domain)
+            AND gp.entry_date >= CURRENT_DATE-INTERVAL '28 days'
+            AND gp.signal_label IS NOT NULL AND BTRIM(gp.signal_label)<>''
+            AND LOWER(BTRIM(gp.signal_label))<>'other'
+          GROUP BY LOWER(BTRIM(gp.signal_label))
+         HAVING COUNT(DISTINCT gp.house_id)>=2
+          ORDER BY COUNT(*) DESC, LOWER(BTRIM(gp.signal_label))
+          LIMIT 1`, [company_id, domain]
+    )).rows[0];
     const affectedRes = await query(
         `SELECT COUNT(DISTINCT gp.house_id)::int AS house_count,
                 ARRAY_AGG(DISTINCT h.name) AS house_names,
@@ -353,22 +401,22 @@ async function evaluateCrossServiceRisk(
     const services28: number = wide?.services_28d ?? 0;
     const persistDays: number = wide?.first_signal ? Math.round((Date.now() - new Date(wide.first_signal).getTime()) / 86400000) : 0;
     const persists = persistDays >= 28 && (wide?.signals_28d ?? 0) >= 3;
-    const spans = houseCount >= 2 || services28 >= 2;
-    const repeatedEscalations = domainEsc >= 2;
-    const isSystemic = spans || repeatedEscalations || persists;
+    const spans = PATTERN_COHERENCE_V3 ? Number(shared?.house_count || 0) >= 2 : (houseCount >= 2 || services28 >= 2);
+    const repeatedEscalations = !PATTERN_COHERENCE_V3 && domainEsc >= 2;
+    const isSystemic = spans || repeatedEscalations || (!PATTERN_COHERENCE_V3 && persists);
     const reasons = [
-        spans ? `${Math.max(houseCount, services28)} services` : null,
+        spans ? `${PATTERN_COHERENCE_V3 ? shared.house_count : Math.max(houseCount, services28)} services${shared?.signal_label ? ` · ${shared.signal_label}` : ''}` : null,
         repeatedEscalations ? `${domainEsc} escalations` : null,
-        persists ? `persists ${persistDays}d` : null,
+        (!PATTERN_COHERENCE_V3 && persists) ? `persists ${persistDays}d` : null,
     ].filter(Boolean).join(' · ');
 
     // Finding D: maintain ONE persistent cross-service cluster per company+domain so the
     // systemic pattern is queryable on Patterns (the Director/RI lens), not just a flag.
     // Retire it if none of the systemic criteria hold.
     try {
-        const houseIds7: string[] = (affectedRes.rows[0]?.house_ids || []).filter(Boolean);
+        const houseIds7: string[] = ((PATTERN_COHERENCE_V3 ? shared?.house_ids : affectedRes.rows[0]?.house_ids) || []).filter(Boolean);
         const houseIds: string[] = houseIds7.length ? houseIds7 : ((wide?.house_ids_28d || []).filter(Boolean));
-        const totalSignals: number = affectedRes.rows[0]?.total_signals ?? (wide?.signals_28d ?? houseCount);
+        const totalSignals: number = PATTERN_COHERENCE_V3 ? Number(shared?.total_signals || 0) : (affectedRes.rows[0]?.total_signals ?? (wide?.signals_28d ?? houseCount));
         const csLabel = `${domain} — systemic (${reasons || `${houseCount} services`})`;
         const existingCs = await query(
             `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service' LIMIT 1`,
@@ -378,7 +426,8 @@ async function evaluateCrossServiceRisk(
             if (existingCs.rows[0]) {
                 await query(
                     `UPDATE signal_clusters SET affected_house_ids = $1, signal_count = $2, cluster_label = $3,
-                            cluster_status = 'Emerging', last_signal_date = CURRENT_DATE WHERE id = $4`,
+                            cluster_status = CASE WHEN cluster_status IN ('Confirmed','Escalated') THEN cluster_status ELSE 'Emerging' END,
+                            last_signal_date = CURRENT_DATE WHERE id = $4`,
                     [houseIds, totalSignals, csLabel, existingCs.rows[0].id]
                 );
             } else {
@@ -401,10 +450,11 @@ async function evaluateCrossServiceRisk(
                        FROM governance_pulses gp
                       WHERE gp.company_id=$2 AND $3=ANY(gp.risk_domain)
                         AND gp.house_id=ANY($4::uuid[])
+                        AND ($5::text IS NULL OR LOWER(BTRIM(gp.signal_label))=$5)
                         AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW()-INTERVAL '28 days'
                         AND gp.created_by IS NOT NULL
                      ON CONFLICT DO NOTHING`,
-                    [crossServiceClusterId, company_id, domain, houseIds]
+                    [crossServiceClusterId, company_id, domain, houseIds, PATTERN_COHERENCE_V3 ? shared?.coherence_key : null]
                 );
                 const tr = await trajectoryForCluster(crossServiceClusterId);
                 await query(`UPDATE signal_clusters SET trajectory=$1, updated_at=NOW() WHERE id=$2`, [tr.direction, crossServiceClusterId]);

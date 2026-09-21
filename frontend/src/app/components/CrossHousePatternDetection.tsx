@@ -23,6 +23,10 @@ interface RiskPattern {
   relatedIncidents: number;
   // Promotion readiness + state (Issues 2 & 3)
   signalCount: number;
+  historicalCount: number;
+  windowDays: number;
+  formationBasis: "COHERENT_SUBTHEME" | "MIXED_DOMAIN_REVIEW" | "FORMING";
+  subthemes: Array<{ label: string; count: number }>;
   threshold: number;
   hasCritical: boolean;
   promotedRiskId: string | null;
@@ -94,7 +98,11 @@ export function CrossHousePatternDetection() {
         frequency: parseInt(c.signal_count) || 0,
         trend: String(c.trajectory || 'stable').toLowerCase(),
         relatedIncidents: 0,
-        signalCount: parseInt(c.signal_count) || 0,
+        signalCount: parseInt(c.qualifying_count) || 0,
+        historicalCount: parseInt(c.historical_evidence_count ?? c.signal_count) || 0,
+        windowDays: parseInt(c.window_days) || 7,
+        formationBasis: c.formation_basis || "FORMING",
+        subthemes: Array.isArray(c.subthemes) ? c.subthemes : [],
         threshold: c.promotion_threshold ?? 3,
         hasCritical: !!c.has_critical,
         promotedRiskId: c.linked_risk_id || null,
@@ -293,7 +301,7 @@ export function CrossHousePatternDetection() {
                             </div>
                             <div className="flex items-center gap-1">
                               <AlertTriangle className="w-3 h-3" />
-                              {pattern.frequency} signals
+                              {pattern.signalCount} qualifying in {pattern.windowDays} days · {pattern.historicalCount} historical
                             </div>
                           </div>
                         </div>
@@ -366,6 +374,20 @@ export function CrossHousePatternDetection() {
                           {getTrendIcon(selectedPattern.trend)} {selectedPattern.trend}
                         </div>
                       </div>
+                      <div>
+                        <div className="text-sm text-muted-foreground mb-1">Formation basis</div>
+                        <div className="text-sm text-foreground">
+                          {selectedPattern.formationBasis === 'COHERENT_SUBTHEME' ? 'Related subtheme threshold met'
+                            : selectedPattern.formationBasis === 'MIXED_DOMAIN_REVIEW' ? 'Mixed domain signals — management review required'
+                            : 'Pattern still forming'}
+                        </div>
+                      </div>
+                      {selectedPattern.subthemes.length > 0 && <div>
+                        <div className="text-sm text-muted-foreground mb-1">Current subthemes</div>
+                        <div className="flex flex-wrap gap-2">
+                          {selectedPattern.subthemes.map((s) => <span key={s.label} className="px-2 py-1 bg-muted text-xs rounded border">{s.label}: {s.count}</span>)}
+                        </div>
+                      </div>}
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Affected Services</div>
                         <div className="flex flex-wrap gap-2">
