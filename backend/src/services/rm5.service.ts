@@ -106,11 +106,15 @@ export const rm5Service = {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
     return {
       signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'') NOT IN ('Linked','Closed','Monitoring')`),
-      // Genuine patterns only. A single-signal cluster is a "Watch — not yet a pattern" (display
-      // floor: signal_count < 2), so counting it as a Pattern overstated the number (e.g. 59 shown
-      // where only ~16 were real patterns). Count active, un-promoted clusters with >= 2 signals,
-      // across all scopes — the same population the decision board treats as real patterns.
-      patterns: await one(`SELECT COUNT(*) n FROM signal_clusters WHERE company_id=$1 AND cluster_status IN ${ACTIVE_CLUSTER} AND linked_risk_id IS NULL AND COALESCE(signal_count,0) >= 2`),
+      // Genuine patterns only, using the SAME coherent qualifying count the decision board shows
+      // (Pattern Coherence V3): a cluster is a real pattern when its largest coherent same-subtheme
+      // group in the configured window is >= 2 (a single coherent signal is a "Watch — not yet a
+      // pattern"). This keeps the ribbon consistent with the board's is_watch = qualifying_count < 2,
+      // so broad-domain noise no longer inflates the headline count.
+      patterns: await one(`SELECT COUNT(*) n FROM signal_clusters sc
+        LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id = sc.id
+        WHERE sc.company_id=$1 AND sc.cluster_status IN ${ACTIVE_CLUSTER} AND sc.linked_risk_id IS NULL
+          AND COALESCE(pf.qualifying_count, sc.signal_count, 0) >= 2`),
       risks: await one(`SELECT COUNT(*) n FROM canonical_risk_state_v WHERE company_id=$1 AND is_active`),
       actions: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND is_open`),
       effectiveness: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND requires_effectiveness_review`),
