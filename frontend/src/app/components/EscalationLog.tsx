@@ -150,7 +150,20 @@ export function EscalationLog() {
       const payload = (res.data as any).data || (res.data as any) || [];
       const list = Array.isArray(payload) ? payload : (payload.escalations || payload.items || []);
       setEscalations(list);
-      setSelectedEscalation((current) => current ? (list.find((e: Escalation) => e.id === current.id) || current) : null);
+      // A background refresh must NOT blank the open detail pane. The list query does not compute the
+      // detail-only fields (control_position from forEscalation, closed_by_name), so merge the fresh
+      // list row over the current selection while PRESERVING those detail fields — otherwise the
+      // read-only control position silently reverts to "Not yet reviewed" after the first poll.
+      setSelectedEscalation((current) => {
+        if (!current) return null;
+        const fresh = list.find((e: Escalation) => e.id === current.id) as any;
+        if (!fresh) return current;
+        return {
+          ...fresh,
+          control_position: fresh.control_position ?? (current as any).control_position,
+          closed_by_name: fresh.closed_by_name ?? (current as any).closed_by_name,
+        };
+      });
     } catch (err) {
       console.error('Failed to load escalations', err);
       if (first) toast.error('Failed to load escalation log');
@@ -812,7 +825,7 @@ export function EscalationLog() {
                         </div>
                         <p className=" text-foreground">"{selectedEscalation.resolution_notes}"</p>
                         <p className="mt-2 text-xs opacity-75">
-                          Resolved{(selectedEscalation as any).closed_by_name ? ` by ${(selectedEscalation as any).closed_by_name}` : ''} on {new Date(selectedEscalation.resolved_at!).toLocaleString('en-GB')}
+                          Resolved{(selectedEscalation as any).closed_by_name ? ` by ${(selectedEscalation as any).closed_by_name}` : ''}{(() => { const at = (selectedEscalation as any).closed_at || selectedEscalation.resolved_at; return at ? ` on ${new Date(at).toLocaleString('en-GB')}` : ''; })()}
                         </p>
                       </div>
                     )}
