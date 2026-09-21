@@ -128,15 +128,15 @@ export class ReportsDataService {
     );
     const flags = rows.rows.map((r) => ({
       ...r,
-      level: r.service_count >= 3 ? 'Director-Level Risk · Mandatory Review' : 'System-Level Risk',
+      level: r.service_count >= 3 ? 'Director review required' : 'Cross-service review required',
     }));
     const narrative = flags.length === 0
       ? 'No cross-service patterns were detected this period. Each governance theme is contained within a single service and managed locally.'
       : `Cross-service detection identified ${flags.length} governance theme${flags.length === 1 ? '' : 's'} spanning multiple services: ${flags.map((f) => `${f.domain} (${f.service_count} services — ${f.services})`).join('; ')}. ` +
-        `A pattern present in two or more services is read as a systemic control weakness with a likely shared root cause, not a set of isolated risks. ` +
+        `These recorded associations require leadership review; they do not by themselves prove a shared root cause or systemic control failure. ` +
         `${flags.some((f) => f.service_count >= 3) ? 'Where a theme spans three or more services it triggers a Director-Level Mandatory Review; the Responsible Individual and all Registered Managers are notified. ' : ''}` +
-        `Acting once, systemically, rather than locally in each service, is the test CQC applies under Well-Led.`;
-    return { report: 'Cross-Service Control Report', kloe: ['S4', 'W4'], narrative, summary: { themes: flags.length, services_in_scope: flags.reduce((n, f) => Math.max(n, f.service_count), 0) }, flags };
+        `The review should test both service-specific and organisation-wide explanations and record the evidence for the chosen response.`;
+    return { report: 'Cross-Service Evidence Review', kloe: ['S4', 'W4'], narrative, summary: { themes: flags.length, services_in_scope: flags.reduce((n, f) => Math.max(n, f.service_count), 0) }, flags };
   }
 
   // Inspection Evidence Pack: the traceable lineage from each oversight risk back through

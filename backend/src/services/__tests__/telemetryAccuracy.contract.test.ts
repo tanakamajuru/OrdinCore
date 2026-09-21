@@ -9,7 +9,7 @@ describe('strategic telemetry truth contract', () => {
 
   it('replaces cumulative risk creation with weekly severity-weighted signal burden', () => {
     expect(analytics).toContain("measure: 'severity_weighted_signal_burden'");
-    expect(trends).toContain('Cross-Service Signal Burden');
+    expect(trends).toContain('Cross-Service Recorded Signal Burden');
     expect(trends).not.toContain('Cross-Site Risk Trajectory');
   });
 

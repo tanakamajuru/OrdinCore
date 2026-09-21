@@ -13,9 +13,9 @@ const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 // not an isolated operational event. Reviewed by an authorised governance reviewer
 // (RM / Director / RI), not hard-coded to a single title.
 const TRAJ: Record<string, { Icon: any; color: string; label: string }> = {
-  Deteriorating: { Icon: ArrowUpRight, color: "#dc2626", label: "Deteriorating" },
-  Improving: { Icon: ArrowDownRight, color: "#059669", label: "Improving" },
-  Stable: { Icon: Minus, color: "#d97706", label: "Stable" },
+  Deteriorating: { Icon: ArrowUpRight, color: "#dc2626", label: "Recorded evidence indicates deterioration" },
+  Improving: { Icon: ArrowDownRight, color: "#059669", label: "Recorded evidence indicates improvement" },
+  Stable: { Icon: Minus, color: "#d97706", label: "No material change detected" },
 };
 
 // /rm/patterns returns trajectory as an object { dir, basis, points, version }; older shapes and
@@ -84,15 +84,15 @@ export function SystemicPatterns() {
         <div className="flex items-center gap-3 mb-1">
           <div className="p-2.5 bg-indigo-500/10 rounded-xl text-indigo-600"><Network size={22} /></div>
           <div>
-            <h1 className="text-2xl font-semibold text-foreground">Systemic Governance Patterns</h1>
-            <p className="text-sm text-muted-foreground">Recurring governance concerns crossing multiple services — organisational issues requiring leadership attention.</p>
+            <h1 className="text-2xl font-semibold text-foreground">Potential Cross-Service Patterns</h1>
+            <p className="text-sm text-muted-foreground">Recorded recurring concerns across services requiring leadership review. Detection does not by itself establish a systemic cause.</p>
           </div>
         </div>
 
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" /></div>
         ) : items.length === 0 ? (
-          <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground mt-6">No systemic (cross-service) patterns detected. Concerns confined to one service appear on the RM pipeline.</div>
+          <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground mt-6">No potential cross-service patterns were detected from the available recorded evidence.</div>
         ) : (
           <div className="bg-card border-2 border-border rounded-xl overflow-hidden mt-6">
             <table className="w-full text-sm">
@@ -136,13 +136,13 @@ export function SystemicPatterns() {
         {reviewTarget && (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setReviewTarget(null)}>
             <div className="bg-card w-full max-w-md rounded-xl shadow-xl border border-border p-6" onClick={(e) => e.stopPropagation()}>
-              <h3 className="text-lg font-semibold text-foreground mb-1">Systemic Pattern Review</h3>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Cross-Service Pattern Review</h3>
               <p className="text-xs text-muted-foreground mb-3">{reviewTarget.domain} — across {(reviewTarget.houses || reviewTarget.affected_house_names || []).length} services. Review the evidence, then choose the governance decision.</p>
               {/* Trajectory is EVIDENCE, shown read-only — it is never a review decision. */}
               {reviewTarget.trajectory && (
                 <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
-                  <span className="text-muted-foreground">Current trajectory (evidence):</span>
-                  <span className="font-semibold" style={{ color: (TRAJ as any)[dirOf(reviewTarget.trajectory)]?.color || "#64748b" }}>{dirOf(reviewTarget.trajectory)}</span>
+                  <span className="text-muted-foreground">Recorded evidence trajectory:</span>
+                  <span className="font-semibold" style={{ color: (TRAJ as any)[dirOf(reviewTarget.trajectory)]?.color || "#64748b" }}>{(TRAJ as any)[dirOf(reviewTarget.trajectory)]?.label || "No material change detected"}</span>
                 </div>
               )}
               <label className="block text-sm font-medium mb-1">Governance decision</label>
@@ -155,7 +155,7 @@ export function SystemicPatterns() {
                   <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                 </div>
               )}
-              {outcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A systemic pattern can only close once its linked risk and escalations are resolved.</p>}
+              {outcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A cross-service pattern can only close once its linked risk and escalations are resolved.</p>}
               <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
               <textarea value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the cross-service evidence show?" />
               <div className="flex justify-end gap-3 mt-4">

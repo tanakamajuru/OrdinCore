@@ -384,7 +384,7 @@ async function generateDetailedEvidencePack(company_id: string, parameters: Reco
             ["House", risk.house_name],
             ["Registered By", risk.created_by_name],
             ["Current Severity", risk.severity],
-            ["Current Trajectory", risk.trajectory || 'Stable'],
+            ["Recorded Evidence Trajectory", risk.trajectory || 'Stable'],
             ["Status", risk.status],
             ["Risk Score", (risk.risk_score || 0).toString()]
           ]

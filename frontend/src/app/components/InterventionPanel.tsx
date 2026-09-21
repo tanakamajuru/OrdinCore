@@ -136,9 +136,9 @@ function CloseRiskManager({ theme, onDone }: { theme: any; onDone: () => void })
 }
 
 const DIR = {
-  Deteriorating: { Icon: ArrowUpRight, color: "#dc2626", label: "Increasing" },
-  Improving: { Icon: ArrowDownRight, color: "#059669", label: "Reducing" },
-  Stable: { Icon: Minus, color: "#d97706", label: "Stable" },
+  Deteriorating: { Icon: ArrowUpRight, color: "#dc2626", label: "Recorded evidence indicates deterioration" },
+  Improving: { Icon: ArrowDownRight, color: "#059669", label: "Recorded evidence indicates improvement" },
+  Stable: { Icon: Minus, color: "#d97706", label: "No material change detected" },
 } as const;
 
 const CONCERN_TONE: Record<string, string> = {
@@ -501,7 +501,7 @@ export function InterventionPanel() {
             <div className="flex items-center justify-between px-5 py-4 border-b border-border">
               <div>
                 <h3 className="font-semibold text-foreground">Intervention — {edit.theme}</h3>
-                <p className="text-xs text-muted-foreground">The leadership response to this theme's trajectory.</p>
+              <p className="text-xs text-muted-foreground">The leadership response to the recorded evidence trajectory. This indicator is not a clinical prediction or confirmation that risk is controlled.</p>
               </div>
               <button onClick={() => setEdit(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
             </div>

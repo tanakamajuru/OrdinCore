@@ -138,7 +138,7 @@ export function Trends() {
         <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6 mb-6">
           <h2 className="text-xl mb-1 text-foreground flex items-center gap-2">
             <span className="w-3 h-3 bg-primary rounded-full"></span>
-            Daily Signal Burden <span className="text-sm text-muted-foreground">(30 days · 7-day average)</span>
+            Daily Recorded Signal Burden <span className="text-sm text-muted-foreground">(30 days · 7-day average)</span>
           </h2>
           <p className="text-xs text-muted-foreground mb-4">Severity-weighted signal volume: Low 1, Moderate 2, High 3, Critical 4. Missing governance submissions are gaps, not zero-risk days.</p>
           {dailyHasData ? (
@@ -150,13 +150,13 @@ export function Trends() {
                 <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "2px solid hsl(var(--border))", color: "hsl(var(--foreground))", borderRadius: "0.5rem" }} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" />
                 <Line type="monotone" dataKey="dailyBurden" name="Daily burden" stroke="#cbd5e1" strokeWidth={1.5} dot={false} connectNulls={false} />
-                <Line type="monotone" dataKey="movingAvg" name="7-day confirmed-data average" stroke="#6366f1" strokeWidth={3} dot={false} connectNulls={false} />
+                <Line type="monotone" dataKey="movingAvg" name="7-day average (available evidence)" stroke="#6366f1" strokeWidth={3} dot={false} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
             <EmptyChart height={260} message="No confirmed signal or completed governance-day evidence is available for this 30-day period." />
           )}
-          {missingDailySubmissions > 0 && <p className="text-[11px] text-amber-700 mt-2">{missingDailySubmissions} day{missingDailySubmissions===1?'':'s'} have no signal and no completed governance submission; these appear as gaps.</p>}
+          {missingDailySubmissions > 0 && <p className="text-[11px] text-amber-700 mt-2">For {missingDailySubmissions} day{missingDailySubmissions===1?'':'s'}, no signals or completed daily governance review were found; these appear as gaps.</p>}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 [&>*]:min-w-0">
@@ -164,7 +164,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-primary rounded-full"></span>
-              Cross-Service Signal Burden
+              Cross-Service Recorded Signal Burden
             </h2>
             <p className="text-xs text-muted-foreground mb-4">Weekly severity-weighted signals by service. This evidence can rise or fall; it is not a prediction or a count of risks created.</p>
             {riskHasData ? (
@@ -210,7 +210,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-destructive rounded-full"></span>
-              Cross-Service Incident Burden
+              Cross-Service Recorded Incident Activity
             </h2>
             <p className="text-xs text-muted-foreground mb-4">Weekly incidents by occurrence date, weighted Minor 1, Moderate 2, Serious 3 and Critical 4.</p>
             {incidentHasData ? (
@@ -254,7 +254,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-amber-500 rounded-full"></span>
-              Safeguarding Volume (6-Week View)
+              Weekly Safeguarding Signal Volume
             </h2>
             {safeguardingHasData ? (
               <ResponsiveContainer width="100%" height={250}>
@@ -329,6 +329,9 @@ export function Trends() {
               </div>
             </div>
           </div>
+        </div>
+        <div className="mt-6 rounded-lg border border-border bg-muted/30 p-4 text-xs text-muted-foreground">
+          Methodology note: weighting supports comparison of recorded activity over time. It is not a validated clinical score, probability of harm or regulatory rating. Absence of recorded activity does not confirm absence of risk.
         </div>
 
         <div className="mt-6 p-4 bg-primary/5 border-2 border-primary/10 rounded-lg flex items-start gap-3">

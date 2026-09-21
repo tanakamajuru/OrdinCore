@@ -180,10 +180,11 @@ export function computeTrajectory(
   const basis = sufficientHistory
     ? `${signalPhrase}${countPhrase}.${effectivenessPhrase}`
     : 'No linked signal or effectiveness evidence is available in the 28-day comparison window; trajectory remains Stable pending evidence.';
+  const qualifiedBasis = `${basis} This is a governance evidence indicator, not a clinical prediction or confirmation that the concern is controlled.${direction === 'Stable' ? ' No material change does not mean the concern is resolved or adequately controlled.' : ''}`;
 
   return {
     direction,
-    basis,
+    basis: qualifiedBasis,
     points: p,
     evidence: {
       previous14DayWeight: previousWeight,

@@ -184,8 +184,8 @@ export function CrossHousePatternDetection() {
   const ReadinessBadge = ({ p }: { p: RiskPattern }) => {
     const r = readinessOf(p);
     if (r === "promoted") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30 inline-flex items-center gap-1"><CheckCircle2 className="w-3 h-3" /> Promoted</span>;
-    if (r === "ready") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30">Ready to promote</span>;
-    if (r === "nearly") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">1 from promotion</span>;
+    if (r === "ready") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-success/10 text-success border border-success/30">Threshold met — RM review required</span>;
+    if (r === "nearly") return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-700 border border-amber-300">1 related signal from review threshold</span>;
     return <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-muted text-muted-foreground border border-border">Forming ({p.signalCount} of {p.threshold})</span>;
   };
   const PromotionMeter = ({ p }: { p: RiskPattern }) => {
@@ -216,7 +216,7 @@ export function CrossHousePatternDetection() {
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl  text-foreground mb-2">Pattern Detection</h1>
-          <p className="text-muted-foreground">Recurring signal patterns by service and person — review a pattern and, when the floor is met, promote it to a risk.</p>
+          <p className="text-muted-foreground">Potential recurring signal patterns by service and person. Meeting a threshold requires RM review; it does not itself establish a risk.</p>
         </div>
 
         <div className="mb-5 flex flex-wrap gap-2" aria-label="Pattern lens">
@@ -263,7 +263,7 @@ export function CrossHousePatternDetection() {
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <TrendingUp className="w-5 h-5" />
-                  Detected Patterns ({filteredPatterns.length})
+                  Potential Patterns ({filteredPatterns.length})
                 </CardTitle>
               </CardHeader>
               <CardContent className="p-6">
@@ -313,9 +313,9 @@ export function CrossHousePatternDetection() {
                           <PromotionMeter p={pattern} />
                           <p className="text-[11px] text-muted-foreground mt-1">
                             {readinessOf(pattern) === 'promoted' ? `Promoted${pattern.promotedAt ? ' · ' + new Date(pattern.promotedAt).toLocaleDateString('en-GB') : ''} — in the Risk Register`
-                              : readinessOf(pattern) === 'ready' ? (pattern.hasCritical && pattern.signalCount < pattern.threshold ? 'Critical signal — ready to promote' : 'Threshold met — ready to promote')
-                              : readinessOf(pattern) === 'nearly' ? '1 signal from promotion'
-                              : `Needs ${pattern.threshold - pattern.signalCount} more signal${pattern.threshold - pattern.signalCount === 1 ? '' : 's'}`}
+                              : readinessOf(pattern) === 'ready' ? (pattern.hasCritical && pattern.signalCount < pattern.threshold ? 'Critical signal — RM review required' : 'Threshold met — RM review required')
+                              : readinessOf(pattern) === 'nearly' ? '1 related signal from review threshold'
+                              : `Needs ${pattern.threshold - pattern.signalCount} more related signal${pattern.threshold - pattern.signalCount === 1 ? '' : 's'} for review threshold`}
                           </p>
                         </div>
                         {readinessOf(pattern) === 'promoted' ? (
@@ -327,10 +327,10 @@ export function CrossHousePatternDetection() {
                           canDecide ? (
                             <button onClick={(e) => { e.stopPropagation(); goToPromote(pattern); }}
                               className="shrink-0 text-xs font-semibold text-primary-foreground bg-primary rounded px-3 py-1.5 inline-flex items-center gap-1 hover:bg-primary/90">
-                              Promote ‣
+                              Review for promotion ‣
                             </button>
                           ) : (
-                            <span className="shrink-0 text-[11px] font-semibold text-success">Ready to promote</span>
+                            <span className="shrink-0 text-[11px] font-semibold text-success">RM review required</span>
                           )
                         ) : (
                           <span className="shrink-0 text-[11px] text-muted-foreground">Review →</span>
@@ -350,7 +350,7 @@ export function CrossHousePatternDetection() {
                 {/* Pattern Overview */}
                 <Card className="border-2 border-border">
                   <CardHeader>
-                    <CardTitle className="text-lg">Pattern Overview</CardTitle>
+                    <CardTitle className="text-lg">Recorded Pattern Evidence</CardTitle>
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
@@ -466,18 +466,18 @@ export function CrossHousePatternDetection() {
                       ) : readinessOf(selectedPattern) === 'ready' ? (
                         canDecide ? (
                           <Button onClick={() => goToPromote(selectedPattern)} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-                            <ShieldAlert className="w-4 h-4 mr-2" /> Promote to Risk
+                            <ShieldAlert className="w-4 h-4 mr-2" /> Review for Promotion
                           </Button>
                         ) : (
                           <div className="w-full text-center text-sm text-success bg-success/5 rounded-lg py-2.5 px-3">
-                            Ready to promote — the Registered Manager promotes from here.
+                            Threshold met — Registered Manager review is required before any promotion.
                           </div>
                         )
                       ) : (
                         <div className="w-full text-center text-sm text-muted-foreground bg-muted rounded-lg py-2.5 px-3">
                           {readinessOf(selectedPattern) === 'nearly'
-                            ? '1 more signal needed before this pattern can be promoted.'
-                            : `Forming — needs ${selectedPattern.threshold - selectedPattern.signalCount} more signal${selectedPattern.threshold - selectedPattern.signalCount === 1 ? '' : 's'} (or one Critical) to promote.`}
+                            ? '1 more related signal would meet the review threshold.'
+                            : `Forming — needs ${selectedPattern.threshold - selectedPattern.signalCount} more related signal${selectedPattern.threshold - selectedPattern.signalCount === 1 ? '' : 's'} (or one Critical) to require RM review.`}
                         </div>
                       )}
 

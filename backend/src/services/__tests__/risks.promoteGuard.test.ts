@@ -31,6 +31,12 @@ function wireQuery({ signalCount, hasCritical }: Scenario) {
     if (/COUNT\(\*\)::int AS count FROM risk_signal_links/.test(sql)) {
       return { rows: [{ count: signalCount }] } as any;
     }
+    // Pattern coherence V3: the promotion guard reads the coherent qualifying count from
+    // canonical_pattern_formation_v. The scenario's signalCount is the coherent (same-subtheme)
+    // count in the configured window, which is what the evidentiary floor now measures.
+    if (/FROM canonical_pattern_formation_v/.test(sql)) {
+      return { rows: [{ count: signalCount, qualifying_count: signalCount, threshold: 3 }] } as any;
+    }
     if (/gp\.severity = 'Critical'/.test(sql)) {
       return { rows: hasCritical ? [{ ok: 1 }] : [] } as any;
     }

@@ -587,7 +587,7 @@ export function RiskDetail() {
                  {((risk as any).trajectory_v2?.direction || risk.trajectory) === 'Improving' ? <TrendingUp className="text-success" /> :
                   ['Deteriorating', 'Critical'].includes((risk as any).trajectory_v2?.direction || risk.trajectory) ? <TrendingDown className="text-destructive animate-pulse" /> :
                   <ArrowRightCircle className="text-muted-foreground" />}
-                 {(risk as any).trajectory_v2?.direction || risk.trajectory}
+                 {((risk as any).trajectory_v2?.direction || risk.trajectory) === 'Improving' ? 'Recorded evidence indicates improvement' : ['Deteriorating', 'Critical'].includes((risk as any).trajectory_v2?.direction || risk.trajectory) ? 'Recorded evidence indicates deterioration' : 'No material change detected'}
             </div>
             <span className="px-3 py-1 bg-primary text-primary-foreground ">
               RISK INDEX: {(risk as any).metrics?.riskIndex ?? risk.risk_score}
@@ -753,7 +753,8 @@ export function RiskDetail() {
                 {/* Trajectory shown as a direction only — the raw signal-burden maths is not
                     surfaced on the record. */}
                 <div className="mb-4 pb-4 border-b border-primary/20">
-                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Trajectory · {(risk as any).trajectory_direction || risk.trajectory || "Stable"}</div>
+                  <div className="text-[11px] uppercase tracking-widest text-muted-foreground mb-1">Recorded Evidence Trajectory · {((risk as any).trajectory_direction || risk.trajectory) === 'Improving' ? 'Improvement indicated' : ['Deteriorating', 'Critical'].includes((risk as any).trajectory_direction || risk.trajectory) ? 'Deterioration indicated' : 'No material change detected'}</div>
+                  <p className="text-[11px] text-muted-foreground mb-2">Based on linked signals during two equal 14-day periods. This is a governance indicator, not a clinical prediction or confirmation that the risk is controlled.</p>
                 </div>
                 {risk.source_cluster_id ? (
                     <div className="space-y-4">

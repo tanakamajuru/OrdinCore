@@ -480,15 +480,15 @@ async function evaluateCrossServiceRisk(
     );
     if (existing.rows.length > 0) return;
 
-    const description = `[${domain}] System-Level Risk: "${domain}" issues across ${houseCount} services in 7 days (${houseNames.join(', ')}).`;
+    const description = `[${domain}] Potential cross-service pattern: recorded "${domain}" concerns across ${houseCount} services in 7 days (${houseNames.join(', ')}). Leadership review is required; this does not prove a shared cause.`;
     await thresholdEventsRepo.create({
         company_id,
         house_id,
         pulse_id,
         cluster_id,
         rule_number: CROSS_SERVICE_RULE_NUMBER,
-        rule_name: 'System-Level Risk (Cross-Service)',
-        output_type: 'System-Level Risk Flag',
+        rule_name: 'Cross-Service Evidence Review',
+        output_type: 'Potential Cross-Service Pattern Flag',
         description,
     });
 
@@ -504,7 +504,7 @@ async function evaluateCrossServiceRisk(
                 company_id,
                 user_id: d.id,
                 type: 'system_level_risk',
-                title: 'System-Level Risk detected',
+                title: 'Potential cross-service pattern requires review',
                 body: description,
                 link: '/patterns',
             });

@@ -8,7 +8,7 @@ import { toast } from "sonner";
 // Narrated, KLOE-referenced governance reports.
 const REPORTS = [
   { key: "weekly-governance", title: "Weekly Governance Narrative", desc: "Plain-English account of the week's signals, patterns and decisions.", icon: FileText, needsService: true, scopePicker: false },
-  { key: "cross-service-control", title: "Cross-Service Control Report", desc: "Director view of systemic patterns spanning multiple services (Safe S4 · Well-Led W4).", icon: Network, needsService: false, scopePicker: false },
+  { key: "cross-service-control", title: "Cross-Service Evidence Review", desc: "Director review of potential patterns in recorded evidence spanning multiple services (Safe S4 · Well-Led W4).", icon: Network, needsService: false, scopePicker: false },
   { key: "inspection-evidence", title: "Inspection Evidence Pack", desc: "Traceable lineage from observation to action, mapped to CQC KLOEs (S1 · S2 · W2).", icon: FileCheck2, needsService: false, scopePicker: false },
   { key: "strategic-risks", title: "Strategic Risk Report", desc: "Organisational risks currently requiring oversight.", icon: ShieldAlert, needsService: false, scopePicker: false },
   { key: "escalations", title: "Escalation Report", desc: "Evidence that concerns were escalated appropriately.", icon: Flag, needsService: false, scopePicker: false },

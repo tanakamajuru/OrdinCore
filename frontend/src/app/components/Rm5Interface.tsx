@@ -49,7 +49,8 @@ function Pager({ page, pages, total, onPage }: { page: number; pages: number; to
 
 function Traj({ t }: { t: any }) {
   const x = TRAJ[t?.dir] || TRAJ.Stable; const I = x.I;
-  return <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: x.c }} title={t?.basis || ""}><I className="w-3.5 h-3.5" />{t?.dir || "Stable"}</span>;
+  const label = t?.dir === "Improving" ? "Recorded evidence indicates improvement" : t?.dir === "Deteriorating" ? "Recorded evidence indicates deterioration" : "No material change detected";
+  return <span className="inline-flex items-center gap-1 text-xs font-semibold" style={{ color: x.c }} title={t?.basis || ""}><I className="w-3.5 h-3.5" />{label}</span>;
 }
 const Sev = ({ s }: { s: string }) => <span className={`text-[11px] rounded px-1.5 py-0.5 ${SEV[s] || SEV.Low}`}>{s}</span>;
 
@@ -287,7 +288,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         {!loading && screen === "pipeline" && stage === "patterns" && (
           <div>
             <GovHead q="Which patterns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
-            <p className="text-xs text-muted-foreground mb-3">Cross-Service Patterns identify recurring governance concerns across people, teams, houses and services — trends that may not be visible when reviewing individual signals alone. Review a pattern to record its trajectory; it stays as governance memory until it is genuinely resolved.</p>
+            <p className="text-xs text-muted-foreground mb-3">Potential cross-service patterns highlight recorded recurring concerns across people, teams, houses and services. They require leadership review and do not by themselves prove a systemic cause. Review the evidence and record the decision.</p>
             <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
@@ -311,8 +312,8 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                   {/* Trajectory is EVIDENCE, shown read-only — it is never a review decision. */}
                   {reviewTarget.trajectory && (
                     <div className="mb-3 flex items-center gap-2 text-xs rounded-lg border border-border bg-muted/40 px-3 py-2">
-                      <span className="text-muted-foreground">Current trajectory (evidence):</span>
-                      {(() => { const d = typeof reviewTarget.trajectory === "string" ? reviewTarget.trajectory : (reviewTarget.trajectory?.dir || reviewTarget.trajectory?.direction || "Stable"); return <span className="font-semibold" style={{ color: (TRAJ as any)[d]?.c || "#64748b" }}>{d}</span>; })()}
+                      <span className="text-muted-foreground">Recorded evidence trajectory:</span>
+                      {(() => { const d = typeof reviewTarget.trajectory === "string" ? reviewTarget.trajectory : (reviewTarget.trajectory?.dir || reviewTarget.trajectory?.direction || "Stable"); const label = d === "Improving" ? "Recorded evidence indicates improvement" : d === "Deteriorating" ? "Recorded evidence indicates deterioration" : "No material change detected"; return <span className="font-semibold" style={{ color: (TRAJ as any)[d]?.c || "#64748b" }}>{label}</span>; })()}
                     </div>
                   )}
                   <label className="block text-sm font-medium mb-1">Governance decision</label>
@@ -468,7 +469,7 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
       </button>
       {p.scope === "cross_service" && <div className="text-[11px] text-indigo-600 mt-0.5 flex items-center gap-1"><Network className="w-3 h-3" />{p.houses.join(" · ")}</div>}
       <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: p.threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(p.signalCount, p.threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
-      <p className="text-[11px] text-muted-foreground mb-2">{p.promotedRiskId ? "Promoted to risk ✓" : p.hasCritical && p.signalCount < p.threshold ? "Critical — ready to promote" : ready ? "Threshold met — ready to promote" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} signals`}</p>
+      <p className="text-[11px] text-muted-foreground mb-2">{p.promotedRiskId ? "Promoted to risk ✓" : p.hasCritical && p.signalCount < p.threshold ? "Critical signal — RM review required" : ready ? "Threshold met — RM review required" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} related signals`}</p>
       {open && (
         <div className="mb-2 border-t border-border pt-2 space-y-1.5">
           {loadingSignals ? <p className="text-[11px] text-muted-foreground">Loading signals…</p>
@@ -494,7 +495,7 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
         // Established pattern (threshold met / critical): it is REVIEWED, not dismissed. Promote is
         // a shortcut for the Promote-to-Risk decision; dismissal is only for emerging candidates.
         <div className="flex gap-2">
-          <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Promote to risk</button>
+          <button onClick={() => onPromote(p)} className="flex-1 text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Review for promotion</button>
           {onReview && <button onClick={() => onReview(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Review</button>}
         </div>
       ) : (

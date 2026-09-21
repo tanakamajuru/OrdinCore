@@ -64,7 +64,7 @@ export const startEffectivenessReminderWorker = () => {
                 user_id: rm_id,
                 type: 'ACTION_EFFECTIVENESS_DUE',
                 title: 'Action Effectiveness Rating Required',
-                body: `"${action.action_title}" was completed over 48 hours ago. Rate its effectiveness to update the risk trajectory.`,
+                body: `"${action.action_title}" was completed over 48 hours ago. Record its effectiveness as evidence for the risk trajectory.`,
                 link: `/risk-register/${action.risk_id}?section=effectiveness`,
                 metadata: { action_id: action.id, risk_id: action.risk_id },
             });
