@@ -117,7 +117,16 @@ export const rm5Service = {
           AND COALESCE(pf.qualifying_count, sc.signal_count, 0) >= 2`),
       risks: await one(`SELECT COUNT(*) n FROM canonical_risk_state_v WHERE company_id=$1 AND is_active`),
       actions: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND is_open`),
-      effectiveness: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND requires_effectiveness_review`),
+      // Count only effectiveness reviews that are ACTIONABLE NOW — the same predicate the Awaiting
+      // Effectiveness list uses (actionEffectiveness.getPendingEffectiveness) so the ribbon and the
+      // list agree. A 'Too Early to Assess' action is a SCHEDULED future reassessment: it still
+      // requires_effectiveness_review, but it is not counted (or shown) until its review is due.
+      effectiveness: await one(`SELECT COUNT(DISTINCT ra.id) n FROM canonical_action_state_v ra
+        LEFT JOIN canonical_review_obligation_state_v gro
+          ON gro.company_id=ra.company_id AND gro.subject_id=ra.id
+         AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
+        WHERE ra.company_id=$1 AND ra.requires_effectiveness_review
+          AND (ra.effectiveness_outcome IS NULL OR (ra.effectiveness_outcome='Too Early To Assess' AND gro.is_due))`),
       escalations: await one(`SELECT COUNT(*) n FROM canonical_escalation_state_v WHERE company_id=$1 AND is_open`),
     };
   },
