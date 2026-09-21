@@ -23,6 +23,12 @@ describe('authoritative trajectory engine', () => {
     expect(tr.direction).toBe('Stable');
   });
 
+  it('does not let effectiveness alone manufacture a direction of travel', () => {
+    expect(computeTrajectory([2, 2, 2, 2], ['Effective'], [1, 1, 1, 1]).direction).toBe('Stable');
+    expect(computeTrajectory([2, 2, 2, 2], ['Not Effective'], [1, 1, 1, 1]).direction).toBe('Stable');
+    expect(computeTrajectory([0, 0, 0, 0], ['Effective'], [0, 0, 0, 0]).direction).toBe('Stable');
+  });
+
   it('does not let one effectiveness rating override strong contradictory signal movement', () => {
     const worsening = computeTrajectory([1, 1, 5, 5], ['Effective'], [1, 1, 2, 2]);
     expect(worsening.direction).toBe('Deteriorating');

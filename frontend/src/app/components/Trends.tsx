@@ -4,6 +4,7 @@ import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { Inbox } from "lucide-react";
 import { dashboardApi } from "@/services/dashboardApi";
 import { toast } from "sonner";
+import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 // Honest empty states: a 6-week rolling chart on a system only days old reads as
 // "broken" when it shows flat zeros. These helpers tell apart "no data in this period"
@@ -64,6 +65,7 @@ export function Trends() {
       setIsLoading(false);
     }
   };
+  useGovernanceRefresh(loadTrendsData);
 
   const handleGenerateReport = async () => {
     setIsGeneratingReport(true);
@@ -111,6 +113,8 @@ export function Trends() {
   const incidentLimited = incidentHasData && incidentTrajectoryData.length > 0 && labelOf(incidentTrajectoryData[0]) !== incidentFirst;
   const safeguardingHasData = barHasData(safeguardingData?.trends, 'incidents', safeguardingData?.total);
   const escalationHasData = barHasData(escalationData?.trends, 'count', escalationData?.total);
+  const dailyHasData = dailyRisk.some((d:any) => d.dailyBurden !== null && d.dailyBurden !== undefined);
+  const missingDailySubmissions = dailyRisk.filter((d:any) => d.recordingState === 'no_submission').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -130,37 +134,39 @@ export function Trends() {
           </button>
         </div>
 
-        {/* Daily Risk Score + 7-day moving average — smooths one-off spikes. */}
+        {/* Daily severity-weighted signal burden + 7-day moving average. */}
         <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6 mb-6">
           <h2 className="text-xl mb-1 text-foreground flex items-center gap-2">
             <span className="w-3 h-3 bg-primary rounded-full"></span>
-            Daily Risk Score <span className="text-sm text-muted-foreground">(30 days · 7-day average)</span>
+            Daily Signal Burden <span className="text-sm text-muted-foreground">(30 days · 7-day average)</span>
           </h2>
-          <p className="text-xs text-muted-foreground mb-4">Average signal severity per day (0–100). The line is the 7-day moving average — the trend that matters.</p>
-          {dailyRisk.length > 0 ? (
+          <p className="text-xs text-muted-foreground mb-4">Severity-weighted signal volume: Low 1, Moderate 2, High 3, Critical 4. Missing governance submissions are gaps, not zero-risk days.</p>
+          {dailyHasData ? (
             <ResponsiveContainer width="100%" height={260}>
               <LineChart data={dailyRisk}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} />
                 <XAxis dataKey="date" stroke="hsl(var(--muted-foreground))" fontSize={11} interval={4} tickMargin={8} />
-                <YAxis domain={[0, 100]} stroke="hsl(var(--muted-foreground))" fontSize={11} tickMargin={8} />
+                <YAxis allowDecimals={false} stroke="hsl(var(--muted-foreground))" fontSize={11} tickMargin={8} />
                 <Tooltip contentStyle={{ backgroundColor: "hsl(var(--card))", border: "2px solid hsl(var(--border))", color: "hsl(var(--foreground))", borderRadius: "0.5rem" }} />
                 <Legend verticalAlign="top" align="right" iconType="plainline" />
-                <Line type="monotone" dataKey="dailyRisk" name="Daily" stroke="#cbd5e1" strokeWidth={1.5} dot={false} />
-                <Line type="monotone" dataKey="movingAvg" name="7-day average" stroke="#6366f1" strokeWidth={3} dot={false} />
+                <Line type="monotone" dataKey="dailyBurden" name="Daily burden" stroke="#cbd5e1" strokeWidth={1.5} dot={false} connectNulls={false} />
+                <Line type="monotone" dataKey="movingAvg" name="7-day confirmed-data average" stroke="#6366f1" strokeWidth={3} dot={false} connectNulls={false} />
               </LineChart>
             </ResponsiveContainer>
           ) : (
-            <EmptyChart height={260} message="No signals in the last 30 days — the daily risk score appears here as signals are logged." />
+            <EmptyChart height={260} message="No confirmed signal or completed governance-day evidence is available for this 30-day period." />
           )}
+          {missingDailySubmissions > 0 && <p className="text-[11px] text-amber-700 mt-2">{missingDailySubmissions} day{missingDailySubmissions===1?'':'s'} have no signal and no completed governance submission; these appear as gaps.</p>}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 [&>*]:min-w-0">
-          {/* Risk Trajectory */}
+          {/* Cross-service signal burden (replaces misleading cumulative risk trajectory). */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-primary rounded-full"></span>
-              Cross-Site Risk Trajectory
+              Cross-Service Signal Burden
             </h2>
+            <p className="text-xs text-muted-foreground mb-4">Weekly severity-weighted signals by service. This evidence can rise or fall; it is not a prediction or a count of risks created.</p>
             {riskHasData ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={highRiskData}>
@@ -193,19 +199,20 @@ export function Trends() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChart height={300} message="No risk trajectory in this 6-week period — promoted risks plot here as their history accumulates." />
+              <EmptyChart height={300} message="No recorded signal burden in this six-week period." />
             )}
             {riskLimited && riskFirst && (
               <p className="text-[11px] text-muted-foreground mt-2">Trend builds as history accumulates — limited data before {riskFirst}.</p>
             )}
           </div>
 
-          {/* Incident Trajectory */}
+          {/* Incident burden */}
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-destructive rounded-full"></span>
-              Cross-Site Incident Trajectory
+              Cross-Service Incident Burden
             </h2>
+            <p className="text-xs text-muted-foreground mb-4">Weekly incidents by occurrence date, weighted Minor 1, Moderate 2, Serious 3 and Critical 4.</p>
             {incidentHasData ? (
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart data={incidentTrajectoryData}>
@@ -224,7 +231,7 @@ export function Trends() {
                   {incidentHouseNames.map((house, idx) => (
                     <Line
                       key={house}
-                      type="stepAfter"
+                      type="monotone"
                       dataKey={house}
                       stroke={chartColors[(idx + 2) % chartColors.length]}
                       strokeWidth={3}
@@ -236,7 +243,7 @@ export function Trends() {
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <EmptyChart height={300} message="No incidents logged in the last 6 weeks. Serious incidents recorded in the Incident Hub will trajectory here." />
+              <EmptyChart height={300} message="No incidents occurred in the last six UK calendar weeks." />
             )}
             {incidentLimited && incidentFirst && (
               <p className="text-[11px] text-muted-foreground mt-2">Trend builds as history accumulates — limited data before {incidentFirst}.</p>
@@ -287,7 +294,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-secondary rounded-full"></span>
-              Escalation Velocity
+              Weekly Escalation Volume
             </h2>
             {escalationHasData ? (
               <ResponsiveContainer width="100%" height={250}>
@@ -327,7 +334,7 @@ export function Trends() {
         <div className="mt-6 p-4 bg-primary/5 border-2 border-primary/10 rounded-lg flex items-start gap-3">
           <div className="w-5 h-5 bg-primary text-primary-foreground rounded-full flex items-center justify-center text-[10px]  mt-0.5">!</div>
           <p className="text-xs text-muted-foreground">
-            Strategic Telemetry Note: Data is synchronized across all active sites. Trajectory lines show the cumulative volume of "Critical" or "High" markers. No predictive outcomes are implied without secondary qualitative review.
+            Strategic Telemetry Note: Signal and incident lines show severity-weighted weekly burden using occurrence dates and UK calendar weeks. Safeguarding and escalation bars show recorded weekly volume. These charts provide governance evidence; they do not predict outcomes or replace qualitative review.
           </p>
         </div>
       </div>

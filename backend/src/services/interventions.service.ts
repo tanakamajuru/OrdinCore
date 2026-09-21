@@ -233,9 +233,12 @@ export const interventionsService = {
         }
       }
 
-      const trajectory = summariseRiskTrajectories(riskTrajectories);
-      const timeline = await this.themeTimeline(company_id, t.theme, 6);
       const intv = intvByTheme.get(String(t.theme).toLowerCase()) || null;
+      const trajectory = summariseRiskTrajectories(riskTrajectories);
+      const linkedPattern = intv?.linked_risk_id
+        ? riskRefs.find((r) => r.id === intv.linked_risk_id)?.source_cluster_id || null
+        : null;
+      const timeline = await this.themeTimeline(company_id, t.theme, 6, linkedPattern);
 
       if (intv?.started_at) {
         const started = new Date(intv.started_at).getTime();
@@ -368,18 +371,23 @@ export const interventionsService = {
    * Six-week context chart. Each bar is severity-weighted RELEVANT SIGNAL BURDEN for the theme.
    * Zero weeks are retained. This chart is evidence context only and never decides trajectory.
    */
-  async themeTimeline(company_id: string, theme: string, weeks = 6) {
+  async themeTimeline(company_id: string, theme: string, weeks = 6, source_cluster_id?: string | null) {
     const rows = (await query(
-      `SELECT date_trunc('week', COALESCE(gp.created_at, gp.entry_date::timestamptz)) AS wk,
+      `SELECT date_trunc('week', COALESCE(
+                (gp.entry_date::date+COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at
+              ) AT TIME ZONE 'Europe/London') AS wk,
               SUM(${SEV_WEIGHT})::float AS weight
          FROM governance_pulses gp
         WHERE gp.company_id = $1
           AND gp.risk_domain && ARRAY[$2]::text[]
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz)
-              >= date_trunc('week', NOW()) - ($3::int - 1) * INTERVAL '1 week'
+          AND ($4::uuid IS NULL OR EXISTS (
+                SELECT 1 FROM risk_signal_links rsl
+                 WHERE rsl.cluster_id=$4::uuid AND rsl.pulse_entry_id=gp.id))
+          AND COALESCE((gp.entry_date::date+COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
+              >= date_trunc('week', NOW() AT TIME ZONE 'Europe/London') AT TIME ZONE 'Europe/London' - ($3::int - 1) * INTERVAL '1 week'
         GROUP BY wk
         ORDER BY wk ASC`,
-      [company_id, theme, weeks]
+      [company_id, theme, weeks, source_cluster_id || null]
     )).rows;
 
     const byWeek = new Map<string, number>();

@@ -149,8 +149,11 @@ export function computeTrajectory(
   // Signal movement deliberately has greater influence (±2) than one control
   // rating (±1). This prevents a single effectiveness judgement from flipping
   // clear contradictory longitudinal evidence.
-  const combined = signalDirectionScore + effectivenessScore;
-
+  // A human effectiveness verdict is supporting context, not a substitute for
+  // longitudinal evidence. It may strengthen or temper the written basis but
+  // cannot independently manufacture Improving/Deteriorating when the two
+  // signal windows are materially unchanged.
+  const combined = signalDirectionScore === 0 ? 0 : signalDirectionScore + effectivenessScore;
   let direction: TrajectoryDirection = 'Stable';
   if (combined >= 1) direction = 'Deteriorating';
   else if (combined <= -1) direction = 'Improving';
@@ -200,13 +203,16 @@ async function signalEvidenceForCluster(cluster_id?: string | null): Promise<Sig
   if (!cluster_id) return [];
   const r = await query(
     `SELECT DISTINCT gp.id,
-            COALESCE(gp.created_at, gp.entry_date::timestamptz) AS occurred_at,
+            COALESCE(
+              (gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London',
+              gp.created_at
+            ) AS occurred_at,
             gp.severity
        FROM risk_signal_links rsl
        JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
       WHERE rsl.cluster_id = $1
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '28 days'
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <= NOW()
+        AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) >= NOW() - INTERVAL '28 days'
+        AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) <= NOW()
       ORDER BY occurred_at ASC`,
     [cluster_id]
   );
@@ -228,7 +234,10 @@ async function signalEvidenceForRisk(
        SELECT id, linked_person FROM risks WHERE id=$1::uuid
      )
      SELECT DISTINCT gp.id,
-            COALESCE(gp.created_at, gp.entry_date::timestamptz) AS occurred_at,
+            COALESCE(
+              (gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London',
+              gp.created_at
+            ) AS occurred_at,
             gp.severity
        FROM risk_signal_links rsl
        JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
@@ -239,8 +248,8 @@ async function signalEvidenceForRisk(
               AND (t.linked_person IS NULL OR BTRIM(t.linked_person)=''
                    OR LOWER(BTRIM(COALESCE(gp.related_person,'')))=LOWER(BTRIM(t.linked_person))))
         )
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '28 days'
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) <= NOW()
+        AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) >= NOW() - INTERVAL '28 days'
+        AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) <= NOW()
       ORDER BY occurred_at ASC`,
     [risk_id || null, source_cluster_id || null]
   );

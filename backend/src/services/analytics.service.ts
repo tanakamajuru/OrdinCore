@@ -37,52 +37,42 @@ export class AnalyticsService {
 
   async getMultiHouseRiskTrends(company_id: string, days = 42) {
     try {
-      // Pivoting by the exact creation DAY left each house with data only on the odd day it
-      // happened to create a risk — so every service but the busiest rendered as isolated
-      // dots, not a line. Instead build a continuous CUMULATIVE weekly series: every service
-      // that has any risk in the window gets a value at every week (its running total), so
-      // each one plots as a proper trajectory line.
+      // Backwards-compatible endpoint name; the payload is now an honest, non-cumulative
+      // six-week SIGNAL BURDEN series. A cumulative risk-created count could never improve
+      // and was therefore not a trajectory. Fixed UK calendar weeks retain real zeroes.
+      const weekCount = Math.max(1, Math.ceil(Math.min(Math.max(days, 7), 366) / 7));
       const result = await query(
-        `SELECT r.created_at::date AS date, h.name AS house_name
-           FROM canonical_risk_state_v r
-           JOIN houses h ON h.id = r.house_id
-          WHERE r.company_id = $1 AND r.created_at >= NOW() - INTERVAL '${days} days'`,
-        [company_id]
+        `WITH weeks AS (
+           SELECT generate_series(
+             date_trunc('week', NOW() AT TIME ZONE 'Europe/London') - (($2::int - 1) * INTERVAL '1 week'),
+             date_trunc('week', NOW() AT TIME ZONE 'Europe/London'), INTERVAL '1 week'
+           ) AS week_start
+         ), services AS (
+           SELECT id, name FROM canonical_house_state_v WHERE company_id=$1 AND is_active
+         )
+         SELECT w.week_start::date AS date, h.name AS house_name,
+                COALESCE(SUM(CASE LOWER(gp.severity::text)
+                  WHEN 'critical' THEN 4 WHEN 'high' THEN 3
+                  WHEN 'medium' THEN 2 WHEN 'moderate' THEN 2 ELSE 1 END),0)::int AS burden
+           FROM weeks w CROSS JOIN services h
+           LEFT JOIN governance_pulses gp ON gp.company_id=$1 AND gp.house_id=h.id
+            AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
+                >= w.week_start AT TIME ZONE 'Europe/London'
+            AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
+                < (w.week_start + INTERVAL '1 week') AT TIME ZONE 'Europe/London'
+          GROUP BY w.week_start,h.name ORDER BY w.week_start,h.name`,
+        [company_id, weekCount]
       );
+      const houseNames = Array.from(new Set(result.rows.map((r: any) => String(r.house_name))));
+      const byDate = new Map<string, any>();
+      for (const row of result.rows) {
+        const date = new Date(row.date).toISOString().slice(0,10);
+        if (!byDate.has(date)) byDate.set(date,{date});
+        byDate.get(date)[row.house_name]=Number(row.burden)||0;
+      }
+      const trends=[...byDate.values()];
 
-      const weekCount = Math.max(1, Math.round(days / 7));
-      const now = new Date();
-      const weeks = Array.from({ length: weekCount }, (_, i) => {
-        const end = new Date(now);
-        end.setDate(now.getDate() - (weekCount - 1 - i) * 7);
-        const start = new Date(end);
-        start.setDate(end.getDate() - 6);
-        return { start, end, label: end.toISOString().split('T')[0] };
-      });
-
-      // Include EVERY active service (all sectors — Supported Living and Domiciliary), not just
-      // ones that happen to have a promoted risk in the window. A service with no risks plots a
-      // flat line at zero, which is honest ("no promoted risks yet") and — importantly — makes
-      // domiciliary services appear on the cross-house chart instead of silently dropping off.
-      const activeHouses = (await query(
-        `SELECT name FROM canonical_house_state_v WHERE company_id = $1 AND is_active ORDER BY name`,
-        [company_id]
-      )).rows.map((r: any) => r.name);
-      const houseNames = Array.from(new Set([...activeHouses, ...result.rows.map((row: any) => row.house_name)]));
-      const cumulative: Record<string, number> = {};
-      houseNames.forEach((n) => { cumulative[n] = 0; });
-
-      const trends = weeks.map((w) => {
-        for (const row of result.rows) {
-          const d = row.date instanceof Date ? row.date : new Date(row.date);
-          if (d >= w.start && d <= w.end) cumulative[row.house_name] = (cumulative[row.house_name] || 0) + 1;
-        }
-        const point: any = { date: w.label };
-        houseNames.forEach((n) => { point[n] = cumulative[n]; });
-        return point;
-      });
-
-      return { trends, houses: houseNames };
+      return { trends, houses: houseNames, measure: 'severity_weighted_signal_burden', timezone: 'Europe/London' };
     } catch (err) {
       logger.error('AnalyticsService.getMultiHouseRiskTrends failed:', err);
       throw err;
@@ -224,17 +214,24 @@ export class AnalyticsService {
 
   async getMultiHouseIncidentTrends(company_id: string, days = 42) {
     try {
+      const weekCount = Math.max(1, Math.ceil(Math.min(Math.max(days, 7), 366) / 7));
       const result = await query(
-        `SELECT 
-          i.created_at::date AS date,
-          h.name AS house_name,
-          COUNT(*) AS count
-         FROM incidents i
-         JOIN houses h ON h.id = i.house_id
-         WHERE i.company_id = $1 AND i.created_at >= NOW() - INTERVAL '${days} days'
-         GROUP BY i.created_at::date, h.name
-         ORDER BY date, house_name`,
-        [company_id]
+        `WITH weeks AS (
+           SELECT generate_series(
+             date_trunc('week',NOW() AT TIME ZONE 'Europe/London')-(($2::int-1)*INTERVAL '1 week'),
+             date_trunc('week',NOW() AT TIME ZONE 'Europe/London'),INTERVAL '1 week') week_start
+         ), services AS (
+           SELECT id,name FROM canonical_house_state_v WHERE company_id=$1 AND is_active
+         )
+         SELECT w.week_start::date AS date,h.name AS house_name,
+                COALESCE(SUM(CASE LOWER(i.severity::text)
+                  WHEN 'critical' THEN 4 WHEN 'serious' THEN 3 WHEN 'moderate' THEN 2 ELSE 1 END),0)::int AS burden
+           FROM weeks w CROSS JOIN services h
+           LEFT JOIN incidents i ON i.company_id=$1 AND i.house_id=h.id
+            AND i.occurred_at >= w.week_start AT TIME ZONE 'Europe/London'
+            AND i.occurred_at < (w.week_start+INTERVAL '1 week') AT TIME ZONE 'Europe/London'
+          GROUP BY w.week_start,h.name ORDER BY w.week_start,h.name`,
+        [company_id, weekCount]
       );
 
       const pivotedData: any[] = [];
@@ -247,11 +244,11 @@ export class AnalyticsService {
           pivotedData.push(dateMap.get(dateStr));
         }
         const dateObj = dateMap.get(dateStr);
-        dateObj[row.house_name] = parseInt(row.count);
+        dateObj[row.house_name] = Number(row.burden) || 0;
       });
 
       const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));
-      return { trends: pivotedData, houses: houseNames };
+      return { trends: pivotedData, houses: houseNames, measure: 'severity_weighted_incident_burden', timezone: 'Europe/London' };
     } catch (err) {
       logger.error('AnalyticsService.getMultiHouseIncidentTrends failed:', err);
       throw err;
@@ -263,75 +260,62 @@ export class AnalyticsService {
       const multiHouseTrends = await this.getMultiHouseRiskTrends(company_id, 42);
       const multiHouseIncidents = await this.getMultiHouseIncidentTrends(company_id, 42);
 
-      const incidentsResult = await query(
-        `SELECT created_at FROM incidents WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
-        [company_id]
-      );
-      const escalationsResult = await query(
-        `SELECT created_at FROM escalations WHERE company_id = $1 AND created_at >= NOW() - INTERVAL '42 days'`,
-        [company_id]
-      );
-      // Safeguarding VOLUME is safeguarding-domain SIGNALS (governance_pulses), not the
-      // incidents table — that mis-keying was why "3 recorded, 0 shown".
-      const safeguardingResult = await query(
-        `SELECT created_at FROM governance_pulses
-          WHERE company_id = $1 AND risk_domain::text ILIKE '%Safeguarding%'
-            AND created_at >= NOW() - INTERVAL '42 days'`,
-        [company_id]
-      );
+      // Fixed UK calendar weeks: inclusive Monday start, exclusive next-Monday end.
+      const weeklyVolumes = (await query(
+        `WITH weeks AS (
+           SELECT generate_series(
+             date_trunc('week',NOW() AT TIME ZONE 'Europe/London')-INTERVAL '5 weeks',
+             date_trunc('week',NOW() AT TIME ZONE 'Europe/London'),INTERVAL '1 week') week_start
+         )
+         SELECT w.week_start::date AS week,
+                (SELECT COUNT(*)::int FROM escalations e WHERE e.company_id=$1
+                  AND e.created_at >= w.week_start AT TIME ZONE 'Europe/London'
+                  AND e.created_at < (w.week_start+INTERVAL '1 week') AT TIME ZONE 'Europe/London') AS escalations,
+                (SELECT COUNT(*)::int FROM governance_pulses gp WHERE gp.company_id=$1
+                  AND gp.risk_domain::text ILIKE '%Safeguarding%'
+                  AND COALESCE((gp.entry_date::date+COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
+                      >= w.week_start AT TIME ZONE 'Europe/London'
+                  AND COALESCE((gp.entry_date::date+COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
+                      < (w.week_start+INTERVAL '1 week') AT TIME ZONE 'Europe/London') AS safeguarding
+           FROM weeks w ORDER BY w.week_start`, [company_id]
+      )).rows;
 
-      const now = new Date();
-      const weeks = Array.from({ length: 6 }, (_, i) => {
-        const end = new Date(now);
-        end.setDate(end.getDate() - (5 - i) * 7);
-        const start = new Date(end);
-        start.setDate(start.getDate() - 7);
-        return { start, end, label: `Week ${i + 1}`, incidents: 0, escalations: 0, safeguarding: 0 };
-      });
+      const escalationTrends = weeklyVolumes.map((w:any,i:number) => ({ week: `Week ${i+1}`, weekStart: w.week, count: Number(w.escalations)||0 }));
+      const safeguardingTrends = weeklyVolumes.map((w:any,i:number) => ({ week: `Week ${i+1}`, weekStart: w.week, incidents: Number(w.safeguarding)||0 }));
 
-      incidentsResult.rows.forEach((row: any) => {
-        const d = new Date(row.created_at);
-        const week = weeks.find(w => d >= w.start && d <= w.end);
-        if (week) week.incidents++;
-      });
-
-      escalationsResult.rows.forEach((row: any) => {
-        const d = new Date(row.created_at);
-        const week = weeks.find(w => d >= w.start && d <= w.end);
-        if (week) week.escalations++;
-      });
-
-      safeguardingResult.rows.forEach((row: any) => {
-        const d = new Date(row.created_at);
-        const week = weeks.find(w => d >= w.start && d <= w.end);
-        if (week) week.safeguarding++;
-      });
-
-      const escalationTrends = weeks.map(w => ({ week: w.label, count: w.escalations }));
-      const safeguardingTrends = weeks.map(w => ({ week: w.label, incidents: w.safeguarding }));
-
-      // Daily Risk Score (avg severity of the day's signals, 0–100) + 7-day moving average.
+      // Daily signal burden (volume × severity) using the recorded occurrence date.
+      // A zero is shown only where a completed governance log confirms oversight; otherwise
+      // a missing day remains null rather than being presented as evidence of improvement.
       const dailyRows = (await query(
-        `SELECT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date AS d,
-                AVG(CASE gp.severity::text WHEN 'Critical' THEN 100 WHEN 'High' THEN 75 WHEN 'Medium' THEN 50 WHEN 'Moderate' THEN 50 ELSE 25 END)::float AS score
+        `SELECT gp.entry_date::date AS d,
+                SUM(CASE LOWER(gp.severity::text) WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'moderate' THEN 2 ELSE 1 END)::float AS burden,
+                COUNT(*)::int AS signal_count
            FROM governance_pulses gp
-          WHERE gp.company_id = $1 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '30 days'
+          WHERE gp.company_id = $1 AND gp.entry_date >= (NOW() AT TIME ZONE 'Europe/London')::date - 29
           GROUP BY d ORDER BY d ASC`,
         [company_id]
       )).rows;
-      const dayMap = new Map<string, number>();
-      for (const r of dailyRows) dayMap.set(new Date(r.d).toISOString().slice(0, 10), Math.round(Number(r.score) || 0));
+      const reviewedDays = new Set<string>((await query(
+        `SELECT DISTINCT dgl.review_date::text AS d FROM daily_governance_log dgl
+          JOIN houses h ON h.id=dgl.house_id
+         WHERE h.company_id=$1 AND dgl.completed=true
+           AND dgl.review_date >= (NOW() AT TIME ZONE 'Europe/London')::date-29`, [company_id]
+      )).rows.map((r:any)=>String(r.d).slice(0,10)));
+      const dayMap = new Map<string, {burden:number;count:number}>();
+      for (const r of dailyRows) dayMap.set(new Date(r.d).toISOString().slice(0, 10), {burden:Number(r.burden)||0,count:Number(r.signal_count)||0});
       const dailyRisk: any[] = [];
       const today = new Date(); today.setHours(0, 0, 0, 0);
-      const series: number[] = [];
+      const series: Array<number|null> = [];
       for (let i = 29; i >= 0; i--) {
         const day = new Date(today); day.setDate(today.getDate() - i);
         const key = day.toISOString().slice(0, 10);
-        const val = dayMap.get(key) ?? 0;
+        const recorded = dayMap.get(key);
+        const val:number|null = recorded ? recorded.burden : reviewedDays.has(key) ? 0 : null;
         series.push(val);
-        const window = series.slice(Math.max(0, series.length - 7));
-        const movingAvg = Math.round(window.reduce((a, b) => a + b, 0) / window.length);
-        dailyRisk.push({ date: key.slice(5), dailyRisk: val, movingAvg });
+        const window = series.slice(Math.max(0, series.length - 7)).filter((v):v is number=>v!==null);
+        const movingAvg = window.length ? Math.round((window.reduce((a,b)=>a+b,0)/window.length)*10)/10 : null;
+        dailyRisk.push({ date: key.slice(5), dateISO:key, dailyBurden:val, movingAvg,
+          signalCount:recorded?.count||0, recordingState:recorded?'signals_recorded':reviewedDays.has(key)?'confirmed_zero':'no_submission' });
       }
 
       return {
