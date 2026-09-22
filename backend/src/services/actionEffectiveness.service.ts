@@ -72,7 +72,10 @@ export class ActionEffectivenessService {
            effectiveness_reviewed_by = $4,
            effectiveness_reviewed_at = NOW(),
            verification_notes = COALESCE($3, verification_notes),
-           intended_outcome = intended_outcome,
+           -- $7 (intended_outcome) must be referenced in a typed column context; otherwise Postgres
+           -- cannot infer its type and rejects the whole statement ("could not determine data type of
+           -- parameter $7"). COALESCE preserves the existing intended outcome when none is supplied.
+           intended_outcome = COALESCE($7, intended_outcome),
            effectiveness_due_at = $8
        WHERE id = $5 AND company_id = $6 RETURNING *`,
       [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome, nextReviewDate]
