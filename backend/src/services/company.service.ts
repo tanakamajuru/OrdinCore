@@ -31,11 +31,19 @@ export class CompanyService {
       console.error('Failed to seed risk categories for new company:', err);
     }
 
-    // Initialize default Governance Template for the new company
+    // Initialize default Governance Template for the new company.
+    // Each company gets its OWN template id — a shared hardcoded id with
+    // ON CONFLICT DO NOTHING meant only the first-ever company received a
+    // template and every later company silently got none (its default
+    // questions then attached to the wrong template/company).
     try {
-      const templateId = '00000000-0000-0000-0000-000000000001';
-      const systemAdminId = '6b325646-1ed7-456f-8428-0e5effde1f9e'; // Valid Super Admin ID from DB
-      
+      const templateId = uuidv4();
+      // Resolve a real SUPER_ADMIN at runtime. A stale hardcoded id here no longer
+      // exists in the users table, so the FK on created_by rejected every insert and
+      // no company ever received its default template. Fall back to NULL (nullable).
+      const adminRes = await query(`SELECT id FROM users WHERE role='SUPER_ADMIN' ORDER BY created_at LIMIT 1`);
+      const systemAdminId = adminRes.rows[0]?.id || null;
+
       await query(
         `INSERT INTO governance_templates (id, company_id, name, description, frequency, created_by, created_at, updated_at)
          VALUES ($1, $2, $3, $4, $5, $6, NOW(), NOW())
