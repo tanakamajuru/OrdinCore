@@ -260,7 +260,12 @@ export const guidedWorkService = {
 completionCondition:'The specified weekly review is validated through the existing Director validation function.',
 route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'Validate Review',whyAmISeeingThis:'This weekly review has been submitted for Director validation.'});
 
-      const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,sc.linked_risk_id,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND (sc.review_due OR sc.canonical_status='ESCALATED') ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
+      // Director oversight is CROSS-SERVICE (systemic) patterns only — individual per-service /
+      // per-person patterns are the RM's operational work on the RM pipeline, not leadership review.
+      // Show a systemic pattern when its review is due, or when it is escalated AND not yet reviewed;
+      // once the Director reviews it (last_reviewed_at set, next review date in the future) it clears
+      // until it is next due, so a reviewed pattern no longer sits on the queue.
+      const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,sc.linked_risk_id,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND sc.scope='cross_service' AND (sc.review_due OR (sc.canonical_status='ESCALATED' AND sc.last_reviewed_at IS NULL)) ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
       // A promoted pattern opens the actual linked risk; an unpromoted one opens the pattern register.
       for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:'pattern',canonicalEntityId:p.id,requiredAction:'DIRECTOR_PATTERN_REVIEW',completionCondition:'The exact systemic pattern receives the required leadership review.',route:`/systemic-patterns?focus=${p.id}&guided=1&gw=director_pattern:${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
 
