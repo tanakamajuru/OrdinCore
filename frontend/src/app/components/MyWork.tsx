@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { AlertTriangle, CheckCircle2, ChevronRight, Clock3, ListChecks, RefreshCw, ShieldCheck } from 'lucide-react';
 import apiClient from '@/services/apiClient';
@@ -33,7 +33,11 @@ export function MyWork(){
   const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const firstName=user.first_name||(user.name?String(user.name).split(' ')[0]:'');
 
-  const load=async()=>{setLoading(true);try{const res=await apiClient.get('/guided-work');setData(res.data?.data||data);}catch{setData({needsYou:[],waiting:[],completedToday:[],counts:{needsYou:0,waiting:0,completedToday:0}});}finally{setLoading(false)}};
+  // Only the FIRST load shows the full-screen spinner. Every later call (the governance-refresh poll
+  // / socket event) updates the list silently — otherwise each refresh blanked the page to a spinner
+  // and back, which reads as the screen "twitching"/reloading itself.
+  const didInitialLoadRef=useRef(false);
+  const load=async()=>{const first=!didInitialLoadRef.current;if(first)setLoading(true);try{const res=await apiClient.get('/guided-work');setData(res.data?.data||data);}catch{if(first)setData({needsYou:[],waiting:[],completedToday:[],counts:{needsYou:0,waiting:0,completedToday:0}});}finally{if(first)setLoading(false);didInitialLoadRef.current=true;}};
   useEffect(()=>{load();},[location.key]);
   useGovernanceRefresh(load);
 
