@@ -12,7 +12,7 @@ type State='NEEDS_YOU'|'WAITING'|'COMPLETE';
 type GuidedWorkItem={
   id:string; state:State; priority:Priority; taskType:string; title:string; summary:string; reason:string;
   dueAt?:string|null; ownerName?:string|null; serviceName?:string|null; canonicalEntityType:string; canonicalEntityId:string;
-  route:string; actionLabel:string; whyAmISeeingThis:string;
+  category?:'ASSIGNED'|'DECISION'; route:string; actionLabel:string; whyAmISeeingThis:string;
 };
 type QueueData={needsYou:GuidedWorkItem[];waiting:GuidedWorkItem[];completedToday:GuidedWorkItem[];counts:{needsYou:number;waiting:number;completedToday:number};next?:GuidedWorkItem|null};
 
@@ -43,6 +43,25 @@ export function MyWork(){
 
   const list=tab==='NEEDS_YOU'?data.needsYou:tab==='WAITING'?data.waiting:data.completedToday;
   const open=(item:GuidedWorkItem)=>navigate(item.route);
+  const nextId=data.next?.id;
+  // Simplified Work Model: within "Needs you", separate personally-assigned work ("My Work")
+  // from role decisions that are due ("Decisions Due"). Falls back gracefully if the backend
+  // hasn't tagged an item (treated as a decision).
+  const myWork=data.needsYou.filter(i=>i.category==='ASSIGNED');
+  const decisions=data.needsYou.filter(i=>i.category!=='ASSIGNED');
+  const card=(item:GuidedWorkItem)=><article key={item.id} className={`rounded-xl border p-4 ${item.state==='NEEDS_YOU'?priorityClass[item.priority]:'border-border bg-card'}`}>
+        <div className="flex gap-4 items-start">
+          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.priority==='URGENT'?'bg-red-600 text-white':item.priority==='DUE'?'bg-amber-500 text-white':'bg-primary/10 text-primary'}`}>{item.state==='WAITING'?<Clock3 size={18}/>:item.priority==='URGENT'?<AlertTriangle size={18}/>:<ListChecks size={18}/>}</div>
+          <div className="min-w-0 flex-1">
+            <div className="flex flex-wrap items-center gap-2"><span className={`text-xs font-bold ${priorityText[item.priority]}`}>{item.priority}</span>{item.serviceName&&<span className="text-xs text-muted-foreground">• {item.serviceName}</span>}{item.id===nextId&&tab==='NEEDS_YOU'&&<span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">Next</span>}</div>
+            <h2 className="font-semibold text-foreground mt-1">{item.title}</h2><p className="text-sm text-muted-foreground mt-1">{item.summary}</p>
+            {item.dueAt&&<div className="text-xs text-muted-foreground mt-2">Due/review: {fmt(item.dueAt)}</div>}
+            {expanded===item.id&&<div className="mt-3 rounded-lg bg-background/70 border border-border p-3 text-sm"><div className="font-semibold">Why am I seeing this?</div><div className="text-muted-foreground mt-1">{item.whyAmISeeingThis}</div><div className="font-semibold mt-3">What happens next?</div><div className="text-muted-foreground mt-1">Open the existing canonical screen and complete the normal Ordin Core function there.</div></div>}
+          </div>
+          <div className="flex flex-col gap-2 shrink-0"><button onClick={()=>open(item)} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">{item.actionLabel}<ChevronRight size={15}/></button><button onClick={()=>setExpanded(expanded===item.id?null:item.id)} className="text-xs text-primary">Why?</button></div>
+        </div>
+      </article>;
+  const section=(label:string,desc:string,items:GuidedWorkItem[])=>items.length>0&&<div><div className="flex items-baseline gap-2 mt-6 mb-2"><h2 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">{label}</h2><span className="text-xs text-muted-foreground">{items.length} · {desc}</span></div><div className="space-y-3">{items.map(card)}</div></div>;
 
   return <div className="min-h-screen bg-background">
     <RoleBasedNavigation/>
@@ -66,18 +85,8 @@ export function MyWork(){
 
       {loading?<div className="py-20 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"/></div>:
       list.length===0?<div className="mt-6 rounded-xl border border-border bg-card p-10 text-center"><CheckCircle2 size={30} className="mx-auto text-emerald-600"/><h2 className="text-xl font-semibold mt-3">Nothing in this queue</h2><p className="text-muted-foreground mt-1">There is no work in this state right now.</p></div>:
-      <div className="mt-6 space-y-3">{list.map((item,idx)=><article key={item.id} className={`rounded-xl border p-4 ${item.state==='NEEDS_YOU'?priorityClass[item.priority]:'border-border bg-card'}`}>
-        <div className="flex gap-4 items-start">
-          <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.priority==='URGENT'?'bg-red-600 text-white':item.priority==='DUE'?'bg-amber-500 text-white':'bg-primary/10 text-primary'}`}>{item.state==='WAITING'?<Clock3 size={18}/>:item.priority==='URGENT'?<AlertTriangle size={18}/>:<ListChecks size={18}/>}</div>
-          <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><span className={`text-xs font-bold ${priorityText[item.priority]}`}>{item.priority}</span>{item.serviceName&&<span className="text-xs text-muted-foreground">• {item.serviceName}</span>}{idx===0&&tab==='NEEDS_YOU'&&<span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">Next</span>}</div>
-            <h2 className="font-semibold text-foreground mt-1">{item.title}</h2><p className="text-sm text-muted-foreground mt-1">{item.summary}</p>
-            {item.dueAt&&<div className="text-xs text-muted-foreground mt-2">Due/review: {fmt(item.dueAt)}</div>}
-            {expanded===item.id&&<div className="mt-3 rounded-lg bg-background/70 border border-border p-3 text-sm"><div className="font-semibold">Why am I seeing this?</div><div className="text-muted-foreground mt-1">{item.whyAmISeeingThis}</div><div className="font-semibold mt-3">What happens next?</div><div className="text-muted-foreground mt-1">Open the existing canonical screen and complete the normal Ordin Core function there.</div></div>}
-          </div>
-          <div className="flex flex-col gap-2 shrink-0"><button onClick={()=>open(item)} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">{item.actionLabel}<ChevronRight size={15}/></button><button onClick={()=>setExpanded(expanded===item.id?null:item.id)} className="text-xs text-primary">Why?</button></div>
-        </div>
-      </article>)}</div>}
+      tab==='NEEDS_YOU'?<div>{section('My Work','assigned to you',myWork)}{section('Decisions Due','governance decisions you own',decisions)}</div>:
+      <div className="mt-6 space-y-3">{list.map(card)}</div>}
 
       <div className="mt-6 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">Guided Work only <strong>reads, prioritises, routes and refreshes</strong>. Governance decisions, completions, escalations, effectiveness ratings, closures and approvals still occur through the existing canonical Ordin Core screens and APIs.</div>
     </div>
