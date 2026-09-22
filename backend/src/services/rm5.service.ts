@@ -159,7 +159,10 @@ export const rm5Service = {
   // shows there (with its "View risk" link) instead of vanishing from leadership's view.
   async patterns(company_id: string, includePromoted = false) {
     const promotedClause = includePromoted
-      ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status NOT IN ('Dismissed','Resolved','Closed')))`
+      // 'Closed' is NOT a valid cluster_status enum value (valid: Emerging/Confirmed/Resolved/
+      // Escalated/Dismissed). Including it makes Postgres reject the whole query — which silently
+      // emptied the RI/Director "Potential Cross-Service Patterns" screen (it calls includePromoted=1).
+      ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status NOT IN ('Dismissed','Resolved')))`
       : `c.cluster_status IN ${ACTIVE_CLUSTER} AND c.linked_risk_id IS NULL`;
     const rows = (await query(
       `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
