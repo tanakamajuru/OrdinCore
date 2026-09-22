@@ -62,6 +62,19 @@ export class ClosureService {
     }
     const auditedEvidence = `[Evidence basis: ${basis}]\n${input.evidence.trim()}`;
 
+    // An immediate escalation may legitimately exist without a formal risk. Resolve a
+    // continuing risk only from an explicit direct link or the escalation's source pattern;
+    // never manufacture a risk merely to make closure possible.
+    let linkedRiskId: string | null = existing.rows[0].risk_id || null;
+    if (!linkedRiskId && existing.rows[0].source_cluster_id) {
+      linkedRiskId = (await query(
+        `SELECT linked_risk_id FROM signal_clusters
+          WHERE id = $1 AND company_id = $2`,
+        [existing.rows[0].source_cluster_id, companyId]
+      )).rows[0]?.linked_risk_id || null;
+    }
+    const requiresPostClosureRiskReview = !!linkedRiskId;
+
     await query(
       `INSERT INTO closure_reviews
         (company_id, escalation_id, reviewed_by, pattern_reduced, actions_completed,
@@ -79,17 +92,37 @@ export class ClosureService {
              closed_by = $1,
              closure_reason = $2,
              closure_evidence = $3,
-             post_closure_risk_review_required = TRUE,
+             post_closure_risk_review_required = $4,
              updated_at = NOW()
-       WHERE id = $4 AND company_id = $5
+       WHERE id = $5 AND company_id = $6
        RETURNING *`,
-      [userId, input.closure_reason || basis, auditedEvidence, escalationId, companyId]
+      [userId, input.closure_reason || basis, auditedEvidence, requiresPostClosureRiskReview, escalationId, companyId]
     );
+
+    // Close the originating signal's immediate-response chapter only where there is no
+    // continuing risk. The signal and its full escalation/closure evidence remain in the
+    // audit trail; this changes queue position, not history.
+    if (existing.rows[0].source_pulse_id) {
+      await query(
+        `UPDATE governance_pulses
+            SET review_status = CASE WHEN $1::boolean THEN 'Linked'::review_status ELSE 'Closed'::review_status END,
+                reviewed_by = COALESCE(reviewed_by, $2),
+                reviewed_at = COALESCE(reviewed_at, NOW()),
+                updated_at = NOW()
+          WHERE id = $3 AND company_id = $4`,
+        [requiresPostClosureRiskReview, userId, existing.rows[0].source_pulse_id, companyId]
+      );
+    }
 
     await eventBus.emitEvent(EVENTS.ESCALATION_RESOLVED,
       { escalation_id: escalationId, company_id: companyId, resolved_by: userId },
       { idempotencyKey: `escalation-closed:${escalationId}:${result.rows[0]?.closed_at || 'recorded'}` });
-    return result.rows[0];
+    return {
+      ...result.rows[0],
+      linked_risk_id: linkedRiskId,
+      post_closure_risk_review_required: requiresPostClosureRiskReview,
+      closure_route: requiresPostClosureRiskReview ? 'RETURN_TO_RISK' : 'CLOSED_WITHOUT_RISK',
+    };
   }
 
   async closeRisk(companyId: string, riskId: string, userId: string, input: ClosureReviewInput) {

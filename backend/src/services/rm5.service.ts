@@ -159,7 +159,7 @@ export const rm5Service = {
   // shows there (with its "View risk" link) instead of vanishing from leadership's view.
   async patterns(company_id: string, includePromoted = false) {
     const promotedClause = includePromoted
-      ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status <> 'Dismissed'))`
+      ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status NOT IN ('Dismissed','Resolved','Closed')))`
       : `c.cluster_status IN ${ACTIVE_CLUSTER} AND c.linked_risk_id IS NULL`;
     const rows = (await query(
       `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
@@ -170,6 +170,7 @@ export const rm5Service = {
               h.name AS house_name, c.affected_house_ids,
               (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names,
               c.first_signal_date, c.last_signal_date, c.last_reviewed_at, c.review_outcome,
+              c.cluster_status, c.closed_at,
               (SELECT COUNT(*)::int FROM escalations e WHERE e.source_cluster_id = c.id) AS escalation_count,
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
@@ -194,7 +195,9 @@ export const rm5Service = {
         trajectory: { dir: tr0.direction, basis: tr0.basis, points: tr0.points, version: tr0.evidence?.calculationVersion },
         // SGP criteria surface: how long it has persisted, and how many escalations it drove.
         first_signal_date: c.first_signal_date, last_signal_date: c.last_signal_date,
-        days_open: c.first_signal_date ? Math.max(0, Math.round((Date.now() - new Date(c.first_signal_date).getTime()) / 86400000)) : null,
+        days_open: c.first_signal_date ? Math.max(0, Math.round(((c.closed_at ? new Date(c.closed_at).getTime() : Date.now()) - new Date(c.first_signal_date).getTime()) / 86400000)) : null,
+        days_since_last_signal: c.last_signal_date ? Math.max(0, Math.round((Date.now() - new Date(c.last_signal_date).getTime()) / 86400000)) : null,
+        cluster_status: c.cluster_status, closed_at: c.closed_at || null,
         escalation_count: Number(c.escalation_count) || 0,
         last_reviewed_at: c.last_reviewed_at, review_outcome: c.review_outcome,
       };

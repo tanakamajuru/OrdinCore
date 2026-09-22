@@ -53,6 +53,8 @@ function wireClosure(s: ClosureState) {
       return { rows: Array.from({ length: s.actionsTotal }, (_, i) => ({
         id: `action-${i + 1}`,
         title: `Action ${i + 1}`,
+        // RC2: only EFFECTIVENESS_REQUIRED actions are controls that gate closure effectiveness.
+        review_requirement: 'EFFECTIVENESS_REQUIRED',
         status: i < s.actionsOpen ? 'In Progress' : 'Completed',
         effectiveness_outcome: i < s.rated
           ? (i < s.ratedOk ? 'Effective' : 'Partially Effective')
@@ -178,9 +180,9 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
       if (/canonical_action_state_v/.test(sql)) return { rows: [{ n: 0 }] } as any;
       return { rows: [], rowCount: 0 } as any;
     });
-    await expect(
-      governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Close', 'The pattern has settled and we want to close it now.')
-    ).rejects.toThrow(/cannot close/i);
+    const result = await governanceWorkflowService.assessPatternClosure('co-1', 'c-1');
+    expect(result.eligible).toBe(false);
+    expect(result.blockers.join(' ')).toMatch(/linked risk remains active/i);
   });
 
   it('cannot close while a linked escalation is open', async () => {
@@ -191,9 +193,33 @@ describe('Pattern review + closure guard (Ch7 / TEST_PLAN §Patterns)', () => {
       if (/canonical_action_state_v/.test(sql)) return { rows: [{ n: 0 }] } as any;
       return { rows: [], rowCount: 0 } as any;
     });
-    await expect(
-      governanceWorkflowService.reviewPattern('co-1', 'c-1', 'u-1', 'Close', 'The pattern has settled and we want to close it now.')
-    ).rejects.toThrow(/cannot close/i);
+    const result = await governanceWorkflowService.assessPatternClosure('co-1', 'c-1');
+    expect(result.eligible).toBe(false);
+    expect(result.blockers.join(' ')).toMatch(/linked escalation remains open/i);
+  });
+
+  it('allows the submitted first review to close an otherwise eligible pattern atomically', async () => {
+    const client: any = {
+      query: jest.fn(async (sql: string) => {
+        if (/FOR UPDATE/.test(sql)) return { rows: [{ id: 'c-1', linked_risk_id: null }] };
+        if (/SELECT \* FROM signal_clusters/.test(sql)) return { rows: [{ id: 'c-1', linked_risk_id: null, last_reviewed_at: null, next_review_date: null }] };
+        if (/COUNT\(\*\)::int AS n/.test(sql)) return { rows: [{ n: 0 }] };
+        if (/UPDATE signal_clusters/.test(sql)) return { rows: [{ id: 'c-1', cluster_status: 'Resolved', review_outcome: 'Close', closed_at: new Date().toISOString() }] };
+        return { rows: [] };
+      }),
+      release: jest.fn(),
+    };
+    mockGetClient.mockResolvedValue(client);
+
+    const result = await governanceWorkflowService.reviewPattern(
+      'co-1', 'c-1', 'u-1', 'Close',
+      'No recurrence was recorded during monitoring and all linked work is complete.'
+    );
+
+    expect(result.cluster_status).toBe('Resolved');
+    expect(result.review_outcome).toBe('Close');
+    expect(client.query).toHaveBeenCalledWith('COMMIT');
+    expect(client.query).not.toHaveBeenCalledWith('ROLLBACK');
   });
 });
 

@@ -147,18 +147,21 @@ export const governanceWorkflowService = {
   // Chapter 7 — a Pattern Review is about the pattern (recurrence, trajectory), not one
   // signal. It records an outcome and, only when the linked risk/escalations are resolved,
   // permits pattern closure. The pattern is the last thing to close (organisational memory).
-  async assessPatternClosure(company_id: string, cluster_id: string) {
+  async assessPatternClosure(company_id: string, cluster_id: string, tx?: any) {
+    // Use the caller's transaction when closure is being submitted. This keeps the
+    // eligibility decision and the state change on one locked database snapshot.
+    const run = tx ? tx.query.bind(tx) : query;
     const blockers: string[] = [];
-    const c = (await query(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2`, [cluster_id, company_id])).rows[0];
+    const c = (await run(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2`, [cluster_id, company_id])).rows[0];
     if (!c) throw new Error('Pattern not found.');
     if (c.linked_risk_id) {
-      const active = await query(
+      const active = await run(
         `SELECT 1 FROM canonical_risk_state_v WHERE id = $1 AND company_id = $2 AND is_active LIMIT 1`,
         [c.linked_risk_id, company_id]
       );
       if (active.rows[0]) blockers.push('The linked risk remains active.');
     }
-    const openEsc = await query(
+    const openEsc = await run(
       `SELECT COUNT(*)::int AS n FROM canonical_escalation_state_v escalations
         WHERE company_id = $1
           AND (source_cluster_id = $2
@@ -175,7 +178,7 @@ export const governanceWorkflowService = {
     // §5 — the pattern is the last thing to close. It cannot close while any of its work,
     // decisions or effectiveness reviews are still outstanding, or while fresh signals or an
     // as-yet-unmonitored period mean the concern has not actually been seen through.
-    const openActions = await query(
+    const openActions = await run(
       `SELECT COUNT(*)::int AS n FROM canonical_action_state_v risk_actions
         WHERE company_id = $1
           AND (source_cluster_id = $2
@@ -189,7 +192,7 @@ export const governanceWorkflowService = {
     );
     if ((openActions.rows[0]?.n || 0) > 0) blockers.push('An action from this pattern is still open.');
 
-    const pendingEff = await query(
+    const pendingEff = await run(
       `SELECT COUNT(*)::int AS n FROM canonical_action_state_v risk_actions
         WHERE company_id = $1
           AND (source_cluster_id = $2
@@ -205,14 +208,14 @@ export const governanceWorkflowService = {
     );
     if ((pendingEff.rows[0]?.n || 0) > 0) blockers.push('A completed action still needs its effectiveness review.');
 
-    const openDecision = await query(
+    const openDecision = await run(
       `SELECT COUNT(*)::int AS n FROM governance_reviews
         WHERE company_id = $1 AND cluster_id = $2 AND decision_status = 'Open'`,
       [company_id, cluster_id]
     );
     if ((openDecision.rows[0]?.n || 0) > 0) blockers.push('A governance decision on this pattern is still open.');
 
-    const newSignals = await query(
+    const newSignals = await run(
       `SELECT COUNT(*)::int AS n FROM risk_signal_links rsl
          JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
         WHERE rsl.cluster_id = $1 AND gp.company_id = $2 AND gp.review_status = 'New'`,
@@ -220,7 +223,8 @@ export const governanceWorkflowService = {
     );
     if ((newSignals.rows[0]?.n || 0) > 0) blockers.push('New signals have arrived on this pattern and need review first.');
 
-    if (!c.last_reviewed_at) blockers.push('This pattern has not yet had a recorded review — monitor and review it before closing.');
+    // The Close submission is itself a recorded Pattern Review. Requiring an earlier
+    // last_reviewed_at here made a first properly evidenced closure impossible.
 
     // Monitoring period incomplete — a scheduled review is still pending, so sustained
     // control has not yet been demonstrated over the monitoring window.
@@ -246,11 +250,6 @@ export const governanceWorkflowService = {
       }
     }
 
-    if (outcome === 'Close') {
-      const closure = await this.assessPatternClosure(company_id, cluster_id);
-      if (!closure.eligible) throw new Error(`Pattern cannot close: ${closure.blockers.join(' ')}`);
-    }
-
     // A monitoring date belongs only to a Continue Monitoring decision. Clearing it for
     // every other outcome prevents a stale date from contradicting promotion/closure state.
     const nextReview = outcome === 'Continue Monitoring' ? nextReviewDate! : null;
@@ -265,6 +264,11 @@ export const governanceWorkflowService = {
       await client.query('BEGIN');
       const cur = (await client.query(`SELECT * FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [cluster_id, company_id])).rows[0];
       if (!cur) throw new Error('Pattern not found.');
+
+      if (outcome === 'Close') {
+        const closure = await this.assessPatternClosure(company_id, cluster_id, client);
+        if (!closure.eligible) throw new Error(`Pattern cannot close: ${closure.blockers.join(' ')}`);
+      }
 
       // Promote to Risk / Escalate delegate to the ONE shared executor (§2): it creates and
       // links exactly one record, dedups duplicate submissions, and records the decision.
@@ -281,11 +285,14 @@ export const governanceWorkflowService = {
         });
         if (out?.risk) linkedRiskId = out.risk.id;
       } else {
-        // Monitoring outcomes are still governance records — even "no change".
+        // Monitoring and closure outcomes are governance records in their own right.
+        // Do not write a Close review as "Monitor": the audit decision must match the
+        // state transition it authorised.
+        const recordedDecision = outcome === 'Close' ? 'Close' : 'Monitor';
         await client.query(
           `INSERT INTO governance_reviews (company_id, cluster_id, review_type, reviewed_by, what_is_happening, decision, decision_rationale, decision_status)
-           VALUES ($1,$2,'RM_REVIEW',$3,$4,'Monitor',$5,'Completed')`,
-          [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900), rationale.trim()]
+           VALUES ($1,$2,'RM_REVIEW',$3,$4,$5,$6,'Completed')`,
+          [company_id, cluster_id, user_id, `Pattern review — ${outcome}: ${rationale.trim()}`.slice(0, 900), recordedDecision, rationale.trim()]
         );
       }
 

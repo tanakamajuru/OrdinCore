@@ -35,6 +35,8 @@ export function SystemicPatterns() {
   const [rationale, setRationale] = useState("");
   const [nextDate, setNextDate] = useState("");
   const [busy, setBusy] = useState(false);
+  const [closureCheck, setClosureCheck] = useState<{ eligible: boolean; blockers: string[] } | null>(null);
+  const [checkingClosure, setCheckingClosure] = useState(false);
 
   const didInitialLoadRef = useRef(false);
   const load = async () => {
@@ -55,6 +57,7 @@ export function SystemicPatterns() {
   const submitReview = async () => {
     if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
     if (outcome === "Continue Monitoring" && (!nextDate || new Date(`${nextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
+    if (outcome === "Close" && (!closureCheck || !closureCheck.eligible)) { toast.error("Resolve the displayed closure blockers before closing this pattern."); return; }
     setBusy(true);
     try {
       const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim(), next_review_date: outcome === "Continue Monitoring" ? nextDate : undefined });
@@ -68,7 +71,17 @@ export function SystemicPatterns() {
     finally { setBusy(false); }
   };
 
-  const openReview = (p: any) => { setReviewTarget(p); setOutcome("Continue Monitoring"); setRationale(""); setNextDate(""); };
+  const openReview = (p: any) => { setReviewTarget(p); setOutcome("Continue Monitoring"); setRationale(""); setNextDate(""); setClosureCheck(null); };
+  useEffect(() => {
+    if (!reviewTarget || outcome !== "Close") { setClosureCheck(null); return; }
+    let cancelled = false;
+    setCheckingClosure(true);
+    apiClient.get(`/governance-workflow/patterns/${reviewTarget.id}/closure-eligibility`)
+      .then((res: any) => { if (!cancelled) setClosureCheck(unwrap(res)); })
+      .catch(() => { if (!cancelled) setClosureCheck({ eligible: false, blockers: ["Closure eligibility could not be verified. Try again before closing."] }); })
+      .finally(() => { if (!cancelled) setCheckingClosure(false); });
+    return () => { cancelled = true; };
+  }, [reviewTarget?.id, outcome]);
   useEffect(() => {
     if (guidedFocusRef.current || !items.length) return;
     const focusId = searchParams.get('focus') || searchParams.get('clusterId');
@@ -113,7 +126,8 @@ export function SystemicPatterns() {
                         <div className="text-[10px] text-indigo-600 mt-0.5">
                           {[
                             (Array.isArray(houses) && houses.length >= 2) ? `${houses.length} services` : null,
-                            (p.days_open != null && p.days_open >= 28) ? `persists ${p.days_open}d` : (p.days_open != null ? `${p.days_open}d` : null),
+                            p.days_open != null ? `first detected ${p.days_open}d ago` : null,
+                            p.days_since_last_signal != null ? `last signal ${p.days_since_last_signal}d ago` : null,
                             (p.escalation_count > 0) ? `${p.escalation_count} escalation${p.escalation_count === 1 ? "" : "s"}` : null,
                           ].filter(Boolean).join(" · ")}
                         </div>
@@ -155,12 +169,25 @@ export function SystemicPatterns() {
                   <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextDate} onChange={(e) => setNextDate(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                 </div>
               )}
-              {outcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A cross-service pattern can only close once its linked risk and escalations are resolved.</p>}
+              {outcome === "Close" && (
+                <div className="mb-3 rounded-lg border border-border bg-muted/30 px-3 py-2 text-xs">
+                  {checkingClosure ? <p className="text-muted-foreground">Checking closure conditions…</p> : closureCheck?.eligible ? (
+                    <p className="font-medium text-emerald-700">All recorded closure conditions are clear.</p>
+                  ) : (
+                    <>
+                      <p className="font-medium text-amber-700">Closure is currently blocked:</p>
+                      <ul className="mt-1 list-disc space-y-1 pl-4 text-muted-foreground">
+                        {(closureCheck?.blockers || ["Closure conditions have not yet been checked."]).map((b) => <li key={b}>{b}</li>)}
+                      </ul>
+                    </>
+                  )}
+                </div>
+              )}
               <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
               <textarea value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the cross-service evidence show?" />
               <div className="flex justify-end gap-3 mt-4">
                 <button onClick={() => setReviewTarget(null)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
-                <button onClick={submitReview} disabled={busy || rationale.trim().length < 20} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Saving…" : "Record review"}</button>
+                <button onClick={submitReview} disabled={busy || rationale.trim().length < 20 || (outcome === "Close" && (checkingClosure || !closureCheck?.eligible))} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Saving…" : outcome === "Close" ? "Close pattern" : "Record review"}</button>
               </div>
             </div>
           </div>

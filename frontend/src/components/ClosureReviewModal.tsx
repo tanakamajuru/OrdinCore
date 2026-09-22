@@ -112,7 +112,8 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
             <Gate label="All required linked actions are complete." derived={actionsOk} />
             <Gate label="Linked-action effectiveness has been reviewed." derived={effOk} />
           </> : <div className="my-3 rounded-lg border border-border p-3">
-            <label className="text-xs uppercase tracking-wide text-muted-foreground block mb-2">Evidence basis where no action was required</label>
+            <label className="text-xs uppercase tracking-wide text-muted-foreground block mb-2">Close without a linked action or risk</label>
+            <p className="text-xs text-muted-foreground mb-2">A risk or artificial action is not required where the immediate response genuinely addressed the concern. Select what resolved it and record the outcome evidence.</p>
             <select value={evidenceBasis} onChange={(e) => setEvidenceBasis(e.target.value)} className="w-full rounded-lg border border-border bg-background p-2 text-sm">
               <option value="">Select evidence basis…</option>
               <option value="EXISTING_CONTROL">Existing control already addressed the concern</option>

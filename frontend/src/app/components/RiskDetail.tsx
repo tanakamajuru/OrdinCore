@@ -54,6 +54,8 @@ interface Action {
   verification_notes?: string;
   effectiveness?: string;
   effectiveness_outcome?: string;
+  effectiveness_due_at?: string;
+  review_requirement?: "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED" | null;
   intended_outcome?: string;
   completion_outcome?: string;
   completion_rationale?: string;
@@ -929,15 +931,25 @@ export function RiskDetail() {
                                 </button>
                             )}
 
-                            {(action.status === 'Complete' || action.status === 'Completed') && !action.effectiveness && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
+                            {(action.status === 'Complete' || action.status === 'Completed')
+                              && action.review_requirement === 'EFFECTIVENESS_REQUIRED'
+                              && !['Effective', 'Partially Effective', 'Not Effective', 'Neutral', 'Ineffective'].includes(String(action.effectiveness_outcome || action.effectiveness || ''))
+                              && (action.effectiveness_outcome !== 'Too Early To Assess' || !action.effectiveness_due_at || new Date(action.effectiveness_due_at).getTime() <= Date.now())
+                              && ['REGISTERED_MANAGER', 'DIRECTOR', 'SUPER_ADMIN'].includes(userRole) && (
                                 <button
                                     onClick={() => hasImpact ? (setShowEffectivenessAction(action.id), setEffectivenessIntendedOutcome(action.intended_outcome || ''), setEffectivenessNextReviewDate('')) : (document.getElementById('rd-actions')?.scrollIntoView({ behavior: 'smooth' }), toast.error('Set the risk Impact (High/Medium/Low) first — it sits above Controls & Effectiveness.'))}
                                     disabled={!hasImpact}
                                     title={hasImpact ? 'Rate this control’s effectiveness' : 'Record the risk impact first'}
                                     className="text-[10px]  uppercase font-bold bg-primary text-primary-foreground px-2 py-1 hover:bg-primary transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                                 >
-                                    Rate Effectiveness
+                                    {action.effectiveness_outcome === 'Too Early To Assess' ? 'Complete Final Review' : 'Rate Effectiveness'}
                                 </button>
+                            )}
+                            {(action.status === 'Complete' || action.status === 'Completed') && action.review_requirement === 'COMPLETION_ONLY' && (
+                              <span className="text-[10px] uppercase text-muted-foreground">Completion confirmed · no effectiveness review required</span>
+                            )}
+                            {action.effectiveness_outcome === 'Too Early To Assess' && action.effectiveness_due_at && new Date(action.effectiveness_due_at).getTime() > Date.now() && (
+                              <span className="text-[10px] uppercase text-sky-700">Interim review complete · final review due {new Date(action.effectiveness_due_at).toLocaleDateString('en-GB')}</span>
                             )}
                         </div>
                       </div>

@@ -434,7 +434,22 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 }
 
 function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote: (p: any) => void; onDismiss?: (p: any) => void; onReview?: (p: any) => void }) {
-  const ready = p.signalCount >= p.threshold || p.hasCritical;
+  const currentCount = Number(p.signalCount) || 0;
+  const historicalCount = Number(p.historicalSignalCount) || 0;
+  const threshold = Number(p.threshold) || 0;
+  const windowDays = Number(p.windowDays) || 7;
+  const ready = currentCount >= threshold || p.hasCritical;
+  const formationLabel = p.promotedRiskId
+    ? "Promoted to risk ✓"
+    : p.hasCritical && currentCount < threshold
+      ? "Critical signal — RM review required despite numerical threshold"
+      : currentCount >= threshold
+        ? "Threshold met — RM review required"
+        : currentCount === 0 && historicalCount > 0
+          ? `No qualifying signals in the current ${windowDays}-day window · ${historicalCount} historical`
+          : currentCount === 0
+            ? `No qualifying signals in the current ${windowDays}-day window`
+            : `Watch — ${currentCount} of ${threshold} related signals`;
   // Open a pattern to read the signals that formed it, before deciding. Fetched lazily on first
   // expand so the board stays light.
   const [open, setOpen] = useState(false);
@@ -468,8 +483,8 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
         </div>
       </button>
       {p.scope === "cross_service" && <div className="text-[11px] text-indigo-600 mt-0.5 flex items-center gap-1"><Network className="w-3 h-3" />{p.houses.join(" · ")}</div>}
-      <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: p.threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(p.signalCount, p.threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
-      <p className="text-[11px] text-muted-foreground mb-2">{p.promotedRiskId ? "Promoted to risk ✓" : p.hasCritical && p.signalCount < p.threshold ? "Critical signal — RM review required" : ready ? "Threshold met — RM review required" : p.isWatch ? "Watch — 1 signal (not yet a pattern)" : `${p.signalCount} of ${p.threshold} related signals`}</p>
+      <div className="flex gap-1 mt-2 mb-1">{Array.from({ length: threshold }).map((_, i) => <div key={i} className="h-1.5 flex-1 rounded-full" style={{ background: i < Math.min(currentCount, threshold) ? (ready ? "#059669" : "#0e7490") : "#e5e7eb" }} />)}</div>
+      <p className="text-[11px] text-muted-foreground mb-2">{formationLabel}</p>
       {open && (
         <div className="mb-2 border-t border-border pt-2 space-y-1.5">
           {loadingSignals ? <p className="text-[11px] text-muted-foreground">Loading signals…</p>
@@ -502,7 +517,7 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
         // Emerging candidate (below threshold — "not yet a pattern"): keep watching or dismiss with a
         // reason. No full Pattern Review here — that belongs to an established pattern.
         <div className="flex gap-2">
-          <button disabled className="flex-1 text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{p.signalCount} of {p.threshold} signals</button>
+          <button disabled className="flex-1 text-xs font-medium text-muted-foreground bg-muted rounded px-2.5 py-1.5 cursor-not-allowed">{currentCount === 0 ? "No current qualifying signals" : `${currentCount} of ${threshold} signals`}</button>
           {onDismiss && <button onClick={() => onDismiss(p)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1.5 hover:bg-muted">Dismiss</button>}
         </div>
       )}

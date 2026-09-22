@@ -5,7 +5,7 @@ import { normalizeEffectiveness } from '../domain/effectiveness';
 import { trajectoryForRisk } from './trajectory.service';
 import { deriveCanonicalControlPosition } from './canonicalControlPosition.service';
 
-type ActionFact = { id: string; title?: string | null; status?: unknown; governance_domain?: string|null; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null; created_at?: string | Date | null };
+type ActionFact = { id: string; title?: string | null; status?: unknown; governance_domain?: string|null; review_requirement?: 'COMPLETION_ONLY'|'EFFECTIVENESS_REQUIRED'|null; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null; created_at?: string | Date | null };
 type EscalationFact = { id: string; title?: string | null; lifecycle_status?: unknown; status?: unknown };
 export type GovernanceFacts = { riskId: string; riskClosed: boolean; actions: ActionFact[]; escalations: EscalationFact[]; trajectory: { direction: string; evidence?: Record<string, unknown> }; calculatedAt?: string };
 
@@ -16,11 +16,13 @@ function blocker(code: GovernanceBlocker['code'], message: string, record_type: 
 /** Pure canonical decision function. All database and UI consumers share these semantics. */
 export function deriveCanonicalGovernanceState(facts: GovernanceFacts): CanonicalGovernanceState {
   const activeActions = facts.actions.filter((a) => normalizeActionStatus(a.status) !== 'Cancelled');
+  const effectivenessActions = activeActions.filter((a) => a.review_requirement === 'EFFECTIVENESS_REQUIRED');
   const completed = activeActions.filter((a) => normalizeActionStatus(a.status) === 'Completed');
   const openActions = activeActions.filter((a) => normalizeActionStatus(a.status) !== 'Completed');
-  const finalised = completed.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) === 'FINAL');
-  const tooEarly = completed.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) === 'INTERIM');
-  const awaiting = completed.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) !== 'FINAL');
+  const completedEffectivenessActions = effectivenessActions.filter((a) => normalizeActionStatus(a.status) === 'Completed');
+  const finalised = completedEffectivenessActions.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) === 'FINAL');
+  const tooEarly = completedEffectivenessActions.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) === 'INTERIM');
+  const awaiting = completedEffectivenessActions.filter((a) => effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) !== 'FINAL');
   const openEscalations = facts.escalations.filter((e) => normalizeEscalationLifecycle(e.lifecycle_status ?? e.status) !== 'Closed');
   const latestFinal = [...finalised].sort((a, b) => new Date(b.effectiveness_reviewed_at || b.completed_at || 0).getTime() - new Date(a.effectiveness_reviewed_at || a.completed_at || 0).getTime())[0];
   const latestOutcome = latestFinal ? normalizeEffectiveness(latestFinal.effectiveness_outcome ?? latestFinal.effectiveness) : null;
@@ -29,7 +31,7 @@ export function deriveCanonicalGovernanceState(facts: GovernanceFacts): Canonica
   const reductionEvidenced = facts.trajectory.direction !== 'Deteriorating' && currentSignals === 0;
   const blockers: GovernanceBlocker[] = [];
 
-  if (!activeActions.length) blockers.push(blocker('NO_LINKED_ACTION', 'No linked control or action evidence exists for this risk.', 'ACTION', facts.riskId, `/risks/${facts.riskId}`));
+  if (!effectivenessActions.length) blockers.push(blocker('NO_LINKED_ACTION', 'No linked effectiveness-bearing control exists for this risk. Completion-only work does not establish control effectiveness.', 'ACTION', facts.riskId, `/risks/${facts.riskId}`));
   for (const a of openActions) blockers.push(blocker('ACTION_INCOMPLETE', `${a.title || 'Linked action'} is not complete.`, 'ACTION', a.id, `/my-actions?focus=${a.id}`));
   for (const a of awaiting) {
     const interim = effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness) === 'INTERIM';
@@ -46,14 +48,14 @@ export function deriveCanonicalGovernanceState(facts: GovernanceFacts): Canonica
   // Controls must be reviewed (nothing unreviewed) and none Not Effective. Partially Effective is
   // permitted (see policy note above).
   const controlsCurrentlyEffective = controlPosition.current_controls.length > 0 && controlPosition.current.not_effective === 0 && controlPosition.current.unreviewed === 0;
-  const eligible = !facts.riskClosed && activeActions.length > 0 && openActions.length === 0 && awaiting.length === 0 && openEscalations.length === 0 && controlsCurrentlyEffective && reductionEvidenced;
+  const eligible = !facts.riskClosed && effectivenessActions.length > 0 && openActions.length === 0 && awaiting.length === 0 && openEscalations.length === 0 && controlsCurrentlyEffective && reductionEvidenced;
   const selectedEscalation = openEscalations[0] || facts.escalations[0];
   const selectedLifecycle = selectedEscalation ? normalizeEscalationLifecycle(selectedEscalation.lifecycle_status ?? selectedEscalation.status) : null;
   return {
     risk_id: facts.riskId, contract_version: 'governance-state-v1', calculated_at: facts.calculatedAt || new Date().toISOString(),
     escalation: { id: selectedEscalation?.id || null, lifecycle: selectedLifecycle, is_open: openEscalations.length > 0 },
     actions: { total: activeActions.length, open: openActions.length, completed: completed.length, cancelled: facts.actions.length - activeActions.length },
-    effectiveness: { required: completed.length, finalised: finalised.length, too_early: tooEarly.length, outstanding: awaiting.length, latest_final_outcome: latestOutcome === 'Too Early To Assess' ? null : latestOutcome, control_position: controlPosition } as any,
+    effectiveness: { required: completedEffectivenessActions.length, finalised: finalised.length, too_early: tooEarly.length, outstanding: awaiting.length, latest_final_outcome: latestOutcome === 'Too Early To Assess' ? null : latestOutcome, control_position: controlPosition } as any,
     monitoring: { required: tooEarly.length > 0 || !reductionEvidenced, next_review_date: null, review_due: false, reduction_evidenced: reductionEvidenced },
     closure: { eligible, status: facts.riskClosed ? 'CLOSED' : eligible ? 'READY_FOR_CLOSURE' : tooEarly.length ? 'MONITORING' : 'NOT_READY', blockers: facts.riskClosed ? [] : blockers },
   };
@@ -75,7 +77,7 @@ export const canonicalGovernanceStateService = {
     const risk = riskResult.rows[0];
     if (!risk) throw new Error('Risk not found');
     const [actions, escalations, trajectory] = await Promise.all([
-      query(`SELECT DISTINCT ra.id, ra.title, ra.status, ra.governance_domain, ra.effectiveness_outcome, ra.effectiveness, ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at FROM risk_actions ra LEFT JOIN governance_reviews gr ON gr.id=ra.governance_review_id AND gr.company_id=ra.company_id WHERE ra.company_id=$2 AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3))`, [riskId, companyId, risk.source_cluster_id || null]),
+      query(`SELECT DISTINCT ra.id, ra.title, ra.status, ra.governance_domain, ra.review_requirement, ra.effectiveness_outcome, ra.effectiveness, ra.effectiveness_reviewed_at, ra.completed_at, ra.created_at FROM risk_actions ra LEFT JOIN governance_reviews gr ON gr.id=ra.governance_review_id AND gr.company_id=ra.company_id WHERE ra.company_id=$2 AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3))`, [riskId, companyId, risk.source_cluster_id || null]),
       query(`SELECT DISTINCT e.id, COALESCE(e.reason, 'Escalation') AS title, e.lifecycle_status, e.status FROM escalations e LEFT JOIN governance_reviews gr ON gr.id=e.source_governance_review_id AND gr.company_id=e.company_id WHERE e.company_id=$2 AND (e.risk_id=$1 OR ($3::uuid IS NOT NULL AND e.source_cluster_id=$3) OR gr.risk_id=$1 OR ($3::uuid IS NOT NULL AND gr.cluster_id=$3) OR EXISTS (SELECT 1 FROM risk_actions ra WHERE ra.company_id=e.company_id AND ra.escalation_id=e.id AND (ra.risk_id=$1 OR ($3::uuid IS NOT NULL AND ra.source_cluster_id=$3))))`, [riskId, companyId, risk.source_cluster_id || null]),
       trajectoryForRisk(riskId, risk.source_cluster_id || null),
     ]);

@@ -921,6 +921,7 @@ export function EscalationLog() {
           // Doctrine: evidence-based closure returns the RM to the linked risk to decide
           // Close / Keep monitoring / Re-escalate — closing the escalation never auto-closes it.
           if (result?.linked_risk_id) setReturnToRisk(result.linked_risk_id);
+          else toast.success('Escalation closed with evidence. No continuing risk review was created.');
         }}
       />
 

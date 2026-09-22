@@ -239,7 +239,7 @@ describe('§4 Escalation closure — follows every valid action lineage key', ()
         id: 'e1', lifecycle_status: 'Monitoring Effectiveness', risk_id: null,
         source_governance_review_id: 'g1', source_pulse_id: 'p1', source_cluster_id: 'c1',
       }] } as any;
-      if (/canonical_action_state_v/.test(sql)) return { rows: [{ id: 'a1', title: 'Control', status: 'Completed', governance_domain: 'GENERAL', effectiveness_outcome: 'Effective', effectiveness: null, effectiveness_reviewed_at: new Date().toISOString(), completed_at: new Date().toISOString(), created_at: new Date().toISOString() }] } as any;
+      if (/canonical_action_state_v/.test(sql)) return { rows: [{ id: 'a1', title: 'Control', status: 'Completed', governance_domain: 'GENERAL', review_requirement: 'EFFECTIVENESS_REQUIRED', effectiveness_outcome: 'Effective', effectiveness: null, effectiveness_reviewed_at: new Date().toISOString(), completed_at: new Date().toISOString(), created_at: new Date().toISOString() }] } as any;
       if (/UPDATE escalations/.test(sql)) return { rows: [{ id: 'e1', lifecycle_status: 'Closed' }] } as any;
       return { rows: [] } as any;
     });

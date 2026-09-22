@@ -4,6 +4,7 @@ import { normalizeEffectiveness } from '../domain/effectiveness';
 
 export type ControlFact = {
   id:string; title?:string|null; status?:unknown; governance_domain?:string|null;
+  review_requirement?:'COMPLETION_ONLY'|'EFFECTIVENESS_REQUIRED'|null;
   effectiveness_outcome?:unknown; effectiveness?:unknown;
   effectiveness_reviewed_at?:string|Date|null; completed_at?:string|Date|null; created_at?:string|Date|null;
 };
@@ -22,7 +23,9 @@ export type CanonicalControlPosition = {
  * No record is deleted and the audit trail remains intact.
  */
 export function deriveCanonicalControlPosition(actions:ControlFact[]):CanonicalControlPosition {
-  const active=actions.filter(a=>normalizeActionStatus(a.status)!=='Cancelled');
+  // Only explicitly effectiveness-bearing actions are controls. Completion-only work remains
+  // visible in action history but cannot become an unreviewed control or block effectiveness.
+  const active=actions.filter(a=>normalizeActionStatus(a.status)!=='Cancelled'&&a.review_requirement==='EFFECTIVENESS_REQUIRED');
   const completed=active.filter(a=>normalizeActionStatus(a.status)==='Completed');
   const open=active.filter(a=>normalizeActionStatus(a.status)!=='Completed');
   const awaiting=completed.filter(a=>effectivenessReviewState(a.effectiveness_outcome ?? a.effectiveness)!=='FINAL');
@@ -65,7 +68,7 @@ export function deriveCanonicalControlPosition(actions:ControlFact[]):CanonicalC
 
 export const canonicalControlPositionService={
   async forEscalation(companyId:string, escalation:any){
-    const rows=(await query(`SELECT DISTINCT ra.id,ra.title,ra.status,ra.governance_domain,
+    const rows=(await query(`SELECT DISTINCT ra.id,ra.title,ra.status,ra.governance_domain,ra.review_requirement,
       ra.effectiveness_outcome,ra.effectiveness,ra.effectiveness_reviewed_at,ra.completed_at,ra.created_at
       FROM canonical_action_state_v ra
       WHERE ra.company_id=$1 AND (
