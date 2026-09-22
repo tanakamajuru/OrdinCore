@@ -20,6 +20,13 @@ export type GuidedWorkItem = {
   canonicalEntityType: EntityType;
   canonicalEntityId: string;
   obligationId?: string | null;
+  // Simplified Work Model (per approved mockup): every needsYou item is either personally
+  // ASSIGNED work ("My Work") or a role DECISION that is due ("Decisions Due"). Data-only —
+  // the current UI ignores this field, so behaviour is unchanged until the UI chooses to use it.
+  category?: 'ASSIGNED' | 'DECISION';
+  // When an item resolves to an underlying risk (a promoted pattern, or a risk with due
+  // obligations), this is that risk id so the item can be collapsed to a single concern.
+  concernRiskId?: string | null;
   requiredAction?: string;
   completionCondition?: string;
   route: string;
@@ -182,7 +189,8 @@ export const guidedWorkService = {
         }
         needsYou.push({ id:`obligation:${o.id}`, role, state:'NEEDS_YOU', priority:priorityFor(o.due_at,critical), taskType:kind,
           title:o.subject_title || o.reason || 'Governance review due', summary:o.reason || 'A governance review obligation is due.', reason:o.reason || 'Review due.', dueAt:o.due_at, serviceName:o.service_name,
-          canonicalEntityType:entity, canonicalEntityId:canonicalId, obligationId:o.id, requiredAction,
+          canonicalEntityType:entity, canonicalEntityId:canonicalId, obligationId:o.id,
+          concernRiskId: kind==='PATTERN_REVIEW' ? (patternRiskId || null) : (riskId || null), requiredAction,
           completionCondition: kind==='ACTION_EFFECTIVENESS' ? 'A FINAL effectiveness review is persisted for this action.'
             : kind==='PATTERN_REVIEW' ? 'A canonical pattern governance review is persisted and the review obligation is completed.'
             : 'An RM risk-review decision is persisted and all due obligations for this risk are completed.',
@@ -267,16 +275,16 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
       // until it is next due, so a reviewed pattern no longer sits on the queue.
       const patterns = await safeRows(`SELECT sc.id,sc.cluster_label,sc.trajectory::text,sc.linked_risk_id,h.name AS service_name FROM canonical_pattern_state_v sc LEFT JOIN houses h ON h.id=sc.house_id WHERE sc.company_id=$1 AND sc.is_active AND sc.scope='cross_service' AND (sc.review_due OR (sc.canonical_status='ESCALATED' AND sc.last_reviewed_at IS NULL)) ORDER BY sc.updated_at DESC LIMIT 20`,[companyId]);
       // A promoted pattern opens the actual linked risk; an unpromoted one opens the pattern register.
-      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:'pattern',canonicalEntityId:p.id,requiredAction:'DIRECTOR_PATTERN_REVIEW',completionCondition:'The exact systemic pattern receives the required leadership review.',route:`/systemic-patterns?focus=${p.id}&guided=1&gw=director_pattern:${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
+      for (const p of patterns) needsYou.push({id:`director_pattern:${p.id}`,role,state:'NEEDS_YOU',priority:p.trajectory==='Critical'?'URGENT':'DUE',taskType:'CROSS_SERVICE_PATTERN',title:p.cluster_label||'Review governance pattern',summary:`Trajectory: ${p.trajectory}`,reason:'A material pattern requires leadership scrutiny.',serviceName:p.service_name,canonicalEntityType:'pattern',canonicalEntityId:p.id,concernRiskId:p.linked_risk_id||null,requiredAction:'DIRECTOR_PATTERN_REVIEW',completionCondition:'The exact systemic pattern receives the required leadership review.',route:`/systemic-patterns?focus=${p.id}&guided=1&gw=director_pattern:${p.id}`,actionLabel:'Review Pattern',whyAmISeeingThis:'This active pattern is deteriorating or critical and requires leadership scrutiny.'});
 
       const risks = await safeRows(`SELECT id,title,severity::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND (severity::text='Critical' OR needs_review) ORDER BY (severity::text='Critical') DESC,review_due_at NULLS LAST,updated_at DESC LIMIT 20`,[companyId]);
-      for (const r of risks) needsYou.push({id:`director_risk:${r.id}`,role,state:'NEEDS_YOU',priority:r.severity==='Critical'?'URGENT':priorityFor(r.due_at),taskType:'STRATEGIC_RISK_REVIEW',title:r.title||'Review strategic risk',summary:`${r.severity} risk`,reason:'A material risk requires Director oversight.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,requiredAction:'DIRECTOR_RISK_REVIEW',completionCondition:'The required leadership review of this exact risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=director_risk:${r.id}`,actionLabel:'Review Risk',whyAmISeeingThis:'This risk is critical or deteriorating and requires leadership scrutiny.'});
+      for (const r of risks) needsYou.push({id:`director_risk:${r.id}`,role,state:'NEEDS_YOU',priority:r.severity==='Critical'?'URGENT':priorityFor(r.due_at),taskType:'STRATEGIC_RISK_REVIEW',title:r.title||'Review strategic risk',summary:`${r.severity} risk`,reason:'A material risk requires Director oversight.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,concernRiskId:r.id,requiredAction:'DIRECTOR_RISK_REVIEW',completionCondition:'The required leadership review of this exact risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=director_risk:${r.id}`,actionLabel:'Review Risk',whyAmISeeingThis:'This risk is critical or deteriorating and requires leadership scrutiny.'});
     }
 
     // RI: material assurance exceptions and provider sign-off.
     if (role === 'RESPONSIBLE_INDIVIDUAL') {
       const risks = await safeRows(`SELECT id,title,severity::text,trajectory::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND severity::text='Critical' ORDER BY updated_at DESC LIMIT 20`,[companyId]);
-      for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,requiredAction:'RI_ASSURANCE_RISK_REVIEW',completionCondition:'The required RI assurance review of this exact critical risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
+      for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,concernRiskId:r.id,requiredAction:'RI_ASSURANCE_RISK_REVIEW',completionCondition:'The required RI assurance review of this exact critical risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
 
       const ready = await safeRows(`SELECT DISTINCT wr.week_ending FROM weekly_reviews wr WHERE wr.company_id=$1 AND wr.week_ending=(SELECT MAX(week_ending) FROM weekly_reviews WHERE company_id=$1) AND wr.validation_status='Approved' AND NOT EXISTS (SELECT 1 FROM provider_review_signoffs prs WHERE prs.company_id=$1 AND prs.week_ending=wr.week_ending)`,[companyId]);
       if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${ready[0].week_ending}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${ready[0].week_ending}&guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
@@ -286,9 +294,33 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
     const completedActions = await safeRows(`SELECT id,title,completed_at FROM canonical_action_state_v WHERE company_id=$1 AND assigned_to=$2 AND is_completed AND completed_at::date=CURRENT_DATE ORDER BY completed_at DESC LIMIT 20`,[companyId,userId]);
     for (const a of completedActions) completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:a.completed_at,canonicalEntityType:'action',canonicalEntityId:a.id,route:'/my-actions',actionLabel:'View',whyAmISeeingThis:'This action was completed by you today.'});
 
+    // Simplified Work Model — "one concern, one place": collapse items that resolve to the
+    // same canonical concern so a subject appears exactly once (a pattern promoted to a risk,
+    // or a risk carrying several due obligations, previously surfaced as duplicate rows — the
+    // root cause of the reported "duplication"). Obligation-backed items win, because they
+    // clear deterministically when the obligation completes; among equals, higher priority wins.
+    const concernKey = (it: GuidedWorkItem) =>
+      it.concernRiskId ? `risk:${it.concernRiskId}` : `${it.canonicalEntityType}:${it.canonicalEntityId}`;
+    const dedupeConcerns = (items: GuidedWorkItem[]) => {
+      const best = new Map<string, GuidedWorkItem>();
+      for (const it of items) {
+        const k = concernKey(it);
+        const cur = best.get(k);
+        if (!cur) { best.set(k, it); continue; }
+        const curBacked = !!cur.obligationId, itBacked = !!it.obligationId;
+        if (itBacked !== curBacked) { if (itBacked) best.set(k, it); continue; }
+        if (byPriority(it, cur) < 0) best.set(k, it);
+      }
+      return [...best.values()];
+    };
+    // Assigned-to-me work vs role decisions that are due (the mockup's two columns), expressed
+    // as data on each item; the current UI ignores it, so nothing visible changes yet.
+    const withCategory = (it: GuidedWorkItem): GuidedWorkItem =>
+      ({ ...it, category: (it.taskType==='ASSIGNED_ACTION' || it.taskType==='WEEKLY_ACK') ? 'ASSIGNED' : 'DECISION' });
+
     // Guided Work never hides active work: the full canonical population is returned and
     // ordered by priority. Completion removes an item only by changing canonical state.
-    const filteredNeeds = needsYou.slice().sort(byPriority);
+    const filteredNeeds = dedupeConcerns(needsYou).map(withCategory).sort(byPriority);
     const filteredWaiting = waiting.slice().sort(byPriority);
     return {
       needsYou: filteredNeeds,
