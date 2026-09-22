@@ -55,7 +55,7 @@ const AdminRiskManagement: React.FC = () => {
       });
 
       const response = await fetch(`/api/v1/admin/risks?${params}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -74,7 +74,7 @@ const AdminRiskManagement: React.FC = () => {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/admin/risks/stats/summary', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -90,7 +90,7 @@ const AdminRiskManagement: React.FC = () => {
   const fetchHouses = async () => {
     try {
       const response = await fetch('/api/admin/houses?limit=100', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -119,7 +119,7 @@ const AdminRiskManagement: React.FC = () => {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify(formData)
       });

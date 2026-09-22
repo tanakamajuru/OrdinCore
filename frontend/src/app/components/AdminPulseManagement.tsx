@@ -62,7 +62,7 @@ const AdminPulseManagement: React.FC = () => {
       });
 
       const response = await fetch(`/api/v1/admin/pulses?${params}`, {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -81,7 +81,7 @@ const AdminPulseManagement: React.FC = () => {
   const fetchStats = async () => {
     try {
       const response = await fetch('/api/admin/pulses/stats/summary', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -97,7 +97,7 @@ const AdminPulseManagement: React.FC = () => {
   const fetchHouses = async () => {
     try {
       const response = await fetch('/api/admin/houses?limit=100', {
-        headers: { 'Authorization': `Bearer ${localStorage.getItem('token')}` }
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}` }
       });
 
       if (response.ok) {
@@ -118,7 +118,7 @@ const AdminPulseManagement: React.FC = () => {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${localStorage.getItem('token')}`
+          'Authorization': `Bearer ${localStorage.getItem('authToken')}`
         },
         body: JSON.stringify({
           status: selectedPulse.status,
