@@ -115,6 +115,9 @@ export function RiskDetail() {
   const [showCloseModal, setShowCloseModal] = useState(false);
   const [closeVerdict, setCloseVerdict] = useState("");
   const [closeReason, setCloseReason] = useState("");
+  // "Continue monitoring" is a review DECISION that completes the RM risk-review obligation without
+  // closing the risk — the way out when the closure gate (e.g. recent signals) is not yet satisfied.
+  const [monitorDate, setMonitorDate] = useState("");
   const [closureReview, setClosureReview] = useState<any>(null);
 
   // Chapter 6 — closure reads the same canonical state enforced by the mutation endpoint.
@@ -324,6 +327,27 @@ export function RiskDetail() {
       loadRiskDetails(id);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to close risk");
+    } finally { setIsClosing(false); }
+  };
+
+  // Record an RM risk-review decision of "continue monitoring" — this completes the RM_RISK_REVIEW
+  // obligation (so Guided Work / weekly governance can proceed) and sets the next review date,
+  // WITHOUT closing the risk. It is allowed even when the closure gate is not yet satisfied.
+  const handleMonitorReview = async () => {
+    if (!id) return;
+    if (closeReason.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (!monitorDate || new Date(`${monitorDate}T00:00:00`).getTime() <= Date.now()) { toast.error("Choose a future next-review date to keep monitoring this risk."); return; }
+    setIsClosing(true);
+    try {
+      await apiClient.post(`/governance-reviews`, {
+        risk_id: id, review_type: "RM_REVIEW", decision: "Monitor",
+        what_is_happening: closeReason.trim(), next_review_date: monitorDate,
+      });
+      toast.success("Risk review recorded — continuing to monitor. Next review set.");
+      setShowCloseModal(false); setCloseVerdict(""); setCloseReason(""); setMonitorDate("");
+      loadRiskDetails(id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to record the review");
     } finally { setIsClosing(false); }
   };
 
@@ -1531,14 +1555,26 @@ export function RiskDetail() {
                   className="w-full px-3 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Choose a verdict…</option>
+                  <option value="__monitor__">Continue monitoring — keep risk open</option>
                   <option value="Resolved — controls effective">Resolved — controls effective</option>
                   <option value="Resolved — no longer applicable">Resolved — no longer applicable</option>
                   <option value="Tolerated — risk accepted">Tolerated — risk accepted</option>
                 </select>
+                {closeVerdict === "__monitor__" && (
+                  <p className="text-[11px] text-muted-foreground mt-1">Records your review and keeps the risk open — use this when it is not yet ready to close (e.g. signals still within the recurrence window). It completes the risk-review obligation so weekly governance can proceed.</p>
+                )}
                 {closeVerdict === "Resolved — controls effective" && (
                   <p className="text-[11px] text-amber-600 mt-1">Allowed only if a control on this risk has been rated Effective.</p>
                 )}
               </div>
+              {closeVerdict === "__monitor__" && (
+                <div>
+                  <label className="block mb-2 text-foreground text-sm">Next review date</label>
+                  <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                    value={monitorDate} onChange={(e) => setMonitorDate(e.target.value)}
+                    className="w-full px-3 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground" />
+                </div>
+              )}
               <div>
                 <label className="block mb-2 text-foreground text-sm">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
                 <textarea
@@ -1551,19 +1587,29 @@ export function RiskDetail() {
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button
-                onClick={() => { setShowCloseModal(false); setCloseVerdict(""); setCloseReason(""); }}
+                onClick={() => { setShowCloseModal(false); setCloseVerdict(""); setCloseReason(""); setMonitorDate(""); }}
                 className="px-4 py-2 bg-card text-foreground border-2 border-border hover:bg-muted transition-colors"
               >
                 Cancel
               </button>
-              <button
-                onClick={handleCloseRisk}
-                disabled={isClosing || !closeVerdict || closeReason.trim().length < 20 || (closureReview && !closureReview.eligible)}
-                title={closureReview && !closureReview.eligible ? closureReview.blockers?.join(" ") : undefined}
-                className="px-4 py-2 bg-success text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
-              >
-                {isClosing ? 'Closing…' : 'Close with verdict'}
-              </button>
+              {closeVerdict === "__monitor__" ? (
+                <button
+                  onClick={handleMonitorReview}
+                  disabled={isClosing || closeReason.trim().length < 20 || !monitorDate}
+                  className="px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+                >
+                  {isClosing ? 'Saving…' : 'Record review · keep monitoring'}
+                </button>
+              ) : (
+                <button
+                  onClick={handleCloseRisk}
+                  disabled={isClosing || !closeVerdict || closeReason.trim().length < 20 || (closureReview && !closureReview.eligible)}
+                  title={closureReview && !closureReview.eligible ? closureReview.blockers?.join(" ") : undefined}
+                  className="px-4 py-2 bg-success text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
+                >
+                  {isClosing ? 'Closing…' : 'Close with verdict'}
+                </button>
+              )}
             </div>
           </div>
         </div>
