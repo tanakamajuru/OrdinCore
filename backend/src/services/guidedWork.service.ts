@@ -123,6 +123,9 @@ export const guidedWorkService = {
         SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.created_at, gp.severity::text, h.name AS service_name
           FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
          WHERE gp.company_id=$1 AND gp.house_id=ANY($2::uuid[]) AND COALESCE(gp.review_status::text,'New')='New'
+           -- Only signals actually due now: today's and any overdue. Signals dated for future days
+           -- (a generator seeding the week ahead) become due on their own day, not before.
+           AND COALESCE(gp.entry_date, gp.created_at::date) <= CURRENT_DATE
          ORDER BY CASE gp.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END, gp.created_at`, [companyId, houses]);
       for (const s of signals) needsYou.push({
         id:`signal:${s.id}`, role, state:'NEEDS_YOU', priority:priorityFor(null, ['Critical','High'].includes(s.severity)), taskType:'SIGNAL_DECISION',

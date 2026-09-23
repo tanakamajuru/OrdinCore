@@ -132,14 +132,18 @@ export class DailyGovernanceService {
       // log so the published position is reconstructable later.
       const readiness = (await client.query(
         `SELECT
-          (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New') AS unreviewed_signals,
+          (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New'
+             AND COALESCE(p.entry_date, p.created_at::date) = $3::date) AS unreviewed_signals,
           (SELECT COUNT(*)::int FROM canonical_escalation_state_v e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
             WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND e.is_open) AS open_escalations,
           (SELECT COUNT(*)::int FROM canonical_action_state_v a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
             WHERE a.company_id=$1 AND COALESCE(a.house_id,ar.house_id)=$2 AND a.completed_at IS NOT NULL
               AND COALESCE(a.effectiveness_outcome,a.effectiveness::text) IS NULL) AS effectiveness_due`,
-        [company_id, house_id]
+        [company_id, house_id, governanceDate]
       )).rows[0];
+      // A day's sign-off requires only THAT day's signals to be decided. Signals dated for other
+      // days (e.g. a generator seeding the week ahead) belong to their own daily review and must
+      // not block today's publication.
       if (readiness.unreviewed_signals > 0) throw new Error(`Daily governance cannot be published: ${readiness.unreviewed_signals} signal(s) still require an RM decision.`);
       if ((readiness.open_escalations > 0 || readiness.effectiveness_due > 0) && !opts.exceptions_acknowledged) {
         throw new Error('Review and explicitly carry forward the open escalation/effectiveness exceptions before publishing.');
