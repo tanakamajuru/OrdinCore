@@ -49,7 +49,11 @@ export const governanceComplianceService = {
               MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
                        THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
          FROM users u
-         LEFT JOIN risk_actions a ON a.assigned_to = u.id AND a.company_id = $1
+         -- Must read the canonical view: the is_open/is_completed flags used above exist on
+         -- canonical_action_state_v, not on the base risk_actions table (a prior consolidation
+         -- swapped the flags in but left the base-table FROM, throwing "column a.is_open does
+         -- not exist" → 500 on /governance/compliance).
+         LEFT JOIN canonical_action_state_v a ON a.assigned_to = u.id AND a.company_id = $1
          LEFT JOIN risks r ON r.id = a.risk_id
         WHERE u.company_id = $1 AND u.status = 'active'
           AND u.role = ANY(ARRAY['REGISTERED_MANAGER','TEAM_LEADER','SUPPORT_WORKER'])
