@@ -311,7 +311,7 @@ export const incidentsRepo = {
   async getGovernanceTimeline(incident_id: string, company_id: string) {
     // Get incident details first
     const incident = await this.findById(incident_id, company_id);
-    if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [] };
+    if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [], limitations: ['Incident not found — no evidence available.'] };
 
     const timelineEvents: any[] = [];
 
@@ -467,12 +467,13 @@ export const incidentsRepo = {
 
     // 5. Cross-House Patterns
     let patterns: { house: string; signal: string; detected: string }[] = [];
+    let patternCheckFailed = false;
     try {
       const patternResult = await query(
         `SELECT DISTINCT h.name as house, r.title as signal, r.created_at as detected
          FROM risks r
          JOIN houses h ON h.id = r.house_id
-         WHERE r.company_id = $1 
+         WHERE r.company_id = $1
            AND r.house_id != $2
            AND r.created_at >= $3::timestamp - INTERVAL '30 days'
            AND r.created_at <= $3::timestamp
@@ -486,25 +487,36 @@ export const incidentsRepo = {
         detected: new Date(r.detected).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })
       }));
     } catch (err) {
+      patternCheckFailed = true;
       console.log('Pattern detection failed:', err);
     }
 
-    // 6. Generate Findings & Recommendations
-    const findings = [
-      `Leadership was aware of risks ${metrics.firstSignalToIncidentDays} days before the incident`,
-      `Escalation response time was ${metrics.escalationResponseHours} hours`,
-      `Governance oversight activities were documented and regular`,
-      patterns.length > 0 ? `Cross-house patterns detected in ${patterns[0].signal.toLowerCase()}` : "No clear cross-house patterns detected"
-    ];
+    // 6. Evidence-qualified findings (doctrine §8.4). No unsupported positive conclusion and
+    // NO "nothing found" from an incomplete/failed dataset — every finding is scoped to the
+    // records actually available, and unavailable sources are declared as limitations. This
+    // timeline does NOT include the action/effectiveness/closure chain (see reconstruction
+    // evidence contract), so it must not be read as a completed gap assessment.
+    const findings: string[] = [];
+    if (firstRisk) findings.push(`The earliest related risk signal in the records was ${metrics.firstSignalToIncidentDays} day(s) before the incident.`);
+    else findings.push('No preceding related risk signal was found in the records available.');
+    if (firstEscalation) findings.push(`The first related escalation in the records was ${metrics.escalationResponseHours} hour(s) before the incident.`);
+    else findings.push('No related escalation was found in the records available.');
+    findings.push(`${metrics.leadershipReviews} oversight record(s) were found in the 30 days before the incident (count only — this is not an assessment of whether oversight was adequate).`);
+    if (patternCheckFailed) findings.push('Cross-service pattern check was unavailable (data source error) — no conclusion can be drawn.');
+    else if (patterns.length > 0) findings.push(`Possible cross-service signals recorded in ${patterns[0].signal.toLowerCase()} — leadership review required; this does not prove a shared cause.`);
+    else findings.push('No cross-service pattern was identified in the records available (limited to a keyword check on medication/behaviour/staffing).');
 
-    const recommendations = [
-      "Review protocols related to the incident category",
-      "Enhance staff training on identified risk factors",
-      "Discuss this reconstruction at the next provider oversight meeting"
+    const limitations: string[] = [
+      'Actions, completion evidence and effectiveness reviews were not assessed by this timeline; no conclusion about control effectiveness can be drawn from it.',
     ];
-    if (patterns.length > 0) {
-      recommendations.push(`Collaborate with ${patterns[0].house} to share learnings on ${patterns[0].signal}`);
-    }
+    if (patternCheckFailed) limitations.push('Cross-service pattern data source failed to load.');
+
+    // Generic review prompts — NOT system-derived conclusions or learning.
+    const recommendations = [
+      'Suggested prompt: review protocols related to the incident category.',
+      'Suggested prompt: consider staff training on identified risk factors.',
+      'Suggested prompt: discuss this reconstruction at the next provider oversight meeting.'
+    ];
 
     // 7. Format Timeline
     const formattedEvents = timelineEvents.map((row: any, index: number) => ({
@@ -537,7 +549,8 @@ export const incidentsRepo = {
       metrics,
       patterns,
       findings,
-      recommendations
+      recommendations,
+      limitations
     };
   },
 

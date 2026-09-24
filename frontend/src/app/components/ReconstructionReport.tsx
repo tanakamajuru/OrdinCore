@@ -64,6 +64,7 @@ export function ReconstructionReport() {
   const [patterns, setPatterns] = useState<Pattern[]>([]);
   const [findings, setFindings] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
+  const [limitations, setLimitations] = useState<string[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [existingReport, setExistingReport] = useState<any>(null);
 
@@ -114,19 +115,18 @@ export function ReconstructionReport() {
         }
 
         setPatterns(reportData.patterns || []);
-        setFindings(reportData.findings || [
-          `Leadership was aware of risks observed in the period preceding the incident`,
-          `Escalation response time was logged and reviewed`,
-          `Governance oversight activities were documented`
-        ]);
-        setRecommendations(reportData.recommendations || [
-          "Review protocols related to the incident category",
-          "Enhance staff training on identified risk factors"
-        ]);
+        // Never fabricate positive findings on a missing dataset (doctrine §8.4): if the
+        // backend supplied none, declare the data unavailable rather than asserting oversight.
+        setFindings(reportData.findings || ['No findings could be derived from the records available.']);
+        setRecommendations(reportData.recommendations || []);
+        setLimitations(reportData.limitations || []);
       } catch (err) {
         console.error("Failed to load timeline data", err);
         setTimelineEvents([]);
         setMetrics(defaultMetrics);
+        setFindings([]);
+        setRecommendations([]);
+        setLimitations(['Reconstruction evidence could not be loaded — this is not confirmation that no gap exists.']);
       }
       
       
@@ -336,13 +336,24 @@ export function ReconstructionReport() {
             </div>
 
             <div className="mt-6 p-4 bg-muted border border-border rounded">
-              <div className=" text-foreground mb-2">Key Findings:</div>
+              <div className=" text-foreground mb-2">Key Findings (from the records available):</div>
               <ul className="text-sm text-foreground space-y-1">
                 {findings.map((finding, i) => (
                   <li key={i}>• {finding}</li>
                 ))}
               </ul>
             </div>
+
+            {limitations.length > 0 && (
+              <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded">
+                <div className="text-amber-800 font-medium mb-2">Evidence limitations — this is not a completed gap assessment:</div>
+                <ul className="text-sm text-amber-900 space-y-1">
+                  {limitations.map((lim, i) => (
+                    <li key={i}>• {lim}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </CardContent>
         </Card>
 
