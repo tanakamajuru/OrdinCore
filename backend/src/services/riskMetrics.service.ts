@@ -276,6 +276,28 @@ export const riskMetricsService = {
       `${Number(ctl?.overdue) || 0} overdue of ${Number(ctl?.open) || 0} open action(s). ` +
       `Confidence ${confidence}% — ${confidence >= 66 ? 'well evidenced' : confidence >= 33 ? 'moderately evidenced' : 'limited evidence so far'}.`;
 
+    // Transparent decision-support (doctrine §7.9): the index and the attention priority carry
+    // their formula VERSION, the evidence DATE they were computed at, the ASSUMPTIONS behind the
+    // inputs, and a component breakdown of the priority — so neither is a bare, unexplained number.
+    const assumptions: string[] = [];
+    assumptions.push(humanS === undefined
+      ? 'Severity (S) derived from the strongest linked signal — no human Impact rating recorded.'
+      : 'Severity (S) taken from the recorded human Impact rating.');
+    if (vulnerabilityAssumed) assumptions.push('Vulnerability (V) assumed at the default — no explicit vulnerability rating recorded.');
+    if (!hasControls) assumptions.push('Control factor (C) reflects no linked control/effectiveness evidence yet.');
+
+    const priorityBasis = {
+      components: {
+        riskIndexWeight: Math.round(0.50 * riskIndex),
+        trajectory: Math.round(0.30 * trajectoryScoreOf(trajectoryGrade)),
+        overdue: Math.round(0.20 * overduePct),
+      },
+      raw: rawPriority,
+      floor: priorityFloor[grade] ?? 0,
+      floorApplied: priority > rawPriority,
+      reason: `Priority ${priority} = max(grade floor ${priorityFloor[grade] ?? 0}, 0.50·index + 0.30·trajectory + 0.20·overdue = ${rawPriority}). It is a queue-ranking aid, not a clinical score.`,
+    };
+
     return {
       riskIndex, grade,
       trajectoryPct, trajectoryGrade, trajectoryDirection: direction,
@@ -283,6 +305,10 @@ export const riskMetricsService = {
       narrative,
       inputs: { S, F, V, C, vulnerabilityAssumed },
       formula: 'RiskIndex = (0.40·S + 0.25·F + 0.20·V + 0.15·C) × 20',
+      calc_version: 'risk-index-v1',
+      as_at: new Date().toISOString(),
+      assumptions,
+      priorityBasis,
     };
   },
 };

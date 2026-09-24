@@ -684,7 +684,7 @@ export function RiskDetail() {
             <div className="mb-6">
               <div className="flex items-center justify-between mb-2">
                 <h2 className="text-xs uppercase tracking-widest text-muted-foreground">Computed governance metrics</h2>
-                <span className="text-[10px] text-muted-foreground" title={m.formula}>System-computed · no manual scoring</span>
+                <span className="text-[10px] text-muted-foreground" title={m.formula}>System-computed · {(m as any).calc_version || 'risk-index-v1'}{(m as any).as_at ? ` · as at ${new Date((m as any).as_at).toLocaleDateString("en-GB")}` : ''}</span>
               </div>
               <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3">
                 <Metric label="Risk Index" value={m.riskIndex} sub={`Grade: ${m.grade}`} tone={gradeTone[m.grade]} />
@@ -700,6 +700,19 @@ export function RiskDetail() {
                 // as a direction, not a raw figure.
                 <p className="text-sm text-foreground mt-3 bg-muted/40 border-l-4 border-primary/40 px-3 py-2">{String(m.narrative).replace(/\s*\(\d+%\s*week-on-week\)/gi, "")}</p>
               )}
+              <details className="mt-2 text-xs text-muted-foreground">
+                <summary className="cursor-pointer">How this is calculated</summary>
+                <div className="mt-2 space-y-1">
+                  <div><span className="font-medium">Formula:</span> {m.formula}</div>
+                  {(m as any).priorityBasis?.reason && <div><span className="font-medium">Priority:</span> {(m as any).priorityBasis.reason}</div>}
+                  {Array.isArray((m as any).assumptions) && (m as any).assumptions.length > 0 && (
+                    <div><span className="font-medium">Assumptions:</span>
+                      <ul className="list-disc pl-5 mt-0.5">{(m as any).assumptions.map((a: string, i: number) => <li key={i}>{a}</li>)}</ul>
+                    </div>
+                  )}
+                  <div className="italic">The Risk Index and Priority are reproducible decision-support values, not validated clinical scores.</div>
+                </div>
+              </details>
             </div>
           );
         })()}
