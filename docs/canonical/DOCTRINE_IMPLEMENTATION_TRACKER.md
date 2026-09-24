@@ -27,7 +27,7 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 
 ## Release 2 — governance continuity
 - ⬜ **1. Immutable same-day daily-governance addenda.** One-log-per-service/date leaves a gap after sign-off; add append-only addendum (parent log id, sequence, UK timestamps, evidence ids). *(§9.2)*
-- ⬜ **2. Extend reconstruction evidence** to actions, completion, effectiveness, risks, closure, assurance. *(§8.4)*
+- ✅ **2. Reconstruction evidence contract extended.** `getGovernanceTimeline` now also pulls the canonical **action** chain (created / completed-with-evidence / effectiveness-reviewed-with-outcome, incl. an "effectiveness outstanding" gap flag) and **risk closure** decisions, alongside the existing signals/risks/escalations/weekly reviews. Findings report completed-actions + effectiveness counts; a failed action/closure source is declared as a limitation (not silently dropped). Remaining: Director/RI review events + statutory-notification references (fold in when the assurance model lands, R3 #1). *(§8.4, acceptance #13)* — **`#116`**
 - ✅ **3. Removed unsupported automated conclusions.** `incidents.repo.getGovernanceTimeline` no longer asserts "governance oversight was documented and regular" or emits "no cross-house patterns" when the pattern query failed or the dataset is incomplete. Findings are now evidence-qualified ("in the records available"), a failed source is declared, and a `limitations` list states actions/effectiveness were not assessed (so it can't read as a completed gap assessment). Frontend `ReconstructionReport` shows the limitations and no longer falls back to fabricated positive findings. *(§8.4)* — **`#115`**
 - 🟡 **4. Reports render the locked reconstruction** (not a parallel narrative). *(§8.3)*
 

@@ -314,6 +314,8 @@ export const incidentsRepo = {
     if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [], limitations: ['Incident not found — no evidence available.'] };
 
     const timelineEvents: any[] = [];
+    // Sources that failed to load become explicit limitations (never a silent "no gap").
+    const evidenceGaps: string[] = [];
 
     // 1. Get related risk events
     try {
@@ -433,9 +435,64 @@ export const incidentsRepo = {
       console.log('Weekly reviews query failed:', err);
     }
     
+    // 3.6. Canonical actions in scope (incident-linked, or same house within 30 days): created,
+    // completed (with evidence) and effectiveness-reviewed (with outcome) — the action/effectiveness
+    // spine the reconstruction must include (doctrine §8.4).
+    try {
+      const actResult = await query(
+        `SELECT ra.id, ra.title, ra.status, ra.created_at, ra.completed_at,
+                ra.completion_evidence, ra.completion_outcome,
+                ra.effectiveness_reviewed_at, ra.effectiveness_outcome, ra.review_requirement,
+                (SELECT first_name||' '||last_name FROM users WHERE id=COALESCE(ra.assigned_to, ra.created_by)) AS owner
+           FROM risk_actions ra
+           LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
+          WHERE ra.company_id=$1
+            AND ( ra.incident_id=$2
+               OR ( COALESCE(ra.house_id, r.house_id)=$3
+                    AND ra.created_at >= $4::timestamp - INTERVAL '30 days'
+                    AND ra.created_at <= $4::timestamp ) )
+          ORDER BY ra.created_at ASC`,
+        [company_id, incident.id, incident.house_id, incident.occurred_at]
+      );
+      for (const a of actResult.rows) {
+        timelineEvents.push({ source_type:'action', source_id:a.id, label:'Action Created',
+          detail:a.title, actor:a.owner||'Unassigned', actor_role:'Action Owner', timestamp:a.created_at, gap_flag:false });
+        if (a.completed_at) timelineEvents.push({ source_type:'action', source_id:a.id, label:'Action Completed',
+          detail:`${a.title}${a.completion_evidence?` — evidence: ${a.completion_evidence}`:''}`,
+          actor:a.owner||'Unknown', actor_role:'Action Owner', timestamp:a.completed_at, gap_flag:false });
+        if (a.effectiveness_reviewed_at) timelineEvents.push({ source_type:'effectiveness', source_id:a.id, label:'Effectiveness Reviewed',
+          detail:`${a.title} — outcome: ${a.effectiveness_outcome||'recorded'}`, actor:'Registered Manager', actor_role:'Reviewer',
+          timestamp:a.effectiveness_reviewed_at, gap_flag:false });
+        else if (a.completed_at && a.review_requirement==='EFFECTIVENESS_REQUIRED') timelineEvents.push({ source_type:'effectiveness', source_id:a.id,
+          label:'Effectiveness Review Outstanding', detail:`${a.title} — completed but effectiveness not yet judged`,
+          actor:'—', actor_role:'Reviewer', timestamp:a.completed_at, gap_flag:true });
+      }
+    } catch (err) {
+      evidenceGaps.push('Canonical actions/effectiveness could not be loaded for this reconstruction.');
+      console.log('Reconstruction actions query failed:', err);
+    }
+
+    // 3.7. Risk closure decisions in scope.
+    try {
+      const closeResult = await query(
+        `SELECT r.id, r.title, r.status, r.resolved_at
+           FROM risks r
+          WHERE r.company_id=$1 AND r.house_id=$2
+            AND LOWER(r.status) IN ('closed','resolved') AND r.resolved_at IS NOT NULL
+            AND r.resolved_at >= $3::timestamp - INTERVAL '30 days' AND r.resolved_at <= $3::timestamp`,
+        [company_id, incident.house_id, incident.occurred_at]
+      );
+      for (const r of closeResult.rows) timelineEvents.push({ source_type:'closure', source_id:r.id,
+        label:'Risk Closed', detail:`${r.title} — ${r.status}`, actor:'Registered Manager', actor_role:'Decision',
+        timestamp:r.resolved_at, gap_flag:false });
+    } catch (err) {
+      evidenceGaps.push('Risk closure decisions could not be loaded for this reconstruction.');
+      console.log('Reconstruction closures query failed:', err);
+    }
+
     // Sort events by timestamp
     timelineEvents.sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime());
-    
+
     // 4. Calculate Metrics
     const riskSignals = timelineEvents.filter(e => e.source_type === 'risk');
     const escalations = timelineEvents.filter(e => e.source_type === 'escalation');
@@ -502,13 +559,17 @@ export const incidentsRepo = {
     if (firstEscalation) findings.push(`The first related escalation in the records was ${metrics.escalationResponseHours} hour(s) before the incident.`);
     else findings.push('No related escalation was found in the records available.');
     findings.push(`${metrics.leadershipReviews} oversight record(s) were found in the 30 days before the incident (count only — this is not an assessment of whether oversight was adequate).`);
+    const completedActions = timelineEvents.filter(e => e.label === 'Action Completed').length;
+    const effReviews = timelineEvents.filter(e => e.source_type === 'effectiveness' && e.label === 'Effectiveness Reviewed').length;
+    const outstandingEff = timelineEvents.filter(e => e.label === 'Effectiveness Review Outstanding').length;
+    findings.push(`${completedActions} related action(s) completed; ${effReviews} effectiveness review(s) recorded${outstandingEff ? `; ${outstandingEff} completed action(s) still awaiting an effectiveness judgement` : ''} (from the records available).`);
     if (patternCheckFailed) findings.push('Cross-service pattern check was unavailable (data source error) — no conclusion can be drawn.');
     else if (patterns.length > 0) findings.push(`Possible cross-service signals recorded in ${patterns[0].signal.toLowerCase()} — leadership review required; this does not prove a shared cause.`);
     else findings.push('No cross-service pattern was identified in the records available (limited to a keyword check on medication/behaviour/staffing).');
 
-    const limitations: string[] = [
-      'Actions, completion evidence and effectiveness reviews were not assessed by this timeline; no conclusion about control effectiveness can be drawn from it.',
-    ];
+    // Only genuinely-unavailable sources are limitations now that actions/effectiveness/closure
+    // are pulled. Outstanding effectiveness is a finding, not a data gap.
+    const limitations: string[] = [...evidenceGaps];
     if (patternCheckFailed) limitations.push('Cross-service pattern data source failed to load.');
 
     // Generic review prompts — NOT system-derived conclusions or learning.
