@@ -65,6 +65,7 @@ export function ResponsibleIndividualDashboard() {
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewQueue, setReviewQueue] = useState<any[]>([]);
   const [effectivenessSummary, setEffectivenessSummary] = useState<any>({});
+  const [assuranceSummary, setAssuranceSummary] = useState<any>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -73,13 +74,14 @@ export function ResponsibleIndividualDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, rv, rq, effSummary] = await Promise.all([
+      const [rk, esc, st, rv, rq, effSummary, asum] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
         apiClient.getGovernanceReviews().catch(() => ({})),
         apiClient.getGovernanceReviewQueue().catch(() => ({})),
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
+        apiClient.get(`/ri/assurance-summary`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -87,6 +89,7 @@ export function ResponsibleIndividualDashboard() {
       setReviews(asArray(unwrap(rv)));
       setReviewQueue(asArray(unwrap(rq)));
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
+      setAssuranceSummary(unwrap(asum) || null);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load assurance dashboard");
@@ -164,6 +167,38 @@ export function ResponsibleIndividualDashboard() {
           <StatCard icon={ShieldCheck} tone={assurance === "Good" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"} label="Assurance Status" value={assurance}
             footer={<span className="text-muted-foreground">overall rating</span>} />
         </div>
+
+        {assuranceSummary && (() => {
+          const stateTone: Record<string, string> = {
+            'Assured': 'bg-emerald-50 border-emerald-200 text-emerald-800',
+            'Partially assured': 'bg-amber-50 border-amber-200 text-amber-800',
+            'Not assured': 'bg-red-50 border-red-200 text-red-800',
+            'Insufficient evidence': 'bg-slate-50 border-slate-200 text-slate-600',
+          };
+          const questions: Array<[string, any]> = [
+            ['Are material concerns identified and evidence-linked?', assuranceSummary.risks_identified_early],
+            ['Are urgent escalations progressed within time?', assuranceSummary.escalations_timely],
+            ['Is control effectiveness independently judged?', assuranceSummary.actions_effective],
+            ['Is closure appropriately evidenced?', assuranceSummary.closures_evidenced],
+          ].filter(([, v]) => v && v.state);
+          return (
+            <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
+              <div className="flex items-baseline justify-between mb-3">
+                <h3 className="font-semibold">Assurance questions</h3>
+                <span className="text-xs text-muted-foreground">{assuranceSummary.scope} · {assuranceSummary.period} · the system supplies evidence; the RI records the conclusion</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {questions.map(([q, v], i) => (
+                  <div key={i} className={`rounded-lg border p-3 ${stateTone[v.state] || 'bg-muted border-border'}`}>
+                    <div className="text-sm font-medium">{q}</div>
+                    <div className="text-xs font-semibold mt-1">{v.state}</div>
+                    <div className="text-xs mt-0.5 opacity-90">{v.basis}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">

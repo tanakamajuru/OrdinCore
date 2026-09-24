@@ -98,17 +98,44 @@ export class DirectorInsightsService {
     const reopened = Number(r.reopened) + Number(e.reopened);
     const effective = Number(a.effective), notEffective = Number(a.not_effective);
 
-    const rag = (good: boolean, warn: boolean): 'Good' | 'Warning' | 'Concern' => good ? 'Good' : warn ? 'Warning' : 'Concern';
+    // Four-state assurance (doctrine §11.2): the system supplies evidence, it does not tick.
+    // Crucially, when there is NO evidence to judge (empty denominator), the answer is
+    // "Insufficient evidence" — never a green tick. Every answer carries its basis.
+    const openEsc = Number(e.open);
+    type AssuranceState = 'Assured' | 'Partially assured' | 'Not assured' | 'Insufficient evidence';
+    const assess = (opts: { denominator: number; assured: boolean; partial: boolean; basis: string; noEvidence: string }): { state: AssuranceState; basis: string } => {
+      if (opts.denominator <= 0) return { state: 'Insufficient evidence', basis: opts.noEvidence };
+      const state: AssuranceState = opts.assured ? 'Assured' : opts.partial ? 'Partially assured' : 'Not assured';
+      return { state, basis: opts.basis };
+    };
 
     return {
-      risks_identified_early: rag(openRisks === 0 || evidenceBased === openRisks, evidenceBased >= openRisks / 2),
-      escalations_timely: rag(overdue === 0, overdue <= 2),
-      actions_effective: rag(effective >= notEffective, notEffective <= effective + 2),
-      closures_evidenced: rag(Number(c.closure_reviews) > 0 || openRisks > 0, true),
+      risks_identified_early: assess({
+        denominator: openRisks, assured: evidenceBased === openRisks, partial: evidenceBased >= openRisks / 2,
+        basis: `${evidenceBased} of ${openRisks} open risk(s) are evidence-linked to a source pattern.`,
+        noEvidence: 'No open risks in scope — identification cannot be assured or refuted.',
+      }),
+      escalations_timely: assess({
+        denominator: openEsc, assured: overdue === 0, partial: overdue <= 2,
+        basis: `${overdue} of ${openEsc} open escalation(s) are overdue.`,
+        noEvidence: 'No open escalations in scope — timeliness cannot be assessed.',
+      }),
+      actions_effective: assess({
+        denominator: effective + notEffective, assured: notEffective === 0 && effective > 0, partial: effective >= notEffective,
+        basis: `${effective} effective, ${notEffective} not effective (reviewed controls only).`,
+        noEvidence: 'No effectiveness reviews recorded — control effectiveness cannot be assured.',
+      }),
+      closures_evidenced: assess({
+        denominator: Number(c.closure_reviews) + rerResolved, assured: Number(c.closure_reviews) > 0, partial: false,
+        basis: `${Number(c.closure_reviews)} evidenced closure review(s) against ${rerResolved} resolved risk(s).`,
+        noEvidence: 'No closures in scope — closure evidence cannot be assessed.',
+      }),
       reopened_risks: reopened,
       overdue_reviews: overdue,
       resolution_effectiveness_rate: rerResolved ? Math.round((rerStayed / rerResolved) * 100) : null,
       resolved_total: rerResolved,
+      scope: 'Company-wide',
+      period: 'All records to date',
     };
   }
 }
