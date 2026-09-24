@@ -241,6 +241,71 @@ export class DailyGovernanceService {
 
   // Create one governance decision + its consequence inside an open transaction (client).
   // Idempotent: a repeated idempotency_key returns the existing decision without duplicating.
+  // Same-day addendum (doctrine §9.2): a signal that arrives AFTER the primary review is signed
+  // is decided and captured here, in an append-only record linked to the parent log. The signed
+  // primary log is never modified. A "safe carry-forward" addendum records a reason and no
+  // decisions; a material addendum records decisions through the SAME canonical executor as the
+  // primary review (so a decision is never recorded without its downstream record).
+  async addAddendum(
+    log_id: string,
+    opts: { company_id: string; user_id: string; reason: string; evidence_ids?: string[]; decisions?: DecisionInput[] }
+  ) {
+    const { company_id, user_id } = opts;
+    const reason = String(opts.reason || '').trim();
+    if (reason.length < 10) throw new Error('An addendum requires a reason (at least 10 characters).');
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      // Lock only the parent log row; confirm tenant ownership and that it is signed.
+      const logRes = await client.query(
+        `SELECT dgl.id, dgl.house_id, dgl.completed, dgl.review_date::text AS review_date
+           FROM daily_governance_log dgl JOIN houses h ON h.id = dgl.house_id
+          WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
+        [log_id, company_id]
+      );
+      const parent = logRes.rows[0];
+      if (!parent) throw new Error('Governance log not found');
+      if (!parent.completed) {
+        throw new Error('The primary review for this day is not yet signed. Record same-day decisions in the primary review; addenda apply only after sign-off.');
+      }
+
+      const applied: any[] = [];
+      for (const d of (opts.decisions || [])) {
+        await this.createDecisionInTx(client, { company_id, user_id, log_id, house_id: parent.house_id, decision: d });
+        applied.push({ decision: d.decision, subject: d.sourceId || d.pulse_entry_id || d.risk_id || d.cluster_id || null });
+      }
+
+      const seqRes = await client.query(
+        `SELECT COALESCE(MAX(sequence), 0) + 1 AS seq FROM daily_governance_addendum WHERE parent_log_id = $1`,
+        [log_id]
+      );
+      const sequence = seqRes.rows[0].seq;
+      const evidenceIds = Array.isArray(opts.evidence_ids) ? opts.evidence_ids.filter(Boolean) : [];
+      const ins = await client.query(
+        `INSERT INTO daily_governance_addendum
+           (company_id, house_id, parent_log_id, sequence, review_date, reason, evidence_ids, decisions_summary, created_by)
+         VALUES ($1, $2, $3, $4, $5::date, $6, $7::uuid[], $8::jsonb, $9) RETURNING *`,
+        [company_id, parent.house_id, log_id, sequence, parent.review_date, reason, evidenceIds, JSON.stringify(applied), user_id]
+      );
+      await client.query('COMMIT');
+      return ins.rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK');
+      throw e;
+    } finally {
+      client.release();
+    }
+  }
+
+  async listAddenda(company_id: string, log_id: string) {
+    const r = await query(
+      `SELECT a.* FROM daily_governance_addendum a JOIN houses h ON h.id = a.house_id
+        WHERE a.parent_log_id = $1 AND h.company_id = $2 ORDER BY a.sequence`,
+      [log_id, company_id]
+    );
+    return r.rows;
+  }
+
   private async createDecisionInTx(client: PoolClient, ctx: { company_id: string; user_id: string; log_id: string; house_id: string | null; decision: DecisionInput }) {
     const { company_id, user_id, log_id, house_id } = ctx;
     const d = ctx.decision;

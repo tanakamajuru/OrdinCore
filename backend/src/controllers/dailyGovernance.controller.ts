@@ -108,6 +108,34 @@ export class DailyGovernanceController {
     }
   }
 
+  // Same-day addendum to a signed daily governance record (doctrine §9.2). Never unlocks the primary.
+  async addAddendum(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const { reason, evidence_ids, decisions } = req.body;
+      const data = await dailyGovernanceService.addAddendum(id, {
+        company_id: req.user!.company_id!, user_id: req.user!.user_id,
+        reason, evidence_ids: Array.isArray(evidence_ids) ? evidence_ids : undefined,
+        decisions: Array.isArray(decisions) ? decisions : undefined,
+      });
+      return res.status(201).json({ success: true, data });
+    } catch (err: any) {
+      logger.error('Error adding daily governance addendum', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
+  async listAddenda(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const data = await dailyGovernanceService.listAddenda(req.user!.company_id!, id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: any) {
+      logger.error('Error listing daily governance addenda', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
+
   async getCoverage(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
