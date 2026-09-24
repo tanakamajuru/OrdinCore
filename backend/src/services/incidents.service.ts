@@ -1,8 +1,10 @@
 import { incidentsRepo } from '../repositories/incidents.repo';
 import { pulsesRepo } from '../repositories/pulses.repo';
 import { incidentReconstructionService } from './incidentReconstruction.service';
+import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
+import logger from '../utils/logger';
 
 // Type-aware recommended follow-up actions. Kept server-side so the capture form,
 // the auto-created actions, and any report all draw on one list.
@@ -89,46 +91,37 @@ export class IncidentsService {
       created_by
     });
 
-    // [GOVERNANCE] Auto-create actions for serious incidents
+    // [GOVERNANCE] Serious/critical incidents create their governance tasks on the ONE canonical
+    // action spine (doctrine §8.2), carrying incident lineage — so they appear in My Work, the
+    // Action Tracker, effectiveness, closure and reports like any other governance action. The
+    // previous separate `incident_actions` path did not (its table does not even exist in prod,
+    // so those INSERTs threw). Type-aware suggestions stay RECOMMENDATIONS (surfaced via
+    // recommended_actions), not auto-created tasks, per the doctrine.
     if (incident.severity === 'serious' || incident.severity === 'critical') {
-      // Immediate investigation action
-      await incidentsRepo.addAction(incident.id, company_id, {
-        title: `Immediate Investigation Required: ${incident.title}`,
-        description: `Formal investigation required for serious/critical incident. Source: ${data.source_pulse_id ? 'Promoted from signal' : 'Direct report'}`,
-        assigned_to: data.assigned_to || created_by,
-        created_by,
-        due_date: new Date(Date.now() + 24 * 60 * 60 * 1000) // Due within 24 hours
-      });
-
-      // Notification action
-      await incidentsRepo.addAction(incident.id, company_id, {
-        title: 'Notify Regulatory Bodies if Required',
-        description: `Assess whether notification to CQC, LA, or police is required for this serious/critical incident.`,
-        assigned_to: data.assigned_to || created_by,
-        created_by,
-        due_date: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // Due within 48 hours
-      });
-
-      // Incident reconstruction
-      await incidentsRepo.addAction(incident.id, company_id, {
-        title: 'Complete Incident Reconstruction',
-        description: `Conduct structured incident reconstruction to identify contributing factors, control weaknesses, and learning points.`,
-        assigned_to: data.assigned_to || created_by,
-        created_by,
-        due_date: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) // Due within 14 days
-      });
-
-      // Type-aware recommended actions (safeguarding referral, med review, etc.) — the
-      // "recommended actions" the reviewer asked for, created up-front so nothing is missed.
-      const typeLabel = (data.type || data.category_name || '').toString();
-      for (const title of recommendedActionsFor(typeLabel, incident.severity).slice(0, 4)) {
-        await incidentsRepo.addAction(incident.id, company_id, {
-          title,
-          description: `Recommended follow-up for this ${incident.severity} incident.`,
-          assigned_to: data.assigned_to || created_by,
-          created_by,
-          due_date: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
-        });
+      const owner = data.assigned_to || created_by;
+      const fixedTasks = [
+        { title: `Immediate Investigation Required: ${incident.title}`,
+          description: `Formal investigation required for serious/critical incident. Source: ${data.source_pulse_id ? 'Promoted from signal' : 'Direct report'}`,
+          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+        { title: 'Notify Regulatory Bodies if Required',
+          description: 'Assess whether notification to CQC, LA, or police is required for this serious/critical incident.',
+          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
+        { title: 'Complete Incident Reconstruction',
+          description: 'Conduct structured incident reconstruction to identify contributing factors, control weaknesses, and learning points.',
+          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) },
+      ];
+      for (const t of fixedTasks) {
+        try {
+          await canonicalGovernanceActionService.create({
+            companyId: company_id, createdBy: created_by, title: t.title, description: t.description,
+            assignedTo: owner, dueDate: t.dueDate, houseId: incident.house_id || null,
+            incidentId: incident.id, sourcePulseId: data.source_pulse_id || null,
+            reviewRequirement: 'COMPLETION_ONLY',
+          });
+        } catch (e: any) {
+          // Best-effort: a task failure must not roll back an already-created incident record.
+          logger.error(`Failed to create canonical incident action "${t.title}" for incident ${incident.id}: ${e?.message || e}`);
+        }
       }
 
       if (data.source_pulse_id) {

@@ -17,9 +17,9 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 ---
 
 ## Release 1 — safety & single source of truth
-- ⬜ **1. Incident tasks onto the canonical action spine.** `incident_actions` is a separate lifecycle path (`incidents.repo.ts`). Route accepted incident tasks through `canonicalGovernanceAction.service`; add `incident_id` to action lineage. *(§8.2)*
-- ⬜ **2. Deduplicate/migrate legacy `incident_actions`.** Migration to classify/move existing rows; retire the second engine. *(§8.2)*
-- 🔎 **3. Align incident interface permissions with backend role boundaries.** *(§8.1)* — audit needed.
+- ✅ **1. Incident tasks onto the canonical action spine.** Serious/critical incidents now create their 3 fixed governance tasks (investigation, notification, reconstruction) via `canonicalGovernanceAction.create` with `incident_id` lineage (migration 162 adds the column), so they appear in My Work / Action Tracker / effectiveness / closure / reports. Type-aware suggestions stay recommendations, not auto-tasks. *(§8.2, acceptance #4)* — **`#113`**
+- ✅ **2. Legacy `incident_actions` — N/A.** The `incident_actions` table does **not exist** in production; its INSERTs were throwing (silently breaking serious-incident auto-tasks). Nothing to migrate — the broken path is now removed. Rerouting also fixes serious/critical incident creation, which was failing on the missing table. *(§8.2)* — **`#113`**
+- 🔎 **3. Align incident interface permissions with backend role boundaries.** *(§8.1)* — audit still pending (separate step).
 - ✅ **4. Canonical action idempotency.** `canonicalGovernanceAction.create` now dedupes on `tenant + source decision (review/pulse/cluster/escalation) + normalised title + active lifecycle`: an equivalent still-open action from the same source returns the existing row instead of inserting a duplicate. Ad-hoc (sourceless) actions are unaffected. *(§7.5, acceptance #3)* — **`#112`**
 - ✅ **5. No silent success in work queues.** `guidedWork.safeRows` swallowed errors → empty "nothing due". Now records failed sources, returns `degraded`/`degradedSources`; MyWork shows "Work list incomplete — data unavailable" and suppresses the green empty state. *(§4.2.8, §14)* — **`#111`**
 

@@ -9,7 +9,7 @@ export type GovernanceActionInput={
   companyId:string; createdBy:string; title:string; description?:string|null;
   assignedTo?:string|null; dueDate?:Date|string|null; houseId?:string|null; riskId?:string|null;
   governanceReviewId?:string|null; sourcePulseId?:string|null; sourceClusterId?:string|null;
-  escalationId?:string|null; governanceDomain?:string|null;
+  escalationId?:string|null; incidentId?:string|null; governanceDomain?:string|null;
   reviewRequirement:ActionReviewRequirement; intendedOutcome?:string|null;
 };
 
@@ -27,8 +27,8 @@ const validate=(i:GovernanceActionInput)=>{
 const insertSql=`INSERT INTO risk_actions
  (id,risk_id,company_id,house_id,title,description,assigned_to,due_date,created_by,status,
   governance_review_id,source_pulse_id,source_cluster_id,intended_outcome,escalation_id,
-  governance_domain,review_requirement,evidence_contract_version)
- VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,'action-evidence-v1')
+  governance_domain,review_requirement,incident_id,evidence_contract_version)
+ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,$17,'action-evidence-v1')
  RETURNING *`;
 
 export const canonicalGovernanceActionService={
@@ -40,7 +40,7 @@ export const canonicalGovernanceActionService={
     // from the SAME source must not be duplicated (e.g. a decision retried, or the same
     // signal actioned twice). Ad-hoc actions with no source are not deduped.
     const idemTitle=String(input.title||'').trim().toLowerCase();
-    const hasLineage=!!(input.governanceReviewId||input.sourcePulseId||input.sourceClusterId||input.escalationId);
+    const hasLineage=!!(input.governanceReviewId||input.sourcePulseId||input.sourceClusterId||input.escalationId||input.incidentId);
     if(hasLineage){
       const existing=(await runner0(
         `SELECT * FROM risk_actions
@@ -51,16 +51,17 @@ export const canonicalGovernanceActionService={
             AND ( ($3::uuid IS NOT NULL AND governance_review_id=$3)
                OR ($4::uuid IS NOT NULL AND source_pulse_id=$4)
                OR ($5::uuid IS NOT NULL AND source_cluster_id=$5)
-               OR ($6::uuid IS NOT NULL AND escalation_id=$6) )
+               OR ($6::uuid IS NOT NULL AND escalation_id=$6)
+               OR ($7::uuid IS NOT NULL AND incident_id=$7) )
           ORDER BY created_at LIMIT 1`,
-        [input.companyId,idemTitle,input.governanceReviewId||null,input.sourcePulseId||null,input.sourceClusterId||null,input.escalationId||null]
+        [input.companyId,idemTitle,input.governanceReviewId||null,input.sourcePulseId||null,input.sourceClusterId||null,input.escalationId||null,input.incidentId||null]
       )).rows[0];
       if(existing) return existing;
     }
     const params=[uuidv4(),input.riskId||null,input.companyId,input.houseId||null,String(input.title).trim().slice(0,255),
       input.description||null,input.assignedTo||null,input.dueDate||null,input.createdBy,input.governanceReviewId||null,
       input.sourcePulseId||null,input.sourceClusterId||null,input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?String(input.intendedOutcome).trim():null,
-      input.escalationId||null,input.governanceDomain||null,input.reviewRequirement];
+      input.escalationId||null,input.governanceDomain||null,input.reviewRequirement,input.incidentId||null];
     const runner=client?client.query.bind(client):query;
     return (await runner(insertSql,params)).rows[0];
   },
