@@ -38,8 +38,10 @@ export interface ResolvedScope {
 export type SiteStatus = 'STABLE' | 'ATTENTION' | 'CRITICAL';
 
 export interface Confidence {
-  governance: number;       // 0-100
-  evidence: number;         // 0-100
+  governance: number;              // 0-100 (management responsiveness; retained for back-compat)
+  evidence: number;                // 0-100 (retained for back-compat; == evidence_coverage)
+  evidence_coverage: number;       // 0-100 — volume/spread of evidence
+  control_assurance: number | null; // 0-100, or null when there are no controls to assure
   basis: string;
 }
 

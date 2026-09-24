@@ -16,6 +16,10 @@ export interface SiteMetrics {
   completed_actions: number;
   completed_on_time: number;
   distinct_days: number;
+  // Controls = effectiveness-bearing actions completed by the cut-off.
+  controls_total: number;
+  controls_effective: number;
+  controls_unreviewed: number;
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
@@ -48,11 +52,28 @@ export const confidenceService = {
     return 'STABLE';
   },
 
+  // Control Assurance (doctrine §7.9): of the effectiveness-bearing controls completed, how many
+  // carry a FINAL Effective judgement. A control that merely exists — or is completed but not yet
+  // effectiveness-reviewed — is NOT assured. Null when there are no controls to assure (so the
+  // absence of controls never reads as high assurance).
+  controlAssurance(m: SiteMetrics): number | null {
+    if (!m.controls_total) return null;
+    return clamp((m.controls_effective / m.controls_total) * 100);
+  },
+
+  // Evidence Coverage is the volume/spread measure (renamed from "evidence").
+  evidenceCoverage(m: SiteMetrics): number {
+    return this.evidence(m);
+  },
+
   confidenceObject(m: SiteMetrics): Confidence {
+    const controlAssurance = this.controlAssurance(m);
     return {
       governance: this.governance(m),
       evidence: this.evidence(m),
-      basis: `${m.signals} signal(s) over ${m.distinct_days} day(s); ${m.overdue_actions} overdue action(s); ${m.critical_risks} critical risk(s).`,
+      evidence_coverage: this.evidenceCoverage(m),
+      control_assurance: controlAssurance,
+      basis: `${m.signals} signal(s) over ${m.distinct_days} day(s); evidence coverage ${this.evidenceCoverage(m)}%; control assurance ${controlAssurance === null ? 'n/a (no controls)' : controlAssurance + '%'} (${m.controls_effective}/${m.controls_total} controls finally Effective, ${m.controls_unreviewed} unreviewed); ${m.critical_risks} critical risk(s).`,
     };
   },
 };

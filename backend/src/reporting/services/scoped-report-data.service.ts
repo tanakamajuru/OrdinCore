@@ -57,7 +57,18 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
                               AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz)::int AS completed_actions,
             COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
                               AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz
-                              AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time
+                              AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time,
+            -- Controls = effectiveness-bearing actions completed by the cut-off. Control Assurance
+            -- counts only those with a FINAL Effective judgement; existence/completion alone, and
+            -- unreviewed effectiveness, do NOT count as assured (doctrine §7.9).
+            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+                              AND ra.completed_at <= $3::timestamptz)::int AS controls_total,
+            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+                              AND ra.completed_at <= $3::timestamptz
+                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) ILIKE 'Effective%')::int AS controls_effective,
+            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+                              AND ra.completed_at <= $3::timestamptz
+                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NULL)::int AS controls_unreviewed
        FROM canonical_action_state_v ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
       WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) = $2 ${personAct}`,
     [companyId, siteId, end, start]
@@ -69,6 +80,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
     open_escalations: esc.open_escalations, overdue_escalations: esc.overdue_escalations,
     open_actions: act.open_actions, overdue_actions: act.overdue_actions,
     completed_actions: act.completed_actions, completed_on_time: act.completed_on_time,
+    controls_total: act.controls_total, controls_effective: act.controls_effective, controls_unreviewed: act.controls_unreviewed,
   };
 }
 
@@ -82,7 +94,7 @@ export const scopedReportDataService = {
       const m = await metricsForSite(companyId, s.id, start, end, personId);
       const conf = confidenceService.confidenceObject(m);
       const status = confidenceService.status(m);
-      perSite.push({ site_id: s.id, site_name: s.name, status, governance_confidence: conf.governance, evidence_confidence: conf.evidence, metrics: m });
+      perSite.push({ site_id: s.id, site_name: s.name, status, governance_confidence: conf.governance, evidence_confidence: conf.evidence, evidence_coverage: conf.evidence_coverage, control_assurance: conf.control_assurance, metrics: m });
     }
 
     // Cross-site themes (signal domains across the authorised sites in the period).

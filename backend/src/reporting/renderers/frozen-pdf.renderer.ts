@@ -355,10 +355,11 @@ function renderOverview(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
   heading(doc, '1. Overall position'); paragraph(doc, position(data));
   table(doc, '2. Services requiring attention', (data.per_site || []).filter((s: any) => s.status !== 'STABLE'), [
-    { label: 'Service', key: 'site_name', width: 150 }, { label: 'Position', key: 'status', width: 90 },
-    { label: 'Gov %', key: 'governance_confidence', width: 60, map: (r) => `${r.governance_confidence ?? '—'}%` },
-    { label: 'Open risks', key: 'open_risks', width: 95, map: (r) => String(r.open_risks ?? 0) },
-    { label: 'Overdue', key: 'overdue_actions', width: 100, map: (r) => String(r.overdue_actions ?? 0) },
+    { label: 'Service', key: 'site_name', width: 140 }, { label: 'Position', key: 'status', width: 80 },
+    { label: 'Evidence cov.', key: 'evidence_coverage', width: 75, map: (r) => `${r.evidence_coverage ?? r.evidence_confidence ?? '—'}%` },
+    { label: 'Control assur.', key: 'control_assurance', width: 80, map: (r) => r.control_assurance == null ? 'n/a' : `${r.control_assurance}%` },
+    { label: 'Open risks', key: 'open_risks', width: 70, map: (r) => String(r.open_risks ?? 0) },
+    { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
   ], 'No service was rated ATTENTION or CRITICAL in this period.', 12);
   heading(doc, '3. Recorded response');
   bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
