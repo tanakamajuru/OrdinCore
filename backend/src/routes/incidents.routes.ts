@@ -149,7 +149,10 @@ router.get('/:id/attachments', requireAuth, requireTenant, incidentsController.g
  *       200:
  *         description: Success
  */
-router.post('/:id/attachments', requireAuth, requireTenant, incidentsController.addAttachment.bind(incidentsController));
+// Adding an attachment writes incident evidence — an operational action. Restrict to the
+// operational/admin roles so oversight roles (RI, Director) cannot alter incident evidence
+// (doctrine §8.1: oversight acknowledgement must not change operational incident state).
+router.post('/:id/attachments', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'), incidentsController.addAttachment.bind(incidentsController));
 
 
 /**
