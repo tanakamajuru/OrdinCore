@@ -34,6 +34,29 @@ const insertSql=`INSERT INTO risk_actions
 export const canonicalGovernanceActionService={
   async create(input:GovernanceActionInput, client?:PoolClient){
     validate(input);
+    const runner0=client?client.query.bind(client):query;
+    // Idempotency (doctrine §7.5): tenant + source decision + normalised purpose + active
+    // lifecycle. When the action carries a source lineage, an equivalent still-open action
+    // from the SAME source must not be duplicated (e.g. a decision retried, or the same
+    // signal actioned twice). Ad-hoc actions with no source are not deduped.
+    const idemTitle=String(input.title||'').trim().toLowerCase();
+    const hasLineage=!!(input.governanceReviewId||input.sourcePulseId||input.sourceClusterId||input.escalationId);
+    if(hasLineage){
+      const existing=(await runner0(
+        `SELECT * FROM risk_actions
+          WHERE company_id=$1
+            AND LOWER(BTRIM(title))=$2
+            AND completed_at IS NULL
+            AND COALESCE(status,'') NOT IN ('Completed','Complete','Closed','Resolved','Cancelled')
+            AND ( ($3::uuid IS NOT NULL AND governance_review_id=$3)
+               OR ($4::uuid IS NOT NULL AND source_pulse_id=$4)
+               OR ($5::uuid IS NOT NULL AND source_cluster_id=$5)
+               OR ($6::uuid IS NOT NULL AND escalation_id=$6) )
+          ORDER BY created_at LIMIT 1`,
+        [input.companyId,idemTitle,input.governanceReviewId||null,input.sourcePulseId||null,input.sourceClusterId||null,input.escalationId||null]
+      )).rows[0];
+      if(existing) return existing;
+    }
     const params=[uuidv4(),input.riskId||null,input.companyId,input.houseId||null,String(input.title).trim().slice(0,255),
       input.description||null,input.assignedTo||null,input.dueDate||null,input.createdBy,input.governanceReviewId||null,
       input.sourcePulseId||null,input.sourceClusterId||null,input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?String(input.intendedOutcome).trim():null,

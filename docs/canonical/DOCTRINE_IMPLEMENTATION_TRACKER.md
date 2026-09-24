@@ -20,7 +20,7 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 - ⬜ **1. Incident tasks onto the canonical action spine.** `incident_actions` is a separate lifecycle path (`incidents.repo.ts`). Route accepted incident tasks through `canonicalGovernanceAction.service`; add `incident_id` to action lineage. *(§8.2)*
 - ⬜ **2. Deduplicate/migrate legacy `incident_actions`.** Migration to classify/move existing rows; retire the second engine. *(§8.2)*
 - 🔎 **3. Align incident interface permissions with backend role boundaries.** *(§8.1)* — audit needed.
-- ⬜ **4. Canonical action idempotency.** No idempotency in `canonicalGovernanceAction.service`. Key: `tenant + source decision + normalised purpose + active lifecycle`. *(§7.5)*
+- ✅ **4. Canonical action idempotency.** `canonicalGovernanceAction.create` now dedupes on `tenant + source decision (review/pulse/cluster/escalation) + normalised title + active lifecycle`: an equivalent still-open action from the same source returns the existing row instead of inserting a duplicate. Ad-hoc (sourceless) actions are unaffected. *(§7.5, acceptance #3)* — **`#112`**
 - ✅ **5. No silent success in work queues.** `guidedWork.safeRows` swallowed errors → empty "nothing due". Now records failed sources, returns `degraded`/`degradedSources`; MyWork shows "Work list incomplete — data unavailable" and suppresses the green empty state. *(§4.2.8, §14)* — **`#111`**
 
 ## Release 2 — governance continuity
