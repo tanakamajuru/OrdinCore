@@ -1,6 +1,7 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import logger from '../utils/logger';
+import { incidentsRepo } from '../repositories/incidents.repo';
 
 export class IncidentReconstructionService {
   async create(company_id: string, user_id: string, data: { incident_id: string; house_id: string; lead_investigator?: string }) {
@@ -90,12 +91,26 @@ export class IncidentReconstructionService {
     }
 
     const result = await query(
-      `UPDATE incident_reconstruction 
+      `UPDATE incident_reconstruction
        SET status = 'Completed', completed_at = NOW(), completed_by = $1, updated_at = NOW()
        WHERE id = $2 AND company_id = $3 RETURNING *`,
       [user_id, id, company_id]
     );
-    
+
+    // Freeze the exact evidence at lock time so the report publishes this snapshot, not a
+    // later live re-derivation (doctrine §8.3). Best-effort: a snapshot failure must not
+    // prevent the reconstruction being locked.
+    try {
+      const snapshot = await incidentsRepo.getGovernanceTimeline(ir.incident_id, company_id);
+      await query(
+        `UPDATE incident_reconstruction SET evidence_snapshot = $1::jsonb, snapshot_at = NOW()
+          WHERE id = $2 AND company_id = $3`,
+        [JSON.stringify(snapshot), id, company_id]
+      );
+    } catch (e: any) {
+      logger.error(`Failed to snapshot reconstruction ${id} evidence at completion: ${e?.message || e}`);
+    }
+
     logger.info(`Incident Reconstruction ${id} completed by ${user_id}`);
     return result.rows[0];
   }

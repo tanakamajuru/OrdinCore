@@ -311,7 +311,25 @@ export const incidentsRepo = {
   async getGovernanceTimeline(incident_id: string, company_id: string) {
     // Get incident details first
     const incident = await this.findById(incident_id, company_id);
-    if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [], limitations: ['Incident not found — no evidence available.'] };
+    if (!incident) return { timeline: [], metrics: {}, patterns: [], findings: [], recommendations: [], limitations: ['Incident not found — no evidence available.'], frozen: false };
+
+    // If a reconstruction for this incident has been locked, publish its FROZEN snapshot
+    // exactly (doctrine §8.3) rather than re-deriving live evidence that may have since moved.
+    try {
+      const frozen = await query(
+        `SELECT evidence_snapshot, snapshot_at FROM incident_reconstruction
+          WHERE incident_id = $1 AND company_id = $2
+            AND status IN ('Completed','Approved') AND evidence_snapshot IS NOT NULL
+          ORDER BY completed_at DESC NULLS LAST LIMIT 1`,
+        [incident_id, company_id]
+      );
+      if (frozen.rows[0]?.evidence_snapshot) {
+        return { ...frozen.rows[0].evidence_snapshot, frozen: true, frozen_at: frozen.rows[0].snapshot_at };
+      }
+    } catch (e) {
+      // Fall through to live derivation if the snapshot lookup fails.
+      console.log('Frozen reconstruction snapshot lookup failed:', e);
+    }
 
     const timelineEvents: any[] = [];
     // Sources that failed to load become explicit limitations (never a silent "no gap").
@@ -611,7 +629,8 @@ export const incidentsRepo = {
       patterns,
       findings,
       recommendations,
-      limitations
+      limitations,
+      frozen: false
     };
   },
 

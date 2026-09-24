@@ -65,6 +65,7 @@ export function ReconstructionReport() {
   const [findings, setFindings] = useState<string[]>([]);
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [limitations, setLimitations] = useState<string[]>([]);
+  const [frozenAt, setFrozenAt] = useState<string|null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [existingReport, setExistingReport] = useState<any>(null);
 
@@ -102,6 +103,7 @@ export function ReconstructionReport() {
         
         const timelineList = reportData.timeline || reportData.items || (Array.isArray(reportData) ? reportData : []);
         setTimelineEvents(timelineList);
+        setFrozenAt(reportData.frozen ? (reportData.frozen_at || null) : null);
         
         if (reportData.metrics) {
           setMetrics(reportData.metrics);
@@ -335,6 +337,11 @@ export function ReconstructionReport() {
               </div>
             </div>
 
+            {frozenAt && (
+              <div className="mt-6 p-3 bg-emerald-50 border border-emerald-200 rounded text-sm text-emerald-800">
+                Published from the locked reconstruction snapshot ({new Date(frozenAt).toLocaleString("en-GB")}). This is the exact frozen evidence, not a live re-derivation.
+              </div>
+            )}
             <div className="mt-6 p-4 bg-muted border border-border rounded">
               <div className=" text-foreground mb-2">Key Findings (from the records available):</div>
               <ul className="text-sm text-foreground space-y-1">
