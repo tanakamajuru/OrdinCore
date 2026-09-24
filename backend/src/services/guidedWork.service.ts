@@ -76,8 +76,19 @@ export const guidedWorkService = {
     const waiting: GuidedWorkItem[] = [];
     const completedToday: GuidedWorkItem[] = [];
 
+    // No silent success (doctrine §4.2.8): a failed source must NOT read as an empty
+    // (reassuring) queue. Record which source failed so the response can declare the
+    // work list incomplete instead of showing a green "nothing due" state.
+    const degraded: string[] = [];
     const safeRows = async (sql: string, params: any[] = []) => {
-      try { return (await query(sql, params)).rows; } catch { return []; }
+      try { return (await query(sql, params)).rows; }
+      catch (e: any) {
+        const m = /FROM\s+([a-z_][\w.]*)/i.exec(sql);
+        const src = m ? m[1] : 'source';
+        if (!degraded.includes(src)) degraded.push(src);
+        try { require('../utils/logger').default.error(`guided-work source failed (${src}): ${e?.message || e}`); } catch { /* logging best-effort */ }
+        return [];
+      }
     };
 
     // TEAM LEADER: assigned actions + published weekly review acknowledgement.
@@ -331,6 +342,10 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
       completedToday,
       counts: { needsYou: filteredNeeds.length, waiting: filteredWaiting.length, completedToday: completedToday.length },
       next: filteredNeeds[0] || null,
+      // No silent success: when any source failed the list is INCOMPLETE — the UI must warn
+      // rather than present an empty queue as "nothing due".
+      degraded: degraded.length > 0,
+      degradedSources: degraded,
       doctrine: 'READ_PRIORITISE_ROUTE_REFRESH_ONLY'
     };
   }

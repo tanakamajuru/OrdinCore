@@ -14,7 +14,7 @@ type GuidedWorkItem={
   dueAt?:string|null; ownerName?:string|null; serviceName?:string|null; canonicalEntityType:string; canonicalEntityId:string;
   category?:'ASSIGNED'|'DECISION'; route:string; actionLabel:string; whyAmISeeingThis:string;
 };
-type QueueData={needsYou:GuidedWorkItem[];waiting:GuidedWorkItem[];completedToday:GuidedWorkItem[];counts:{needsYou:number;waiting:number;completedToday:number};next?:GuidedWorkItem|null};
+type QueueData={needsYou:GuidedWorkItem[];waiting:GuidedWorkItem[];completedToday:GuidedWorkItem[];counts:{needsYou:number;waiting:number;completedToday:number};next?:GuidedWorkItem|null;degraded?:boolean;degradedSources?:string[]};
 
 const priorityClass:Record<Priority,string>={URGENT:'border-red-300 bg-red-50',DUE:'border-amber-300 bg-amber-50',NORMAL:'border-border bg-card'};
 const priorityText:Record<Priority,string>={URGENT:'text-red-700',DUE:'text-amber-700',NORMAL:'text-primary'};
@@ -73,6 +73,8 @@ export function MyWork(){
 
       <div className="mt-6"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
 
+      {data.degraded && <div className="mt-6 rounded-xl border border-red-300 bg-red-50 p-4 flex items-start gap-3"><AlertTriangle size={20} className="text-red-600 shrink-0 mt-0.5"/><div><div className="font-semibold text-red-800">Work list incomplete — data unavailable</div><div className="text-sm text-red-700 mt-0.5">Some governance sources could not be loaded, so this list may be missing work. This is not a "nothing due" state. Refresh; if it persists, report it.</div></div></div>}
+
       {canDoDailyGovernance && !loading && <button onClick={()=>navigate('/governance-dashboard')} className="mt-6 w-full text-left bg-primary/5 border border-primary/30 rounded-xl p-4 flex items-center gap-4 hover:bg-primary/10">
         <div className="w-11 h-11 rounded-full bg-primary text-primary-foreground flex items-center justify-center"><ShieldCheck size={20}/></div><div className="flex-1"><div className="font-semibold">Do Daily Governance</div><div className="text-xs text-muted-foreground">Existing RM Daily Oversight functions remain unchanged.</div></div><ChevronRight size={18} className="text-primary"/>
       </button>}
@@ -84,7 +86,7 @@ export function MyWork(){
       </div>
 
       {loading?<div className="py-20 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"/></div>:
-      list.length===0?<div className="mt-6 rounded-xl border border-border bg-card p-10 text-center"><CheckCircle2 size={30} className="mx-auto text-emerald-600"/><h2 className="text-xl font-semibold mt-3">Nothing in this queue</h2><p className="text-muted-foreground mt-1">There is no work in this state right now.</p></div>:
+      list.length===0?(data.degraded?<div className="mt-6 rounded-xl border border-red-200 bg-card p-10 text-center"><AlertTriangle size={30} className="mx-auto text-red-600"/><h2 className="text-xl font-semibold mt-3">List incomplete</h2><p className="text-muted-foreground mt-1">Governance data could not be loaded — this is not confirmation that nothing is due.</p></div>:<div className="mt-6 rounded-xl border border-border bg-card p-10 text-center"><CheckCircle2 size={30} className="mx-auto text-emerald-600"/><h2 className="text-xl font-semibold mt-3">Nothing in this queue</h2><p className="text-muted-foreground mt-1">There is no work in this state right now.</p></div>):
       tab==='NEEDS_YOU'?<div>{section('My Work','assigned to you',myWork)}{section('Decisions Due','governance decisions you own',decisions)}</div>:
       <div className="mt-6 space-y-3">{list.map(card)}</div>}
 
