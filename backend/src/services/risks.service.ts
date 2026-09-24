@@ -546,7 +546,21 @@ export class RisksService {
     );
     const resolved = Number(r.rows[0]?.resolved || 0);
     const stayed = Number(r.rows[0]?.stayed || 0);
-    return { resolved, stayed, pending_observation: Number(r.rows[0]?.pending_observation || 0), rate: resolved ? Math.round((stayed / resolved) * 100) : null };
+    const pending_observation = Number(r.rows[0]?.pending_observation || 0);
+    // Resolution DURABILITY (doctrine §13.1): a rate over a small denominator is misleading, so
+    // the numerator, denominator, observation window, pending cases and an evidence-base warning
+    // must travel with the number. `resolved` here is the MATURE denominator (60-day window elapsed).
+    const MIN_SAMPLE = 5;
+    return {
+      resolved, stayed, pending_observation,
+      rate: resolved ? Math.round((stayed / resolved) * 100) : null,
+      observation_window_days: 60,
+      min_sample: MIN_SAMPLE,
+      evidence_base: resolved === 0 ? 'none' : resolved < MIN_SAMPLE ? 'limited' : resolved < 15 ? 'moderate' : 'adequate',
+      summary: resolved === 0
+        ? `No resolved risk has yet completed the 60-day observation window${pending_observation ? `; ${pending_observation} closure(s) still under observation` : ''}.`
+        : `${stayed} of ${resolved} mature resolved risk(s) remained closed through the 60-day observation window${pending_observation ? `; ${pending_observation} further closure(s) under observation` : ''}. Evidence base: ${resolved < MIN_SAMPLE ? 'limited' : resolved < 15 ? 'moderate' : 'adequate'}.`,
+    };
   }
 
   async updateActionStatus(action_id: string, risk_id: string, company_id: string, user_id: string, status: string) {

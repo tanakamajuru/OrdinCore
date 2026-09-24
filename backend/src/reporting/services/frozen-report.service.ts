@@ -19,6 +19,15 @@ export const frozenReportService = {
 
     const data = await scopedReportDataService.build(resolved, start, end);
 
+    // Defensibility gate (doctrine §13.2): a Critical Governance Exception must name the specific
+    // supporting risk. A frozen report cannot assert CRITICAL it cannot substantiate.
+    const unsupportedCritical = ((data as any).material_exceptions || [])
+      .filter((x: any) => x.status === 'CRITICAL' && !(Array.isArray(x.supporting_risks) && x.supporting_risks.length > 0))
+      .map((x: any) => x.site_name);
+    if (unsupportedCritical.length > 0) {
+      throw new Error(`Cannot freeze report: a Critical Governance Exception has no identifiable supporting risk for ${unsupportedCritical.join(', ')}. Record/link the supporting critical risk before publishing.`);
+    }
+
     // Freeze report provenance at generation time so every PDF can identify the organisation,
     // producer and production timestamp without relying on mutable live profile data.
     const producedAt = new Date().toISOString();

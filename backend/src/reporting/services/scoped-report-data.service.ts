@@ -112,8 +112,11 @@ export const scopedReportDataService = {
     const hasCritical = perSite.some((s) => s.status === 'CRITICAL');
     const hasAttention = perSite.some((s) => s.status === 'ATTENTION');
     const organisationStatus: SiteStatus = hasCritical ? 'CRITICAL' : hasAttention ? 'ATTENTION' : 'STABLE';
-    const materialExceptions = perSite.filter((s) => s.status !== 'STABLE')
-      .map((s) => ({ site_name: s.site_name, status: s.status, governance_confidence: s.governance_confidence }));
+    // "Critical Governance Exception" (doctrine §13.2): a critical status must be named as an
+    // exception and, below, tied to the specific supporting risk(s) — not shown as a bare label.
+    const statusLabel = (st: string) => st === 'CRITICAL' ? 'Critical Governance Exception' : st === 'ATTENTION' ? 'Attention Required' : 'Stable';
+    let materialExceptions = perSite.filter((s) => s.status !== 'STABLE')
+      .map((s) => ({ site_name: s.site_name, status: s.status, status_label: statusLabel(s.status), governance_confidence: s.governance_confidence, supporting_risks: [] as any[] }));
 
     // Plain-language templates need the underlying evidence, not only aggregate counts. These rows
     // are frozen inside the immutable snapshot so the PDF never re-queries live data at download
@@ -157,6 +160,16 @@ export const scopedReportDataService = {
       const tr = await trajectoryForRisk(r.id, r.source_cluster_id).catch(() => null);
       return { ...r, direction: tr?.direction || r.direction, trajectory_basis: tr?.basis || null };
     }));
+
+    // Tie each Critical Governance Exception to the specific open Critical risk(s) that support
+    // the conclusion (id, service, evidence date). A Critical exception with no identifiable
+    // supporting risk is a defect — flagged here and rejected at freeze time (frozen-report.service).
+    for (const ex of materialExceptions) {
+      if (ex.status !== 'CRITICAL') continue;
+      ex.supporting_risks = risks
+        .filter((r: any) => r.service === ex.site_name && String(r.severity) === 'Critical' && String(r.status) === 'Open')
+        .map((r: any) => ({ id: r.id, risk: r.risk, service: r.service, direction: r.direction, review_due_date: r.review_due_date }));
+    }
 
     const actions = (await query(
       `SELECT ra.id, COALESCE(h.name, 'Organisation-wide') AS service, ra.title AS action,

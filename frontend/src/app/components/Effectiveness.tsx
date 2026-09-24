@@ -30,14 +30,16 @@ export function Effectiveness() {
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0"><CheckCircle2 className="w-5 h-5" /></div>
               <div className="min-w-0">
-                <p className="text-xs text-muted-foreground">Resolution Effectiveness Rate</p>
-                <p className="text-sm text-foreground">Of risks closed as resolved, how many stayed resolved (no recurrence in the window) — the Well-Led outcome test.</p>
+                <p className="text-xs text-muted-foreground">Resolution Durability</p>
+                <p className="text-sm text-foreground">Of mature resolved risks (those past the {rer.observation_window_days || 60}-day observation window), how many stayed closed — the Well-Led outcome test.</p>
+                {rer.summary && <p className="text-[11px] text-muted-foreground mt-1">{rer.summary}</p>}
               </div>
             </div>
             <div className="text-right shrink-0 pl-4">
               <p className="text-2xl font-semibold text-foreground">{rer.rate == null ? "—" : `${rer.rate}%`}</p>
-              <p className="text-[11px] text-muted-foreground">{rer.stayed}/{rer.resolved} resolved</p>
-              {Number(rer.pending_observation || 0) > 0 && <p className="text-[11px] text-amber-600">{rer.pending_observation} still under observation</p>}
+              <p className="text-[11px] text-muted-foreground">{rer.stayed}/{rer.resolved} mature</p>
+              {Number(rer.pending_observation || 0) > 0 && <p className="text-[11px] text-amber-600">{rer.pending_observation} under observation</p>}
+              {(rer.evidence_base === 'limited' || rer.evidence_base === 'none') && <p className="text-[11px] text-red-600">Limited evidence base</p>}
             </div>
           </div>
         )}

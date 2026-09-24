@@ -35,10 +35,10 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 
 ## Release 3 — assurance & language
 - ⬜ **1. RI assurance states** (Assured / Partially / Not / Insufficient evidence) with evidence basis — replace tick logic. *(§11.2)*
-- ⬜ **2. Resolution Effectiveness → Resolution Durability** with numerator/denominator/observation window/pending/min-sample warning. *(§13.1)*
-- ⬜ **3. Confidence → Evidence Coverage + Control Assurance** (two measures). *(§7.9)*
+- ✅ **2. Resolution Durability.** `resolutionEffectivenessRate` already applied the 60-day maturity gate; now also returns `observation_window_days`, `min_sample`, `evidence_base` (none/limited/moderate/adequate) and a full `summary` sentence (numerator/denominator/window/pending). Effectiveness page relabelled "Resolution Durability" with the denominator, pending-under-observation and a "limited evidence base" warning. *(§13.1, acceptance #17)* — **`#119`**
+- ⬜ **3. Confidence → Evidence Coverage + Control Assurance** (two measures). *(§7.9)* — the report layer already exposes `governance`+`evidence`; true Control Assurance needs effectiveness inputs threaded into `SiteMetrics` (deeper change, next).
 - ⬜ **4. Risk index / attention priority shown as transparent decision-support** (components, assumptions, version, date). *(§7.9)*
-- ⬜ **5. `CRITICAL` → "Critical Governance Exception"** with named supporting risk; frozen report fails validation without it. *(§13.2)*
+- ✅ **5. Critical Governance Exception.** Report status `CRITICAL` now carries `status_label` "Critical Governance Exception" and each critical exception is tied to its specific open Critical **supporting_risks** (id, service, direction, review-due). The frozen-report generator **fails** if a Critical exception has no identifiable supporting risk; the PDF names the supporting risk. *(§13.2, acceptance #20)* — **`#119`**
 - ⬜ **6. Human evidence narrative** for material themes (data → interpretation → decision → action → outcome → recurrence → assurance). *(§12)*
 
 ## Release 4 — interface simplification

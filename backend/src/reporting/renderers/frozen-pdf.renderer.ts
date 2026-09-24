@@ -514,7 +514,13 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
   bullets(doc, (e.actions || []).filter((a: any) => ['Not Effective','Too Early To Assess','Not yet reviewed'].includes(clean(a.effectiveness))).map((a: any) => `${clean(a.action)} — ${clean(a.effectiveness)}${a.effectiveness_evidence ? ` — evidence: ${clean(a.effectiveness_evidence)}` : ''}`), 'No failed, interim or unreviewed control was recorded.', 5);
   heading(doc, '6. Assurance limitations');
   bullets(doc, [
-    ...(data.material_exceptions || []).map((x: any) => `${clean(x.site_name)} - ${clean(x.status)} (governance confidence ${x.governance_confidence ?? '—'}%)`),
+    ...(data.material_exceptions || []).map((x: any) => {
+      const label = x.status_label || (x.status === 'CRITICAL' ? 'Critical Governance Exception' : x.status);
+      const support = Array.isArray(x.supporting_risks) && x.supporting_risks.length
+        ? ` — supporting risk: ${x.supporting_risks.map((r: any) => clean(r.risk)).join('; ')}`
+        : '';
+      return `${clean(x.site_name)} - ${clean(label)} (governance confidence ${x.governance_confidence ?? '—'}%)${support}`;
+    }),
     ...(Array.isArray(data.limitations) ? data.limitations : []),
   ], 'No material exception was recorded for this period.', 6);
   heading(doc, '7. Required response');
