@@ -218,17 +218,25 @@ export class WeeklyReviewsService {
     const worsening = signals.filter(s => s.pattern_concern === 'Escalating' || s.severity === 'Critical' || s.severity === 'High')
                              .map(s => `[${s.entry_date}] ${s.risk_domain}: ${s.severity}`).join('; ');
 
-    // Step 7: Improvements (Stable/Improving - Mocked logic or based on trajectory in clusters)
-    // For now, list domains with only Low/Moderate signals if they were higher before
-    const improvements = "Analysis of trajectory trends shows stabilisation in recorded domains.";
-
-    // Step 9 & 10: Risks
+    // Step 9 & 10: Risks — last_effectiveness is the risk's latest FINAL effectiveness outcome
+    // (was hard-coded NULL → "Unknown", which hid real evidence).
     const risksRes = await query(
-      `SELECT r.id, r.title, r.trajectory, r.status, NULL as last_effectiveness
+      `SELECT r.id, r.title, r.trajectory, r.status,
+              (SELECT COALESCE(a.effectiveness_outcome, a.effectiveness::text)
+                 FROM canonical_action_state_v a
+                WHERE a.risk_id = r.id AND a.company_id = r.company_id
+                  AND COALESCE(a.effectiveness_outcome, a.effectiveness::text) IS NOT NULL
+                ORDER BY a.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS last_effectiveness
        FROM canonical_risk_state_v r
        WHERE r.house_id = $1 AND r.company_id = $2 AND r.is_active`,
       [house_id, company_id]
     );
+
+    // Step 7: Improvements — evidenced from the recorded risk trajectories, not a fixed sentence.
+    const improvingCount = risksRes.rows.filter((r: any) => String(r.trajectory || '').toLowerCase().includes('improv')).length;
+    const improvements = improvingCount > 0
+      ? `${improvingCount} active risk(s) show an improving trajectory this period.`
+      : 'No improving trajectory is evidenced from the recorded risks this period.';
 
     // [GOVERNANCE] Senior roles need a list of available houses to switch context
     const housesRes = await query("SELECT id, name FROM houses WHERE company_id = $1 AND status != 'closed'", [company_id]);
@@ -246,8 +254,9 @@ export class WeeklyReviewsService {
               (u.first_name || ' ' || u.last_name) AS owner_name
          FROM interventions i LEFT JOIN users u ON u.id = i.owner_id
         WHERE i.company_id = $1 AND i.status <> 'Complete'
+          AND (i.house_id = $2 OR i.house_id IS NULL)
         ORDER BY i.updated_at DESC LIMIT 20`,
-      [company_id]
+      [company_id, house_id]
     );
 
     const dailyBriefs = (await query(
@@ -273,8 +282,62 @@ export class WeeklyReviewsService {
           AND ra.is_open
         ORDER BY ra.due_date NULLS LAST LIMIT 30`, [company_id, house_id])).rows;
 
+    // §23 weekly evidence contract — the additional canonical sections the review must carry.
+    const safeR = async (sql: string, params: any[]) => { try { return (await query(sql, params)).rows; } catch (e) { return null; } };
+
+    // Same-day daily-governance addenda in the week (doctrine §9.2 aggregation).
+    const addenda = await safeR(
+      `SELECT a.id, a.review_date AS date, a.sequence, a.reason, a.created_at,
+              jsonb_array_length(a.decisions_summary) AS decision_count
+         FROM daily_governance_addendum a
+        WHERE a.company_id = $1 AND a.house_id = $2 AND a.review_date BETWEEN $3::date AND $4::date
+        ORDER BY a.review_date, a.sequence`, [company_id, house_id, startStr, endStr]);
+
+    // Escalations touching the week: opened, closed, overdue or reopened.
+    const escalations = await safeR(
+      `SELECT e.id, e.reason, e.priority::text AS priority, e.created_at, e.due_by,
+              COALESCE(e.closed_at, e.resolved_at) AS closed_at, e.is_open, e.is_overdue,
+              (e.lifecycle_status = 'Reopened') AS reopened
+         FROM canonical_escalation_state_v e
+        WHERE e.company_id = $1 AND e.house_id = $2
+          AND (e.created_at BETWEEN $3::timestamptz AND ($4::date + 1)::timestamptz
+               OR COALESCE(e.closed_at, e.resolved_at) BETWEEN $3::timestamptz AND ($4::date + 1)::timestamptz
+               OR e.is_open)
+        ORDER BY e.created_at DESC LIMIT 40`, [company_id, house_id, startStr, endStr]);
+
+    // Actions completed in the week, with their completion evidence and effectiveness state.
+    const completedActions = await safeR(
+      `SELECT ra.id, ra.title, ra.completed_at, ra.completion_evidence,
+              COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) AS effectiveness,
+              ra.review_requirement
+         FROM canonical_action_state_v ra
+        WHERE ra.company_id = $1 AND ra.house_id = $2
+          AND ra.completed_at BETWEEN $3::timestamptz AND ($4::date + 1)::timestamptz
+        ORDER BY ra.completed_at DESC LIMIT 40`, [company_id, house_id, startStr, endStr]);
+
+    // Canonical pattern state for the service (forming/confirmed/dismissed/resolved) — replaces
+    // relying on the broad-domain "repeats" grouping as the pattern truth.
+    const patterns = await safeR(
+      `SELECT sc.id, sc.cluster_label, sc.canonical_status, sc.scope::text AS scope,
+              sc.is_active, sc.review_outcome, sc.last_reviewed_at
+         FROM canonical_pattern_state_v sc
+        WHERE sc.company_id = $1 AND (sc.house_id = $2 OR sc.scope = 'cross_service')
+        ORDER BY sc.is_active DESC, sc.last_reviewed_at DESC NULLS LAST LIMIT 30`, [company_id, house_id]);
+
+    // Serious incidents in the week + reconstruction status.
+    const incidents = await safeR(
+      `SELECT i.id, i.title, i.severity::text AS severity, i.status, i.occurred_at,
+              (SELECT ir.status FROM incident_reconstruction ir WHERE ir.incident_id = i.id ORDER BY ir.created_at DESC LIMIT 1) AS reconstruction_status
+         FROM incidents i
+        WHERE i.company_id = $1 AND i.house_id = $2
+          AND COALESCE(i.occurred_at, i.created_at) BETWEEN $3::timestamptz AND ($4::date + 1)::timestamptz
+        ORDER BY COALESCE(i.occurred_at, i.created_at) DESC LIMIT 20`, [company_id, house_id, startStr, endStr]);
+
     const evidenceGaps: string[] = [];
     if (dailyBriefs.length < 7) evidenceGaps.push(`${7 - dailyBriefs.length} day(s) have no completed published Daily Team Brief in the selected week.`);
+    for (const [name, rows] of [['addenda', addenda], ['escalations', escalations], ['completed actions', completedActions], ['patterns', patterns], ['incidents', incidents]] as const) {
+      if (rows === null) evidenceGaps.push(`Weekly ${name} evidence source could not be loaded — this section is incomplete.`);
+    }
     if (signals.some((s: any) => ['High','Critical'].includes(String(s.severity))) && activeMeasures.length === 0) evidenceGaps.push('High/critical activity is recorded but no active measure is linked to this service.');
     activeMeasures.filter((m: any) => !m.owner).slice(0, 3).forEach((m: any) => evidenceGaps.push(`No owner recorded for active measure: ${m.measure}.`));
 
@@ -285,7 +348,12 @@ export class WeeklyReviewsService {
       service_users: serviceUsersRes.rows,
       week_range: { start: startStr, end: endStr },
       anticipated: await this.buildAnticipatedRisks(company_id, house_id),
-      weekly_evidence: { daily_briefs: dailyBriefs, brief_days: dailyBriefs.length, active_measures: activeMeasures, evidence_gaps: evidenceGaps },
+      weekly_evidence: {
+        daily_briefs: dailyBriefs, brief_days: dailyBriefs.length, active_measures: activeMeasures,
+        addenda: addenda || [], escalations: escalations || [], completed_actions: completedActions || [],
+        patterns: patterns || [], serious_incidents: incidents || [],
+        evidence_gaps: evidenceGaps,
+      },
       auto_population: {
         pulse_count: signals.length,
         signals: signals,
