@@ -197,6 +197,13 @@ export const guidedWorkService = {
           deepRoute=patternRiskId
             ? `/risk-register/${patternRiskId}?guided=1&gw=obligation:${o.id}`
             : `/systemic-patterns?focus=${canonicalId}&guided=1&gw=obligation:${o.id}`;
+        } else if (!riskId && escalationId) {
+          // An escalation-derived obligation (e.g. POST_ESCALATION_RISK) with NO linked risk is a
+          // review of the ESCALATION itself — open the escalation, not a random risk. Previously
+          // these fell through to the risk branch and landed on the wrong/awaiting risk.
+          entity='escalation'; label='Review Escalation'; requiredAction='ESCALATION_REVIEW';
+          canonicalId=escalationId;
+          deepRoute=`/escalation-log?focus=${escalationId}&guided=1&gw=obligation:${o.id}`;
         } else {
           entity='risk'; label='Review Risk'; requiredAction='RM_RISK_REVIEW';
           canonicalId=riskId || o.subject_id;
