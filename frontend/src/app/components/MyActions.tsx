@@ -35,7 +35,10 @@ export function MyActions() {
   // arriving from "actions assigned to you" shows your own queue, not the whole service.
   const role = ((user?.role || localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_"));
   const isOversight = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(role);
-  const [view, setView] = useState<"mine" | "all">("mine");
+  // A deep-link to a specific action (e.g. from Governance Overview) may target an action assigned
+  // to someone else. For oversight roles, open the "All service" view so the focused action is
+  // actually present, instead of an empty "Mine" queue.
+  const [view, setView] = useState<"mine" | "all">(searchParams.get('focus') && isOversight ? "all" : "mine");
   const [actions, setActions] = useState<AssignedAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAction, setSelectedAction] = useState<AssignedAction | null>(null);
