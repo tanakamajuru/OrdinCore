@@ -524,9 +524,16 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
     }),
     ...(Array.isArray(data.limitations) ? data.limitations : []),
   ], 'No material exception was recorded for this period.', 6);
-  heading(doc, '7. Required response');
+  heading(doc, '7. Material theme evidence (data → decision → action → outcome → assurance)');
+  bullets(doc, (e.theme_evidence || []).map((t: any) => {
+    const risks = Array.isArray(t.risks) && t.risks.length ? t.risks.map((r: any) => `${clean(r.risk)} (${clean(r.direction)}, ${clean(r.status)})`).join('; ') : 'no registered risk linked';
+    const ctl = t.controls || {};
+    const gaps = Array.isArray(t.evidence_gaps) && t.evidence_gaps.length ? ` Evidence gaps: ${t.evidence_gaps.map(clean).join(' ')}` : '';
+    return `${clean(t.theme)} — ${t.signals} signal(s) (${clean(t.period)}), ${clean(t.scope)}; ${t.signals_reviewed} reviewed. Risks: ${risks}. Controls: ${ctl.completed || 0} completed (${ctl.effective || 0} effective, ${ctl.not_effective || 0} not effective, ${ctl.unreviewed || 0} unreviewed). Open: ${t.open_items?.actions || 0} action(s), ${t.open_items?.escalations || 0} escalation(s). Outcome: ${clean(t.outcome)}.${gaps}`;
+  }), 'No material theme was identified in this period.', 6);
+  heading(doc, '8. Required response');
   bullets(doc, [...(e.actions || []).filter((a: any) => isOpen(a.status)).map((a: any) => `${clean(a.action)} - due ${date(a.due_date)}`), ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${clean(x.reason)} - due ${date(x.due_by)}`)], 'No outstanding response was recorded.', 5);
-  heading(doc, '8. Conclusion');
+  heading(doc, '9. Conclusion');
   paragraph(doc, 'This assurance is limited to the recorded evidence, scope and period shown. Where evidence is absent, assurance cannot be given and management confirmation is required.', true);
 }
 

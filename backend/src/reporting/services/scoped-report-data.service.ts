@@ -154,6 +154,7 @@ export const scopedReportDataService = {
 
     const riskRows = (await query(
       `SELECT r.id, h.name AS service, COALESCE(r.strategic_theme, r.title) AS risk,
+              r.risk_domain::text AS domain,
               r.description, r.severity::text AS severity,
               CASE WHEN COALESCE(r.closed_at,r.resolved_at) IS NOT NULL AND COALESCE(r.closed_at,r.resolved_at) <= $4::timestamptz THEN r.status::text ELSE CASE WHEN LOWER(r.status::text) IN ('closed','resolved') THEN 'Open' ELSE r.status::text END END AS status,
               r.source_cluster_id,
@@ -312,7 +313,47 @@ export const scopedReportDataService = {
       not_reviewed: actions.filter((a: any) => a.effectiveness_review_state === 'NOT_REVIEWED').length,
     };
     Object.assign(totals, { effectiveness });
-    const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit };
+
+    // Human evidence narrative per material theme (doctrine §12): assemble the reasoning chain
+    // — data -> interpretation -> decision -> action -> outcome -> recurrence -> assurance —
+    // from canonical facts only, and declare what could not be linked (no invented learning).
+    const isOpenSt = (s: any) => !['Complete', 'Completed', 'Cancelled', 'Closed', 'Resolved'].includes(String(s));
+    const themeEvidence = (themes || []).slice(0, 6).map((t: any) => {
+      const domain = String(t.theme || '');
+      const dl = domain.toLowerCase();
+      const tSignals = signals.filter((s: any) => String(s.domain || '').toLowerCase().includes(dl));
+      const dates = tSignals.map((s: any) => s.date).filter(Boolean).sort();
+      const services = [...new Set(tSignals.map((s: any) => s.service).filter(Boolean))];
+      const reviewed = tSignals.filter((s: any) => String(s.review_status || 'New') !== 'New').length;
+      const tRisks = risks.filter((r: any) => String(r.domain || '').toLowerCase().includes(dl));
+      const riskIds = new Set(tRisks.map((r: any) => r.id));
+      const tActions = actions.filter((a: any) => a.risk_id && riskIds.has(a.risk_id));
+      const controlsCompleted = tActions.filter((a: any) => /complete/i.test(String(a.status))).length;
+      const eff = tActions.filter((a: any) => String(a.effectiveness).startsWith('Effective')).length;
+      const notEff = tActions.filter((a: any) => String(a.effectiveness) === 'Not Effective').length;
+      const unrev = tActions.filter((a: any) => ['Not yet reviewed', 'Too Early To Assess'].includes(String(a.effectiveness))).length;
+      const openActions = tActions.filter((a: any) => isOpenSt(a.status)).length;
+      const openEsc = escalations.filter((e: any) => e.risk_id && riskIds.has(e.risk_id) && isOpenSt(e.status)).length;
+      const gaps: string[] = [];
+      if (tRisks.length === 0 && tSignals.length > 0) gaps.push('No registered risk is linked to this theme yet.');
+      if (tActions.length === 0 && tRisks.length > 0) gaps.push("No control action is linked to this theme's risks.");
+      if (unrev > 0) gaps.push(`${unrev} completed control(s) await a final effectiveness judgement.`);
+      return {
+        theme: domain,
+        period: dates.length ? `${dates[0]} to ${dates[dates.length - 1]}` : 'No dated signals in period',
+        scope: services.length > 1 ? `Cross-service (${services.length} services)` : services.length === 1 ? services[0] : 'Not recorded',
+        signals: tSignals.length, signals_reviewed: reviewed,
+        risks: tRisks.map((r: any) => ({ risk: r.risk, direction: r.direction, status: r.status })),
+        controls: { completed: controlsCompleted, effective: eff, not_effective: notEff, unreviewed: unrev },
+        open_items: { actions: openActions, escalations: openEsc },
+        outcome: notEff > 0 ? 'Not fully effective — at least one linked control was judged Not Effective.'
+               : (eff > 0 && unrev === 0) ? 'Improvement evidenced by final Effective control(s).'
+               : 'Outcome not yet evidenced from the linked controls.',
+        evidence_gaps: gaps,
+      };
+    });
+
+    const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,
@@ -322,6 +363,7 @@ export const scopedReportDataService = {
       open_actions: totals.open_actions, overdue_actions: totals.overdue_actions,
       effectiveness,
       themes: themes.map((t: any) => ({ theme: t.theme, signals: t.n })),
+      theme_evidence: themeEvidence,
       material_exceptions: materialExceptions,
     };
 
