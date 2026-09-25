@@ -127,7 +127,7 @@ export function IncidentCaseHub() {
         const uList = Array.isArray(uData) ? uData : (uData.users || uData.items || []);
         const sData = (suRes.data as any).data || (suRes.data as any) || [];
         const sList = Array.isArray(sData) ? sData : (sData.serviceUsers || sData.service_users || sData.items || []);
-        const nameOf = (p: any) => (p.name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.full_name || '').trim();
+        const nameOf = (p: any) => (p.name || p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.full_name || '').trim();
         const staff = uList.map((u: any) => ({ name: nameOf(u), kind: 'Staff' })).filter((p: any) => p.name);
         const patients = sList.map((s: any) => ({ name: nameOf(s), kind: 'Service User' })).filter((p: any) => p.name);
         setPeople([...patients, ...staff]);
@@ -850,11 +850,35 @@ export function IncidentCaseHub() {
                       </div>
                       <div>
                         <label className="block text-sm  text-foreground mb-1">People Involved</label>
+                        {/* Explicit person picker — appends the chosen service user / staff member to the
+                            list. A visible <select> is used because a bare datalist combobox does not
+                            reliably let users browse and select a person across all browsers. */}
+                        {people.length > 0 && (
+                          <select
+                            value=""
+                            onChange={(e) => {
+                              const name = e.target.value;
+                              if (!name) return;
+                              const current = String(incidentForm.persons_involved || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+                              if (!current.includes(name)) current.push(name);
+                              setIncidentForm({ ...incidentForm, persons_involved: current.join(', ') });
+                            }}
+                            className="w-full h-10 px-3 mb-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                          >
+                            <option value="">Select a service user or staff member to add…</option>
+                            <optgroup label="Service users">
+                              {people.filter(p => p.kind === 'Service User').map((p, i) => <option key={`su${i}`} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                            <optgroup label="Staff">
+                              {people.filter(p => p.kind === 'Staff').map((p, i) => <option key={`st${i}`} value={p.name}>{p.name}</option>)}
+                            </optgroup>
+                          </select>
+                        )}
                         <input
                           list="people-involved-options"
                           value={incidentForm.persons_involved}
                           onChange={(e) => setIncidentForm({ ...incidentForm, persons_involved: e.target.value })}
-                          placeholder="Pick a service user or staff member — or type others; separate multiple with commas"
+                          placeholder="Pick from the dropdown above, or type others; separate multiple with commas"
                           className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
                         />
                         <datalist id="people-involved-options">
