@@ -7,6 +7,8 @@ const fmt=(v:any)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month
 export function RMWeeklyGovernanceWorkspace(props:Props){
  const {preview,form,locked}=props, auto=preview?.auto_population||{}, evidence=preview?.weekly_evidence||{};
  const signals:any[]=Array.isArray(auto.signals)?auto.signals:[], briefs:any[]=Array.isArray(evidence.daily_briefs)?evidence.daily_briefs:[], measures:any[]=Array.isArray(evidence.active_measures)?evidence.active_measures:[], gaps:string[]=Array.isArray(evidence.evidence_gaps)?evidence.evidence_gaps:[];
+ const addenda:any[]=Array.isArray(evidence.addenda)?evidence.addenda:[], weekEscalations:any[]=Array.isArray(evidence.escalations)?evidence.escalations:[], completedActions:any[]=Array.isArray(evidence.completed_actions)?evidence.completed_actions:[], patterns:any[]=Array.isArray(evidence.patterns)?evidence.patterns:[], incidents:any[]=Array.isArray(evidence.serious_incidents)?evidence.serious_incidents:[];
+ const fmtD=(v:any)=>v?new Date(v).toLocaleDateString("en-GB",{day:"2-digit",month:"short"}):"—";
  const high=signals.filter(s=>["High","Critical"].includes(String(s.severity))).length;
  const domains=new Set(signals.flatMap(s=>Array.isArray(s.risk_domain)?s.risk_domain:[s.risk_domain]).filter(Boolean));
  const area="w-full min-h-28 px-3 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-y", card="bg-card border border-border rounded-xl p-5 shadow-sm";
@@ -18,6 +20,33 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
   <div className="grid xl:grid-cols-2 gap-5"><section className={card}><h2 className="font-semibold text-lg mb-3">RM interpretation</h2><label className="text-sm font-medium">Overall governance position</label><select disabled={locked} value={form.step14_overall_position||""} onChange={e=>props.onField("step14_overall_position",e.target.value)} className="mt-1 mb-4 w-full border border-border rounded-lg p-3 bg-background"><option value="">Select position</option>{positions.map(x=><option key={x}>{x}</option>)}</select><label className="text-sm font-medium">What happened and what leadership understood</label><textarea disabled={locked} className={`${area} mt-1 mb-3`} value={form.step15_narrative||""} onChange={e=>props.onField("step15_narrative",e.target.value)}/><label className="text-sm font-medium">What remains a concern / not rectified</label><textarea disabled={locked} className={`${area} mt-1`} value={form.unresolved_concerns_text||""} onChange={e=>props.onField("unresolved_concerns_text",e.target.value)}/></section>
   <section className={card}><h2 className="font-semibold text-lg mb-3">Learning and next week</h2><label className="text-sm font-medium">What we learned and what changes</label><textarea disabled={locked} className={`${area} mt-1 mb-3`} value={form.lessons_learnt||""} onChange={e=>props.onField("lessons_learnt",e.target.value)}/><label className="text-sm font-medium">Week-ahead expectations / anticipated risks</label><textarea disabled={locked} className={`${area} mt-1`} value={form.anticipated_risks?.rm_note||""} onChange={e=>setAnt(e.target.value)}/><div className="mt-4 rounded-lg bg-muted/40 p-3 text-xs text-muted-foreground"><b>Doctrine boundary:</b> completed is not effective; stable is not resolved; acknowledgement confirms receipt only.</div></section></div>
   <section className={card}><h2 className="font-semibold text-lg mb-3">Active measures and evidence</h2>{measures.length?<div className="overflow-x-auto"><table className="w-full text-sm"><thead><tr className="text-left border-b"><th className="py-2">Measure</th><th>Owner</th><th>Due / review</th><th>Status</th><th>Evidence</th></tr></thead><tbody>{measures.map(m=><tr key={m.id} className="border-b align-top"><td className="py-2 pr-3">{m.measure}</td><td className="pr-3">{m.owner||"Unassigned"}</td><td className="pr-3">{fmt(m.effectiveness_review_date||m.due_date)}</td><td className="pr-3">{m.status}</td><td>{m.evidence_expected||"Not recorded"}</td></tr>)}</tbody></table></div>:<p className="text-sm text-muted-foreground">No active measure is linked to this service.</p>}</section>
+  <section className={card}>
+    <h2 className="font-semibold text-lg mb-1">Weekly governance evidence</h2>
+    <p className="text-sm text-muted-foreground mb-4">The full canonical evidence for this service and week (doctrine §23). Empty sections are stated, not hidden.</p>
+    <div className="grid md:grid-cols-2 gap-4 text-sm">
+      <div>
+        <div className="font-medium mb-1">Same-day addenda ({addenda.length})</div>
+        {addenda.length?<ul className="space-y-1">{addenda.map(a=><li key={a.id} className="text-muted-foreground">{fmtD(a.date)} · seq {a.sequence} · {a.decision_count||0} decision(s) — {a.reason}</li>)}</ul>:<p className="text-muted-foreground">No same-day addendum was signed this week.</p>}
+      </div>
+      <div>
+        <div className="font-medium mb-1">Escalations ({weekEscalations.length})</div>
+        {weekEscalations.length?<ul className="space-y-1">{weekEscalations.map(e=><li key={e.id} className="text-muted-foreground">{e.is_open?(e.is_overdue?"Overdue":"Open"):"Closed"}{e.reopened?" · reopened":""} · {e.priority} — {e.reason}</li>)}</ul>:<p className="text-muted-foreground">No escalation touched this week.</p>}
+      </div>
+      <div>
+        <div className="font-medium mb-1">Actions completed this week ({completedActions.length})</div>
+        {completedActions.length?<ul className="space-y-1">{completedActions.map(a=><li key={a.id} className="text-muted-foreground">{fmtD(a.completed_at)} · {a.title} — effectiveness: {a.effectiveness||"not yet reviewed"}</li>)}</ul>:<p className="text-muted-foreground">No action was completed this week.</p>}
+      </div>
+      <div>
+        <div className="font-medium mb-1">Canonical patterns ({patterns.length})</div>
+        {patterns.length?<ul className="space-y-1">{patterns.slice(0,10).map(p=><li key={p.id} className="text-muted-foreground">{p.cluster_label} · {p.canonical_status}{p.scope==="cross_service"?" · cross-service":""}{p.is_active?"":" · inactive"}</li>)}</ul>:<p className="text-muted-foreground">No canonical pattern for this service.</p>}
+      </div>
+      <div>
+        <div className="font-medium mb-1">Serious incidents ({incidents.length})</div>
+        {incidents.length?<ul className="space-y-1">{incidents.map(i=><li key={i.id} className="text-muted-foreground">{fmtD(i.occurred_at)} · {i.severity} · {i.title} — status {i.status}{i.reconstruction_status?` · reconstruction ${i.reconstruction_status}`:""}</li>)}</ul>:<p className="text-muted-foreground">No serious incident this week.</p>}
+      </div>
+    </div>
+    {gaps.length>0&&<div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900"><b>Evidence gaps:</b><ul className="list-disc pl-5 mt-1">{gaps.map((g,i)=><li key={i}>{g}</li>)}</ul></div>}
+  </section>
   <div className="sticky bottom-3 rounded-xl border border-border bg-background/95 backdrop-blur p-3 shadow-lg flex flex-wrap justify-end gap-2">{locked&&props.onDownload&&<button onClick={props.onDownload} className="px-4 py-2 border rounded-lg flex items-center gap-2"><FileDown size={16}/>Download PDF</button>}{!locked&&<><button disabled={props.saving} onClick={props.onAiDraft} className="px-4 py-2 border rounded-lg flex items-center gap-2"><Sparkles size={16}/>{props.aiDrafting?"Drafting…":"Draft narrative"}</button><button disabled={props.saving} onClick={props.onSave} className="px-4 py-2 border rounded-lg flex items-center gap-2"><Save size={16}/>Save draft</button><button disabled={props.saving} onClick={props.onFinalise} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground flex items-center gap-2"><Lock size={16}/>Finalise for validation</button></>}</div>
  </div>;
 }
