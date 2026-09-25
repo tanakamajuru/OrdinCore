@@ -27,6 +27,11 @@ export function MyWork(){
   const [tab,setTab]=useState<State>('NEEDS_YOU');
   const [loading,setLoading]=useState(true);
   const [expanded,setExpanded]=useState<string|null>(null);
+  const PAGE_SIZE=20;
+  const [pMy,setPMy]=useState(1);
+  const [pDec,setPDec]=useState(1);
+  const [pList,setPList]=useState(1);
+  const goTab=(t:State)=>{setTab(t);setPMy(1);setPDec(1);setPList(1);};
   const user=useMemo(()=>{try{return JSON.parse(localStorage.getItem('user')||'{}')}catch{return {}}},[]);
   const role=String(user.role||localStorage.getItem('userRole')||'').toUpperCase().replace(/-/g,'_');
   const canDoDailyGovernance=['REGISTERED_MANAGER','ADMIN','SUPER_ADMIN'].includes(role);
@@ -61,7 +66,9 @@ export function MyWork(){
           <div className="flex flex-col gap-2 shrink-0"><button onClick={()=>open(item)} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">{item.actionLabel}<ChevronRight size={15}/></button><button onClick={()=>setExpanded(expanded===item.id?null:item.id)} className="text-xs text-primary">Why?</button></div>
         </div>
       </article>;
-  const section=(label:string,desc:string,items:GuidedWorkItem[])=>items.length>0&&<div><div className="flex items-baseline gap-2 mt-6 mb-2"><h2 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">{label}</h2><span className="text-xs text-muted-foreground">{items.length} · {desc}</span></div><div className="space-y-3">{items.map(card)}</div></div>;
+  const paged=(items:GuidedWorkItem[],page:number)=>{const tp=Math.max(1,Math.ceil(items.length/PAGE_SIZE));const sp=Math.min(page,tp);return items.slice((sp-1)*PAGE_SIZE,sp*PAGE_SIZE);};
+  const pager=(page:number,setPage:(n:number)=>void,total:number)=>{const tp=Math.max(1,Math.ceil(total/PAGE_SIZE));const sp=Math.min(page,tp);return total>PAGE_SIZE?<div className="flex items-center justify-between mt-3 text-sm"><button disabled={sp<=1} onClick={()=>setPage(sp-1)} className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40">Prev</button><span className="text-muted-foreground">Page {sp} of {tp} · {total} items</span><button disabled={sp>=tp} onClick={()=>setPage(sp+1)} className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40">Next</button></div>:null;};
+  const section=(label:string,desc:string,items:GuidedWorkItem[],page:number,setPage:(n:number)=>void)=>items.length>0&&<div><div className="flex items-baseline gap-2 mt-6 mb-2"><h2 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">{label}</h2><span className="text-xs text-muted-foreground">{items.length} · {desc}</span></div><div className="space-y-3">{paged(items,page).map(card)}</div>{pager(page,setPage,items.length)}</div>;
 
   return <div className="min-h-screen bg-background">
     <RoleBasedNavigation/>
@@ -80,15 +87,15 @@ export function MyWork(){
       </button>}
 
       <div className="mt-6 grid grid-cols-3 gap-3">
-        <button onClick={()=>setTab('NEEDS_YOU')} className={`rounded-xl border p-4 text-left ${tab==='NEEDS_YOU'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">NEEDS YOU</div><div className="text-3xl font-bold mt-1">{data.counts.needsYou}</div></button>
-        <button onClick={()=>setTab('WAITING')} className={`rounded-xl border p-4 text-left ${tab==='WAITING'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">WAITING</div><div className="text-3xl font-bold mt-1">{data.counts.waiting}</div></button>
-        <button onClick={()=>setTab('COMPLETE')} className={`rounded-xl border p-4 text-left ${tab==='COMPLETE'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">COMPLETED TODAY</div><div className="text-3xl font-bold mt-1">{data.counts.completedToday}</div></button>
+        <button onClick={()=>goTab('NEEDS_YOU')} className={`rounded-xl border p-4 text-left ${tab==='NEEDS_YOU'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">NEEDS YOU</div><div className="text-3xl font-bold mt-1">{data.counts.needsYou}</div></button>
+        <button onClick={()=>goTab('WAITING')} className={`rounded-xl border p-4 text-left ${tab==='WAITING'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">WAITING</div><div className="text-3xl font-bold mt-1">{data.counts.waiting}</div></button>
+        <button onClick={()=>goTab('COMPLETE')} className={`rounded-xl border p-4 text-left ${tab==='COMPLETE'?'border-primary bg-primary/5':'border-border bg-card'}`}><div className="text-xs font-semibold text-muted-foreground">COMPLETED TODAY</div><div className="text-3xl font-bold mt-1">{data.counts.completedToday}</div></button>
       </div>
 
       {loading?<div className="py-20 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"/></div>:
       list.length===0?(data.degraded?<div className="mt-6 rounded-xl border border-red-200 bg-card p-10 text-center"><AlertTriangle size={30} className="mx-auto text-red-600"/><h2 className="text-xl font-semibold mt-3">List incomplete</h2><p className="text-muted-foreground mt-1">Governance data could not be loaded — this is not confirmation that nothing is due.</p></div>:<div className="mt-6 rounded-xl border border-border bg-card p-10 text-center"><CheckCircle2 size={30} className="mx-auto text-emerald-600"/><h2 className="text-xl font-semibold mt-3">Nothing in this queue</h2><p className="text-muted-foreground mt-1">There is no work in this state right now.</p></div>):
-      tab==='NEEDS_YOU'?<div>{section('My Work','assigned to you',myWork)}{section('Decisions Due','governance decisions you own',decisions)}</div>:
-      <div className="mt-6 space-y-3">{list.map(card)}</div>}
+      tab==='NEEDS_YOU'?<div>{section('My Work','assigned to you',myWork,pMy,setPMy)}{section('Decisions Due','governance decisions you own',decisions,pDec,setPDec)}</div>:
+      <div className="mt-6"><div className="space-y-3">{paged(list,pList).map(card)}</div>{pager(pList,setPList,list.length)}</div>}
 
       <div className="mt-6 rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">Guided Work only <strong>reads, prioritises, routes and refreshes</strong>. Governance decisions, completions, escalations, effectiveness ratings, closures and approvals still occur through the existing canonical Ordin Core screens and APIs.</div>
     </div>
