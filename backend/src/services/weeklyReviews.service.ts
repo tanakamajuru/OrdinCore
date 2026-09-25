@@ -593,7 +593,11 @@ export class WeeklyReviewsService {
     if (!position) throw new Error('An overall service position is required before finalising.');
     const narrative = String(content.step15_narrative || '').trim();
     const draft = String(content.step15_narrative_draft || '').trim();
+    // Structural AI-draft check (doctrine §24): compare against the exact AI text captured at
+    // generation, not a possibly-stale machine-draft field, so an unedited AI draft is caught reliably.
+    const aiDraft = String(content.step15_narrative_ai || '').trim();
     if (narrative.length < 40) throw new Error('A Registered Manager narrative in your own words (at least 40 characters) is required before finalising.');
+    if (aiDraft && narrative === aiDraft) throw new Error('The governance narrative must be your own words, not the AI-generated draft. Edit it before finalising — you remain accountable for the wording.');
     if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
     // Finding L: Lessons Learnt + a week-ahead anticipated-risks decision are required.
     if (String(content.lessons_learnt || '').trim().length < 20) throw new Error('Lessons Learnt (at least 20 characters) is required before finalising.');

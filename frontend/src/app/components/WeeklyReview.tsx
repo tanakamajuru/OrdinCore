@@ -244,7 +244,8 @@ export function WeeklyReview() {
     try {
       const res = await apiClient.post(`/weekly-reviews/ai-draft`, { house_id: houseId, week_ending: weekEnding });
       const d = res.data?.data || res.data;
-      if (d?.narrative) set("step15_narrative", d.narrative);
+      if (d?.narrative) { set("step15_narrative", d.narrative); set("step15_narrative_ai", d.narrative); }
+      if (d?.provenance) set("step15_narrative_provenance", d.provenance);
       if (d?.lessons_learnt) set("lessons_learnt", d.lessons_learnt);
       toast.success("AI draft generated — review and edit before signing off.");
     } catch (e: any) {
