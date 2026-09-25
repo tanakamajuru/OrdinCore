@@ -137,6 +137,9 @@ export const guidedWorkService = {
            -- Only signals actually due now: today's and any overdue. Signals dated for future days
            -- (a generator seeding the week ahead) become due on their own day, not before.
            AND COALESCE(gp.entry_date, gp.created_at::date) <= CURRENT_DATE
+           -- Exclude auto-generated scheduled-pulse placeholders — they are reminders, not recorded
+           -- observations, and must not appear as signals needing an RM decision.
+           AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'
          ORDER BY CASE gp.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END, gp.created_at`, [companyId, houses]);
       for (const s of signals) needsYou.push({
         id:`signal:${s.id}`, role, state:'NEEDS_YOU', priority:priorityFor(null, ['Critical','High'].includes(s.severity)), taskType:'SIGNAL_DECISION',

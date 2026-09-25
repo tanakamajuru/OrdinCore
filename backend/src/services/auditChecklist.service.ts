@@ -286,8 +286,12 @@ export class AuditChecklistService {
 
       const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
       const today = new Date();
-      
-      for (let i = 0; i < 7; i++) {
+
+      // Only ensure TODAY's scheduled pulse — seeding a week ahead created a large backlog of
+      // future-dated placeholder "signals" (every login re-seeded 7 days), flooding Signals,
+      // Decisions Due and pattern formation. A scheduled pulse for a future day is created when
+      // that day arrives, not now.
+      for (let i = 0; i < 1; i++) {
         const d = new Date();
         d.setDate(today.getDate() + i);
         const dayName = days[d.getDay()];

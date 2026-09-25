@@ -32,6 +32,7 @@ export const rm5Service = {
           -- etc. — the signal leaves this list (it now lives on its risk/escalation), so a reviewed
           -- signal no longer shows as pending. review_status is an enum, so cast to text.
           AND COALESCE(p.review_status::text, 'New') = 'New'
+          AND COALESCE(p.description,'') <> 'Scheduled Governance Pulse'
         ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1
                    WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
                  COALESCE(p.created_at, p.entry_date) DESC
@@ -61,6 +62,7 @@ export const rm5Service = {
         WHERE p.company_id = $1
           AND COALESCE(p.created_at, p.entry_date) < NOW() - INTERVAL '7 days'
           AND (p.review_status IS NULL OR p.review_status = 'New')
+          AND COALESCE(p.description,'') <> 'Scheduled Governance Pulse'
         ORDER BY CASE p.severity::text WHEN 'Critical' THEN 0 WHEN 'High' THEN 1 WHEN 'Medium' THEN 2 WHEN 'Moderate' THEN 2 ELSE 3 END,
                  COALESCE(p.created_at, p.entry_date) DESC
         LIMIT 300`,
@@ -105,7 +107,7 @@ export const rm5Service = {
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
     return {
-      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'') NOT IN ('Linked','Closed','Monitoring')`),
+      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'') NOT IN ('Linked','Closed','Monitoring') AND COALESCE(description,'') <> 'Scheduled Governance Pulse'`),
       // Genuine patterns only, using the SAME coherent qualifying count the decision board shows
       // (Pattern Coherence V3): a cluster is a real pattern when its largest coherent same-subtheme
       // group in the configured window is >= 2 (a single coherent signal is a "Watch — not yet a

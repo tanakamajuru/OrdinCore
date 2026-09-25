@@ -133,7 +133,8 @@ export class DailyGovernanceService {
       const readiness = (await client.query(
         `SELECT
           (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New'
-             AND COALESCE(p.entry_date, p.created_at::date) = $3::date) AS unreviewed_signals,
+             AND COALESCE(p.entry_date, p.created_at::date) = $3::date
+             AND COALESCE(p.description,'') <> 'Scheduled Governance Pulse') AS unreviewed_signals,
           (SELECT COUNT(*)::int FROM canonical_escalation_state_v e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
             WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND e.is_open) AS open_escalations,
           (SELECT COUNT(*)::int FROM canonical_action_state_v a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id
@@ -333,7 +334,8 @@ export class DailyGovernanceService {
   async readiness(company_id: string, house_id: string) {
     const row = (await query(`SELECT
       (SELECT COUNT(*)::int FROM governance_pulses p WHERE p.company_id=$1 AND p.house_id=$2 AND COALESCE(p.review_status::text,'New')='New'
-         AND COALESCE(p.entry_date, p.created_at::date) = CURRENT_DATE) AS unreviewed_signals,
+         AND COALESCE(p.entry_date, p.created_at::date) = CURRENT_DATE
+         AND COALESCE(p.description,'') <> 'Scheduled Governance Pulse') AS unreviewed_signals,
       (SELECT COUNT(*)::int FROM canonical_escalation_state_v e LEFT JOIN risks er ON er.id=e.risk_id AND er.company_id=e.company_id
         WHERE e.company_id=$1 AND COALESCE(e.house_id,er.house_id)=$2 AND e.is_open) AS open_escalations,
       (SELECT COUNT(*)::int FROM canonical_action_state_v a LEFT JOIN risks ar ON ar.id=a.risk_id AND ar.company_id=a.company_id

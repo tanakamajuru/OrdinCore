@@ -18,7 +18,8 @@ export async function countUnevaluatedSignals(companyId?: string): Promise<numbe
        FROM governance_pulses gp
       WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '21 days'
         AND ($1::uuid IS NULL OR gp.company_id = $1)
-        AND NOT EXISTS (SELECT 1 FROM risk_signal_links l WHERE l.pulse_entry_id = gp.id)`,
+        AND NOT EXISTS (SELECT 1 FROM risk_signal_links l WHERE l.pulse_entry_id = gp.id)
+        AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'`,
     [companyId || null]
   )).rows;
   return Number(rows[0]?.n || 0);
@@ -32,6 +33,8 @@ export const startSignalReconciliationWorker = () => {
          FROM governance_pulses gp
         WHERE COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW() - INTERVAL '21 days'
           AND NOT EXISTS (SELECT 1 FROM risk_signal_links l WHERE l.pulse_entry_id = gp.id)
+          -- Never cluster scheduled-pulse placeholders — they are reminders, not observations.
+          AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'
         ORDER BY gp.created_at NULLS LAST
         LIMIT 500`
     )).rows;
