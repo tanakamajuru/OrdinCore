@@ -241,6 +241,7 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
   if (row.narrative) {
     heading(doc, 'Narrative explanation');
     paragraph(doc, row.narrative);
+    if (data.narrative_label) paragraph(doc, clean(data.narrative_label), true);
     paragraph(doc, 'This is the exact narrative stored with this snapshot. It explains the evidence but does not replace the underlying records or determine severity.', true);
   }
 }

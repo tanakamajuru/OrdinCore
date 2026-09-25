@@ -7,6 +7,18 @@ import logger from '../utils/logger';
 
 const DEFAULT_API_URL = process.env.NARRATIVE_API_URL || 'https://api.groq.com/openai/v1/chat/completions';
 const DEFAULT_MODEL = process.env.NARRATIVE_MODEL || 'llama-3.3-70b-versatile';
+// Prompt-policy version — bump when SYSTEM_PROMPT / fact contract changes, so every stored
+// draft records which policy produced it (doctrine §24).
+const PROMPT_VERSION = 'narrative-v1';
+const providerOf = (url: string) => { try { return new URL(url).host; } catch { return 'unknown'; } };
+
+export type NarrativeProvenance = {
+  source: 'ai' | 'deterministic-template';
+  provider: string | null;
+  model: string | null;
+  prompt_version: string;
+  generated_at: string;
+};
 
 const SYSTEM_PROMPT =
   'You are drafting a concise governance narrative for an adult social care provider in UK English. ' +
@@ -105,10 +117,11 @@ function instructionFor(title: string): string {
 export const narrativeService = {
   isEnabled(): boolean { return !!process.env.NARRATIVE_API_KEY; },
 
-  async generate(req: NarrativeRequest): Promise<{ narrative: string; generated: boolean; model?: string }> {
+  async generate(req: NarrativeRequest): Promise<{ narrative: string; generated: boolean; model?: string; provenance: NarrativeProvenance }> {
     const apiKey = process.env.NARRATIVE_API_KEY;
     const facts = factsFrom(req);
-    if (!apiKey) return { narrative: templateFallback(req), generated: false };
+    const templateProvenance = (): NarrativeProvenance => ({ source: 'deterministic-template', provider: null, model: null, prompt_version: PROMPT_VERSION, generated_at: new Date().toISOString() });
+    if (!apiKey) return { narrative: templateFallback(req), generated: false, provenance: templateProvenance() };
 
     const userContent =
       `Report: ${req.reportTitle}\n` +
@@ -132,18 +145,19 @@ export const narrativeService = {
       if (!res.ok) {
         const errText = await res.text().catch(() => '');
         logger.error(`[narrative] API ${res.status}: ${errText.slice(0, 300)}`);
-        return { narrative: templateFallback(req), generated: false };
+        return { narrative: templateFallback(req), generated: false, provenance: templateProvenance() };
       }
       const json: any = await res.json();
       const text: string = json?.choices?.[0]?.message?.content?.trim() || '';
       if (!text || contradictsFacts(text, facts)) {
         logger.error('[narrative] generated wording failed canonical fact validation; deterministic fallback used');
-        return { narrative: templateFallback(req), generated: false };
+        return { narrative: templateFallback(req), generated: false, provenance: templateProvenance() };
       }
-      return { narrative: text, generated: true, model: DEFAULT_MODEL };
+      return { narrative: text, generated: true, model: DEFAULT_MODEL,
+        provenance: { source: 'ai', provider: providerOf(DEFAULT_API_URL), model: DEFAULT_MODEL, prompt_version: PROMPT_VERSION, generated_at: new Date().toISOString() } };
     } catch (err) {
       logger.error('[narrative] generation failed', err);
-      return { narrative: templateFallback(req), generated: false };
+      return { narrative: templateFallback(req), generated: false, provenance: templateProvenance() };
     }
   },
 };

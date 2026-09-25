@@ -56,6 +56,13 @@ export const frozenReportService = {
         data,
       });
       narrative = gen.narrative || '';
+      // Store the provenance structurally in the frozen (hashed) snapshot: AI provider/model/
+      // prompt-version, or "System-generated from canonical facts" for the deterministic template
+      // (doctrine §24). This is data, not a string comparison of the draft.
+      (data as any).narrative_provenance = gen.provenance;
+      (data as any).narrative_label = gen.provenance.source === 'ai'
+        ? `AI-assisted draft — ${gen.provenance.model} via ${gen.provenance.provider} (${gen.provenance.prompt_version}). Must be reviewed and approved by a responsible person.`
+        : 'System-generated from canonical facts.';
     } catch { /* narrative is optional; the report is still valid without it */ }
 
     // Hash every fact that can affect the rendered document, including the narrative. Previous

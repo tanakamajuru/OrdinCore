@@ -414,6 +414,16 @@ export class WeeklyReviewsService {
       narrative: out.narrative || out.text || '',
       lessons_learnt: out.lessons_learnt || '',
       grounded_on: facts,
+      // Structural provenance (doctrine §24) — persist this with the review instead of inferring
+      // AI authorship by string-comparing the draft against the editable field.
+      provenance: {
+        source: 'ai' as const,
+        provider: 'openai-compatible',
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
+        prompt_version: 'weekly-narrative-v1',
+        generated_at: new Date().toISOString(),
+      },
+      label: 'AI-assisted draft — generated from the listed canonical evidence. Review, amend and approve before sign-off; the approver remains accountable for the final wording.',
     };
   }
 
