@@ -1017,7 +1017,7 @@ export function RiskDetail() {
                   return (
                     <button
                       key={e.id}
-                      onClick={() => navigate('/escalation-log')}
+                      onClick={() => navigate(`/escalation-log?focus=${e.id}`)}
                       className="w-full text-left border-2 border-border rounded-lg p-4 hover:border-primary transition-colors"
                     >
                       <div className="flex items-center justify-between gap-3 flex-wrap">

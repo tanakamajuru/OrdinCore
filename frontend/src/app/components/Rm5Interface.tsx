@@ -412,7 +412,9 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                 const open = () => {
                   if (stage === "escalations") return navigate(`/escalation-log?focus=${row.key}`);
                   if (rid) return openRisk(rid);
-                  return navigate(stage === "effectiveness" ? "/effectiveness" : "/my-actions");
+                  // Deep-link to the EXACT action even when there is no linked risk (doctrine §22.3),
+                  // instead of dropping the user on the unfiltered list.
+                  return navigate(stage === "effectiveness" ? `/effectiveness?focus=${row.key}` : `/my-actions?focus=${row.key}`);
                 };
                 return (
                 <button key={row.key} onClick={open} className="w-full text-left px-4 py-3 flex items-center justify-between gap-3 hover:bg-muted/40">

@@ -306,7 +306,7 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
 
     // Completed today is informational only; no state is owned by Guided Work.
     const completedActions = await safeRows(`SELECT id,title,completed_at FROM canonical_action_state_v WHERE company_id=$1 AND assigned_to=$2 AND is_completed AND completed_at::date=CURRENT_DATE ORDER BY completed_at DESC LIMIT 20`,[companyId,userId]);
-    for (const a of completedActions) completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:a.completed_at,canonicalEntityType:'action',canonicalEntityId:a.id,route:'/my-actions',actionLabel:'View',whyAmISeeingThis:'This action was completed by you today.'});
+    for (const a of completedActions) completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:a.completed_at,canonicalEntityType:'action',canonicalEntityId:a.id,route:`/my-actions?focus=${a.id}`,actionLabel:'View',whyAmISeeingThis:'This action was completed by you today.'});
 
     // Simplified Work Model — "one concern, one place": collapse items that resolve to the
     // same canonical concern so a subject appears exactly once (a pattern promoted to a risk,
