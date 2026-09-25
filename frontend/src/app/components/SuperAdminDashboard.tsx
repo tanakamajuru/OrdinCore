@@ -839,12 +839,12 @@ export default function SuperAdminDashboard() {
           /* DEFAULT COMPANIES VIEW */
           <>
             {/* Header */}
-            <div className="mb-8 flex items-center justify-between relative z-10">
+            <div className="mb-8 flex items-center justify-between relative z-40">
               <div>
                 <h1 className="text-3xl text-foreground font-semibold">Platform Dashboard</h1>
                 <p className="text-muted-foreground mt-1">Manage all organisations on the OrdinCore platform</p>
               </div>
-              <div className="flex gap-3">
+              <div className="flex gap-3 relative z-40">
                 <button
                   id="create-admin-btn"
                   type="button"
