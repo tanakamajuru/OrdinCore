@@ -22,6 +22,7 @@ import { startEscalationOverdueWorker } from './workers/escalationOverdue.worker
 import { startActionOverdueWorker } from './workers/actionOverdue.worker';
 import { startActionPatternWorker } from './workers/actionPattern.worker';
 import { startTrajectoryRefreshWorker } from './workers/trajectoryRefresh.worker';
+import { startSignalReconciliationWorker } from './workers/signalReconciliation.worker';
 import { Queue } from 'bullmq';
 import { redisConnection } from './config/redis';
 import { eventBus, EVENTS } from './events/eventBus';
@@ -66,6 +67,7 @@ const escalationOverdueWorker = startSafeWorker('EscalationOverdue', startEscala
 const actionOverdueWorker = startSafeWorker('ActionOverdue', startActionOverdueWorker);
 const actionPatternWorker = startSafeWorker('ActionPattern', startActionPatternWorker);
 const trajectoryRefreshWorker = startSafeWorker('TrajectoryRefresh', startTrajectoryRefreshWorker);
+const signalReconciliationWorker = startSafeWorker('SignalReconciliation', startSignalReconciliationWorker);
 
 
 // Simple schedule triggers for daily jobs
@@ -81,6 +83,8 @@ new Queue('no-signal-prompt', { connection: redisConnection }).add('run', {}, { 
 // Simple schedule trigger for the prompt worker
 new Queue('action-effectiveness-prompt', { connection: redisConnection }).add('action-effectiveness-prompt', {}, { repeat: { pattern: '0 * * * *' } });
 new Queue('action-effectiveness', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
+// Signal durability net — re-enqueue any persisted-but-unevaluated signal for pattern detection.
+new Queue('signal-reconciliation', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 * * * *' } }); // hourly
 
 // Director Governance Scheduling
 const directorQueue = new Queue('director-governance', { connection: redisConnection });
