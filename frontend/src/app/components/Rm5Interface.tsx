@@ -129,29 +129,18 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const openSignal = (id: string) => id && navigate(`/signals/${id}`);
   const promote = (p: any) => p.promotedRiskId ? openRisk(p.promotedRiskId) : navigate(`/risks/promote?cluster_id=${p.id}`, { state: { cluster_id: p.id } });
 
-  // Decide-on-the-board: an RM can dismiss a pattern (with a governance reason) without
-  // leaving the pipeline. The dismissed cluster drops off the board on reload.
-  const dismissPattern = async (p: any) => {
-    const reason = window.prompt(`Dismiss the ${p.domain} pattern${p.person && p.person !== "—" ? ` for ${p.person}` : ""}? Give a brief governance reason (min 10 characters):`);
-    if (reason === null) return;
-    if (reason.trim().length < 10) { toast.error("A dismissal reason of at least 10 characters is required."); return; }
-    try {
-      await apiClient.post(`/clusters/${p.id}/dismiss`, { reason: reason.trim() });
-      toast.success("Pattern dismissed");
-      setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
-      apiClient.get("/rm/counts").then((r) => setCounts(unwrap(r) || {})).catch(() => {});
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to dismiss pattern");
-    }
-  };
+  // Governance Overview is a read-only map (doctrine §22.2): pattern decisions — review AND
+  // dismissal — happen in the ONE canonical Pattern Review workspace (Systemic Patterns), not in a
+  // duplicate mini-workflow here. Both actions deep-link to that exact pattern.
+  const dismissPattern = (p: any) => navigate(`/systemic-patterns?focus=${p.id}`);
 
-  // Chapter 7 — Pattern Review (about the pattern's recurrence/trajectory, not one signal).
+  // Chapter 7 — Pattern Review is owned by the canonical Systemic Patterns workspace.
   const [reviewTarget, setReviewTarget] = useState<any>(null);
   const [reviewOutcome, setReviewOutcome] = useState("Continue Monitoring");
   const [reviewRationale, setReviewRationale] = useState("");
   const [reviewNextDate, setReviewNextDate] = useState("");
   const [reviewBusy, setReviewBusy] = useState(false);
-  const openReview = (p: any) => { setReviewTarget(p); setReviewOutcome("Continue Monitoring"); setReviewRationale(""); setReviewNextDate(""); };
+  const openReview = (p: any) => navigate(`/systemic-patterns?focus=${p.id}`);
   const submitReview = async () => {
     if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
     if (reviewOutcome === "Continue Monitoring" && (!reviewNextDate || new Date(`${reviewNextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }

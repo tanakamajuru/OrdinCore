@@ -93,7 +93,7 @@ export function RoleBasedNavigation() {
           { path: "/weekly-review", label: "Weekly Review", icon: FileText },
           { path: "/incidents", label: "Serious Incidents", icon: Ambulance },
           { path: "/reports", label: "Reports", icon: FileDown },
-          { path: "/rm5", label: "Pipeline", icon: Layers },
+          { path: "/rm5", label: "Governance Overview", icon: Layers },
         ];
       case "RESPONSIBLE_INDIVIDUAL":
         return [

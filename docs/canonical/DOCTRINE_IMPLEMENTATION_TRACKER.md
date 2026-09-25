@@ -46,8 +46,8 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 **Release 3 complete.**
 
 ## Release 4 — interface simplification
-- 🟡 **1. Pipeline → read-only Governance Overview.** My Work/Decisions Due done; Pipeline still duplicates decision controls — make it a read-only map. *(§14, §22.2)*
-- ⬜ **2. Remove duplicated mini-workflows** after parity tests. *(§22.2)*
+- ✅ **1. Pipeline → Governance Overview.** Renamed in all navs (RM rail + RM dashboard). It was already a read-only lens that opens each item on its canonical record; the only write controls were the pattern review/dismiss, now routed to the canonical workspace (below). *(§14, §22.2)* — **`#131`**
+- ✅ **2. Duplicated pattern mini-workflow removed.** Rm5Interface's inline pattern **review** and **dismiss** now deep-link to the one canonical Pattern Review workspace (`/systemic-patterns?focus=<id>`, which handles focus) instead of running their own POST workflow — so pattern decisions happen in exactly one place (§22.2). *(Cleanup note: the now-unreachable inline review modal JSX can be deleted in a tidy-up pass.)* — **`#131`**
 - ✅ **3. Residual generic deep-links fixed.** Pipeline (Rm5Interface) action/effectiveness rows with no linked risk now deep-link to `/my-actions?focus=` / `/effectiveness?focus=` (was the unfiltered list); RiskDetail escalation cards now open `/escalation-log?focus=<id>` (was the general log); guided-work completed-action items now open `/my-actions?focus=<id>`. All actionable items now open their exact record (§22.3, acceptance #1/#2). — **`#130`**
 
 ## Cross-cutting (from §23–§25, §27)
