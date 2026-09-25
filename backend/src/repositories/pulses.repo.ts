@@ -251,8 +251,8 @@ export const pulsesRepo = {
                     (SELECT c.linked_risk_id FROM risk_signal_links rsl JOIN signal_clusters c ON c.id = rsl.cluster_id
                        WHERE rsl.pulse_entry_id = gp.id AND c.linked_risk_id IS NOT NULL LIMIT 1) AS cluster_promoted_risk_id
              FROM governance_pulses gp
-             JOIN houses h ON h.id = gp.house_id
-             JOIN users u ON u.id = gp.created_by
+             LEFT JOIN houses h ON h.id = gp.house_id
+             LEFT JOIN users u ON u.id = gp.created_by
              LEFT JOIN users rb ON rb.id = gp.reviewed_by
              LEFT JOIN users au ON au.id = gp.assigned_to
              WHERE gp.id = $1 AND gp.company_id = $2`,
