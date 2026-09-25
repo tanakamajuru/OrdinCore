@@ -34,6 +34,10 @@ export function DailyOversightBoard() {
   const [isSigningOff, setIsSigningOff] = useState(false);
   const [aiBusy, setAiBusy] = useState(false);
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
+  const [signedLogId, setSignedLogId] = useState<string | null>(null);
+  const [addendumOpen, setAddendumOpen] = useState(false);
+  const [addendumReason, setAddendumReason] = useState("");
+  const [addendumSaving, setAddendumSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
@@ -234,11 +238,13 @@ export function DailyOversightBoard() {
           setDailyNote(log.team_brief || log.leadership_narrative || log.daily_note || "");
           const at = log.published_at || log.completed_at;
           setSignedOff({ by: log.published_by_name || log.reviewed_by_name || "—", at: at ? new Date(at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) : prettyDay(reviewDate) });
+          setSignedLogId(log.id || null);
           return;
         }
       } catch { /* no stored log — leave the draft empty until the RM generates it */ }
       if (cancelled) return;
       setSignedOff(null);
+      setSignedLogId(null);
       setDailyNote("");
     })();
     return () => { cancelled = true; };
@@ -287,6 +293,23 @@ export function DailyOversightBoard() {
       toast.error(e?.response?.data?.message || e?.message || "Sign-off failed");
     }
     finally { setIsSigningOff(false); }
+  };
+
+  // Same-day addendum to an already-signed daily record (doctrine §9.2). The primary review is
+  // never reopened; late decisions are recorded through the normal signal flow first, then a
+  // signed addendum is appended here.
+  const submitAddendum = async () => {
+    if (!signedLogId) return;
+    if (addendumReason.trim().length < 10) { toast.error("An addendum reason of at least 10 characters is required."); return; }
+    setAddendumSaving(true);
+    try {
+      await apiClient.post(`/daily-governance/${signedLogId}/addenda`, { reason: addendumReason.trim() });
+      toast.success("Signed addendum added to today's record");
+      setAddendumOpen(false); setAddendumReason("");
+      loadDashboard(selectedHouseId, true);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to add addendum");
+    } finally { setAddendumSaving(false); }
   };
 
   // Remind the person an action is assigned to (creates a notification for them).
@@ -483,6 +506,12 @@ export function DailyOversightBoard() {
                 <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 size={18} /><span className="font-semibold">Today's Governance Status: Complete</span></div>
                 <p className="text-sm text-muted-foreground mt-1">Signed by: {signedOff.by} · {signedOff.at}</p>
                 <p className="text-[11px] text-muted-foreground mt-1">This entry constitutes a forensic audit point for CQC Well-Led inspections.</p>
+                {!isHistoricalDate && signedLogId && (
+                  <div className="mt-3">
+                    <button onClick={() => setAddendumOpen(true)} className="text-xs font-medium text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10">+ Add signed addendum</button>
+                    <span className="text-[11px] text-muted-foreground ml-2">For a signal that arrived after sign-off — the primary record is never reopened.</span>
+                  </div>
+                )}
               </div>
             ) : (
               <>
@@ -531,6 +560,21 @@ export function DailyOversightBoard() {
               <button onClick={() => { setShowPreview(false); handleSignOff(); }} disabled={isSigningOff || !dailyNote.trim()} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
                 <CheckCircle2 size={16} /> Accept & Sign Off
               </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {addendumOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !addendumSaving && setAddendumOpen(false)}>
+          <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="font-semibold text-lg">Add signed same-day addendum</h3>
+            <p className="text-sm text-muted-foreground mt-1">The signed primary review is not reopened. Record any late decision through the signal queue first, then sign this addendum describing what changed.</p>
+            <label className="block text-sm font-medium mt-4 mb-1">Reason for the addendum</label>
+            <textarea value={addendumReason} onChange={(e) => setAddendumReason(e.target.value)} className="w-full min-h-28 px-3 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-y" placeholder="e.g. A high-severity medication signal was recorded at 18:40 after the day was signed; reviewed and a same-day action allocated." />
+            <div className="flex justify-end gap-2 mt-4">
+              <button onClick={() => setAddendumOpen(false)} disabled={addendumSaving} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
+              <button onClick={submitAddendum} disabled={addendumSaving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">{addendumSaving ? "Signing…" : "Sign addendum"}</button>
             </div>
           </div>
         </div>
