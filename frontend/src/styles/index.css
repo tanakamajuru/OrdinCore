@@ -15,6 +15,16 @@
   }
 }
 
+/* ─── Sonner toaster must not block clicks ─────────────────────────────────────
+   The top-right toaster region is position:fixed and, in Chromium (Edge/Chrome),
+   its (often empty) corner area intercepted clicks on the page beneath it — which
+   made the top-right header buttons (e.g. Create Organisation / Create Company
+   Admin) unclickable, while Firefox let the clicks through. Make the toaster
+   wrapper transparent to pointer events; individual toasts stay interactive so
+   they can still be hovered and dismissed. */
+[data-sonner-toaster] { pointer-events: none !important; }
+[data-sonner-toast] { pointer-events: auto !important; }
+
 /* ─── Recharts hover fix ───────────────────────────────────────────────────────
    Recharts marks hovered/clicked SVG sectors & surfaces as focusable, and the
    browser draws a black focus rectangle around them. Suppress that outline. */
