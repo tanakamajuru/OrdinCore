@@ -1113,7 +1113,7 @@ export function RiskDetail() {
       {/* Add Action Modal */}
       {showAddAction && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl  mb-4 text-foreground">Add New Action</h2>
             
             <div className="space-y-4">
@@ -1259,7 +1259,7 @@ export function RiskDetail() {
       {/* Add Event Modal */}
       {showAddEvent && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl  mb-4 text-foreground">Add Timeline Event</h2>
             
             <div className="space-y-4">
@@ -1471,7 +1471,7 @@ export function RiskDetail() {
       {/* Escalate Modal */}
       {showEscalateModal && (
         <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl mb-4 text-foreground font-semibold">Escalate Risk</h2>
             
             <div className="space-y-4">
@@ -1510,8 +1510,8 @@ export function RiskDetail() {
       )}
 
       {showCloseModal && (
-        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50">
-          <div className="bg-card border-2 border-border p-6 w-full max-w-md">
+        <div className="fixed inset-0 backdrop-blur-md bg-primary/30 flex items-center justify-center z-50 p-4">
+          <div className="bg-card border-2 border-border p-6 w-full max-w-md max-h-[90vh] overflow-y-auto">
             <h2 className="text-xl mb-1 text-foreground font-semibold">Close Risk</h2>
             <p className="text-xs text-muted-foreground mb-4">Task completion does not close a risk. Closure requires a Risk Review confirming the underlying risk has genuinely reduced, then a verdict. A 60-day recurrence window opens automatically.</p>
 
