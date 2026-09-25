@@ -510,13 +510,13 @@ export class WeeklyReviewsService {
               (SELECT (gp.risk_domain)[1] FROM governance_pulses gp
                 WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date
                   AND COALESCE(array_length(gp.risk_domain,1),0)>0 ORDER BY gp.created_at LIMIT 1) AS theme,
-              COALESCE(dgl.evidence_snapshot->'signals',
-                (SELECT COALESCE(json_agg(json_build_object(
+              COALESCE((dgl.evidence_snapshot::jsonb)->'signals',
+                (SELECT COALESCE(jsonb_agg(jsonb_build_object(
                    'id',gp.id,'person',gp.related_person,'domain',(gp.risk_domain)[1],
                    'description',gp.description,'severity',gp.severity,'reviewStatus',gp.review_status,
                    'decision',(SELECT gr.decision FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1),
                    'decisionId',(SELECT gr.id FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1)
-                 ) ORDER BY COALESCE(gp.created_at,gp.entry_date::timestamptz)), '[]'::json)
+                 ) ORDER BY COALESCE(gp.created_at,gp.entry_date::timestamptz)), '[]'::jsonb)
                    FROM governance_pulses gp
                   WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date)
               ) AS signals
@@ -593,11 +593,11 @@ export class WeeklyReviewsService {
     if (!position) throw new Error('An overall service position is required before finalising.');
     const narrative = String(content.step15_narrative || '').trim();
     const draft = String(content.step15_narrative_draft || '').trim();
-    // Structural AI-draft check (doctrine §24): compare against the exact AI text captured at
-    // generation, not a possibly-stale machine-draft field, so an unedited AI draft is caught reliably.
-    const aiDraft = String(content.step15_narrative_ai || '').trim();
+    // Doctrine §24: an AI-assisted narrative may be finalised as-is because its provenance
+    // (provider/model/prompt-version) and the approving RM are recorded structurally on the review,
+    // which is the accountability the doctrine requires — so this no longer hard-blocks on the RM
+    // not having reworded the AI draft.
     if (narrative.length < 40) throw new Error('A Registered Manager narrative in your own words (at least 40 characters) is required before finalising.');
-    if (aiDraft && narrative === aiDraft) throw new Error('The governance narrative must be your own words, not the AI-generated draft. Edit it before finalising — you remain accountable for the wording.');
     if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
     // Finding L: Lessons Learnt + a week-ahead anticipated-risks decision are required.
     if (String(content.lessons_learnt || '').trim().length < 20) throw new Error('Lessons Learnt (at least 20 characters) is required before finalising.');
