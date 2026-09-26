@@ -72,7 +72,11 @@ export const myWorkService = {
             -- Only genuinely-unreviewed signals are "awaiting". Once triaged the signal moves to
             -- Reviewed/Monitoring/Linked/Closed/etc. — previously only 3 states were excluded, so a
             -- signal reviewed as "Reviewed" kept showing as pending after the RM had actioned it.
-            AND COALESCE(review_status::text, 'New') = 'New'`,
+            AND COALESCE(review_status::text, 'New') = 'New'
+            -- Match the web signal surfaces: only signals due up to today (not future-dated) and
+            -- never the auto-generated scheduled-pulse placeholders (reminders, not observations).
+            AND COALESCE(entry_date, created_at::date) <= CURRENT_DATE
+            AND COALESCE(description,'') <> 'Scheduled Governance Pulse'`,
         [company_id, houses]
       ), { rows: [{ n: 0 }] } as any);
       const n = sig.rows[0]?.n || 0;

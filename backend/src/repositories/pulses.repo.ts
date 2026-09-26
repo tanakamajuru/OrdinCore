@@ -166,7 +166,9 @@ export const pulsesRepo = {
     },
 
     async findAll(company_id: string, filters: any = {}, limit = 50, offset = 0) {
-        const conditions: string[] = ['gp.company_id = $1'];
+        // Auto-generated scheduled-pulse placeholders are reminders, not recorded signals — never
+        // list them as signals (they flooded the mobile signal queue and web lists).
+        const conditions: string[] = ['gp.company_id = $1', "COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'"];
         const params: unknown[] = [company_id];
         let idx = 2;
 
