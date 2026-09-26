@@ -62,3 +62,12 @@ Legend: ✅ done · 🟡 partial · ⬜ todo · 🔎 needs verification.
 
 ## Sequencing note
 Executed in the doctrine's order (safety first). Each item ships and is verified on live independently. The invariants in §18 and acceptance criteria in §21/§27 are the exit tests.
+
+---
+
+## Mobile parity (web ↔ Expo app)
+User scope: **all four**. Backend fixes reach mobile through the shared API; only the two mobile-specific data sources and the My Work screen needed explicit work.
+- ✅ **1. My Work parity.** Mobile `MyWorkScreen` rebuilt on the canonical `/guided-work` read model (was legacy `/my-work` counts): Assigned-to-you vs Decisions-due split, server-side dedupe, Waiting / Completed-today sections, "list may be incomplete" degraded banner (no silent success), 20/page pagination, and native route mapping (web routes re-derived to RM/TL/SW/Director screens; object-only screens fall back to their list). — **`#143`**
+- ✅ **2. Signal/decisions parity.** `pulses.repo.findAll` (feeds mobile RM/SW signal queues via `/pulses`) and `myWork.service` signals-awaiting count now exclude `Scheduled Governance Pulse` placeholders and day-scope entries — the same cleanup the web signal surfaces received. — **`#142`**
+- ✅ **3. Weekly review parity.** Mobile RM weekly finalise posts to the same `/weekly-reviews/:id/finalise` endpoint fixed in #140 (COALESCE json→jsonb + relaxed AI-draft gate) and reads evidence from `/weekly-reviews/preview` (the §23 contract), so the finalise block and evidence sections reach mobile unchanged. — verify-only, confirmed
+- ✅ **4. Verify-only.** Confirmed the backend signal-noise and finalise fixes reach the existing mobile signal-queue and weekly screens without further client edits. — confirmed
