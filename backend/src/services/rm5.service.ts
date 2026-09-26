@@ -269,13 +269,18 @@ export const rm5Service = {
     // (completed_at IS NOT NULL AND effectiveness_outcome IS NULL), not a risk-linked subset, so
     // Home, the pipeline and the Effectiveness screen all report the same number.
     return (await query(
-      `SELECT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
+      `SELECT DISTINCT a.id AS key, a.risk_id AS "riskId", COALESCE(a.title, 'Governance action') AS title,
               (COALESCE(r.strategic_theme, r.title, h.name, 'Service action') || ' · completed '
-                || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta
+                || COALESCE(to_char(a.completed_at,'DD Mon'),'—')) AS meta, a.completed_at
          FROM canonical_action_state_v a
          LEFT JOIN canonical_risk_state_v r ON r.id = a.risk_id AND r.company_id = a.company_id
          LEFT JOIN houses h ON h.id = COALESCE(a.house_id, r.house_id)
+         LEFT JOIN canonical_review_obligation_state_v gro
+           ON gro.company_id=a.company_id AND gro.subject_id=a.id
+          AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
         WHERE a.company_id = $1 AND a.requires_effectiveness_review
+          AND (a.effectiveness_outcome IS NULL
+               OR (a.effectiveness_outcome='Too Early To Assess' AND gro.is_due))
         ORDER BY a.completed_at ASC`,
       [company_id]
     )).rows;

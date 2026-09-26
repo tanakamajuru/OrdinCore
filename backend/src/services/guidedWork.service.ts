@@ -41,6 +41,29 @@ const normalizeRole = (role: string): GuidedRole => {
   return 'TEAM_LEADER';
 };
 
+// A week-ending value can arrive from pg as a Date (raw `.toString()` → "Sun Sep 20 2026 00:00:00
+// GMT+0100 (British Summer Time)") or a 'YYYY-MM-DD' string. Present it the one way every role sees
+// it — "20 Sep 2026" — so RM, Director and RI cards read identically.
+const fmtWeek = (v: string | Date | null | undefined): string => {
+  if (!v) return '—';
+  const d = v instanceof Date ? v : new Date(`${String(v).slice(0, 10)}T00:00:00`);
+  if (isNaN(d.getTime())) return String(v);
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+};
+
+// URL/id-safe week key ('YYYY-MM-DD'). pg may hand back a Date; a raw `${date}` embeds spaces and
+// colons that mangle the guided `gw`/`current` round-trip and the `weekEnding=` preview query — so
+// the current weekly task stops matching and Continue lands on the wrong record. Use local parts
+// (not toISOString, which can shift a local-midnight date back a day).
+const weekKey = (v: string | Date | null | undefined): string => {
+  if (!v) return '';
+  if (v instanceof Date) {
+    if (isNaN(v.getTime())) return '';
+    return `${v.getFullYear()}-${String(v.getMonth() + 1).padStart(2, '0')}-${String(v.getDate()).padStart(2, '0')}`;
+  }
+  return String(v).slice(0, 10);
+};
+
 const priorityFor = (dueAt?: string | Date | null, critical = false): GuidedPriority => {
   if (critical) return 'URGENT';
   if (!dueAt) return 'NORMAL';
@@ -119,7 +142,7 @@ export const guidedWorkService = {
          ORDER BY wr.week_ending DESC`, [companyId, userId, houses]);
       for (const w of weekly) needsYou.push({
         id:`weekly_ack:${w.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_ACK',
-        title:'Read published weekly governance review', summary:`Week ending ${w.week_ending}`,
+        title:'Read published weekly governance review', summary:`Week ending ${fmtWeek(w.week_ending)}`,
         reason:'A published weekly governance review is awaiting your acknowledgement.', serviceName:w.service_name,
         canonicalEntityType:'weekly_governance', canonicalEntityId:w.id, requiredAction:'ACKNOWLEDGE_WEEKLY_GOVERNANCE',
         completionCondition:'Your acknowledgement of this exact published weekly review is persisted.',
@@ -264,12 +287,12 @@ export const guidedWorkService = {
                 AND wr.status IN ('pending_validation','LOCKED','published')
            )
          ORDER BY h.name`, [companyId]);
-      for (const h of weekly) needsYou.push({ id:`weekly:${h.id}:${h.week_ending}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
-        summary:`Review the completed week ending ${h.week_ending}.`, reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
+      for (const h of weekly) { const wk = weekKey(h.week_ending); needsYou.push({ id:`weekly:${h.id}:${wk}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
+        summary:`Review the completed week ending ${fmtWeek(h.week_ending)}.`, reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
         canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, requiredAction:'WEEKLY_GOVERNANCE_REVIEW',
         completionCondition:'The specified service/week review is submitted into the existing weekly governance lifecycle.',
-        route:`/weekly-review?guided=1&gw=weekly:${h.id}:${h.week_ending}&houseId=${h.id}&weekEnding=${h.week_ending}`,
-        actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' });
+        route:`/weekly-review?guided=1&gw=weekly:${h.id}:${wk}&houseId=${h.id}&weekEnding=${wk}`,
+        actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' }); }
 
       // Waiting = open actions in scoped services owned by someone else.
       const waitingActions = await safeRows(`
@@ -288,7 +311,7 @@ export const guidedWorkService = {
     // DIRECTOR: weekly validations, cross-service patterns, strategic/critical risks and incomplete effectiveness.
     if (role === 'DIRECTOR') {
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
-      for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${w.week_ending}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,requiredAction:'DIRECTOR_WEEKLY_VALIDATION',
+      for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${fmtWeek(w.week_ending)}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,requiredAction:'DIRECTOR_WEEKLY_VALIDATION',
 completionCondition:'The specified weekly review is validated through the existing Director validation function.',
 route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'Validate Review',whyAmISeeingThis:'This weekly review has been submitted for Director validation.'});
 
@@ -311,7 +334,7 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
       for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,concernRiskId:r.id,requiredAction:'RI_ASSURANCE_RISK_REVIEW',completionCondition:'The required RI assurance review of this exact critical risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
 
       const ready = await safeRows(`SELECT DISTINCT wr.week_ending FROM weekly_reviews wr WHERE wr.company_id=$1 AND wr.week_ending=(SELECT MAX(week_ending) FROM weekly_reviews WHERE company_id=$1) AND wr.validation_status='Approved' AND NOT EXISTS (SELECT 1 FROM provider_review_signoffs prs WHERE prs.company_id=$1 AND prs.week_ending=wr.week_ending)`,[companyId]);
-      if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${ready[0].week_ending}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${ready[0].week_ending}&guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
+      if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${fmtWeek(ready[0].week_ending)}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${ready[0].week_ending}&guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
     }
 
     // Completed today is informational only; no state is owned by Guided Work.

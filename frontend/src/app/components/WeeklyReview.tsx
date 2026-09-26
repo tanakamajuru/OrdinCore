@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { useNavigate, useParams } from "react-router";
+import { useNavigate, useParams, useSearchParams } from "react-router";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, Users, FileDown, History, Sparkles } from "lucide-react";
@@ -29,13 +29,18 @@ const POSITIONS = ["Stable", "Watch", "Concern", "Escalating", "Serious Concern"
 export function WeeklyReview() {
   const navigate = useNavigate();
   const { id } = useParams();
+  // Guided Work deep-links carry the EXACT service + week to review (?houseId=&weekEnding=).
+  // Honour them so opening "24 Hurst Grove" opens 24 Hurst Grove, not the RM's default house.
+  const [searchParams] = useSearchParams();
+  const urlHouseId = searchParams.get("houseId") || "";
+  const urlWeekEnding = searchParams.get("weekEnding") || "";
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const userRole = (localStorage.getItem("userRole") || user.role || "").toUpperCase().replace(/-/g, "_");
   const isSenior = ["DIRECTOR", "ADMIN", "SUPER_ADMIN", "RESPONSIBLE_INDIVIDUAL"].includes(userRole);
 
   const [houses, setHouses] = useState<any[]>([]);
   const [houseId, setHouseId] = useState("");
-  const [weekEnding, setWeekEnding] = useState(new Date().toISOString().split("T")[0]);
+  const [weekEnding, setWeekEnding] = useState(searchParams.get("weekEnding") || new Date().toISOString().split("T")[0]);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -150,7 +155,10 @@ export function WeeklyReview() {
         list = Array.isArray(data) ? data : (data.items || []);
       }
       setHouses(list);
-      const def = list.find((h: any) => h.id === user.assigned_house_id) ? user.assigned_house_id : list[0]?.id;
+      // A guided-work deep-link's houseId wins (open the service the RM actually clicked), as long
+      // as it is one this manager may review; otherwise fall back to their assigned/first house.
+      const fromUrl = urlHouseId && list.find((h: any) => h.id === urlHouseId) ? urlHouseId : "";
+      const def = fromUrl || (list.find((h: any) => h.id === user.assigned_house_id) ? user.assigned_house_id : list[0]?.id);
       if (def) setHouseId(def); else setIsLoading(false);
     } catch { toast.error("Failed to load services"); setIsLoading(false); }
   };
