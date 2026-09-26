@@ -259,6 +259,10 @@ export const guidedWorkService = {
 
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
       // It becomes actionable only when the provider-local configured cadence is reached.
+      // The review spine is not just "this week": a missed week stays owed until it is done, so the
+      // queue must show the BACKLOG (up to 8 weeks) per house — that is how ageing/"how many were
+      // missed" becomes visible. Each week is generated at the provider-configured day/time, and only
+      // weeks whose review time has passed and have no completed review are surfaced.
       const weekly = await safeRows(`
         WITH cfg AS (
           SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
@@ -268,31 +272,54 @@ export const guidedWorkService = {
         ), local_clock AS (
           SELECT (NOW() AT TIME ZONE cfg.tz) AS local_now, cfg.*
             FROM cfg
-        ), period AS (
-          SELECT (date_trunc('week',local_now)::date - 1) AS week_ending,
-                 (date_trunc('week',local_now)::date
+        ), weeks AS (
+          SELECT g.n,
+                 (date_trunc('week',local_now)::date - 1 - (g.n * 7)) AS week_ending,
+                 (date_trunc('week',local_now)::date - (g.n * 7)
                    + ((review_dow + 7 - EXTRACT(DOW FROM date_trunc('week',local_now)::date)::int) % 7)
                    + review_time) AS due_local,
                  local_now
-            FROM local_clock
+            FROM local_clock, generate_series(0, 7) AS g(n)
         )
-        SELECT h.id,h.name,p.week_ending,p.due_local
-          FROM canonical_house_state_v h CROSS JOIN period p
+        SELECT h.id,h.name,w.week_ending,w.due_local
+          FROM canonical_house_state_v h
+          CROSS JOIN weeks w
+          -- Adoption floor: only count weeks from the house's FIRST completed review onward, so a
+          -- house that has been doing reviews and skipped a week shows that week, but pre-adoption
+          -- weeks are never surfaced as "missed". A house that has never reviewed shows the current
+          -- week only (n=0) — its starting obligation, not 8 weeks of retrospective noise.
+          LEFT JOIN LATERAL (
+            SELECT MIN(week_ending) AS first_week FROM weekly_reviews wr2
+             WHERE wr2.company_id=h.company_id AND wr2.house_id=h.id
+               AND wr2.status IN ('pending_validation','LOCKED','published')
+          ) fr ON TRUE
          WHERE h.company_id=$1 AND h.is_active
-           AND p.local_now >= p.due_local
+           AND w.local_now >= w.due_local
+           AND ( (fr.first_week IS NULL AND w.n = 0) OR (fr.first_week IS NOT NULL AND w.week_ending >= fr.first_week) )
            AND NOT EXISTS (
              SELECT 1 FROM weekly_reviews wr
               WHERE wr.company_id=h.company_id AND wr.house_id=h.id
-                AND wr.week_ending=p.week_ending
+                AND wr.week_ending=w.week_ending
                 AND wr.status IN ('pending_validation','LOCKED','published')
            )
-         ORDER BY h.name`, [companyId]);
-      for (const h of weekly) { const wk = weekKey(h.week_ending); needsYou.push({ id:`weekly:${h.id}:${wk}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'WEEKLY_GOVERNANCE', title:`Complete Weekly Governance · ${h.name}`,
-        summary:`Review the completed week ending ${fmtWeek(h.week_ending)}.`, reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
-        canonicalEntityType:'weekly_governance', canonicalEntityId:h.id, requiredAction:'WEEKLY_GOVERNANCE_REVIEW',
-        completionCondition:'The specified service/week review is submitted into the existing weekly governance lifecycle.',
-        route:`/weekly-review?guided=1&gw=weekly:${h.id}:${wk}&houseId=${h.id}&weekEnding=${wk}`,
-        actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' }); }
+         ORDER BY h.name, w.week_ending`, [companyId]);
+      for (const h of weekly) {
+        const wk = weekKey(h.week_ending);
+        const daysOverdue = h.due_local ? Math.max(0, Math.floor((Date.now() - new Date(h.due_local).getTime()) / 86400000)) : 0;
+        const overdue = daysOverdue >= 1;
+        needsYou.push({
+          // Each week is its own concern (composite id) so the backlog is NOT collapsed by dedupe —
+          // three missed weeks for a house must show as three items, which is how ageing is seen.
+          id:`weekly:${h.id}:${wk}`, role, state:'NEEDS_YOU',
+          priority: daysOverdue >= 7 ? 'URGENT' : (overdue ? 'DUE' : 'NORMAL'), taskType:'WEEKLY_GOVERNANCE',
+          title:`Complete Weekly Governance · ${h.name}${overdue ? ` · ${daysOverdue}d overdue` : ''}`,
+          summary:`Review the completed week ending ${fmtWeek(h.week_ending)}.${overdue ? ` This review is ${daysOverdue} day(s) overdue.` : ''}`,
+          reason:`Weekly Governance became due at the provider-local configured review time.`, serviceName:h.name, dueAt:h.due_local,
+          canonicalEntityType:'weekly_governance', canonicalEntityId:`${h.id}:${wk}`, requiredAction:'WEEKLY_GOVERNANCE_REVIEW',
+          completionCondition:'The specified service/week review is submitted into the existing weekly governance lifecycle.',
+          route:`/weekly-review?guided=1&gw=weekly:${h.id}:${wk}&houseId=${h.id}&weekEnding=${wk}`,
+          actionLabel:'Start Weekly Review', whyAmISeeingThis:'The previous completed governance week is now due for RM review under the provider governance cadence.' });
+      }
 
       // Waiting = open actions in scoped services owned by someone else.
       const waitingActions = await safeRows(`
@@ -369,11 +396,21 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
     // ordered by priority. Completion removes an item only by changing canonical state.
     const filteredNeeds = dedupeConcerns(needsYou).map(withCategory).sort(byPriority);
     const filteredWaiting = waiting.slice().sort(byPriority);
+
+    // Weekly-review ageing: how many reviews are overdue right now, and how many of those fall in the
+    // current calendar month (the "how many did we miss this month" figure the dashboards surface).
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
+    const weeklyItems = filteredNeeds.filter(i => i.taskType === 'WEEKLY_GOVERNANCE');
+    const weeklyOverdue = weeklyItems.filter(i => i.priority === 'DUE' || i.priority === 'URGENT');
+    const weeklyMissedThisMonth = weeklyOverdue.filter(i => i.dueAt && new Date(i.dueAt).getTime() >= monthStart).length;
+
     return {
       needsYou: filteredNeeds,
       waiting: filteredWaiting,
       completedToday,
       counts: { needsYou: filteredNeeds.length, waiting: filteredWaiting.length, completedToday: completedToday.length },
+      weeklyAgeing: { overdue: weeklyOverdue.length, missedThisMonth: weeklyMissedThisMonth, backlog: weeklyItems.length },
       next: filteredNeeds[0] || null,
       // No silent success: when any source failed the list is INCOMPLETE — the UI must warn
       // rather than present an empty queue as "nothing due".
