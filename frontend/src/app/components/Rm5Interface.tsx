@@ -129,10 +129,27 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const openSignal = (id: string) => id && navigate(`/signals/${id}`);
   const promote = (p: any) => p.promotedRiskId ? openRisk(p.promotedRiskId) : navigate(`/risks/promote?cluster_id=${p.id}`, { state: { cluster_id: p.id } });
 
-  // Governance Overview is a read-only map (doctrine §22.2): pattern decisions — review AND
-  // dismissal — happen in the ONE canonical Pattern Review workspace (Systemic Patterns), not in a
-  // duplicate mini-workflow here. Both actions deep-link to that exact pattern.
-  const dismissPattern = (p: any) => navigate(`/systemic-patterns?focus=${p.id}`);
+  // Dismiss an EMERGING candidate (below threshold — "not yet a pattern") in place. These
+  // within-service candidates do not appear on the Cross-Service Patterns workspace, so routing
+  // Dismiss there was a dead end (the reported mix-up). An established/cross-service pattern is
+  // reviewed in that workspace, not dismissed — this handler is only wired to emerging candidates.
+  const dismissPattern = async (p: any) => {
+    const reason = window.prompt("Why are you setting this emerging concern aside? A brief reason (min 10 characters) is recorded on the audit trail.");
+    if (reason === null) return; // cancelled
+    if (reason.trim().length < 10) { toast.error("A dismissal reason of at least 10 characters is required."); return; }
+    try {
+      await apiClient.post(`/clusters/${p.id}/dismiss`, { reason: reason.trim() });
+      toast.success("Emerging concern dismissed and recorded on the audit trail.");
+      setPatterns((prev: any) => ({
+        within: (prev?.within || []).filter((x: any) => x.id !== p.id),
+        across: (prev?.across || []).filter((x: any) => x.id !== p.id),
+      }));
+      apiClient.get("/rm/dismissed").then((r) => setDismissed(unwrap(r) || [])).catch(() => {});
+      apiClient.get("/rm/counts").then((r) => setCounts(unwrap(r) || {})).catch(() => {});
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Could not dismiss this concern.");
+    }
+  };
 
   // Chapter 7 — Pattern Review is owned by the canonical Systemic Patterns workspace.
   const [reviewTarget, setReviewTarget] = useState<any>(null);
@@ -276,11 +293,12 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
         {!loading && screen === "pipeline" && stage === "patterns" && (
           <div>
-            <GovHead q="Which patterns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
-            <p className="text-xs text-muted-foreground mb-3">Potential cross-service patterns highlight recorded recurring concerns across people, teams, houses and services. They require leadership review and do not by themselves prove a systemic cause. Review the evidence and record the decision.</p>
-            <h2 className="text-lg font-semibold text-foreground mb-2 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service</h2>
+            <GovHead q="Which concerns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
+            <p className="text-xs text-muted-foreground mb-3">These are recorded recurring concerns the system has grouped — candidates, not conclusions. A concern becomes an <span className="font-semibold">established pattern</span> only once it meets the qualifying threshold, and <span className="font-semibold">systemic</span> only when the same theme recurs across more than one service. The "Patterns" ribbon counts established patterns; the "forming" concerns below have not yet met the threshold.</p>
+            <h2 className="text-lg font-semibold text-foreground mb-0.5 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service — forming concerns</h2>
+            <p className="text-xs text-muted-foreground mb-2">Recurring signals in a single service that are forming but are <span className="font-semibold">not yet an established pattern</span>. Keep watching, or dismiss with a reason.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-              {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming patterns.</p>}
+              {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming concerns.</p>}
               {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
             </div>
             <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
@@ -466,7 +484,10 @@ function PatternCard({ p, onPromote, onDismiss, onReview }: { p: any; onPromote:
             {p.domain}
             <span className="ml-1.5 text-muted-foreground/70">· {({ person: "Individual", house: "House", service: "Service", cross_service: "Cross-Service" } as any)[p.scope] || "Individual"}</span>
           </span>
-          <Traj t={p.trajectory} />
+          {/* Trajectory is a movement read on RECENT evidence. With no qualifying signals in the
+              window there is no basis for "improving/deteriorating", so the chip is suppressed rather
+              than defaulting to a colour — that mixed colours across cards for no real reason. */}
+          {(currentCount > 0 || p.trajectory?.basis) && <Traj t={p.trajectory} />}
         </div>
         <div className="text-sm font-medium text-foreground mt-0.5 flex items-center gap-1">
           <ChevronRight className={`w-3.5 h-3.5 shrink-0 transition-transform ${open ? "rotate-90" : ""}`} />
