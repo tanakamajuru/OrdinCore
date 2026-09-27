@@ -1272,7 +1272,12 @@ export class RisksService {
     }));
     const all = hydratedRisks.map(shape);
     const open = hydratedRisks.filter(r => r.is_active);
-    const isStrategic = (r: any) => Number(r.services_affected_count) > 1 || !!r.strategic_theme || !r.house_id;
+    // Strategic = genuinely cross-service (>1 service) OR carries an explicit strategic theme. A
+    // missing house link on its own does NOT make a risk strategic — many single-service risks are
+    // promoted without a house_id, and treating those as strategic emptied Active Oversight even
+    // while open operational risks existed. Org-wide/systemic risks should carry a strategic_theme
+    // (or a services-affected count > 1) to sit under Strategic.
+    const isStrategic = (r: any) => Number(r.services_affected_count) > 1 || !!r.strategic_theme;
     const active = open.filter(r => !isStrategic(r)).map(shape);
     const strategic = open.filter(isStrategic).map(shape);
     const closed = hydratedRisks.filter(r => r.is_closed).map(shape);
