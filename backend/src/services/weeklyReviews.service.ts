@@ -875,10 +875,34 @@ export class WeeklyReviewsService {
 
     const outstanding = sitesData.filter((s) => !s.rm_finalised).map((s) => s.house); // backward-compat
 
+    // Evidence totals for the SAME week + canonical active-service population. Signals are the week's
+    // inflow (7 days ending week_ending), excluding scheduled-pulse placeholders; the rest are the
+    // current open governance load the assurance decision is taken against.
+    const ev = (await query(
+      `SELECT
+         (SELECT COUNT(*) FROM governance_pulses p JOIN canonical_house_state_v h ON h.id=p.house_id AND h.is_active
+            WHERE p.company_id=$1 AND COALESCE(p.entry_date, p.created_at::date) BETWEEN ($2::date - 6) AND $2::date
+              AND COALESCE(p.description,'') <> 'Scheduled Governance Pulse')::int AS signals,
+         (SELECT COUNT(*) FROM signal_clusters c WHERE c.company_id=$1 AND c.cluster_status IN ('Emerging','Confirmed','Escalated') AND c.linked_risk_id IS NULL)::int AS patterns,
+         (SELECT COUNT(*) FROM canonical_risk_state_v r WHERE r.company_id=$1 AND r.is_active)::int AS open_risks,
+         (SELECT COUNT(*) FROM canonical_escalation_state_v e WHERE e.company_id=$1 AND e.is_open)::int AS open_escalations,
+         (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.is_open AND a.due_date < NOW())::int AS overdue_actions,
+         (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.effectiveness_outcome='Effective')::int AS eff_effective,
+         (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.effectiveness_outcome='Partially Effective')::int AS eff_partial,
+         (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.effectiveness_outcome='Not Effective')::int AS eff_not_effective,
+         (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.effectiveness_outcome='Too Early To Assess')::int AS eff_too_early`,
+      [company_id, week_ending]
+    )).rows[0] || {};
+    const evidence_totals = {
+      signals: ev.signals || 0, patterns: ev.patterns || 0, open_risks: ev.open_risks || 0,
+      open_escalations: ev.open_escalations || 0, overdue_actions: ev.overdue_actions || 0,
+      effectiveness: { effective: ev.eff_effective || 0, partially_effective: ev.eff_partial || 0, not_effective: ev.eff_not_effective || 0, too_early: ev.eff_too_early || 0 },
+    };
+
     return {
       week_ending, week_ending_label: formatWeekEndingUK(week_ending),
       included_service_count, rm_finalised_count, director_validated_count,
-      assurance_ready, blockers, service_positions,
+      assurance_ready, blockers, service_positions, evidence_totals,
       ri_signoff: signoff, permitted_signoff_role: 'RESPONSIBLE_INDIVIDUAL',
       // Backward-compatible fields still consumed by the current UI and the sign-off path:
       sites: sitesData, sites_total: included_service_count, sites_finalised: rm_finalised_count,
