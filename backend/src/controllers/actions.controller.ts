@@ -260,7 +260,11 @@ export class ActionsController {
       if (scoped) {
         const houseIds = (u.assigned_house_ids || []);
         params.push(houseIds.length ? houseIds : ['00000000-0000-0000-0000-000000000000']);
-        houseClause = ` AND COALESCE(ra.house_id,r.house_id) = ANY($${params.length}::uuid[])`;
+        // Include the RM/TL's own houses PLUS house-less strategic/systemic actions (an action on a
+        // cross-service risk has no single house). Excluding null-house actions hid, e.g., the
+        // "review this risk" action on a systemic risk, so a deep-link to it fell through to an
+        // unrelated action. Strategic oversight is part of the RM's remit, and it stays company-scoped.
+        houseClause = ` AND (COALESCE(ra.house_id,r.house_id) = ANY($${params.length}::uuid[]) OR COALESCE(ra.house_id,r.house_id) IS NULL)`;
       }
       const actions = await query(
         `SELECT ra.*, r.title AS risk_title, COALESCE(ra.house_id,r.house_id) AS house_id,

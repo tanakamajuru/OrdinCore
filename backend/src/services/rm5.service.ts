@@ -5,6 +5,7 @@
  * one computed source (Finding K). Read-only; mutations/detail reuse existing endpoints.
  */
 import { query } from '../config/database';
+import { v4 as uuidv4 } from 'uuid';
 import { trajectoryForCluster, trajectoryForRisk, Trajectory } from './trajectory.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 import { risksService } from './risks.service';
@@ -159,7 +160,62 @@ export const rm5Service = {
   // (default, promoted ones excluded). The Systemic Governance Patterns oversight page passes
   // true so a cross-service pattern that has ALREADY been promoted to a strategic risk still
   // shows there (with its "View risk" link) instead of vanishing from leadership's view.
+  // Auto-lapse stale forming concerns (defensible, uniform rule). A candidate that is still Emerging/
+  // Confirmed (NOT Escalated, NOT promoted to a risk) but has NO qualifying signals inside its window
+  // and whose last signal is older than that window is dormant — it should not sit on the RM's
+  // decision board forever. Lapse it to the audit trail (cluster_status='Dismissed', dismissed_by=NULL
+  // marks it SYSTEM-lapsed vs an RM dismissal), with a recorded reason and closed_at, and write a
+  // PATTERN_LAPSED audit row. It re-activates automatically if a fresh qualifying signal lands. Nothing
+  // is deleted, the rule is applied uniformly, and a lapsed concern remains fully retrievable.
+  async lapseStaleFormations(company_id: string) {
+    // Re-activate first: a system-lapsed concern that has picked up a fresh qualifying signal returns
+    // to the board (never lost).
+    await query(
+      `UPDATE signal_clusters c
+          SET cluster_status='Emerging', dismiss_reason=NULL, closed_at=NULL, updated_at=NOW()
+         FROM canonical_pattern_formation_v pf
+        WHERE pf.cluster_id=c.id AND c.company_id=$1
+          AND c.cluster_status='Dismissed' AND c.dismissed_by IS NULL
+          AND COALESCE(pf.qualifying_count,0) > 0`,
+      [company_id]
+    );
+    const lapsed = await query(
+      `WITH stale AS (
+         SELECT c.id, COALESCE(pf.window_days,14) AS window_days
+           FROM signal_clusters c
+           LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=c.id
+          WHERE c.company_id=$1
+            AND c.linked_risk_id IS NULL
+            AND c.cluster_status IN ('Emerging','Confirmed')
+            AND COALESCE(pf.qualifying_count,0)=0
+            AND c.last_signal_date IS NOT NULL
+            AND c.last_signal_date < (NOW() - (COALESCE(pf.window_days,14) || ' days')::interval)
+       )
+       UPDATE signal_clusters c
+          SET cluster_status='Dismissed', dismissed_by=NULL,
+              dismiss_reason='System-lapsed: no qualifying signals within the ' || s.window_days || '-day window as of ' || to_char(NOW(),'DD Mon YYYY'),
+              closed_at=NOW(), updated_at=NOW()
+         FROM stale s
+        WHERE c.id=s.id
+       RETURNING c.id`,
+      [company_id]
+    );
+    for (const r of lapsed.rows) {
+      try {
+        await query(
+          `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+           VALUES ($1,$2,NULL,'PATTERN_LAPSED','signal_cluster',$3,$4)`,
+          [uuidv4(), company_id, r.id, JSON.stringify({ reason: 'system-lapsed: no qualifying signals within the configured window' })]
+        );
+      } catch { /* audit is best-effort; the cluster row itself records the lapse */ }
+    }
+    return lapsed.rowCount || 0;
+  },
+
   async patterns(company_id: string, includePromoted = false) {
+    // Keep the decision board free of dormant candidates before reading it (write-on-read, as the
+    // Risk Register does with review-obligation sync).
+    await this.lapseStaleFormations(company_id).catch(() => {});
     const promotedClause = includePromoted
       // 'Closed' is NOT a valid cluster_status enum value (valid: Emerging/Confirmed/Resolved/
       // Escalated/Dismissed). Including it makes Postgres reject the whole query — which silently

@@ -8,13 +8,30 @@ export class DirectorInsightsService {
   // the worst per service × theme — so leadership never quotes a stale trend. The
   // heat-map vocabulary keeps "Rising" for a deteriorating direction (frontend contract).
   async crossSiteHeatmap(companyId: string) {
+    // A strategic/systemic risk is promoted WITHOUT a house_id (it spans services), so a plain
+    // `risks.house_id = houses.id` join dropped every such risk and left the heat map blank. Map a
+    // null-house risk to the service(s) where its linked signals were actually raised, so a
+    // cross-service theme shows up in each service column it manifests in.
     const rows = (await query(
-      `SELECT h.id AS service_id, h.name AS service_name,
-              COALESCE(r.strategic_theme, r.risk_domain, r.title) AS theme,
-              r.id AS risk_id, r.source_cluster_id
-         FROM houses h
-         JOIN risks r ON r.house_id = h.id AND LOWER(r.status) <> 'closed'
-        WHERE h.company_id = $1
+      `WITH open_risks AS (
+         SELECT r.id AS risk_id, r.source_cluster_id, r.house_id,
+                COALESCE(r.strategic_theme, r.risk_domain, r.title) AS theme
+           FROM risks r
+          WHERE r.company_id = $1 AND LOWER(r.status) <> 'closed'
+       ), expanded AS (
+         SELECT risk_id, source_cluster_id, theme, house_id AS service_id
+           FROM open_risks WHERE house_id IS NOT NULL
+         UNION
+         SELECT o.risk_id, o.source_cluster_id, o.theme, p.house_id AS service_id
+           FROM open_risks o
+           JOIN risk_signal_links rsl
+             ON (rsl.risk_id = o.risk_id OR (o.source_cluster_id IS NOT NULL AND rsl.cluster_id = o.source_cluster_id))
+           JOIN governance_pulses p ON p.id = rsl.pulse_entry_id AND p.house_id IS NOT NULL
+          WHERE o.house_id IS NULL
+       )
+       SELECT h.id AS service_id, h.name AS service_name, e.theme, e.risk_id, e.source_cluster_id
+         FROM expanded e
+         JOIN houses h ON h.id = e.service_id AND h.company_id = $1
         ORDER BY h.name`,
       [companyId]
     )).rows;
