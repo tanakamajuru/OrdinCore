@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate } from "react-router";
-import { Activity, Shield, Flag, ClipboardCheck, TrendingUp, CheckCircle2, Eye, AlertTriangle, FileText, Ambulance, FileDown } from "lucide-react";
+import { Activity, Shield, Flag, ClipboardCheck, TrendingUp, CheckCircle2, Eye, AlertTriangle, FileText, Ambulance, FileDown, CalendarClock } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { GovernanceReviewModal } from "@/components/GovernanceReviewModal";
@@ -66,6 +66,7 @@ export function RegisteredManagerDashboard() {
   const [effPending, setEffPending] = useState<any[]>([]);
   const [actions, setActions] = useState<any[]>([]);
   const [riQueries, setRiQueries] = useState<any[]>([]);
+  const [weeklyAgeing, setWeeklyAgeing] = useState<{ overdue: number; missedThisMonth: number; byHouse?: any[] } | null>(null);
   const [reviewCtx, setReviewCtx] = useState<{ risk_id?: string; service_id?: string; theme?: string } | null>(null);
 
   useEffect(() => { load(); }, []);
@@ -81,7 +82,7 @@ export function RegisteredManagerDashboard() {
         setHouse(myHouse);
       } catch { /* non-fatal */ }
 
-      const [sig, rk, esc, rq, eff, act, riq] = await Promise.all([
+      const [sig, rk, esc, rq, eff, act, riq, age] = await Promise.all([
         apiClient.get(`/pulses?limit=100`).catch(() => ({})),
         apiClient.get(`/risks?limit=100`).catch(() => ({})),
         apiClient.getEscalations(1, 100).catch(() => ({})),
@@ -89,6 +90,7 @@ export function RegisteredManagerDashboard() {
         apiClient.getPendingEffectiveness().catch(() => ({})),
         apiClient.get(`/actions/oversight`).catch(() => apiClient.get(`/actions/my`)).catch(() => ({})),
         myHouse ? apiClient.get(`/ri-governance/rm/queries?house_id=${myHouse.id}`).catch(() => ({})) : Promise.resolve({}),
+        apiClient.get(`/weekly-reviews/ageing`).catch(() => ({})),
       ]);
 
       setSignals(asArray(unwrap(sig)));
@@ -98,6 +100,7 @@ export function RegisteredManagerDashboard() {
       setEffPending(asArray(unwrap(eff)));
       setActions(asArray(unwrap(act)));
       setRiQueries(asArray(unwrap(riq)));
+      setWeeklyAgeing(unwrap(age) || null);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load dashboard");
@@ -195,7 +198,7 @@ export function RegisteredManagerDashboard() {
         )}
 
         {/* Navigator stat cards — every card routes to the surface that owns the detail */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
           <StatCard icon={Activity} tone="bg-blue-100 text-blue-600" label="Signals This Month" value={signals.length}
             onClick={() => navigate("/signals")}
             footer={<span className="text-muted-foreground">recorded</span>} />
@@ -218,6 +221,10 @@ export function RegisteredManagerDashboard() {
           <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews Due" value={effPending.length}
             onClick={() => navigate("/effectiveness")}
             footer={<span className="text-muted-foreground">awaiting review</span>} />
+          <StatCard icon={CalendarClock} tone={weeklyAgeing && weeklyAgeing.missedThisMonth > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}
+            label="Weekly Reviews Missed" value={weeklyAgeing?.missedThisMonth ?? 0}
+            onClick={() => navigate("/weekly-review")}
+            footer={<span className="text-muted-foreground">{(weeklyAgeing?.overdue ?? 0)} overdue · this month</span>} />
           <StatCard icon={CheckCircle2} tone="bg-emerald-100 text-emerald-600" label="Closed This Month" value={closedThisMonth}
             onClick={() => navigate("/risk-register?tab=closed")}
             footer={<span className="text-muted-foreground">escalations & risks</span>} />

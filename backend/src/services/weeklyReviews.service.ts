@@ -1010,6 +1010,71 @@ export class WeeklyReviewsService {
       roster,
     };
   }
+  // Weekly-review ageing: which service/week reviews are overdue right now, how many fall in the
+  // current calendar month ("how many did we miss this month"), and a per-house breakdown. Same
+  // adoption-bounded logic Guided Work uses (only weeks from a house's first completed review
+  // onward; a never-reviewed house counts only its current due week), so the dashboards and the
+  // queue tell the same story. Optional houseIds scopes to an RM's own services.
+  async getAgeing(company_id: string, houseIds?: string[]) {
+    const hasHouseFilter = Array.isArray(houseIds) && houseIds.length > 0;
+    const houseClause = hasHouseFilter ? ' AND h.id = ANY($2::uuid[])' : '';
+    const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
+    const res = await query(
+      `WITH cfg AS (
+         SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
+                COALESCE(weekly_governance_review_dow,1) AS review_dow,
+                COALESCE(weekly_governance_review_time,'09:00'::time) AS review_time
+           FROM companies WHERE id=$1
+       ), local_clock AS (
+         SELECT (NOW() AT TIME ZONE cfg.tz) AS local_now, cfg.* FROM cfg
+       ), weeks AS (
+         SELECT g.n,
+                (date_trunc('week',local_now)::date - 1 - (g.n * 7)) AS week_ending,
+                (date_trunc('week',local_now)::date - (g.n * 7)
+                  + ((review_dow + 7 - EXTRACT(DOW FROM date_trunc('week',local_now)::date)::int) % 7)
+                  + review_time) AS due_local,
+                local_now
+           FROM local_clock, generate_series(0, 7) AS g(n)
+       )
+       SELECT h.id AS house_id, h.name AS house_name, w.week_ending, w.due_local,
+              (w.due_local < w.local_now) AS overdue,
+              GREATEST(0, EXTRACT(DAY FROM (w.local_now - w.due_local))::int) AS days_overdue,
+              (date_trunc('month', w.week_ending) = date_trunc('month', (w.local_now)::date)) AS this_month
+         FROM canonical_house_state_v h
+         CROSS JOIN weeks w
+         LEFT JOIN LATERAL (
+           SELECT MIN(week_ending) AS first_week FROM weekly_reviews wr2
+            WHERE wr2.company_id=h.company_id AND wr2.house_id=h.id
+              AND wr2.status IN ('pending_validation','LOCKED','published')
+         ) fr ON TRUE
+        WHERE h.company_id=$1 AND h.is_active${houseClause}
+          AND w.local_now >= w.due_local
+          AND ((fr.first_week IS NULL AND w.n = 0) OR (fr.first_week IS NOT NULL AND w.week_ending >= fr.first_week))
+          AND NOT EXISTS (
+            SELECT 1 FROM weekly_reviews wr
+             WHERE wr.company_id=h.company_id AND wr.house_id=h.id
+               AND wr.week_ending=w.week_ending
+               AND wr.status IN ('pending_validation','LOCKED','published')
+          )
+        ORDER BY h.name, w.week_ending`,
+      params
+    );
+    const rows = res.rows;
+    const byHouseMap = new Map<string, { house_id: string; house_name: string; overdue: number; oldestDaysOverdue: number }>();
+    let missedThisMonth = 0;
+    for (const r of rows) {
+      if (r.this_month) missedThisMonth++;
+      const cur = byHouseMap.get(r.house_id) || { house_id: r.house_id, house_name: r.house_name, overdue: 0, oldestDaysOverdue: 0 };
+      cur.overdue++;
+      cur.oldestDaysOverdue = Math.max(cur.oldestDaysOverdue, Number(r.days_overdue) || 0);
+      byHouseMap.set(r.house_id, cur);
+    }
+    return {
+      overdue: rows.length,
+      missedThisMonth,
+      byHouse: [...byHouseMap.values()].sort((a, b) => b.oldestDaysOverdue - a.oldestDaysOverdue),
+    };
+  }
 }
 
 export const weeklyReviewsService = new WeeklyReviewsService();

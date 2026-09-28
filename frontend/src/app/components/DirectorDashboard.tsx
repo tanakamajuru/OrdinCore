@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { isOpenRisk } from "@/lib/governanceStatus";
 import {
   Shield, Flag, Clock, ClipboardCheck, TrendingUp, Users,
-  ArrowUpRight, ArrowDownRight, Minus, Download,
+  ArrowUpRight, ArrowDownRight, Minus, Download, CalendarClock,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis } from "recharts";
@@ -87,6 +87,7 @@ export function DirectorDashboard() {
   const [escPage, setEscPage] = useState(1);
   const [, setHealth] = useState<any>(null);
   const [themeTrends, setThemeTrends] = useState<any[]>([]);
+  const [weeklyAgeing, setWeeklyAgeing] = useState<{ overdue: number; missedThisMonth: number } | null>(null);
 
   useEffect(() => { apiClient.get("/interventions/governance-health").then((r: any) => setHealth(r?.data ?? null)).catch(() => setHealth(null)); }, []);
   useEffect(() => { apiClient.get("/interventions/themes").then((r: any) => setThemeTrends(Array.isArray(r?.data) ? r.data : [])).catch(() => setThemeTrends([])); }, []);
@@ -98,7 +99,7 @@ export function DirectorDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, act, eff, hs, hm, effSummary] = await Promise.all([
+      const [rk, esc, st, act, eff, hs, hm, effSummary, age] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -107,6 +108,7 @@ export function DirectorDashboard() {
         apiClient.get(`/houses?limit=100`).catch(() => ({})),
         apiClient.getCrossSiteHeatmap().catch(() => ({})),
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
+        apiClient.get(`/weekly-reviews/ageing`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -116,6 +118,7 @@ export function DirectorDashboard() {
       setServices(asArray(unwrap(hs)));
       setHeatmap(asArray(unwrap(hm)));
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
+      setWeeklyAgeing(unwrap(age) || null);
     } catch (err) {
       console.error(err);
       toast.error("Failed to load director dashboard");
@@ -198,7 +201,7 @@ export function DirectorDashboard() {
           </button>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
           <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}
             footer={<><span className="text-red-600">↑ {rising}</span><span className="text-amber-600">→ {stable}</span><span className="text-emerald-600">↓ {improving}</span></>} />
           <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={openEsc.length}
@@ -211,6 +214,9 @@ export function DirectorDashboard() {
             footer={<><span className="text-amber-600">{finalRatings ? Math.round(effPartial / finalRatings * 100) : 0}% Partial</span><span className="text-red-600">{finalRatings ? Math.round(effNot / finalRatings * 100) : 0}% Not</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
           <StatCard icon={Users} tone="bg-rose-100 text-rose-600" label="Services Requiring Attention" value={servicesNeedingAttention}
             footer={<span className="text-muted-foreground">rising risk</span>} />
+          <StatCard icon={CalendarClock} tone={weeklyAgeing && weeklyAgeing.missedThisMonth > 0 ? "bg-red-100 text-red-600" : "bg-emerald-100 text-emerald-600"}
+            label="Weekly Reviews Missed" value={weeklyAgeing?.missedThisMonth ?? 0}
+            footer={<span className="text-muted-foreground">{(weeklyAgeing?.overdue ?? 0)} overdue · this month</span>} />
         </div>
 
         {/* Risk Heat Map — full width so every service row and theme column is visible

@@ -27,6 +27,9 @@ router.post('/ai-draft', requireAuth, requireTenant, requireRole('REGISTERED_MAN
 // Published reviews the caller may READ (their houses) — view by date & house.
 router.get('/for-me', requireAuth, requireTenant, weeklyReviewsController.publishedForMe.bind(weeklyReviewsController));
 
+// Weekly-review ageing metric (overdue count + missed-this-month + per-house), for dashboards.
+router.get('/ageing', requireAuth, requireTenant, weeklyReviewsController.ageing.bind(weeklyReviewsController));
+
 // Validation queue for Director/RI (must precede '/:id' so 'awaiting-validation' isn't read as an id).
 router.get('/awaiting-validation', requireAuth, requireTenant, requireRole('DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.awaitingValidation.bind(weeklyReviewsController));
 // Director/RI read-only service-level roll-up (defined before '/:id' so it isn't swallowed).
