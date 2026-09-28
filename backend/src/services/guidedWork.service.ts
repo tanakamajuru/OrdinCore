@@ -295,11 +295,14 @@ export const guidedWorkService = {
           ) fr ON TRUE
          WHERE h.company_id=$1 AND h.is_active
            AND w.local_now >= w.due_local
-           AND ( (fr.first_week IS NULL AND w.n = 0) OR (fr.first_week IS NOT NULL AND w.week_ending >= fr.first_week) )
+           AND ( (fr.first_week IS NULL AND w.n = 0) OR (fr.first_week IS NOT NULL AND date_trunc('week', w.week_ending) >= date_trunc('week', fr.first_week)) )
            AND NOT EXISTS (
              SELECT 1 FROM weekly_reviews wr
               WHERE wr.company_id=h.company_id AND wr.house_id=h.id
-                AND wr.week_ending=w.week_ending
+                -- Match on the ISO WEEK, not the exact date: reviews are saved with whatever date the
+                -- RM picked (often not the canonical Sunday week-ending), so an exact-date match left
+                -- completed reviews sitting on the queue every week. Same ISO week = the same review.
+                AND date_trunc('week', wr.week_ending) = date_trunc('week', w.week_ending)
                 AND wr.status IN ('pending_validation','LOCKED','published')
            )
          ORDER BY h.name, w.week_ending`, [companyId]);
