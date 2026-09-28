@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { normalizeWeekEnding, normalizeWeekEndingSafe, formatWeekEndingUK } from '../utils/weekEnding';
 import { assertIndependent } from '../utils/separationOfDuties';
 import { v4 as uuidv4 } from 'uuid';
 import { trajectoryForRisk } from './trajectory.service';
@@ -807,47 +808,94 @@ export class WeeklyReviewsService {
 
   // Finding O: provider-level roll-up for a given week — per-site finalisation + the
   // provider-wide position (worst-of) + any existing provider sign-off.
-  async providerRollup(company_id: string, week_ending: string) {
+  async providerRollup(company_id: string, week_ending_in: string) {
+    const week_ending = normalizeWeekEnding(week_ending_in);
+    // Canonical active-service population — the SINGLE source (canonical_house_state_v.is_active) also
+    // used by serviceRollup, weekly ageing, Guided Work and reports, so every surface agrees on which
+    // services are in scope (no more 0/3 vs 3/4 divergence).
     const sites = (await query(
       `SELECT h.id AS house_id, h.name AS house, wr.id AS review_id,
               wr.status, wr.validation_status, wr.overall_position AS position,
+              wr.rm_finalised_at, wr.published_at,
               wr.acknowledged_by_name AS rm_signed_by, wr.acknowledged_at AS rm_signed_at
-         FROM houses h
+         FROM canonical_house_state_v h
          LEFT JOIN weekly_reviews wr
                 ON wr.house_id = h.id AND wr.week_ending = $2 AND wr.company_id = $1
-        WHERE h.company_id = $1 AND COALESCE(h.is_active, true) = true
+        WHERE h.company_id = $1 AND h.is_active
         ORDER BY h.name`,
       [company_id, week_ending]
     )).rows;
-    const FINALISED = ['pending_validation', 'validated', 'published', 'LOCKED'];
-    const sitesData = sites.map((s: any) => ({
-      house_id: s.house_id, house: s.house, review_id: s.review_id || null,
-      status: s.status || 'not started', published: s.status === 'published',
-      validation_status: s.validation_status || 'Not submitted',
-      position: s.position || null, rm_signed: !!s.rm_signed_by, rm_signed_by: s.rm_signed_by || null,
-      finalised: FINALISED.includes(s.status),
+
+    // Lifecycle derived from INDEPENDENT signals, not one status string. A draft is never counted as
+    // finalised or validated.
+    const sitesData = sites.map((s: any) => {
+      const has_review = !!s.review_id;
+      const rm_finalised = !!s.rm_finalised_at || ['pending_validation', 'validated', 'published', 'LOCKED'].includes(s.status);
+      const director_validated = s.validation_status === 'Approved';
+      const published = !!s.published_at || s.status === 'published';
+      const lifecycle = !has_review ? 'Not started'
+        : director_validated ? (published ? 'Published' : 'Director validated')
+        : s.validation_status === 'Challenged' ? 'Challenged'
+        : rm_finalised ? 'Awaiting Director validation'
+        : 'Draft';
+      return {
+        house_id: s.house_id, house: s.house, review_id: s.review_id || null,
+        status: s.status || 'not started', validation_status: s.validation_status || 'Not submitted',
+        position: s.position || null, // OPERATIONAL position (Stable/Watch/…) — kept distinct from RI assurance
+        has_review, rm_finalised, director_validated, published, lifecycle,
+        finalised: rm_finalised, // backward-compat alias
+        rm_signed: !!s.rm_signed_by, rm_signed_by: s.rm_signed_by || null,
+      };
+    });
+
+    const included_service_count = sitesData.length;
+    const rm_finalised_count = sitesData.filter((s) => s.rm_finalised).length;
+    const director_validated_count = sitesData.filter((s) => s.director_validated).length;
+
+    // service_positions: counts of the OPERATIONAL positions — evidence only, never converted into an
+    // RI assurance conclusion.
+    const service_positions: Record<string, number> = { Stable: 0, Watch: 0, Concern: 0, Escalating: 0, 'Serious Concern': 0 };
+    for (const s of sitesData) if (s.position && service_positions[s.position] !== undefined) service_positions[s.position]++;
+
+    // Provider assurance gate: ready ONLY when every included service is Director-validated.
+    const blockers = sitesData.filter((s) => !s.director_validated).map((s) => ({
+      service_id: s.house_id, name: s.house, lifecycle: s.lifecycle,
+      reason: !s.has_review ? 'No weekly review started'
+        : !s.rm_finalised ? 'Weekly review not finalised by the Registered Manager'
+        : s.validation_status === 'Challenged' ? 'Weekly review challenged — awaiting RM correction'
+        : 'Awaiting Director validation',
     }));
-    const outstanding = sitesData.filter((s) => !s.finalised).map((s) => s.house);
-    const provider_position =
-      sitesData.some((s) => s.position === 'Not assured') ? 'Not assured'
-      : sitesData.some((s) => s.position === 'Assured with actions') ? 'Assured with actions'
-      : (sitesData.length && sitesData.every((s) => s.position === 'Assured')) ? 'Assured'
-      : 'Mixed';
+    const assurance_ready = included_service_count > 0 && blockers.length === 0;
+
     const signoff = (await query(
       `SELECT position, acknowledged_by_name, acknowledged_at, statement
          FROM provider_review_signoffs WHERE company_id = $1 AND week_ending = $2`,
       [company_id, week_ending]
     )).rows[0] || null;
-    return { week_ending, sites: sitesData, sites_total: sitesData.length, sites_finalised: sitesData.filter((s) => s.finalised).length, outstanding, provider_position, signoff };
+
+    const outstanding = sitesData.filter((s) => !s.rm_finalised).map((s) => s.house); // backward-compat
+
+    return {
+      week_ending, week_ending_label: formatWeekEndingUK(week_ending),
+      included_service_count, rm_finalised_count, director_validated_count,
+      assurance_ready, blockers, service_positions,
+      ri_signoff: signoff, permitted_signoff_role: 'RESPONSIBLE_INDIVIDUAL',
+      // Backward-compatible fields still consumed by the current UI and the sign-off path:
+      sites: sitesData, sites_total: included_service_count, sites_finalised: rm_finalised_count,
+      outstanding, signoff,
+    };
   }
 
   // Finding O: sign the provider-wide position — gated on every site being finalised,
   // by a Director/RI (separation of duties from the RM per-site sign-offs).
-  async signProviderRollup(company_id: string, week_ending: string, user_id: string, dto: { position?: string; statement?: string }) {
+  async signProviderRollup(company_id: string, week_ending_in: string, user_id: string, dto: { position?: string; statement?: string }) {
+    const week_ending = normalizeWeekEnding(week_ending_in);
     const rollup = await this.providerRollup(company_id, week_ending);
     const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0] || {};
     const company = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0] || {};
-    const position = dto.position || rollup.provider_position;
+    // RI assurance conclusion is chosen by the RI; default only as a safe fallback (a full rationale
+    // requirement is enforced in the RI-interface change). It is NOT derived from service positions.
+    const position = dto.position || 'Assured';
     if (!rollup.sites_total) throw new Error('Provider sign-off blocked: no active services were found.');
     if (rollup.outstanding.length > 0) {
       throw new Error(`Provider sign-off blocked: weekly governance is outstanding for ${rollup.outstanding.join(', ')}.`);
@@ -889,7 +937,8 @@ export class WeeklyReviewsService {
     const day = now.getUTCDay();
     const daysToFriday = (5 - day + 7) % 7;
     const currentWeekEnding = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + daysToFriday)).toISOString().slice(0, 10);
-    const wk = weekEnding || weeks[0] || currentWeekEnding;
+    // week_ending is a date-only key; normalise so a timestamp from the client never shifts the day.
+    const wk = normalizeWeekEnding(weekEnding || weeks[0] || currentWeekEnding);
 
     const rows = (await query(
       `SELECT wr.id, wr.house_id, wr.status, wr.validation_status, wr.content,
@@ -903,8 +952,9 @@ export class WeeklyReviewsService {
       [company_id, wk]
     )).rows;
 
+    // Canonical active-service population — the SAME selector as providerRollup / ageing / Guided Work.
     const allHouses = (await query(
-      `SELECT id, name FROM houses WHERE company_id = $1 AND status != 'closed' ORDER BY name`,
+      `SELECT id, name FROM canonical_house_state_v WHERE company_id = $1 AND is_active ORDER BY name`,
       [company_id]
     )).rows;
     const reviewed = new Set(rows.map((r: any) => r.house_id));
@@ -953,10 +1003,14 @@ export class WeeklyReviewsService {
 
     return {
       week_ending: wk,
-      weeks,
+      week_ending_label: formatWeekEndingUK(wk),
+      weeks: weeks.map((w: any) => normalizeWeekEndingSafe(w)).filter(Boolean),
       houses,
       summary: {
-        services_reviewed: completedHouses.length,
+        services_reviewed: completedHouses.length, // services with ANY review (started); see counts below
+        services_started: completedHouses.length,
+        rm_finalised_count: completedHouses.filter((h: any) => h.finalised).length,
+        director_validated_count: completedHouses.filter((h: any) => h.validation_status === 'Approved').length,
         services_total: allHouses.length,
         awaiting: allHouses.filter((h: any) => !reviewed.has(h.id)).map((h: any) => ({ house_id: h.id, house_name: h.name })),
         total_signals: completedHouses.reduce((s: number, h: any) => s + (Number(h.signals) || 0), 0),
