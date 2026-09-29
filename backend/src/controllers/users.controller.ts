@@ -287,6 +287,36 @@ export class UsersController {
       return res.status(400).json({ success: false, message, errors: [] });
     }
   }
+
+  // Require all active staff to set a new password at their next login. Back-dates password_changed_at
+  // past the expiry window, which the login flow reads to route each user to a password reset. It is
+  // self-healing (changing the password resets the clock) and reversible. Admin acts within their own
+  // tenant; a super-admin may target a company or (all=true) every company.
+  async forcePasswordReset(req: Request, res: Response) {
+    try {
+      const isSuper = req.user!.role === 'SUPER_ADMIN';
+      const scopeAll = isSuper && req.body?.all === true;
+      const company_id = isSuper ? (req.body?.company_id || req.user!.company_id) : req.user!.company_id;
+      const params: unknown[] = [];
+      let where = "LOWER(COALESCE(status,'active'))='active'";
+      if (!scopeAll) { params.push(company_id); where += ` AND company_id=$${params.length}`; }
+      const r = await query(
+        `UPDATE users SET password_changed_at = NOW() - INTERVAL '400 days' WHERE ${where} RETURNING id`,
+        params
+      );
+      try {
+        await query(
+          `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+           VALUES (gen_random_uuid(), $1, $2, 'FORCE_PASSWORD_RESET', 'users', $2, $3)`,
+          [req.user!.company_id, req.user!.user_id, JSON.stringify({ affected: r.rowCount, scope: scopeAll ? 'all_companies' : company_id })]
+        );
+      } catch { /* audit best-effort */ }
+      return res.json({ success: true, data: { affected: r.rowCount, scope: scopeAll ? 'all_companies' : company_id }, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to require password reset';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
 }
 
 export const usersController = new UsersController();

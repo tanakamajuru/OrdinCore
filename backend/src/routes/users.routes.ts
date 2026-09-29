@@ -36,6 +36,8 @@ router.get('/directory', requireAuth, requireTenant, usersController.directory.b
  *         description: Success
  */
 router.post('/', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.create.bind(usersController));
+// Require all active staff to reset their password at next login (self-healing, reversible).
+router.post('/force-password-reset', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN'), usersController.forcePasswordReset.bind(usersController));
 /**
  * @openapi
  * /api/v1/users:

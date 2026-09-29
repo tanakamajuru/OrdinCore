@@ -70,6 +70,7 @@ const AdminUserManagement: React.FC = () => {
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [forcingReset, setForcingReset] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isPasswordDialogOpen, setIsPasswordDialogOpen] = useState(false);
@@ -548,16 +549,38 @@ const AdminUserManagement: React.FC = () => {
     return <div className="p-6">Loading...</div>;
   }
 
+  const handleForcePasswordReset = async () => {
+    if (!window.confirm('Require ALL active staff to set a new password at their next login?\n\nEveryone will be prompted to reset when they next sign in. This is reversible and self-heals once each person changes their password.')) return;
+    setForcingReset(true);
+    try {
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/force-password-reset`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${localStorage.getItem('authToken')}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      });
+      const data = await res.json();
+      if (res.ok) toast.success(`Password reset required for ${data.data?.affected ?? 0} staff at their next login.`);
+      else toast.error(data.message || 'Failed to require password reset');
+    } catch { toast.error('Failed to require password reset'); }
+    finally { setForcingReset(false); }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h1 className="text-3xl  text-foreground">User Management</h1>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
-          <UserPlus className="mr-2 h-4 w-4" />
-          Add User
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button onClick={handleForcePasswordReset} disabled={forcingReset} variant="outline" className="border-amber-300 text-amber-800 hover:bg-amber-50">
+            <Key className="mr-2 h-4 w-4" />
+            {forcingReset ? 'Applying…' : 'Require password reset'}
+          </Button>
+          <Button onClick={() => setIsCreateDialogOpen(true)} className="bg-primary text-primary-foreground hover:bg-primary/90 shadow-sm">
+            <UserPlus className="mr-2 h-4 w-4" />
+            Add User
+          </Button>
+        </div>
       </div>
 
       {/* Statistics Cards */}
