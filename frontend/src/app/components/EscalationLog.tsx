@@ -204,8 +204,9 @@ export function EscalationLog() {
       setResolutionNotes("");
       setNextReviewAt("");
       loadEscalations();
-    } catch (err) {
-      toast.error('Failed to update progress');
+    } catch (err: any) {
+      // Surface the real reason (e.g. the record is locked/resolved) instead of a generic message.
+      toast.error(err?.response?.data?.message || err?.message || 'Failed to update progress');
     } finally {
       setIsSubmitting(false);
     }

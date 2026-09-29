@@ -1,5 +1,10 @@
-import { useState, useEffect, createContext, useContext, ReactNode } from 'react';
+import { useState, useEffect, useRef, createContext, useContext, ReactNode } from 'react';
 import { apiClient } from '@/services/api';
+import { toast } from 'sonner';
+
+// Security: end an unattended session automatically so an unlocked device can't be used by someone
+// else. Any genuine user activity resets the timer.
+const IDLE_LOGOUT_MS = 5 * 60 * 1000;
 
 interface User {
   id: string;
@@ -117,6 +122,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     apiClient.logout().catch(console.error);
     clearSession();
   };
+
+  // Idle auto-logout: while signed in, reset a 5-minute timer on any activity; on expiry, end the
+  // session (fail-closed) so an idle screen returns to login. Uses a ref so re-renders don't reset it.
+  const idleTimer = useRef<number | undefined>(undefined);
+  useEffect(() => {
+    if (!token) return;
+    const endIdleSession = () => {
+      try { sessionStorage.setItem('idleLogout', '1'); } catch { /* ignore */ }
+      toast.message('Signed out after 5 minutes of inactivity.');
+      logout();
+    };
+    const reset = () => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      idleTimer.current = window.setTimeout(endIdleSession, IDLE_LOGOUT_MS);
+    };
+    const events: (keyof WindowEventMap)[] = ['mousemove', 'mousedown', 'keydown', 'scroll', 'touchstart', 'click', 'visibilitychange'];
+    events.forEach((e) => window.addEventListener(e, reset, { passive: true } as any));
+    reset();
+    return () => {
+      if (idleTimer.current) window.clearTimeout(idleTimer.current);
+      events.forEach((e) => window.removeEventListener(e, reset));
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [token]);
 
   const value: AuthContextType = {
     user,
