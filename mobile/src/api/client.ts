@@ -17,10 +17,20 @@ type Options = { method?: string; body?: any; token?: string; signal?: AbortSign
 // unwrap returns .data; request throws ApiError with the server's message on failure.
 export async function request<T = any>(path: string, opts: Options = {}): Promise<T> {
   const token = opts.token ?? authToken;
-  const res = await fetch(`${API_BASE_URL}${path}`, {
-    method: opts.method || 'GET',
+  const method = opts.method || 'GET';
+  // Mobile must always reflect the LIVE server. Android's networking layer (OkHttp) caches GET
+  // responses per-URL, which made some screens show stale data while others were fresh. Defeat it
+  // three ways: cache:'no-store', explicit no-cache headers, and a per-request cache-busting param
+  // on GETs (a changing URL can never hit the HTTP cache). The server ignores the extra param.
+  let url = `${API_BASE_URL}${path}`;
+  if (method === 'GET') url += `${path.includes('?') ? '&' : '?'}_ts=${Date.now()}`;
+  const res = await fetch(url, {
+    method,
+    cache: 'no-store',
     headers: {
       'Content-Type': 'application/json',
+      'Cache-Control': 'no-cache, no-store, must-revalidate',
+      'Pragma': 'no-cache',
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
     body: opts.body != null ? JSON.stringify(opts.body) : undefined,
