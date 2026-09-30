@@ -82,6 +82,30 @@ export function EscalationLog() {
   const [assigningTask, setAssigningTask] = useState(false);
   const [showFilters, setShowFilters] = useState(false);
   const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
+  // Escalation Screen Doctrine: one canonical record, role-separated controls. The Team Leader
+  // contributes evidence; the Registered Manager owns the governance decision.
+  const activeRole = String(localStorage.getItem("userRole") || (JSON.parse(localStorage.getItem("user") || "{}")?.role) || "").toUpperCase().replace(/-/g, "_");
+  const isDelivery = ["TEAM_LEADER", "SUPPORT_WORKER"].includes(activeRole);
+  const canDecide = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(activeRole);
+  const [progressNote, setProgressNote] = useState("");
+  const [progressUrgent, setProgressUrgent] = useState(false);
+  const [progressBusy, setProgressBusy] = useState(false);
+
+  const addProgress = async () => {
+    if (!selectedEscalation) return;
+    if (progressNote.trim().length < 3) { toast.error("Add a brief factual progress note."); return; }
+    setProgressBusy(true);
+    try {
+      await apiClient.post(`/escalations/${selectedEscalation.id}/progress`, {
+        note: progressNote.trim(), urgent: progressUrgent, urgent_reason: progressUrgent ? progressNote.trim() : undefined,
+      });
+      toast.success(progressUrgent ? "Update added and RM attention flagged." : "Progress update added.");
+      setProgressNote(""); setProgressUrgent(false);
+      loadEscalations();
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || err?.message || "Failed to add progress update");
+    } finally { setProgressBusy(false); }
+  };
 
   useEffect(() => {
     apiClient.get('/users/directory')
@@ -667,7 +691,27 @@ export function EscalationLog() {
                       </Button>
                     )}
 
-                    {lifecycleState(selectedEscalation) !== 'resolved' && (
+                    {/* Team Leader / delivery: add progress or evidence — NOT a governance decision.
+                        The escalation stays open with no action-count change (Escalation Doctrine). */}
+                    {isDelivery && lifecycleState(selectedEscalation) !== 'resolved' && (
+                      <div className="space-y-3 pt-4 border-t border-border">
+                        <label className="text-xs uppercase text-muted-foreground block">Add progress update or evidence</label>
+                        <p className="text-xs text-muted-foreground">What happened and what changed. This is evidence for the Registered Manager — it does not close or decide the escalation.</p>
+                        <textarea value={progressNote} onChange={(e) => setProgressNote(e.target.value)} spellCheck
+                          placeholder="Progress, observation, communication or external response…"
+                          className="w-full h-24 bg-input-background border-2 border-border p-3 text-sm rounded-lg focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none" />
+                        <label className="flex items-center gap-2 text-sm text-foreground">
+                          <input type="checkbox" checked={progressUrgent} onChange={(e) => setProgressUrgent(e.target.checked)} />
+                          Flag urgent Registered Manager attention
+                        </label>
+                        <Button onClick={addProgress} disabled={progressBusy || progressNote.trim().length < 3} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                          {progressBusy ? "Adding…" : "Add update"}
+                        </Button>
+                        <p className="text-[11px] text-muted-foreground">Escalation ownership, monitoring decisions and closure remain the Registered Manager's.</p>
+                      </div>
+                    )}
+
+                    {canDecide && lifecycleState(selectedEscalation) !== 'resolved' && (
                       <div className="space-y-3 pt-4 border-t border-border">
                         <div>
                           <label className="text-xs uppercase text-muted-foreground block mb-2">What is your decision following this review?</label>
