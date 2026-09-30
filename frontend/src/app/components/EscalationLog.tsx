@@ -187,10 +187,18 @@ export function EscalationLog() {
         if (!current) return null;
         const fresh = list.find((e: Escalation) => e.id === current.id) as any;
         if (!fresh) return current;
+        // Spread CURRENT first so detail-only fields the list query doesn't return — actions (the
+        // 'Why is it still open?' note), observation, capabilities, action counts — survive a
+        // background refresh; then overlay the fresh list row; then re-coalesce the null-prone
+        // detail fields the list sends as null. Without this the note vanished after the first poll.
         return {
+          ...(current as any),
           ...fresh,
+          actions: fresh.actions ?? (current as any).actions,
           control_position: fresh.control_position ?? (current as any).control_position,
           closed_by_name: fresh.closed_by_name ?? (current as any).closed_by_name,
+          latest_effectiveness: fresh.latest_effectiveness ?? (current as any).latest_effectiveness,
+          capabilities: fresh.capabilities ?? (current as any).capabilities,
         };
       });
     } catch (err) {
