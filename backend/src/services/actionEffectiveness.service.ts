@@ -54,12 +54,13 @@ export class ActionEffectivenessService {
 
     const legacy = toLegacyEffectiveness(outcome);
     let nextReviewDate: Date | null = null;
-    if (outcome === 'Too Early To Assess') {
-      if (!data.next_review_date) throw new Error('Too Early to Assess requires a future review date.');
+    if (data.next_review_date) {
       nextReviewDate = new Date(`${data.next_review_date}T00:00:00.000Z`);
       if (Number.isNaN(nextReviewDate.getTime()) || nextReviewDate.getTime() <= Date.now()) {
-        throw new Error('The next effectiveness review date must be in the future.');
+        throw new Error('The next review date must be in the future.');
       }
+    } else if (outcome === 'Too Early To Assess') {
+      throw new Error('Too Early to Assess requires a future review date.');
     }
 
     const result = await query(
@@ -112,6 +113,18 @@ export class ActionEffectivenessService {
         companyId: company_id, actionId, riskId: updatedAction.risk_id || null,
         outcome, actorId: userId,
       });
+      // A control rated Not Effective / Partially Effective is not the end: when the RM sets a date to
+      // come back and re-check whether the (revised) control now works, schedule that re-review so it
+      // returns to the work queue on that date.
+      if (nextReviewDate && (outcome === 'Not Effective' || outcome === 'Partially Effective')) {
+        await reviewObligationsService.open({
+          companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
+          actionId, riskId: updatedAction.risk_id || null, dueAt: nextReviewDate, ownerRole: 'REGISTERED_MANAGER',
+          reason: outcome === 'Not Effective'
+            ? 'Control rated Not Effective — re-review at the set date to confirm the revised control works.'
+            : 'Control partially effective — re-review at the set date.',
+        });
+      }
     }
 
     await eventBus.emitEvent(EVENTS.ACTION_EFFECTIVENESS_REVIEWED, {
