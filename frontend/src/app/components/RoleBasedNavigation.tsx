@@ -295,8 +295,8 @@ export function RoleBasedNavigation() {
       </button>
     )}
     <aside className={`ordin-sidebar fixed inset-y-0 left-0 w-56 bg-slate-900 text-slate-300 flex flex-col z-40 transition-transform duration-200 ${navCollapsed ? "-translate-x-full" : ""}`}>
-      <div className="flex items-center gap-2 px-5 py-3 min-h-[4rem] border-b border-slate-800 shrink-0">
-        <img src={logo} alt="Ordin Core" className="h-8 w-auto" />
+      <div className="flex items-center gap-2 px-4 py-3 min-h-[4.5rem] border-b border-slate-800 shrink-0">
+        <img src={logo} alt="Ordin Core" className="h-14 w-auto" />
         <div className="leading-tight">
           <p className="text-white font-semibold text-sm tracking-wide">ORDIN CORE</p>
           <p className="text-[10px] text-slate-400">Governance. Evidence. Assurance.</p>

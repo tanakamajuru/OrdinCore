@@ -1484,8 +1484,8 @@ export default function App() {
 
       {/* ── GOVERNANCE OUTPUTS LIGHTBOX ── */}
       {activeOutputDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in">
-          <div className="relative w-full max-w-5xl overflow-hidden rounded-3xl border border-slate-850 bg-slate-900 shadow-2xl p-6 flex flex-col space-y-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in" onClick={() => setActiveOutputDetail(null)}>
+          <div className="relative w-full max-w-7xl overflow-hidden rounded-3xl border border-slate-850 bg-slate-900 shadow-2xl p-6 flex flex-col space-y-4" onClick={(e) => e.stopPropagation()}>
             <button
               onClick={() => setActiveOutputDetail(null)}
               className="absolute top-4 right-4 h-9 w-9 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 hover:bg-slate-700 transition"
@@ -1503,7 +1503,7 @@ export default function App() {
               </p>
             </div>
 
-            <div className="relative flex-1 overflow-auto rounded-xl border border-slate-850 bg-slate-950 flex items-center justify-center max-h-[70vh] min-h-[300px]">
+            <div className="relative flex-1 overflow-auto rounded-xl border border-slate-850 bg-slate-950 flex items-center justify-center max-h-[85vh] min-h-[300px]">
               <img
                 src={activeOutputDetail.image}
                 alt={activeOutputDetail.label}

@@ -111,8 +111,10 @@ export function Login() {
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
         <div className="w-full max-w-md">
           <div className="bg-card border-2 border-border p-8 shadow-md">
-            <div className="text-center mb-2 flex flex-col items-center">
-              <img src={logo} alt="Logo" className="w-55 h-55 mb-1 mx-auto" />
+            <div className="text-center mb-4 flex flex-col items-center">
+              <img src={logo} alt="OrdinCore" className="w-55 h-55 mb-1 mx-auto" />
+              {/* Same brand line as the mobile app login. */}
+              <h1 className="text-lg font-bold text-primary text-center tracking-tight">Governance. Oversight. Assurance. Every Day.</h1>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">

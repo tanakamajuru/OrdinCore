@@ -33,7 +33,7 @@ export const canonicalEvidenceService = {
       `SELECT m.count_type, m.evidence_id, m.house_id, m.due_at, ra.risk_id AS action_risk_id
          FROM canonical_material_count_v m
          LEFT JOIN canonical_action_state_v ra
-           ON ra.company_id = m.company_id AND ra.id = m.evidence_id
+           ON ra.company_id = m.company_id AND ra.id::text = m.evidence_id
           AND m.count_type IN ('ACTION_OPEN','EFFECTIVENESS_REVIEW')
         WHERE m.company_id=$1${house}
         ORDER BY m.count_type, m.due_at NULLS LAST, m.evidence_id`, params)).rows;
