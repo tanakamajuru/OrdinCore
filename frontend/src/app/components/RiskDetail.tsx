@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams, useSearchParams } from "react-router";
 import { ArrowLeft, Plus, TrendingUp, TrendingDown, ArrowRightCircle } from "lucide-react";
@@ -369,9 +369,16 @@ export function RiskDetail() {
   const [searchParams] = useSearchParams();
   // Deep-link deep-scroll: a /risk-register/:id?section=… link (or the /risks/:id redirect)
   // lands on the right sub-section instead of the top of the record (Migration-Map Phase 2).
+  // Scroll ONCE per section link — NOT on every background refetch. `risk` gets a fresh object
+  // reference each time useGovernanceRefresh reloads it (socket/poll/focus), and re-running the
+  // scroll made the page jump to the section while the user was working. The ref pins it to a
+  // single scroll per section value.
+  const scrolledSectionRef = useRef<string | null>(null);
   useEffect(() => {
     const section = searchParams.get("section");
     if (!risk || !section) return;
+    if (scrolledSectionRef.current === section) return;
+    scrolledSectionRef.current = section;
     const map: Record<string, string> = { actions: "rd-actions", effectiveness: "rd-actions", origin: "rd-origin", reviews: "rd-reviews", escalations: "rd-reviews" };
     const el = document.getElementById(map[section] || `rd-${section}`);
     if (el) setTimeout(() => el.scrollIntoView({ behavior: "smooth", block: "start" }), 200);
@@ -381,8 +388,14 @@ export function RiskDetail() {
   // Guided Work RM_RISK_REVIEW deep-link (?review=1) opens the Risk Review decision directly, so
   // "Open required work" lands the RM on the actual review control (the four-question Risk Review +
   // verdict, which shows any remaining blockers), not just the top of the risk record.
+  // Open the Risk Review modal ONCE for a ?review=1 deep-link — not on every background refetch,
+  // which would otherwise re-open the modal after the user closed it.
+  const openedReviewRef = useRef(false);
   useEffect(() => {
-    if (risk && searchParams.get("review") === "1") setShowCloseModal(true);
+    if (risk && searchParams.get("review") === "1" && !openedReviewRef.current) {
+      openedReviewRef.current = true;
+      setShowCloseModal(true);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [risk, searchParams]);
 

@@ -269,7 +269,8 @@ export function EscalationLog() {
     switch (normalized) {
       case 'critical': return 'bg-destructive text-destructive-foreground';
       case 'urgent': return 'bg-destructive/80 text-destructive-foreground';
-      case 'high': return 'bg-primary text-primary-foreground';
+      // High = amber (the high-severity colour), consistent with the rest of the app — not blue.
+      case 'high': return 'bg-amber-500 text-white';
       default: return 'bg-muted text-muted-foreground';
     }
   };
