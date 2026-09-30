@@ -80,7 +80,8 @@ export function EscalationLog() {
     review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
   });
   const [assigningTask, setAssigningTask] = useState(false);
-  const [showFilters, setShowFilters] = useState(false);
+  // Filters (incl. the From/To date range) open by default so the date range is visible, not hidden.
+  const [showFilters, setShowFilters] = useState(true);
   const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
   // Escalation Screen Doctrine: one canonical record, role-separated controls. The Team Leader
   // contributes evidence; the Registered Manager owns the governance decision.
@@ -544,7 +545,9 @@ export function EscalationLog() {
           {/* Details & Actions Section */}
           <div className="xl:col-span-2">
             {selectedEscalation ? (
-              <div className="sticky top-6 space-y-6">
+              // Flow with the page (no sticky) so BOTH columns scroll together instead of the detail
+              // staying pinned while the list scrolls — the reported "one side scrolls" clumsiness.
+              <div className="space-y-6">
                 <Card className="border-2 border-border shadow-xl">
                   <CardHeader className="bg-card border-b border-border">
                     <div className="flex items-center justify-between gap-3">

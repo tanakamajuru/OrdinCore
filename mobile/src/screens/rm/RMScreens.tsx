@@ -147,7 +147,14 @@ export function RMEscalationsScreen() {
   const nav = useNavigation<any>();
   const { data, loading, error, refetch } = useApi<any>('/escalations?limit=200');
   const [tab, setTab] = useState<'open' | 'overdue'>('open');
-  const all = arr(data);
+  const [range, setRange] = useState<'all' | '7' | '30' | 'month'>('all');
+  const inRange = (e: any) => {
+    if (range === 'all') return true;
+    const t = new Date(e.created_at || e.escalated_at || 0).getTime();
+    if (range === 'month') { const d = new Date(); return t >= new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
+    return t >= Date.now() - Number(range) * 86400000;
+  };
+  const all = arr(data).filter(inRange);
   const open = all.filter(isOpen);
   const overdue = open.filter((e) => e.overdue);
   const shown = tab === 'overdue' ? overdue : open;
@@ -170,6 +177,11 @@ export function RMEscalationsScreen() {
       <Row gap={7}>
         <Chip label={`Open · ${open.length}`} active={tab === 'open'} onPress={() => setTab('open')} />
         <Chip label={`Overdue · ${overdue.length}`} active={tab === 'overdue'} onPress={() => setTab('overdue')} />
+      </Row>
+      <Row gap={6} style={{ flexWrap: 'wrap' }}>
+        {([['all','All'],['7','Last 7 days'],['30','Last 30 days'],['month','This month']] as const).map(([v,l]) => (
+          <Chip key={v} label={l} active={range === v} onPress={() => setRange(v)} />
+        ))}
       </Row>
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : (
         <StatusList items={items} empty="No escalations here." />
