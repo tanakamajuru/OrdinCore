@@ -2,6 +2,28 @@ import { Request, Response } from 'express';
 import { escalationsService } from '../services/escalations.service';
 import { emitToCompany } from '../websocket/socket.server';
 
+// Role-based authority on one canonical escalation record (Escalation Screen Doctrine, 29 Sep 2026).
+// Both roles read the same evidence; the active role decides which mutations are permitted. The Team
+// Leader contributes evidence and completes assigned work; the RM owns the governance decision.
+const OVERSIGHT_ROLES = ['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'];
+export function escalationCapabilities(roleRaw: string) {
+  const role = String(roleRaw || '').toUpperCase().replace(/-/g, '_');
+  const isOversight = OVERSIGHT_ROLES.includes(role);
+  const isDelivery = ['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role);
+  return {
+    active_role: role,
+    can_view: true,
+    can_add_update: isDelivery || isOversight,          // factual progress / evidence
+    can_complete_assigned_action: isDelivery || isOversight,
+    can_flag_urgent: isDelivery || isOversight,          // TL: urgent-flag only
+    can_make_governance_decision: isOversight,           // continue monitoring / allocate action
+    can_create_action: isOversight,
+    can_escalate_further: isOversight,
+    can_start_closure: isOversight,
+    can_close: isOversight,                              // still subject to the closure gate
+  };
+}
+
 export class EscalationsController {
   async findAll(req: Request, res: Response) {
     try {
@@ -27,9 +49,25 @@ export class EscalationsController {
           return res.status(404).json({ success: false, message: 'Escalation not found', errors: [] });
         }
       }
+      escalation.capabilities = escalationCapabilities(role);
       return res.json({ success: true, data: escalation, meta: {} });
     } catch (err: unknown) {
       return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Escalation not found', errors: [] });
+    }
+  }
+
+  // Append-only TL/RM progress or evidence entry — NOT a governance decision (Escalation Doctrine
+  // §2/§7). Permitted for delivery + oversight roles; the escalation stays open with no action-count
+  // change. An urgent flag raises RM attention.
+  async addProgress(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const role = String(req.user!.role || '').toUpperCase().replace(/-/g, '_');
+      const result = await escalationsService.addProgress(req.params.id, company_id, req.user!.user_id, role, req.body);
+      emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_progress_added', escalation_id: req.params.id });
+      return res.status(201).json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to add progress update', errors: [] });
     }
   }
 

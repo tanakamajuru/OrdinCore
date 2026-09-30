@@ -458,6 +458,48 @@ export class EscalationsService {
     return result.rows[0];
   }
 
+  // Append-only progress/evidence entry (Escalation Doctrine §2/§7). This is EVIDENCE, not a
+  // governance decision: it never changes status, never sets a next-review, never creates an action.
+  // Available to delivery roles (Team Leader/Support Worker) as well as oversight. An urgent flag
+  // records that RM attention is required and best-effort notifies the oversight team.
+  async addProgress(id: string, company_id: string, user_id: string, role: string, data: { note?: string; description?: string; urgent?: boolean; urgent_reason?: string; linked_action_id?: string }) {
+    const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
+    if (!escalation.rows[0]) throw new Error('Escalation not found');
+    if (['Resolved', 'Closed'].includes(escalation.rows[0].status)) {
+      throw new Error('This escalation is closed and cannot take new updates (Governance Integrity Rule 7.2).');
+    }
+    const text = String(data.note || data.description || '').trim();
+    if (text.length < 3) throw new Error('A progress update needs a brief factual note.');
+    const urgent = !!data.urgent;
+    const description = urgent ? `[URGENT — RM attention required] ${data.urgent_reason ? `(${String(data.urgent_reason).trim()}) ` : ''}${text}` : text;
+    const result = await query(
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, acted_as_role)
+       VALUES ($1,$2,$3,'progress',$4,$5,$6) RETURNING *`,
+      [uuidv4(), id, company_id, description, user_id, role]
+    );
+    if (urgent) {
+      // Record the attention flag on the escalation and best-effort notify the oversight team so an
+      // RM sees it on the exact escalation.
+      try {
+        await query(
+          `UPDATE escalations SET metadata = COALESCE(metadata,'{}'::jsonb) || jsonb_build_object('rm_attention', true, 'rm_attention_at', NOW()::text), updated_at = NOW() WHERE id = $1`,
+          [id]
+        );
+      } catch { /* metadata is best-effort */ }
+      try {
+        await query(
+          `INSERT INTO notifications (id, company_id, user_id, type, title, body, metadata, created_at)
+           SELECT gen_random_uuid(), $1, u.id, 'escalation_attention', 'Urgent escalation attention',
+                  $2, jsonb_build_object('escalation_id', $3), NOW()
+             FROM users u
+            WHERE u.company_id = $1 AND UPPER(u.role) IN ('REGISTERED_MANAGER','DIRECTOR') AND LOWER(COALESCE(u.status,'active'))='active'`,
+          [company_id, `A team member flagged escalation for urgent attention: ${text.slice(0, 120)}`, id]
+        );
+      } catch { /* notifications is best-effort; the metadata flag + audit entry still stand */ }
+    }
+    return result.rows[0];
+  }
+
   async getActions(id: string, company_id: string) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');

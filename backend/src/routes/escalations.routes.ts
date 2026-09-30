@@ -78,6 +78,9 @@ router.get('/:id', requireAuth, requireTenant, escalationsController.findById.bi
  *         description: Success
  */
 router.post('/:id/actions', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addAction.bind(escalationsController));
+// Append-only progress/evidence — permitted for delivery roles (Team Leader/Support Worker) too.
+// This is NOT a governance decision (Escalation Doctrine): it never changes status or creates actions.
+router.post('/:id/progress', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addProgress.bind(escalationsController));
 // Assign a task from an escalation (works with or without a linked risk).
 router.post('/:id/task', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), escalationsController.addTask.bind(escalationsController));
 /**
