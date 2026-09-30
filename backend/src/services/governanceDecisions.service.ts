@@ -149,8 +149,15 @@ export const governanceDecisionsService = {
 
     if (decision === 'Create Action') {
       const reviewRequirement = input.review_requirement || 'EFFECTIVENESS_REQUIRED';
+      // Carry ALL the completed governance questions onto the action, not just the first sentence:
+      // what is happening, the rationale, and (when effectiveness is required) the intended outcome.
+      const composedDescription = [
+        input.what_is_happening?.trim(),
+        input.decision_rationale?.trim() ? `Rationale: ${input.decision_rationale.trim()}` : null,
+        (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && input.intended_outcome?.trim()) ? `Intended outcome: ${input.intended_outcome.trim()}` : null,
+      ].filter(Boolean).join('\n\n');
       task = await canonicalGovernanceActionService.create({
-        companyId:c, createdBy:u, title, description:input.what_is_happening.trim(),
+        companyId:c, createdBy:u, title, description:composedDescription,
         assignedTo:input.owner_id??null, dueDate:input.due_at??null, houseId:input.house_id??null,
         riskId:input.risk_id??null, governanceReviewId:decisionId, sourcePulseId:input.pulse_entry_id??null,
         sourceClusterId:input.cluster_id??null, reviewRequirement,
