@@ -428,7 +428,7 @@ export class EscalationsService {
     return { message: 'Escalation acknowledged' };
   }
 
-  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string; next_review_at?: string }) {
+  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string; next_review_at?: string; monitoring_owner_id?: string; monitoring_trigger?: string; evidence_to_observe?: string }) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
@@ -442,17 +442,23 @@ export class EscalationsService {
       [uuidv4(), id, company_id, data.action_type, data.description, user_id]
     );
 
-    // Doctrine: continuing oversight is time-bound. When the RM keeps an escalation open they
-    // must set a next review point — recorded on the escalation's EXISTING metadata JSONB as
-    // next_review_at (no schema change) and aligned onto due_by so the queue resurfaces it then.
-    if (data.next_review_at) {
+    // Doctrine: continuing oversight is time-bound AND accountable. When the RM keeps an escalation
+    // open they set a next review point (recorded on metadata.next_review_at and aligned onto due_by
+    // so the queue resurfaces it), a NAMED monitoring owner, what evidence is being watched and the
+    // trigger that would force an action/further escalation. No schema change — all on metadata JSONB.
+    if (data.next_review_at || data.monitoring_owner_id || data.monitoring_trigger || data.evidence_to_observe) {
+      const meta: Record<string, unknown> = {};
+      if (data.monitoring_owner_id) meta.monitoring_owner_id = data.monitoring_owner_id;
+      if (data.monitoring_trigger) meta.monitoring_trigger = String(data.monitoring_trigger).trim();
+      if (data.evidence_to_observe) meta.evidence_to_observe = String(data.evidence_to_observe).trim();
+      if (data.next_review_at) { meta.next_review_at = data.next_review_at; meta.monitoring_set_at = new Date().toISOString(); }
       await query(
         `UPDATE escalations
-            SET metadata = COALESCE(metadata, '{}'::jsonb) || jsonb_build_object('next_review_at', $2::text),
-                due_by = $2::timestamptz,
+            SET metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
+                due_by = COALESCE($3::timestamptz, due_by),
                 updated_at = NOW()
           WHERE id = $1`,
-        [id, data.next_review_at]
+        [id, JSON.stringify(meta), data.next_review_at || null]
       );
     }
     return result.rows[0];

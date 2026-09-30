@@ -90,6 +90,10 @@ export function EscalationLog() {
   const [progressNote, setProgressNote] = useState("");
   const [progressUrgent, setProgressUrgent] = useState(false);
   const [progressBusy, setProgressBusy] = useState(false);
+  // Continue-monitoring is accountable: a named owner, what evidence is watched, and the trigger.
+  const [monitorOwner, setMonitorOwner] = useState("");
+  const [monitorTrigger, setMonitorTrigger] = useState("");
+  const [monitorEvidence, setMonitorEvidence] = useState("");
 
   const addProgress = async () => {
     if (!selectedEscalation) return;
@@ -217,16 +221,24 @@ export function EscalationLog() {
       toast.error('Set a next review date — continuing oversight must be time-bound.');
       return;
     }
+    if (!monitorOwner) {
+      toast.error('Name the monitoring owner — someone must be accountable for the watch.');
+      return;
+    }
     setIsSubmitting(true);
     try {
       await apiClient.post(`/escalations/${selectedEscalation.id}/actions`, {
         action_type: 'update',
         description: resolutionNotes,
         next_review_at: nextReviewAt,
+        monitoring_owner_id: monitorOwner,
+        monitoring_trigger: monitorTrigger.trim() || undefined,
+        evidence_to_observe: monitorEvidence.trim() || undefined,
       });
-      toast.success('Oversight continued — next review set');
+      toast.success('Oversight continued — monitoring owner and next review set');
       setResolutionNotes("");
       setNextReviewAt("");
+      setMonitorOwner(""); setMonitorTrigger(""); setMonitorEvidence("");
       loadEscalations();
     } catch (err: any) {
       // Surface the real reason (e.g. the record is locked/resolved) instead of a generic message.
@@ -749,22 +761,45 @@ export function EscalationLog() {
                             (a note is required). Closure is only ever via the evidence-based
                             closure review below ("Close with evidence") — the old direct
                             "Mark as Resolved" shortcut around the governance gate is removed. */}
-                        {reviewDecision === 'monitor' && <div className="flex flex-col sm:flex-row gap-3 items-stretch">
-                          <div className="flex-1">
-                            <label className="text-[11px] text-muted-foreground block mb-1">Next review date {!nextReviewAt && <span className="text-amber-600">· required to keep open</span>}</label>
-                            <input
-                              type="date"
-                              value={nextReviewAt}
-                              onChange={(e) => setNextReviewAt(e.target.value)}
-                              className={`w-full p-2.5 border-2 rounded-lg bg-background text-sm ${!nextReviewAt ? 'border-amber-400' : 'border-border'}`}
-                            />
+                        {reviewDecision === 'monitor' && <div className="space-y-3">
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <div>
+                              <label className="text-[11px] text-muted-foreground block mb-1">Next review date {!nextReviewAt && <span className="text-amber-600">· required</span>}</label>
+                              <input
+                                type="date"
+                                value={nextReviewAt}
+                                min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)}
+                                onChange={(e) => setNextReviewAt(e.target.value)}
+                                className={`w-full p-2.5 border-2 rounded-lg bg-background text-sm ${!nextReviewAt ? 'border-amber-400' : 'border-border'}`}
+                              />
+                            </div>
+                            <div>
+                              <label className="text-[11px] text-muted-foreground block mb-1">Monitoring owner {!monitorOwner && <span className="text-amber-600">· required</span>}</label>
+                              <select value={monitorOwner} onChange={(e) => setMonitorOwner(e.target.value)}
+                                className={`w-full p-2.5 border-2 rounded-lg bg-background text-sm ${!monitorOwner ? 'border-amber-400' : 'border-border'}`}>
+                                <option value="">Who is watching this?</option>
+                                {assignees.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim()} ({String(u.role || '').replace(/_/g, ' ')})</option>)}
+                              </select>
+                            </div>
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground block mb-1">What evidence is being watched? (optional)</label>
+                            <input type="text" value={monitorEvidence} onChange={(e) => setMonitorEvidence(e.target.value)}
+                              placeholder="e.g. no further incidents; GP response received; medication chart clean"
+                              className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                          </div>
+                          <div>
+                            <label className="text-[11px] text-muted-foreground block mb-1">Trigger for action / further escalation (optional)</label>
+                            <input type="text" value={monitorTrigger} onChange={(e) => setMonitorTrigger(e.target.value)}
+                              placeholder="e.g. any recurrence within 14 days → allocate an action"
+                              className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                           </div>
                           <Button
                             onClick={() => { if (requireNote()) handleUpdateProgress(); }}
                             disabled={isSubmitting}
                             variant="outline"
-                            title={!resolutionNotes ? "Add a note to enable" : !nextReviewAt ? "Set a next review date" : "Keep this escalation open and log progress"}
-                            className={`flex-1 border-border text-foreground hover:bg-muted self-end ${!resolutionNotes || !nextReviewAt ? 'opacity-60' : ''}`}
+                            title={!resolutionNotes ? "Add a note to enable" : !nextReviewAt ? "Set a next review date" : !monitorOwner ? "Name the monitoring owner" : "Keep this escalation open and log progress"}
+                            className={`w-full border-border text-foreground hover:bg-muted ${!resolutionNotes || !nextReviewAt || !monitorOwner ? 'opacity-60' : ''}`}
                           >
                             <Clock className="w-4 h-4 mr-1.5" /> Keep open · continue monitoring
                           </Button>

@@ -6,6 +6,7 @@ import { api } from '@/api/client';
 import { useAuth, normalizeRole } from '@/auth/AuthContext';
 import { RootStackParams } from '@/navigation/types';
 import { Screen, Card, Row, Label, Text, Pill, TextArea, Button, Loading, ErrorNote, Banner, Chip } from '@/components/ui';
+import { CalendarField } from '@/components/CalendarField';
 
 const done = (s?: string) => /complete|completed|cancelled/i.test(s || '');
 const reviewed = (a: any) => !!(a.effectiveness_outcome || a.effectiveness);
@@ -35,12 +36,20 @@ export function EscalationDetailScreen() {
   const [progress, setProgress] = useState('');
   const [urgent, setUrgent] = useState(false);
   const [urgentReason, setUrgentReason] = useState('');
+  // RM "Continue monitoring" — keep open, time-bound and accountable (named owner + trigger).
+  const [monNote, setMonNote] = useState('');
+  const [monDate, setMonDate] = useState('');
+  const [monOwner, setMonOwner] = useState('');
+  const [monTrigger, setMonTrigger] = useState('');
+  const [showMonCal, setShowMonCal] = useState(false);
   const e = q.data;
   // Backend-supplied role capabilities on the ONE canonical record (Escalation Doctrine). Fall back
   // to role checks if an older backend didn't send them.
   const caps = e?.capabilities || {};
   const canAddUpdate = caps.can_add_update ?? (isFrontline || canManage);
   const canDecide = caps.can_make_governance_decision ?? canManage;
+  const dir = useApi<any>(canManage ? '/users/directory' : null);
+  const owners: any[] = Array.isArray(dir.data) ? dir.data : (dir.data?.data || dir.data?.users || []);
   const actions = Array.isArray(aq.data) ? aq.data : (Array.isArray(e?.actions) ? e.actions : []);
   const lifecycle = e?.lifecycle_status || e?.status || 'Open';
   const closed = /closed|resolved/i.test(lifecycle);
@@ -92,6 +101,30 @@ export function EscalationDetailScreen() {
     {isFrontline && <Banner tone="ok" icon="eye" title="Your operational role">Add progress and evidence above, and complete actions assigned to you. Escalation ownership, monitoring decisions and closure remain the Registered Manager's.</Banner>}
     {isDirector && <Banner tone="warn" icon="shield" title="Director assurance view">Review and challenge through weekly or strategic governance. Operational ownership remains with the Registered Manager.</Banner>}
     {activeRole === 'RESPONSIBLE_INDIVIDUAL' && <Banner tone="warn" icon="shield" title="Independent assurance view">This record is read-only in the RI role. Record conclusions through Provider Sign-off.</Banner>}
+    {canDecide && !closed && <Card>
+      <Label>Continue monitoring · keep open</Label>
+      <Text size={11} muted>Time-bound and accountable: a named owner watches this until the next review date.</Text>
+      <TextArea value={monNote} onChangeText={setMonNote} placeholder="Rationale — why monitoring (not an action) is the right decision now…" minHeight={64} required />
+      <Label>Monitoring owner</Label>
+      {owners.length === 0 ? <Text size={12} muted>{dir.loading ? 'Loading colleagues…' : 'No colleagues available.'}</Text>
+        : <Row gap={6} style={{ flexWrap: 'wrap' }}>{owners.filter((u:any)=>['TEAM_LEADER','REGISTERED_MANAGER'].includes(normalizeRole(u.role||''))).map((u:any) => <Chip key={u.id} label={`${u.first_name||''} ${u.last_name||''}`.trim() || u.name || u.email} active={monOwner===u.id} onPress={()=>setMonOwner(u.id)} />)}</Row>}
+      <Label>Next review date</Label>
+      <Row gap={6} style={{ flexWrap: 'wrap' }}>
+        {[['In 1 week',7],['In 2 weeks',14],['In 30 days',30]].map(([lbl,n]) => { const d=new Date(); d.setDate(d.getDate()+(n as number)); const iso=d.toISOString().slice(0,10); return <Chip key={lbl as string} label={lbl as string} active={monDate===iso} onPress={()=>{setMonDate(iso); setShowMonCal(false);}} />; })}
+        <Chip label={showMonCal?'Hide calendar':'Pick a date'} active={showMonCal} onPress={()=>setShowMonCal(v=>!v)} />
+      </Row>
+      {showMonCal && <View style={{ marginTop: 8 }}><CalendarField value={monDate} onChange={(v)=>{setMonDate(v); setShowMonCal(false);}} minDate={new Date(Date.now()+86400000).toISOString().slice(0,10)} /></View>}
+      {!!monDate && <Text size={11.5} muted>Next review {fmt(monDate)}</Text>}
+      <Label>Trigger for action / further escalation (optional)</Label>
+      <TextArea value={monTrigger} onChangeText={setMonTrigger} placeholder="e.g. any recurrence within 14 days → allocate an action" minHeight={44} />
+      <Button title="Keep open · continue monitoring" icon="clock" onPress={async () => {
+        if (monNote.trim().length < 10) { Alert.alert('Add a rationale','Record why monitoring is appropriate (min 10 characters).'); return; }
+        if (!monOwner) { Alert.alert('Name the owner','Someone must be accountable for the watch.'); return; }
+        if (!monDate) { Alert.alert('Set a review date','Continuing oversight must be time-bound.'); return; }
+        await post(`/escalations/${id}/actions`, { action_type: 'update', description: monNote.trim(), next_review_at: monDate, monitoring_owner_id: monOwner, monitoring_trigger: monTrigger.trim() || undefined }, 'Oversight continued — monitoring owner and next review set.');
+        setMonNote(''); setMonDate(''); setMonOwner(''); setMonTrigger(''); setShowMonCal(false);
+      }} loading={busy} />
+    </Card>}
     {canManage && !closed && <Card>
       <Label>Registered Manager decision</Label><TextArea value={note} onChangeText={setNote} placeholder="Evidence and rationale…" minHeight={80} required />
       <Button title="Actions implemented" onPress={() => post(`/escalations/${id}/transition`, { lifecycle_status: 'Actions Implemented', rationale: note.trim() }, 'Lifecycle updated')} disabled={note.trim().length < 10 || incomplete > 0 || busy} />
