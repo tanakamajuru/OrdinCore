@@ -32,7 +32,15 @@ export function EscalationDetailScreen() {
   const [note, setNote] = useState('');
   const [busy, setBusy] = useState(false);
   const [postOutcome, setPostOutcome] = useState('Keep Open');
+  const [progress, setProgress] = useState('');
+  const [urgent, setUrgent] = useState(false);
+  const [urgentReason, setUrgentReason] = useState('');
   const e = q.data;
+  // Backend-supplied role capabilities on the ONE canonical record (Escalation Doctrine). Fall back
+  // to role checks if an older backend didn't send them.
+  const caps = e?.capabilities || {};
+  const canAddUpdate = caps.can_add_update ?? (isFrontline || canManage);
+  const canDecide = caps.can_make_governance_decision ?? canManage;
   const actions = Array.isArray(aq.data) ? aq.data : (Array.isArray(e?.actions) ? e.actions : []);
   const lifecycle = e?.lifecycle_status || e?.status || 'Open';
   const closed = /closed|resolved/i.test(lifecycle);
@@ -66,7 +74,22 @@ export function EscalationDetailScreen() {
     {actions.length === 0 ? <Banner tone="warn" icon="alert-circle" title="No linked action evidence">Closure remains blocked until a control/action is linked and completed.</Banner>
       : actions.map((a: any) => <Card key={a.id}><Text size={13} weight="600">{a.title || a.description || a.action_type}</Text><Text size={11} muted>{a.status || 'Recorded'}{reviewed(a) ? ` · effectiveness: ${a.effectiveness_outcome || a.effectiveness}` : done(a.status) ? ' · effectiveness pending' : ''}</Text></Card>)}
     {!e.acknowledged_at && !closed && (isFrontline || canManage) && <Button title={isFrontline ? 'Acknowledge management instruction' : 'Acknowledge escalation'} tone="ghost" onPress={() => post(`/escalations/${id}/acknowledge`, {}, 'Acknowledgement recorded')} loading={busy} />}
-    {isFrontline && <Banner tone="ok" icon="eye" title="Your operational role">Complete actions assigned to you and add evidence there. Escalation ownership, reassignment and closure remain management decisions.</Banner>}
+    {/* Team Leader / delivery: add a factual progress update or evidence. This is EVIDENCE for the RM,
+        not a governance decision — the escalation stays open with no action-count change. */}
+    {canAddUpdate && !canDecide && !closed && <Card>
+      <Label>Add progress update or evidence</Label>
+      <Text size={11} muted>What happened and what changed. This is evidence for the Registered Manager — it does not close or decide the escalation.</Text>
+      <TextArea value={progress} onChangeText={setProgress} placeholder="Progress, observation, communication or external response…" minHeight={80} required />
+      <Chip label={urgent ? 'Urgent RM attention required ✓' : 'Flag urgent RM attention'} active={urgent} onPress={() => setUrgent(!urgent)} />
+      {urgent && <TextArea value={urgentReason} onChangeText={setUrgentReason} placeholder="Why does the Registered Manager need to act now?" minHeight={50} required />}
+      <Button title="Add update" icon="edit-3" onPress={async () => {
+        if (progress.trim().length < 3) { Alert.alert('Add a note', 'A brief factual update is needed.'); return; }
+        if (urgent && urgentReason.trim().length < 3) { Alert.alert('Add a reason', 'Say why this needs urgent RM attention.'); return; }
+        await post(`/escalations/${id}/progress`, { note: progress.trim(), urgent, urgent_reason: urgent ? urgentReason.trim() : undefined }, urgent ? 'Update added and RM attention flagged.' : 'Progress update added.');
+        setProgress(''); setUrgent(false); setUrgentReason('');
+      }} loading={busy} />
+    </Card>}
+    {isFrontline && <Banner tone="ok" icon="eye" title="Your operational role">Add progress and evidence above, and complete actions assigned to you. Escalation ownership, monitoring decisions and closure remain the Registered Manager's.</Banner>}
     {isDirector && <Banner tone="warn" icon="shield" title="Director assurance view">Review and challenge through weekly or strategic governance. Operational ownership remains with the Registered Manager.</Banner>}
     {activeRole === 'RESPONSIBLE_INDIVIDUAL' && <Banner tone="warn" icon="shield" title="Independent assurance view">This record is read-only in the RI role. Record conclusions through Provider Sign-off.</Banner>}
     {canManage && !closed && <Card>

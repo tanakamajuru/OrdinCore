@@ -60,7 +60,7 @@ export type RootStackParams = {
   Profile: undefined;
   MyWork: undefined;
   TLDailyGovernance: undefined;
-  RateEffectiveness: { action: { id: string; risk_id?: string; title: string } };
+  RateEffectiveness: { action: { id: string; risk_id?: string; title: string; [k: string]: any } };
   ActionDetail: { action: any };
   EscalationDetail: { id: string };
 };
