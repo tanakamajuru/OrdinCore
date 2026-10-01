@@ -18,21 +18,20 @@
 /* ── Light theme (default) ─────────────────────────────── */
 :root {
   --font-size: 14px;
-  --background: #F7F9FB;
-  /* Uniform near-black body text (was navy #0B1628) — one neutral ink for all text. */
-  --foreground: #171717;
-  --card: #FFFFFF;
-  --card-foreground: #171717;
+  /* Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026). */
+  --background: #DDE7EF;        /* Slate blue — main page background */
+  --foreground: #172B3B;        /* Deep navy — headings & primary text */
+  --card: #FFFFFF;              /* White cards */
+  --card-foreground: #172B3B;
   --popover: #FFFFFF;
-  --popover-foreground: #171717;
-  --primary: #2F6CB5;
+  --popover-foreground: #172B3B;
+  --primary: #28536F;           /* Deep steel blue — primary buttons */
   --primary-foreground: #FFFFFF;
-  --secondary: #E2EEF8;
-  --secondary-foreground: #1A3259;
-  --muted: #EEF2F6;
-  /* Neutral grey for secondary text (was blue-grey #3D5A7A). */
-  --muted-foreground: #5B6470;
-  --accent: #1A3259;
+  --secondary: #E6EDF2;         /* Pale blue grey — alternating sections */
+  --secondary-foreground: #172B3B;
+  --muted: #E6EDF2;             /* Pale blue grey */
+  --muted-foreground: #465968;  /* Slate grey — body text */
+  --accent: #3C9C98;            /* Teal — small highlights & selected states */
   --accent-foreground: #FFFFFF;
   --success: #2E7D32;
   --success-foreground: #FFFFFF;
@@ -46,10 +45,10 @@
   --switch-background: #B8D3EA;
   --font-weight-medium: 400;
   --font-weight-normal: 400;
-  --ring: #2F6CB5;
-  --chart-1: #2F6CB5;
-  --chart-2: #5B9FD4;
-  --chart-3: #1A3259;
+  --ring: #28536F;
+  --chart-1: #28536F;
+  --chart-2: #326B94;
+  --chart-3: #3C9C98;
   --chart-4: #ED6C02;
   --chart-5: #7C3AED;
   --radius: 6px;
@@ -57,14 +56,14 @@
   --shadow-sm: 0 1px 2px rgba(11,22,40,0.08);
   --shadow-md: 0 4px 8px rgba(11,22,40,0.12);
   --shadow-lg: 0 8px 16px rgba(11,22,40,0.16);
-  --sidebar: #E2EEF8;
-  --sidebar-foreground: #0B1628;
-  --sidebar-primary: #2F6CB5;
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #172B3B;
+  --sidebar-primary: #28536F;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #5B9FD4;
-  --sidebar-accent-foreground: #0B1628;
-  --sidebar-border: #B8D3EA;
-  --sidebar-ring: #2F6CB5;
+  --sidebar-accent: #3C9C98;
+  --sidebar-accent-foreground: #FFFFFF;
+  --sidebar-border: #DDE7EF;
+  --sidebar-ring: #28536F;
 }
 
 /* ── Dark theme (.dark class) ───────────────────────────── */

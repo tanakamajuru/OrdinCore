@@ -27,19 +27,19 @@
   --oc-aqua-600: #148B94;
   --oc-aqua-500: #14A0A8;
 
-  /* Surfaces */
-  --oc-canvas: #F4F8FC;
-  --oc-surface: #FFFFFF;
-  --oc-surface-soft: #F8FBFD;
-  --oc-ice: #EAF3FA;
-  --oc-ice-strong: #DFEDF7;
-  --oc-border: #D7E4EE;
-  --oc-border-strong: #C4D8E7;
+  /* Surfaces — Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026) */
+  --oc-canvas: #DDE7EF;        /* Slate blue — main page background */
+  --oc-surface: #FFFFFF;       /* White cards */
+  --oc-surface-soft: #E6EDF2;  /* Pale blue grey — alternating sections */
+  --oc-ice: #E6EDF2;
+  --oc-ice-strong: #D4E0EA;
+  --oc-border: #C6D5E1;
+  --oc-border-strong: #B4C8D8;
 
   /* Ink */
-  --oc-ink: #142435;
-  --oc-ink-soft: #40566A;
-  --oc-muted: #66798B;
+  --oc-ink: #172B3B;           /* Deep navy — headings & primary text */
+  --oc-ink-soft: #465968;      /* Slate grey — body text */
+  --oc-muted: #52677A;
 
   /* Semantic governance states */
   --oc-success: #2B7A57;
@@ -85,13 +85,13 @@
   --card-foreground: var(--oc-ink);
   --popover: var(--oc-surface);
   --popover-foreground: var(--oc-ink);
-  --primary: var(--oc-cobalt-600);
+  --primary: #28536F;            /* Deep steel blue — primary buttons */
   --primary-foreground: #FFFFFF;
-  --secondary: var(--oc-ice);
-  --secondary-foreground: var(--oc-navy-900);
-  --muted: #EEF3F7;
-  --muted-foreground: var(--oc-muted);
-  --accent: var(--oc-navy-800);
+  --secondary: #E6EDF2;          /* Pale blue grey — alternating sections */
+  --secondary-foreground: var(--oc-ink);
+  --muted: #E6EDF2;
+  --muted-foreground: var(--oc-ink-soft);
+  --accent: #3C9C98;             /* Teal — small highlights & selected states */
   --accent-foreground: #FFFFFF;
   --success: var(--oc-success);
   --warning: var(--oc-warning);
@@ -99,7 +99,7 @@
   --border: var(--oc-border);
   --input: var(--oc-border-strong);
   --input-background: #FFFFFF;
-  --ring: var(--oc-cobalt-600);
+  --ring: #28536F;
   --radius: var(--oc-radius-sm);
   --radius-card: var(--oc-radius-lg);
   --shadow-sm: var(--oc-shadow-1);
