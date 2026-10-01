@@ -1,12 +1,16 @@
 import React from 'react';
 import { View, Image } from 'react-native';
 import { Text } from './ui';
+import { useTheme } from '@/theme/ThemeProvider';
 
-// The official ORDIN CORE brand lockup (shield + wordmark).
-const LOGO = require('../../assets/logo.png');
+// The official ORDIN CORE brand lockup (shield + wordmark) — day and night variants so the logo
+// matches the active theme (supplied day/night artwork).
+const LOGO_DAY = require('../../assets/logo-day.png');
+const LOGO_NIGHT = require('../../assets/logo-night.png');
 
 export function LogoMark({ size = 72 }: { size?: number }) {
-  return <Image source={LOGO} style={{ width: size, height: size }} resizeMode="contain" />;
+  const { scheme } = useTheme();
+  return <Image source={scheme === 'dark' ? LOGO_NIGHT : LOGO_DAY} style={{ width: size, height: size }} resizeMode="contain" />;
 }
 
 // The logo image already carries the ORDIN CORE wordmark, so this adds only the tagline.

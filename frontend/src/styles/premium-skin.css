@@ -535,3 +535,19 @@ tbody tr:hover {
   --error-text: #9DC9EB !important;
   color: #9DC9EB !important;
 }
+
+/* ── Day-mode sidebar: white rail (Website day mode spec). Night mode keeps the dark slate
+   styling via the inline classes; these overrides apply only when .dark is absent. ───────── */
+:root:not(.dark) .ordin-sidebar {
+  background: #FFFFFF;
+  color: #465968;
+  border-right: 1px solid #DDE7EF;
+}
+:root:not(.dark) .ordin-sidebar .text-white { color: #172B3B; }
+:root:not(.dark) .ordin-sidebar .text-slate-300,
+:root:not(.dark) .ordin-sidebar .text-slate-400,
+:root:not(.dark) .ordin-sidebar .text-slate-500 { color: #52677A; }
+:root:not(.dark) .ordin-sidebar .border-slate-700,
+:root:not(.dark) .ordin-sidebar .border-slate-800 { border-color: #E6EDF2; }
+:root:not(.dark) .ordin-sidebar .bg-slate-800 { background-color: #E6EDF2; }
+:root:not(.dark) .ordin-sidebar .hover\:bg-slate-800:hover { background-color: #E6EDF2; color: #172B3B; }

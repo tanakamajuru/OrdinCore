@@ -112,6 +112,8 @@ export class EscalationsService {
           h.name AS house_name,
           h.name AS service_name,
           COALESCE(e.house_id, r.house_id, i.house_id) AS house_id,
+          -- Latest progress/evidence note so read surfaces (e.g. Daily Oversight) can reflect activity.
+          (SELECT ea.description FROM escalation_actions ea WHERE ea.escalation_id = e.id ORDER BY ea.created_at DESC LIMIT 1) AS latest_note,
           e.is_overdue AS overdue,
           -- Originating signal — the decision-making evidence the detail pane needs.
           p.description AS observation,

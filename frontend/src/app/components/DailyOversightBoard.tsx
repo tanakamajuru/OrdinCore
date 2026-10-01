@@ -39,6 +39,10 @@ export function DailyOversightBoard() {
   const [addendumReason, setAddendumReason] = useState("");
   const [addendumSaving, setAddendumSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  // Option B: reflect open-escalation activity on the daily board (latest note, owner, next
+  // review, status) with a deep-link into the escalation. The escalation record stays the SSOT;
+  // this is a read-only projection of the same canonical rows.
+  const [escActivity, setEscActivity] = useState<any[]>([]);
   const noteRef = useRef<HTMLTextAreaElement>(null);
 
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
@@ -91,8 +95,23 @@ export function DailyOversightBoard() {
   // Focus + 60s safety polling are provided by the shared hook. This changes refresh behaviour
   // only; Monitor/Create Action/Escalate/Close remain the same functions and handlers.
   useGovernanceRefresh(() => {
-    if (selectedHouseId) void loadDashboard(selectedHouseId, true);
+    if (selectedHouseId) { void loadDashboard(selectedHouseId, true); void loadEscActivity(selectedHouseId); }
   });
+
+  // Open escalations for the selected house, with their latest progress/evidence note so the
+  // daily board reflects what has actually moved. Scoped strictly by house_id (same discipline
+  // as signals/actions) so one service's board never shows another's escalations.
+  const loadEscActivity = async (scopeHouseId?: string) => {
+    try {
+      const res = await apiClient.get('/escalations?limit=100');
+      const raw = (res.data as any)?.data ?? (res.data as any) ?? [];
+      const rows = (Array.isArray(raw) ? raw : (raw.items || raw.escalations || []))
+        .filter((e: any) => !e.is_closed && String(e.canonical_status || e.status || '').toUpperCase() !== 'CLOSED')
+        .filter((e: any) => !scopeHouseId || String(e.house_id) === String(scopeHouseId));
+      setEscActivity(rows);
+    } catch { setEscActivity([]); }
+  };
+  useEffect(() => { if (selectedHouseId) loadEscActivity(selectedHouseId); }, [selectedHouseId]);
 
   // ---- derived daily posture (signals, escalations, actions — NOT patterns) ----
   const openEsc = data?.open_escalations ?? 0;
@@ -446,6 +465,43 @@ export function DailyOversightBoard() {
             </div>
           </div>
         </div>
+
+        {/* Open escalations — activity reflected on the daily board (Option B). Each row deep-links
+            into the escalation record so the RM acts in one place. */}
+        {escActivity.length > 0 && (
+          <div className="bg-card border-2 border-border rounded-xl p-5">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-sm font-semibold text-foreground flex items-center gap-2"><AlertCircle size={15} className="text-slate-600" /> Open Escalations <span className="text-xs bg-muted rounded-full px-2 py-0.5">{escActivity.length}</span></h3>
+              <button onClick={() => navigate("/escalation-log?status=open")} className="text-sm text-primary flex items-center gap-1">View escalation log <ChevronRight size={14} /></button>
+            </div>
+            <div className="space-y-2.5">
+              {escActivity.slice(0, 8).map((e: any) => {
+                const status = String(e.canonical_status || e.status || "OPEN").toUpperCase();
+                const overdue = !!e.overdue || (e.due_by && new Date(e.due_by) < new Date());
+                const nextReview = e.metadata?.next_review_at || e.due_by || null;
+                const owner = e.metadata?.monitoring_owner_name || e.escalated_to_name || null;
+                return (
+                  <button key={e.id} onClick={() => navigate(`/escalation-log?focus=${e.id}`)}
+                    className="w-full text-left p-3 rounded-lg border-2 border-border hover:border-primary/50 hover:shadow-sm transition-all">
+                    <div className="flex items-center justify-between gap-2 flex-wrap">
+                      <span className="text-sm font-medium text-foreground">{e.title || e.risk_title || e.incident_title || "Escalation"}</span>
+                      <div className="flex items-center gap-1.5">
+                        {e.is_urgent && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-red-500 text-white">URGENT</span>}
+                        {overdue && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-500 text-white">OVERDUE</span>}
+                        <span className="text-[10px] font-semibold px-2 py-0.5 rounded bg-muted text-muted-foreground">{status}</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 mt-1 text-[11px] text-muted-foreground flex-wrap">
+                      {owner && <span>Owner: {owner}</span>}
+                      {nextReview && <span>Next review: {new Date(nextReview).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</span>}
+                    </div>
+                    {e.latest_note && <p className="text-xs text-foreground/80 mt-1.5 line-clamp-2">Latest: {String(e.latest_note).replace(/\s+/g, " ").trim()}</p>}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* What to do today */}
         <div className="bg-card border-2 border-border rounded-xl p-5">
