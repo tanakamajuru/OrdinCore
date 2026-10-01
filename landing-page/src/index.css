@@ -12,8 +12,11 @@
   --border: #C6D5E1;
   --muted: #465968;        /* Slate grey — body text */
   --primary: #28536F;      /* Deep steel blue — primary buttons */
+  --primary-foreground: #FFFFFF; /* White text on primary buttons */
   --accent: #3C9C98;       /* Teal — small highlights & selected states */
+  --link: #326B94;         /* Muted blue — links & secondary details */
   --soft: #E6EDF2;         /* Pale blue grey — alternating sections */
+  --card-foreground: #172B3B;    /* Deep navy text on white cards */
 
   color-scheme: light;
   background-color: var(--background);
@@ -28,8 +31,11 @@
   --border: #2A4A6B;
   --muted: #A8CDE8;
   --primary: #2F6CB5;
+  --primary-foreground: #FFFFFF;
   --accent: #5B9FD4;
+  --link: #5B9FD4;
   --soft: #1A3259;
+  --card-foreground: #DCE8F0;
   color-scheme: dark;
 }
 
