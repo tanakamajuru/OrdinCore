@@ -69,37 +69,37 @@ const PROBLEM_CARDS = [
     image: problemRepeatedConcernsImg,
     title: "Repeated Concerns Across Shifts",
     description: "Small issues repeated over time can indicate larger operational pressure.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
   {
     image: problemEscalationsLosingVisibilityImg,
     title: "Escalations Losing Visibility",
     description: "Important concerns can become unclear once shifts change or teams rotate.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
   {
     image: problemRisksIncreasingHousesImg,
     title: "Risks Increasing Across Houses",
     description: "Leadership teams need clearer visibility of worsening patterns across services.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
   {
     image: problemActionsNotBeingFollowedImg,
     title: "Actions Not Being Followed Through",
     description: "Operational actions should remain visible until completed and reviewed.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
   {
     image: problemOverRelianceMemoryImg,
     title: "Over-Reliance on Memory & Messaging",
     description: "Critical oversight should not rely on WhatsApp messages, verbal updates or memory.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
   {
     image: problemDifficultyOversightImg,
     title: "Difficulty Demonstrating Oversight",
     description: "Services often struggle to evidence operational governance during inspections.",
-    color: "bg-brand-soft/20 text-[#1E7D4F] border border-brand-border/30",
+    color: "bg-brand-soft/20 text-[#28536F] border border-brand-border/30",
   },
 ];
 
@@ -400,7 +400,7 @@ export default function App() {
             <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-2 ring-[#B0D4C0]/50" />
             <div className="leading-none">
               <p className="text-sm font-black uppercase tracking-widest text-[#1A3D28] dark:text-white">ordin</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-[#1E7D4F] dark:text-emerald-400">core</p>
+              <p className="text-xs font-bold uppercase tracking-widest text-[#28536F] dark:text-emerald-400">core</p>
             </div>
           </div>
 
@@ -409,7 +409,7 @@ export default function App() {
               <a
                 key={item.label}
                 href={item.href}
-                className="inline-flex items-center gap-1 transition-colors hover:text-[#1E7D4F] dark:hover:text-[#3DAB72]"
+                className="inline-flex items-center gap-1 transition-colors hover:text-[#28536F] dark:hover:text-[#3DAB72]"
               >
                 {item.label}
                 {item.href.startsWith("#") && <ChevronDownIcon className="h-3.5 w-3.5 opacity-55" />}
@@ -423,7 +423,7 @@ export default function App() {
             </Button>
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="h-9 w-9 rounded-full border border-[#B0D4C0] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#1E7D4F] hover:bg-[#E2F0EA]/45"
+              className="h-9 w-9 rounded-full border border-[#B0D4C0] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#28536F] hover:bg-[#E2F0EA]/45"
               aria-label="Toggle theme"
             >
               {theme === "dark" ? <SunIcon className="h-4.5 w-4.5 text-amber-400" /> : <MoonIcon className="h-4.5 w-4.5 text-slate-500" />}
@@ -475,7 +475,7 @@ export default function App() {
                 <a href="#workflow" className="inline-flex items-center justify-center gap-2 rounded-full border border-[#B0D4C0] bg-white dark:bg-slate-800 px-6 py-3 text-sm font-bold text-[#1A3D28] dark:text-white hover:bg-[#E2F0EA]/30 transition shadow-sm">
                   View Governance Workflow
                 </a>
-                <button onClick={() => setIsPilotModalOpen(true)} className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
+                <button onClick={() => setIsPilotModalOpen(true)} className="text-sm font-bold text-[#28536F] dark:text-emerald-400 hover:underline inline-flex items-center gap-1">
                   Join Pilot Programme →
                 </button>
               </div>
@@ -500,7 +500,7 @@ export default function App() {
                     key={tab.id}
                     onClick={() => setActiveHeroTab(tab.id as any)}
                     className={`flex-1 min-w-[90px] text-center px-2.5 py-2 rounded-xl text-xs font-bold transition duration-200 ${activeHeroTab === tab.id
-                        ? "bg-[#1E7D4F] text-white shadow"
+                        ? "bg-[#28536F] text-white shadow"
                         : "text-slate-600 dark:text-slate-400 hover:bg-slate-200/50 dark:hover:bg-slate-800"
                       }`}
                   >
@@ -514,7 +514,7 @@ export default function App() {
                 <div className="border-b border-[#B0D4C0]/50 dark:border-slate-800 px-5 py-3.5 bg-slate-50 dark:bg-slate-900 flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
                     <span className="h-3 w-3 rounded-full bg-[#1A3D28]/30 dark:bg-slate-700" />
-                    <span className="h-3 w-3 rounded-full bg-[#1E7D4F]/30 dark:bg-slate-700" />
+                    <span className="h-3 w-3 rounded-full bg-[#28536F]/30 dark:bg-slate-700" />
                     <span className="h-3 w-3 rounded-full bg-emerald-500/30 dark:bg-slate-700" />
                     <span className="ml-2 text-xs font-bold text-[#1A3D28] dark:text-slate-300 capitalize tracking-wide">
                       Role View: {activeHeroTab.replace("_", " ")}
@@ -599,7 +599,7 @@ export default function App() {
                     <h3 className="text-base font-bold text-[#1A3D28] dark:text-white mb-2">{card.title}</h3>
                     <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-[#B0D4C0]/30 dark:border-slate-800 text-sm font-bold text-[#1E7D4F] dark:text-[#3DAB72]">
+                  <div className="mt-4 pt-3 border-t border-[#B0D4C0]/30 dark:border-slate-800 text-sm font-bold text-[#28536F] dark:text-[#3DAB72]">
                     Addressed by Ordin Core
                   </div>
                 </Card>
@@ -644,14 +644,14 @@ export default function App() {
               {/* Quote card */}
               <Card key="quote" className="p-5 bg-[#E2F0EA] dark:bg-slate-900 border border-[#B0D4C0] dark:border-emerald-800/40 flex flex-col justify-between shadow">
                 <div>
-                  <p className="text-3xl font-serif text-[#1E7D4F] dark:text-emerald-500 leading-none mb-2">"</p>
+                  <p className="text-3xl font-serif text-[#28536F] dark:text-emerald-500 leading-none mb-2">"</p>
                   <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-200 leading-relaxed">
                     Ordin Core aligns daily activities to weekly reviews, ensuring that critical data is captured and reconstructable.
                   </p>
                 </div>
                 <div className="pt-4 flex justify-between items-end border-t border-[#B0D4C0]/50 dark:border-slate-800">
                   <img src={designedToSupportGovernanceImg} alt="" className="h-10 w-auto object-contain opacity-90" />
-                  <span className="text-sm uppercase tracking-wider font-bold text-[#1E7D4F] dark:text-emerald-400">Assurance</span>
+                  <span className="text-sm uppercase tracking-wider font-bold text-[#28536F] dark:text-emerald-400">Assurance</span>
                 </div>
               </Card>
             </div>
@@ -679,7 +679,7 @@ export default function App() {
                     <h3 className="text-sm font-bold text-[#1A3D28] dark:text-white mb-2">{card.title}</h3>
                     <p className="text-sm leading-relaxed text-slate-600 dark:text-slate-400">{card.description}</p>
                   </div>
-                  <div className="mt-4 text-sm uppercase font-bold tracking-wider text-[#1E7D4F] dark:text-[#3DAB72]">
+                  <div className="mt-4 text-sm uppercase font-bold tracking-wider text-[#28536F] dark:text-[#3DAB72]">
                     Dedicated View
                   </div>
                 </Card>
@@ -706,7 +706,7 @@ export default function App() {
                     </li>
                   ))}
                 </ul>
-                <p className="text-sm font-bold text-[#1E7D4F] dark:text-[#3DAB72]">
+                <p className="text-sm font-bold text-[#28536F] dark:text-[#3DAB72]">
                   Ordin Core establishes a clean, unified workflow across your services.
                 </p>
                 <div className="flex gap-2 pt-1">
@@ -732,7 +732,7 @@ export default function App() {
                   </ul>
                 </div>
                 <div className="border-t border-[#B0D4C0]/20 dark:border-slate-700/60 pt-3">
-                  <p className="text-sm font-bold text-[#1E7D4F] dark:text-emerald-400 mb-2">Ordin Core focuses on:</p>
+                  <p className="text-sm font-bold text-[#28536F] dark:text-emerald-400 mb-2">Ordin Core focuses on:</p>
                   <ul className="space-y-2">
                     {["Governance visibility", "Worsening risk trajectories", "Active escalation tracking", "Assurance & rhythm oversight", "Regulatory inspection readiness"].map((item) => (
                       <li key={item} className="flex items-start gap-2 text-sm text-slate-700 dark:text-white font-medium">
@@ -827,7 +827,7 @@ export default function App() {
                   onClick={() => setActiveOutputDetail(output)}
                   className="text-center group cursor-pointer flex flex-col justify-between"
                 >
-                  <div className="mb-3 overflow-hidden rounded-2xl border border-[#B0D4C0] dark:border-slate-800 bg-[#F0F7F3] dark:bg-slate-900 hover:border-[#1E7D4F] dark:hover:border-slate-600 transition shadow-sm h-36 flex items-center justify-center relative">
+                  <div className="mb-3 overflow-hidden rounded-2xl border border-[#B0D4C0] dark:border-slate-800 bg-[#F0F7F3] dark:bg-slate-900 hover:border-[#28536F] dark:hover:border-slate-600 transition shadow-sm h-36 flex items-center justify-center relative">
                     <img
                       src={output.image}
                       alt={output.label}
@@ -839,7 +839,7 @@ export default function App() {
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-300 group-hover:text-[#1E7D4F] transition">
+                  <p className="text-sm font-bold text-[#1A3D28] dark:text-slate-300 group-hover:text-[#28536F] transition">
                     {output.label}
                   </p>
                 </div>
@@ -957,7 +957,7 @@ export default function App() {
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4 mb-20">
               {PILOT_TIMELINE.map((item) => (
                 <Card key={item.phase} className="p-6 dark:border-slate-800 dark:bg-slate-900 flex flex-col">
-                  <p className="text-sm font-black uppercase tracking-wider text-[#1E7D4F] dark:text-[#3DAB72] mb-2">{item.phase}</p>
+                  <p className="text-sm font-black uppercase tracking-wider text-[#28536F] dark:text-[#3DAB72] mb-2">{item.phase}</p>
                   <p className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 font-semibold">{item.label}</p>
                 </Card>
               ))}
@@ -1128,7 +1128,7 @@ export default function App() {
                     placeholder="Jane Smith"
                     value={demoFormName}
                     onChange={(e) => setDemoFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1144,7 +1144,7 @@ export default function App() {
                       placeholder="you@company.com"
                       value={demoFormEmail}
                       onChange={(e) => setDemoFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1158,7 +1158,7 @@ export default function App() {
                       placeholder="e.g. +44 7123 456789"
                       value={demoFormPhone}
                       onChange={(e) => setDemoFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1174,7 +1174,7 @@ export default function App() {
                     placeholder="Your organisation"
                     value={demoFormOrg}
                     onChange={(e) => setDemoFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1190,7 +1190,7 @@ export default function App() {
                       placeholder="e.g. Registered Manager"
                       value={demoFormRole}
                       onChange={(e) => setDemoFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1204,7 +1204,7 @@ export default function App() {
                       placeholder="e.g. 5"
                       value={demoFormServices}
                       onChange={(e) => setDemoFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1219,7 +1219,7 @@ export default function App() {
                       required
                       value={demoFormServiceType}
                       onChange={(e) => setDemoFormServiceType(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     >
                       <option value="">Select…</option>
                       <option value="Supported Living">Supported Living</option>
@@ -1237,7 +1237,7 @@ export default function App() {
                       required
                       value={demoFormContactMethod}
                       onChange={(e) => setDemoFormContactMethod(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     >
                       <option value="Email">Email</option>
                       <option value="Phone">Phone</option>
@@ -1255,7 +1255,7 @@ export default function App() {
                     rows={4}
                     value={demoFormMessage}
                     onChange={(e) => setDemoFormMessage(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1266,7 +1266,7 @@ export default function App() {
                 <Button
                   type="submit"
                   disabled={demoSubmitStatus === "submitting"}
-                  className="w-full rounded-xl bg-[#1E7D4F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
+                  className="w-full rounded-xl bg-[#28536F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
                 >
                   {demoSubmitStatus === "submitting" ? "Sending Request..." : "Request a Demo"}
                 </Button>
@@ -1323,7 +1323,7 @@ export default function App() {
                     placeholder="Jane Smith"
                     value={pilotFormName}
                     onChange={(e) => setPilotFormName(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1339,7 +1339,7 @@ export default function App() {
                       placeholder="you@company.com"
                       value={pilotFormEmail}
                       onChange={(e) => setPilotFormEmail(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1353,7 +1353,7 @@ export default function App() {
                       placeholder="e.g. +44 7123 456789"
                       value={pilotFormPhone}
                       onChange={(e) => setPilotFormPhone(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1369,7 +1369,7 @@ export default function App() {
                     placeholder="Your organisation"
                     value={pilotFormOrg}
                     onChange={(e) => setPilotFormOrg(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1385,7 +1385,7 @@ export default function App() {
                       placeholder="e.g. Registered Manager"
                       value={pilotFormRole}
                       onChange={(e) => setPilotFormRole(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                   <div className="space-y-1.5">
@@ -1399,7 +1399,7 @@ export default function App() {
                       placeholder="e.g. 5"
                       value={pilotFormServices}
                       onChange={(e) => setPilotFormServices(e.target.value)}
-                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                      className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                     />
                   </div>
                 </div>
@@ -1413,7 +1413,7 @@ export default function App() {
                     required
                     value={pilotFormServiceType}
                     onChange={(e) => setPilotFormServiceType(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   >
                     <option value="">Select…</option>
                     <option value="Supported Living">Supported Living</option>
@@ -1434,7 +1434,7 @@ export default function App() {
                     placeholder="What governance challenge are you currently facing?"
                     value={pilotFormChallenge}
                     onChange={(e) => setPilotFormChallenge(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1449,7 +1449,7 @@ export default function App() {
                     placeholder="Tell us what you'd like to achieve."
                     value={pilotFormHelp}
                     onChange={(e) => setPilotFormHelp(e.target.value)}
-                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#1E7D4F] focus:outline-none dark:text-white"
+                    className="w-full rounded-xl border border-[#B0D4C0] dark:border-slate-800 bg-slate-50 dark:bg-slate-900 p-3 text-sm focus:border-[#28536F] focus:outline-none dark:text-white"
                   />
                 </div>
 
@@ -1460,7 +1460,7 @@ export default function App() {
                     required
                     checked={pilotFormConsent}
                     onChange={(e) => setPilotFormConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#B0D4C0] text-[#1E7D4F] focus:ring-[#1E7D4F]"
+                    className="mt-0.5 h-4 w-4 shrink-0 rounded border-[#B0D4C0] text-[#28536F] focus:ring-[#28536F]"
                   />
                   I consent to be contacted by Ordin Core about the pilot programme.
                 </label>
@@ -1472,7 +1472,7 @@ export default function App() {
                 <Button
                   type="submit"
                   disabled={pilotSubmitStatus === "submitting"}
-                  className="w-full rounded-xl bg-[#1E7D4F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
+                  className="w-full rounded-xl bg-[#28536F] hover:bg-[#1A3D28] text-white flex items-center justify-center gap-2 py-3 shadow"
                 >
                   {pilotSubmitStatus === "submitting" ? "Submitting Application..." : "Apply for Pilot Access"}
                 </Button>

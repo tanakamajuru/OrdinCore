@@ -5,14 +5,15 @@
 @tailwind utilities;
 
 :root {
-  --background: #F0F6FC;
-  --foreground: #0B1628;
-  --card: #FFFFFF;
-  --border: #B8D3EA;
-  --muted: #3D5A7A;
-  --primary: #2F6CB5;
-  --accent: #5B9FD4;
-  --soft: #E2EEF8;
+  /* Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026). */
+  --background: #DDE7EF;   /* Slate blue — main page background */
+  --foreground: #172B3B;   /* Deep navy — headings & primary text */
+  --card: #FFFFFF;         /* White cards */
+  --border: #C6D5E1;
+  --muted: #465968;        /* Slate grey — body text */
+  --primary: #28536F;      /* Deep steel blue — primary buttons */
+  --accent: #3C9C98;       /* Teal — small highlights & selected states */
+  --soft: #E6EDF2;         /* Pale blue grey — alternating sections */
 
   color-scheme: light;
   background-color: var(--background);
