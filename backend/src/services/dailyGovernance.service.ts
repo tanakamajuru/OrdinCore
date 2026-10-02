@@ -276,7 +276,8 @@ export class DailyGovernanceService {
       await client.query('BEGIN');
       // Lock only the parent log row; confirm tenant ownership and that it is signed.
       const logRes = await client.query(
-        `SELECT dgl.id, dgl.house_id, dgl.completed, dgl.review_date::text AS review_date
+        `SELECT dgl.id, dgl.house_id, dgl.completed, dgl.review_date::text AS review_date,
+                COALESCE(dgl.published_at, dgl.completed_at) AS signed_at
            FROM daily_governance_log dgl JOIN houses h ON h.id = dgl.house_id
           WHERE dgl.id = $1 AND h.company_id = $2 FOR UPDATE OF dgl`,
         [log_id, company_id]
@@ -287,11 +288,31 @@ export class DailyGovernanceService {
         throw new Error('The primary review for this day is not yet signed. Record same-day decisions in the primary review; addenda apply only after sign-off.');
       }
 
+      // Any decisions passed explicitly are executed through the SAME canonical executor (so a new
+      // decision still creates its downstream record). Decisions already made via the signal queue
+      // after sign-off are NOT replayed — they are linked by their saved IDs below (brief 1 §4).
       const applied: any[] = [];
       for (const d of (opts.decisions || [])) {
         await this.createDecisionInTx(client, { company_id, user_id, log_id, house_id: parent.house_id, decision: d });
         applied.push({ decision: d.decision, subject: d.sourceId || d.pulse_entry_id || d.risk_id || d.cluster_id || null });
       }
+
+      // Structured linkage (brief 1 §4/§6): associate this addendum with every post-sign-off decision
+      // for this service/day that is not already attested by an earlier addendum — by STABLE ID, not
+      // prose. This runs inside the transaction, so decisions just executed above are included too. A
+      // reason-only addendum therefore no longer reports "zero decisions" when decisions were saved.
+      const linkRes = await client.query(
+        `SELECT gr.id FROM governance_reviews gr
+          WHERE gr.company_id = $1 AND gr.service_id = $2
+            AND gr.created_at >= $3::timestamptz
+            AND (gr.review_date = $4::date OR gr.review_date IS NULL)
+            AND NOT EXISTS (
+              SELECT 1 FROM daily_governance_addendum a
+               WHERE a.parent_log_id = $5 AND gr.id = ANY(a.decision_ids))
+          ORDER BY gr.created_at`,
+        [company_id, parent.house_id, parent.signed_at, parent.review_date, log_id]
+      );
+      const decisionIds: string[] = linkRes.rows.map((r: any) => r.id);
 
       const seqRes = await client.query(
         `SELECT COALESCE(MAX(sequence), 0) + 1 AS seq FROM daily_governance_addendum WHERE parent_log_id = $1`,
@@ -301,9 +322,9 @@ export class DailyGovernanceService {
       const evidenceIds = Array.isArray(opts.evidence_ids) ? opts.evidence_ids.filter(Boolean) : [];
       const ins = await client.query(
         `INSERT INTO daily_governance_addendum
-           (company_id, house_id, parent_log_id, sequence, review_date, reason, evidence_ids, decisions_summary, created_by)
-         VALUES ($1, $2, $3, $4, $5::date, $6, $7::uuid[], $8::jsonb, $9) RETURNING *`,
-        [company_id, parent.house_id, log_id, sequence, parent.review_date, reason, evidenceIds, JSON.stringify(applied), user_id]
+           (company_id, house_id, parent_log_id, sequence, review_date, reason, evidence_ids, decisions_summary, decision_ids, created_by)
+         VALUES ($1, $2, $3, $4, $5::date, $6, $7::uuid[], $8::jsonb, $9::uuid[], $10) RETURNING *`,
+        [company_id, parent.house_id, log_id, sequence, parent.review_date, reason, evidenceIds, JSON.stringify(applied), decisionIds, user_id]
       );
       await client.query('COMMIT');
       return ins.rows[0];

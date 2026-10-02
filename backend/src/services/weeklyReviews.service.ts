@@ -289,7 +289,18 @@ export class WeeklyReviewsService {
     // Same-day daily-governance addenda in the week (doctrine §9.2 aggregation).
     const addenda = await safeR(
       `SELECT a.id, a.review_date AS date, a.sequence, a.reason, a.created_at,
-              jsonb_array_length(a.decisions_summary) AS decision_count
+              -- Count the STRUCTURALLY LINKED post-sign-off decisions, not the executed-prose summary,
+              -- so a reason-only addendum that attests real saved decisions no longer reads as zero
+              -- decisions (brief 1 §6). Fall back to the legacy summary for older addenda.
+              GREATEST(COALESCE(array_length(a.decision_ids, 1), 0),
+                       COALESCE(jsonb_array_length(a.decisions_summary), 0)) AS decision_count,
+              (SELECT COALESCE(jsonb_agg(jsonb_build_object(
+                  'decision', gr.decision, 'concern', gr.what_is_happening, 'rationale', gr.decision_rationale,
+                  'intendedOutcome', gr.intended_outcome, 'decidedAt', gr.created_at,
+                  'reviewer', NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')), '')
+                ) ORDER BY gr.created_at), '[]'::jsonb)
+                 FROM governance_reviews gr LEFT JOIN users ru ON ru.id = gr.reviewed_by
+                WHERE gr.company_id = a.company_id AND gr.id = ANY(a.decision_ids)) AS decisions
          FROM daily_governance_addendum a
         WHERE a.company_id = $1 AND a.house_id = $2 AND a.review_date BETWEEN $3::date AND $4::date
         ORDER BY a.review_date, a.sequence`, [company_id, house_id, startStr, endStr]);
