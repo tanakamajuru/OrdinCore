@@ -583,16 +583,22 @@ export class WeeklyReviewsService {
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS owner,
               (SELECT COUNT(*) FROM canonical_action_state_v ra
                 WHERE ra.company_id = i.company_id
-                  AND (ra.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
+                  AND (ra.id = i.linked_action_id
+                       OR ra.id IN (SELECT l.action_id FROM intervention_action_links l WHERE l.intervention_id = i.id AND l.removed_at IS NULL)
+                       OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
                   AND ra.canonical_status <> 'CANCELLED') AS actions_total,
               (SELECT COUNT(*) FROM canonical_action_state_v ra
                 WHERE ra.company_id = i.company_id
-                  AND (ra.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
+                  AND (ra.id = i.linked_action_id
+                       OR ra.id IN (SELECT l.action_id FROM intervention_action_links l WHERE l.intervention_id = i.id AND l.removed_at IS NULL)
+                       OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
                   AND ra.is_completed) AS actions_completed,
               (SELECT COALESCE(a.effectiveness_outcome, a.effectiveness::text)
                  FROM canonical_action_state_v a
                 WHERE a.company_id = i.company_id
-                  AND (a.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND a.risk_id = i.linked_risk_id))
+                  AND (a.id = i.linked_action_id
+                       OR a.id IN (SELECT l.action_id FROM intervention_action_links l WHERE l.intervention_id = i.id AND l.removed_at IS NULL)
+                       OR (i.linked_risk_id IS NOT NULL AND a.risk_id = i.linked_risk_id))
                   AND COALESCE(a.effectiveness_outcome, a.effectiveness::text) IS NOT NULL
                 ORDER BY a.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness
          FROM interventions i
