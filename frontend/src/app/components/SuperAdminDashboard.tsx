@@ -138,38 +138,6 @@ export default function SuperAdminDashboard() {
     loadData();
   }, []);
 
-  // Safety net for the persistent "super-admin Create buttons are unclickable (no hover, no error)"
-  // bug: a stray fixed/absolute overlay intermittently sits on top of the primary action buttons.
-  // elementFromPoint only returns hit-testable (pointer-events:auto) elements, so if it returns a
-  // FOREIGN element over a button, that element is the real blocker — neutralise its pointer events
-  // so the click reaches the button, and log it so the root overlay can be fixed at source. We only
-  // touch elements that are neither the button, its descendants, nor its ancestors (never the layout).
-  useEffect(() => {
-    const heal = () => {
-      ['create-org-btn', 'create-admin-btn'].forEach((id) => {
-        const b = document.getElementById(id);
-        if (!b) return;
-        const r = b.getBoundingClientRect();
-        if (!r.width || !r.height) return;
-        const cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        for (let i = 0; i < 6; i++) {
-          const el = document.elementFromPoint(cx, cy) as HTMLElement | null;
-          if (!el || el === b || b.contains(el) || el.contains(b)) break;
-          const cs = getComputedStyle(el);
-          // eslint-disable-next-line no-console
-          console.warn('[OrdinCore] super-admin button', id, 'blocked by', el.tagName,
-            el.id ? '#' + el.id : '', typeof el.className === 'string' ? '.' + el.className.split(' ').join('.') : '',
-            '| z=', cs.zIndex, 'pos=', cs.position, '— neutralising pointer-events');
-          el.style.pointerEvents = 'none';
-        }
-      });
-    };
-    const t1 = setTimeout(heal, 500);
-    const t2 = setTimeout(heal, 1500);
-    window.addEventListener('resize', heal);
-    return () => { clearTimeout(t1); clearTimeout(t2); window.removeEventListener('resize', heal); };
-  }, [currentPath]);
-
   useEffect(() => {
     if (currentPath === '/super-admin/users') {
       const timer = setTimeout(() => {

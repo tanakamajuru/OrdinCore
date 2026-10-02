@@ -25,6 +25,7 @@ import { Rm5Interface } from "./components/Rm5Interface";
 import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
 import { GuidedWorkBridge } from "./components/guided-work/GuidedWorkBridge";
+import { OverlayActionGuard } from "./components/OverlayActionGuard";
 import { SystemicPatterns } from "./components/SystemicPatterns";
 import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
 import { GovernanceCompliance } from "./components/GovernanceCompliance";
@@ -139,6 +140,7 @@ export default function App() {
       <BrowserRouter>
         <ErrorBoundary>
         <GuidedWorkBridge />
+        <OverlayActionGuard />
         <Routes>
           <Route path="/" element={<Login />} />
           <Route path="/login" element={<Login />} />
