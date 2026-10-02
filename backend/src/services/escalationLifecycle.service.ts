@@ -2,7 +2,12 @@ import { query } from '../config/database';
 import { normalizeEffectiveness } from '../domain/effectiveness';
 import { normalizeActionStatus, normalizeEscalationLifecycle, type EscalationLifecycle } from '../domain/governanceVocabulary';
 
-type EscalationAction = { status?: unknown; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null };
+type EscalationAction = { status?: unknown; effectiveness_outcome?: unknown; effectiveness?: unknown; effectiveness_reviewed_at?: string | Date | null; completed_at?: string | Date | null; review_requirement?: unknown };
+
+// A completion-only (review-exempt) control is satisfied by completion alone; it carries no
+// effectiveness obligation and must NOT hold the escalation at "Awaiting Effectiveness" (brief 5 R2/A3).
+const requiresEffectiveness = (a: EscalationAction): boolean =>
+  String(a.review_requirement ?? 'EFFECTIVENESS_REQUIRED').toUpperCase() !== 'COMPLETION_ONLY';
 
 export function deriveEscalationLifecycle(input: { current?: unknown; reviewed: boolean; actions: EscalationAction[] }): EscalationLifecycle {
   const current = normalizeEscalationLifecycle(input.current);
@@ -10,10 +15,16 @@ export function deriveEscalationLifecycle(input: { current?: unknown; reviewed: 
   const active = input.actions.filter((a) => normalizeActionStatus(a.status) !== 'Cancelled');
   if (!active.length) return input.reviewed ? 'Under Review' : 'Open';
   if (active.some((a) => normalizeActionStatus(a.status) !== 'Completed')) return 'Actions In Progress';
-  const outcomes = active.map((a) => normalizeEffectiveness(a.effectiveness_outcome ?? a.effectiveness));
+  // Only effectiveness-bearing controls carry a review obligation. Exempt completion-only controls are
+  // already satisfied — if EVERY control is exempt, the effectiveness stage is reached (not applicable).
+  const reviewable = active.filter(requiresEffectiveness);
+  if (!reviewable.length) return 'Ready For Closure';
+  const outcomes = reviewable.map((a) => normalizeEffectiveness(a.effectiveness_outcome ?? a.effectiveness));
   if (outcomes.some((o) => o === 'Too Early To Assess')) return 'Monitoring';
   if (outcomes.some((o) => !o)) return 'Awaiting Effectiveness';
-  const latest = [...active].sort((a, b) => new Date(b.effectiveness_reviewed_at || b.completed_at || 0).getTime() - new Date(a.effectiveness_reviewed_at || a.completed_at || 0).getTime())[0];
+  // "Ready for closure" means every required effectiveness review is recorded AND the latest reviewable
+  // outcome is Effective — a reviewed Not/Partially Effective is still a completed check, but not closable.
+  const latest = [...reviewable].sort((a, b) => new Date(b.effectiveness_reviewed_at || b.completed_at || 0).getTime() - new Date(a.effectiveness_reviewed_at || a.completed_at || 0).getTime())[0];
   return normalizeEffectiveness(latest.effectiveness_outcome ?? latest.effectiveness) === 'Effective'
     ? 'Ready For Closure'
     : 'Under Review';
@@ -25,7 +36,7 @@ export class EscalationLifecycleService {
     if (!esc) throw new Error('Escalation not found');
     const actions = (await query(
       `SELECT DISTINCT ra.id, ra.status, ra.effectiveness_outcome, ra.effectiveness,
-              ra.effectiveness_reviewed_at, ra.completed_at
+              ra.effectiveness_reviewed_at, ra.completed_at, ra.review_requirement
          FROM risk_actions ra
         WHERE ra.company_id=$2 AND (ra.escalation_id=$1
           OR ($3::uuid IS NOT NULL AND ra.risk_id=$3)

@@ -1017,11 +1017,18 @@ export function EscalationLog() {
           Number((selectedEscalation as any)?.actions_total_count) > 0
           && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count)
         }
-        derivedEffectivenessReviewed={
-          Number((selectedEscalation as any)?.actions_total_count) > 0
-          && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count)
-          && Number((selectedEscalation as any)?.actions_effectiveness_reviewed_count) === Number((selectedEscalation as any)?.actions_completed_count)
-        }
+        derivedEffectivenessReviewed={(() => {
+          // Use the SAME exemption-aware control position the server-side closure gate uses: a
+          // completion-only (exempt) control must not read as "effectiveness not reviewed" (brief 5
+          // R4). Effectiveness is satisfied when every effectiveness-bearing control has a final
+          // review, or there are no effectiveness-bearing controls at all (N/A).
+          const cp = (selectedEscalation as any)?.control_position;
+          const actionsComplete = Number((selectedEscalation as any)?.actions_total_count) > 0
+            && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count);
+          if (!actionsComplete) return false;
+          if (!cp || Number(cp.total || 0) === 0) return true; // no effectiveness-bearing controls → N/A
+          return Number(cp.awaiting_final || 0) === 0 && Number(cp.current?.unreviewed || 0) === 0;
+        })()}
         onClose={() => setCloseTarget(null)}
         onClosed={(result?: any) => {
           setSelectedEscalation(null);

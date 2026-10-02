@@ -17,4 +17,21 @@ describe('canonical escalation lifecycle', () => {
   it('never reopens a closed escalation by calculation', () => {
     expect(deriveEscalationLifecycle({ current: 'Resolved', reviewed: true, actions: [{ status: 'In Progress' }] })).toBe('Closed');
   });
+  it('does not hold at Awaiting Effectiveness for a completion-only (exempt) control', () => {
+    // A completion-only control carries no effectiveness obligation; completing it reaches the
+    // effectiveness stage (brief 5 R2/A3) rather than blocking forever as "effectiveness not reviewed".
+    expect(deriveEscalationLifecycle({ reviewed: true, actions: [{ status: 'Completed', review_requirement: 'COMPLETION_ONLY' }] })).toBe('Ready For Closure');
+  });
+  it('still blocks when a required control is completed but unreviewed, ignoring exempt ones', () => {
+    expect(deriveEscalationLifecycle({ reviewed: true, actions: [
+      { status: 'Completed', review_requirement: 'COMPLETION_ONLY' },
+      { status: 'Completed', review_requirement: 'EFFECTIVENESS_REQUIRED' },
+    ] })).toBe('Awaiting Effectiveness');
+  });
+  it('is ready when the only effectiveness-bearing control is Effective and the rest are exempt', () => {
+    expect(deriveEscalationLifecycle({ reviewed: true, actions: [
+      { status: 'Completed', review_requirement: 'COMPLETION_ONLY' },
+      { status: 'Completed', review_requirement: 'EFFECTIVENESS_REQUIRED', effectiveness_outcome: 'Effective' },
+    ] })).toBe('Ready For Closure');
+  });
 });
