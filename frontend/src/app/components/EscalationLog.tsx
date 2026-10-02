@@ -954,15 +954,31 @@ export function EscalationLog() {
                           <span>Escalation decision and communication history ({(selectedEscalation as any).actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                         </summary>
                         <div className="space-y-4">
-                          {(selectedEscalation as any).actions.map((action: any) => (
+                          {(selectedEscalation as any).actions.map((action: any, idx: number) => {
+                            // Each monitoring review event carries its own complete snapshot (owner,
+                            // evidence to watch, trigger, next review) — show it per event, not just the
+                            // latest projection, so the history stays whole (monitoring-review brief §2).
+                            const m = action.metadata || {};
+                            const hasMonitoring = m.monitoring_owner_name || m.monitoring_owner_id || m.monitoring_trigger || m.evidence_to_observe || m.next_review_at;
+                            const isLatestMonitoring = hasMonitoring && !(selectedEscalation as any).actions.slice(0, idx).some((a: any) => a.metadata && (a.metadata.monitoring_owner_name || a.metadata.monitoring_trigger || a.metadata.evidence_to_observe || a.metadata.next_review_at));
+                            return (
                             <div key={action.id} className="text-xs border-l-2 border-primary pl-3 py-1">
-                              <p className=" text-primary">{action.action_type.toUpperCase()}</p>
+                              <p className=" text-primary">{action.action_type.toUpperCase()}{isLatestMonitoring ? ' · latest monitoring review' : ''}</p>
                               <p className="text-muted-foreground mt-0.5">{action.description}</p>
+                              {hasMonitoring && (
+                                <div className="mt-1.5 space-y-0.5 text-[11px] text-foreground/80">
+                                  <p>Monitoring owner: {m.monitoring_owner_name || (m.monitoring_owner_id ? 'Recorded' : 'Not recorded')}</p>
+                                  <p>Evidence to watch: {m.evidence_to_observe || 'Not recorded'}</p>
+                                  <p>Trigger for action/escalation: {m.monitoring_trigger || 'Not recorded'}</p>
+                                  <p>Next review: {m.next_review_at ? new Date(m.next_review_at).toLocaleDateString('en-GB') : 'Not recorded'}</p>
+                                </div>
+                              )}
                               <p className="text-[10px] text-muted-foreground mt-1">
                                 {action.taken_by_name ? `${action.taken_by_name} · ` : ''}{new Date(action.created_at).toLocaleString('en-GB')}
                               </p>
                             </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </details>
                     )}

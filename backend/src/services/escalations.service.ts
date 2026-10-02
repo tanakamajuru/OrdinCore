@@ -438,29 +438,44 @@ export class EscalationsService {
       throw new Error('This record is locked and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
+    // Doctrine: continuing oversight is time-bound AND accountable. When the RM keeps an escalation
+    // open they set a next review point, a NAMED monitoring owner, what evidence is being watched and
+    // the trigger that would force an action/further escalation. Persist the COMPLETE snapshot against
+    // THIS review event (escalation_actions.metadata) so historical reviews stay whole and reports can
+    // read the event that applied at a given time — never reconstructed from overwritten current state.
+    const eventMeta: Record<string, unknown> = {};
+    if (data.monitoring_owner_id) {
+      eventMeta.monitoring_owner_id = data.monitoring_owner_id;
+      // Store the owner's name alongside the id so the review event stays self-explanatory in the
+      // log and reports without a later join (and remains correct even if the user is later renamed).
+      const owner = await query(
+        `SELECT NULLIF(TRIM(COALESCE(first_name,'') || ' ' || COALESCE(last_name,'')),'') AS name
+           FROM users WHERE id = $1 AND company_id = $2`,
+        [data.monitoring_owner_id, company_id]
+      );
+      if (owner.rows[0]?.name) eventMeta.monitoring_owner_name = owner.rows[0].name;
+    }
+    if (data.monitoring_trigger) eventMeta.monitoring_trigger = String(data.monitoring_trigger).trim();
+    if (data.evidence_to_observe) eventMeta.evidence_to_observe = String(data.evidence_to_observe).trim();
+    if (data.next_review_at) { eventMeta.next_review_at = data.next_review_at; eventMeta.monitoring_set_at = new Date().toISOString(); }
+
     const result = await query(
-      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by)
-       VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
-      [uuidv4(), id, company_id, data.action_type, data.description, user_id]
+      `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
+       VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING *`,
+      [uuidv4(), id, company_id, data.action_type, data.description, user_id, JSON.stringify(eventMeta)]
     );
 
-    // Doctrine: continuing oversight is time-bound AND accountable. When the RM keeps an escalation
-    // open they set a next review point (recorded on metadata.next_review_at and aligned onto due_by
-    // so the queue resurfaces it), a NAMED monitoring owner, what evidence is being watched and the
-    // trigger that would force an action/further escalation. No schema change — all on metadata JSONB.
-    if (data.next_review_at || data.monitoring_owner_id || data.monitoring_trigger || data.evidence_to_observe) {
-      const meta: Record<string, unknown> = {};
-      if (data.monitoring_owner_id) meta.monitoring_owner_id = data.monitoring_owner_id;
-      if (data.monitoring_trigger) meta.monitoring_trigger = String(data.monitoring_trigger).trim();
-      if (data.evidence_to_observe) meta.evidence_to_observe = String(data.evidence_to_observe).trim();
-      if (data.next_review_at) { meta.next_review_at = data.next_review_at; meta.monitoring_set_at = new Date().toISOString(); }
+    // Keep the escalation's current metadata as the LATEST projection (for at-a-glance views), and
+    // record the monitoring schedule on its own next_review_at column. The escalation SLA (due_by) is
+    // deliberately NOT changed here: monitoring scheduling must not silently reset the overdue clock.
+    if (Object.keys(eventMeta).length) {
       await query(
         `UPDATE escalations
             SET metadata = COALESCE(metadata, '{}'::jsonb) || $2::jsonb,
-                due_by = COALESCE($3::timestamptz, due_by),
+                next_review_at = COALESCE($3::timestamptz, next_review_at),
                 updated_at = NOW()
           WHERE id = $1`,
-        [id, JSON.stringify(meta), data.next_review_at || null]
+        [id, JSON.stringify(eventMeta), data.next_review_at || null]
       );
     }
     return result.rows[0];
