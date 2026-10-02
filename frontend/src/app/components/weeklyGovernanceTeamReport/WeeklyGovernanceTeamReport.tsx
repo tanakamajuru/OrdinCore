@@ -227,6 +227,24 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
             <article key={i}><h3>{item.lesson}</h3><p>{item.implication}</p></article>
           ))}
         </div>
+        {report.learningRecords.length > 0 && (
+          <div className="mt-4 space-y-3">
+            {report.learningRecords.map((lr) => (
+              <div key={lr.id} className="text-sm border-l-2 border-border pl-3">
+                <p><strong>{lr.stateLabel}</strong>{lr.orgWide ? " · Organisation-wide" : ""}{lr.author ? ` · ${lr.author}` : ""} · <span className="text-muted-foreground">{lr.provenance}</span></p>
+                {lr.stateLabel === "No learning identified" && lr.noLearningReason && <p className="text-muted-foreground">Reason: {lr.noLearningReason}</p>}
+                {lr.stateLabel === "Not yet assessed" && <p className="text-muted-foreground">Assessment due: {lr.reviewDate || "Not recorded"}</p>}
+                {lr.stateLabel === "Learning identified" && <>
+                  {lr.whatHappened && <p className="text-muted-foreground">What happened: {lr.whatHappened}</p>}
+                  {lr.whatLearnt && <p className="text-muted-foreground">What was learnt: {lr.whatLearnt}</p>}
+                  {lr.changeNeeded && <p className="text-muted-foreground">Change needed: {lr.changeNeeded}</p>}
+                  {lr.linkedActionTitle && <p className="text-muted-foreground">Improvement action: {lr.linkedActionTitle} ({lr.linkedActionStatus || "open"})</p>}
+                  <p className="text-muted-foreground">Progress: {lr.progressLabel}</p>
+                </>}
+              </div>
+            ))}
+          </div>
+        )}
       </section>
 
       <section className="wgr-section">

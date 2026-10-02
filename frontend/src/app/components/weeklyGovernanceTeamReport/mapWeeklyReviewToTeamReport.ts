@@ -161,6 +161,26 @@ export function mapWeeklyReviewToTeamReport(review: ReviewRow): WeeklyGovernance
         effectiveness: iv.latest_effectiveness ? String(iv.latest_effectiveness) : (total > 0 && done === total ? "Implemented · effectiveness not yet reviewed" : "Not yet reviewed"),
       };
     }),
+    learningRecords: (tr.learning_records || []).map((lr: any) => {
+      const stateLabel = lr.state === 'NONE_IDENTIFIED' ? 'No learning identified' : lr.state === 'NOT_YET_ASSESSED' ? 'Not yet assessed' : 'Learning identified';
+      const progressLabel = lr.progress === 'CHANGE_IMPLEMENTED' ? 'Change implemented' : lr.progress === 'IMPROVEMENT_VERIFIED' ? 'Improvement verified' : 'Learning recorded';
+      return {
+        id: String(lr.id),
+        sourceType: lr.source_type || null,
+        stateLabel,
+        whatHappened: lr.what_happened || null,
+        whatLearnt: lr.what_learnt || null,
+        changeNeeded: lr.change_needed || null,
+        noLearningReason: lr.no_learning_reason || null,
+        progressLabel,
+        reviewDate: lr.review_date ? fmtDate(lr.review_date) : null,
+        provenance: lr.is_ai_suggested ? 'AI suggestion (not approved learning)' : (lr.approved ? 'Approved' : 'Unapproved'),
+        author: lr.author || null,
+        orgWide: !!lr.org_wide,
+        linkedActionTitle: lr.linked_action_title || null,
+        linkedActionStatus: lr.linked_action_status || null,
+      };
+    }),
     unresolvedConcerns: String(content.unresolved_concerns_text || "").split(/\r?\n+/).map((x) => x.replace(/^[\s•\-*]+/, "").trim()).filter(Boolean),
     learning,
     nextWeek,

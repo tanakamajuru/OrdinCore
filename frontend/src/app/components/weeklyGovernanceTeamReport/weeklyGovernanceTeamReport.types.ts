@@ -58,6 +58,8 @@ export interface WeeklyGovernanceTeamReportModel {
   monitoringReviews: Array<{ id: string; concern?: string | null; note?: string | null; reviewedBy?: string | null; reviewedAt?: string | null; owner?: string | null; evidenceToObserve?: string | null; trigger?: string | null; nextReview?: string | null }>;
   // Active leadership interventions (improvement plans) with derived delivery evidence (intervention §4).
   leadershipInterventions: Array<{ id: string; theme?: string | null; plan?: string | null; status?: string | null; owner?: string | null; expectedOutcome?: string | null; nextReview?: string | null; orgWide?: boolean; actionsTotal: number; actionsCompleted: number; effectiveness: string }>;
+  // Structured learning recorded this week, with provenance and progress (learning brief L6).
+  learningRecords: Array<{ id: string; sourceType?: string | null; stateLabel: string; whatHappened?: string | null; whatLearnt?: string | null; changeNeeded?: string | null; noLearningReason?: string | null; progressLabel?: string | null; reviewDate?: string | null; provenance: string; author?: string | null; orgWide?: boolean; linkedActionTitle?: string | null; linkedActionStatus?: string | null }>;
   unresolvedConcerns: string[];
   learning: Array<{ lesson: string; implication: string }>;
   nextWeek: Array<{ priority: string; expectation: string }>;

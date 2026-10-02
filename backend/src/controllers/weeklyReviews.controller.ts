@@ -382,6 +382,30 @@ export class WeeklyReviewsController {
         tr.evidence_gaps.forEach((gap: string) => doc.text(`- ${gap}`));
       }
       if (c.lessons_learnt) { section('What we are learning'); doc.text(c.lessons_learnt); }
+
+      const learningRecords: any[] = Array.isArray(tr.learning_records) ? tr.learning_records : [];
+      if (learningRecords.length) {
+        const fmtDay = (v: any) => { if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); };
+        const stateLabel: Record<string, string> = { IDENTIFIED: 'Learning identified', NONE_IDENTIFIED: 'No learning identified', NOT_YET_ASSESSED: 'Not yet assessed' };
+        const progressLabel: Record<string, string> = { RECORDED: 'Learning recorded', CHANGE_IMPLEMENTED: 'Change implemented', IMPROVEMENT_VERIFIED: 'Improvement verified' };
+        section('Recorded learning');
+        learningRecords.forEach((lr: any) => {
+          const prov = lr.is_ai_suggested ? ' · AI suggestion (not approved learning)' : (lr.approved ? '' : ' · unapproved');
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${stateLabel[lr.state] || lr.state}${lr.org_wide ? ' · Organisation-wide' : ''}${lr.author ? ` · ${lr.author}` : ''}${prov}`);
+          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          if (lr.state === 'NONE_IDENTIFIED') { if (lr.no_learning_reason) doc.text(`   Reason: ${lr.no_learning_reason}`); }
+          else if (lr.state === 'NOT_YET_ASSESSED') { doc.text(`   Assessment due: ${fmtDay(lr.review_date) || 'Not recorded'}`); }
+          else {
+            if (lr.what_happened) doc.text(`   What happened: ${lr.what_happened}`);
+            if (lr.what_learnt) doc.text(`   What was learnt: ${lr.what_learnt}`);
+            if (lr.change_needed) doc.text(`   Change needed: ${lr.change_needed}`);
+            if (lr.linked_action_title) doc.text(`   Improvement action: ${lr.linked_action_title} (${lr.linked_action_status || 'open'})`);
+            doc.text(`   Progress: ${progressLabel[lr.progress] || lr.progress}`);
+          }
+          doc.moveDown(0.2);
+        });
+        doc.fontSize(10).fillColor('#000');
+      }
       if (c.anticipated_risks?.rm_note) { section('What to expect next week'); doc.text(c.anticipated_risks.rm_note); }
 
       doc.moveDown(1).font('Helvetica-Oblique').fontSize(8).fillColor('#888')

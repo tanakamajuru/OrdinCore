@@ -611,11 +611,29 @@ export class WeeklyReviewsService {
                OR ea.metadata ? 'next_review_at')
         ORDER BY ea.created_at DESC`, p)).rows;
 
+    // Structured learning recorded this week, for leadership scrutiny (learning brief L6). Shows
+    // concern/lesson/change/progress with provenance; AI suggestions are flagged, never presented as
+    // approved human learning. Empty learning is shown honestly rather than invented.
+    const learning_records = (await query(
+      `SELECT lr.id, lr.source_type, lr.state, lr.what_happened, lr.what_learnt, lr.change_needed,
+              lr.no_learning_reason, lr.progress, lr.review_date, lr.is_ai_suggested,
+              (lr.approved_at IS NOT NULL) AS approved,
+              lr.house_id IS NULL AS org_wide, lr.created_at,
+              NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author,
+              ra.title AS linked_action_title, ra.status::text AS linked_action_status
+         FROM learning_records lr
+         LEFT JOIN users au ON au.id = lr.author_id
+         LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
+        WHERE lr.company_id = $1 AND (lr.house_id = $2 OR lr.house_id IS NULL)
+          AND lr.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
+        ORDER BY lr.created_at DESC`, p)).rows;
+
     const signals_reviewed = domainGroups.reduce((n: number, g: any) => n + (g.signal_count || 0), 0);
     const high_critical = domainGroups.reduce((n: number, g: any) => n + (g.high_critical || 0), 0);
     return {
       monitoring_reviews,
       leadership_interventions,
+      learning_records,
       prepared_by: row.published_by_name || row.created_by_name,
       period_start: null,
       signals_reviewed,

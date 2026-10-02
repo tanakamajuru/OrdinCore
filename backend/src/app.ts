@@ -50,6 +50,7 @@ import { directorInsightsRouter, riInsightsRouter } from './routes/directorInsig
 import rm5Routes from './routes/rm5.routes';
 import interventionRoutes from './routes/interventions.routes';
 import effectivenessRoutes from './routes/effectiveness.routes';
+import learningRoutes from './routes/learning.routes';
 import governanceConfigRoutes from './routes/governanceConfig.routes';
 import frozenReportsRoutes from './reporting/routes/frozen-reports.routes';
 import screenAssistRoutes from './routes/screenAssist.routes';
@@ -207,6 +208,7 @@ app.use(`${API}/ri`, riInsightsRouter);
 app.use(`${API}/rm`, rm5Routes);
 app.use(`${API}/interventions`, interventionRoutes);
 app.use(`${API}/effectiveness`, effectivenessRoutes);
+app.use(`${API}/learning`, learningRoutes);
 app.use(`${API}/governance-config`, governanceConfigRoutes);
 app.use(`${API}/frozen-reports`, frozenReportsRoutes);
 app.use(`${API}/screen-assist`, screenAssistRoutes);
