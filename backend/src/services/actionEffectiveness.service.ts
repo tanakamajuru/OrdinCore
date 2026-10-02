@@ -1,4 +1,4 @@
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 import { risksService } from './risks.service';
 import { risksRepo } from '../repositories/risks.repo';
 import logger from '../utils/logger';
@@ -63,74 +63,110 @@ export class ActionEffectivenessService {
       throw new Error('Too Early to Assess requires a future review date.');
     }
 
-    const result = await query(
-      `UPDATE risk_actions
-       SET effectiveness_outcome = $1,
-           -- Keep the legacy compatibility field in lock-step. Too Early maps to NULL and must
-           -- clear a previous directional value rather than leaving a stale Effective result.
-           effectiveness = $2,
-           effectiveness_evidence = COALESCE($3, effectiveness_evidence),
-           effectiveness_reviewed_by = $4,
-           effectiveness_reviewed_at = NOW(),
-           verification_notes = COALESCE($3, verification_notes),
-           -- $7 (intended_outcome) must be referenced in a typed column context; otherwise Postgres
-           -- cannot infer its type and rejects the whole statement ("could not determine data type of
-           -- parameter $7"). COALESCE preserves the existing intended outcome when none is supplied.
-           intended_outcome = COALESCE($7, intended_outcome),
-           effectiveness_due_at = $8
-       WHERE id = $5 AND company_id = $6 RETURNING *`,
-      [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome, nextReviewDate]
-    );
-
-    const updatedAction = result.rows[0];
+    // E1 (reports/evidence brief): the latest-position update and the permanent history insert MUST
+    // be atomic — both succeed or neither saves — so a report can never show a current rating with no
+    // supporting history (or history with a stale current position). A double-submit within a few
+    // seconds (retry / double-click) is treated as the same review and does not insert twice.
     const reviewId = uuidv4();
-    await query(
-      `INSERT INTO action_effectiveness_reviews
-        (id, company_id, action_id, outcome, intended_outcome, evidence, reviewed_by, reviewed_at, next_review_date)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)`,
-      [reviewId, company_id, actionId, outcome, intendedOutcome, evidence || null, userId, nextReviewDate],
-    );
-    await escalationLifecycleService.syncForAction(actionId, company_id);
+    const client = await getClient();
+    let updatedAction: any;
+    try {
+      await client.query('BEGIN');
+
+      const dup = await client.query(
+        `SELECT 1 FROM action_effectiveness_reviews
+          WHERE company_id = $1 AND action_id = $2 AND reviewed_by = $3 AND outcome = $4
+            AND reviewed_at > NOW() - INTERVAL '10 seconds' LIMIT 1`,
+        [company_id, actionId, userId, outcome]
+      );
+      if (dup.rows[0]) {
+        await client.query('ROLLBACK');
+        logger.info(`Effectiveness review for action ${actionId} ignored as a duplicate submission.`);
+        return await risksRepo.getActionById(actionId, company_id);
+      }
+
+      const result = await client.query(
+        `UPDATE risk_actions
+         SET effectiveness_outcome = $1,
+             -- Keep the legacy compatibility field in lock-step. Too Early maps to NULL and must
+             -- clear a previous directional value rather than leaving a stale Effective result.
+             effectiveness = $2,
+             effectiveness_evidence = COALESCE($3, effectiveness_evidence),
+             effectiveness_reviewed_by = $4,
+             effectiveness_reviewed_at = NOW(),
+             verification_notes = COALESCE($3, verification_notes),
+             -- $7 (intended_outcome) must be referenced in a typed column context; otherwise Postgres
+             -- cannot infer its type and rejects the whole statement ("could not determine data type of
+             -- parameter $7"). COALESCE preserves the existing intended outcome when none is supplied.
+             intended_outcome = COALESCE($7, intended_outcome),
+             effectiveness_due_at = $8
+         WHERE id = $5 AND company_id = $6 RETURNING *`,
+        [outcome, legacy, evidence, userId, actionId, company_id, intendedOutcome, nextReviewDate]
+      );
+      updatedAction = result.rows[0];
+      if (!updatedAction) throw new Error('Action not found');
+
+      await client.query(
+        `INSERT INTO action_effectiveness_reviews
+          (id, company_id, action_id, outcome, intended_outcome, evidence, reviewed_by, reviewed_at, next_review_date)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)`,
+        [reviewId, company_id, actionId, outcome, intendedOutcome, evidence || null, userId, nextReviewDate],
+      );
+
+      await client.query('COMMIT');
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => undefined);
+      throw e; // A failed save reports a clear error and leaves nothing partially written.
+    } finally {
+      client.release();
+    }
     logger.info(`Action ${actionId} rated as ${outcome} by ${userId}`);
 
-    // Trigger trajectory pipeline (only when the outcome maps to a directional signal).
-    if (legacy) {
-      if (updatedAction.risk_id) await risksService.updateTrajectoryFromActions(updatedAction.risk_id, company_id);
-    }
+    // Downstream propagation and delivery run AFTER the review is durably committed. A failure here
+    // must NOT lose the saved review or report the save as failed (brief: "retain saved reviews if
+    // notification delivery fails and retry delivery separately"). Each is best-effort and logged.
+    try {
+      await escalationLifecycleService.syncForAction(actionId, company_id);
 
-    await reviewObligationsService.complete(company_id, 'ACTION_EFFECTIVENESS', actionId, userId, `Effectiveness recorded: ${outcome}`);
-    if (outcome === 'Too Early To Assess') {
-      await reviewObligationsService.open({
-        companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
-        actionId, riskId: updatedAction.risk_id || null,
-        dueAt: nextReviewDate!,
-        ownerRole: 'REGISTERED_MANAGER', reason: 'Effectiveness was too early to assess; repeat the review with further evidence.',
-      });
-    } else {
-      // One propagation service updates every explicitly linked oversight surface. It opens review
-      // obligations; it never automatically closes an escalation, intervention or risk.
-      await governancePropagationService.afterEffectiveness({
-        companyId: company_id, actionId, riskId: updatedAction.risk_id || null,
-        outcome, actorId: userId,
-      });
-      // A control rated Not Effective / Partially Effective is not the end: when the RM sets a date to
-      // come back and re-check whether the (revised) control now works, schedule that re-review so it
-      // returns to the work queue on that date.
-      if (nextReviewDate && (outcome === 'Not Effective' || outcome === 'Partially Effective')) {
+      // Trigger trajectory pipeline (only when the outcome maps to a directional signal).
+      if (legacy && updatedAction.risk_id) await risksService.updateTrajectoryFromActions(updatedAction.risk_id, company_id);
+
+      await reviewObligationsService.complete(company_id, 'ACTION_EFFECTIVENESS', actionId, userId, `Effectiveness recorded: ${outcome}`);
+      if (outcome === 'Too Early To Assess') {
         await reviewObligationsService.open({
           companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
-          actionId, riskId: updatedAction.risk_id || null, dueAt: nextReviewDate, ownerRole: 'REGISTERED_MANAGER',
-          reason: outcome === 'Not Effective'
-            ? 'Control rated Not Effective — re-review at the set date to confirm the revised control works.'
-            : 'Control partially effective — re-review at the set date.',
+          actionId, riskId: updatedAction.risk_id || null,
+          dueAt: nextReviewDate!,
+          ownerRole: 'REGISTERED_MANAGER', reason: 'Effectiveness was too early to assess; repeat the review with further evidence.',
         });
+      } else {
+        // One propagation service updates every explicitly linked oversight surface. It opens review
+        // obligations; it never automatically closes an escalation, intervention or risk.
+        await governancePropagationService.afterEffectiveness({
+          companyId: company_id, actionId, riskId: updatedAction.risk_id || null,
+          outcome, actorId: userId,
+        });
+        // A control rated Not Effective / Partially Effective is not the end: when the RM sets a date to
+        // come back and re-check whether the (revised) control now works, schedule that re-review so it
+        // returns to the work queue on that date.
+        if (nextReviewDate && (outcome === 'Not Effective' || outcome === 'Partially Effective')) {
+          await reviewObligationsService.open({
+            companyId: company_id, type: 'ACTION_EFFECTIVENESS', subjectType: 'ACTION', subjectId: actionId,
+            actionId, riskId: updatedAction.risk_id || null, dueAt: nextReviewDate, ownerRole: 'REGISTERED_MANAGER',
+            reason: outcome === 'Not Effective'
+              ? 'Control rated Not Effective — re-review at the set date to confirm the revised control works.'
+              : 'Control partially effective — re-review at the set date.',
+          });
+        }
       }
-    }
 
-    await eventBus.emitEvent(EVENTS.ACTION_EFFECTIVENESS_REVIEWED, {
-      company_id, action_id: actionId, risk_id: updatedAction.risk_id || null,
-      review_id: reviewId, outcome, reviewed_by: userId,
-    }, { idempotencyKey: `action-effectiveness:${reviewId}` });
+      await eventBus.emitEvent(EVENTS.ACTION_EFFECTIVENESS_REVIEWED, {
+        company_id, action_id: actionId, risk_id: updatedAction.risk_id || null,
+        review_id: reviewId, outcome, reviewed_by: userId,
+      }, { idempotencyKey: `action-effectiveness:${reviewId}` });
+    } catch (e) {
+      logger.error(`Effectiveness review ${reviewId} saved, but downstream propagation/delivery failed; the review is retained for retry.`, e as Error);
+    }
 
     return updatedAction;
   }

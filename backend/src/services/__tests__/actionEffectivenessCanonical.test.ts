@@ -1,9 +1,20 @@
-jest.mock('../../config/database', () => ({ query: jest.fn() }));
+// The atomic core (UPDATE risk_actions + INSERT action_effectiveness_reviews) runs on a transaction
+// client; everything else uses the top-level query(). The mock client routes by SQL: no duplicate
+// found, the UPDATE returns the updated action, the INSERT/BEGIN/COMMIT succeed.
+const mockClient = {
+  query: jest.fn(async (sql: string) => {
+    if (/SELECT 1 FROM action_effectiveness_reviews/.test(sql)) return { rows: [] };
+    if (/UPDATE risk_actions/.test(sql)) return { rows: [{ id: 'a1', status: 'Completed', risk_id: null, effectiveness_outcome: 'Effective' }] };
+    return { rows: [] };
+  }),
+  release: jest.fn(),
+};
+jest.mock('../../config/database', () => ({ query: jest.fn(), getClient: jest.fn() }));
 jest.mock('../../repositories/risks.repo', () => ({ risksRepo: { getActionById: jest.fn() } }));
 jest.mock('../risks.service', () => ({ risksService: { updateTrajectoryFromActions: jest.fn() } }));
 jest.mock('../reviewObligations.service', () => ({ reviewObligationsService: { open: jest.fn(), complete: jest.fn() } }));
 
-import { query } from '../../config/database';
+import { query, getClient } from '../../config/database';
 import { risksRepo } from '../../repositories/risks.repo';
 import { reviewObligationsService } from '../reviewObligations.service';
 import { actionEffectivenessService } from '../actionEffectiveness.service';
@@ -11,7 +22,11 @@ import { actionEffectivenessService } from '../actionEffectiveness.service';
 describe('canonical action effectiveness', () => {
   // Reset the query mock between tests so mock.calls reflects only the test under way (the summary
   // assertion inspects mock.calls[0], which otherwise carries over the previous test's calls).
-  beforeEach(() => (query as jest.Mock).mockReset());
+  beforeEach(() => {
+    (query as jest.Mock).mockReset();
+    mockClient.query.mockClear();
+    (getClient as jest.Mock).mockResolvedValue(mockClient);
+  });
 
   const completedAction = {
     id: 'a1', status: 'Completed', risk_id: null,
@@ -43,7 +58,13 @@ describe('canonical action effectiveness', () => {
     (risksRepo.getActionById as jest.Mock).mockResolvedValue(completedAction);
     (query as jest.Mock).mockResolvedValue({ rows: [{ ...completedAction, effectiveness_outcome: 'Effective' }] });
     await actionEffectivenessService.rateEffectiveness('a1', 'co', 'rm', { outcome: 'Effective', evidence: 'The intended outcome was achieved with no recurrence.' });
-    expect((query as jest.Mock).mock.calls.some(([sql]) => /INSERT INTO action_effectiveness_reviews/.test(String(sql)))).toBe(true);
+    // History insert and the current-projection update both run on the transaction client, bracketed
+    // by BEGIN/COMMIT — the atomic contract (E1).
+    const clientSqls = mockClient.query.mock.calls.map(([s]) => String(s));
+    expect(clientSqls.some((s) => /INSERT INTO action_effectiveness_reviews/.test(s))).toBe(true);
+    expect(clientSqls.some((s) => /UPDATE risk_actions/.test(s))).toBe(true);
+    expect(clientSqls.some((s) => /BEGIN/.test(s))).toBe(true);
+    expect(clientSqls.some((s) => /COMMIT/.test(s))).toBe(true);
   });
 
   it('measures summaries by review date and includes organisation-wide actions', async () => {
