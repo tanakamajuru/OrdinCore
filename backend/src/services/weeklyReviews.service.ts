@@ -562,9 +562,31 @@ export class WeeklyReviewsService {
           AND ra.is_open
         ORDER BY ra.due_date NULLS LAST LIMIT 20`, [company_id, row.house_id])).rows;
 
+    // Escalation monitoring reviews recorded this week — each is a dated, accountable decision to
+    // keep an escalation open, with its complete snapshot (owner, evidence watched, trigger, next
+    // review). The report must carry this detail, not reduce it to "Monitor" (monitoring brief §4).
+    const monitoring_reviews = (await query(
+      `SELECT ea.id, ea.created_at AS reviewed_at, e.reason AS concern,
+              ea.description AS note,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS reviewed_by,
+              ea.metadata->>'monitoring_owner_name' AS monitoring_owner,
+              ea.metadata->>'evidence_to_observe' AS evidence_to_observe,
+              ea.metadata->>'monitoring_trigger' AS monitoring_trigger,
+              NULLIF(ea.metadata->>'next_review_at','') AS next_review_at
+         FROM escalation_actions ea
+         JOIN escalations e ON e.id = ea.escalation_id AND e.company_id = ea.company_id
+         LEFT JOIN users u ON u.id = ea.taken_by
+        WHERE ea.company_id = $1 AND e.house_id = $2
+          AND ea.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
+          AND (ea.metadata ? 'monitoring_owner_name' OR ea.metadata ? 'monitoring_owner_id'
+               OR ea.metadata ? 'monitoring_trigger' OR ea.metadata ? 'evidence_to_observe'
+               OR ea.metadata ? 'next_review_at')
+        ORDER BY ea.created_at DESC`, p)).rows;
+
     const signals_reviewed = domainGroups.reduce((n: number, g: any) => n + (g.signal_count || 0), 0);
     const high_critical = domainGroups.reduce((n: number, g: any) => n + (g.high_critical || 0), 0);
     return {
+      monitoring_reviews,
       prepared_by: row.published_by_name || row.created_by_name,
       period_start: null,
       signals_reviewed,

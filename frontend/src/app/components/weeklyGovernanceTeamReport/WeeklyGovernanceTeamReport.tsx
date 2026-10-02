@@ -169,6 +169,24 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
         ) : <p className="wgr-empty">No active measure is linked to this weekly review.</p>}
       </section>
 
+      {report.monitoringReviews.length > 0 && (
+        <section className="wgr-section">
+          <h2>Monitoring reviews this week</h2>
+          <div className="space-y-3">
+            {report.monitoringReviews.map((mr) => (
+              <div key={mr.id} className="text-sm border-l-2 border-border pl-3">
+                <p><strong>{mr.concern || "Escalation"}</strong>{mr.reviewedAt ? ` · ${mr.reviewedAt}` : ""}{mr.reviewedBy ? ` · ${mr.reviewedBy}` : ""}</p>
+                {mr.note && <p className="text-muted-foreground">{mr.note}</p>}
+                <p className="text-muted-foreground">Monitoring owner: {mr.owner || "Not recorded"}</p>
+                <p className="text-muted-foreground">Evidence to watch: {mr.evidenceToObserve || "Not recorded"}</p>
+                <p className="text-muted-foreground">Trigger for action/escalation: {mr.trigger || "Not recorded"}</p>
+                <p className="text-muted-foreground">Next review: {mr.nextReview || "Not recorded"}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <section className="wgr-section">
         <h2>What remains a concern</h2>
         {report.unresolvedConcerns.length

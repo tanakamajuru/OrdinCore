@@ -338,6 +338,24 @@ export class WeeklyReviewsController {
         });
       }
 
+      const monitoringReviews: any[] = Array.isArray(tr.monitoring_reviews) ? tr.monitoring_reviews : [];
+      if (monitoringReviews.length) {
+        const fmtDay = (v: any) => { if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); };
+        section('Monitoring reviews this week');
+        monitoringReviews.forEach((mr: any) => {
+          const when = fmtDay(mr.reviewed_at);
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${mr.concern || 'Escalation'}${when ? ` · ${when}` : ''}${mr.reviewed_by ? ` · ${mr.reviewed_by}` : ''}`);
+          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          if (mr.note) doc.text(`   ${mr.note}`);
+          doc.text(`   Monitoring owner: ${mr.monitoring_owner || 'Not recorded'}`);
+          doc.text(`   Evidence to watch: ${mr.evidence_to_observe || 'Not recorded'}`);
+          doc.text(`   Trigger for action/escalation: ${mr.monitoring_trigger || 'Not recorded'}`);
+          doc.text(`   Next review: ${fmtDay(mr.next_review_at) || 'Not recorded'}`);
+          doc.moveDown(0.2);
+        });
+        doc.fontSize(10).fillColor('#000');
+      }
+
       if (c.unresolved_concerns_text) { section('What remains a concern'); doc.text(c.unresolved_concerns_text); }
       if (Array.isArray(tr.evidence_gaps) && tr.evidence_gaps.length) {
         section('Information still required');

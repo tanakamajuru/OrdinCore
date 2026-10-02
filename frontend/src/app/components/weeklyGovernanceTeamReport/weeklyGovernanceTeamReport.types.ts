@@ -54,6 +54,8 @@ export interface WeeklyGovernanceTeamReportModel {
   events: WeekEvent[];
   majorIssues: MajorIssue[];
   measures: GovernanceMeasure[];
+  // Escalation monitoring reviews recorded in the week — full snapshot per event (monitoring §4).
+  monitoringReviews: Array<{ id: string; concern?: string | null; note?: string | null; reviewedBy?: string | null; reviewedAt?: string | null; owner?: string | null; evidenceToObserve?: string | null; trigger?: string | null; nextReview?: string | null }>;
   unresolvedConcerns: string[];
   learning: Array<{ lesson: string; implication: string }>;
   nextWeek: Array<{ priority: string; expectation: string }>;
