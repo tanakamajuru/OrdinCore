@@ -532,6 +532,17 @@ export const interventionsService = {
     const starting = Boolean(data.started || status === 'In Progress');
     const startedAt = starting ? new Date() : null;
 
+    // Activating a plan commits leadership to delivering it, so it must have an accountable owner and
+    // an expected outcome before it goes active (intervention brief §4). Draft states (Planned / On
+    // Hold) stay permissive so incomplete legacy plans remain visible with their gaps, rather than
+    // being blocked or silently "activated" without accountability.
+    if (starting || status === 'Complete') {
+      if (!data.owner_id) throw new Error('Assign an accountable owner before activating this plan.');
+      if (!data.expected_outcome || !String(data.expected_outcome).trim()) {
+        throw new Error('Record the expected outcome before activating this plan.');
+      }
+    }
+
     const res = await query(
       `INSERT INTO interventions
          (company_id, theme, house_id, owner_id, owner_role, intervention, status,
