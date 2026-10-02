@@ -562,6 +562,34 @@ export class WeeklyReviewsService {
           AND ra.is_open
         ORDER BY ra.due_date NULLS LAST LIMIT 20`, [company_id, row.house_id])).rows;
 
+    // Active leadership interventions (the improvement PLAN) with their DERIVED delivery evidence —
+    // relevant action coverage and the latest effectiveness outcome read from the canonical action
+    // state, never a separate copy (intervention brief §2/§4). Reports show plan, owner, expected
+    // outcome, progress, effectiveness and remaining gaps; completion is implementation, not success.
+    const leadership_interventions = (await query(
+      `SELECT i.id, i.theme, i.intervention AS plan, i.status, i.expected_outcome, i.review_date,
+              (i.house_id IS NULL) AS org_wide,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS owner,
+              (SELECT COUNT(*) FROM canonical_action_state_v ra
+                WHERE ra.company_id = i.company_id
+                  AND (ra.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
+                  AND ra.canonical_status <> 'CANCELLED') AS actions_total,
+              (SELECT COUNT(*) FROM canonical_action_state_v ra
+                WHERE ra.company_id = i.company_id
+                  AND (ra.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND ra.risk_id = i.linked_risk_id))
+                  AND ra.is_completed) AS actions_completed,
+              (SELECT COALESCE(a.effectiveness_outcome, a.effectiveness::text)
+                 FROM canonical_action_state_v a
+                WHERE a.company_id = i.company_id
+                  AND (a.id = i.linked_action_id OR (i.linked_risk_id IS NOT NULL AND a.risk_id = i.linked_risk_id))
+                  AND COALESCE(a.effectiveness_outcome, a.effectiveness::text) IS NOT NULL
+                ORDER BY a.effectiveness_reviewed_at DESC NULLS LAST LIMIT 1) AS latest_effectiveness
+         FROM interventions i
+         LEFT JOIN users u ON u.id = i.owner_id AND u.company_id = i.company_id
+        WHERE i.company_id = $1 AND i.status <> 'Complete'
+          AND (i.house_id = $2 OR i.house_id IS NULL)
+        ORDER BY i.updated_at DESC LIMIT 20`, [company_id, row.house_id])).rows;
+
     // Escalation monitoring reviews recorded this week — each is a dated, accountable decision to
     // keep an escalation open, with its complete snapshot (owner, evidence watched, trigger, next
     // review). The report must carry this detail, not reduce it to "Monitor" (monitoring brief §4).
@@ -587,6 +615,7 @@ export class WeeklyReviewsService {
     const high_critical = domainGroups.reduce((n: number, g: any) => n + (g.high_critical || 0), 0);
     return {
       monitoring_reviews,
+      leadership_interventions,
       prepared_by: row.published_by_name || row.created_by_name,
       period_start: null,
       signals_reviewed,

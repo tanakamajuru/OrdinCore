@@ -56,6 +56,8 @@ export interface WeeklyGovernanceTeamReportModel {
   measures: GovernanceMeasure[];
   // Escalation monitoring reviews recorded in the week — full snapshot per event (monitoring §4).
   monitoringReviews: Array<{ id: string; concern?: string | null; note?: string | null; reviewedBy?: string | null; reviewedAt?: string | null; owner?: string | null; evidenceToObserve?: string | null; trigger?: string | null; nextReview?: string | null }>;
+  // Active leadership interventions (improvement plans) with derived delivery evidence (intervention §4).
+  leadershipInterventions: Array<{ id: string; theme?: string | null; plan?: string | null; status?: string | null; owner?: string | null; expectedOutcome?: string | null; nextReview?: string | null; orgWide?: boolean; actionsTotal: number; actionsCompleted: number; effectiveness: string }>;
   unresolvedConcerns: string[];
   learning: Array<{ lesson: string; implication: string }>;
   nextWeek: Array<{ priority: string; expectation: string }>;

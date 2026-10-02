@@ -508,7 +508,7 @@ export function InterventionPanel() {
             <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
               <div>
                 <label className="block text-sm font-medium mb-1">Intervention</label>
-                <input value={edit.intervention} onChange={(e) => setEdit({ ...edit, intervention: e.target.value })} placeholder="e.g. Medication audit"
+                <input value={edit.intervention} onChange={(e) => setEdit({ ...edit, intervention: e.target.value })} placeholder="Describe the improvement approach for this theme"
                   className="w-full border border-border rounded-lg p-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
               <div className="grid grid-cols-2 gap-3">
@@ -532,7 +532,7 @@ export function InterventionPanel() {
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1">Expected outcome</label>
-                <textarea value={edit.expected_outcome} onChange={(e) => setEdit({ ...edit, expected_outcome: e.target.value })} rows={2} placeholder="e.g. Reduce medication errors by 50%"
+                <textarea value={edit.expected_outcome} onChange={(e) => setEdit({ ...edit, expected_outcome: e.target.value })} rows={2} placeholder="The measurable improvement this plan should achieve"
                   className="w-full border border-border rounded-lg p-2.5 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
               </div>
             </div>

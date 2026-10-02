@@ -169,6 +169,25 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
         ) : <p className="wgr-empty">No active measure is linked to this weekly review.</p>}
       </section>
 
+      {report.leadershipInterventions.length > 0 && (
+        <section className="wgr-section">
+          <h2>Leadership interventions (improvement plans)</h2>
+          <div className="space-y-3">
+            {report.leadershipInterventions.map((iv) => (
+              <div key={iv.id} className="text-sm border-l-2 border-border pl-3">
+                <p><strong>{iv.theme || "Intervention"}</strong>{iv.orgWide ? " · Organisation-wide" : ""} · {iv.status}</p>
+                {iv.plan && <p className="text-muted-foreground">Plan: {iv.plan}</p>}
+                <p className="text-muted-foreground">Accountable owner: {iv.owner || "Not recorded — required before activation"}</p>
+                <p className="text-muted-foreground">Expected outcome: {iv.expectedOutcome || "Not recorded — required before activation"}</p>
+                <p className="text-muted-foreground">Delivery: {iv.actionsCompleted}/{iv.actionsTotal} relevant action(s) complete</p>
+                <p className="text-muted-foreground">Effectiveness: {iv.effectiveness}</p>
+                <p className="text-muted-foreground">Next review: {iv.nextReview || "Not recorded"}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {report.monitoringReviews.length > 0 && (
         <section className="wgr-section">
           <h2>Monitoring reviews this week</h2>

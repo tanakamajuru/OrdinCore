@@ -338,6 +338,26 @@ export class WeeklyReviewsController {
         });
       }
 
+      const interventions: any[] = Array.isArray(tr.leadership_interventions) ? tr.leadership_interventions : [];
+      if (interventions.length) {
+        const fmtDay = (v: any) => { if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); };
+        section('Leadership interventions (improvement plans)');
+        interventions.forEach((iv: any) => {
+          const total = Number(iv.actions_total || 0); const done = Number(iv.actions_completed || 0);
+          const eff = iv.latest_effectiveness ? String(iv.latest_effectiveness) : (total > 0 && done === total ? 'Implemented · effectiveness not yet reviewed' : 'Not yet reviewed');
+          doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(`• ${iv.theme || 'Intervention'}${iv.org_wide ? ' · Organisation-wide' : ''} · ${iv.status || 'Planned'}`);
+          doc.font('Helvetica').fontSize(9).fillColor('#333');
+          if (iv.plan) doc.text(`   Plan: ${iv.plan}`);
+          doc.text(`   Accountable owner: ${iv.owner || 'Not recorded — required before activation'}`);
+          doc.text(`   Expected outcome: ${iv.expected_outcome || 'Not recorded — required before activation'}`);
+          doc.text(`   Delivery: ${done}/${total} relevant action(s) complete`);
+          doc.text(`   Effectiveness: ${eff}`);
+          doc.text(`   Next review: ${fmtDay(iv.review_date) || 'Not recorded'}`);
+          doc.moveDown(0.2);
+        });
+        doc.fontSize(10).fillColor('#000');
+      }
+
       const monitoringReviews: any[] = Array.isArray(tr.monitoring_reviews) ? tr.monitoring_reviews : [];
       if (monitoringReviews.length) {
         const fmtDay = (v: any) => { if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); };

@@ -145,6 +145,22 @@ export function mapWeeklyReviewToTeamReport(review: ReviewRow): WeeklyGovernance
       trigger: m.monitoring_trigger || null,
       nextReview: m.next_review_at ? fmtDate(m.next_review_at) : null,
     })),
+    leadershipInterventions: (tr.leadership_interventions || []).map((iv: any) => {
+      const total = Number(iv.actions_total || 0); const done = Number(iv.actions_completed || 0);
+      return {
+        id: String(iv.id),
+        theme: iv.theme || null,
+        plan: iv.plan || null,
+        status: iv.status || "Planned",
+        owner: iv.owner || null,
+        expectedOutcome: iv.expected_outcome || null,
+        nextReview: iv.review_date ? fmtDate(iv.review_date) : null,
+        orgWide: !!iv.org_wide,
+        actionsTotal: total,
+        actionsCompleted: done,
+        effectiveness: iv.latest_effectiveness ? String(iv.latest_effectiveness) : (total > 0 && done === total ? "Implemented · effectiveness not yet reviewed" : "Not yet reviewed"),
+      };
+    }),
     unresolvedConcerns: String(content.unresolved_concerns_text || "").split(/\r?\n+/).map((x) => x.replace(/^[\s•\-*]+/, "").trim()).filter(Boolean),
     learning,
     nextWeek,
