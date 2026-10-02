@@ -394,7 +394,7 @@ export default function App() {
     <div className="min-h-screen bg-[#DDE7EF] dark:bg-slate-900 text-slate-900 dark:text-slate-100 font-sans transition-colors duration-300">
 
       {/* ── NAVBAR ── */}
-      <header className="sticky top-0 z-40 border-b border-[#C6D5E1] dark:border-slate-800 bg-white/90 dark:bg-slate-900/90 backdrop-blur-md">
+      <header className="sticky top-0 z-40 border-b border-[#C6D5E1] dark:border-slate-800 bg-[#DDE7EF]/90 dark:bg-slate-900/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-8">
           <div className="flex items-center gap-3">
             <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-2 ring-[#C6D5E1]/50" />
@@ -435,7 +435,7 @@ export default function App() {
       <main>
 
         {/* ── HERO ── */}
-        <section className="bg-gradient-to-b from-white to-[#DDE7EF] dark:from-slate-900 dark:to-slate-950 border-b border-[#C6D5E1]/40 dark:border-slate-800">
+        <section className="bg-[#DDE7EF] dark:bg-slate-900 border-b border-[#C6D5E1]/40 dark:border-slate-800">
           <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8 lg:py-24 grid lg:grid-cols-2 gap-12 lg:gap-16 items-center">
 
             {/* Left */}
@@ -557,7 +557,7 @@ export default function App() {
         </section>
 
         {/* ── THE FOUR QUESTIONS ── */}
-        <section className="py-20 bg-white dark:bg-slate-900 border-b border-[#C6D5E1]/40 dark:border-slate-800">
+        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-b border-[#C6D5E1]/40 dark:border-slate-800">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-14">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
@@ -579,7 +579,7 @@ export default function App() {
         </section>
 
         {/* ── GOVERNANCE PROBLEMS ── */}
-        <section className="py-20 bg-white dark:bg-slate-900" id="why">
+        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900" id="why">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
@@ -659,7 +659,7 @@ export default function App() {
         </section>
 
         {/* ── BUILT FOR ── */}
-        <section className="py-20 bg-white dark:bg-slate-900" id="audience">
+        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900" id="audience">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
@@ -809,7 +809,7 @@ export default function App() {
         </section>
 
         {/* ── EXAMPLE OUTPUTS ── */}
-        <section className="py-20 bg-white dark:bg-slate-900">
+        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-16">
               <h2 className="mt-2 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
@@ -938,7 +938,7 @@ export default function App() {
              Hidden for now (pricing / pilot commercial). Kept in the code so it can be
              re-enabled later by changing `{false && (` back to `{(`. */}
         {false && (
-        <section className="py-20 bg-white dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
+        <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
           <div className="mx-auto max-w-7xl px-6 lg:px-8">
 
             {/* Pilot Structure */}
@@ -1027,7 +1027,7 @@ export default function App() {
       </main>
 
       {/* ── FOOTER ── */}
-      <footer className="bg-white text-slate-700 border-t border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-900" id="footer">
+      <footer className="bg-[#DDE7EF] text-slate-700 border-t border-slate-200 dark:bg-slate-900 dark:text-slate-400 dark:border-slate-900" id="footer">
         <div className="mx-auto max-w-7xl px-6 py-16 lg:px-8">
           <div className="grid grid-cols-2 gap-10 md:grid-cols-3 lg:grid-cols-5 mb-14">
             {/* Brand */}
