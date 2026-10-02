@@ -120,9 +120,23 @@ export function WeeklyGovernanceTeamReport({ report, onAcknowledge }: Props) {
             {filteredEvents.map((event) => (
               <li key={event.id}><time>{event.dateLabel}</time>
                 <p>{event.headline || event.summary}</p>
-                {!!event.signals?.length && <div className="mt-2 space-y-1">{event.signals.map((sig) =>
-                  <p key={sig.id} className="text-sm"><strong>{sig.person || "Service-level"} · {sig.domain || "Governance signal"}</strong> — {sig.description}{sig.decision ? ` · RM: ${sig.decision}` : " · RM decision not recorded"}</p>
-                )}</div>}
+                {!!event.signals?.length && <div className="mt-2 space-y-2">{event.signals.map((sig) => {
+                  const fmt = (v?: string | null) => { if (!v) return ""; const d = new Date(v); return isNaN(d.getTime()) ? "" : new Intl.DateTimeFormat("en-GB", { dateStyle: "medium" }).format(d); };
+                  const decidedAt = fmt(sig.decidedAt); const followUp = fmt(sig.followUpDue);
+                  return (
+                    <div key={sig.id} className="text-sm border-l-2 border-border pl-3">
+                      <p><strong>{sig.person || "Service-level"} · {sig.domain || "Governance signal"}</strong> — {sig.concern || sig.description || "Source detail missing"}</p>
+                      <p className="text-muted-foreground">
+                        RM decision: <strong className="text-foreground">{sig.decision || "RM decision not recorded"}</strong>
+                        {sig.reviewer ? ` · ${sig.reviewer}` : ""}{decidedAt ? ` · ${decidedAt}` : ""}
+                      </p>
+                      <p className="text-muted-foreground">Rationale: {sig.rationale || "Rationale not recorded"}</p>
+                      {sig.intendedOutcome && <p className="text-muted-foreground">Intended outcome: {sig.intendedOutcome}</p>}
+                      {sig.decisionEvidence && <p className="text-muted-foreground">Evidence: {sig.decisionEvidence}</p>}
+                      {followUp && <p className="text-muted-foreground">Follow-up due: {followUp}</p>}
+                    </div>
+                  );
+                })}</div>}
               </li>
             ))}
           </ol>

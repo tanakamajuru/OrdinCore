@@ -44,9 +44,14 @@ export class ReconstructionService {
     const reviews = await query(
       `SELECT 'review' AS item_type, COALESCE(gr.created_at,gr.review_date::timestamptz) AS event_time,
               gr.review_type AS theme, gr.what_is_happening AS description,
-              gr.decision AS status, gp.related_person, gr.service_id AS house_id
+              gr.decision AS status, gp.related_person, gr.service_id AS house_id,
+              -- Reconstruction reports must explain the decision, not state it (briefs R1–R3):
+              gr.decision_rationale AS rationale, gr.intended_outcome AS intended_outcome,
+              gr.evidence AS decision_evidence, gr.due_at AS follow_up_due,
+              NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),'') AS reviewer
        FROM governance_reviews gr
        LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id AND gp.company_id=gr.company_id
+       LEFT JOIN users ru ON ru.id = gr.reviewed_by AND ru.company_id = gr.company_id
        WHERE gr.company_id = $1
          AND (CASE WHEN $5 = 'service' THEN gr.service_id::text = $2
                    WHEN $5 = 'client'  THEN gp.related_person::text = $6

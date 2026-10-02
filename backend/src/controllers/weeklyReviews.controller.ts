@@ -296,9 +296,29 @@ export class WeeklyReviewsController {
 
       section('How events unfolded');
       if (Array.isArray(tr.events) && tr.events.length) {
+        const fmtDay = (v: any) => { if (!v) return ''; const d = new Date(v); return isNaN(d.getTime()) ? '' : d.toLocaleDateString('en-GB'); };
         tr.events.forEach((event: any) => {
           const date = event.date ? new Date(event.date).toLocaleDateString('en-GB') : 'Date not recorded';
           doc.font('Helvetica-Bold').text(date, { continued: true }).font('Helvetica').text(`  ${event.headline || firstLine(event.summary)}`);
+          // Each recorded decision must explain itself, not state a status alone (briefs R1–R3).
+          const sigs: any[] = Array.isArray(event.signals) ? event.signals : [];
+          sigs.forEach((s: any) => {
+            const who = s.person || 'Service-level';
+            const domain = s.domain || 'Governance signal';
+            const concern = s.concern || s.description || 'Source detail missing';
+            doc.moveDown(0.15).font('Helvetica-Bold').fontSize(9).fillColor('#0f172a')
+              .text(`   • ${who} · ${domain}`);
+            doc.font('Helvetica').fontSize(9).fillColor('#333')
+              .text(`     ${concern}`);
+            const decidedAt = fmtDay(s.decidedAt);
+            doc.text(`     RM decision: ${s.decision || 'RM decision not recorded'}${s.reviewer ? ` · ${s.reviewer}` : ''}${decidedAt ? ` · ${decidedAt}` : ''}`);
+            doc.text(`     Rationale: ${s.rationale || 'Rationale not recorded'}`);
+            if (s.intendedOutcome) doc.text(`     Intended outcome: ${s.intendedOutcome}`);
+            if (s.decisionEvidence) doc.text(`     Evidence: ${s.decisionEvidence}`);
+            const follow = fmtDay(s.followUpDue);
+            if (follow) doc.text(`     Follow-up due: ${follow}`);
+          });
+          if (sigs.length) { doc.fontSize(10).fillColor('#000'); doc.moveDown(0.2); }
         });
       } else {
         doc.font('Helvetica-Oblique').fillColor('#555').text('No dated briefing was recorded for this week.').font('Helvetica').fillColor('#000');

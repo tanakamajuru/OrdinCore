@@ -511,14 +511,30 @@ export class WeeklyReviewsService {
               (SELECT (gp.risk_domain)[1] FROM governance_pulses gp
                 WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date
                   AND COALESCE(array_length(gp.risk_domain,1),0)>0 ORDER BY gp.created_at LIMIT 1) AS theme,
+              -- Signed reports keep their frozen snapshot; the live fallback now carries the FULL
+              -- decision (not status alone): concern, decision, rationale, intended outcome, evidence,
+              -- reviewer and the actual decision time, so a report explains the decision (briefs R1–R3).
               COALESCE((dgl.evidence_snapshot::jsonb)->'signals',
                 (SELECT COALESCE(jsonb_agg(jsonb_build_object(
                    'id',gp.id,'person',gp.related_person,'domain',(gp.risk_domain)[1],
                    'description',gp.description,'severity',gp.severity,'reviewStatus',gp.review_status,
-                   'decision',(SELECT gr.decision FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1),
-                   'decisionId',(SELECT gr.id FROM governance_reviews gr WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id ORDER BY gr.created_at DESC LIMIT 1)
+                   'decision',gr.decision,
+                   'decisionId',gr.id,
+                   'concern',gr.what_is_happening,
+                   'rationale',gr.decision_rationale,
+                   'intendedOutcome',gr.intended_outcome,
+                   'decisionEvidence',gr.evidence,
+                   'reviewer',NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),''),
+                   'decidedAt',gr.created_at,
+                   'followUpDue',gr.due_at
                  ) ORDER BY COALESCE(gp.created_at,gp.entry_date::timestamptz)), '[]'::jsonb)
                    FROM governance_pulses gp
+                   LEFT JOIN LATERAL (
+                     SELECT gr.* FROM governance_reviews gr
+                      WHERE gr.company_id=gp.company_id AND gr.pulse_entry_id=gp.id
+                      ORDER BY gr.created_at DESC LIMIT 1
+                   ) gr ON true
+                   LEFT JOIN users ru ON ru.id = gr.reviewed_by AND ru.company_id = gp.company_id
                   WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date)
               ) AS signals
          FROM daily_governance_log dgl
