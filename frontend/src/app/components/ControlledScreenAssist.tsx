@@ -40,6 +40,10 @@ const SCREEN_BY_ROLE: Record<string, Array<[RegExp, string]>> = {
 };
 
 export function ControlledScreenAssist({ pathname, role }: { pathname: string; role: string }) {
+  // Only roles with approved screen-assist guidance get the launcher at all. SUPER_ADMIN / ADMIN have
+  // none, so the floating pill + right-side panel must NOT mount on their screens — a stray fixed
+  // launcher there only risks covering real controls (e.g. the super-admin Create buttons).
+  const hasAssist = !!SCREEN_BY_ROLE[role];
   const screenKey = useMemo(() => SCREEN_BY_ROLE[role]?.find(([pattern]) => pattern.test(pathname))?.[1] || null, [pathname, role]);
   const [open, setOpen] = useState(false); const [question, setQuestion] = useState('');
   const [reply, setReply] = useState<Reply | null>(null); const [loading, setLoading] = useState(false);
@@ -86,6 +90,8 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
     } finally { setLoading(false); setQuestion(''); }
   };
 
+  if (!hasAssist) return null;
+
   return <>
     <button type="button" onPointerDown={onDown} onPointerMove={onMove} onPointerUp={onUp}
       style={{ left: pos.x, top: pos.y, touchAction: 'none', margin: 0, width: 'auto' }}
@@ -94,7 +100,7 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
       <BookOpenCheck className="w-5 h-5" /> Screen Assist
     </button>
     {open && <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />}
-    <aside className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-card border-l border-border shadow-2xl transition-transform ${open ? 'translate-x-0' : 'translate-x-full'}`} aria-label="Controlled doctrine Screen Assist" aria-hidden={!open}>
+    <aside className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-card border-l border-border shadow-2xl transition-transform ${open ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`} aria-label="Controlled doctrine Screen Assist" aria-hidden={!open}>
       <div className="h-full flex flex-col p-5">
         <div className="flex items-start justify-between border-b border-border pb-4"><div><h2 className="font-semibold">Screen Assist</h2><p className="text-xs text-emerald-600 flex items-center gap-1 mt-1"><LockKeyhole className="w-3.5 h-3.5" /> Controlled doctrine · Read only</p><p className="text-xs text-muted-foreground mt-1">{role.replace(/_/g, ' ')}</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Close Screen Assist"><X className="w-5 h-5" /></button></div>
         <div className="flex-1 overflow-y-auto py-4" aria-live="polite">
