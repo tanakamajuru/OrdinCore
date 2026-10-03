@@ -10,6 +10,7 @@ const router = Router();
 // escalation/risk/pattern closure, weekly review, incident). AI suggestions are stored unapproved.
 const learningWriters = requireRole('REGISTERED_MANAGER', 'TEAM_LEADER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN');
 
+router.get('/register', requireAuth, requireTenant, learningWriters, learningController.list.bind(learningController));
 router.get('/', requireAuth, requireTenant, learningController.listBySource.bind(learningController));
 router.post('/', requireAuth, requireTenant, learningWriters, learningController.create.bind(learningController));
 router.post('/:id/approve', requireAuth, requireTenant, learningWriters, learningController.approve.bind(learningController));

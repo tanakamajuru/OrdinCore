@@ -86,6 +86,33 @@ export class LearningService {
     return res.rows[0];
   }
 
+  // Learning register: recent records across the company (optionally scoped to houses / filtered by
+  // state or progress), with author, linked improvement action and scope — for the follow-through view.
+  async list(company_id: string, opts: { houseIds?: string[] | null; state?: string; progress?: string; limit?: number } = {}) {
+    const params: any[] = [company_id];
+    let where = 'lr.company_id = $1';
+    if (opts.houseIds && opts.houseIds.length) { params.push(opts.houseIds); where += ` AND (lr.house_id = ANY($${params.length}::uuid[]) OR lr.house_id IS NULL)`; }
+    if (opts.state) { params.push(opts.state); where += ` AND lr.state = $${params.length}`; }
+    if (opts.progress) { params.push(opts.progress); where += ` AND lr.progress = $${params.length}`; }
+    params.push(Math.min(Math.max(Number(opts.limit) || 100, 1), 300));
+    return (await query(
+      `SELECT lr.*,
+              NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
+              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
+              h.name AS house_name,
+              ra.title AS linked_action_title, ra.status::text AS linked_action_status
+         FROM learning_records lr
+         LEFT JOIN users au ON au.id = lr.author_id
+         LEFT JOIN users ow ON ow.id = lr.owner_id
+         LEFT JOIN houses h ON h.id = lr.house_id
+         LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
+        WHERE ${where}
+        ORDER BY lr.created_at DESC
+        LIMIT $${params.length}`,
+      params,
+    )).rows;
+  }
+
   async listBySource(company_id: string, source_type: LearningSource, source_id: string) {
     return (await query(
       `SELECT lr.*,

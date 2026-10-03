@@ -18,6 +18,7 @@ import { GovernanceConfig } from "./components/GovernanceConfig";
 import ImmediateRulesAdmin from "./components/ImmediateRulesAdmin";
 import { IncidentReconstruction } from "./components/IncidentReconstruction";
 import { Effectiveness } from "./components/Effectiveness";
+import { LearningRegister } from "./components/LearningRegister";
 import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
@@ -348,6 +349,11 @@ export default function App() {
           <Route path="/effectiveness" element={
             <ProtectedRoute>
               <Effectiveness />
+            </ProtectedRoute>
+          } />
+          <Route path="/learning" element={
+            <ProtectedRoute>
+              <LearningRegister />
             </ProtectedRoute>
           } />
           <Route path="/risks/promote" element={

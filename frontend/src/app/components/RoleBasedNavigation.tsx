@@ -147,6 +147,12 @@ export function RoleBasedNavigation() {
 
   const navItems = getNavigationItems();
 
+  // Learning & follow-through register — lessons captured at reviews/closures, their linked
+  // improvement work and progress ladder. Shown for the roles that record/review learning.
+  if (["REGISTERED_MANAGER", "TEAM_LEADER", "DIRECTOR", "RESPONSIBLE_INDIVIDUAL"].includes(userRole)) {
+    navItems.push({ path: "/learning", label: "Learning", icon: Activity });
+  }
+
   // Help & Guidelines — admins author content (/help-admin); everyone reads the articles
   // targeted at their role (/help). Appended for every role so it's always reachable.
   if (userRole) {
