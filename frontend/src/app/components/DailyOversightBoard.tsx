@@ -36,6 +36,11 @@ export function DailyOversightBoard() {
   const [signedOff, setSignedOff] = useState<{ by: string; at: string } | null>(null);
   const [signedLogId, setSignedLogId] = useState<string | null>(null);
   const [addendumOpen, setAddendumOpen] = useState(false);
+  // Post-sign-off signal review (PDF 1 §1): signing locks the Team Brief, NOT the RM's ability to
+  // respond to signals that arrive or fall due later the same day. When on, the decision panel is
+  // re-enabled for today's signed service so outstanding signals can be decided; the signed record is
+  // never reopened — decisions are dated updates attested by a signed addendum.
+  const [postSignoffReview, setPostSignoffReview] = useState(false);
   const [addendumReason, setAddendumReason] = useState("");
   const [addendumSaving, setAddendumSaving] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
@@ -44,6 +49,7 @@ export function DailyOversightBoard() {
   // this is a read-only projection of the same canonical rows.
   const [escActivity, setEscActivity] = useState<any[]>([]);
   const noteRef = useRef<HTMLTextAreaElement>(null);
+  const decisionsRef = useRef<HTMLDivElement>(null);
 
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
   const currentUserId = currentUser.id || currentUser.user_id;
@@ -57,6 +63,16 @@ export function DailyOversightBoard() {
   // all-service figures before snapping to the selected service (the "9 then 3" flash).
   useEffect(() => { initHouses(); }, []);
   useEffect(() => { if (selectedHouseId) loadDashboard(selectedHouseId); }, [selectedHouseId]);
+
+  // Arriving from My Work / Guided Work to review a specific signal or monitored concern on a day that
+  // is already signed off: open post-sign-off review automatically so the concern is actionable and
+  // visible, instead of a locked, empty-looking panel (PDF 1 §1 + "Review monitored concern" deep-link).
+  useEffect(() => {
+    if (guidedPulseId && signedOff && !isHistoricalDate) {
+      setPostSignoffReview(true);
+      setTimeout(() => decisionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
+    }
+  }, [guidedPulseId, signedOff, isHistoricalDate]);
 
   const initHouses = async () => {
     try {
@@ -518,7 +534,9 @@ export function DailyOversightBoard() {
 
         {/* Governance Decisions — the review that generates management work (Ch3).
             Signals are fetched per-house inside the component; patterns for this service. */}
-        <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={!!signedOff || isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId, true)} focusPulseId={guidedPulseId} />
+        <div ref={decisionsRef}>
+          <GovernanceDecisions houseId={selectedHouseId} reviewDate={reviewDate} readOnly={isHistoricalDate || (!!signedOff && !postSignoffReview)} postSignoff={!!signedOff && postSignoffReview && !isHistoricalDate} houses={houses} onSelectHouse={setSelectedHouseId} onChanged={() => loadDashboard(selectedHouseId, true)} focusPulseId={guidedPulseId} />
+        </div>
 
         {/* Team Brief (full width) — the day's signal review published to Team Leaders */}
         <div>
@@ -562,11 +580,20 @@ export function DailyOversightBoard() {
                 <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 size={18} /><span className="font-semibold">Today's Governance Status: Complete</span></div>
                 <p className="text-sm text-muted-foreground mt-1">Signed by: {signedOff.by} · {signedOff.at}</p>
                 <p className="text-[11px] text-muted-foreground mt-1">This entry constitutes a forensic audit point for CQC Well-Led inspections.</p>
-                {!isHistoricalDate && signedLogId && (
-                  <div className="mt-3">
-                    <button onClick={() => setAddendumOpen(true)} className="text-xs font-medium text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10">+ Add signed addendum</button>
-                    <span className="text-[11px] text-muted-foreground ml-2">For a signal that arrived after sign-off — the primary record is never reopened.</span>
+                {!isHistoricalDate && (
+                  <div className="mt-3 flex items-center gap-2 flex-wrap">
+                    {/* Signing locks the record, not the RM's ability to respond. This re-enables the
+                        decision panel for outstanding signals without reopening the signed brief. */}
+                    <button onClick={() => { setPostSignoffReview(true); setTimeout(() => decisionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }}
+                      className="text-xs font-semibold text-white bg-primary rounded px-3 py-1.5 hover:bg-primary/90">Review outstanding signals</button>
+                    {signedLogId && (
+                      <button onClick={() => setAddendumOpen(true)} className="text-xs font-medium text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10">+ Add signed addendum</button>
+                    )}
+                    <span className="text-[11px] text-muted-foreground">Decide signals that arrived or fell due after sign-off — the primary record is never reopened; attest them with a signed addendum.</span>
                   </div>
+                )}
+                {postSignoffReview && (
+                  <p className="text-[11px] text-amber-700 mt-2">Post-sign-off review is open above. Record your decisions, then add a signed addendum to attest them.</p>
                 )}
               </div>
             ) : (

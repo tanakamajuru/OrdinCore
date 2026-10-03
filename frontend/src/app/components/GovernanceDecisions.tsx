@@ -29,6 +29,7 @@ export function GovernanceDecisions({
   houseId,
   reviewDate,
   readOnly = false,
+  postSignoff = false,
   houses = [],
   onSelectHouse,
   onChanged,
@@ -37,6 +38,9 @@ export function GovernanceDecisions({
   houseId?: string;
   reviewDate: string;
   readOnly?: boolean;
+  /** Post-sign-off review mode: the day IS signed, but the RM is deciding outstanding signals that
+   *  arrived/are due after sign-off. Decisions are recorded without reopening the signed Team Brief. */
+  postSignoff?: boolean;
   /** House list + selector so the RM picks the service right here while deciding. */
   houses?: Array<{ id: string; name: string }>;
   onSelectHouse?: (id: string) => void;
@@ -392,6 +396,11 @@ export function GovernanceDecisions({
         </div>
       )}
 
+      {postSignoff && !readOnly && (
+        <div className="text-sm text-amber-900 bg-amber-50 border border-amber-200 rounded-lg p-3 mb-3">
+          <span className="font-semibold">Reviewing outstanding signals after sign-off.</span> The published Team Brief and its signature are unchanged. Decisions you record now are dated updates — add a <span className="font-semibold">signed addendum</span> below to attest them.
+        </div>
+      )}
       {readOnly ? (
         <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">This governance date has already been signed off. Decisions are shown as historical evidence and cannot be changed here.</div>
       ) : signals.length === 0 ? (
