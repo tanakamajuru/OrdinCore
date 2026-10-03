@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { FullScreen, useFullScreenHandle } from "react-full-screen";
-import { useNavigate } from "react-router";
+import { useNavigate, Navigate } from "react-router";
 
 import { useAuth } from "@/hooks/useAuth";
 import logo from "./images/logo.png";
@@ -62,7 +62,19 @@ export function Login() {
       if (reason) { setError(reason); sessionStorage.removeItem('logoutReason'); }
     } catch { /* ignore */ }
   }, []);
-  const { login } = useAuth();
+  const { login, isAuthenticated } = useAuth();
+
+  // An already-authenticated user must never see the login form. Browser/in-app "Back" can land on
+  // /login while a valid session is still held — which LOOKED like being logged out (field report).
+  // Redirect them to their role home instead; the session is untouched.
+  if (isAuthenticated) {
+    const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
+    const home = role === 'SUPER_ADMIN' ? '/super-admin'
+      : role === 'ADMIN' ? '/admin-dashboard'
+      : ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role) ? '/my-work'
+      : '/dashboard';
+    return <Navigate to={home} replace />;
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
