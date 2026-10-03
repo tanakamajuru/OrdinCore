@@ -2,6 +2,7 @@ import { useState } from "react";
 import { X, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { LearningCapture } from "../app/components/LearningCapture";
 
 interface Props {
   open: boolean;
@@ -23,8 +24,24 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
   const [patternReduced, setPatternReduced] = useState(false);
   const [evidenceBasis, setEvidenceBasis] = useState("");
   const [busy, setBusy] = useState(false);
+  // After a successful close, capture learning before handing control back (brief 3 L1).
+  const [closedResult, setClosedResult] = useState<any>(null);
 
   if (!open) return null;
+
+  // Learning step shown after the close succeeds. Finishing (save or skip) refreshes the caller.
+  if (closedResult) {
+    const finish = () => { const r = closedResult; setClosedResult(null); onClosed?.(r); onClose(); };
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={finish}>
+        <div className="bg-card w-full max-w-lg rounded-xl shadow-xl border border-border p-5" onClick={(e) => e.stopPropagation()}>
+          <h3 className="text-lg font-semibold text-foreground mb-1">Learning from this closure</h3>
+          <p className="text-sm text-muted-foreground mb-3">The {target.type} is closed. Capture any learning for the weekly governance report — or record honestly that there is none.</p>
+          <LearningCapture sourceType={target.type === "escalation" ? "ESCALATION_CLOSURE" : "RISK_CLOSURE"} sourceId={target.id} onDone={finish} />
+        </div>
+      </div>
+    );
+  }
 
   // These gates must come from linked records; a checkbox cannot replace system evidence.
   const hasLinkedActions = linkedActionCount > 0;
@@ -66,8 +83,8 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
       // Doctrine: closing the escalation is NOT closing the risk. Hand back the closure result
       // (carrying linked_risk_id / post_closure_risk_review_required) so the caller can return
       // the RM to the post-closure risk decision.
-      onClosed?.(res?.data?.data ?? res?.data ?? res);
-      onClose();
+      // Show the learning step before returning control; finishing it calls onClosed/onClose.
+      setClosedResult(res?.data?.data ?? res?.data ?? res);
     } catch (err: any) {
       toast.error(err?.message || "Failed to close.");
     } finally {
