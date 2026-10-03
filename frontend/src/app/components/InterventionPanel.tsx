@@ -3,11 +3,103 @@ import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert, Plus, Link2 } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/hooks/useAuth";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
+
+// Multiple linked delivery actions per intervention (brief 2 §1). Shows the existing linked actions
+// with their canonical delivery evidence, lets the RM link more EXISTING actions (suggested from the
+// theme's risks), and unlink — all by stable ID, deduped and audited server-side.
+function LinkedActionsManager({ interventionId, theme, canWrite }: { interventionId: string; theme: any; canWrite: boolean }) {
+  const [links, setLinks] = useState<any[]>([]);
+  const [picking, setPicking] = useState(false);
+  const [candidates, setCandidates] = useState<any[]>([]);
+  const [selected, setSelected] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+
+  const load = async () => {
+    try { setLinks(unwrap(await apiClient.get(`/interventions/${interventionId}/actions`)) || []); } catch { setLinks([]); }
+  };
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [interventionId]);
+
+  const openPicker = async () => {
+    setSelected({}); setPicking(true);
+    try {
+      const rows = unwrap(await apiClient.get('/actions/oversight')) || [];
+      const riskIds = new Set((theme?.risk_refs || []).map((r: any) => String(r.id)));
+      const linkedIds = new Set(links.map((l: any) => String(l.action_id)));
+      setCandidates((Array.isArray(rows) ? rows : []).filter((a: any) =>
+        !linkedIds.has(String(a.id)) && String(a.status) !== 'Cancelled' &&
+        (riskIds.size === 0 || riskIds.has(String(a.risk_id)))));
+    } catch { setCandidates([]); }
+  };
+
+  const linkSelected = async () => {
+    const ids = Object.keys(selected).filter((k) => selected[k]);
+    if (!ids.length) { toast.error('Select at least one existing action to link.'); return; }
+    setBusy(true);
+    try {
+      setLinks(unwrap(await apiClient.post(`/interventions/${interventionId}/actions`, { action_ids: ids })) || []);
+      setPicking(false); toast.success(`Linked ${ids.length} action${ids.length === 1 ? '' : 's'}`);
+    } catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to link actions'); }
+    finally { setBusy(false); }
+  };
+
+  const unlink = async (actionId: string) => {
+    setBusy(true);
+    try { setLinks(unwrap(await apiClient.delete(`/interventions/${interventionId}/actions/${actionId}`)) || []); }
+    catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to unlink'); }
+    finally { setBusy(false); }
+  };
+
+  return (
+    <div className="mt-3 rounded-lg border border-border p-2.5">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><Link2 className="w-3.5 h-3.5" /> Linked delivery actions ({links.length})</span>
+        {canWrite && !picking && (
+          <button onClick={openPicker} className="text-[11px] text-primary flex items-center gap-1 hover:underline"><Plus className="w-3 h-3" /> Link existing action</button>
+        )}
+      </div>
+      {links.length === 0 && <p className="text-[11px] text-muted-foreground">No delivery actions linked yet.</p>}
+      <div className="space-y-1.5">
+        {links.map((l: any) => (
+          <div key={l.action_id} className="flex items-start justify-between gap-2 text-xs">
+            <div className="min-w-0">
+              <p className="text-foreground truncate">{l.title || 'Action'}</p>
+              <p className="text-[10px] text-muted-foreground">
+                {l.owner || 'Unassigned'} · {l.status}{l.is_completed ? ' · complete' : ''}
+                {l.effectiveness ? ` · ${l.effectiveness}` : (l.review_requirement === 'COMPLETION_ONLY' ? ' · no review required' : '')}
+              </p>
+            </div>
+            {canWrite && (
+              <button onClick={() => unlink(l.action_id)} disabled={busy} title="Unlink" className="text-muted-foreground hover:text-red-600 shrink-0"><X className="w-3.5 h-3.5" /></button>
+            )}
+          </div>
+        ))}
+      </div>
+      {picking && (
+        <div className="mt-2 border-t border-border/60 pt-2">
+          <p className="text-[11px] text-muted-foreground mb-1">Relevant existing actions{(theme?.risk_refs || []).length ? ' for this theme’s risks' : ''} — select to link (no new work is created):</p>
+          <div className="max-h-40 overflow-y-auto space-y-1">
+            {candidates.length === 0 && <p className="text-[11px] text-muted-foreground">No unlinked relevant actions found.</p>}
+            {candidates.map((a: any) => (
+              <label key={a.id} className="flex items-center gap-2 text-xs cursor-pointer">
+                <input type="checkbox" checked={!!selected[a.id]} onChange={(e) => setSelected((s) => ({ ...s, [a.id]: e.target.checked }))} />
+                <span className="truncate">{a.title || a.action || 'Action'} <span className="text-[10px] text-muted-foreground">· {a.assigned_to_name || 'Unassigned'} · {a.status}</span></span>
+              </label>
+            ))}
+          </div>
+          <div className="flex items-center gap-2 mt-2">
+            <button onClick={linkSelected} disabled={busy} className="text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50">{busy ? 'Linking…' : 'Link selected'}</button>
+            <button onClick={() => setPicking(false)} className="text-[11px] px-2.5 py-1 rounded border border-border">Cancel</button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 
 const VERDICTS = [
   "Resolved — controls effective",
@@ -342,6 +434,10 @@ export function InterventionPanel() {
                             )}
                           </div>
                         )}
+                        {/* Multiple linked delivery actions (brief 2 §1) — the plan's relevant existing
+                            actions, with coverage derived from the canonical action state. */}
+                        {intv.id && <LinkedActionsManager interventionId={intv.id} theme={t} canWrite={canManage} />}
+
                         {/* Formal effectiveness — the existing human-reviewed action-effectiveness
                             judgement (Effective / Partially Effective / Not Effective / Too Early).
                             No synthetic Risk-Index percentage is claimed. */}
