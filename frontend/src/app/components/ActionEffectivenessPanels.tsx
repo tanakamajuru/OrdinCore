@@ -8,6 +8,7 @@ import { Loader2 } from "lucide-react";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
+import { LearningCapture } from "./LearningCapture";
 
 const OUTCOMES = ["Effective", "Partially Effective", "Not Effective", "Too Early To Assess"] as const;
 
@@ -23,6 +24,8 @@ export function ActionEffectivenessPanels() {
   const [evidence, setEvidence] = useState("");
   const [saving, setSaving] = useState(false);
   const [nextReviewDate, setNextReviewDate] = useState("");
+  // After a verdict is recorded, offer structured learning capture linked to the action (L1).
+  const [learningFor, setLearningFor] = useState<{ id: string; houseId?: string | null; outcome: string } | null>(null);
   const [remediating,setRemediating]=useState<any>(null);
   const [remediationEvidence,setRemediationEvidence]=useState("");
   const [remediationReason,setRemediationReason]=useState("");
@@ -41,8 +44,12 @@ export function ActionEffectivenessPanels() {
     try {
       await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: outcome === "Too Early To Assess" ? nextReviewDate : undefined });
       toast.success("Effectiveness recorded");
+      const rated = rating;
       setRating(null);
       loadData();
+      // Prompt for learning against this review — significant / Not-Effective / Partially-Effective
+      // outcomes especially warrant an explicit lesson (L1); honest "no learning" is allowed.
+      setLearningFor({ id: rated.id, houseId: rated.house_id, outcome });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Could not record effectiveness");
     } finally { setSaving(false); }
@@ -298,6 +305,16 @@ export function ActionEffectivenessPanels() {
           <button onClick={async()=>{try{await apiClient.patch(`/actions/${remediating.id}/remediate-evidence`,{evidence:remediationEvidence,reason:remediationReason,source:remediationSource,intended_outcome:remediationOutcome,review_requirement:remediationRequirement});toast.success("Historical evidence remediation recorded");setRemediating(null);loadData();}catch(err:any){toast.error(err?.response?.data?.message||err?.message||"Could not record remediation");}}} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg">Record remediation</button></div>
         </div>
       </div>}
+
+      {learningFor && (
+        <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setLearningFor(null)}>
+          <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <h2 className="text-lg font-semibold text-foreground mb-1">Learning from this review</h2>
+            <p className="text-sm text-muted-foreground mb-3">Outcome recorded: <span className="font-medium text-foreground">{learningFor.outcome}</span>. Capture any learning so it reaches the weekly governance report — or record honestly that there is none.</p>
+            <LearningCapture sourceType="EFFECTIVENESS" sourceId={learningFor.id} houseId={learningFor.houseId} onDone={() => setLearningFor(null)} />
+          </div>
+        </div>
+      )}
 
       {rating && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => !saving && setRating(null)}>

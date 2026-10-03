@@ -1,0 +1,85 @@
+import { useState } from "react";
+import { apiClient } from "@/services/api";
+import { toast } from "sonner";
+
+export type LearningSource = "EFFECTIVENESS" | "ESCALATION_CLOSURE" | "RISK_CLOSURE" | "PATTERN_CLOSURE" | "WEEKLY_REVIEW" | "INCIDENT";
+
+// Reusable learning-capture panel (learning brief L1–L3). Records a structured, source-linked
+// learning assessment. Honest states: staff are never forced to invent a lesson — "No learning
+// identified" and "Not yet assessed" are first-class. Posts to the existing /learning API (#183).
+export function LearningCapture({
+  sourceType, sourceId, houseId, title = "Record learning", onDone,
+}: {
+  sourceType: LearningSource;
+  sourceId?: string | null;
+  houseId?: string | null;
+  title?: string;
+  onDone?: () => void;
+}) {
+  const [state, setState] = useState<"IDENTIFIED" | "NONE_IDENTIFIED" | "NOT_YET_ASSESSED">("IDENTIFIED");
+  const [whatHappened, setWhatHappened] = useState("");
+  const [whatLearnt, setWhatLearnt] = useState("");
+  const [changeNeeded, setChangeNeeded] = useState("");
+  const [noReason, setNoReason] = useState("");
+  const [reviewDate, setReviewDate] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [done, setDone] = useState(false);
+
+  const save = async () => {
+    if (state === "IDENTIFIED" && whatLearnt.trim().length < 3) { toast.error("Record what was learnt."); return; }
+    if (state === "NONE_IDENTIFIED" && noReason.trim().length < 3) { toast.error("Give a brief reason why no learning was identified."); return; }
+    if (state === "NOT_YET_ASSESSED" && !reviewDate) { toast.error("Set a review date for the learning assessment."); return; }
+    setSaving(true);
+    try {
+      await apiClient.post("/learning", {
+        source_type: sourceType, source_id: sourceId || null, house_id: houseId || null, state,
+        what_happened: whatHappened.trim() || undefined,
+        what_learnt: state === "IDENTIFIED" ? whatLearnt.trim() : undefined,
+        change_needed: state === "IDENTIFIED" ? (changeNeeded.trim() || undefined) : undefined,
+        no_learning_reason: state === "NONE_IDENTIFIED" ? noReason.trim() : undefined,
+        review_date: state === "NOT_YET_ASSESSED" ? reviewDate : undefined,
+      });
+      toast.success("Learning recorded");
+      setDone(true);
+      onDone?.();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Could not record learning");
+    } finally { setSaving(false); }
+  };
+
+  if (done) return (
+    <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">Learning recorded. It appears in the weekly governance report.</div>
+  );
+
+  return (
+    <div className="rounded-lg border border-border p-3 space-y-2.5">
+      <div className="flex items-center justify-between">
+        <span className="text-sm font-semibold text-foreground">{title}</span>
+        {onDone && <button type="button" onClick={() => { setDone(true); onDone(); }} className="text-xs text-muted-foreground hover:underline">Skip</button>}
+      </div>
+      <div className="flex flex-wrap gap-2">
+        {([["IDENTIFIED", "Learning identified"], ["NONE_IDENTIFIED", "No learning identified"], ["NOT_YET_ASSESSED", "Not yet assessed"]] as const).map(([v, label]) => (
+          <button key={v} type="button" onClick={() => setState(v)}
+            className={`text-xs px-2.5 py-1 rounded-full border ${state === v ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{label}</button>
+        ))}
+      </div>
+      {state === "IDENTIFIED" && (
+        <div className="space-y-2">
+          <textarea value={whatHappened} onChange={(e) => setWhatHappened(e.target.value)} rows={2} placeholder="What happened / what was examined (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+          <textarea value={whatLearnt} onChange={(e) => setWhatLearnt(e.target.value)} rows={2} placeholder="What was learnt *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+          <textarea value={changeNeeded} onChange={(e) => setChangeNeeded(e.target.value)} rows={2} placeholder="Change needed (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+        </div>
+      )}
+      {state === "NONE_IDENTIFIED" && (
+        <textarea value={noReason} onChange={(e) => setNoReason(e.target.value)} rows={2} placeholder="Brief reason why no learning was identified *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+      )}
+      {state === "NOT_YET_ASSESSED" && (
+        <div className="flex items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Assessment due:</span>
+          <input type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} className="p-2 border border-border rounded-lg bg-background text-sm" />
+        </div>
+      )}
+      <button type="button" onClick={save} disabled={saving} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{saving ? "Saving…" : "Save learning"}</button>
+    </div>
+  );
+}
