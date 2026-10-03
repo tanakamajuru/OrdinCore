@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+import { LearningCapture } from "./LearningCapture";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
@@ -31,6 +32,7 @@ export function SystemicPatterns() {
   const [items, setItems] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [reviewTarget, setReviewTarget] = useState<any>(null);
+  const [learningFor, setLearningFor] = useState<string | null>(null);
   const [outcome, setOutcome] = useState("Continue Monitoring");
   const [rationale, setRationale] = useState("");
   const [nextDate, setNextDate] = useState("");
@@ -62,11 +64,14 @@ export function SystemicPatterns() {
     try {
       const res: any = await apiClient.post(`/governance-workflow/patterns/${reviewTarget.id}/review`, { outcome, rationale: rationale.trim(), next_review_date: outcome === "Continue Monitoring" ? nextDate : undefined });
       const na = (res?.data?.data ?? res?.data ?? {}).next_action;
+      const wasClose = outcome === "Close"; const closedId = reviewTarget.id;
       setReviewTarget(null); setRationale(""); setOutcome("Continue Monitoring"); setNextDate("");
       if (na?.type === "promoted" && na?.risk_id) { toast.success("Review recorded — risk created"); navigate(`/risk-register/${na.risk_id}`); return; }
       if (na?.type === "escalated" && na?.escalation_id) { toast.success("Review recorded — escalation opened"); navigate(`/escalation-log?focus=${na.escalation_id}`); return; }
       toast.success(na?.type === "escalated" ? "Review recorded — escalation opened" : "Systemic pattern review recorded");
       load();
+      // Closing a pattern is a significant point — prompt for learning (brief 3 L1); honest none allowed.
+      if (wasClose) setLearningFor(closedId);
     } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to record review"); }
     finally { setBusy(false); }
   };
@@ -146,6 +151,16 @@ export function SystemicPatterns() {
                 })}
               </tbody>
             </table>
+          </div>
+        )}
+
+        {learningFor && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setLearningFor(null)}>
+            <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-lg font-semibold text-foreground mb-1">Learning from this pattern</h3>
+              <p className="text-sm text-muted-foreground mb-3">The pattern is closed. Capture any learning for the weekly governance report — or record honestly that there is none.</p>
+              <LearningCapture sourceType="PATTERN_CLOSURE" sourceId={learningFor} onDone={() => setLearningFor(null)} />
+            </div>
           </div>
         )}
 
