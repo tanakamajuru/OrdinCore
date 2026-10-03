@@ -125,6 +125,7 @@ export function SystemicPatterns() {
                     <tr key={p.id} className="border-b border-border/50 hover:bg-muted/30">
                       <td className="py-3 px-4 font-medium text-foreground">{p.domain}{p.person && p.person !== "—" ? <span className="text-muted-foreground font-normal"> · {p.person}</span> : null}
                         {p.last_reviewed_at && <div className="text-[11px] text-muted-foreground font-normal">Reviewed {new Date(p.last_reviewed_at).toLocaleDateString("en-GB")}{p.review_outcome ? ` · ${p.review_outcome}` : ""}</div>}
+                        {p.linkedRiskClosed && <div className="mt-1 inline-block text-[10px] font-semibold px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">Linked risk resolved — ready for final closure</div>}
                       </td>
                       <td className="px-3 text-muted-foreground">
                         {Array.isArray(houses) ? houses.length : 0}{Array.isArray(houses) && houses.length ? <span className="text-[11px]"> ({houses.slice(0, 3).join(", ")}{houses.length > 3 ? "…" : ""})</span> : ""}

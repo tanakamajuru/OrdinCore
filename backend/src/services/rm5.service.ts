@@ -228,6 +228,8 @@ export const rm5Service = {
               COALESCE(pf.historical_evidence_count,c.signal_count) AS "historicalSignalCount",
               pf.threshold AS configured_threshold, pf.window_days, pf.formation_basis, pf.subthemes,
               c.linked_risk_id AS "promotedRiskId",
+              (c.linked_risk_id IS NOT NULL AND EXISTS (SELECT 1 FROM canonical_risk_state_v r
+                 WHERE r.id = c.linked_risk_id AND r.company_id = c.company_id AND r.is_closed)) AS linked_risk_closed,
               h.name AS house_name, c.affected_house_ids,
               (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(c.affected_house_ids)) AS affected_house_names,
               c.first_signal_date, c.last_signal_date, c.last_reviewed_at, c.review_outcome,
@@ -253,6 +255,9 @@ export const rm5Service = {
         formationBasis: c.formation_basis || 'FORMING', subthemes: c.subthemes || [],
         isWatch: (Number(c.signalCount) || 0) < 2, // Finding D display floor
         hasCritical: c.hasCritical, promotedRiskId: c.promotedRiskId || null,
+        // Pattern closes last: true when its linked risk is already resolved, so the UI can show it is
+        // ready for the final closure review (brief doctrine; no auto-close).
+        linkedRiskClosed: !!c.linked_risk_closed,
         trajectory: { dir: tr0.direction, basis: tr0.basis, points: tr0.points, version: tr0.evidence?.calculationVersion },
         // SGP criteria surface: how long it has persisted, and how many escalations it drove.
         first_signal_date: c.first_signal_date, last_signal_date: c.last_signal_date,

@@ -88,7 +88,13 @@ export class GovernanceService {
                        WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
                          AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
                          AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
-                    ) AS has_critical
+                    ) AS has_critical,
+                    -- A pattern closes LAST: flag when its linked risk is already resolved so the UI
+                    -- can show it is ready for its final closure review (no auto-close).
+                    (sc.linked_risk_id IS NOT NULL AND EXISTS (
+                      SELECT 1 FROM canonical_risk_state_v r
+                       WHERE r.id = sc.linked_risk_id AND r.company_id = sc.company_id AND r.is_closed
+                    )) AS linked_risk_closed
              FROM canonical_pattern_state_v sc
              LEFT JOIN houses h ON h.id = sc.house_id
              LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=sc.id

@@ -32,6 +32,7 @@ interface RiskPattern {
   promotedRiskId: string | null;
   promotedAt: string | null;
   scope: "service" | "person" | "cross_service";
+  linkedRiskClosed?: boolean;
 }
 
 type Readiness = "promoted" | "ready" | "nearly" | "forming";
@@ -108,6 +109,7 @@ export function CrossHousePatternDetection() {
         promotedRiskId: c.linked_risk_id || null,
         promotedAt: c.promoted_at || null,
         scope: c.scope || lens,
+        linkedRiskClosed: !!c.linked_risk_closed,
       }));
 
       // Ready-first, then nearly, then forming, with already-promoted patterns last.
@@ -290,6 +292,7 @@ export function CrossHousePatternDetection() {
                             </span>
                           </div>
                           <p className="text-sm text-muted-foreground mb-2">{pattern.description}</p>
+                          {pattern.linkedRiskClosed && <div className="mb-2 inline-block text-[11px] font-semibold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800">Linked risk resolved — ready for final closure review</div>}
                           <div className="flex items-center gap-4 text-sm text-muted-foreground flex-wrap">
                             <div className="flex items-center gap-1">
                               <MapPin className="w-3 h-3" />
