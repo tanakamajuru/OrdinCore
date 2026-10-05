@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from "react";
+import React from "react";
 import { AlertCircle } from "lucide-react";
 
 interface CreateAdminModalProps {
@@ -24,26 +24,6 @@ export default function CreateAdminModal({
   formError,
   isSubmitting,
 }: CreateAdminModalProps) {
-  // TEMP DIAGNOSTIC: report what element is actually on top of the First Name field, so the
-  // invisible-overlay cause can be fixed at its root. Remove once identified.
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const [overlayInfo, setOverlayInfo] = useState<string>("");
-  useEffect(() => {
-    if (!isOpen) return;
-    const check = () => {
-      const el = firstNameRef.current;
-      if (!el) return;
-      const r = el.getBoundingClientRect();
-      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) as HTMLElement | null;
-      if (!top || top === el) { setOverlayInfo("OK — First Name field is on top (not covered)."); return; }
-      const cs = getComputedStyle(top);
-      setOverlayInfo(`COVERED BY: <${top.tagName.toLowerCase()}>${top.id ? " #" + top.id : ""} class="${String(top.className).slice(0, 90)}" | z=${cs.zIndex} pos=${cs.position}`);
-    };
-    const t1 = setTimeout(check, 500);
-    const t2 = setTimeout(check, 1500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [isOpen]);
-
   if (!isOpen) return null;
 
   return (
@@ -59,11 +39,6 @@ export default function CreateAdminModal({
           <button onClick={onClose} className="text-gray-400 hover:text-muted-foreground text-2xl leading-none">&times;</button>
         </div>
         <form onSubmit={onSubmit} className="p-6 space-y-4">
-          {overlayInfo && (
-            <div className="text-[11px] leading-snug bg-amber-50 border border-amber-300 text-amber-900 rounded p-2 break-all">
-              <span className="font-bold">Diagnostic:</span> {overlayInfo}
-            </div>
-          )}
           {formError && (
             <div className="flex items-center gap-2 bg-destructive/10 text-destructive px-4 py-3 rounded text-sm border border-destructive/20">
               <AlertCircle className="w-4 h-4 flex-shrink-0" />
@@ -74,7 +49,6 @@ export default function CreateAdminModal({
             <div>
               <label className="block text-sm  text-muted-foreground mb-1">First Name *</label>
               <input
-                ref={firstNameRef}
                 type="text"
                 required
                 value={newAdmin.first_name}

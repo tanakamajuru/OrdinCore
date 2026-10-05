@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
 import { toast } from "sonner";
 import {
@@ -228,22 +228,6 @@ function PeopleSection() {
   const [invite, setInvite] = useState(false);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" });
   const [busy, setBusy] = useState(false);
-  // TEMP DIAGNOSTIC: report what element is on top of the First name field (invisible-overlay hunt).
-  const firstNameRef = useRef<HTMLInputElement>(null);
-  const [overlayInfo, setOverlayInfo] = useState("");
-  useEffect(() => {
-    if (!invite) { setOverlayInfo(""); return; }
-    const check = () => {
-      const el = firstNameRef.current; if (!el) return;
-      const r = el.getBoundingClientRect();
-      const top = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2) as HTMLElement | null;
-      if (!top || top === el) { setOverlayInfo("OK — First name field is on top (not covered)."); return; }
-      const cs = getComputedStyle(top);
-      setOverlayInfo(`COVERED BY: <${top.tagName.toLowerCase()}>${top.id ? " #" + top.id : ""} class="${String(top.className).slice(0, 90)}" | z=${cs.zIndex} pos=${cs.position}`);
-    };
-    const t1 = setTimeout(check, 500); const t2 = setTimeout(check, 1500);
-    return () => { clearTimeout(t1); clearTimeout(t2); };
-  }, [invite]);
 
   const load = async () => { setLoading(true); try { setList(rows(await apiClient.get("/users?limit=500"))); } catch { toast.error("Failed to load users."); } finally { setLoading(false); } };
   useEffect(() => { load(); }, []);
@@ -303,9 +287,8 @@ function PeopleSection() {
       )}
       {invite && (
         <Modal title="Invite user" onClose={() => setInvite(false)}>
-          {overlayInfo && <div className="text-[11px] leading-snug bg-amber-50 border border-amber-300 text-amber-900 rounded p-2 break-all"><span className="font-bold">Diagnostic:</span> {overlayInfo}</div>}
           <div className="grid grid-cols-2 gap-3">
-            <Field label="First name"><input ref={firstNameRef} className={inputCls} value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} /></Field>
+            <Field label="First name"><input className={inputCls} value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} /></Field>
             <Field label="Last name"><input className={inputCls} value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} /></Field>
           </div>
           <Field label="Email"><input className={inputCls} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
