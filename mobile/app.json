@@ -7,9 +7,7 @@
     "scheme": "ordincore",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
-    "runtimeVersion": {
-      "policy": "appVersion"
-    },
+    "runtimeVersion": "1.0.0",
     "updates": {
       "url": "https://u.expo.dev/769c3d95-40d7-433a-9830-a144fee4d912"
     },
@@ -33,7 +31,7 @@
         "NSPhotoLibraryUsageDescription": "Attach a photo from your library as evidence when you raise a signal.",
         "NSMicrophoneUsageDescription": "Record a short voice note as evidence when you raise a signal."
       },
-      "buildNumber": "29"
+      "buildNumber": "30"
     },
     "android": {
       "package": "care.ordincore.mobile",
