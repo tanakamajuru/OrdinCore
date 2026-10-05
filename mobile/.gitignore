@@ -2,3 +2,7 @@
 # EAS submit credentials (never commit)
 credentials/
 *.keystore
+
+# Machine-specific Android SDK path — must never be uploaded to EAS (Linux builders)
+android/local.properties
+**/local.properties
