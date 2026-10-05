@@ -1,0 +1,3 @@
+# Let EAS prebuild a fresh Android project (no custom native code here), so autolinked
+# modules match the freshly-installed node_modules on the EAS builder.
+/android
