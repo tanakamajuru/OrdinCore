@@ -108,7 +108,11 @@ export const rm5Service = {
   async counts(company_id: string) {
     const one = async (sql: string) => Number((await query(sql, [company_id])).rows[0]?.n || 0);
     return {
-      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'') NOT IN ('Linked','Closed','Monitoring') AND COALESCE(description,'') <> 'Scheduled Governance Pulse'`),
+      // One engine: this headline count must mean the SAME thing the review list shows — signals
+      // still genuinely awaiting review ('New'/null). Previously it excluded only Linked/Closed/
+      // Monitoring, so already-'Reviewed'/'Escalated' signals inflated it (4 counted, 0 reviewable),
+      // presenting handled signals as outstanding. A reviewed signal has left the pipeline.
+      signals: await one(`SELECT COUNT(*) n FROM governance_pulses WHERE company_id=$1 AND COALESCE(created_at, entry_date) >= NOW() - INTERVAL '7 days' AND COALESCE(review_status::text,'New') = 'New' AND COALESCE(description,'') <> 'Scheduled Governance Pulse'`),
       // Genuine patterns only, using the SAME coherent qualifying count the decision board shows
       // (Pattern Coherence V3): a cluster is a real pattern when its largest coherent same-subtheme
       // group in the configured window is >= 2 (a single coherent signal is a "Watch — not yet a
