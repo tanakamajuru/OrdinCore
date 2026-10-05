@@ -152,8 +152,11 @@ export function GovernanceDecisions({
       const visible = all.filter((s: any) => {
         const status = String(s.review_status || "New");
         if (status === "New" || status === "") return true;
-        if (!inRange(s)) return false;
-        // Monitoring returns only when the latest Monitor decision's review date is due/overdue.
+        // Monitoring returns when the latest Monitor decision's review date is due/overdue. The
+        // monitored signal's ORIGINAL entry_date is weeks old, so it will never fall in the
+        // selected day's range — the review being due is what makes it actionable, not the signal's
+        // age. So judge it by the review due date, never by inRange, or a due "Review monitored
+        // concern" opens a screen that doesn't contain the concern (field report).
         if (status === "Monitoring") {
           const latest = latestByPulse.get(s.id);
           if (!latest || latest.decision !== "Monitor" || !latest.due_at) return false;
