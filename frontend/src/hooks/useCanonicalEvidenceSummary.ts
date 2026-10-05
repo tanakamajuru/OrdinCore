@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from 'react';
 import apiClient from '@/services/apiClient';
 import { useGovernanceRefresh } from '@/hooks/useGovernanceRefresh';
 
-export type EvidenceGroup={count:number;evidence_ids:string[];evidence:Array<{evidence_id:string;house_id?:string|null;due_at?:string|null}>};
+export type EvidenceRecord={evidence_id:string;house_id?:string|null;house_name?:string|null;due_at?:string|null;title?:string|null;route?:string|null};
+export type EvidenceGroup={count:number;evidence_ids:string[];evidence:EvidenceRecord[]};
 export type CanonicalEvidenceSummary={
   as_of:string; scope:{company_id:string;house_id?:string|null}; source:string;
   groups:Record<'RISK_REVIEW'|'ACTION_OPEN'|'EFFECTIVENESS_REVIEW'|'ESCALATION_OPEN'|'PATTERN_REVIEW',EvidenceGroup>;

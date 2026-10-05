@@ -38,7 +38,10 @@ export function MyActions() {
   // A deep-link to a specific action (e.g. from Governance Overview) may target an action assigned
   // to someone else. For oversight roles, open the "All service" view so the focused action is
   // actually present, instead of an empty "Mine" queue.
-  const [view, setView] = useState<"mine" | "all">(searchParams.get('focus') && isOversight ? "all" : "mine");
+  // The Canonical Evidence "Open actions" count is an all-service population, so a deep-link may ask
+  // for the "All service" view explicitly (?view=all / ?scope=all), as well as implicitly via ?focus.
+  const wantAllView = ['all', 'oversight'].includes((searchParams.get('view') || searchParams.get('scope') || '').toLowerCase());
+  const [view, setView] = useState<"mine" | "all">(((searchParams.get('focus') || wantAllView) && isOversight) ? "all" : "mine");
   const [actions, setActions] = useState<AssignedAction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [selectedAction, setSelectedAction] = useState<AssignedAction | null>(null);

@@ -29,12 +29,32 @@ export const canonicalEvidenceService = {
     // Action/effectiveness evidence is an action id; its natural, role-agnostic home is the owning
     // risk (visible to every oversight role), so we resolve risk_id here. Screens like /my-actions
     // are person-scoped and show nothing to a Director/RI, which is why opening a count led nowhere.
+    // Enrich every evidence row with a human title + its house, from the SAME canonical state views
+    // the count is built from — so the list a card opens is literally the count's own population
+    // (one engine: count === list), each row carrying a meaningful label instead of a raw UUID.
     const rows=(await query(
-      `SELECT m.count_type, m.evidence_id, m.house_id, m.due_at, ra.risk_id AS action_risk_id
+      `SELECT m.count_type, m.evidence_id, m.house_id, m.due_at,
+              ra.risk_id AS action_risk_id,
+              h.name AS house_name,
+              CASE m.count_type
+                WHEN 'RISK_REVIEW'          THEN rk.title
+                WHEN 'ACTION_OPEN'          THEN COALESCE(NULLIF(BTRIM(ra.title),''), ra.description)
+                WHEN 'EFFECTIVENESS_REVIEW' THEN COALESCE(NULLIF(BTRIM(ra.title),''), ra.description)
+                WHEN 'ESCALATION_OPEN'      THEN es.reason
+                WHEN 'PATTERN_REVIEW'       THEN pc.cluster_label
+                ELSE NULL
+              END AS title
          FROM canonical_material_count_v m
          LEFT JOIN canonical_action_state_v ra
            ON ra.company_id = m.company_id AND ra.id::text = m.evidence_id
           AND m.count_type IN ('ACTION_OPEN','EFFECTIVENESS_REVIEW')
+         LEFT JOIN canonical_risk_state_v rk
+           ON rk.company_id = m.company_id AND rk.id::text = m.evidence_id AND m.count_type='RISK_REVIEW'
+         LEFT JOIN canonical_escalation_state_v es
+           ON es.company_id = m.company_id AND es.id::text = m.evidence_id AND m.count_type='ESCALATION_OPEN'
+         LEFT JOIN canonical_pattern_state_v pc
+           ON pc.company_id = m.company_id AND pc.id::text = m.evidence_id AND m.count_type='PATTERN_REVIEW'
+         LEFT JOIN houses h ON h.id = m.house_id
         WHERE m.company_id=$1${house}
         ORDER BY m.count_type, m.due_at NULLS LAST, m.evidence_id`, params)).rows;
 

@@ -21,11 +21,15 @@ const routeFor=(type:string,id:string)=>{
 };
 // Where the whole population for a count opens (the actual working screen).
 const listRouteFor=(type:string)=>{
+  // ACTION_OPEN is all-service, so it must open Action Oversight's "All service" view (?view=all),
+  // not the person-scoped /my-actions queue. EFFECTIVENESS_REVIEW and PATTERN_REVIEW counts include
+  // records their legacy screens filter out (completed-awaiting-rating actions; every active
+  // pattern), so they open the canonical evidence list — the count's own population, row-for-row.
   if(type==='RISK_REVIEW') return `/risk-register?review=awaiting`;
-  if(type==='ACTION_OPEN') return `/my-actions`;
-  if(type==='EFFECTIVENESS_REVIEW') return `/effectiveness`;
+  if(type==='ACTION_OPEN') return `/my-actions?view=all`;
+  if(type==='EFFECTIVENESS_REVIEW') return `/evidence/EFFECTIVENESS_REVIEW`;
   if(type==='ESCALATION_OPEN') return `/escalation-log?status=open`;
-  if(type==='PATTERN_REVIEW') return `/systemic-patterns`;
+  if(type==='PATTERN_REVIEW') return `/evidence/PATTERN_REVIEW`;
   return '#';
 };
 

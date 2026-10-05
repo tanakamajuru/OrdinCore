@@ -27,6 +27,7 @@ import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
 import { GuidedWorkBridge } from "./components/guided-work/GuidedWorkBridge";
 import { SystemicPatterns } from "./components/SystemicPatterns";
+import { CanonicalEvidenceList } from "./components/canonical/CanonicalEvidenceList";
 import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
 import { GovernanceCompliance } from "./components/GovernanceCompliance";
 import { DailyGovernanceInbox } from "./components/DailyGovernanceInbox";
@@ -158,6 +159,11 @@ export default function App() {
           <Route path="/systemic-patterns" element={
             <ProtectedRoute>
               <SystemicPatterns />
+            </ProtectedRoute>
+          } />
+          <Route path="/evidence/:type" element={
+            <ProtectedRoute>
+              <CanonicalEvidenceList />
             </ProtectedRoute>
           } />
           <Route path="/org-structure" element={
