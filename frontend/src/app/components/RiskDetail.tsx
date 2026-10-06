@@ -512,14 +512,18 @@ export function RiskDetail() {
       return;
     }
     if (effectivenessIntendedOutcome.trim().length < 10) { toast.error('Record the intended outcome before rating effectiveness.'); return; }
-    if (effectivenessRating === 'Too Early To Assess' && (!effectivenessNextReviewDate || new Date(`${effectivenessNextReviewDate}T00:00:00`).getTime() <= Date.now())) { toast.error('Choose a future effectiveness review date.'); return; }
+    // Too Early and Not Effective both require a scheduled re-review so the control returns to the
+    // due queue (a negative verdict is not the end of oversight).
+    if ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && (!effectivenessNextReviewDate || new Date(`${effectivenessNextReviewDate}T00:00:00`).getTime() <= Date.now())) {
+      toast.error(effectivenessRating === 'Too Early To Assess' ? 'Choose a future effectiveness review date.' : 'Choose a future re-review date so the revised control is re-checked.'); return;
+    }
     setIsRating(true);
     try {
       await apiClient.patch(`/actions/${showEffectivenessAction}/effectiveness`, {
         outcome: effectivenessRating,
         evidence: effectivenessEvidence.trim(),
         intended_outcome: effectivenessIntendedOutcome.trim(),
-        next_review_date: effectivenessRating === 'Too Early To Assess' ? effectivenessNextReviewDate : undefined,
+        next_review_date: (['Too Early To Assess', 'Not Effective', 'Partially Effective'].includes(effectivenessRating) && effectivenessNextReviewDate) ? effectivenessNextReviewDate : undefined,
       });
       // Optional supporting document (JPG/PDF) → stored as an evidence attachment on the risk.
       if (effectivenessFile) {
@@ -1443,7 +1447,7 @@ export function RiskDetail() {
               className="w-full border-2 border-border bg-card p-3 text-sm mb-1 focus:outline-none focus:border-primary"
             />
             {effectivenessRating !== 'Too Early To Assess' && <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>{effectivenessEvidence.trim().length}/20 characters minimum</p>}
-            {effectivenessRating === 'Too Early To Assess' && <div className="mb-4"><label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Next review date</label><input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={effectivenessNextReviewDate} onChange={(e) => setEffectivenessNextReviewDate(e.target.value)} className="w-full border-2 border-border bg-card p-3 text-sm" /></div>}
+            {(effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective' || effectivenessRating === 'Partially Effective') && <div className="mb-4"><label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">{effectivenessRating === 'Too Early To Assess' ? 'Next review date' : effectivenessRating === 'Not Effective' ? 'Re-review date (required)' : 'Re-review date (optional)'}</label><input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={effectivenessNextReviewDate} onChange={(e) => setEffectivenessNextReviewDate(e.target.value)} className="w-full border-2 border-border bg-card p-3 text-sm" /></div>}
 
             <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Supporting document <span className="text-muted-foreground normal-case tracking-normal">(optional · JPG or PDF)</span></label>
             <input
@@ -1463,7 +1467,7 @@ export function RiskDetail() {
               </button>
               <button
                 onClick={handleRateEffectiveness}
-                disabled={isRating || effectivenessIntendedOutcome.trim().length < 10 || (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) || (effectivenessRating === 'Too Early To Assess' && !effectivenessNextReviewDate)}
+                disabled={isRating || effectivenessIntendedOutcome.trim().length < 10 || (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) || ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && !effectivenessNextReviewDate)}
                 className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}

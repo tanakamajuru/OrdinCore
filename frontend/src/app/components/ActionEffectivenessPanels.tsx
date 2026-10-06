@@ -39,10 +39,14 @@ export function ActionEffectivenessPanels() {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
     if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
     if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
-    if (outcome === "Too Early To Assess" && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future effectiveness review date."); return; }
+    // A control rated Too Early or Not Effective MUST be re-reviewed — schedule the repeat so it
+    // returns to the due queue on that date (a negative verdict is not the end of oversight).
+    if ((outcome === "Too Early To Assess" || outcome === "Not Effective") && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) {
+      toast.error(outcome === "Too Early To Assess" ? "Choose a future effectiveness review date." : "Choose a future re-review date so the revised control is re-checked."); return;
+    }
     setSaving(true);
     try {
-      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: outcome === "Too Early To Assess" ? nextReviewDate : undefined });
+      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: (["Too Early To Assess", "Not Effective", "Partially Effective"].includes(outcome) && nextReviewDate) ? nextReviewDate : undefined });
       toast.success("Effectiveness recorded");
       const rated = rating;
       setRating(null);
@@ -365,8 +369,12 @@ export function ActionEffectivenessPanels() {
             <textarea value={evidence} onChange={(e) => setEvidence(e.target.value)} rows={3}
               className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
               placeholder="What tells you this — recurrence, observation, records…" />
-            {outcome === "Too Early To Assess" && <div className="mt-3">
-              <label className="block text-sm text-muted-foreground mb-1">Next effectiveness review date</label>
+            {(outcome === "Too Early To Assess" || outcome === "Not Effective" || outcome === "Partially Effective") && <div className="mt-3">
+              <label className="block text-sm text-muted-foreground mb-1">
+                {outcome === "Too Early To Assess" ? "Next effectiveness review date"
+                  : outcome === "Not Effective" ? "Re-review date (required) — when to confirm the revised control works"
+                  : "Re-review date (optional) — when to re-check this control"}
+              </label>
               <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm" />
             </div>}
             </div>
