@@ -199,12 +199,11 @@ export class ActionEffectivenessService {
       LEFT JOIN users au ON au.id=ra.assigned_to
       LEFT JOIN canonical_review_obligation_state_v gro
         ON gro.company_id=ra.company_id AND gro.subject_id=ra.id
-       AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
+       AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.status='OPEN'
       WHERE ra.company_id = $1
-      AND ra.requires_effectiveness_review
-      AND (
-        ra.effectiveness_outcome IS NULL
-        OR (ra.effectiveness_outcome = 'Too Early To Assess' AND gro.is_due)
+      AND ra.id::text IN (
+        SELECT evidence_id FROM canonical_material_count_v
+         WHERE company_id = $1 AND count_type = 'EFFECTIVENESS_REVIEW'
       )
     `;
     const params: any[] = [company_id];

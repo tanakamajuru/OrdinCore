@@ -85,9 +85,22 @@ export const rm5Service = {
       `SELECT COUNT(*)::int AS total,
               COUNT(*) FILTER (WHERE is_closed)::int AS reviewed
          FROM canonical_escalation_state_v WHERE company_id = $1`);
+    // Due NOW effectiveness reviews, from the single canonical source (obligation-driven). A future
+    // "Too Early To Assess" reassessment is NOT counted as due — readiness must not be blocked, or
+    // falsely satisfied, by work that is scheduled rather than outstanding.
     const actionsReview = Number((await one(
-      `SELECT COUNT(*)::int AS n FROM canonical_action_state_v
-        WHERE company_id = $1 AND requires_effectiveness_review`)).n || 0);
+      `SELECT COUNT(*)::int AS n FROM canonical_material_count_v
+        WHERE company_id = $1 AND count_type='EFFECTIVENESS_REVIEW'`)).n || 0);
+    // Scheduled (future, not-yet-due) effectiveness reassessments — disclosed separately so this
+    // work is visible, never silently treated as complete and never folded into the "due" figure.
+    const effectivenessScheduled = Number((await one(
+      `SELECT COUNT(DISTINCT ra.id)::int AS n
+         FROM canonical_action_state_v ra
+         JOIN canonical_review_obligation_state_v g
+           ON g.company_id=ra.company_id AND g.subject_id=ra.id
+          AND g.obligation_type='ACTION_EFFECTIVENESS' AND g.status='OPEN' AND NOT g.is_due
+        WHERE ra.company_id=$1 AND ra.review_requirement='EFFECTIVENESS_REQUIRED' AND ra.is_completed
+          AND ra.id::text NOT IN (SELECT evidence_id FROM canonical_material_count_v WHERE company_id=$1 AND count_type='EFFECTIVENESS_REVIEW')`)).n || 0);
     const risksDecision = Number((await one(
       `SELECT COUNT(*)::int AS n FROM canonical_risk_state_v
         WHERE company_id = $1 AND closure_eligible = true AND is_active`)).n || 0);
@@ -99,6 +112,7 @@ export const rm5Service = {
       escalations_reviewed: Number(esc.reviewed || 0), escalations_total: Number(esc.total || 0),
       actions_requiring_review: actionsReview,
       effectiveness_reviews_due: actionsReview,
+      effectiveness_reviews_scheduled: effectivenessScheduled,
       risks_requiring_decision: risksDecision,
       ready: outstanding === 0,
     };
@@ -124,16 +138,11 @@ export const rm5Service = {
           AND COALESCE(pf.qualifying_count, sc.signal_count, 0) >= 2`),
       risks: await one(`SELECT COUNT(*) n FROM canonical_risk_state_v WHERE company_id=$1 AND is_active`),
       actions: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND is_open`),
-      // Count only effectiveness reviews that are ACTIONABLE NOW — the same predicate the Awaiting
-      // Effectiveness list uses (actionEffectiveness.getPendingEffectiveness) so the ribbon and the
-      // list agree. A 'Too Early to Assess' action is a SCHEDULED future reassessment: it still
-      // requires_effectiveness_review, but it is not counted (or shown) until its review is due.
-      effectiveness: await one(`SELECT COUNT(DISTINCT ra.id) n FROM canonical_action_state_v ra
-        LEFT JOIN canonical_review_obligation_state_v gro
-          ON gro.company_id=ra.company_id AND gro.subject_id=ra.id
-         AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
-        WHERE ra.company_id=$1 AND ra.requires_effectiveness_review
-          AND (ra.effectiveness_outcome IS NULL OR (ra.effectiveness_outcome='Too Early To Assess' AND gro.is_due))`),
+      // Single source of truth: read due-now effectiveness straight from canonical_material_count_v
+      // (obligation-driven — includes first reviews, due too-early reassessments AND repeat reviews
+      // after Not/Partially Effective). The ribbon, the Awaiting Effectiveness list and the Canonical
+      // Evidence strip therefore all count the same rows.
+      effectiveness: await one(`SELECT COUNT(*) n FROM canonical_material_count_v WHERE company_id=$1 AND count_type='EFFECTIVENESS_REVIEW'`),
       escalations: await one(`SELECT COUNT(*) n FROM canonical_escalation_state_v WHERE company_id=$1 AND is_open`),
     };
   },
@@ -343,9 +352,9 @@ export const rm5Service = {
          LEFT JOIN canonical_review_obligation_state_v gro
            ON gro.company_id=a.company_id AND gro.subject_id=a.id
           AND gro.obligation_type='ACTION_EFFECTIVENESS' AND gro.is_actionable
-        WHERE a.company_id = $1 AND a.requires_effectiveness_review
-          AND (a.effectiveness_outcome IS NULL
-               OR (a.effectiveness_outcome='Too Early To Assess' AND gro.is_due))
+        WHERE a.company_id = $1
+          AND a.id::text IN (SELECT evidence_id FROM canonical_material_count_v
+                              WHERE company_id = $1 AND count_type='EFFECTIVENESS_REVIEW')
         ORDER BY a.completed_at ASC`,
       [company_id]
     )).rows;
