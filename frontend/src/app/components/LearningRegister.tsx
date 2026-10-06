@@ -80,6 +80,11 @@ export function LearningRegister() {
 
                 {r.state === "IDENTIFIED" && (
                   <div className="mt-2 space-y-1 text-sm">
+                    {(r.source_action_title || r.source_review_outcome) && (
+                      <p className="text-muted-foreground"><span className="text-foreground font-medium">From review:</span> {r.source_action_title || "Reviewed action"}
+                        {r.source_review_outcome ? ` · rated ${r.source_review_outcome}` : ""}
+                        {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
+                    )}
                     {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                     {r.what_learnt && <p className="text-muted-foreground"><span className="text-foreground font-medium">Learnt:</span> {r.what_learnt}</p>}
                     {r.change_needed && <p className="text-muted-foreground"><span className="text-foreground font-medium">Change:</span> {r.change_needed}</p>}

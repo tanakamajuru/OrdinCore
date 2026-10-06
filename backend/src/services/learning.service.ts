@@ -118,12 +118,17 @@ export class LearningService {
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
               NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
               h.name AS house_name,
-              ra.title AS linked_action_title, ra.status::text AS linked_action_status
+              ra.title AS linked_action_title, ra.status::text AS linked_action_status,
+              sa.title AS source_action_title,
+              aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
+              aer.evidence AS source_review_evidence
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
          LEFT JOIN houses h ON h.id = lr.house_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
+         LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE ${where}
         ORDER BY lr.created_at DESC
         LIMIT $${params.length}`,
@@ -135,10 +140,15 @@ export class LearningService {
     return (await query(
       `SELECT lr.*,
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
-              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name
+              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
+              sa.title AS source_action_title,
+              aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
+              aer.evidence AS source_review_evidence
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
+         LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.company_id = $1 AND lr.source_type = $2 AND lr.source_id = $3
         ORDER BY lr.created_at DESC`,
       [company_id, source_type, source_id],
@@ -151,11 +161,16 @@ export class LearningService {
       `SELECT lr.*,
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
               NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
-              ra.title AS linked_action_title, ra.status::text AS linked_action_status
+              ra.title AS linked_action_title, ra.status::text AS linked_action_status,
+              sa.title AS source_action_title,
+              aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
+              aer.evidence AS source_review_evidence
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
+         LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.company_id = $1 AND (lr.house_id = $2 OR lr.house_id IS NULL)
           AND lr.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
         ORDER BY lr.created_at DESC`,
