@@ -13,6 +13,9 @@ export interface CreateLearningInput {
   house_id?: string | null;
   source_type: LearningSource;
   source_id?: string | null;
+  // The EXACT effectiveness review this lesson came from (distinct from the originating action in
+  // source_id, and from linked_action_id which is any resulting improvement work).
+  source_review_id?: string | null;
   state?: LearningState;
   what_happened?: string;
   evidence_examined?: string;
@@ -43,8 +46,23 @@ export class LearningService {
     if (state === 'NONE_IDENTIFIED' && !String(input.no_learning_reason || '').trim()) {
       throw new Error('Give a brief reason when no learning was identified.');
     }
-    if (state === 'NOT_YET_ASSESSED' && !input.review_date) {
-      throw new Error('A not-yet-assessed learning review needs an owner and review date.');
+    if (state === 'NOT_YET_ASSESSED' && (!input.review_date || !input.owner_id)) {
+      // Deferred assessments need accountable ownership AND a review date — both, so a deferred
+      // lesson cannot drift without a named owner answerable for it.
+      throw new Error('A not-yet-assessed learning review needs an accountable owner and a review date.');
+    }
+
+    // When the lesson cites an exact effectiveness review, that review must genuinely belong to the
+    // originating action and this provider (reject cross-provider / mismatched links).
+    if (input.source_review_id) {
+      const rev = await query(
+        `SELECT action_id FROM action_effectiveness_reviews WHERE id = $1 AND company_id = $2`,
+        [input.source_review_id, company_id],
+      );
+      if (!rev.rows[0]) throw new Error('The cited effectiveness review was not found for this provider.');
+      if (input.source_id && String(rev.rows[0].action_id) !== String(input.source_id)) {
+        throw new Error('The cited effectiveness review does not belong to the originating action.');
+      }
     }
 
     const id = uuidv4();
@@ -52,14 +70,14 @@ export class LearningService {
       `INSERT INTO learning_records
         (id, company_id, house_id, source_type, source_id, state, what_happened, evidence_examined,
          what_learnt, change_needed, no_learning_reason, linked_action_id, progress, owner_id, review_date,
-         is_ai_suggested, approved_by, approved_at, author_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         is_ai_suggested, approved_by, approved_at, author_id, source_review_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
        RETURNING *`,
       [id, company_id, input.house_id ?? null, input.source_type, input.source_id ?? null, state,
        input.what_happened?.trim() || null, input.evidence_examined?.trim() || null,
        input.what_learnt?.trim() || null, input.change_needed?.trim() || null, input.no_learning_reason?.trim() || null,
        input.linked_action_id ?? null, progress, input.owner_id ?? null, input.review_date ?? null,
-       isAi, isAi ? null : author_id, isAi ? null : new Date(), author_id],
+       isAi, isAi ? null : author_id, isAi ? null : new Date(), author_id, input.source_review_id ?? null],
     );
     return res.rows[0];
   }

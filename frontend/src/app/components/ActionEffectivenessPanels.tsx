@@ -25,7 +25,7 @@ export function ActionEffectivenessPanels() {
   const [saving, setSaving] = useState(false);
   const [nextReviewDate, setNextReviewDate] = useState("");
   // After a verdict is recorded, offer structured learning capture linked to the action (L1).
-  const [learningFor, setLearningFor] = useState<{ id: string; houseId?: string | null; outcome: string } | null>(null);
+  const [learningFor, setLearningFor] = useState<{ id: string; houseId?: string | null; outcome: string; reviewId?: string | null; title?: string | null; service?: string | null } | null>(null);
   const [remediating,setRemediating]=useState<any>(null);
   const [remediationEvidence,setRemediationEvidence]=useState("");
   const [remediationReason,setRemediationReason]=useState("");
@@ -46,14 +46,15 @@ export function ActionEffectivenessPanels() {
     }
     setSaving(true);
     try {
-      await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: (["Too Early To Assess", "Not Effective", "Partially Effective"].includes(outcome) && nextReviewDate) ? nextReviewDate : undefined });
+      const res: any = await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: (["Too Early To Assess", "Not Effective", "Partially Effective"].includes(outcome) && nextReviewDate) ? nextReviewDate : undefined });
+      const reviewId = res?.data?.data?.review_id ?? res?.data?.review_id ?? null;
       toast.success("Effectiveness recorded");
       const rated = rating;
       setRating(null);
       loadData();
-      // Prompt for learning against this review — significant / Not-Effective / Partially-Effective
-      // outcomes especially warrant an explicit lesson (L1); honest "no learning" is allowed.
-      setLearningFor({ id: rated.id, houseId: rated.house_id, outcome });
+      // Prompt for learning against this exact review — carry the review id + source context so the
+      // lesson links to THIS review and action automatically (no manual re-selection).
+      setLearningFor({ id: rated.id, houseId: rated.house_id, outcome, reviewId, title: rated.title || rated.action || null, service: rated.house_name || null });
     } catch (err: any) {
       toast.error(err?.response?.data?.message || err?.message || "Could not record effectiveness");
     } finally { setSaving(false); }
@@ -315,7 +316,7 @@ export function ActionEffectivenessPanels() {
           <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-foreground mb-1">Learning from this review</h2>
             <p className="text-sm text-muted-foreground mb-3">Outcome recorded: <span className="font-medium text-foreground">{learningFor.outcome}</span>. Capture any learning so it reaches the weekly governance report — or record honestly that there is none.</p>
-            <LearningCapture sourceType="EFFECTIVENESS" sourceId={learningFor.id} houseId={learningFor.houseId} onDone={() => setLearningFor(null)} />
+            <LearningCapture sourceType="EFFECTIVENESS" sourceId={learningFor.id} sourceReviewId={learningFor.reviewId} sourceContext={{ label: learningFor.title, outcome: learningFor.outcome, service: learningFor.service }} houseId={learningFor.houseId} onDone={() => setLearningFor(null)} />
           </div>
         </div>
       )}

@@ -168,7 +168,10 @@ export class ActionEffectivenessService {
       logger.error(`Effectiveness review ${reviewId} saved, but downstream propagation/delivery failed; the review is retained for retry.`, e as Error);
     }
 
-    return updatedAction;
+    // Expose the exact saved review id so the learning step can link the lesson to THIS review,
+    // not just the originating action (developer review §2). Non-breaking: callers that read the
+    // action fields still find them; the new property is additive.
+    return { ...updatedAction, review_id: reviewId };
   }
 
   async getPendingEffectiveness(company_id: string, house_id?: string) {
