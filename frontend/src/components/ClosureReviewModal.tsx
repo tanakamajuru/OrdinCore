@@ -15,12 +15,15 @@ interface Props {
   derivedEffectivenessReviewed?: boolean;
   linkedActionCount?: number;
   onCreateOrLinkAction?: () => void;
+  // Take the closer to rate the linked action's effectiveness when that gate is blocking closure,
+  // so the orange gate is actionable instead of a dead end.
+  onRateEffectiveness?: () => void;
   // The decision/notes the closer already wrote on the escalation — reused as the closure
   // evidence so they don't have to type the same thing twice.
   evidence?: string;
 }
 
-export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, linkedActionCount = 0, onCreateOrLinkAction, evidence }: Props) {
+export function ClosureReviewModal({ open, onClose, onClosed, target, derivedActionsComplete, derivedEffectivenessReviewed, linkedActionCount = 0, onCreateOrLinkAction, onRateEffectiveness, evidence }: Props) {
   const [patternReduced, setPatternReduced] = useState(false);
   const [evidenceBasis, setEvidenceBasis] = useState("");
   const [busy, setBusy] = useState(false);
@@ -128,6 +131,11 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
           {hasLinkedActions ? <>
             <Gate label="All required linked actions are complete." derived={actionsOk} />
             <Gate label="Linked-action effectiveness has been reviewed." derived={effOk} />
+            {actionsOk && !effOk && onRateEffectiveness && (
+              <button type="button" onClick={onRateEffectiveness} className="ml-6 -mt-1 mb-1 text-sm text-primary hover:underline">
+                Rate the linked action's effectiveness now →
+              </button>
+            )}
           </> : <div className="my-3 rounded-lg border border-border p-3">
             <label className="text-xs uppercase tracking-wide text-muted-foreground block mb-2">Close without a linked action or risk</label>
             <p className="text-xs text-muted-foreground mb-2">A risk or artificial action is not required where the immediate response genuinely addressed the concern. Select what resolved it and record the outcome evidence.</p>

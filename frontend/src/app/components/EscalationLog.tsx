@@ -1013,6 +1013,20 @@ export function EscalationLog() {
           setReviewDecision('action');
           window.setTimeout(() => document.querySelector<HTMLDetailsElement>('[data-escalation-action-form]')?.setAttribute('open', ''), 0);
         }}
+        onRateEffectiveness={() => {
+          // The effectiveness gate is blocking: take the RM to rate the linked action whose
+          // effectiveness isn't finalised yet, on its owning risk's effectiveness section.
+          const acts: any[] = (selectedEscalation as any)?.linked_actions || [];
+          const needs = acts.find((a: any) => {
+            const completed = ['Complete', 'Completed', 'Closed', 'Resolved'].includes(String(a.status)) || !!a.completed_at;
+            const finalised = a.effectiveness_outcome && String(a.effectiveness_outcome).toLowerCase() !== 'too early to assess';
+            return completed && !finalised;
+          }) || acts[0];
+          setCloseTarget(null);
+          if (needs?.risk_id) navigate(`/risk-register/${needs.risk_id}?section=effectiveness&focus=${needs.id}`);
+          else if (needs?.id) navigate(`/effectiveness?focus=${needs.id}`);
+          else toast.error('No linked action is available to rate yet.');
+        }}
         derivedActionsComplete={
           Number((selectedEscalation as any)?.actions_total_count) > 0
           && Number((selectedEscalation as any)?.actions_completed_count) === Number((selectedEscalation as any)?.actions_total_count)
