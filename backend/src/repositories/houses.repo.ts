@@ -12,6 +12,7 @@ export interface CreateHouseDto {
   primary_rm_id?: string;
   deputy_rm_id?: string;
   registration_number?: string;
+  phone?: string;
   last_daily_review_at?: string | Date;
 }
 
@@ -97,11 +98,11 @@ export const housesRepo = {
 
     const id = uuidv4();
     const result = await query(
-      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number, phone)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
        RETURNING *`,
       [id, dto.company_id, dto.name, dto.address || null, dto.postcode || null, dto.city || null,
-       dto.capacity || 0, dto.manager_id || null, dto.primary_rm_id || null, dto.deputy_rm_id || null, dto.registration_number || null]
+       dto.capacity || 0, dto.manager_id || null, dto.primary_rm_id || null, dto.deputy_rm_id || null, dto.registration_number || null, dto.phone || null]
     );
     return result.rows[0];
   },
@@ -112,7 +113,7 @@ export const housesRepo = {
     if ('is_active' in d && d.is_active !== undefined && !('status' in d)) {
       d.status = d.is_active === true || d.is_active === 'true' ? 'active' : 'inactive';
     }
-    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'is_active', 'registration_number', 'last_daily_review_at', 'sector'];
+    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'is_active', 'registration_number', 'phone', 'last_daily_review_at', 'sector'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in d) filteredData[key] = d[key];
