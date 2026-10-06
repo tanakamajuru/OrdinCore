@@ -14,6 +14,7 @@ const OUTCOMES = ["Effective", "Partially Effective", "Not Effective", "Too Earl
 
 export function ActionEffectivenessPanels() {
   const [data, setData] = useState<any>(null);
+  const [scheduled, setScheduled] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
   const canRate = String((user as any)?.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER";
@@ -68,6 +69,10 @@ export function ActionEffectivenessPanels() {
     try {
       const response: any = await apiClient.get('/actions/effectiveness-summary');
       setData(response?.data?.data ?? response?.data ?? response);
+      try {
+        const sched: any = await apiClient.get('/actions/scheduled-effectiveness');
+        setScheduled(sched?.data?.data ?? sched?.data ?? []);
+      } catch { setScheduled([]); }
     } catch (err) {
       console.error("Failed to load effectiveness summary", err);
       setData({ error: err instanceof Error ? err.message : 'Effectiveness information could not be loaded.' });
@@ -204,6 +209,22 @@ export function ActionEffectivenessPanels() {
                 <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
               </div>
               {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
+            </div>)}
+          </CardContent>
+        </Card>
+      )}
+
+      {scheduled.length > 0 && (
+        <Card className="border-2 border-border shadow-sm">
+          <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Scheduled reassessments ({scheduled.length})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            <p className="text-xs text-muted-foreground -mt-2">Not due yet — these return to "Awaiting effectiveness review" automatically on their date.</p>
+            {scheduled.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{a.title}</p>
+                <p className="text-muted-foreground">{a.risk_title || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.effectiveness_outcome ? ` · last: ${a.effectiveness_outcome}` : ''}</p>
+              </div>
+              <span className="shrink-0 text-xs text-muted-foreground">Re-review {a.next_review_at ? new Date(a.next_review_at).toLocaleDateString('en-GB') : '—'}</span>
             </div>)}
           </CardContent>
         </Card>

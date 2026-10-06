@@ -494,7 +494,14 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Evidence', key: 'completion_evidence', width: 115, map: (r) => `${clean(r.completion_evidence)}${r.effectiveness_evidence ? ` / Effectiveness: ${clean(r.effectiveness_evidence)}` : ''}` }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
   ], 'No action was created within this reconstruction period.', 10);
   heading(doc, '4. Learning and limitations');
-  bullets(doc, [locked?.lessons_learned, ...(e.weekly_reviews || []).map((r: any) => r.lessons_learnt)].filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
+  // Learning tied to the exact effectiveness review it came from — the source action, the review
+  // outcome, the lesson, and any separate improvement action (titles only; no identifiers).
+  const effLearning = (data.effectiveness_learning || [])
+    .filter((l: any) => l.state !== 'NOT_YET_ASSESSED')
+    .map((l: any) => l.state === 'NONE_IDENTIFIED'
+      ? `${clean(l.source_action_title) || 'Reviewed action'}${l.source_review_outcome ? ` (rated ${clean(l.source_review_outcome)})` : ''}: no learning identified — ${clean(l.no_learning_reason)}`
+      : `${clean(l.source_action_title) || 'Reviewed action'}${l.source_review_outcome ? ` (rated ${clean(l.source_review_outcome)})` : ''}: ${clean(l.what_learnt)}${l.improvement_action_title ? ` — improvement action: ${clean(l.improvement_action_title)}` : ''}`);
+  bullets(doc, [locked?.lessons_learned, ...(e.weekly_reviews || []).map((r: any) => r.lessons_learnt), ...effLearning].filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
   if (locked?.contributing_factors) { heading(doc, '5. Contributing factors recorded'); paragraph(doc, locked.contributing_factors); }
   if (locked?.control_failure) { heading(doc, '6. Control issue recorded'); paragraph(doc, locked.control_failure); }
 }

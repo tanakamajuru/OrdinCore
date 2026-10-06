@@ -367,9 +367,29 @@ export const scopedReportDataService = {
       material_exceptions: materialExceptions,
     };
 
+    // Effectiveness learning recorded in the period — each lesson shown against its source action and
+    // the exact review outcome it came from, plus any separate improvement action. Titles/outcomes
+    // only (no identifiers), so it is defensibility-safe for the frozen report.
+    const effectivenessLearning = (await query(
+      `SELECT lr.state, lr.what_learnt, lr.change_needed, lr.no_learning_reason,
+              sa.title AS source_action_title,
+              aer.outcome::text AS source_review_outcome,
+              la.title AS improvement_action_title
+         FROM learning_records lr
+         LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
+         LEFT JOIN risk_actions la ON la.id = lr.linked_action_id
+        WHERE lr.company_id = $1 AND lr.source_type = 'EFFECTIVENESS'
+          AND (lr.house_id = ANY($2::uuid[]) OR lr.house_id IS NULL)
+          AND lr.created_at::date BETWEEN $3 AND $4
+        ORDER BY lr.created_at DESC`,
+      [companyId, siteIds, start, end],
+    )).rows;
+
     return {
       scope_label: resolved.label,
       period: { start, end },
+      effectiveness_learning: effectivenessLearning,
       site_count: perSite.length,
       per_site: perSite.map(({ metrics, ...rest }) => ({ ...rest, ...metrics })),
       totals,

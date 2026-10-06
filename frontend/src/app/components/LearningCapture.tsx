@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 
@@ -24,6 +24,9 @@ export function LearningCapture({
   const [state, setState] = useState<"IDENTIFIED" | "NONE_IDENTIFIED" | "NOT_YET_ASSESSED">("IDENTIFIED");
   const [ownerId, setOwnerId] = useState("");
   const [owners, setOwners] = useState<any[]>([]);
+  // One key per capture attempt — a retry (double-click, network retry) is idempotent; a distinct
+  // later capture mounts fresh and gets a new key, so legitimate repeat lessons are never blocked.
+  const idemKey = useRef<string>(crypto?.randomUUID?.() || String(Date.now() + Math.random()));
   const [whatHappened, setWhatHappened] = useState("");
   const [whatLearnt, setWhatLearnt] = useState("");
   const [changeNeeded, setChangeNeeded] = useState("");
@@ -65,6 +68,7 @@ export function LearningCapture({
     try {
       await apiClient.post("/learning", {
         source_type: sourceType, source_id: sourceId || null, source_review_id: sourceReviewId || undefined,
+        idempotency_key: idemKey.current,
         house_id: houseId || null, state,
         what_happened: whatHappened.trim() || undefined,
         what_learnt: state === "IDENTIFIED" ? whatLearnt.trim() : undefined,

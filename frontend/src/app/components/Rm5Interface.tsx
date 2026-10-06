@@ -117,8 +117,8 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const activeStage = screen === "today" ? "signals" : stage;
   const ribbon: [string, string, number, any][] = [
     ["signals", "Signals", counts.signals || 0, Zap], ["patterns", "Patterns", counts.patterns || 0, Layers],
-    ["risks", "Risks", counts.risks || 0, ShieldAlert], ["actions", "Actions", counts.actions || 0, ClipboardList],
-    ["effectiveness", "Effectiveness", counts.effectiveness || 0, TrendingUp],
+    ["risks", "Active risks", counts.risks || 0, ShieldAlert], ["actions", "Actions", counts.actions || 0, ClipboardList],
+    ["effectiveness", "Effectiveness due", counts.effectiveness || 0, TrendingUp],
     ["escalations", "Escalations", counts.escalations || 0, Ambulance],
   ];
   const ribbonGo = (k: string) => {
@@ -294,7 +294,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         {!loading && screen === "pipeline" && stage === "patterns" && (
           <div>
             <GovHead q="Which concerns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
-            <p className="text-xs text-muted-foreground mb-3">These are recorded recurring concerns the system has grouped — candidates, not conclusions. A concern becomes an <span className="font-semibold">established pattern</span> only once it meets the qualifying threshold, and <span className="font-semibold">systemic</span> only when the same theme recurs across more than one service. The "Patterns" ribbon counts established patterns; the "forming" concerns below have not yet met the threshold.</p>
+            <p className="text-xs text-muted-foreground mb-3">These are recorded recurring concerns the system has grouped — candidates, not conclusions. A concern becomes an <span className="font-semibold">established pattern</span> only once it meets the qualifying threshold, and <span className="font-semibold">systemic</span> only when the same theme recurs across more than one service. The "Patterns" ribbon counts genuine patterns — unpromoted concerns that meet the qualifying threshold, plus established (Confirmed) patterns which remain until leadership closes them — not all unresolved patterns and not single-signal watches. The "forming" concerns below have not yet met the threshold.</p>
             <h2 className="text-lg font-semibold text-foreground mb-0.5 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service — forming concerns</h2>
             <p className="text-xs text-muted-foreground mb-2">Recurring signals in a single service that are forming but are <span className="font-semibold">not yet an established pattern</span>. Keep watching, or dismiss with a reason.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

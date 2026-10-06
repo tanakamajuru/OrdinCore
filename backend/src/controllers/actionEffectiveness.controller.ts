@@ -31,6 +31,17 @@ export class ActionEffectivenessController {
     }
   }
 
+  async getScheduled(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { house_id } = req.query;
+      const data = await actionEffectivenessService.getScheduledEffectiveness(company_id, house_id as string);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: 'Failed to fetch scheduled effectiveness reassessments' });
+    }
+  }
+
   async getSummary(req: Request, res: Response) {
     try {
       const end = String(req.query.end || new Date().toISOString());

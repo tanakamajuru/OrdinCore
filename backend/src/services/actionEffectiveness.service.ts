@@ -268,6 +268,33 @@ export class ActionEffectivenessService {
     }));
   }
 
+  // Scheduled (future) effectiveness reassessments — effectiveness-bearing completed actions whose
+  // next review is set but not yet due. Shown as scheduled work with its date (never counted as
+  // "due", never silently treated as complete). They return to the due list automatically on the day.
+  async getScheduledEffectiveness(company_id: string, house_id?: string) {
+    const params: any[] = [company_id];
+    let houseClause = '';
+    if (house_id) { params.push(house_id); houseClause = ` AND COALESCE(ra.house_id, r.house_id) = $2`; }
+    return (await query(
+      `SELECT ra.id, ra.title, ra.risk_id, ra.effectiveness_outcome,
+              COALESCE(h.name, 'Organisation-wide') AS house_name,
+              r.title AS risk_title, g.due_at AS next_review_at
+         FROM canonical_action_state_v ra
+         JOIN canonical_review_obligation_state_v g
+           ON g.company_id = ra.company_id AND g.subject_id = ra.id
+          AND g.obligation_type = 'ACTION_EFFECTIVENESS' AND g.status = 'OPEN' AND NOT g.is_due
+         LEFT JOIN canonical_risk_state_v r ON r.id = ra.risk_id AND r.company_id = ra.company_id
+         LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id)
+        WHERE ra.company_id = $1
+          AND ra.review_requirement = 'EFFECTIVENESS_REQUIRED' AND ra.is_completed
+          AND ra.id::text NOT IN (SELECT evidence_id FROM canonical_material_count_v
+                                   WHERE company_id = $1 AND count_type = 'EFFECTIVENESS_REVIEW')
+          ${houseClause}
+        ORDER BY g.due_at ASC`,
+      params,
+    )).rows;
+  }
+
   async getLegacyEvidenceGaps(company_id:string){
     return (await query(`SELECT ra.id,ra.title,ra.description,ra.status,ra.completed_at,ra.completion_evidence,
       ra.completion_rationale,ra.completion_note,ra.intended_outcome,ra.risk_id,ra.source_pulse_id,

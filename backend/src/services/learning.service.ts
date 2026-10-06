@@ -16,6 +16,9 @@ export interface CreateLearningInput {
   // The EXACT effectiveness review this lesson came from (distinct from the originating action in
   // source_id, and from linked_action_id which is any resulting improvement work).
   source_review_id?: string | null;
+  // Per-attempt key: a retry of the SAME save returns the existing record instead of duplicating;
+  // a distinct capture carries a new key and is never blocked.
+  idempotency_key?: string | null;
   state?: LearningState;
   what_happened?: string;
   evidence_examined?: string;
@@ -65,19 +68,32 @@ export class LearningService {
       }
     }
 
+    // Idempotent retry: a repeated save with the same key returns the record already written rather
+    // than inserting a duplicate. A different capture carries a different key and proceeds normally.
+    if (input.idempotency_key) {
+      const existing = await query(
+        `SELECT * FROM learning_records WHERE company_id = $1 AND idempotency_key = $2`,
+        [company_id, input.idempotency_key],
+      );
+      if (existing.rows[0]) return existing.rows[0];
+    }
+
     const id = uuidv4();
     const res = await query(
       `INSERT INTO learning_records
         (id, company_id, house_id, source_type, source_id, state, what_happened, evidence_examined,
          what_learnt, change_needed, no_learning_reason, linked_action_id, progress, owner_id, review_date,
-         is_ai_suggested, approved_by, approved_at, author_id, source_review_id)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20)
+         is_ai_suggested, approved_by, approved_at, author_id, source_review_id, idempotency_key)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+       ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL
+         DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
        RETURNING *`,
       [id, company_id, input.house_id ?? null, input.source_type, input.source_id ?? null, state,
        input.what_happened?.trim() || null, input.evidence_examined?.trim() || null,
        input.what_learnt?.trim() || null, input.change_needed?.trim() || null, input.no_learning_reason?.trim() || null,
        input.linked_action_id ?? null, progress, input.owner_id ?? null, input.review_date ?? null,
-       isAi, isAi ? null : author_id, isAi ? null : new Date(), author_id, input.source_review_id ?? null],
+       isAi, isAi ? null : author_id, isAi ? null : new Date(), author_id, input.source_review_id ?? null,
+       input.idempotency_key ?? null],
     );
     return res.rows[0];
   }
