@@ -132,10 +132,14 @@ export const rm5Service = {
       // group in the configured window is >= 2 (a single coherent signal is a "Watch — not yet a
       // pattern"). This keeps the ribbon consistent with the board's is_watch = qualifying_count < 2,
       // so broad-domain noise no longer inflates the headline count.
+      // Pattern review obligations (shared with canonical_material_count_v PATTERN_REVIEW): an
+      // Emerging candidate counts only when it is a genuine pattern (>= 2 qualifying signals, not a
+      // single-signal watch); a Confirmed/Escalated (established) pattern stays counted until explicit
+      // leadership closure, even if recent recurrence has fallen below two.
       patterns: await one(`SELECT COUNT(*) n FROM signal_clusters sc
         LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id = sc.id
         WHERE sc.company_id=$1 AND sc.cluster_status IN ${ACTIVE_CLUSTER} AND sc.linked_risk_id IS NULL
-          AND COALESCE(pf.qualifying_count, sc.signal_count, 0) >= 2`),
+          AND (sc.cluster_status IN ('Confirmed','Escalated') OR COALESCE(pf.qualifying_count, sc.signal_count, 0) >= 2)`),
       risks: await one(`SELECT COUNT(*) n FROM canonical_risk_state_v WHERE company_id=$1 AND is_active`),
       actions: await one(`SELECT COUNT(*) n FROM canonical_action_state_v WHERE company_id=$1 AND is_open`),
       // Single source of truth: read due-now effectiveness straight from canonical_material_count_v
@@ -199,7 +203,10 @@ export const rm5Service = {
            LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=c.id
           WHERE c.company_id=$1
             AND c.linked_risk_id IS NULL
-            AND c.cluster_status IN ('Emerging','Confirmed')
+            -- Doctrine boundary: only a still-FORMING (Emerging) candidate may system-lapse. A
+            -- Confirmed/established pattern stays until explicit leadership closure — elapsed time
+            -- alone is never proof an established concern is resolved.
+            AND c.cluster_status = 'Emerging'
             AND COALESCE(pf.qualifying_count,0)=0
             AND c.last_signal_date IS NOT NULL
             AND c.last_signal_date < (NOW() - (COALESCE(pf.window_days,14) || ' days')::interval)
