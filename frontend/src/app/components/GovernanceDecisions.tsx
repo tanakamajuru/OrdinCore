@@ -73,6 +73,9 @@ export function GovernanceDecisions({
   // Allocate a task to a person for this service — available even when there are no new signals.
   const [taskForm, setTaskForm] = useState({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "", review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED" });
   const [taskBusy, setTaskBusy] = useState(false);
+  // The separate service-task form is secondary to the signal workflow, so it stays collapsed and
+  // opens only on request — Create Action on a signal already assigns that signal's work.
+  const [taskOpen, setTaskOpen] = useState(false);
   const idemKey = useRef<string | null>(null);
 
   // Keep the range anchored to the selected review date when it changes.
@@ -262,7 +265,14 @@ export function GovernanceDecisions({
         review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
         idempotency_key: idemKey.current,
       });
-      toast.success(form.decision === "Create Action" ? "Decision recorded — action assigned" : "Decision recorded");
+      if (form.decision === "Create Action") {
+        const ownerObj = owners.find((u: any) => u.id === form.owner_id);
+        const ownerName = ownerObj ? (ownerObj.name || `${ownerObj.first_name || ""} ${ownerObj.last_name || ""}`.trim()) : "the owner";
+        const dueLabel = form.due_at ? new Date(form.due_at).toLocaleDateString("en-GB") : "the due date";
+        toast.success(`Decision recorded and linked action assigned to ${ownerName}, due ${dueLabel}.`);
+      } else {
+        toast.success("Decision recorded");
+      }
       setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
@@ -296,8 +306,9 @@ export function GovernanceDecisions({
         review_requirement: taskForm.review_requirement,
         idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
       });
-      toast.success("Task allocated");
+      toast.success("Separate service task created and assigned.");
       setTaskForm({ what: "", rationale: "", intended_outcome: "", owner_id: "", due_at: "", review_requirement: "EFFECTIVENESS_REQUIRED" });
+      setTaskOpen(false);
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
     } catch (e: any) {
@@ -330,7 +341,7 @@ export function GovernanceDecisions({
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Gavel size={18} className="text-primary" />
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Governance Decisions</h2>
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-primary">Review signal and record decision</h2>
         </div>
         <span className="text-xs font-bold text-emerald-600">{signals.length} signal{signals.length === 1 ? "" : "s"} awaiting / due for review</span>
       </div>
@@ -490,9 +501,18 @@ export function GovernanceDecisions({
           </div>
           {form.decision === "Monitor" && <p className="text-[11px] text-muted-foreground">Monitor requires a review date. The signal leaves the live queue now and returns when that review date is due.</p>}
 
+          <p className="text-[11px] text-muted-foreground">
+            {form.decision === "Create Action"
+              ? "This records the signal decision and assigns its linked action in one step — no second allocation is needed."
+              : form.decision === "Escalate"
+                ? "This records the decision and opens the escalation for follow-through."
+                : form.decision === "Close"
+                  ? "This records the decision against the signal. Closing does not automatically close linked risks, actions or escalations."
+                  : "This records the decision against the signal."}
+          </p>
           <div className="flex justify-end">
             <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-              <Plus size={15} /> {busy ? "Recording…" : "Record decision"}
+              <Plus size={15} /> {busy ? "Recording…" : form.decision === "Create Action" ? "Record decision & assign action" : `Record ${form.decision.toLowerCase()} decision`}
             </button>
           </div>
         </div>
@@ -502,8 +522,13 @@ export function GovernanceDecisions({
           when there are no new signals to decide (a service-level Create Action decision). */}
       {!readOnly && houseId && (
         <div className="mt-5 border-t border-border pt-4">
-          <div className="text-xs font-semibold uppercase tracking-wide text-primary mb-1">Allocate a task</div>
-          <p className="text-[11px] text-muted-foreground mb-2">Assign a governance task for this service to a person.</p>
+          <button type="button" onClick={() => setTaskOpen((o) => !o)} aria-expanded={taskOpen}
+            className="text-sm font-semibold text-primary hover:underline">
+            {taskOpen ? "− Hide separate service task" : "+ Add separate service task"}
+          </button>
+          {taskOpen && (<div className="mt-3">
+          <div className="text-xs font-semibold uppercase tracking-wide text-primary mb-1">Create a separate service task</div>
+          <p className="text-[11px] text-muted-foreground mb-2">Use this for additional service work that is not linked to a specific signal. Create Action above already assigns the signal's work.</p>
           <textarea value={taskForm.what} onChange={(e) => setTaskForm({ ...taskForm, what: e.target.value })} rows={2}
             placeholder="What needs doing? (the task / action to be completed)"
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
@@ -528,9 +553,10 @@ export function GovernanceDecisions({
           </div>
           <div className="flex justify-end mt-2">
             <button onClick={allocateTask} disabled={taskBusy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-              <Plus size={15} /> {taskBusy ? "Allocating…" : "Allocate task"}
+              <Plus size={15} /> {taskBusy ? "Creating…" : "Create service task"}
             </button>
           </div>
+          </div>)}
         </div>
       )}
 
