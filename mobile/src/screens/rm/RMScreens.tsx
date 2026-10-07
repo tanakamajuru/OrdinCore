@@ -293,7 +293,7 @@ export function RMComplianceScreen() {
   if (loading && !data) return <Screen><Loading /></Screen>;
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
-      <BoardHeader title="Compliance" subtitle="Actions done on time, per person" />
+      <BoardHeader title="Action Tracker" subtitle="Actions done on time, per person" />
       {error ? <ErrorNote message={error} onRetry={refetch} /> : (
         <>
           <PercentDonut value={isNaN(pct) ? 0 : pct} label="Compliant" tone={pct >= 80 ? 'green' : pct >= 60 ? 'amber' : 'red'} />
@@ -359,7 +359,7 @@ export function RMMoreScreen() {
     { icon: 'trending-up', label: 'Escalations', sub: 'Open & overdue', go: () => nav.navigate('RMEscalations') },
     { icon: 'clipboard', label: 'Governance Review', sub: 'Weekly review', go: () => nav.navigate('RMGovernanceReview') },
     { icon: 'home', label: 'Site Overview', sub: 'Risk by site', go: () => nav.navigate('RMHouseOverview') },
-    { icon: 'shield', label: 'Compliance', sub: 'Policies, training, audits', go: () => nav.navigate('RMCompliance') },
+    { icon: 'shield', label: 'Action Tracker', sub: 'Actions done on time, per person', go: () => nav.navigate('RMCompliance') },
     { icon: 'check-square', label: 'My Actions', sub: 'Tasks allocated to you', go: () => nav.navigate('RMMyActions') },
     { icon: 'user', label: 'Profile', sub: 'Account & security', go: () => nav.navigate('Profile') },
   ];

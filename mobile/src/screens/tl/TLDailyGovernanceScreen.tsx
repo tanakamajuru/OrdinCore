@@ -5,13 +5,18 @@ import { api } from '@/api/client';
 import { useApi } from '@/api/useApi';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/tokens';
-import { Screen, AppHeader, Card, Loading, Empty, Button, Text, Row, ErrorNote, Banner } from '@/components/ui';
+import { Screen, AppHeader, Card, Loading, Empty, Button, Text, Row, ErrorNote, Banner, Chip, Label } from '@/components/ui';
+import { CalendarField } from '@/components/CalendarField';
 
 // The Team Leader's "Daily Governance" section on mobile — the briefs the RM publishes
-// at sign-off, with Confirm-reviewed (Chapters 2/3).
+// at sign-off, with Confirm-reviewed (Chapters 2/3). A date filter turns it into a
+// searchable by-date archive (same stored briefs as the web history).
 export function TLDailyGovernanceScreen() {
   const { c } = useTheme();
-  const { data, loading, error, refetch } = useApi<any>('/governance/daily-log/team-briefs');
+  const [day, setDay] = useState('');
+  const [showCal, setShowCal] = useState(false);
+  const url = day ? `/governance/daily-log/team-briefs?from=${day}&to=${day}` : '/governance/daily-log/team-briefs';
+  const { data, loading, error, refetch } = useApi<any>(url, [url]);
   const briefs: any[] = Array.isArray(data) ? data : [];
   const [acking, setAcking] = useState<string | null>(null);
   const [acked, setAcked] = useState<Record<string, boolean>>({});
@@ -30,6 +35,14 @@ export function TLDailyGovernanceScreen() {
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
       <AppHeader title="Daily Governance" subtitle="Briefs published by your Registered Manager" />
+      <Card>
+        <Label>Search by date</Label>
+        <Row gap={6} style={{ flexWrap: 'wrap' }}>
+          <Chip label={day ? new Date(day).toLocaleDateString('en-GB') : 'Pick a date'} active={!!day} onPress={() => setShowCal((v) => !v)} />
+          {!!day && <Chip label="Show recent" active={false} onPress={() => { setDay(''); setShowCal(false); }} />}
+        </Row>
+        {showCal && <View style={{ marginTop: 8 }}><CalendarField value={day} onChange={(v) => { setDay(v); setShowCal(false); }} /></View>}
+      </Card>
       {loading && !data ? <Loading />
         : error ? <ErrorNote message={error} onRetry={refetch} />
         : briefs.length === 0 ? <Empty icon="check-circle" title="No governance briefs yet" />

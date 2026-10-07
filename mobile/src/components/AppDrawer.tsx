@@ -40,7 +40,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
       { icon: 'clipboard', label: 'Governance Review', go: go(() => navigate('RMGovernanceReview')) },
       { icon: 'home', label: 'Site Overview', go: go(() => navigate('RMHouseOverview')) },
-      { icon: 'shield', label: 'Compliance', go: go(() => navigate('RMCompliance')) },
+      { icon: 'shield', label: 'Action Tracker', go: go(() => navigate('RMCompliance')) },
     ]);
   }
   if (r === 'TEAM_LEADER') {

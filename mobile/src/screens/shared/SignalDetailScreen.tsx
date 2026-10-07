@@ -45,6 +45,10 @@ export function SignalDetailScreen() {
   const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'|''>('');
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+  // Cancel a signal raised in error — only while it is still undecided ('New').
+  const [showCancel, setShowCancel] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
+  const [cancelBusy, setCancelBusy] = useState(false);
   const people: any[] = Array.isArray(users.data) ? users.data : users.data?.users || users.data?.data || [];
   // Create Action, Escalate and Monitor all need an accountable owner (and a date): a Monitor
   // with no owner/review date is "monitored" with no one watching. Close needs neither.
@@ -87,6 +91,16 @@ export function SignalDetailScreen() {
       setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
     } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
     finally { setDecisionBusy(false); }
+  };
+  const cancelSignal = async () => {
+    if (cancelReason.trim().length < 3) { Alert.alert('Add a reason', 'Give a brief reason for cancelling this signal.'); return; }
+    setCancelBusy(true);
+    try {
+      await api.patch(`/pulses/${id}/cancel`, { reason: cancelReason.trim() });
+      Alert.alert('Signal cancelled', 'The signal has been cancelled and removed from the work queues. It remains in the audit trail.');
+      setShowCancel(false); setCancelReason(''); signal.refetch(); activity.refetch();
+    } catch (e: any) { Alert.alert("Couldn't cancel", e?.message || 'Please try again.'); }
+    finally { setCancelBusy(false); }
   };
   const markAttention = async () => {
     if (attnReason.trim().length < 10) { Alert.alert('Add a reason', 'Give a short reason (at least a sentence).'); return; }
@@ -189,6 +203,22 @@ export function SignalDetailScreen() {
           </>}
 
           <Button title="Record governance decision" icon="check" onPress={recordDecision} loading={decisionBusy} />
+
+          {/* Cancel a signal raised in error — only while undecided. Kept in the audit trail. */}
+          {String(s?.review_status || 'New') === 'New' && (
+            showCancel ? (
+              <View style={{ marginTop: 12 }}>
+                <Label>Reason for cancelling (raised in error)</Label>
+                <TextArea value={cancelReason} onChangeText={setCancelReason} placeholder="Why is this signal being cancelled?" minHeight={56} required />
+                <Row gap={8}>
+                  <Button title="Confirm cancel" icon="x-circle" tone="block" onPress={cancelSignal} loading={cancelBusy} />
+                  <Button title="Keep signal" tone="ghost" onPress={() => { setShowCancel(false); setCancelReason(''); }} />
+                </Row>
+              </View>
+            ) : (
+              <Button title="Cancel signal (raised in error)" icon="x-circle" tone="ghost" onPress={() => setShowCancel(true)} />
+            )
+          )}
         </Card>
       )}
 
