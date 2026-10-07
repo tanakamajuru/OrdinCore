@@ -153,15 +153,18 @@ export function PercentDonut({ value, label, tone = 'green', size = 132 }: { val
 }
 
 /* Checklist rows: optional check icon, label, right value. */
-export function Checklist({ items }: { items: { label: string; value?: React.ReactNode; checked?: boolean; showCheck?: boolean }[] }) {
+export function Checklist({ items }: { items: { label: string; value?: React.ReactNode; checked?: boolean; showCheck?: boolean; tone?: 'green' | 'amber' | 'red' | 'neutral' }[] }) {
   const { c } = useTheme();
+  const toneColor = (t?: string) => t === 'green' ? c.sevLow : t === 'amber' ? c.sevMod : t === 'red' ? c.sevCrit : c.muted;
+  // The status icon reflects the verdict: a tick only when green (Assured); otherwise a neutral dot,
+  // so the RI never shows a green tick where there is no evidence or the control is not assured.
   return (
     <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
       {items.map((it, i) => (
         <Row key={i} style={{ paddingVertical: 12, borderBottomWidth: i < items.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
-          {it.showCheck && <Feather name="check-circle" size={17} color={c.sevLow} />}
+          {it.showCheck && <Feather name={it.tone && it.tone !== 'green' ? 'minus-circle' : 'check-circle'} size={17} color={it.tone ? toneColor(it.tone) : c.sevLow} />}
           <Text size={13.5} style={{ flex: 1 }}>{it.label}</Text>
-          {it.value !== undefined && <Text size={13} weight="700">{it.value}</Text>}
+          {it.value !== undefined && <Text size={13} weight="700" style={it.tone ? { color: toneColor(it.tone) } : undefined}>{it.value}</Text>}
         </Row>
       ))}
     </View>

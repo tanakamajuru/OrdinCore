@@ -24,14 +24,22 @@ const pctOf = (n: number, d: number) => Math.round(ratio(n, d) * 100);
 // the real RAG indicators, plus the indicators themselves.
 type Rag = 'Good' | 'Warning' | 'Concern';
 type AssuranceState = 'Strong' | 'Adequate' | 'Watch' | 'Concern';
+// Each assurance dimension from /ri/assurance-summary is { state, basis } where state is one of
+// Assured | Partially assured | Not assured | Insufficient evidence (RI doctrine: evidence, not ticks).
+const dimState = (x: any): string => (x && typeof x === 'object' ? (x.state || '—') : (typeof x === 'string' ? x : '—'));
+const dimBasis = (x: any): string => (x && typeof x === 'object' ? (x.basis || '') : '');
+const dimTone = (x: any): 'green' | 'amber' | 'red' | 'neutral' => { const st = dimState(x); return st === 'Assured' ? 'green' : st === 'Partially assured' ? 'amber' : st === 'Not assured' ? 'red' : 'neutral'; };
 function useAssurance() {
   const s = useApi<any>('/ri/assurance-summary');
   const d: any = s.data?.data ?? s.data ?? {};
-  const rags: Rag[] = [d.risks_identified_early, d.escalations_timely, d.actions_effective, d.closures_evidenced].filter(Boolean);
-  const concerns = rags.filter((x) => x === 'Concern').length;
-  const warnings = rags.filter((x) => x === 'Warning').length;
-  const state: AssuranceState = concerns > 0 ? 'Concern' : warnings >= 2 ? 'Watch' : warnings === 1 ? 'Adequate' : 'Strong';
-  return { s, d, rags, state, refetch: s.refetch };
+  const states = [d.risks_identified_early, d.escalations_timely, d.actions_effective, d.closures_evidenced].map(dimState);
+  const concerns = states.filter((x) => x === 'Not assured').length;
+  const warnings = states.filter((x) => x === 'Partially assured').length;
+  const assured = states.filter((x) => x === 'Assured').length;
+  // No adverse finding and nothing yet assured = Adequate (honest), not Strong — the RI must not
+  // claim strong assurance where the platform holds no supporting evidence.
+  const state: AssuranceState = concerns > 0 ? 'Concern' : warnings >= 2 ? 'Watch' : warnings === 1 ? 'Adequate' : assured === 0 ? 'Adequate' : 'Strong';
+  return { s, d, state, refetch: s.refetch };
 }
 const stateTone = (s: AssuranceState) => (s === 'Strong' ? 'green' : s === 'Adequate' ? 'green' : s === 'Watch' ? 'amber' : 'red');
 
@@ -46,10 +54,10 @@ export function RIProviderAssuranceScreen() {
       <OutstandingBanner />
       <StatusList items={[{ title: 'Assurance position', value: state, tone: stateTone(state) as any }]} />
       <Checklist items={[
-        { label: 'Risks identified early', value: String(d.risks_identified_early || '—') },
-        { label: 'Escalations timely', value: String(d.escalations_timely || '—') },
-        { label: 'Actions effective', value: String(d.actions_effective || '—') },
-        { label: 'Closures evidenced', value: String(d.closures_evidenced || '—') },
+        { label: 'Risks identified early', value: dimState(d.risks_identified_early), tone: dimTone(d.risks_identified_early) },
+        { label: 'Escalations timely', value: dimState(d.escalations_timely), tone: dimTone(d.escalations_timely) },
+        { label: 'Actions effective', value: dimState(d.actions_effective), tone: dimTone(d.actions_effective) },
+        { label: 'Closures evidenced', value: dimState(d.closures_evidenced), tone: dimTone(d.closures_evidenced) },
         { label: 'Reopened risks', value: String(d.reopened_risks ?? 0) },
         { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0) },
         ...(d.resolution_effectiveness_rate != null ? [{ label: 'Resolution effectiveness', value: `${d.resolution_effectiveness_rate}%` }] : []),
@@ -108,11 +116,11 @@ export function RIInspectionScreen() {
       <BoardHeader title="Governance Readiness" subtitle="Evidence Ordin Core can substantiate" />
       <StatusList items={[{ title: 'Assurance position', value: state, tone: stateTone(state) as any }]} />
       <Checklist items={[
-        { label: 'Risks identified early', value: String(d.risks_identified_early || '—'), showCheck: true },
-        { label: 'Escalations timely', value: String(d.escalations_timely || '—'), showCheck: true },
-        { label: 'Actions effective', value: String(d.actions_effective || '—'), showCheck: true },
-        { label: 'Closures evidenced', value: String(d.closures_evidenced || '—'), showCheck: true },
-        { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0), showCheck: true },
+        { label: 'Risks identified early', value: dimState(d.risks_identified_early), showCheck: true, tone: dimTone(d.risks_identified_early) },
+        { label: 'Escalations timely', value: dimState(d.escalations_timely), showCheck: true, tone: dimTone(d.escalations_timely) },
+        { label: 'Actions effective', value: dimState(d.actions_effective), showCheck: true, tone: dimTone(d.actions_effective) },
+        { label: 'Closures evidenced', value: dimState(d.closures_evidenced), showCheck: true, tone: dimTone(d.closures_evidenced) },
+        { label: 'Overdue governance reviews', value: String(d.overdue_reviews ?? 0), showCheck: true, tone: (Number(d.overdue_reviews ?? 0) > 0 ? 'red' : 'green') },
       ]} />
       {/* Defensibility: training, policy and audit status are NOT inferred from governance
           activity — they appear only when Ordin Core actually holds that evidence. */}
@@ -145,16 +153,26 @@ export function RINarrativeScreen() {
         <Text size={13} muted style={{ lineHeight: 20 }}>{position}</Text>
         <Text size={14} weight="700" style={{ marginTop: 14, marginBottom: 6 }}>Key highlights</Text>
         {[
-          `Risks identified early: ${d.risks_identified_early || '—'}`,
-          `Escalations timely: ${d.escalations_timely || '—'}`,
-          `Actions effective: ${d.actions_effective || '—'}`,
-          ...(d.resolution_effectiveness_rate != null ? [`Resolution effectiveness ${d.resolution_effectiveness_rate}% (of ${d.resolved_total} resolved)`] : []),
-        ].map((t, i) => (
-          <Row key={i} gap={9} style={{ marginBottom: 6, alignItems: 'flex-start' }}>
+          { label: 'Risks identified early', dim: d.risks_identified_early },
+          { label: 'Escalations timely', dim: d.escalations_timely },
+          { label: 'Actions effective', dim: d.actions_effective },
+          { label: 'Closures evidenced', dim: d.closures_evidenced },
+        ].map((it, i) => {
+          const t = dimTone(it.dim);
+          const color = t === 'green' ? c.sevLow : t === 'amber' ? c.sevMod : t === 'red' ? c.sevCrit : c.muted;
+          return (
+            <Row key={i} gap={9} style={{ marginBottom: 6, alignItems: 'flex-start' }}>
+              <Feather name={t === 'green' ? 'check' : 'minus'} size={15} color={color} style={{ marginTop: 2 }} />
+              <Text size={13} style={{ flex: 1, lineHeight: 19 }}><Text size={13} weight="600">{it.label}: {dimState(it.dim)}</Text>{dimBasis(it.dim) ? `\n${dimBasis(it.dim)}` : ''}</Text>
+            </Row>
+          );
+        })}
+        {d.resolution_effectiveness_rate != null && (
+          <Row gap={9} style={{ marginBottom: 6, alignItems: 'flex-start' }}>
             <Feather name="check" size={15} color={c.sevLow} style={{ marginTop: 2 }} />
-            <Text size={13} style={{ flex: 1, lineHeight: 19 }}>{t}</Text>
+            <Text size={13} style={{ flex: 1, lineHeight: 19 }}>Resolution effectiveness {d.resolution_effectiveness_rate}% (of {d.resolved_total} resolved)</Text>
           </Row>
-        ))}
+        )}
       </View>
       <BoardButton label="View board reports" icon="file-text" onPress={() => nav.navigate('RIBoardReports')} />
     </Screen>
