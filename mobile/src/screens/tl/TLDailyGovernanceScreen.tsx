@@ -5,8 +5,12 @@ import { api } from '@/api/client';
 import { useApi } from '@/api/useApi';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius } from '@/theme/tokens';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as Sharing from 'expo-sharing';
 import { Screen, AppHeader, Card, Loading, Empty, Button, Text, Row, ErrorNote, Banner, Chip, Label } from '@/components/ui';
 import { CalendarField } from '@/components/CalendarField';
+import { useAuth } from '@/auth/AuthContext';
+import { API_BASE_URL } from '@/config';
 
 const today = () => new Date().toISOString().slice(0, 10);
 
@@ -24,6 +28,21 @@ export function TLDailyGovernanceScreen() {
   const briefs: any[] = Array.isArray(data) ? data : [];
   const [acking, setAcking] = useState<string | null>(null);
   const [acked, setAcked] = useState<Record<string, boolean>>({});
+  const [pdfBusy, setPdfBusy] = useState<string | null>(null);
+  const { token } = useAuth();
+
+  // Download the presentable PDF (with auth) and hand it to the OS share sheet (save / email / print).
+  const openPdf = async (b: any) => {
+    setPdfBusy(b.id);
+    try {
+      const target = `${FileSystem.cacheDirectory}daily-governance-${b.id}.pdf`;
+      const res = await FileSystem.downloadAsync(`${API_BASE_URL}/governance/daily-log/${b.id}/pdf`, target, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
+      if (res.status !== 200) throw new Error('The report could not be generated.');
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(res.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      else Alert.alert('Report ready', 'The PDF was downloaded to the app cache.');
+    } catch (e: any) { Alert.alert("Couldn't open the PDF", e?.message || 'Please try again.'); }
+    finally { setPdfBusy(null); }
+  };
 
   const acknowledge = async (id: string) => {
     setAcking(id);
@@ -72,7 +91,8 @@ export function TLDailyGovernanceScreen() {
               ) : (
                 <Text size={13.5} style={{ lineHeight: 21 }}>{b.team_brief}</Text>
               )}
-              <View style={{ flexDirection: 'row', justifyContent: 'flex-end', marginTop: 14 }}>
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 14 }}>
+                <Button title={pdfBusy === b.id ? 'Preparing…' : 'View / Share PDF'} icon="file-text" tone="ghost" onPress={() => openPdf(b)} loading={pdfBusy === b.id} />
                 {isAck ? (
                   <Row gap={6}><Feather name="check-circle" size={16} color={c.sevLow} /><Text size={13} weight="600" color={c.sevLow}>Acknowledged</Text></Row>
                 ) : (
