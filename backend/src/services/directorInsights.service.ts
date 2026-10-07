@@ -76,7 +76,7 @@ export class DirectorInsightsService {
          COUNT(*) FILTER (WHERE is_open) AS open,
          COUNT(*) FILTER (WHERE is_overdue) AS overdue,
          COUNT(*) FILTER (WHERE lifecycle_status = 'Reopened') AS reopened
-       FROM escalations WHERE company_id = $1`,
+       FROM canonical_escalation_state_v WHERE company_id = $1`,
       [companyId]
     );
     const risks = await query(
