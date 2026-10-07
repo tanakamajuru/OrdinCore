@@ -61,7 +61,7 @@ export function ActionDetailScreen() {
       {!done ? (
         <>
           <Label>Completion outcome</Label>
-          <Row gap={6} style={{ flexWrap: 'wrap' }}>
+          <Row gap={12} style={{ flexWrap: 'wrap', marginTop: 4, marginBottom: 10 }}>
             {['No change', 'Partial improvement', 'Risk reduced', 'Risk escalated'].map((v) => (
               <Button key={v} title={v} tone={outcome === v ? 'primary' : 'ghost'} onPress={() => setOutcome(v)} />
             ))}
