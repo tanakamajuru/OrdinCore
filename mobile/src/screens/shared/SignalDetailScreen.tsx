@@ -31,6 +31,7 @@ export function SignalDetailScreen() {
   const [attnReason, setAttnReason] = useState('');
   const [attnBusy, setAttnBusy] = useState(false);
   const isRM = normalizeRole(role || '') === 'REGISTERED_MANAGER';
+  const isTL = normalizeRole(role || '') === 'TEAM_LEADER';
   // Use the tenant directory (any authenticated user), NOT /users which is Admin-only — that was why
   // the owner list showed "No colleagues are available to allocate".
   const users = useApi<any>(isRM ? '/users/directory' : null);
@@ -203,21 +204,24 @@ export function SignalDetailScreen() {
           </>}
 
           <Button title="Record governance decision" icon="check" onPress={recordDecision} loading={decisionBusy} />
+        </Card>
+      )}
 
-          {/* Cancel a signal raised in error — only while undecided. Kept in the audit trail. */}
-          {String(s?.review_status || 'New') === 'New' && (
-            showCancel ? (
-              <View style={{ marginTop: 12 }}>
-                <Label>Reason for cancelling (raised in error)</Label>
-                <TextArea value={cancelReason} onChangeText={setCancelReason} placeholder="Why is this signal being cancelled?" minHeight={56} required />
-                <Row gap={8}>
-                  <Button title="Confirm cancel" icon="x-circle" tone="block" onPress={cancelSignal} loading={cancelBusy} />
-                  <Button title="Keep signal" tone="ghost" onPress={() => { setShowCancel(false); setCancelReason(''); }} />
-                </Row>
-              </View>
-            ) : (
-              <Button title="Cancel signal (raised in error)" icon="x-circle" tone="ghost" onPress={() => setShowCancel(true)} />
-            )
+      {/* Cancel a signal raised in error — available to RM and Team Leader while the signal is still
+          undecided ('New'). The signal leaves the work queues but stays in the audit trail. */}
+      {(isRM || isTL) && String(s?.review_status || 'New') === 'New' && (
+        <Card>
+          {showCancel ? (
+            <>
+              <Label>Reason for cancelling (raised in error)</Label>
+              <TextArea value={cancelReason} onChangeText={setCancelReason} placeholder="Why is this signal being cancelled?" minHeight={56} required />
+              <Row gap={8}>
+                <Button title="Confirm cancel" icon="x-circle" tone="block" onPress={cancelSignal} loading={cancelBusy} />
+                <Button title="Keep signal" tone="ghost" onPress={() => { setShowCancel(false); setCancelReason(''); }} />
+              </Row>
+            </>
+          ) : (
+            <Button title="Cancel signal (raised in error)" icon="x-circle" tone="ghost" onPress={() => setShowCancel(true)} />
           )}
         </Card>
       )}
