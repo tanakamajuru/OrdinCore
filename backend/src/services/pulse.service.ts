@@ -231,6 +231,35 @@ export class PulseService {
         return pulsesRepo.updateReview(id, company_id, user_id, data);
     }
 
+    // Cancel a signal raised in error. It leaves every work queue (Cancelled is not an active
+    // status) but is preserved in the record and audit trail — never deleted. Only an undecided
+    // signal can be cancelled; once it has been reviewed/linked/monitored/closed it has governance
+    // consequences and must follow the normal lifecycle instead.
+    async cancelPulse(id: string, company_id: string, user_id: string, reason?: string) {
+        const p = (await query(
+            `SELECT id, COALESCE(review_status::text,'New') AS review_status FROM governance_pulses WHERE id = $1 AND company_id = $2`,
+            [id, company_id]
+        )).rows[0];
+        if (!p) throw new Error('Signal not found');
+        if (p.review_status !== 'New') {
+            throw new Error('Only an undecided (New) signal can be cancelled. This signal already has a governance decision and must follow its lifecycle.');
+        }
+        if (!reason || String(reason).trim().length < 3) throw new Error('Give a brief reason for cancelling this signal.');
+        const updated = (await query(
+            `UPDATE governance_pulses SET review_status = 'Cancelled', updated_at = NOW()
+              WHERE id = $1 AND company_id = $2 RETURNING *`,
+            [id, company_id]
+        )).rows[0];
+        try {
+            await query(
+                `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+                 VALUES ($1,$2,$3,'SIGNAL_CANCELLED','governance_pulse',$4,$5)`,
+                [uuidv4(), company_id, user_id, id, JSON.stringify({ reason: String(reason).trim() })]
+            );
+        } catch { /* audit is best-effort; the Cancelled status itself records the change */ }
+        return updated;
+    }
+
     // A Support Worker (or TL) raises a signal to their Team Leader for attention. Creates an
     // escalation targeting a Team Leader on the signal's house (falling back to the RM if no TL is
     // mapped), linked to the signal. The TL then manages it from Escalations.

@@ -62,6 +62,7 @@ router.get('/:id', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TE
  */
 router.patch('/:id/review', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), pulseController.reviewPulse.bind(pulseController));
 router.patch('/:id/status', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), pulseController.reviewPulse.bind(pulseController));
+router.patch('/:id/cancel', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), pulseController.cancelPulse.bind(pulseController));
 
 /**
  * @openapi

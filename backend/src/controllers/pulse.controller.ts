@@ -123,6 +123,18 @@ export class PulseController {
         }
     }
 
+    async cancelPulse(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const user_id = req.user!.user_id;
+            const updated = await pulseService.cancelPulse(id, company_id, user_id, req.body?.reason);
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async linkToRisk(req: Request, res: Response) {
         try {
             const { id } = req.params;
