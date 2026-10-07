@@ -118,7 +118,7 @@ export function RMRiskRegisterScreen() {
     };
   });
   return (
-    <Screen refreshing={loading} onRefresh={refetch}>
+    <Screen refreshing={loading} onRefresh={refetch} topInset={false}>
       <BoardHeader title="Risk Register" />
       <Row gap={7}>
         <Chip label={`All · ${all.length}`} active={tab === 'all'} onPress={() => setTab('all')} />
