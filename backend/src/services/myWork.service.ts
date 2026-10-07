@@ -42,9 +42,9 @@ export const myWorkService = {
       try { return await fn(); } catch { return fallback; }
     };
 
-    // 1. Open escalations assigned to me or in my services (urgent highlighted).
-    // Commented out per request — escalations are no longer surfaced as a My Work item.
-    if (false) {
+    // 1. Open escalations assigned to me or in my services (urgent highlighted). Restored: a new
+    // escalation must reach My Work, not sit silently on the Escalations screen (field report 7 Oct).
+    if (true) {
       const esc = await safe(() => query(
         `SELECT COUNT(*)::int AS n,
                 COUNT(*) FILTER (WHERE priority IN ('Urgent','Critical'))::int AS urgent
