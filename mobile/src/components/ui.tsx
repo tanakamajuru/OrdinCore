@@ -5,6 +5,7 @@ import {
   KeyboardAvoidingView, Platform, Keyboard, TouchableWithoutFeedback,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { HeaderHeightContext } from '@react-navigation/elements';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
 import { radius, severityColor, trajectoryColor, Palette } from '@/theme/tokens';
@@ -28,14 +29,18 @@ export function Label({ children }: { children: React.ReactNode }) {
 /* ---------- layout ---------- */
 export function Screen({ children, refreshing, onRefresh, scroll = true, padded = true, topInset = true }: {
   children: React.ReactNode; refreshing?: boolean; onRefresh?: () => void; scroll?: boolean; padded?: boolean;
-  // Stack screens that already show a native navigation header must set topInset={false}, otherwise
-  // the top safe-area inset is added a SECOND time (below the header), leaving a large empty gap.
+  // The top safe-area inset must be applied ONCE. A screen shown under a native navigation header
+  // already has that inset consumed by the header, so adding edges=['top'] here duplicates it and
+  // leaves a large empty gap. Auto-detect the header (HeaderHeightContext is present only under one)
+  // so every screen is correct without per-screen props; an explicit topInset still overrides.
   topInset?: boolean;
 }) {
   const { c } = useTheme();
+  const headerHeight = React.useContext(HeaderHeightContext);
+  const applyTop = topInset !== undefined ? topInset : !(headerHeight != null && headerHeight > 0);
   const inner = <View style={{ padding: padded ? 16 : 0, gap: 12 }}>{children}</View>;
   return (
-    <SafeAreaView edges={topInset ? ['top'] : []} style={{ flex: 1, backgroundColor: c.paper }}>
+    <SafeAreaView edges={applyTop ? ['top'] : []} style={{ flex: 1, backgroundColor: c.paper }}>
       {/* KeyboardAvoidingView + generous bottom padding so a focused input is never hidden behind
           the on-screen keyboard; tapping outside dismisses it. */}
       <KeyboardAvoidingView
