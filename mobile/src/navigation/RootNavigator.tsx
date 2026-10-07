@@ -31,7 +31,6 @@ import { RateEffectivenessScreen } from '@/screens/rm/RateEffectivenessScreen';
 import { RMSignalQueueScreen } from '@/screens/rm/RMSignalQueueScreen';
 import { RMActionsListScreen } from '@/screens/rm/RMActionsListScreen';
 import { RMPatternsScreen } from '@/screens/rm/RMPatternsScreen';
-import { RMWeeklyReviewScreen } from '@/screens/rm/RMWeeklyReviewScreen';
 import { RMDailyGovernanceScreen } from '@/screens/rm/RMDailyGovernanceScreen';
 import { ActionDetailScreen } from '@/screens/shared/ActionDetailScreen';
 import { EscalationDetailScreen } from '@/screens/shared/EscalationDetailScreen';
@@ -256,7 +255,10 @@ const RMSignalQueueA = withAccent('blue', RMSignalQueueScreen);
 const RMActionsListA = withAccent('blue', RMActionsListScreen);
 const RMPatternsA = withAccent('blue', RMPatternsScreen);
 const RMRiskRegisterA = withAccent('blue', RMRiskRegisterScreen);
-const RMWeeklyReviewA = withAccent('blue', RMWeeklyReviewScreen);
+// RM weekly review is read-only on mobile (authoring/finalising is web-only): reuse the shared
+// read-only reader. RM also receives the daily governance report via the same read-only feed.
+const RMWeeklyReviewA = withAccent('blue', TLWeeklyReviewsScreen);
+const RMDailyGovernanceReportA = withAccent('blue', TLDailyGovernanceScreen);
 const RMDailyGovernanceA = withAccent('blue', RMDailyGovernanceScreen);
 const DirectorReviewsA = withAccent('orange', ReviewsScreen);
 const ProviderSignoffA = withAccent('violet', ProviderSignoffScreen);
@@ -324,6 +326,7 @@ export function RootNavigator() {
       <Stack.Screen name="RMPatterns" component={RMPatternsA} options={{ title: '' }} />
       <Stack.Screen name="RMWeeklyReview" component={RMWeeklyReviewA} options={{ title: '' }} />
       <Stack.Screen name="RMDailyGovernance" component={RMDailyGovernanceA} options={{ title: '' }} />
+      <Stack.Screen name="RMDailyGovernanceReport" component={RMDailyGovernanceReportA} options={{ title: 'Daily Governance Report' }} />
       <Stack.Screen name="DirectorReviews" component={DirectorReviewsA} options={{ title: '' }} />
       <Stack.Screen name="ProviderSignoff" component={ProviderSignoffA} options={{ title: '' }} />
       <Stack.Screen name="DirectorGovernance" component={DirectorGovernanceA} options={{ title: '' }} />

@@ -35,6 +35,7 @@ export type RootStackParams = {
   RMPatterns: undefined;
   RMWeeklyReview: undefined;
   RMDailyGovernance: undefined;
+  RMDailyGovernanceReport: undefined;
   // Signal queue reachable as a pushed, optionally house-scoped list (drill-through from the
   // dashboard "Signals awaiting review" and the Daily Governance "Review N signals" button).
   RMSignalQueue: { house_id?: string; house?: string; tab?: 'needs' | 'monitoring' | 'all' } | undefined;

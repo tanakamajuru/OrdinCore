@@ -31,7 +31,8 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
   if (r === 'REGISTERED_MANAGER' || r === 'ADMIN' || r === 'SUPER_ADMIN') {
     return common([
       { icon: 'check-square', label: 'My Work', go: go(() => navigate('MyWork')) },
-      { icon: 'send', label: 'Daily Governance', go: go(() => navigate('RMDailyGovernance')) },
+      { icon: 'send', label: 'Daily Governance (publish)', go: go(() => navigate('RMDailyGovernance')) },
+      { icon: 'book-open', label: 'Daily Governance Report', go: go(() => navigate('RMDailyGovernanceReport')) },
       { icon: 'home', label: 'Home', go: go(() => navigateTab('Home')) },
       { icon: 'check-square', label: 'My Actions', go: go(() => navigate('RMMyActions')) },
       { icon: 'shield', label: 'Risk Register', go: go(() => navigate('RMRiskRegister')) },
