@@ -1,9 +1,73 @@
 import { Request, Response } from 'express';
+import PDFDocument from 'pdfkit';
 import { dailyGovernanceService } from '../services/dailyGovernance.service';
 import { query } from '../config/database';
 import logger from '../utils/logger';
 
 export class DailyGovernanceController {
+  // Presentable, portable PDF of a single published Daily Governance brief — for handovers and
+  // supervision files. Built from the stored brief so the PDF and the in-app view cannot diverge.
+  async downloadDailyPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      const hres = await query(`SELECT house_id FROM user_houses WHERE user_id = $1`, [user_id]);
+      const house_ids = hres.rows.map((r: any) => r.house_id);
+      const b = await dailyGovernanceService.dailyBriefForPdf(company_id, house_ids, req.params.id);
+      if (!b) return res.status(404).json({ success: false, message: 'Daily governance brief not found' });
+
+      const dateLabel = b.review_date ? new Date(`${b.review_date}T00:00:00`).toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '';
+      const safe = `daily-governance-${b.house_name || 'service'}-${b.review_date || ''}`.replace(/[^a-z0-9-_]/gi, '').slice(0, 70) || 'daily-governance';
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader('Content-Disposition', `attachment; filename="${safe}.pdf"`);
+
+      const doc = new PDFDocument({ margin: 50, size: 'A4' });
+      doc.pipe(res);
+
+      doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f766e').text('PUBLISHED DAILY GOVERNANCE BRIEF', { characterSpacing: 1 });
+      doc.moveDown(0.3).fillColor('#0f172a').fontSize(20).text('Daily Governance Review');
+      doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#555');
+      doc.text(`${b.house_name || 'Service'}${dateLabel ? ' · ' + dateLabel : ''}`);
+      doc.text(`Prepared by ${b.prepared_by || 'Registered Manager'}${b.published_at ? ' · published ' + new Date(b.published_at).toLocaleString('en-GB') : ''}`);
+      doc.fillColor('#000').moveDown(0.6);
+      doc.moveTo(50, doc.y).lineTo(545, doc.y).strokeColor('#e2e8f0').stroke().moveDown(0.6);
+
+      const section = (title: string) => { doc.moveDown(0.5).font('Helvetica-Bold').fontSize(12).fillColor('#0f766e').text(title.toUpperCase()); doc.moveDown(0.2).font('Helvetica').fontSize(10.5).fillColor('#000'); };
+
+      section('Overall position');
+      if (!b.material_change || !b.team_brief) {
+        doc.text('No material change was declared. The Registered Manager published a positive confirmation; existing actions continue.');
+      } else {
+        doc.text(String(b.leadership_narrative || '').trim() || 'See the team brief below.');
+      }
+
+      if (b.team_brief && b.material_change) {
+        section('Team brief');
+        doc.text(String(b.team_brief).trim());
+      }
+
+      const priorities: any[] = Array.isArray(b.priorities) ? b.priorities : [];
+      if (priorities.length) {
+        section('Decisions recorded');
+        priorities.forEach((p: any) => {
+          const due = p.dueLabel ? ' · due ' + new Date(p.dueLabel).toLocaleDateString('en-GB') : '';
+          doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`• ${p.decision || 'Decision'}${p.owner ? ' · ' + p.owner : ''}${due}`);
+          if (p.title) doc.font('Helvetica').fontSize(10).fillColor('#333').text(`   ${String(p.title).trim()}`);
+          if (p.rationale) doc.font('Helvetica-Oblique').fontSize(9.5).fillColor('#555').text(`   Rationale: ${String(p.rationale).trim()}`);
+          doc.moveDown(0.25);
+        });
+      }
+
+      doc.moveDown(1).font('Helvetica-Oblique').fontSize(8.5).fillColor('#94a3b8')
+        .text('Generated from the published governance record. Completion records activity; effectiveness is rated separately.', { align: 'center' });
+
+      doc.end();
+    } catch (err: any) {
+      logger.error('Error generating daily governance PDF', err);
+      if (!res.headersSent) res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
   async openLog(req: Request, res: Response) {
     try {
       const { house_id } = req.body;

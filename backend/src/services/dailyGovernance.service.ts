@@ -498,6 +498,33 @@ export class DailyGovernanceService {
     return res.rows;
   }
 
+  // One published brief, scoped to the caller's company + houses, assembled for the daily PDF.
+  async dailyBriefForPdf(company_id: string, house_ids: string[], log_id: string) {
+    if (!house_ids.length) return null;
+    const res = await query(
+      `SELECT dgl.id, dgl.house_id, h.name AS house_name, dgl.team_brief, dgl.material_change,
+              dgl.leadership_narrative, dgl.review_date::text AS review_date,
+              dgl.published_at, dgl.completed_at,
+              NULLIF(TRIM(COALESCE(pu.first_name,'') || ' ' || COALESCE(pu.last_name,'')), '') AS prepared_by,
+              (SELECT COALESCE(json_agg(json_build_object(
+                        'decision', gr.decision, 'title', gr.what_is_happening,
+                        'instruction', COALESCE(NULLIF(gr.intended_outcome,''), gr.evidence),
+                        'rationale', gr.decision_rationale,
+                        'owner', NULLIF(TRIM(COALESCE(ou.first_name,'') || ' ' || COALESCE(ou.last_name,'')), ''),
+                        'dueLabel', gr.due_at
+                      ) ORDER BY gr.created_at), '[]'::json)
+                 FROM governance_reviews gr
+                 LEFT JOIN users ou ON ou.id = gr.decision_owner_id
+                WHERE gr.daily_governance_log_id = dgl.id) AS priorities
+         FROM daily_governance_log dgl
+         JOIN houses h ON h.id = dgl.house_id AND h.company_id = $1
+         LEFT JOIN users pu ON pu.id = dgl.published_by
+        WHERE dgl.id = $2 AND dgl.house_id = ANY($3::uuid[]) AND dgl.completed = true`,
+      [company_id, log_id, house_ids]
+    );
+    return res.rows[0] || null;
+  }
+
   async acknowledgeBrief(log_id: string, user_id: string, company_id: string) {
     // §6 — only acknowledge a brief that belongs to the caller's company.
     const owns = await query(

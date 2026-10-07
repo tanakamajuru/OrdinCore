@@ -262,6 +262,7 @@ router.get('/daily-log/by-date', requireAuth, requireTenant, dailyGovernanceCont
 // Team Brief (Chapter 2): the concise operational briefing published to Team Leaders.
 router.get('/daily-log/team-brief', requireAuth, requireTenant, dailyGovernanceController.getTeamBrief.bind(dailyGovernanceController));
 router.get('/daily-log/team-briefs', requireAuth, requireTenant, dailyGovernanceController.getTeamBriefs.bind(dailyGovernanceController));
+router.get('/daily-log/:id/pdf', requireAuth, requireTenant, dailyGovernanceController.downloadDailyPdf.bind(dailyGovernanceController));
 
 // PDF Phase 6 — unified governance timeline, reconstructed from relationships.
 router.get('/timeline', requireAuth, requireTenant, async (req, res) => {
