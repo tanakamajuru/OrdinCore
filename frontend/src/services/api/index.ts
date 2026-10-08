@@ -37,6 +37,15 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
+        // MFA enrolment gate: the account must set up MFA before using the app. Route to the
+        // enrolment screen rather than throwing a confusing error.
+        if (response.status === 403 && data?.code === 'MFA_ENROLMENT_REQUIRED') {
+          try { localStorage.setItem('mfaEnrolmentRequired', '1'); } catch { /* ignore */ }
+          if (!window.location.pathname.startsWith('/mfa-setup') && !window.location.pathname.startsWith('/login')) {
+            window.location.href = '/mfa-setup';
+          }
+          throw new Error(data.message || 'Multi-factor authentication setup is required.');
+        }
         if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
           localStorage.removeItem('authToken');
           localStorage.removeItem('user');
@@ -132,6 +141,19 @@ class ApiClient {
 
     return response;
   }
+
+  // --- MFA (TOTP) ---
+  async mfaVerify(mfaChallenge: string, code: string): Promise<ApiResponse<any>> {
+    const response = await this.request<any>('/auth/mfa/verify', { method: 'POST', body: JSON.stringify({ mfaChallenge, code }) });
+    if (response.success && response.data?.token) {
+      this.setToken(response.data.token);
+      if (response.data.user) { localStorage.setItem('user', JSON.stringify(response.data.user)); localStorage.setItem('userRole', response.data.user.role); }
+    }
+    return response;
+  }
+  async mfaEnrol(): Promise<ApiResponse<any>> { return this.request<any>('/auth/mfa/enrol', { method: 'POST' }); }
+  async mfaConfirm(code: string): Promise<ApiResponse<any>> { return this.request<any>('/auth/mfa/confirm', { method: 'POST', body: JSON.stringify({ code }) }); }
+  async mfaStatus(): Promise<ApiResponse<any>> { return this.request<any>('/auth/mfa/status'); }
 
   async logout(): Promise<ApiResponse<null>> {
     try {

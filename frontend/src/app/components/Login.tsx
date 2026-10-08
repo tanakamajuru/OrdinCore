@@ -52,6 +52,8 @@ export function Login() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState("");
   const handle = useFullScreenHandle();
 
   // If the session was ended by the API (e.g. account/organisation deactivated),
@@ -62,7 +64,19 @@ export function Login() {
       if (reason) { setError(reason); sessionStorage.removeItem('logoutReason'); }
     } catch { /* ignore */ }
   }, []);
-  const { login, isAuthenticated } = useAuth();
+  const { login, verifyMfa, isAuthenticated } = useAuth();
+
+  // Where to go once fully authenticated (password + any MFA). Honours password expiry and the
+  // mandatory-MFA-enrolment gate before the normal role home.
+  const routeAfterAuth = () => {
+    if (localStorage.getItem('passwordExpired')) { navigate('/profile?expired=1'); return; }
+    if (localStorage.getItem('mfaEnrolmentRequired')) { navigate('/mfa-setup'); return; }
+    const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
+    if (role === 'SUPER_ADMIN') navigate('/super-admin');
+    else if (role === 'ADMIN') navigate('/admin-dashboard');
+    else if (['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role)) navigate('/my-work');
+    else navigate('/dashboard');
+  };
 
   // An already-authenticated user must never see the login form. Browser/in-app "Back" can land on
   // /login while a valid session is still held — which LOOKED like being logged out (field report).
@@ -89,30 +103,33 @@ export function Login() {
     setError("");
 
     try {
-      await login(email, password);
-
-      // 45-day password expiry: if the server flagged the password as expired, send the user
-      // straight to their profile to set a new one before anything else.
-      if (localStorage.getItem('passwordExpired')) {
-        navigate('/profile?expired=1');
+      const res = await login(email, password);
+      // Second factor required — switch to the code-entry step; the session isn't established yet.
+      if (res.mfaRequired && res.mfaChallenge) {
+        setMfaChallenge(res.mfaChallenge);
+        setIsLoading(false);
         return;
       }
-
-      // Get role from localStorage since login() sets it there
-      const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
-      if (role === 'SUPER_ADMIN') {
-        navigate('/super-admin');
-      } else if (role === 'ADMIN') {
-        navigate('/admin-dashboard');
-      } else if (['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role)) {
-        // Operational roles land on their "My Work" panel — the doctrine's home screen.
-        navigate('/my-work');
-      } else {
-        navigate('/dashboard');
-      }
+      routeAfterAuth();
     } catch (err: any) {
       setError(err.message || "Login failed. Please try again.");
       console.error('Login error:', err);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleMfaSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!mfaChallenge) return;
+    if (mfaCode.trim().length < 6) { setError("Enter the 6-digit code from your authenticator app (or a recovery code)."); return; }
+    setIsLoading(true);
+    setError("");
+    try {
+      await verifyMfa(mfaChallenge, mfaCode.trim());
+      routeAfterAuth();
+    } catch (err: any) {
+      setError(err.message || "That code is not valid. Please try again.");
     } finally {
       setIsLoading(false);
     }
@@ -129,6 +146,35 @@ export function Login() {
               <h1 className="text-lg font-bold text-primary text-center tracking-tight">Governance. Oversight. Assurance. Every Day.</h1>
             </div>
 
+            {mfaChallenge && (
+              <form onSubmit={handleMfaSubmit} className="space-y-6" autoComplete="off">
+                {error && <div className="text-destructive text-sm text-center">{error}</div>}
+                <div>
+                  <h2 className="text-foreground font-semibold mb-1">Two-factor authentication</h2>
+                  <p className="text-sm text-muted-foreground mb-3">Enter the 6-digit code from your authenticator app. If you can't access it, enter one of your recovery codes.</p>
+                  <input
+                    id="mfaCode"
+                    inputMode="numeric"
+                    autoFocus
+                    value={mfaCode}
+                    onChange={(e) => setMfaCode(e.target.value)}
+                    placeholder="123456"
+                    className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground tracking-widest text-center text-lg"
+                    autoComplete="one-time-code"
+                  />
+                </div>
+                <button type="submit" className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}>
+                  {isLoading ? "Verifying..." : "Verify"}
+                </button>
+                <div className="text-center">
+                  <button type="button" onClick={() => { setMfaChallenge(null); setMfaCode(""); setError(""); }} className="text-primary hover:text-primary/70 transition-colors underline text-sm">
+                    Back to sign in
+                  </button>
+                </div>
+              </form>
+            )}
+
+            {!mfaChallenge && (
             <form onSubmit={handleSubmit} className="space-y-6" autoComplete="off">
               {error && (
                 <div className="text-destructive text-sm  text-center">{error}</div>
@@ -180,6 +226,7 @@ export function Login() {
                 </button>
               </div>
             </form>
+            )}
           </div>
         </div>
       </div>

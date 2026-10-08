@@ -32,7 +32,8 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaChallenge?: string; mfaEnrolmentRequired?: boolean }>;
+  verifyMfa: (mfaChallenge: string, code: string) => Promise<{ mfaEnrolmentRequired?: boolean }>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -94,28 +95,44 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const response = await apiClient.login({ email, password });
+  // Persist a completed session (shared by password login and the MFA second factor).
+  const storeSession = (data: any) => {
+    const { user: userData, token: userToken } = data;
+    setUser(userData);
+    setToken(userToken);
+    localStorage.setItem('authToken', userToken);
+    localStorage.setItem('user', JSON.stringify(userData));
+    localStorage.setItem('userRole', userData.role);
+    localStorage.setItem('userName', `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email);
+    localStorage.setItem('userEmail', userData.email);
+    localStorage.setItem('userId', userData.id);
+    if (data.passwordExpired) localStorage.setItem('passwordExpired', '1');
+    else localStorage.removeItem('passwordExpired');
+    if (data.mfaEnrolmentRequired) localStorage.setItem('mfaEnrolmentRequired', '1');
+    else localStorage.removeItem('mfaEnrolmentRequired');
+  };
 
+  const login = async (email: string, password: string): Promise<{ mfaRequired?: boolean; mfaChallenge?: string; mfaEnrolmentRequired?: boolean }> => {
+    const response = await apiClient.login({ email, password });
     if (response.success && (response as any).data) {
-      const { user: userData, token: userToken } = (response as any).data;
-      setUser(userData);
-      setToken(userToken);
-      
-      // Store authentication data consistently
-      localStorage.setItem('authToken', userToken);
-      localStorage.setItem('user', JSON.stringify(userData));
-      localStorage.setItem('userRole', userData.role);
-      localStorage.setItem('userName', `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email);
-      localStorage.setItem('userEmail', userData.email);
-      localStorage.setItem('userId', userData.id);
-      // 45-day password expiry: the server flags an expired password; mark it so the app routes the
-      // user to change it. Cleared when the password is successfully changed.
-      if ((response as any).data.passwordExpired) localStorage.setItem('passwordExpired', '1');
-      else localStorage.removeItem('passwordExpired');
-    } else {
-      throw new Error((response as any).message || 'Login failed');
+      const data = (response as any).data;
+      // Second factor required — do NOT establish a session yet; hand the challenge back so the UI
+      // can collect the authenticator/recovery code and call verifyMfa.
+      if (data.mfaRequired) return { mfaRequired: true, mfaChallenge: data.mfaChallenge };
+      storeSession(data);
+      return { mfaEnrolmentRequired: !!data.mfaEnrolmentRequired };
     }
+    throw new Error((response as any).message || 'Login failed');
+  };
+
+  // Complete the MFA second factor with the authenticator or recovery code.
+  const verifyMfa = async (mfaChallenge: string, code: string): Promise<{ mfaEnrolmentRequired?: boolean }> => {
+    const response: any = await apiClient.mfaVerify(mfaChallenge, code);
+    if (response.success && response.data?.token) {
+      storeSession(response.data);
+      return { mfaEnrolmentRequired: !!response.data.mfaEnrolmentRequired };
+    }
+    throw new Error(response?.message || 'MFA verification failed');
   };
 
   const logout = () => {
@@ -151,6 +168,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     user,
     token,
     login,
+    verifyMfa,
     logout,
     isLoading,
     isAuthenticated: !!token && !!user,

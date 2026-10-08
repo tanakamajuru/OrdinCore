@@ -135,9 +135,12 @@ export class AuthService {
     const refreshToken = await this.generateRefreshToken(user);
 
     // DSPT: whether this user MUST enrol in MFA before using the app (privileged role, or company
-    // policy requires it) — the client forces the enrolment screen when true.
-    const companyMfaRequired = await this.companyMfaRequired(user.company_id);
-    const mfaEnrolmentRequired = mfaService.enrolmentRequired(user.role, companyMfaRequired, !!user.mfa_enabled);
+    // policy requires it) — the client forces the enrolment screen when true. Gated by MFA_ENFORCE
+    // (the same switch as the server-side middleware) so enforcement is all-or-nothing and can ship
+    // dormant until the org is ready to turn it on.
+    const mfaEnforce = String(process.env.MFA_ENFORCE).toLowerCase() === 'true';
+    const companyMfaRequired = mfaEnforce && await this.companyMfaRequired(user.company_id);
+    const mfaEnrolmentRequired = mfaEnforce && mfaService.enrolmentRequired(user.role, companyMfaRequired, !!user.mfa_enabled);
 
     const { password_hash, ...safeUser } = user;
     void password_hash;

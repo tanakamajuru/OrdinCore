@@ -28,6 +28,7 @@ import { MyWork } from "./components/MyWork";
 import { GuidedWorkBridge } from "./components/guided-work/GuidedWorkBridge";
 import { SystemicPatterns } from "./components/SystemicPatterns";
 import { CanonicalEvidenceList } from "./components/canonical/CanonicalEvidenceList";
+import { MfaSetup } from "./components/MfaSetup";
 import { OrgStructureAdmin } from "./components/OrgStructureAdmin";
 import { GovernanceCompliance } from "./components/GovernanceCompliance";
 import { DailyGovernanceInbox } from "./components/DailyGovernanceInbox";
@@ -394,6 +395,11 @@ export default function App() {
           <Route path="/profile" element={
             <ProtectedRoute>
               <Profile />
+            </ProtectedRoute>
+          } />
+          <Route path="/mfa-setup" element={
+            <ProtectedRoute>
+              <MfaSetup />
             </ProtectedRoute>
           } />
           <Route path="/monthly-report" element={
