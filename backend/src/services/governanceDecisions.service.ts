@@ -40,6 +40,11 @@ export type DecisionInput = {
   action_description?: string | null;
   idempotency_key?: string | null;
   severity?: 'Low' | 'Moderate' | 'High' | 'Critical';
+  /** "What happened during monitoring?" / evidence supporting closure — stored as the decision's
+   *  review findings (governance_reviews.evidence). Required on a returning monitoring review. */
+  monitoring_observation?: string | null;
+  /** Optional reference to a record/document that evidences the finding. */
+  evidence_reference?: string | null;
 };
 
 export const governanceDecisionsService = {
@@ -115,6 +120,28 @@ export const governanceDecisionsService = {
       if (!input.intended_outcome || input.intended_outcome.trim().length < 10) throw new Error('Record what the monitoring review is expected to establish.');
     }
 
+    // Returning monitoring review: when an active Monitor cycle already exists for this signal, the
+    // RM must record what happened during monitoring before the next decision (brief: "Capture What
+    // happened during monitoring?"). This is also what preserves the finding as linked history.
+    let priorMonitorActive = false;
+    if (input.pulse_entry_id) {
+      const pm = await client.query(
+        `SELECT 1 FROM governance_reviews
+          WHERE company_id=$1 AND pulse_entry_id=$2 AND decision='Monitor' AND decision_status='Monitoring' LIMIT 1`,
+        [c, input.pulse_entry_id]
+      );
+      priorMonitorActive = !!pm.rows[0];
+    }
+    const observation = (input.monitoring_observation || '').trim();
+    if (priorMonitorActive && observation.length < 10) {
+      throw new Error('Record what happened during monitoring before the next decision (at least 10 characters).');
+    }
+    // Compose the review findings: the monitoring/closure observation plus any evidence reference.
+    const evidenceText = [
+      observation || null,
+      input.evidence_reference?.trim() ? `Evidence reference: ${input.evidence_reference.trim()}` : null,
+    ].filter(Boolean).join('\n\n') || null;
+
     const review = await client.query(
       `INSERT INTO governance_reviews (
          company_id, service_id, risk_id, escalation_id, pulse_entry_id, cluster_id, daily_governance_log_id,
@@ -125,7 +152,7 @@ export const governanceDecisionsService = {
        RETURNING *`,
       [c, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null, input.pulse_entry_id ?? null,
        input.cluster_id ?? null, input.daily_governance_log_id ?? null, u, input.what_is_happening.trim(), decision,
-       decision === 'Escalate', decision === 'Create Action', null, input.decision_rationale.trim(), input.owner_id ?? null, input.due_at ?? null,
+       decision === 'Escalate', decision === 'Create Action', evidenceText, input.decision_rationale.trim(), input.owner_id ?? null, input.due_at ?? null,
        input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null]
     );
     // Idempotent replay — the decision (and its consequence) already exist.
@@ -377,7 +404,8 @@ export const governanceDecisionsService = {
 
     const res = await query(
       `SELECT gr.id, gr.what_is_happening, gr.decision, gr.decision_status, gr.due_at,
-              gr.intended_outcome, gr.created_at, gr.service_id, gr.pulse_entry_id,
+              gr.intended_outcome, gr.created_at, gr.review_date, gr.service_id, gr.pulse_entry_id,
+              gr.decision_rationale, gr.evidence AS findings,
               h.name AS house_name,
               ow.first_name || ' ' || ow.last_name AS owner_name,
               rb.first_name || ' ' || rb.last_name AS recorded_by_name,

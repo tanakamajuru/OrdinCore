@@ -64,8 +64,15 @@ export function GovernanceDecisions({
     intended_outcome: "",
     review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
     rationale: "",
+    observation: "",
+    evidence_reference: "",
   });
   const [srcOpen, setSrcOpen] = useState(false);
+  // Latest governance decision per source signal — used to show the previous monitoring decision
+  // (what was watched, rationale, intended outcome, owner, review due) when a monitoring review
+  // returns, and to assemble the closed-signal decision history.
+  const [latestByPulse, setLatestByPulse] = useState<Record<string, any>>({});
+  const [allDecisions, setAllDecisions] = useState<any[]>([]);
   // Date range for picking signals (defaults to the selected review date; the RM can widen it).
   const [fromDate, setFromDate] = useState(reviewDate);
   const [toDate, setToDate] = useState(reviewDate);
@@ -76,6 +83,7 @@ export function GovernanceDecisions({
   // The separate service-task form is secondary to the signal workflow, so it stays collapsed and
   // opens only on request — Create Action on a signal already assigns that signal's work.
   const [taskOpen, setTaskOpen] = useState(false);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const idemKey = useRef<string | null>(null);
 
   // Keep the range anchored to the selected review date when it changes.
@@ -139,6 +147,8 @@ export function GovernanceDecisions({
       for (const d of decisions) {
         if (d.pulse_entry_id && !latestByPulse.has(d.pulse_entry_id)) latestByPulse.set(d.pulse_entry_id, d);
       }
+      setLatestByPulse(Object.fromEntries(latestByPulse));
+      setAllDecisions(decisions);
 
       const selectedEnd = new Date(`${toDate}T23:59:59`);
       const inRange = (s: any) => {
@@ -246,6 +256,13 @@ export function GovernanceDecisions({
       return;
     }
     if (!form.severity) { toast.error("Set the signal severity — Registered Manager triage is required."); return; }
+    // A returning monitoring review must record what happened during monitoring; a Close must
+    // record the evidence supporting closure (brief: closure needs supporting evidence/findings).
+    const isMonitoringReview = String(selectedSignal?.review_status) === "Monitoring";
+    if ((isMonitoringReview || form.decision === "Close") && form.observation.trim().length < 10) {
+      toast.error(isMonitoringReview ? "Record what happened during monitoring (at least 10 characters)." : "Record the evidence supporting closure (at least 10 characters).");
+      return;
+    }
 
     setBusy(true);
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
@@ -262,6 +279,8 @@ export function GovernanceDecisions({
         due_at: form.due_at || null,
         action_description: form.what.trim(),
         intended_outcome: form.intended_outcome.trim() || null,
+        monitoring_observation: form.observation.trim() || null,
+        evidence_reference: form.evidence_reference.trim() || null,
         review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
         idempotency_key: idemKey.current,
       });
@@ -273,7 +292,7 @@ export function GovernanceDecisions({
       } else {
         toast.success("Decision recorded");
       }
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "" });
+      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "", observation: "", evidence_reference: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
@@ -328,6 +347,12 @@ export function GovernanceDecisions({
   };
 
   const previousHasItems = previousList.length > 0;
+  // Closed-signal decision history for this service — preserved and reviewable even after the
+  // signal has left the live queue (brief: "Decision history / Closed signals").
+  const closedHistory = useMemo(
+    () => allDecisions.filter((d: any) => ["Close", "Close Signal"].includes(d.decision)),
+    [allDecisions]
+  );
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
   const eligibleOwners = owners.filter((u: any) => {
     const role = String(u.role || "").toUpperCase();
@@ -402,7 +427,7 @@ export function GovernanceDecisions({
           <div className="space-y-1.5">
             {previousList.slice(0, 5).map((d: any) => (
               <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-foreground truncate">{d.source_related_person ? `${d.source_related_person} · ` : ""}{d.what_is_happening}{d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}</span>
+                <span className="text-foreground truncate">{d.signal_person ? `${d.signal_person} · ` : ""}{d.what_is_happening}{d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}</span>
                 <StatusPill s={d.rollup_status} />
               </div>
             ))}
@@ -452,6 +477,47 @@ export function GovernanceDecisions({
           {selectedSignal && (
             <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">Signal context:</span> {selectedSignal.related_person ? `${selectedSignal.related_person} · ` : ""}{selectedSignal.governance_domain || selectedSignal.signal_type || "Signal"} · {selectedSignal.description || "—"}
+              <span className="block mt-1 text-[11px]">Original signal date: {fmtWhen(selectedSignal.entry_date || selectedSignal.created_at) || "—"}</span>
+            </div>
+          )}
+
+          {/* Returning monitoring review — show the previous monitoring decision in full so the RM
+              reviews against what was actually agreed, not just the original signal. */}
+          {selectedSignal && String(selectedSignal.review_status) === "Monitoring" && latestByPulse[selectedSignal.id]?.decision === "Monitor" && (() => {
+            const prev = latestByPulse[selectedSignal.id];
+            return (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs">
+                <div className="font-semibold text-amber-900 mb-1.5 flex items-center gap-1.5"><Eye size={13} /> Previous monitoring decision</div>
+                <dl className="space-y-1 text-amber-900">
+                  <div><span className="text-amber-700/80">What was being watched: </span>{prev.what_is_happening || "—"}</div>
+                  {prev.decision_rationale && <div><span className="text-amber-700/80">Reason: </span>{prev.decision_rationale}</div>}
+                  {prev.intended_outcome && <div><span className="text-amber-700/80">Review should establish: </span>{prev.intended_outcome}</div>}
+                  <div><span className="text-amber-700/80">Monitoring owner: </span>{prev.owner_name || "—"}</div>
+                  <div><span className="text-amber-700/80">Review due: </span>{fmtWhen(prev.due_at) || "—"}</div>
+                  {prev.findings && <div><span className="text-amber-700/80">Findings so far: </span>{prev.findings}</div>}
+                </dl>
+              </div>
+            );
+          })()}
+
+          {/* Capture what happened during monitoring (returning review) or the evidence supporting
+              closure. Stored as the decision's review findings and preserved as linked history. */}
+          {selectedSignal && (String(selectedSignal.review_status) === "Monitoring" || form.decision === "Close") && (
+            <div className="space-y-2">
+              <div>
+                <label className="text-[11px] text-muted-foreground">
+                  {String(selectedSignal.review_status) === "Monitoring" ? "What happened during monitoring?" : "Evidence supporting closure"} <span className="text-red-500">*</span>
+                </label>
+                <textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} rows={2}
+                  placeholder="Summarise the evidence checked, what changed and anything still unclear."
+                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+              </div>
+              <div>
+                <label className="text-[11px] text-muted-foreground">Evidence reference · optional</label>
+                <input value={form.evidence_reference} onChange={(e) => setForm({ ...form, evidence_reference: e.target.value })}
+                  placeholder="Record or document reference"
+                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+              </div>
             </div>
           )}
 
@@ -469,9 +535,12 @@ export function GovernanceDecisions({
             placeholder="Record the management decision and what is required next."
             className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
 
-          <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
-            placeholder="Why is this the appropriate governance decision?"
-            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+          <div>
+            <label className="text-[11px] text-muted-foreground">{form.decision === "Close" ? "Reason for closing this signal" : "Reason for your decision"} <span className="text-red-500">*</span></label>
+            <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
+              placeholder={form.decision === "Close" ? "Why is it appropriate to close this signal now?" : "Why is this the appropriate governance decision?"}
+              className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+          </div>
 
           {form.decision === "Create Action" && <select
             value={form.review_requirement}
@@ -566,19 +635,59 @@ export function GovernanceDecisions({
           <div className="space-y-1.5">
             {dayList.map((d: any) => {
               const when = d.created_at ? new Date(d.created_at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit" }) : "";
+              const reasonLabel = ["Close", "Close Signal"].includes(d.decision) ? "Reason for closing" : "Reason";
               return (
-                <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
-                  <span className="text-foreground truncate">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">{d.decision}</span>
-                    {d.source_related_person ? `${d.source_related_person} · ` : ""}{d.what_is_happening}
-                    {d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}
-                    {when ? <span className="text-muted-foreground"> · {when}</span> : null}
-                  </span>
-                  <StatusPill s={d.rollup_status} />
+                <div key={d.id} className="text-sm border-b border-border/40 last:border-0 pb-1.5">
+                  <div className="flex items-center justify-between gap-3">
+                    <span className="text-foreground truncate">
+                      <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">{d.decision}</span>
+                      {d.signal_person ? `${d.signal_person} · ` : ""}{d.what_is_happening}
+                      {d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}
+                      {when ? <span className="text-muted-foreground"> · {when}</span> : null}
+                    </span>
+                    <StatusPill s={d.rollup_status} />
+                  </div>
+                  {d.decision_rationale ? <div className="text-[11px] text-muted-foreground mt-0.5"><span className="font-medium">{reasonLabel}:</span> {d.decision_rationale}</div> : null}
+                  {d.findings ? <div className="text-[11px] text-muted-foreground"><span className="font-medium">Findings:</span> {d.findings}</div> : null}
                 </div>
               );
             })}
           </div>
+        </div>
+      )}
+
+      {/* Decision history / closed signals — full closure evidence preserved after the signal
+          leaves the live queue: concern, person, theme, reason for closing, findings, author, time. */}
+      {houseId && closedHistory.length > 0 && (
+        <div className="mt-5 border-t border-border pt-4">
+          <button type="button" onClick={() => setHistoryOpen((o) => !o)} aria-expanded={historyOpen}
+            className="text-sm font-semibold text-primary hover:underline">
+            {historyOpen ? "− Hide decision history / closed signals" : `+ Decision history / closed signals (${closedHistory.length})`}
+          </button>
+          {historyOpen && (
+            <div className="mt-3 space-y-2">
+              {closedHistory.map((d: any) => (
+                <details key={d.id} className="rounded-lg border border-border bg-muted/20 p-3">
+                  <summary className="text-sm text-foreground cursor-pointer">
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">Closed</span>
+                    {d.signal_person ? `${d.signal_person} · ` : ""}{d.signal_description || d.what_is_happening}
+                    {d.created_at ? <span className="text-muted-foreground"> · {new Date(d.created_at).toLocaleDateString("en-GB")}</span> : null}
+                  </summary>
+                  <dl className="mt-2 space-y-1 text-xs text-muted-foreground">
+                    <div><span className="font-medium text-foreground">Concern: </span>{d.signal_description || d.what_is_happening || "—"}</div>
+                    <div><span className="font-medium text-foreground">Theme: </span>{d.signal_domain || "—"}</div>
+                    <div><span className="font-medium text-foreground">Service: </span>{d.house_name || "—"}</div>
+                    <div><span className="font-medium text-foreground">Original signal date: </span>{d.signal_date ? new Date(d.signal_date).toLocaleDateString("en-GB") : "—"}</div>
+                    <div><span className="font-medium text-foreground">Close decision: </span>{d.what_is_happening || "—"}</div>
+                    <div><span className="font-medium text-foreground">Reason for closing this signal: </span>{d.decision_rationale || "Not recorded"}</div>
+                    <div><span className="font-medium text-foreground">Supporting evidence / findings: </span>{d.findings || "Not recorded"}</div>
+                    <div><span className="font-medium text-foreground">Decision author: </span>{d.recorded_by_name || "—"}</div>
+                    <div><span className="font-medium text-foreground">Decision time: </span>{d.created_at ? new Date(d.created_at).toLocaleString("en-GB") : "—"}</div>
+                  </dl>
+                </details>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

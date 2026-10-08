@@ -43,6 +43,9 @@ export function SignalDetailScreen() {
   const [dueAt, setDueAt] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const [intendedOutcome, setIntendedOutcome] = useState('');
+  // "What happened during monitoring?" / evidence supporting closure, plus an optional reference.
+  const [observation, setObservation] = useState('');
+  const [evidenceRef, setEvidenceRef] = useState('');
   const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'|''>('');
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -57,6 +60,10 @@ export function SignalDetailScreen() {
   const showsDue = decision === 'Create Action' || decision === 'Escalate' || decision === 'Monitor';
   const dueRequired = decision === 'Create Action' || decision === 'Monitor';
   const intendedOutcomeRequired = decision === 'Monitor' || (decision === 'Create Action' && reviewReq === 'EFFECTIVENESS_REQUIRED');
+  // A returning monitoring review (the signal is in Monitoring) must record what happened; a Close
+  // must record the evidence supporting closure. Matches the web Daily Oversight behaviour.
+  const isMonitoringReview = String(s?.review_status) === 'Monitoring';
+  const observationRequired = isMonitoringReview || decision === 'Close Signal';
   const eligiblePeople = people.filter((u) => {
     if (u.status === 'suspended') return false;
     const r = normalizeRole(u.role || '');
@@ -76,6 +83,7 @@ export function SignalDetailScreen() {
     if (needsOwner && !ownerId) { Alert.alert('Choose an owner', 'This decision must name one accountable owner.'); return; }
     if (dueRequired && !dueAt.trim()) { Alert.alert(decision === 'Monitor' ? 'Add a review date' : 'Add a due date', 'Pick a date below.'); return; }
     if (intendedOutcomeRequired && intendedOutcome.trim().length < 10) { Alert.alert('Intended outcome', decision === 'Monitor' ? 'Record what the monitoring review should establish.' : 'Record what should change if the action works.'); return; }
+    if (observationRequired && observation.trim().length < 10) { Alert.alert(isMonitoringReview ? 'What happened during monitoring?' : 'Evidence supporting closure', 'Record this before saving (at least 10 characters).'); return; }
     setDecisionBusy(true);
     try {
       await api.post('/governance-decisions', {
@@ -85,10 +93,12 @@ export function SignalDetailScreen() {
         action_description: decision === 'Create Action' ? whatHappening.trim() : undefined,
         review_requirement: decision === 'Create Action' ? reviewReq : undefined,
         intended_outcome: intendedOutcomeRequired ? intendedOutcome.trim() : undefined,
+        monitoring_observation: observation.trim() || undefined,
+        evidence_reference: evidenceRef.trim() || undefined,
         idempotency_key: decisionKey,
       });
       Alert.alert('Decision recorded', 'The signal and any linked work now use the same governance record as the web app.');
-      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
+      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setObservation(''); setEvidenceRef(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
       setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
     } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
     finally { setDecisionBusy(false); }
@@ -164,6 +174,14 @@ export function SignalDetailScreen() {
           {/* Q2 — why is this the appropriate governance decision. */}
           <Label>2 · Why is this the appropriate decision?</Label>
           <TextArea value={rationale} onChangeText={setRationale} placeholder="The governance rationale for this response…" minHeight={64} required />
+
+          {/* Returning monitoring review / closure — record the findings and an optional reference. */}
+          {observationRequired && <>
+            <Label>{isMonitoringReview ? 'What happened during monitoring?' : 'Evidence supporting closure'}</Label>
+            <TextArea value={observation} onChangeText={setObservation} placeholder="Summarise the evidence checked, what changed and anything still unclear." minHeight={64} required />
+            <Label>Evidence reference · optional</Label>
+            <TextArea value={evidenceRef} onChangeText={setEvidenceRef} placeholder="Record or document reference" minHeight={40} />
+          </>}
 
           {decision === 'Create Action' && <>
             <Label>Review requirement</Label>
