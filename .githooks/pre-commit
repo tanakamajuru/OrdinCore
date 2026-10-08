@@ -1,0 +1,24 @@
+#!/bin/sh
+# OrdinCore pre-commit secret scan (DSPT secret-hygiene control).
+# Blocks a commit that contains secrets. Enable once per clone with:
+#     git config core.hooksPath .githooks
+#
+# Requires gitleaks (https://github.com/gitleaks/gitleaks). If it is not installed the
+# hook warns and allows the commit, so a missing tool never silently disables the gate in
+# a way the developer cannot see — CI still enforces it on every push.
+
+if ! command -v gitleaks >/dev/null 2>&1; then
+  echo "⚠  gitleaks not installed — local secret scan skipped (CI will still enforce it)."
+  echo "   Install: https://github.com/gitleaks/gitleaks#installing  (e.g. 'brew install gitleaks' / 'scoop install gitleaks')"
+  exit 0
+fi
+
+echo "🔎 gitleaks: scanning staged changes for secrets…"
+if ! gitleaks protect --staged --redact --config .gitleaks.toml; then
+  echo ""
+  echo "⛔ Commit blocked: a potential secret was found in your staged changes."
+  echo "   Remove it and keep secrets in server environment variables only (see docs/operations/secret-management.md)."
+  echo "   If this is a false positive, add a narrow allowlist entry in .gitleaks.toml."
+  exit 1
+fi
+exit 0

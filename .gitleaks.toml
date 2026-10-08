@@ -1,0 +1,25 @@
+# Gitleaks configuration for OrdinCore (DSPT secret-hygiene control).
+# Extends the built-in default ruleset and adds a narrow allowlist for documentation
+# placeholders and obvious non-secrets, so the scan fails only on genuine leaked credentials.
+title = "OrdinCore gitleaks config"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Documentation placeholders and non-secret example values"
+# Never treat compliance/doc placeholders or lockfiles as secrets.
+paths = [
+  '''(^|/)docs/''',
+  '''(^|/).*\.md$''',
+  '''(^|/)package-lock\.json$''',
+  '''(^|/)pnpm-lock\.yaml$''',
+]
+regexes = [
+  '''\[NEEDS INPUT\]''',
+  '''\[PLACEHOLDER\]''',
+  '''\[REDACTED\]''',
+  '''your[-_]?(api[-_]?key|secret|password|token)''',
+  '''example\.com''',
+  '''changeme''',
+]

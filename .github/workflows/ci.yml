@@ -109,3 +109,44 @@ jobs:
         run: npm ci
       - name: Typecheck
         run: npm run typecheck
+
+  # DSPT / secret hygiene: scan the whole history and the diff for committed secrets.
+  # Fails the build on any finding. Config in .gitleaks.toml at the repo root.
+  secret-scan:
+    name: Secret scan (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITLEAKS_CONFIG: .gitleaks.toml
+
+  # DSPT Standard 8/9 — dependency vulnerability gate. Fails on HIGH or CRITICAL advisories.
+  # Non-blocking "report only" would hide real risk, so the step is allowed to fail the build.
+  dependency-audit:
+    name: Dependency audit (npm/pnpm)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Audit backend
+        working-directory: backend
+        run: npm audit --audit-level=high
+      - name: Audit mobile
+        working-directory: mobile
+        run: npm audit --audit-level=high
+      - name: Audit landing-page
+        working-directory: landing-page
+        run: npm audit --audit-level=high
+      - name: Audit frontend (pnpm)
+        working-directory: frontend
+        run: pnpm audit --audit-level high

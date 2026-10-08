@@ -1,11 +1,22 @@
 # DSPT Readiness — OrdinCore
 
 > **DRAFT gap analysis, not a submission.** The Data Security and Protection Toolkit (DSPT,
-> dsptoolkit.nhs.uk) is NHS Digital / NHS England's annual self-assessment against the National Data
-> Guardian's 10 data security standards. Exact assertion wording and evidence requirements are
-> published fresh each toolkit year (current cycle runs Apr–Jun submission) — **verify live wording
-> on the portal before answering**; this document organises what we already have against the
-> standing structure and lists genuine gaps. Replace every **[PLACEHOLDER]**.
+> dsptoolkit.nhs.uk) is NHS England's annual self-assessment against the National Data Guardian's 10
+> data security standards. Exact assertion wording and evidence requirements are published fresh each
+> toolkit year — **verify live wording on the portal before answering**; this document organises what
+> we already have against the standing structure and lists genuine gaps. Replace every **[PLACEHOLDER]**.
+>
+> **Current cycle — DSPT v8.0.0** (published 12 August 2025 by NHS England; **submission deadline 30
+> June 2026**). Structure this cycle depends on organisation category:
+> - **Category 1** (NHS trusts, ICBs, CSUs, ALBs) moved in 2025 to a **Cyber Assessment Framework
+>   (CAF)**-aligned DSPT with a health-and-care overlay. **Not us.**
+> - **Category 2 (IT suppliers / commercial third parties) — this is OrdinCore** — and **Category 3**
+>   (social care, primary care) **remain on the legacy 10-standard DSPT until at least the 2026
+>   submission.** So the 10-standard structure below is still the right one for us this cycle; the
+>   per-item worksheet is in [dspt-answers.md](./dspt-answers.md) (v8, Category 2, 122 items).
+>
+> See **§0.5 "What v8 changed this cycle"** for the new/strengthened v8 requirements folded into the
+> gap map.
 
 ## 0. Before anything else: registration type
 
@@ -28,6 +39,36 @@ customer/procurement asking "are you DSPT compliant / do you have a DSPT code", 
 support customers' own DSPT evidence requests, or (c) pursuing NHS digital service access directly.
 The answer changes whether we register on the portal at all this cycle, or simply produce an
 evidence pack customers can rely on.
+
+## 0.5 What v8 (2025‑26) changed this cycle
+
+v8 is an evolution of the legacy toolkit, not a restructure (for Category 2/3). The changes that
+touch us, folded into the gap map in §2:
+
+- **Secure software development — new (Standard 9, suppliers).** v8 expects IT suppliers developing
+  health/care software to follow the UK Government **Software Security Code of Practice** (published
+  May 2025). Action: produce a short secure-development policy mapping our practice to it (OWASP Top
+  10, code review, secret handling, dependency/vuln management) — see the secure-development policy in
+  `policies/` and `security-controls.md`.
+- **Backups — strengthened (Standard 7).** v8 explicitly prohibits **sole reliance on cloud sync
+  services** (OneDrive/SharePoint/Google Drive) for backup, and expects an **independent/segregated
+  backup copy** so one incident can't compromise all copies. This sharpens our existing "off-server
+  backup copy outstanding" gap into a hard requirement — the off-server/immutable copy must exist.
+- **Digital asset register — emphasised (Standards 1.1.4 / 8).** v8 requires a maintained **digital
+  asset register** of all hardware and software. Satisfied by `compliance/asset-register.md` (to be
+  produced).
+- **System-administrator accountability — new (Standards 2 / 4).** Administrators (elevated access)
+  must sign a **confidentiality/acceptable-use agreement** that recognises their heightened access and
+  risk. Fold into the staff data-security responsibilities policy with an admin-specific annex.
+- **Security leadership — strengthened (governance).** A **senior officer must actively own and
+  direct** the security strategy, not merely hold a nominal assignment. Name this person in §0 / 1.1.5
+  and record that they review and direct (not just sign).
+- **Business continuity — strengthened (Standard 7).** v8 expects the BCP to include **communication
+  protocols with IT suppliers and with affected people during an outage**, and a **prioritised
+  recovery sequence** for the most critical functions. Fold into the business-continuity/DR policy.
+
+None of these change OrdinCore's category or the 10-standard structure; they raise the evidence bar
+on Standards 7, 8 and 9 in particular.
 
 ## 1. What we already have (from the pilot-readiness pack, 2026‑09‑04)
 

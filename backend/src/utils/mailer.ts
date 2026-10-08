@@ -30,18 +30,31 @@ function getTransporter(): Transporter | null {
     return null;
   }
 
+  // TLS certificate verification is ON by default and must stay on. It can be disabled ONLY as a
+  // temporary workaround for the org's own mail host when its certificate is briefly invalid
+  // (e.g. an expired/self-signed cPanel cert on the same server) — set
+  // SMTP_TLS_REJECT_UNAUTHORIZED=false. Doing so disables protection against man-in-the-middle on
+  // outbound mail, so it is logged LOUDLY on every startup until the certificate is fixed.
+  const rejectUnauthorized = String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED).toLowerCase() !== 'false';
+  if (!rejectUnauthorized) {
+    logger.warn('════════════════════════════════════════════════════════════════════');
+    logger.warn('[mailer] SECURITY WARNING: SMTP_TLS_REJECT_UNAUTHORIZED=false — outbound');
+    logger.warn('[mailer] email TLS certificate verification is DISABLED. This exposes mail to');
+    logger.warn('[mailer] man-in-the-middle interception and must be a TEMPORARY workaround only.');
+    logger.warn('[mailer] Fix the mail host certificate and remove this setting (see');
+    logger.warn('[mailer] docs/operations/email-and-smtp.md).');
+    logger.warn('════════════════════════════════════════════════════════════════════');
+  }
+
   transporter = nodemailer.createTransport({
     host: SMTP_HOST,
     port: Number(SMTP_PORT) || 587,
     secure: String(process.env.SMTP_SECURE).toLowerCase() === 'true', // true for 465, false for 587 (STARTTLS)
     auth: { user: SMTP_USER, pass: SMTP_PASS },
-    // TLS verification stays ON by default. It can be disabled ONLY for the org's own mail host
-    // when its certificate is temporarily invalid (e.g. an expired/self-signed cPanel cert on the
-    // same server) — set SMTP_TLS_REJECT_UNAUTHORIZED=false. The correct fix is renewing the cert.
-    tls: { rejectUnauthorized: String(process.env.SMTP_TLS_REJECT_UNAUTHORIZED).toLowerCase() !== 'false' },
+    tls: { rejectUnauthorized },
   });
 
-  logger.info(`[mailer] SMTP configured via ${SMTP_HOST}:${SMTP_PORT || 587}`);
+  logger.info(`[mailer] SMTP configured via ${SMTP_HOST}:${SMTP_PORT || 587} (TLS verify: ${rejectUnauthorized ? 'on' : 'OFF — insecure'})`);
   return transporter;
 }
 

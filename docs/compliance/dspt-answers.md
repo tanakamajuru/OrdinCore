@@ -21,6 +21,16 @@
 > Standard 9's own assertion — it removes the evidence burden for roughly a sixth of the whole
 > toolkit. Those items are marked **(CE+ exempt)** below.
 
+> **v8 (2025‑26) emphasis changes to apply when answering** (detail in
+> [dspt-readiness.md](./dspt-readiness.md) §0.5): (1) **secure development** — suppliers should map to
+> the UK Government *Software Security Code of Practice* (May 2025) under Standard 9; (2) **backups** —
+> sole reliance on cloud sync (OneDrive/SharePoint/Google Drive) is no longer acceptable; an
+> independent/segregated copy is required (Standard 7); (3) **digital asset register** required
+> (1.1.4 / Standard 8); (4) **system administrators** must sign a confidentiality agreement
+> acknowledging elevated access (Standards 2 / 4); (5) a **senior officer must actively own and
+> direct** security (1.1.5 / governance); (6) **business continuity** must cover supplier/affected-
+> person communications during outages and a prioritised recovery order (Standard 7).
+
 ## How to use this
 
 Each row: **ref** — question (paraphrased) — **draft answer/status**. Mandatory items (must be
