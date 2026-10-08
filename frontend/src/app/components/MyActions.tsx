@@ -53,6 +53,40 @@ export function MyActions() {
   // Filter by due-date range. Inclusive of both ends; either end may be left blank for an open range.
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  // Link a sourceless action to a risk or signal so it can be reviewed in context.
+  const [linkFor, setLinkFor] = useState<AssignedAction | null>(null);
+  const [linkOptions, setLinkOptions] = useState<{ risks: any[]; signals: any[] }>({ risks: [], signals: [] });
+  const [linkChoice, setLinkChoice] = useState("");
+  const [linkBusy, setLinkBusy] = useState(false);
+
+  const openLinker = async (action: AssignedAction) => {
+    setLinkFor(action); setLinkChoice(""); setLinkOptions({ risks: [], signals: [] });
+    try {
+      const hid = (action as any).house_id;
+      const [rRes, sRes]: any[] = await Promise.all([
+        apiClient.get(`/risks${hid ? `?house_id=${hid}` : ''}`).catch(() => ({ data: [] })),
+        apiClient.get(`/pulses?limit=200${hid ? `&house_id=${hid}` : ''}`).catch(() => ({ data: [] })),
+      ]);
+      const risks = (rRes?.data?.data ?? rRes?.data ?? []).filter((r: any) => !/closed|resolved/i.test(String(r.status || '')));
+      const sraw = sRes?.data?.data ?? sRes?.data ?? [];
+      const signals = (Array.isArray(sraw) ? sraw : sraw.items || sraw.pulses || []);
+      setLinkOptions({ risks, signals });
+    } catch { /* leave empty; user can cancel */ }
+  };
+
+  const submitLink = async () => {
+    if (!linkFor || !linkChoice) return;
+    setLinkBusy(true);
+    try {
+      const [kind, id] = linkChoice.split(":");
+      await apiClient.patch(`/actions/${linkFor.id}/link`, kind === "risk" ? { risk_id: id } : { source_pulse_id: id });
+      toast.success("Action linked");
+      setLinkFor(null); setLinkChoice("");
+      fetchActions();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Could not link the action");
+    } finally { setLinkBusy(false); }
+  };
   const PAGE_SIZE = 12;
   const filteredActions = actions.filter((a) => {
     if (!fromDate && !toDate) return true;
@@ -265,6 +299,10 @@ export function MyActions() {
                             {rel.view}
                             <ChevronRight className="w-4 h-4 ml-2" />
                           </Button>
+                        ) : action.status !== 'Completed' ? (
+                          <Button variant="outline" onClick={() => openLinker(action)} className="border-dashed border-primary/50 text-primary hover:bg-primary/5">
+                            Link to risk or signal
+                          </Button>
                         ) : null;
                       })()}
                     </div>
@@ -336,6 +374,36 @@ export function MyActions() {
                 <Button variant="outline" onClick={() => setShowModal(false)} className="flex-1 py-6 border-border">CANCEL</Button>
                 <Button onClick={submitCompletion} className="flex-1 py-6 bg-primary text-primary-foreground hover:bg-primary/90">SUBMIT COMPLETION</Button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {linkFor && (
+        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={() => !linkBusy && setLinkFor(null)}>
+          <div className="bg-card rounded-xl shadow-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-foreground mb-1">Link to a risk or signal</h3>
+            <p className="text-sm text-muted-foreground mb-3 truncate">{linkFor.title || linkFor.description}</p>
+            <label className="block text-xs text-muted-foreground mb-1">Choose the risk or signal this action relates to</label>
+            <select value={linkChoice} onChange={(e) => setLinkChoice(e.target.value)} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+              <option value="">Select…</option>
+              {linkOptions.risks.length > 0 && (
+                <optgroup label="Risks">
+                  {linkOptions.risks.map((r: any) => <option key={`risk:${r.id}`} value={`risk:${r.id}`}>{(r.title || 'Risk').slice(0, 80)}</option>)}
+                </optgroup>
+              )}
+              {linkOptions.signals.length > 0 && (
+                <optgroup label="Signals">
+                  {linkOptions.signals.map((s: any) => <option key={`signal:${s.id}`} value={`signal:${s.id}`}>{(s.related_person ? `${s.related_person} · ` : '') + (s.description || s.signal_type || 'Signal').slice(0, 70)}</option>)}
+                </optgroup>
+              )}
+            </select>
+            {linkOptions.risks.length === 0 && linkOptions.signals.length === 0 && (
+              <p className="text-xs text-muted-foreground mt-2">No risks or signals found for this service.</p>
+            )}
+            <div className="flex justify-end gap-3 mt-4">
+              <button onClick={() => setLinkFor(null)} disabled={linkBusy} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
+              <button onClick={submitLink} disabled={linkBusy || !linkChoice} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm disabled:opacity-50">{linkBusy ? "Linking…" : "Link action"}</button>
             </div>
           </div>
         </div>

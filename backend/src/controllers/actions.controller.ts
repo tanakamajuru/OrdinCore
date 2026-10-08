@@ -287,6 +287,40 @@ export class ActionsController {
       res.status(500).json({ success: false, message: err.message });
     }
   }
+
+  // Link an existing (sourceless) action to a risk or a signal, so it can be reviewed in context.
+  // Only an open action with no current source can be linked, and the target must be in the same
+  // company. Linking never changes the action's lifecycle — it only attaches provenance.
+  async linkAction(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { id } = req.params;
+      const risk_id = req.body?.risk_id || null;
+      const source_pulse_id = req.body?.source_pulse_id || null;
+      if (!risk_id && !source_pulse_id) return res.status(400).json({ success: false, message: 'Provide a risk or a signal to link.' });
+      if (risk_id && source_pulse_id) return res.status(400).json({ success: false, message: 'Link to a risk or a signal, not both.' });
+
+      const act = (await query(`SELECT id, risk_id, source_pulse_id, source_cluster_id, escalation_id FROM risk_actions WHERE id=$1 AND company_id=$2`, [id, company_id])).rows[0];
+      if (!act) return res.status(404).json({ success: false, message: 'Action not found.' });
+      if (act.risk_id || act.source_pulse_id || act.source_cluster_id || act.escalation_id) {
+        return res.status(400).json({ success: false, message: 'This action is already linked to a record.' });
+      }
+
+      if (risk_id) {
+        const r = (await query(`SELECT id, house_id FROM risks WHERE id=$1 AND company_id=$2`, [risk_id, company_id])).rows[0];
+        if (!r) return res.status(404).json({ success: false, message: 'Risk not found.' });
+        const upd = (await query(`UPDATE risk_actions SET risk_id=$1, house_id=COALESCE(house_id,$2), updated_at=NOW() WHERE id=$3 AND company_id=$4 RETURNING *`, [risk_id, r.house_id, id, company_id])).rows[0];
+        return res.json({ success: true, data: upd });
+      }
+      const p = (await query(`SELECT id, house_id FROM governance_pulses WHERE id=$1 AND company_id=$2`, [source_pulse_id, company_id])).rows[0];
+      if (!p) return res.status(404).json({ success: false, message: 'Signal not found.' });
+      const upd = (await query(`UPDATE risk_actions SET source_pulse_id=$1, house_id=COALESCE(house_id,$2), updated_at=NOW() WHERE id=$3 AND company_id=$4 RETURNING *`, [source_pulse_id, p.house_id, id, company_id])).rows[0];
+      return res.json({ success: true, data: upd });
+    } catch (err: any) {
+      logger.error('Failed to link action', err);
+      return res.status(400).json({ success: false, message: err.message });
+    }
+  }
 }
 
 export const actionsController = new ActionsController();

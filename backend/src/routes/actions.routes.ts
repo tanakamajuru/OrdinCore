@@ -19,6 +19,7 @@ const router = Router();
  */
 router.patch('/:id/remediate-evidence', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER'), actionsController.remediateLegacyEvidence.bind(actionsController));
 router.patch('/:id/complete', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER'), actionsController.complete.bind(actionsController));
+router.patch('/:id/link', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), actionsController.linkAction.bind(actionsController));
 
 router.get('/my', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionsController.getMyActions.bind(actionsController));
 // Service-scoped oversight: all open actions across the caller's house(s), any assignee.
