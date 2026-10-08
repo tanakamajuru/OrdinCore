@@ -42,7 +42,7 @@
     "pdfkit": "^0.18.0",
     "pg": "^8.11.3",
     "qrcode": "^1.5.4",
-    "socket.io": "^4.7.2",
+    "socket.io": "^4.8.4",
     "stripe": "^17.7.0",
     "swagger-jsdoc": "^6.2.8",
     "swagger-ui-express": "^5.0.0",
