@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 import { query } from '../config/database';
+import { MFA_MANDATORY_ROLES } from '../services/mfa.service';
 import logger from '../utils/logger';
 
 export interface JwtPayload {
@@ -44,17 +45,19 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
 
     // Verify user still exists and is active, and fetch assigned houses
     const result = await query(
-      `SELECT u.id, u.company_id, u.email, u.role, u.active_role, u.status, u.can_view_all_houses, c.status AS company_status,
-              c.subscription_status, c.subscription_current_period_end,
+      `SELECT u.id, u.company_id, u.email, u.role, u.active_role, u.status, u.can_view_all_houses, u.mfa_enabled,
+              c.status AS company_status, c.subscription_status, c.subscription_current_period_end,
+              css.mfa_required AS company_mfa_required,
               ARRAY_AGG(DISTINCT COALESCE(uh.house_id, h_direct.id)) FILTER (WHERE COALESCE(uh.house_id, h_direct.id) IS NOT NULL) AS house_ids,
               ARRAY_AGG(DISTINCT ur.role) FILTER (WHERE ur.role IS NOT NULL) AS granted_roles
        FROM users u
        LEFT JOIN companies c ON c.id = u.company_id
+       LEFT JOIN company_security_settings css ON css.company_id = u.company_id
        LEFT JOIN user_houses uh ON uh.user_id = u.id
        LEFT JOIN houses h_direct ON h_direct.manager_id = u.id
        LEFT JOIN user_roles ur ON ur.user_id = u.id
        WHERE u.id = $1
-       GROUP BY u.id, c.status, c.subscription_status, c.subscription_current_period_end`,
+       GROUP BY u.id, c.status, c.subscription_status, c.subscription_current_period_end, css.mfa_required`,
       [decoded.user_id]
     );
 
@@ -127,6 +130,29 @@ export const requireAuth = async (req: Request, res: Response, next: NextFunctio
       // visible house for role-sees-all users who have no direct assignment.
       assigned_house_id: homeHouseId || (finalHouseIds.length > 0 ? finalHouseIds[0] : null),
     };
+
+    // DSPT MFA enforcement: a user for whom MFA is mandatory (privileged role, or the company
+    // requires it for all) must enrol before reaching anything beyond the MFA-setup/session
+    // endpoints. Enforced server-side here (requireAuth already loads the user), so the gate cannot
+    // be bypassed by the client. Users for whom MFA is optional and not enrolled are unaffected.
+    // Gated behind MFA_ENFORCE so the capability can ship before the enrolment UI is live without
+    // locking anyone out. Flip MFA_ENFORCE=true on the server once the frontend MFA flow is deployed.
+    const norm = (r: string) => String(r || '').toUpperCase().replace(/-/g, '_');
+    const mfaEnforce = String(process.env.MFA_ENFORCE).toLowerCase() === 'true';
+    const mfaMandatory = mfaEnforce && (MFA_MANDATORY_ROLES.includes(norm(user.role))
+      || MFA_MANDATORY_ROLES.includes(norm(activeRole))
+      || user.company_mfa_required === true);
+    if (mfaMandatory && !user.mfa_enabled) {
+      const p = (req.originalUrl || req.path || '').split('?')[0];
+      const allowed = p.includes('/auth/mfa/')
+        || p.endsWith('/auth/me') || p.endsWith('/auth/logout') || p.endsWith('/auth/refresh')
+        || p.endsWith('/auth/active-role') || p.endsWith('/auth/change-password');
+      if (!allowed) {
+        res.status(403).json({ success: false, code: 'MFA_ENROLMENT_REQUIRED',
+          message: 'Multi-factor authentication is required for your account. Please set it up to continue.', errors: [] });
+        return;
+      }
+    }
 
     next();
   } catch (err) {

@@ -116,4 +116,13 @@ router.patch('/profile', requireAuth, authController.updateProfile.bind(authCont
 router.post('/forgot-password', authRouteLimit, authController.forgotPassword.bind(authController));
 router.post('/reset-password', authRouteLimit, authController.resetPassword.bind(authController));
 
+// --- MFA (TOTP) ---
+// Second factor of login (public, rate-limited to resist code brute-forcing).
+router.post('/mfa/verify', authRouteLimit, authController.mfaVerifyLogin.bind(authController));
+// Enrolment + management (authenticated).
+router.post('/mfa/enrol', requireAuth, authController.mfaBeginEnrolment.bind(authController));
+router.post('/mfa/confirm', requireAuth, authRouteLimit, authController.mfaConfirmEnrolment.bind(authController));
+router.get('/mfa/status', requireAuth, authController.mfaStatus.bind(authController));
+router.post('/mfa/disable', requireAuth, authController.mfaDisable.bind(authController));
+
 export default router;

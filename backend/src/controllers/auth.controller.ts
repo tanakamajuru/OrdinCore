@@ -1,5 +1,7 @@
 import { Request, Response } from 'express';
 import { authService } from '../services/auth.service';
+import { mfaService } from '../services/mfa.service';
+import { query } from '../config/database';
 import logger from '../utils/logger';
 import { logSecurityEvent, maskEmail } from '../middleware/rateLimit.middleware';
 
@@ -235,6 +237,69 @@ export class AuthController {
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to update profile';
       return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
+  // --- MFA (TOTP) ---
+
+  // Second factor of login: exchange the challenge + code for a full session.
+  async mfaVerifyLogin(req: Request, res: Response) {
+    try {
+      const { mfaChallenge, code } = req.body || {};
+      if (!mfaChallenge || !code) return res.status(400).json({ success: false, message: 'MFA challenge and code are required.' });
+      const result = await authService.verifyMfaLogin(mfaChallenge, code);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      return res.status(401).json({ success: false, message: err instanceof Error ? err.message : 'MFA verification failed', errors: [] });
+    }
+  }
+
+  // Start enrolment — returns the QR/otpauth to scan (does not enable MFA yet).
+  async mfaBeginEnrolment(req: Request, res: Response) {
+    try {
+      const { user_id, company_id, email } = req.user!;
+      const data = await mfaService.beginEnrolment(user_id, company_id!, email || '');
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Could not start MFA setup', errors: [] });
+    }
+  }
+
+  // Confirm enrolment with a code — enables MFA and returns the one-time recovery codes.
+  async mfaConfirmEnrolment(req: Request, res: Response) {
+    try {
+      const { user_id, company_id } = req.user!;
+      const { code } = req.body || {};
+      const data = await mfaService.confirmEnrolment(user_id, company_id!, code);
+      await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, 'auth.mfa_enrolled', 'auth', $2)`, [company_id, user_id]).catch(() => {});
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Could not confirm MFA', errors: [] });
+    }
+  }
+
+  async mfaStatus(req: Request, res: Response) {
+    try {
+      const { user_id, company_id, role } = req.user!;
+      const data = await mfaService.status(user_id, company_id!);
+      return res.json({ success: true, data: { ...data, mandatory: mfaService.mandatoryForRole(role || '') }, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Could not read MFA status', errors: [] });
+    }
+  }
+
+  // Self-disable — only permitted when MFA is not mandatory for the user's role.
+  async mfaDisable(req: Request, res: Response) {
+    try {
+      const { user_id, company_id, role } = req.user!;
+      if (mfaService.mandatoryForRole(role || '')) {
+        return res.status(403).json({ success: false, message: 'MFA is mandatory for your role and cannot be disabled.' });
+      }
+      await mfaService.disable(user_id, company_id!);
+      await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, 'auth.mfa_disabled', 'auth', $2)`, [company_id, user_id]).catch(() => {});
+      return res.json({ success: true, data: { disabled: true }, meta: {} });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Could not disable MFA', errors: [] });
     }
   }
 }

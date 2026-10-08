@@ -5,6 +5,7 @@ import { usersRepo } from '../repositories/users.repo';
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { governanceService } from './governance.service';
+import { mfaService } from './mfa.service';
 import { sendMail } from '../utils/mailer';
 import logger from '../utils/logger';
 
@@ -72,30 +73,59 @@ export class AuthService {
       }
     }
 
-    // Password expiry: policy requires a change every 45 days. Computed from the last password
-    // change (falls back to account creation). The response flags it; the client then routes the
-    // user to a mandatory change-password screen. Login still succeeds so they can change it.
+    // MFA gate (second factor): if the user has MFA enabled, do NOT issue a session token yet.
+    // Return a short-lived challenge the client exchanges — with a valid TOTP or recovery code — at
+    // /auth/mfa/verify. Users without MFA continue exactly as before.
+    if (user.mfa_enabled) {
+      const mfaChallenge = jwt.sign({ user_id: user.id, company_id: user.company_id ?? null, purpose: 'mfa' }, JWT_SECRET, { expiresIn: '5m' });
+      if (user.company_id) {
+        await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, 'auth.mfa_challenge', 'auth', $2)`, [user.company_id, user.id]).catch(() => {});
+      }
+      return { mfaRequired: true, mfaChallenge };
+    }
+
+    return this.completeLogin(user);
+  }
+
+  // Exchange a valid MFA challenge + code for a full session (completes the second factor).
+  async verifyMfaLogin(mfaChallenge: string, code: string) {
+    let payload: any;
+    try { payload = jwt.verify(mfaChallenge, JWT_SECRET); } catch { throw new Error('Your sign-in session expired — please enter your password again.'); }
+    if (!payload || payload.purpose !== 'mfa' || !payload.user_id) throw new Error('Invalid MFA session.');
+    const user = await usersRepo.findById(payload.user_id);
+    if (!user || user.status !== 'active') throw new Error('Invalid credentials');
+    const ok = await mfaService.verify(user.id, user.company_id, code);
+    if (user.company_id) {
+      await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, $3, 'auth', $2)`, [user.company_id, user.id, ok ? 'auth.mfa_success' : 'auth.mfa_failed']).catch(() => {});
+    }
+    if (!ok) throw new Error('That code is not valid. Enter the current code from your authenticator app, or a recovery code.');
+    return this.completeLogin(user);
+  }
+
+  // Is MFA required by the company's own security policy?
+  private async companyMfaRequired(companyId: string | null): Promise<boolean> {
+    if (!companyId) return false;
+    const r = await query(`SELECT mfa_required FROM company_security_settings WHERE company_id = $1`, [companyId]);
+    return r.rows[0]?.mfa_required === true;
+  }
+
+  // Finalise a successful authentication (password [+ MFA]) — issues tokens, flags, profile.
+  private async completeLogin(user: any) {
+    // Password expiry: policy requires a change every 45 days. The client routes to a mandatory
+    // change-password screen when flagged; login still succeeds so they can change it.
     const PASSWORD_MAX_AGE_MS = 45 * 24 * 60 * 60 * 1000;
     const pwChangedAt = new Date(user.password_changed_at || user.created_at || Date.now());
     const passwordExpired = !isNaN(pwChangedAt.getTime()) && (Date.now() - pwChangedAt.getTime()) > PASSWORD_MAX_AGE_MS;
 
-    // Update last login
     await usersRepo.update(user.id, { last_login: new Date() });
 
-    // Trigger pulse generation on login
     const houseRoles = ['REGISTERED_MANAGER', 'RM', 'TEAM_LEADER', 'TL'];
     if (user.company_id) {
       const houseId = user.assigned_house_id;
       if (houseRoles.includes(user.role.toUpperCase()) && houseId) {
-        // Targeted generation for the user's house
-        void governanceService.generateMissingPulses(user.company_id, houseId, user.id).catch(err => {
-          console.error(`Failed to generate pulses for house ${houseId}:`, err);
-        });
+        void governanceService.generateMissingPulses(user.company_id, houseId, user.id).catch(err => { console.error(`Failed to generate pulses for house ${houseId}:`, err); });
       } else {
-        // General generation for the company
-        void governanceService.generateMissingPulses(user.company_id).catch(err => {
-          console.error('Failed to generate missing pulses on login:', err);
-        });
+        void governanceService.generateMissingPulses(user.company_id).catch(err => { console.error('Failed to generate missing pulses on login:', err); });
       }
     }
 
@@ -104,18 +134,24 @@ export class AuthService {
     const token = this.generateToken(user);
     const refreshToken = await this.generateRefreshToken(user);
 
+    // DSPT: whether this user MUST enrol in MFA before using the app (privileged role, or company
+    // policy requires it) — the client forces the enrolment screen when true.
+    const companyMfaRequired = await this.companyMfaRequired(user.company_id);
+    const mfaEnrolmentRequired = mfaService.enrolmentRequired(user.role, companyMfaRequired, !!user.mfa_enabled);
+
     const { password_hash, ...safeUser } = user;
     void password_hash;
     return {
       token,
       refreshToken,
       passwordExpired,
+      mfaEnrolmentRequired,
       user: {
         ...safeUser,
         profile: profile.rows[0] || null,
         assigned_house_ids: assignedHouses.map(h => h.id),
         assigned_house_id: assignedHouses.length > 0 ? assignedHouses[0].id : (user.assigned_house_id || null)
-      } 
+      }
     };
   }
 
@@ -327,9 +363,16 @@ export class AuthService {
     await query('UPDATE refresh_tokens SET revoked_at = NOW() WHERE user_id = $1 AND revoked_at IS NULL', [user_id]);
   }
 
-  generateToken(user: { id: string; company_id: string | null; role: string; email: string }) {
+  // Re-issue a session token with current claims (e.g. after MFA enrolment flips mfa_enabled).
+  async issueFreshToken(userId: string): Promise<string> {
+    const user = await usersRepo.findById(userId);
+    if (!user) throw new Error('User not found');
+    return this.generateToken(user);
+  }
+
+  generateToken(user: { id: string; company_id: string | null; role: string; email: string; mfa_enabled?: boolean }) {
     return jwt.sign(
-      { user_id: user.id, company_id: user.company_id, role: user.role, email: user.email },
+      { user_id: user.id, company_id: user.company_id, role: user.role, email: user.email, mfa_enabled: !!user.mfa_enabled },
       JWT_SECRET,
       { expiresIn: JWT_EXPIRES_IN } as jwt.SignOptions
     );
