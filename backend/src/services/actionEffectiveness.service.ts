@@ -19,7 +19,7 @@ export class ActionEffectivenessService {
     actionId: string,
     company_id: string,
     userId: string,
-    data: { outcome?: EffectivenessOutcome; effectiveness?: 'Effective' | 'Neutral' | 'Ineffective'; evidence?: string; note?: string; intended_outcome?: string; next_review_date?: string }
+    data: { outcome?: EffectivenessOutcome; effectiveness?: 'Effective' | 'Neutral' | 'Ineffective'; evidence?: string; note?: string; intended_outcome?: string; next_review_date?: string; early_review_reason?: string; evidence_still_needed?: string }
   ) {
     const action = await risksRepo.getActionById(actionId, company_id);
     if (!action) throw new Error('Action not found');
@@ -51,6 +51,15 @@ export class ActionEffectivenessService {
     if (intendedOutcome.length < 10) {
       throw new Error('Governance Block: record the intended outcome before rating effectiveness.');
     }
+
+    // Early timing is DERIVED on the server: compare the authoritative existing schedule (the
+    // action's current effectiveness_due_at, snapshotted here before this review overwrites it) with
+    // the server review time. A browser-sent flag is never trusted. No schedule → not early (the
+    // fact is recorded, not invented).
+    const scheduledReviewAt: Date | null = action.effectiveness_due_at ? new Date(action.effectiveness_due_at) : null;
+    const isEarlyReview = !!scheduledReviewAt && !Number.isNaN(scheduledReviewAt.getTime()) && Date.now() < scheduledReviewAt.getTime();
+    const earlyReviewReason = isEarlyReview ? (String(data.early_review_reason || '').trim() || null) : null;
+    const evidenceStillNeeded = outcome === 'Too Early To Assess' ? (String(data.evidence_still_needed || '').trim() || null) : null;
 
     const legacy = toLegacyEffectiveness(outcome);
     let nextReviewDate: Date | null = null;
@@ -108,9 +117,11 @@ export class ActionEffectivenessService {
 
       await client.query(
         `INSERT INTO action_effectiveness_reviews
-          (id, company_id, action_id, outcome, intended_outcome, evidence, reviewed_by, reviewed_at, next_review_date)
-         VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8)`,
-        [reviewId, company_id, actionId, outcome, intendedOutcome, evidence || null, userId, nextReviewDate],
+          (id, company_id, action_id, outcome, intended_outcome, evidence, reviewed_by, reviewed_at, next_review_date,
+           scheduled_review_at_snapshot, is_early_review, early_review_reason, evidence_still_needed)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,NOW(),$8,$9,$10,$11,$12)`,
+        [reviewId, company_id, actionId, outcome, intendedOutcome, evidence || null, userId, nextReviewDate,
+         scheduledReviewAt, isEarlyReview, earlyReviewReason, evidenceStillNeeded],
       );
 
       await client.query('COMMIT');
