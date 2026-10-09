@@ -12,7 +12,7 @@ import { Text, Row } from './ui';
 // DetailCard / Timeline / Sparkline). Tone colours are fixed to the OrdinCore severity palette; the
 // per-role accent (from AccentProvider) drives primary buttons, active tabs and "view all" links.
 export type Tone = 'blue' | 'red' | 'amber' | 'green' | 'purple' | 'neutral';
-export type BoardItem = { title: string; meta?: string; value?: string; tone?: Tone; onPress?: () => void };
+export type BoardItem = { title: string; meta?: string; value?: string; tone?: Tone; metaTone?: Tone; valueTone?: Tone; onPress?: () => void };
 
 export function toneColor(c: Palette, tone: Tone = 'blue'): string {
   const map: Record<Tone, string> = { red: c.sevCrit, amber: c.sevHigh, green: c.sevLow, blue: '#2f6cb5', purple: '#7c45ad', neutral: c.muted };
@@ -94,9 +94,9 @@ export function StatusList({ items, button, onButton, empty, pageSize = 8 }: {
             <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: toneColor(c, it.tone) }} />
             <View style={{ flex: 1, minWidth: 0 }}>
               <Text size={13.5} weight="600" numberOfLines={1}>{it.title}</Text>
-              {!!it.meta && <Text size={11.5} muted numberOfLines={1} style={{ marginTop: 2 }}>{it.meta}</Text>}
+              {!!it.meta && <Text size={11.5} muted={!it.metaTone} color={it.metaTone ? toneColor(c, it.metaTone) : undefined} numberOfLines={1} style={{ marginTop: 2 }}>{it.meta}</Text>}
             </View>
-            {!!it.value && <Text size={13.5} weight="700">{it.value}</Text>}
+            {!!it.value && <Text size={13.5} weight="700" color={it.valueTone ? toneColor(c, it.valueTone) : undefined}>{it.value}</Text>}
             {it.onPress && <Feather name="chevron-right" size={16} color={c.faint} />}
           </Row>
         );

@@ -294,7 +294,7 @@ router.get('/case', requireAuth, requireTenant, async (req, res) => {
     return res.status(400).json({ success: false, message: err?.message || 'Failed to resolve governance case', errors: [] });
   }
 });
-router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER'), dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
+router.post('/daily-log/:id/acknowledge', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'SUPPORT_WORKER', 'REGISTERED_MANAGER'), dailyGovernanceController.acknowledgeBrief.bind(dailyGovernanceController));
 
 // Governance Compliance — per-staff traffic-light + overdue aging (Risk · Trajectory · Compliance).
 // A Team Leader / Support Worker sees only their own house(s); RM and above see the whole company.

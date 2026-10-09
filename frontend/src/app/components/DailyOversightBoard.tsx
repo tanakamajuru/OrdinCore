@@ -408,7 +408,7 @@ export function DailyOversightBoard() {
   );
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background" data-screen-assist-context={isHistoricalDate ? (signedOff ? "historical_read_only" : "historical_unpublished_read_only") : signedOff ? (postSignoffReview ? "post_signoff_review" : "signed_read_only") : "editable"}>
       <RoleBasedNavigation />
       <div className="p-6 lg:px-10 pt-24 max-w-[1400px] mx-auto space-y-6">
 

@@ -38,7 +38,7 @@
 
   /* Ink */
   --oc-ink: #172B3B;           /* Deep navy — headings & primary text */
-  --oc-ink-soft: #465968;      /* Slate grey — body text */
+  --oc-ink-soft: #344653;      /* Darker slate — readable secondary text */
   --oc-muted: #52677A;
 
   /* Semantic governance states */

@@ -1254,6 +1254,7 @@ export class RisksService {
       effectiveness: r.latest_effectiveness || 'Not yet reviewed',
       owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
       service: r.service_name || '—',
+      reviewDate: r.review_due_at || r.next_review_date || r.review_due_date || null,
       nextReview: r.next_action_date || r.next_review_date || r.review_due_date || null,
       lastUpdated: r.updated_at || null,
       closed_at: r.closed_at || null,

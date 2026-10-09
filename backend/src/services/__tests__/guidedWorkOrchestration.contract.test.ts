@@ -30,4 +30,12 @@ describe('Guided Work orchestration contract',()=>{
     // every needsYou item is tagged assigned-work vs role-decision
     expect(service).toMatch(/category: \(it\.taskType==='ASSIGNED_ACTION'/);
   });
+  it('surfaces every open escalation in the tenant-scoped RM decision queue',()=>{
+    const sql=service.match(/const escalations = await safeRows\(`([\s\S]*?)`/)?.[1] || '';
+    expect(sql).toMatch(/e\.company_id=\$1/);
+    expect(sql).toMatch(/e\.house_id=ANY\(\$2::uuid\[\]\)/);
+    expect(sql).toMatch(/e\.is_open/);
+    expect(sql).not.toMatch(/due_by\s*<=\s*NOW\(\)/i);
+    expect(service).toMatch(/title:'Review open escalation'/);
+  });
 });

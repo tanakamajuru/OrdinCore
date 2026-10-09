@@ -17,7 +17,7 @@
 
 /* ── Light theme (default) ─────────────────────────────── */
 :root {
-  --font-size: 14px;
+  --font-size: 16px;
   /* Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026). */
   --background: #DDE7EF;        /* Slate blue — main page background */
   --foreground: #172B3B;        /* Deep navy — headings & primary text */
@@ -30,7 +30,7 @@
   --secondary: #E6EDF2;         /* Pale blue grey — alternating sections */
   --secondary-foreground: #172B3B;
   --muted: #E6EDF2;             /* Pale blue grey */
-  --muted-foreground: #465968;  /* Slate grey — body text */
+  --muted-foreground: #344653;  /* Darker slate — readable secondary text */
   --accent: #3C9C98;            /* Teal — small highlights & selected states */
   --accent-foreground: #FFFFFF;
   --success: #2E7D32;

@@ -396,7 +396,7 @@ export function RoleBasedNavigation() {
         </button>
       </div>
     </aside>
-    {/* Floating read-only Screen Assist doctrine helper (fail-closed until v1.2.0 is published). */}
+    {/* Floating read-only Screen Assist helper. */}
     <ControlledScreenAssist pathname={`${location.pathname}${location.search}`} role={userRole} />
     </>
   );

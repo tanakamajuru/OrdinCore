@@ -4,14 +4,14 @@ import { useTheme } from '@/theme/ThemeProvider';
 import { Text, Row } from '@/components/ui';
 
 // A lightweight month calendar for picking an exact date — no native dependency, works in the
-// release APK. Value/onChange use 'YYYY-MM-DD'. Days before minDate (default today) are disabled.
+// release APK. Value/onChange use 'YYYY-MM-DD'. Past dates are disabled by default.
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
 const WEEK = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su'];
 
-export function CalendarField({ value, onChange, minDate }: { value: string; onChange: (v: string) => void; minDate?: string }) {
+export function CalendarField({ value, onChange, minDate, maxDate, allowPast = false }: { value: string; onChange: (v: string) => void; minDate?: string; maxDate?: string; allowPast?: boolean }) {
   const { c } = useTheme();
   const today = ymd(new Date());
-  const min = minDate || today;
+  const min = minDate || (allowPast ? '' : today);
   const initial = value ? new Date(`${value}T12:00:00`) : new Date();
   const [view, setView] = useState({ y: initial.getFullYear(), m: initial.getMonth() });
 
@@ -40,7 +40,7 @@ export function CalendarField({ value, onChange, minDate }: { value: string; onC
         <Row key={r} style={{ justifyContent: 'space-between', marginTop: 4 }}>
           {cells.slice(r * 7, r * 7 + 7).map((iso, i) => {
             if (!iso) return <View key={i} style={{ flex: 1, height: 34 }} />;
-            const disabled = iso < min;
+            const disabled = (!!min && iso < min) || (!!maxDate && iso > maxDate);
             const selected = iso === value;
             const day = Number(iso.slice(8, 10));
             return (

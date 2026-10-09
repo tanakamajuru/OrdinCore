@@ -67,8 +67,8 @@ export function TLDailyGovernanceScreen() {
           <Chip label={`From: ${fmt(from)}`} active={picking === 'from'} onPress={() => setPicking(picking === 'from' ? null : 'from')} />
           <Chip label={`To: ${fmt(to)}`} active={picking === 'to'} onPress={() => setPicking(picking === 'to' ? null : 'to')} />
         </Row>
-        {picking === 'from' && <View style={{ marginTop: 8 }}><CalendarField value={from} onChange={(v) => { setFrom(v); if (v > to) setTo(v); setPicking(null); }} /></View>}
-        {picking === 'to' && <View style={{ marginTop: 8 }}><CalendarField value={to} onChange={(v) => { setTo(v); if (v < from) setFrom(v); setPicking(null); }} minDate={from} /></View>}
+        {picking === 'from' && <View style={{ marginTop: 8 }}><CalendarField value={from} onChange={(v) => { setFrom(v); if (v > to) setTo(v); setPicking(null); }} allowPast maxDate={today()} /></View>}
+        {picking === 'to' && <View style={{ marginTop: 8 }}><CalendarField value={to} onChange={(v) => { setTo(v); if (v < from) setFrom(v); setPicking(null); }} minDate={from} maxDate={today()} /></View>}
         {!isToday && <Text size={11.5} muted style={{ marginTop: 8 }}>Showing a range — use "Show today" to return to today's brief.</Text>}
       </Card>
 

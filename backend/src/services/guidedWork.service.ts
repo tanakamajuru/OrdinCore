@@ -248,14 +248,14 @@ export const guidedWorkService = {
         SELECT e.id,e.reason,e.priority,e.due_by,h.name AS service_name
           FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
          WHERE e.company_id=$1 AND e.house_id=ANY($2::uuid[])
-           AND e.is_open AND e.due_by IS NOT NULL AND e.due_by <= NOW()
-         ORDER BY e.due_by`, [companyId, houses]);
+           AND e.is_open
+         ORDER BY e.due_by NULLS FIRST`, [companyId, houses]);
       for (const e of escalations) needsYou.push({ id:`escalation:${e.id}`, role, state:'NEEDS_YOU', priority:priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
-        title:'Review open escalation', summary:e.reason || 'Escalation review due', reason:'The escalation review date has been reached.', dueAt:e.due_by, serviceName:e.service_name,
+        title:'Review open escalation', summary:e.reason || 'Open escalation needs review', reason:e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.' : 'An open escalation needs active follow-up.', dueAt:e.due_by, serviceName:e.service_name,
         canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
-        completionCondition:'The escalation is closed or its canonical next review point is moved into the future.',
+        completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
         route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
-        actionLabel:'Review Escalation', whyAmISeeingThis:'This escalation is still open and its review/due point has been reached.' });
+        actionLabel:'Review Escalation', whyAmISeeingThis:e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : 'This escalation is open and needs review, even if its response date has not arrived yet.' });
 
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
       // It becomes actionable only when the provider-local configured cadence is reached.

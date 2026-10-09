@@ -22,6 +22,8 @@ const ago = (x?: string) => {
 };
 const riskTone = (r: any): Tone => (/(high|critical)/.test(sevOf(r)) ? 'red' : /(med|mod)/.test(sevOf(r)) ? 'amber' : 'green');
 const today = () => new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long' });
+const dateKey = (value?: string) => value ? String(value).slice(0, 10) : '';
+const riskDate = (value?: string) => value ? new Date(`${dateKey(value)}T12:00:00`).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '';
 
 /* 1 — RM Dashboard */
 export function RMDashboardScreen() {
@@ -77,8 +79,9 @@ export function RMRiskRegisterScreen() {
   const nav = useNavigation<any>();
   const route = useRoute<any>();
   const params = route.params || {};
-  const { data, loading, error, refetch } = useApi<any>('/risks?limit=200');
-  const [tab, setTab] = useState<'all' | 'high' | 'open'>(params.tab || 'all');
+  const { data, loading, error, refetch } = useApi<any>('/risks/oversight-summary');
+  const [tab, setTab] = useState<'all' | 'high' | 'open' | 'closed'>(params.tab || 'all');
+  const [closedMonth, setClosedMonth] = useState('all');
   // Free-text filter — matches house/service name OR a date (e.g. "grafton", "jul", "16/07").
   const [q, setQ] = useState<string>(params.house || '');
 
@@ -86,17 +89,25 @@ export function RMRiskRegisterScreen() {
   React.useEffect(() => { if (params.tab) setTab(params.tab); }, [params.tab]);
   React.useEffect(() => { if (params.house != null) setQ(params.house); }, [params.house]);
 
-  const all = arr(data);
+  const summary = data?.data ?? data;
+  const all: any[] = Array.isArray(summary?.all) ? summary.all : [];
+  const closed: any[] = Array.isArray(summary?.closed) ? summary.closed : [];
+  const open: any[] = [...(Array.isArray(summary?.active) ? summary.active : []), ...(Array.isArray(summary?.strategic) ? summary.strategic : [])];
   const high = all.filter((r) => /(high|critical)/.test(sevOf(r)));
-  const open = all.filter(isOpen);
-  let shown = tab === 'high' ? high : tab === 'open' ? open : all;
+  const closedIds = new Set(closed.map((r) => r.id));
+  const closedMonths = [...new Set(closed.map((r) => dateKey(r.closed_at).slice(0, 7)).filter(Boolean))].sort((a, b) => b.localeCompare(a));
+  const monthName = (month: string) => new Date(`${month}-01T12:00:00`).toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
+  let shown = tab === 'high' ? high : tab === 'open' ? open : tab === 'closed' ? closed : all;
+  if (tab === 'closed' && closedMonth !== 'all') shown = shown.filter((r) => dateKey(r.closed_at).startsWith(closedMonth));
+  const beforeTextFilter = shown.length;
 
   const needle = q.trim().toLowerCase();
   if (needle) {
     shown = shown.filter((r) => {
-      const house = String(r.house_name || r.service_name || '').toLowerCase();
-      const when = `${r.updated_at || ''} ${r.created_at || ''} ${r.updated_at || r.created_at ? new Date(r.updated_at || r.created_at).toLocaleDateString('en-GB') : ''}`.toLowerCase();
-      return house.includes(needle) || when.includes(needle);
+      const house = String(r.service || r.house_name || r.service_name || '').toLowerCase();
+      const when = [r.updated_at, r.lastUpdated, r.created_at, r.closed_at, r.reviewDate]
+        .filter(Boolean).map((value) => `${value} ${riskDate(value)}`).join(' ').toLowerCase();
+      return house.includes(needle) || when.includes(needle) || String(r.concern || r.title || '').toLowerCase().includes(needle);
     });
   }
 
@@ -104,15 +115,26 @@ export function RMRiskRegisterScreen() {
   const items: BoardItem[] = shown.map((r) => {
     const sev = String(r.severity || r.risk_rating || r.current_severity || '');
     const traj = trajLabel(r.trajectory || r.trend);
-    const decision = r.closure_eligible || r.decision_required;
-    // Card content mirrors the design: site · severity · trajectory · last activity, with a
-    // "Decision" flag on the right where a management decision is required.
-    const meta = [r.house_name || r.service_name, sev, traj].filter(Boolean).join(' · ')
-      + (r.updated_at || r.created_at ? ` · ${ago(r.updated_at || r.created_at)}` : '');
+    const isClosed = closedIds.has(r.id);
+    const reviewDate = r.reviewDate || r.next_review_date || r.review_due_date || r.nextReview;
+    const reviewKey = dateKey(reviewDate);
+    const reviewState = String(r.reviewState || '').toUpperCase();
+    const due = !isClosed && (reviewState === 'DUE' || reviewState === 'OVERDUE'
+      || (!!reviewKey && reviewKey <= new Date().toISOString().slice(0, 10) && reviewState !== 'UNDER_REVIEW'));
+    const overdue = reviewState === 'OVERDUE' || (due && reviewKey < new Date().toISOString().slice(0, 10));
+    const lastActivity = r.lastUpdated || r.updated_at || r.created_at;
+    const metaParts = [r.service || r.house_name || r.service_name, sev, traj].filter(Boolean);
+    if (isClosed) metaParts.push(r.closed_at ? `Closed ${riskDate(r.closed_at)}` : 'Closed date unavailable');
+    else {
+      metaParts.push(reviewDate ? `Review ${riskDate(reviewDate)}` : 'Review date not set');
+      if (lastActivity) metaParts.push(ago(lastActivity));
+    }
     return {
-      title: r.title || r.risk_title || r.theme || 'Risk',
-      meta,
-      value: decision ? 'Decision' : undefined,
+      title: r.concern || r.title || r.risk_title || r.theme || 'Risk',
+      meta: metaParts.join(' · '),
+      metaTone: due ? 'red' : !isClosed && !reviewDate ? 'amber' : undefined,
+      value: due ? (overdue ? 'Overdue' : 'Due') : reviewState === 'UNDER_REVIEW' ? 'Under review' : undefined,
+      valueTone: due ? 'red' : reviewState === 'UNDER_REVIEW' ? 'blue' : undefined,
       tone: riskTone(r),
       onPress: () => nav.navigate('RiskDetail', { risk: r }),
     };
@@ -124,19 +146,27 @@ export function RMRiskRegisterScreen() {
         <Chip label={`All · ${all.length}`} active={tab === 'all'} onPress={() => setTab('all')} />
         <Chip label={`High · ${high.length}`} active={tab === 'high'} onPress={() => setTab('high')} />
         <Chip label={`Open · ${open.length}`} active={tab === 'open'} onPress={() => setTab('open')} />
+        <Chip label={`Closed · ${closed.length}`} active={tab === 'closed'} onPress={() => setTab('closed')} />
       </Row>
+      {tab === 'closed' && closedMonths.length > 0 && <View>
+        <Text size={11.5} muted style={{ marginBottom: 5 }}>Closed month</Text>
+        <Row gap={7} style={{ flexWrap: 'wrap' }}>
+          <Chip label="All months" active={closedMonth === 'all'} onPress={() => setClosedMonth('all')} />
+          {closedMonths.map((month) => <Chip key={month} label={monthName(month)} active={closedMonth === month} onPress={() => setClosedMonth(month)} />)}
+        </Row>
+      </View>}
       {/* Search by house or date */}
       <View>
         <Field value={q} onChangeText={setQ} placeholder="Filter by site or date…" autoCapitalize="none" />
         {!!needle && (
           <Row style={{ marginTop: 4 }} gap={6}>
-            <Text size={11.5} muted>Showing {shown.length} of {(tab === 'high' ? high : tab === 'open' ? open : all).length}</Text>
+            <Text size={11.5} muted>Showing {shown.length} of {beforeTextFilter}</Text>
             <Pressable onPress={() => setQ('')} hitSlop={6}><Text size={11.5} weight="600" color="#2f6cb5">clear</Text></Pressable>
           </Row>
         )}
       </View>
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : (
-        <StatusList items={items} empty="No risks to show." />
+        <StatusList key={`${tab}:${closedMonth}`} items={items} empty={tab === 'closed' && closedMonth !== 'all' ? `No risks closed in ${monthName(closedMonth)}.` : 'No risks to show.'} />
       )}
     </Screen>
   );
