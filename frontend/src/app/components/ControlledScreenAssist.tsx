@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BookOpenCheck, LockKeyhole, Send, X } from 'lucide-react';
 import { apiClient } from '@/services/api';
 
@@ -48,6 +48,16 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
   const [open, setOpen] = useState(false); const [question, setQuestion] = useState('');
   const [reply, setReply] = useState<Reply | null>(null); const [loading, setLoading] = useState(false);
 
+  // Changing screen must clear the previous screen's answer so help always matches the current screen.
+  useEffect(() => { setReply(null); setQuestion(''); }, [screenKey]);
+  // Opening Screen Assist shows this screen's short "How to use this screen" steps without needing a
+  // question (brief Required #1). The question box and control explanations stay available below.
+  useEffect(() => {
+    if (!open || !screenKey || reply || loading) return;
+    void ask('How do I use this screen?');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, screenKey]);
+
   // Draggable launcher — the button can be repositioned anywhere so it never covers something the
   // user needs to click. Position is remembered per browser; a plain click (no drag) still opens it.
   const [pos, setPos] = useState<{ x: number; y: number }>(() => {
@@ -83,7 +93,12 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
     if (!text.trim() || loading) return;
     setOpen(true); setLoading(true);
     try {
-      const res = await apiClient.post<Reply>('/screen-assist/query', { screen_key: screenKey, question: text.trim() });
+      const workflowState = screenKey === 'registered_manager.daily_oversight'
+        ? document.querySelector<HTMLElement>('[data-screen-assist-context]')?.dataset.screenAssistContext
+        : undefined;
+      const res = await apiClient.post<Reply>('/screen-assist/query', {
+        screen_key: screenKey, question: text.trim(), workflow_state: workflowState,
+      });
       setReply((res as any)?.data || null);
     } catch (error: any) {
       setReply(error?.data?.data || { classification: 'ERROR', code: 'SAFE_FAILURE', answer: 'Screen Assist could not answer safely. No governance record has been changed.' });
@@ -100,9 +115,9 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
       <BookOpenCheck className="w-5 h-5" /> Screen Assist
     </button>
     {open && <div className="fixed inset-0 z-50 bg-black/30" onClick={() => setOpen(false)} aria-hidden="true" />}
-    <aside className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-card border-l border-border shadow-2xl transition-transform ${open ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`} aria-label="Controlled doctrine Screen Assist" aria-hidden={!open}>
+    <aside className={`fixed inset-y-0 right-0 z-[60] w-full max-w-md bg-card border-l border-border shadow-2xl transition-transform ${open ? 'translate-x-0' : 'translate-x-full pointer-events-none'}`} aria-label="Screen Assist" aria-hidden={!open}>
       <div className="h-full flex flex-col p-5">
-        <div className="flex items-start justify-between border-b border-border pb-4"><div><h2 className="font-semibold">Screen Assist</h2><p className="text-xs text-emerald-600 flex items-center gap-1 mt-1"><LockKeyhole className="w-3.5 h-3.5" /> Controlled doctrine · Read only</p><p className="text-xs text-muted-foreground mt-1">{role.replace(/_/g, ' ')}</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Close Screen Assist"><X className="w-5 h-5" /></button></div>
+      <div className="flex items-start justify-between border-b border-border pb-4"><div><h2 className="font-semibold">Screen Assist</h2><p className="text-xs text-emerald-600 flex items-center gap-1 mt-1"><LockKeyhole className="w-3.5 h-3.5" /> Approved guidance · Read only</p><p className="text-xs text-muted-foreground mt-1">{role.replace(/_/g, ' ')}</p></div><button type="button" onClick={() => setOpen(false)} aria-label="Close Screen Assist"><X className="w-5 h-5" /></button></div>
         <div className="flex-1 overflow-y-auto py-4" aria-live="polite">
           {!reply && <div className="rounded-lg bg-muted p-4 text-sm">Ask how this screen works, what a control means, what your role is or what happens next.</div>}
           {loading && <p className="text-sm text-muted-foreground">Checking approved guidance…</p>}
@@ -110,7 +125,7 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
             {reply.title && <h3 className="font-semibold mb-2">{reply.title}</h3>}<p className="leading-6">{reply.answer}</p>
             {!!reply.steps?.length && <ol className="list-decimal pl-5 mt-3 space-y-2">{reply.steps.map((step, i) => <li key={i}>{step}</li>)}</ol>}
             {reply.source && <p className="border-t border-current/15 mt-4 pt-3 text-xs opacity-75">Approved source: {reply.source.name} v{reply.source.version}</p>}
-            <p className="mt-3 text-xs font-medium">Screen Assist cannot make clinical or governance judgements and cannot change records.</p>
+            <p className="mt-3 text-xs font-medium">Screen Assist cannot interpret clinical information, make governance decisions, or change records.</p>
           </div>}
         </div>
         <div className="flex flex-wrap gap-2 mb-3">{['What is this screen?','What is my role here?','How do I use this screen?','Explain the controls','What happens next?'].map(q => <button type="button" key={q} onClick={() => ask(q)} className="text-xs border border-border rounded-md px-2.5 py-1.5 hover:bg-muted">{q}</button>)}</div>

@@ -9,6 +9,7 @@ export const screenAssistController = {
       const data = await screenAssistService.answer({
         companyId: user.company_id!, userId: user.user_id, role: user.role,
         screenKey: req.body?.screen_key, question: req.body?.question,
+        workflowState: req.body?.workflow_state,
       });
       const status = data.classification === 'INVALID' ? 403 : 200;
       return res.status(status).json({ success: status === 200, data, meta: { read_only: true } });

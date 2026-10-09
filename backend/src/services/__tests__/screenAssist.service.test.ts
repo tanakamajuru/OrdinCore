@@ -7,11 +7,87 @@ const base = { companyId: '11111111-1111-1111-1111-111111111111', userId: '22222
 
 describe('controlled Screen Assist', () => {
   beforeEach(() => mockedQuery.mockReset());
-  it('refuses case-specific governance advice before retrieval', async () => {
+  it('explains an option without choosing it for the case', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [{ id: 'g1', topic: 'controls', title: 'Escalations', answer: 'Escalate starts higher, time-bound oversight and requires a recorded reason.', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' }] });
     mockedQuery.mockResolvedValueOnce({ rows: [] });
-    const result = await screenAssistService.answer({ ...base, question: 'Should I escalate this person?' });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState: 'editable', question: 'Should I escalate this?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.answer).toContain('requires a recorded reason');
+    expect(result.answer).not.toMatch(/you should|you must|this qualifies/i);
+    expect(mockedQuery).toHaveBeenCalledTimes(2);
+  });
+  it('continues to block unsupported case judgements', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, question: 'Should I dismiss this concern?' });
     expect(result.classification).toBe('PROHIBITED');
-    expect(mockedQuery).toHaveBeenCalledTimes(1); // audit only
+    expect(result.code).toBe('CASE_JUDGEMENT');
+    expect(mockedQuery).toHaveBeenCalledTimes(1);
+  });
+  it('answers how-to questions from the screen-use guide', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [
+      { id: 'g1', topic: 'purpose', title: 'Daily Oversight', answer: 'Daily workspace', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+      { id: 'g2', topic: 'use', title: 'How to use Daily Oversight', answer: 'Choose a service and date.', steps: ['Select the service and date.', 'Open a signal and read its details.'], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+    ] });
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState: 'editable', question: 'How do I complete Daily Oversight?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.topic).toBe('use');
+    expect(result.steps).toHaveLength(2);
+  });
+  it('finds named options in approved control guidance', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [
+      { id: 'g1', topic: 'use', title: 'Daily Oversight use', answer: 'Review the signal.', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+      { id: 'g2', topic: 'controls', title: 'Daily Oversight controls', answer: 'Close requires applicable review, evidence and rationale.', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+    ] });
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState: 'editable', question: 'Should I close this?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.topic).toBe('controls');
+    expect(result.answer).toContain('requires applicable review');
+  });
+  it('explains what an option means from controls guidance', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [
+      { id: 'g1', topic: 'use', title: 'Daily Oversight use', answer: 'Monitor keeps the signal visible for review.', steps: ['Monitor returns when due.'], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+      { id: 'g2', topic: 'controls', title: 'Daily Oversight controls', answer: 'Monitor keeps active oversight and requires a review date.', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' },
+    ] });
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState: 'editable', question: 'What does Monitor mean?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.topic).toBe('controls');
+    expect(result.answer).toContain('requires a review date');
+  });
+  it('asks for Daily Oversight state instead of assuming it', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', question: 'How do I complete Daily Oversight?' });
+    expect(result.classification).toBe('UNSUPPORTED');
+    expect(result.code).toBe('WORKFLOW_CONTEXT_REQUIRED');
+    expect(result.answer).toContain('editable review');
+    expect(mockedQuery).toHaveBeenCalledTimes(1);
+  });
+  it('adds available next steps when explaining a control on a signed screen', async () => {
+    mockedQuery.mockResolvedValueOnce({ rows: [{ id: 'g2', topic: 'controls', title: 'Daily Oversight controls', answer: 'Close requires evidence and rationale.', steps: [], example_questions: [], source_name: 'Guide', source_version: '1.3.0' }] });
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState: 'signed_read_only', question: 'Should I close this?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.answer).toContain('requires evidence and rationale');
+    expect(result.answer).toContain('Review outstanding signals');
+    expect(result.answer).toContain('signed brief remains unchanged');
+  });
+  it.each([
+    ['signed_read_only', 'Review outstanding signals', 'does not close outstanding actions'],
+    ['historical_read_only', 'Review the signed Team Brief', 'cannot change or sign'],
+    ['historical_unpublished_read_only', 'Confirm that no signed record', 'No signed record exists'],
+    ['post_signoff_review', 'signed addendum', 'Team Brief remains signed'],
+  ] as const)('returns available Daily Oversight next steps for %s', async (workflowState, expectedStep, expectedAnswer) => {
+    mockedQuery.mockResolvedValueOnce({ rows: [{ id: 'g1', topic: 'use', title: 'Daily Oversight', answer: 'generic guide', steps: ['generic step'], example_questions: [], source_name: 'Guide', source_version: '1.3.0' }] });
+    mockedQuery.mockResolvedValueOnce({ rows: [] });
+    const result = await screenAssistService.answer({ ...base, role: 'REGISTERED_MANAGER', screenKey: 'registered_manager.daily_oversight', workflowState, question: 'How do I complete Daily Oversight?' });
+    expect(result.classification).toBe('ALLOWED');
+    expect(result.steps?.join(' ')).toContain(expectedStep);
+    expect(result.answer).toContain(expectedAnswer);
+    if (workflowState === 'signed_read_only' || workflowState === 'historical_read_only' || workflowState === 'historical_unpublished_read_only') {
+      expect(result.steps?.join(' ')).not.toContain('Accept & Sign Off');
+    }
   });
   it('returns only published approved guidance', async () => {
     mockedQuery.mockResolvedValueOnce({ rows: [{ id: 'g1', topic: 'purpose', title: 'Strategic Dashboard', answer: 'Approved answer', steps: [], example_questions: ['What is this screen?'], source_name: 'Doctrine', source_version: '1.0.0' }] });
