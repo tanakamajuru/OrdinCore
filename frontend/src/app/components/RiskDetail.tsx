@@ -164,6 +164,8 @@ export function RiskDetail() {
   const [effectivenessEvidence, setEffectivenessEvidence] = useState("");
   const [effectivenessIntendedOutcome, setEffectivenessIntendedOutcome] = useState("");
   const [effectivenessNextReviewDate, setEffectivenessNextReviewDate] = useState("");
+  const [effectivenessEarlyReason, setEffectivenessEarlyReason] = useState("");
+  const [effectivenessEvidenceStillNeeded, setEffectivenessEvidenceStillNeeded] = useState("");
   const [effectivenessFile, setEffectivenessFile] = useState<File | null>(null);
   const [isRating, setIsRating] = useState(false);
   const [showCompletionModal, setShowCompletionModal] = useState<{ id: string; title: string } | null>(null);
@@ -517,6 +519,13 @@ export function RiskDetail() {
     if ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && (!effectivenessNextReviewDate || new Date(`${effectivenessNextReviewDate}T00:00:00`).getTime() <= Date.now())) {
       toast.error(effectivenessRating === 'Too Early To Assess' ? 'Choose a future effectiveness review date.' : 'Choose a future re-review date so the revised control is re-checked.'); return;
     }
+    // Early review (before the scheduled date) must say why; Too Early must say what evidence is
+    // still needed. Timing (early) and outcome (Too Early) are independent.
+    const ratingAction = actions.find((x) => x.id === showEffectivenessAction);
+    const schedAt = ratingAction?.effectiveness_due_at || null;
+    const isEarly = !!schedAt && new Date(schedAt).getTime() > Date.now();
+    if (isEarly && effectivenessEarlyReason.trim().length < 10) { toast.error('Record why you are reviewing before the scheduled date (at least 10 characters).'); return; }
+    if (effectivenessRating === 'Too Early To Assess' && effectivenessEvidenceStillNeeded.trim().length < 3) { toast.error('Record what evidence is still needed.'); return; }
     setIsRating(true);
     try {
       await apiClient.patch(`/actions/${showEffectivenessAction}/effectiveness`, {
@@ -524,6 +533,9 @@ export function RiskDetail() {
         evidence: effectivenessEvidence.trim(),
         intended_outcome: effectivenessIntendedOutcome.trim(),
         next_review_date: (['Too Early To Assess', 'Not Effective', 'Partially Effective'].includes(effectivenessRating) && effectivenessNextReviewDate) ? effectivenessNextReviewDate : undefined,
+        early_review_reason: isEarly ? effectivenessEarlyReason.trim() : undefined,
+        evidence_still_needed: effectivenessRating === 'Too Early To Assess' ? effectivenessEvidenceStillNeeded.trim() : undefined,
+        scheduled_review_at_seen: schedAt || undefined,
       });
       // Optional supporting document (JPG/PDF) → stored as an evidence attachment on the risk.
       if (effectivenessFile) {
@@ -549,6 +561,8 @@ export function RiskDetail() {
       setEffectivenessEvidence("");
       setEffectivenessIntendedOutcome("");
       setEffectivenessNextReviewDate("");
+      setEffectivenessEarlyReason("");
+      setEffectivenessEvidenceStillNeeded("");
       setEffectivenessFile(null);
       if (id) loadRiskDetails(id);
     } catch (error: any) {
@@ -1447,7 +1461,13 @@ export function RiskDetail() {
               className="w-full border-2 border-border bg-card p-3 text-sm mb-1 focus:outline-none focus:border-primary"
             />
             {effectivenessRating !== 'Too Early To Assess' && <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>{effectivenessEvidence.trim().length}/20 characters minimum</p>}
+            {(() => { const ra = actions.find((x) => x.id === showEffectivenessAction); const sched = ra?.effectiveness_due_at; return !!sched && new Date(sched).getTime() > Date.now(); })() && <div className="mb-4">
+              <div className="text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-1 mb-2 inline-block">Reviewing before scheduled date</div>
+              <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Why are you reviewing before the scheduled date?</label>
+              <textarea value={effectivenessEarlyReason} onChange={(e) => setEffectivenessEarlyReason(e.target.value)} rows={2} className="w-full border-2 border-border bg-card p-3 text-sm" placeholder="Explain what has changed or why an assessment is needed now." />
+            </div>}
             {(effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective' || effectivenessRating === 'Partially Effective') && <div className="mb-4"><label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">{effectivenessRating === 'Too Early To Assess' ? 'Next review date' : effectivenessRating === 'Not Effective' ? 'Re-review date (required)' : 'Re-review date (optional)'}</label><input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={effectivenessNextReviewDate} onChange={(e) => setEffectivenessNextReviewDate(e.target.value)} className="w-full border-2 border-border bg-card p-3 text-sm" /></div>}
+            {effectivenessRating === 'Too Early To Assess' && <div className="mb-4"><label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">What evidence is still needed?</label><textarea value={effectivenessEvidenceStillNeeded} onChange={(e) => setEffectivenessEvidenceStillNeeded(e.target.value)} rows={2} className="w-full border-2 border-border bg-card p-3 text-sm" placeholder="What would let you reach a final judgement next time?" /></div>}
 
             <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Supporting document <span className="text-muted-foreground normal-case tracking-normal">(optional · JPG or PDF)</span></label>
             <input
@@ -1460,7 +1480,7 @@ export function RiskDetail() {
 
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => { setShowEffectivenessAction(null); setEffectivenessEvidence(""); setEffectivenessIntendedOutcome(""); setEffectivenessNextReviewDate(""); setEffectivenessFile(null); }}
+                onClick={() => { setShowEffectivenessAction(null); setEffectivenessEvidence(""); setEffectivenessIntendedOutcome(""); setEffectivenessNextReviewDate(""); setEffectivenessEarlyReason(""); setEffectivenessEvidenceStillNeeded(""); setEffectivenessFile(null); }}
                 className="px-6 py-2 bg-card text-foreground  uppercase tracking-widest border-2 border-border hover:bg-muted transition-all"
               >
                 Cancel
