@@ -273,6 +273,29 @@ export const scopedReportDataService = {
         ORDER BY MAX(gp.entry_date) DESC`, [companyId, siteIds, start, end, personId || null]
     )).rows;
 
+    // Dismissed concerns — selected by their dismissal EVENT date (not the underlying signal dates),
+    // so an older concern dismissed inside the period appears here with its reason, actor and process.
+    // Cluster-level, so PERSON scope returns none. Kept out of the active/unresolved totals.
+    const dismissedConcerns = (await query(
+      `SELECT sc.id, COALESCE(h.name, 'Organisation-wide') AS service,
+              COALESCE(NULLIF(TRIM(sc.risk_domain), ''), 'Uncategorised') AS domain,
+              sc.linked_person AS person, sc.dismiss_reason AS reason,
+              COALESCE(sc.dismissed_at, sc.updated_at) AS date,
+              (sc.dismissed_at IS NOT NULL) AS date_reliable,
+              CASE WHEN sc.dismissed_by IS NULL THEN 'System lapse' ELSE 'Manual dismissal' END AS event_type,
+              CASE WHEN sc.dismissed_by IS NULL THEN 'System'
+                   ELSE NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') END AS actor,
+              (SELECT COUNT(*)::int FROM risk_signal_links rsl WHERE rsl.cluster_id = sc.id) AS signal_count
+         FROM signal_clusters sc
+         LEFT JOIN houses h ON h.id = sc.house_id AND h.company_id = sc.company_id
+         LEFT JOIN users u ON u.id = sc.dismissed_by AND u.company_id = sc.company_id
+        WHERE sc.company_id = $1 AND sc.cluster_status = 'Dismissed'
+          AND (sc.house_id = ANY($2::uuid[]) OR ($6::boolean AND sc.house_id IS NULL))
+          AND COALESCE(sc.dismissed_at, sc.updated_at) BETWEEN $3::timestamptz AND $4::timestamptz
+          AND ($5::uuid IS NULL)
+        ORDER BY COALESCE(sc.dismissed_at, sc.updated_at) DESC`, broadParams
+    )).rows;
+
     const weeklyReviews = (await query(
       `SELECT wr.id, h.name AS service, wr.week_ending, wr.status,
               wr.governance_narrative AS content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
@@ -353,7 +376,7 @@ export const scopedReportDataService = {
       };
     });
 
-    const evidence = { signals, risks, actions, escalations, decisions, patterns, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
+    const evidence = { signals, risks, actions, escalations, decisions, patterns, dismissed_concerns: dismissedConcerns, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,

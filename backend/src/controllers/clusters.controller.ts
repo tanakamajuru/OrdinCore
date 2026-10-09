@@ -1,11 +1,18 @@
 import { Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
+
+// Statuses that may NOT be dismissed as an "emerging concern" — an established/confirmed pattern,
+// or one already resolved, follows its own authorised closure process, not dismissal.
+const NON_EMERGING = new Set(['Confirmed', 'Established', 'Resolved']);
 
 export class ClustersController {
-  // Dismiss a pattern/cluster — requires a written reason (doctrine: every promote
-  // and every dismiss carries a name + reason). Stored + auditable.
+  // Dismiss an EMERGING concern — requires a written reason (doctrine: every promote and every
+  // dismiss carries a name + reason). The status change, the immutable dismissed_at and the audit
+  // event are written in ONE transaction so neither can succeed alone. Idempotent: dismissing an
+  // already-dismissed concern does not create a second event.
   async dismiss(req: Request, res: Response) {
+    const client = await getClient();
     try {
       const company_id = req.user!.company_id!;
       const cluster_id = req.params.id;
@@ -13,25 +20,53 @@ export class ClustersController {
       if (!reason || String(reason).trim().length < 10) {
         return res.status(400).json({ success: false, message: 'A dismissal reason (min 10 characters) is required.', errors: [] });
       }
-      const upd = await query(
+      await client.query('BEGIN');
+      const cur = (await client.query(
+        `SELECT cluster_status, linked_risk_id FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+        [cluster_id, company_id]
+      )).rows[0];
+      if (!cur) {
+        await client.query('ROLLBACK');
+        return res.status(404).json({ success: false, message: 'Concern not found.', errors: [] });
+      }
+      // Idempotent replay — already dismissed; do not append a second dismissal event.
+      if (String(cur.cluster_status) === 'Dismissed') {
+        await client.query('COMMIT');
+        return res.json({ success: true, data: { dismissed: true, idempotent: true }, meta: {} });
+      }
+      if (cur.linked_risk_id) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'This concern is linked to a risk — manage it through the risk, it cannot be dismissed.', errors: [] });
+      }
+      if (NON_EMERGING.has(String(cur.cluster_status))) {
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'Only an emerging concern can be dismissed. An established or confirmed pattern follows its own closure process.', errors: [] });
+      }
+      const upd = await client.query(
         `UPDATE signal_clusters
-            SET cluster_status = 'Dismissed', dismissed_by = $1, dismiss_reason = $2, updated_at = NOW()
+            SET cluster_status = 'Dismissed', dismissed_by = $1, dismiss_reason = $2,
+                dismissed_at = NOW(), updated_at = NOW()
           WHERE id = $3 AND company_id = $4 AND linked_risk_id IS NULL
           RETURNING id`,
         [req.user!.user_id, String(reason).trim(), cluster_id, company_id]
       );
       if (upd.rows.length === 0) {
-        return res.status(400).json({ success: false, message: 'Cluster not found, or already promoted to a risk (cannot dismiss).', errors: [] });
+        await client.query('ROLLBACK');
+        return res.status(400).json({ success: false, message: 'Could not dismiss this concern.', errors: [] });
       }
-      await query(
+      await client.query(
         `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
          VALUES ($1,$2,$3,'PATTERN_DISMISSED','signal_cluster',$4,$5)`,
         [uuidv4(), company_id, req.user!.user_id, cluster_id, JSON.stringify({ reason: String(reason).trim() })]
       );
+      await client.query('COMMIT');
       return res.json({ success: true, data: { dismissed: true }, meta: {} });
     } catch (err: unknown) {
+      try { await client.query('ROLLBACK'); } catch { /* already rolled back */ }
       const message = err instanceof Error ? err.message : 'Failed to dismiss pattern';
       return res.status(400).json({ success: false, message, errors: [] });
+    } finally {
+      client.release();
     }
   }
 

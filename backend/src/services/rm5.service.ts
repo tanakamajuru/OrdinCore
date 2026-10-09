@@ -293,20 +293,25 @@ export const rm5Service = {
     return { within, across };
   },
 
-  // Dismissed patterns — the audit trail: what was dismissed, by whom, when, and why.
+  // Dismissed concerns — the audit trail: what was dismissed, by whom (or System for an automatic
+  // lapse), when, why and through which process. Uses the stable dismissed_at (falling back to
+  // updated_at only for legacy rows with no recorded event). Returns the cluster id so the archive
+  // can open its full history (linked signals + prior reviews).
   async dismissedPatterns(company_id: string) {
     return (await query(
       `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
               c.scope, c.signal_count AS "signalCount", h.name AS house,
               c.dismiss_reason AS reason,
-              COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') AS "dismissedBy",
-              c.updated_at AS "dismissedAt"
+              CASE WHEN c.dismissed_by IS NULL THEN 'System'
+                   ELSE COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') END AS "dismissedBy",
+              CASE WHEN c.dismissed_by IS NULL THEN 'System lapse' ELSE 'Manual dismissal' END AS "eventType",
+              COALESCE(c.dismissed_at, c.updated_at) AS "dismissedAt",
+              (c.dismissed_at IS NOT NULL) AS "timestampReliable"
          FROM signal_clusters c
          LEFT JOIN houses h ON h.id = c.house_id
          LEFT JOIN users u ON u.id = c.dismissed_by
         WHERE c.company_id = $1 AND c.cluster_status = 'Dismissed'
-        ORDER BY c.updated_at DESC
-        LIMIT 200`,
+        ORDER BY COALESCE(c.dismissed_at, c.updated_at) DESC`,
       [company_id]
     )).rows;
   },
