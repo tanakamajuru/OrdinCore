@@ -446,8 +446,9 @@ export function EscalationLog() {
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-5 gap-5 [&>*]:min-w-0">
-          {/* List Section */}
-          <div className="xl:col-span-3 space-y-4">
+          {/* List Section — ~40% of the width; the review gets ~60% so the RM has room to read the
+              current position and reach the decision controls (improved-original layout). */}
+          <div className="xl:col-span-2 space-y-4">
             {/* Filter tabs — organise the queue by what needs doing */}
             <div className="flex flex-wrap items-center gap-2 mb-3 border-b border-border">
               {([
@@ -517,7 +518,7 @@ export function EscalationLog() {
                   </div>
 
                   <h3 className="text-lg text-foreground mb-2">{esc.risk_title || [firstDomain(esc.signal_risk_domain), esc.signal_related_person].filter(Boolean).join(' · ') || 'Escalation'}</h3>
-                  <p className="text-sm text-muted-foreground mb-4 line-clamp-3 break-words whitespace-pre-wrap">{esc.reason}</p>
+                  <p className="text-sm text-muted-foreground mb-4 line-clamp-2 break-words whitespace-pre-wrap">{esc.reason}</p>
 
                   <div className="flex justify-between items-center pt-4 border-t border-border">
                     <div className="text-xs text-muted-foreground">
@@ -550,12 +551,16 @@ export function EscalationLog() {
             )}
           </div>
 
-          {/* Details & Actions Section */}
-          <div className="xl:col-span-2">
+          {/* Details & Actions Section — the wider column (~60%). */}
+          <div className="xl:col-span-3">
             {selectedEscalation ? (
               // Flow with the page (no sticky) so BOTH columns scroll together instead of the detail
               // staying pinned while the list scrolls — the reported "one side scrolls" clumsiness.
               <div className="space-y-6">
+                <button type="button" onClick={() => setSelectedEscalation(null)}
+                  className="xl:hidden inline-flex items-center gap-1.5 text-sm text-primary font-medium">
+                  ← Back to escalations
+                </button>
                 <Card className="border-2 border-border shadow-xl">
                   <CardHeader className="bg-card border-b border-border">
                     <div className="flex items-center justify-between gap-3">
@@ -597,6 +602,12 @@ export function EscalationLog() {
                       </div>
                     </div>
 
+                    {/* Evidence & linked controls — collapsed to keep the decision area prominent and
+                        reduce information overload (improved-original layout). The escalation basis and
+                        "Why is it still open?" stay visible above/below. */}
+                    <details className="border-t border-border pt-4 group">
+                    <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-2"><span>Evidence &amp; linked controls</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" /></summary>
+                    <div className="space-y-6 mt-3">
                     {/* Read-only effectiveness context — the existing risk_actions verdict and
                         action completion for the linked risk. Evidence only; it never closes the
                         escalation (closure is the separate evidence-based review). */}
@@ -688,6 +699,8 @@ export function EscalationLog() {
                         })()}
                       </div>
                     </div>
+                    </div>
+                    </details>
 
                     {/* Why is it still open? — the most important field for a Director at a glance.
                         Shows the latest monitoring/progress note the RM recorded; if none yet, says so. */}
@@ -924,7 +937,7 @@ export function EscalationLog() {
 
                     {/* Corrective actions are the actual delegated work and evidence trail. */}
                     {(selectedEscalation as any).linked_actions?.length > 0 && (
-                      <details open className="pt-6 border-t border-border group">
+                      <details className="pt-6 border-t border-border group">
                         <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-3">
                           <span>Corrective action history ({(selectedEscalation as any).linked_actions.length})</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                         </summary>

@@ -84,6 +84,9 @@ export function GovernanceDecisions({
   // opens only on request — Create Action on a signal already assigns that signal's work.
   const [taskOpen, setTaskOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Queue tab — New signals vs Monitoring due, so monitored signals returning for review are a
+  // visible group of their own (Daily Oversight layout), not buried in a single dropdown.
+  const [queueTab, setQueueTab] = useState<"new" | "due">("new");
   const idemKey = useRef<string | null>(null);
 
   // Keep the range anchored to the selected review date when it changes.
@@ -354,6 +357,17 @@ export function GovernanceDecisions({
     [allDecisions]
   );
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
+  // New (undecided) signals vs monitoring reviews that are due/overdue — the two queue tabs.
+  const newSignals = useMemo(() => signals.filter((s: any) => { const st = String(s.review_status || "New"); return st === "New" || st === ""; }), [signals]);
+  const dueSignals = useMemo(() => signals.filter((s: any) => String(s.review_status) === "Monitoring"), [signals]);
+  const tabSignals = queueTab === "due" ? dueSignals : newSignals;
+  // Land on the tab that actually has work: if there are no new signals but monitoring is due,
+  // open the Monitoring due tab (and vice-versa) so the RM is not shown an empty list.
+  useEffect(() => {
+    if (queueTab === "new" && newSignals.length === 0 && dueSignals.length > 0) setQueueTab("due");
+    else if (queueTab === "due" && dueSignals.length === 0 && newSignals.length > 0) setQueueTab("new");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [newSignals.length, dueSignals.length]);
   const eligibleOwners = owners.filter((u: any) => {
     const role = String(u.role || "").toUpperCase();
     if (form.decision === "Escalate") return ["REGISTERED_MANAGER", "DIRECTOR"].includes(role);
@@ -446,32 +460,35 @@ export function GovernanceDecisions({
         <div className="text-sm text-muted-foreground bg-muted/30 rounded-lg p-3">No undecided signals or monitoring reviews are due for this service on this date.</div>
       ) : (
         <div className="space-y-3">
-          <div className="relative">
-            <label className="text-[11px] text-muted-foreground">Related to · current signal</label>
-            <button type="button" onClick={() => setSrcOpen((o) => !o)}
-              className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm text-left flex items-center justify-between gap-2">
-              <span className="truncate">{sourceLabel()}</span>
-              <ChevronDown size={15} className="shrink-0 opacity-60" />
-            </button>
-            {srcOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setSrcOpen(false)} />
-                <div className="absolute z-20 mt-1 w-full max-h-96 overflow-y-auto rounded-lg border-2 border-border bg-background shadow-lg">
-                  {signals.map((s: any) => {
-                    const kind = s.governance_domain || s.signal_type || "Signal";
-                    const when = fmtWhen(s.created_at || s.entry_date);
-                    const monitoringDue = String(s.review_status) === "Monitoring";
-                    return (
-                      <button key={s.id} type="button" onClick={() => { setForm({ ...form, source: `signal:${s.id}`, severity: isSeverity(s.severity) ? String(s.severity) : "" }); setSrcOpen(false); }}
-                        className={`w-full text-left px-3 py-2 border-t first:border-t-0 border-border/40 hover:bg-muted ${form.source === `signal:${s.id}` ? "bg-primary/5" : ""}`}>
-                        <div className="text-[11px] text-muted-foreground">{monitoringDue ? "Monitoring review due · " : ""}{when}{s.related_person ? ` · ${s.related_person}` : ""} · {kind}</div>
-                        <div className="text-sm text-foreground whitespace-pre-wrap break-words">{(s.description || "—").trim()}</div>
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
+          {/* Queue tabs — New signals vs Monitoring due, so monitored signals returning for review
+              are a visible group of their own (not hidden inside one dropdown). */}
+          <div>
+            <div className="flex items-center gap-1 border-b border-border mb-2">
+              {([["new", `New signals (${newSignals.length})`], ["due", `Monitoring due (${dueSignals.length})`]] as const).map(([k, label]) => (
+                <button key={k} type="button" onClick={() => setQueueTab(k)}
+                  className={`px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${queueTab === k ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>
+                  {label}
+                </button>
+              ))}
+            </div>
+            <label className="text-[11px] text-muted-foreground">{queueTab === "due" ? "Choose a monitoring review to complete" : "Choose the signal this decision relates to"}</label>
+            <div className="mt-1 max-h-72 overflow-y-auto rounded-lg border-2 border-border bg-background divide-y divide-border/40">
+              {tabSignals.length === 0 ? (
+                <div className="px-3 py-3 text-sm text-muted-foreground">{queueTab === "due" ? "No monitoring reviews are due for this service on this date." : "No new signals awaiting review."}</div>
+              ) : tabSignals.map((s: any) => {
+                const kind = s.governance_domain || s.signal_type || "Signal";
+                const when = fmtWhen(s.created_at || s.entry_date);
+                const monitoringDue = String(s.review_status) === "Monitoring";
+                const isSel = form.source === `signal:${s.id}`;
+                return (
+                  <button key={s.id} type="button" onClick={() => setForm({ ...form, source: `signal:${s.id}`, severity: isSeverity(s.severity) ? String(s.severity) : "" })}
+                    className={`w-full text-left px-3 py-2 hover:bg-muted ${isSel ? "bg-primary/5" : ""}`}>
+                    <div className="text-[11px] text-muted-foreground">{monitoringDue ? "Monitoring review due · " : ""}{when}{s.related_person ? ` · ${s.related_person}` : ""} · {kind}</div>
+                    <div className="text-sm text-foreground whitespace-pre-wrap break-words">{(s.description || "—").trim()}</div>
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {selectedSignal && (
