@@ -56,7 +56,7 @@ export function GovernanceDecisions({
   const [busy, setBusy] = useState(false);
   const [form, setForm] = useState({
     what: "",
-    decision: "Create Action" as string,
+    decision: "" as string, // no preselected decision — the RM chooses "What should happen now?"
     owner_id: "",
     due_at: "",
     source: "",
@@ -66,7 +66,11 @@ export function GovernanceDecisions({
     rationale: "",
     observation: "",
     evidence_reference: "",
+    trigger: "",          // Monitor: "When should action be taken sooner?"
+    change_outcome: "",   // Returning review: "How has the concern changed?"
+    immediate_action: "", // Escalate: "What immediate action is already in place?"
   });
+  const CHANGE_OUTCOMES = ["Improved", "Unchanged", "Worsened", "Not enough evidence"] as const;
   const [srcOpen, setSrcOpen] = useState(false);
   // Latest governance decision per source signal — used to show the previous monitoring decision
   // (what was watched, rationale, intended outcome, owner, review due) when a monitoring review
@@ -239,33 +243,33 @@ export function GovernanceDecisions({
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (!form.source) { toast.error("Choose the signal this decision relates to."); return; }
-    if (form.what.trim().length < 5) { toast.error("Describe the governance decision."); return; }
-    if (form.rationale.trim().length < 10) { toast.error("Record why this decision is appropriate."); return; }
-    if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) {
-      toast.error("Choose an accountable owner for this decision.");
+    // The review evidence is required on every review; the label changes by branch.
+    if (form.observation.trim().length < 10) {
+      toast.error(form.decision === "Close" ? "Record the evidence supporting closure (at least 10 characters)." : returningReview ? "Record what happened since the last review (at least 10 characters)." : "Record what information you have checked (at least 10 characters).");
       return;
     }
-    if (form.decision === "Monitor" && !form.due_at) {
-      toast.error("Monitoring requires a next review date.");
+    if (returningReview && !form.change_outcome) { toast.error("Record how the concern has changed."); return; }
+    if (!form.severity) { toast.error("Set the current severity — Registered Manager triage is required."); return; }
+    if (!form.decision) { toast.error("Choose what should happen now."); return; }
+    if (form.rationale.trim().length < 10) { toast.error(form.decision === "Close" ? "Record why this signal can be closed." : "Record why you have chosen this."); return; }
+    // The branch's primary description (what is watched / needs doing / response needed) maps to
+    // what_is_happening. Close has no such field — use the signal's own description.
+    const branchWhat = form.decision === "Close"
+      ? (String(selectedSignal?.description || "").trim().slice(0, 255) || "Close signal")
+      : form.what.trim();
+    if (form.decision !== "Close" && branchWhat.length < 5) {
+      toast.error(form.decision === "Monitor" ? "Describe what needs watching." : form.decision === "Escalate" ? "Describe the response needed." : "Describe what needs doing.");
       return;
     }
-    if (form.decision === "Monitor" && form.due_at <= new Date().toISOString().slice(0, 10)) {
-      toast.error("Choose a future monitoring review date.");
-      return;
-    }
-    if (form.decision === "Create Action" && !form.due_at) { toast.error("A governance action requires a due date."); return; }
+    if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) { toast.error(form.decision === "Monitor" ? "Choose a monitoring owner." : "Choose who to assign the action to."); return; }
+    if ((form.decision === "Monitor" || form.decision === "Create Action") && !form.due_at) { toast.error(form.decision === "Monitor" ? "Set the next review date." : "Set the action deadline."); return; }
+    if (form.decision === "Monitor" && form.due_at <= new Date().toISOString().slice(0, 10)) { toast.error("Choose a future monitoring review date."); return; }
+    if (form.decision === "Monitor" && form.trigger.trim().length < 3) { toast.error("Record when action should be taken sooner."); return; }
     if ((form.decision === "Monitor" || (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED")) && form.intended_outcome.trim().length < 10) {
-      toast.error(form.decision === "Monitor" ? "Record what the monitoring review should establish." : "Record the intended outcome so effectiveness can later be judged.");
+      toast.error(form.decision === "Monitor" ? "Record what the next review should establish." : "Record the result this action should achieve.");
       return;
     }
-    if (!form.severity) { toast.error("Set the signal severity — Registered Manager triage is required."); return; }
-    // A returning monitoring review must record what happened during monitoring; a Close must
-    // record the evidence supporting closure (brief: closure needs supporting evidence/findings).
-    const isMonitoringReview = String(selectedSignal?.review_status) === "Monitoring";
-    if ((isMonitoringReview || form.decision === "Close") && form.observation.trim().length < 10) {
-      toast.error(isMonitoringReview ? "Record what happened during monitoring (at least 10 characters)." : "Record the evidence supporting closure (at least 10 characters).");
-      return;
-    }
+    if (form.decision === "Escalate" && form.immediate_action.trim().length < 3) { toast.error("Record the immediate action already in place (or state none)."); return; }
 
     setBusy(true);
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
@@ -274,16 +278,19 @@ export function GovernanceDecisions({
       await apiClient.post("/governance-decisions", {
         house_id: houseId,
         pulse_entry_id: sid,
-        what_is_happening: form.what.trim(),
+        what_is_happening: branchWhat,
         decision: form.decision,
         decision_rationale: form.rationale.trim(),
         severity: form.severity,
         owner_id: form.owner_id || null,
         due_at: form.due_at || null,
-        action_description: form.what.trim(),
+        action_description: branchWhat,
         intended_outcome: form.intended_outcome.trim() || null,
         monitoring_observation: form.observation.trim() || null,
         evidence_reference: form.evidence_reference.trim() || null,
+        monitoring_trigger: form.decision === "Monitor" ? (form.trigger.trim() || null) : null,
+        change_outcome: returningReview ? (form.change_outcome || null) : null,
+        immediate_action: form.decision === "Escalate" ? (form.immediate_action.trim() || null) : null,
         review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
         idempotency_key: idemKey.current,
       });
@@ -295,7 +302,7 @@ export function GovernanceDecisions({
       } else {
         toast.success("Decision recorded");
       }
-      setForm({ what: "", decision: "Create Action", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "", observation: "", evidence_reference: "" });
+      setForm({ what: "", decision: "", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "", observation: "", evidence_reference: "", trigger: "", change_outcome: "", immediate_action: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
@@ -357,6 +364,8 @@ export function GovernanceDecisions({
     [allDecisions]
   );
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
+  // A returning monitoring review (the selected signal is in the Monitoring state) vs a first review.
+  const returningReview = !!selectedSignal && String(selectedSignal.review_status) === "Monitoring";
   // New (undecided) signals vs monitoring reviews that are due/overdue — the two queue tabs.
   const newSignals = useMemo(() => signals.filter((s: any) => { const st = String(s.review_status || "New"); return st === "New" || st === ""; }), [signals]);
   const dueSignals = useMemo(() => signals.filter((s: any) => String(s.review_status) === "Monitoring"), [signals]);
@@ -517,90 +526,165 @@ export function GovernanceDecisions({
             );
           })()}
 
-          {/* Capture what happened during monitoring (returning review) or the evidence supporting
-              closure. Stored as the decision's review findings and preserved as linked history. */}
-          {selectedSignal && (String(selectedSignal.review_status) === "Monitoring" || form.decision === "Close") && (
-            <div className="space-y-2">
+          {selectedSignal && (<>
+            <div className="text-xs font-semibold uppercase tracking-wide text-primary">{returningReview ? "Review monitored signal" : "Review new signal"}</div>
+
+            {/* Review evidence — what the RM checked / what happened since the last review / closure evidence. */}
+            <div>
+              <label className="text-[11px] text-muted-foreground">
+                {form.decision === "Close" ? "What evidence supports closing this signal?" : returningReview ? "What happened since the last review?" : "What information have you checked?"} <span className="text-red-500">*</span>
+              </label>
+              <textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} rows={2}
+                placeholder={returningReview ? "Describe what was observed, what changed and anything still unclear." : "Record the information, clarification or feedback used in your review."}
+                className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+            </div>
+            <div>
+              <label className="text-[11px] text-muted-foreground">Evidence reference · optional</label>
+              <input value={form.evidence_reference} onChange={(e) => setForm({ ...form, evidence_reference: e.target.value })}
+                placeholder="Record or document reference"
+                className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+            </div>
+
+            {returningReview && (
               <div>
-                <label className="text-[11px] text-muted-foreground">
-                  {String(selectedSignal.review_status) === "Monitoring" ? "What happened during monitoring?" : "Evidence supporting closure"} <span className="text-red-500">*</span>
-                </label>
-                <textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} rows={2}
-                  placeholder="Summarise the evidence checked, what changed and anything still unclear."
-                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                <label className="text-[11px] text-muted-foreground">How has the concern changed? <span className="text-red-500">*</span></label>
+                <select value={form.change_outcome} onChange={(e) => setForm({ ...form, change_outcome: e.target.value })}
+                  className={`w-full mt-1 p-2.5 border-2 rounded-lg bg-background text-sm ${form.change_outcome ? "border-border" : "border-red-300"}`}>
+                  <option value="">Choose an update…</option>
+                  {CHANGE_OUTCOMES.map((o) => <option key={o} value={o}>{o}</option>)}
+                </select>
               </div>
-              <div>
-                <label className="text-[11px] text-muted-foreground">Evidence reference · optional</label>
-                <input value={form.evidence_reference} onChange={(e) => setForm({ ...form, evidence_reference: e.target.value })}
-                  placeholder="Record or document reference"
-                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+            )}
+
+            {/* Current severity — previous recorded severity shown for confirm/change. */}
+            <div>
+              <label className="text-[11px] text-muted-foreground">Current severity · Registered Manager triage <span className="text-red-500">*</span>{selectedSignal.severity ? <span className="normal-case text-muted-foreground"> · previously {String(selectedSignal.severity)}</span> : null}</label>
+              <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}
+                className={`w-full mt-1 p-2.5 border-2 rounded-lg bg-background text-sm ${form.severity ? "border-border" : "border-red-300"}`}>
+                <option value="">Set severity…</option>
+                {SEVERITIES.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
+              </select>
+            </div>
+
+            {/* What should happen now? — the decision, before the conditional fields. No preselect. */}
+            <div>
+              <label className="text-[11px] text-muted-foreground">What should happen now? <span className="text-red-500">*</span></label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mt-1">
+                {DECISIONS.map((d) => {
+                  const label = d === "Monitor" && returningReview ? "Continue monitoring" : d;
+                  const active = form.decision === d;
+                  return (
+                    <button key={d} type="button"
+                      onClick={() => setForm({ ...form, decision: d, owner_id: "", due_at: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", trigger: "", immediate_action: "" })}
+                      className={`rounded-lg border-2 px-2 py-2 text-sm ${active ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border hover:bg-muted"}`}>
+                      {label}
+                    </button>
+                  );
+                })}
               </div>
             </div>
-          )}
 
-          {/* Registered Manager severity — required to triage any signal (including Close). */}
-          <div>
-            <label className="text-[11px] text-muted-foreground">Severity · Registered Manager triage <span className="text-red-500">*</span></label>
-            <select value={form.severity} onChange={(e) => setForm({ ...form, severity: e.target.value })}
-              className={`w-full mt-1 p-2.5 border-2 rounded-lg bg-background text-sm ${form.severity ? "border-border" : "border-red-300"}`}>
-              <option value="">Set severity…</option>
-              {SEVERITIES.map((sv) => <option key={sv} value={sv}>{sv}</option>)}
-            </select>
-          </div>
+            {form.decision && (<>
+              <div>
+                <label className="text-[11px] text-muted-foreground">{form.decision === "Close" ? "Why can this signal be closed?" : "Why have you chosen this?"} <span className="text-red-500">*</span></label>
+                <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
+                  placeholder={form.decision === "Close" ? "Explain why this signal no longer needs follow-up." : "Give a short reason based on the evidence reviewed."}
+                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+              </div>
 
-          <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2}
-            placeholder="Record the management decision and what is required next."
-            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+              {form.decision === "Monitor" && <div className="space-y-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground">{returningReview ? "What needs watching now?" : "What needs watching?"} <span className="text-red-500">*</span></label>
+                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="Describe exactly what staff should watch." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Monitoring owner <span className="text-red-500">*</span></label>
+                    <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                      <option value="">Choose a person…</option>
+                      {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Next review date <span className="text-red-500">*</span></label>
+                    <input type="date" value={form.due_at} min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">When should action be taken sooner? <span className="text-red-500">*</span></label>
+                  <input value={form.trigger} onChange={(e) => setForm({ ...form, trigger: e.target.value })} placeholder="The change that should trigger action or escalation before the next review." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">What should the next review establish? <span className="text-red-500">*</span></label>
+                  <textarea value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2} placeholder="The information needed at the next review." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>
+                <p className="text-[11px] text-muted-foreground">The signal leaves the live queue now and returns when the review date is due.</p>
+              </div>}
 
-          <div>
-            <label className="text-[11px] text-muted-foreground">{form.decision === "Close" ? "Reason for closing this signal" : "Reason for your decision"} <span className="text-red-500">*</span></label>
-            <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
-              placeholder={form.decision === "Close" ? "Why is it appropriate to close this signal now?" : "Why is this the appropriate governance decision?"}
-              className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
-          </div>
+              {form.decision === "Create Action" && <div className="space-y-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground">What needs doing? <span className="text-red-500">*</span></label>
+                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="Describe the work clearly." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">How should this action be followed up?</label>
+                  <select value={form.review_requirement} onChange={(e) => setForm({ ...form, review_requirement: e.target.value as any, intended_outcome: e.target.value === "COMPLETION_ONLY" ? "" : form.intended_outcome })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                    <option value="EFFECTIVENESS_REQUIRED">Check whether it worked</option>
+                    <option value="COMPLETION_ONLY">Confirm completion only</option>
+                  </select>
+                </div>
+                {form.review_requirement === "EFFECTIVENESS_REQUIRED" && <div>
+                  <label className="text-[11px] text-muted-foreground">What result should this action achieve? <span className="text-red-500">*</span></label>
+                  <textarea value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2} placeholder="The observable change expected if the action works." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Assign action to <span className="text-red-500">*</span></label>
+                    <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                      <option value="">Choose a person…</option>
+                      {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Action deadline <span className="text-red-500">*</span></label>
+                    <input type="date" value={form.due_at} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                  </div>
+                </div>
+              </div>}
 
-          {form.decision === "Create Action" && <select
-            value={form.review_requirement}
-            onChange={(e) => setForm({ ...form, review_requirement: e.target.value as any, intended_outcome: e.target.value === "COMPLETION_ONLY" ? "" : form.intended_outcome })}
-            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-            <option value="EFFECTIVENESS_REQUIRED">Review whether this worked</option>
-            <option value="COMPLETION_ONLY">Confirm completion only</option>
-          </select>}
+              {form.decision === "Escalate" && <div className="space-y-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground">What response is needed? <span className="text-red-500">*</span></label>
+                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="State what you need the recipient to do." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground">What immediate action is already in place? <span className="text-red-500">*</span></label>
+                  <textarea value={form.immediate_action} onChange={(e) => setForm({ ...form, immediate_action: e.target.value })} rows={2} placeholder="Record any immediate action, or state that none has been taken." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Escalate to <span className="text-red-500">*</span></label>
+                    <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+                      <option value="">Choose a recipient…</option>
+                      {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-muted-foreground">Response due</label>
+                    <input type="date" value={form.due_at} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                  </div>
+                </div>
+              </div>}
 
-          {(form.decision === "Monitor" || (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED")) && <textarea
-            value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2}
-            placeholder={form.decision === "Monitor" ? "What should the next monitoring review establish?" : "What should change if this action is effective?"}
-            className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />}
+              {form.decision === "Close" && <p className="text-[11px] text-muted-foreground">The signal and its history remain available. Closing this signal does not close linked risks, actions or escalations.</p>}
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <select value={form.decision} onChange={(e) => setForm({ ...form, decision: e.target.value, owner_id: "", due_at: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED" })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm">
-              {DECISIONS.map((d) => <option key={d} value={d}>{d}</option>)}
-            </select>
-            <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"}>
-              <option value="">{form.decision === "Escalate" ? "Escalate to…" : form.decision === "Monitor" ? "Monitoring owner…" : "Assign to…"}</option>
-              {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
-            </select>
-            <input type="date" value={form.due_at} onChange={(e) => setForm({ ...form, due_at: e.target.value })}
-              min={form.decision === "Monitor" ? new Date(Date.now() + 86400000).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10)}
-              title={form.decision === "Monitor" ? "Next monitoring review date" : form.decision === "Escalate" ? "Response due" : "Action due date"}
-              className="p-2.5 border-2 border-border rounded-lg bg-background text-sm" disabled={form.decision === "Close"} />
-          </div>
-          {form.decision === "Monitor" && <p className="text-[11px] text-muted-foreground">Monitor requires a review date. The signal leaves the live queue now and returns when that review date is due.</p>}
-
-          <p className="text-[11px] text-muted-foreground">
-            {form.decision === "Create Action"
-              ? "This records the signal decision and assigns its linked action in one step — no second allocation is needed."
-              : form.decision === "Escalate"
-                ? "This records the decision and opens the escalation for follow-through."
-                : form.decision === "Close"
-                  ? "This records the decision against the signal. Closing does not automatically close linked risks, actions or escalations."
-                  : "This records the decision against the signal."}
-          </p>
-          <div className="flex justify-end">
-            <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
-              <Plus size={15} /> {busy ? "Recording…" : form.decision === "Create Action" ? "Record decision & assign action" : `Record ${form.decision.toLowerCase()} decision`}
-            </button>
-          </div>
+              <div className="flex justify-end">
+                <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
+                  <Plus size={15} /> {busy ? "Saving…" : form.decision === "Create Action" ? "Save decision & assign action" : "Save decision"}
+                </button>
+              </div>
+            </>)}
+          </>)}
         </div>
       )}
 

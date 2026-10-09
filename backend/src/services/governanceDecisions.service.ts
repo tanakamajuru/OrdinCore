@@ -45,6 +45,12 @@ export type DecisionInput = {
   monitoring_observation?: string | null;
   /** Optional reference to a record/document that evidences the finding. */
   evidence_reference?: string | null;
+  /** Monitor — "When should action be taken sooner?" (trigger for acting before the next review). */
+  monitoring_trigger?: string | null;
+  /** Returning monitoring review — "How has the concern changed?" (Improved/Unchanged/Worsened/Not enough evidence). */
+  change_outcome?: string | null;
+  /** Escalate — "What immediate action is already in place?" */
+  immediate_action?: string | null;
 };
 
 export const governanceDecisionsService = {
@@ -146,14 +152,16 @@ export const governanceDecisionsService = {
       `INSERT INTO governance_reviews (
          company_id, service_id, risk_id, escalation_id, pulse_entry_id, cluster_id, daily_governance_log_id,
          review_type, reviewed_by, what_is_happening, decision, escalation_required, action_required, evidence, decision_rationale,
-         decision_owner_id, due_at, intended_outcome, decision_status, idempotency_key
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'RM_REVIEW',$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         decision_owner_id, due_at, intended_outcome, decision_status, idempotency_key,
+         monitoring_trigger, change_outcome, immediate_action
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,'RM_REVIEW',$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22)
        ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
        RETURNING *`,
       [c, input.house_id ?? null, input.risk_id ?? null, input.escalation_id ?? null, input.pulse_entry_id ?? null,
        input.cluster_id ?? null, input.daily_governance_log_id ?? null, u, input.what_is_happening.trim(), decision,
        decision === 'Escalate', decision === 'Create Action', evidenceText, input.decision_rationale.trim(), input.owner_id ?? null, input.due_at ?? null,
-       input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null]
+       input.intended_outcome ?? null, decision === 'Monitor' ? 'Monitoring' : 'Open', input.idempotency_key ?? null,
+       input.monitoring_trigger?.trim() || null, input.change_outcome?.trim() || null, input.immediate_action?.trim() || null]
     );
     // Idempotent replay — the decision (and its consequence) already exist.
     if (!review.rows[0]) {
@@ -406,6 +414,7 @@ export const governanceDecisionsService = {
       `SELECT gr.id, gr.what_is_happening, gr.decision, gr.decision_status, gr.due_at,
               gr.intended_outcome, gr.created_at, gr.review_date, gr.service_id, gr.pulse_entry_id,
               gr.decision_rationale, gr.evidence AS findings,
+              gr.monitoring_trigger, gr.change_outcome, gr.immediate_action,
               h.name AS house_name,
               ow.first_name || ' ' || ow.last_name AS owner_name,
               rb.first_name || ' ' || rb.last_name AS recorded_by_name,
