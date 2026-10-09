@@ -46,6 +46,11 @@ export function SignalDetailScreen() {
   // "What happened during monitoring?" / evidence supporting closure, plus an optional reference.
   const [observation, setObservation] = useState('');
   const [evidenceRef, setEvidenceRef] = useState('');
+  // Returning review: How has the concern changed? Monitor: act-sooner trigger. Escalate: immediate action.
+  const [howChanged, setHowChanged] = useState('');
+  const [trigger, setTrigger] = useState('');
+  const [immediateAction, setImmediateAction] = useState('');
+  const CHANGE_OUTCOMES = ['Improved', 'Unchanged', 'Worsened', 'Not enough evidence'];
   const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'|''>('');
   const [decisionBusy, setDecisionBusy] = useState(false);
   const [decisionKey, setDecisionKey] = useState(() => `mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`);
@@ -84,6 +89,9 @@ export function SignalDetailScreen() {
     if (dueRequired && !dueAt.trim()) { Alert.alert(decision === 'Monitor' ? 'Add a review date' : 'Add a due date', 'Pick a date below.'); return; }
     if (intendedOutcomeRequired && intendedOutcome.trim().length < 10) { Alert.alert('Intended outcome', decision === 'Monitor' ? 'Record what the monitoring review should establish.' : 'Record what should change if the action works.'); return; }
     if (observationRequired && observation.trim().length < 10) { Alert.alert(isMonitoringReview ? 'What happened during monitoring?' : 'Evidence supporting closure', 'Record this before saving (at least 10 characters).'); return; }
+    if (isMonitoringReview && !howChanged) { Alert.alert('How has the concern changed?', 'Choose Improved, Unchanged, Worsened or Not enough evidence.'); return; }
+    if (decision === 'Monitor' && trigger.trim().length < 3) { Alert.alert('Act sooner if…', 'Record when action should be taken before the next review.'); return; }
+    if (decision === 'Escalate' && immediateAction.trim().length < 3) { Alert.alert('Immediate action in place', 'Record any immediate action already in place, or state none.'); return; }
     setDecisionBusy(true);
     try {
       await api.post('/governance-decisions', {
@@ -95,10 +103,13 @@ export function SignalDetailScreen() {
         intended_outcome: intendedOutcomeRequired ? intendedOutcome.trim() : undefined,
         monitoring_observation: observation.trim() || undefined,
         evidence_reference: evidenceRef.trim() || undefined,
+        change_outcome: isMonitoringReview ? (howChanged || undefined) : undefined,
+        monitoring_trigger: decision === 'Monitor' ? (trigger.trim() || undefined) : undefined,
+        immediate_action: decision === 'Escalate' ? (immediateAction.trim() || undefined) : undefined,
         idempotency_key: decisionKey,
       });
       Alert.alert('Decision recorded', 'The signal and any linked work now use the same governance record as the web app.');
-      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setObservation(''); setEvidenceRef(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
+      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setObservation(''); setEvidenceRef(''); setHowChanged(''); setTrigger(''); setImmediateAction(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
       setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
     } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
     finally { setDecisionBusy(false); }
@@ -183,6 +194,14 @@ export function SignalDetailScreen() {
             <TextArea value={evidenceRef} onChangeText={setEvidenceRef} placeholder="Record or document reference" minHeight={40} />
           </>}
 
+          {/* Returning review — how has the concern changed? */}
+          {isMonitoringReview && <>
+            <Label>How has the concern changed?</Label>
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {CHANGE_OUTCOMES.map((o) => <Chip key={o} label={o} active={howChanged === o} onPress={() => setHowChanged(o)} />)}
+            </Row>
+          </>}
+
           {decision === 'Create Action' && <>
             <Label>Review requirement</Label>
             <Row gap={6} style={{ flexWrap: 'wrap' }}>
@@ -195,6 +214,18 @@ export function SignalDetailScreen() {
           {intendedOutcomeRequired && <>
             <Label>3 · {decision === 'Monitor' ? 'What should the review establish?' : 'Intended outcome'}</Label>
             <TextArea value={intendedOutcome} onChangeText={setIntendedOutcome} placeholder={decision === 'Monitor' ? 'What evidence should be available at the next review?' : 'What should change if this action is effective?'} minHeight={60} required />
+          </>}
+
+          {/* Monitor — when should action be taken sooner than the next review? */}
+          {decision === 'Monitor' && <>
+            <Label>When should action be taken sooner?</Label>
+            <TextArea value={trigger} onChangeText={setTrigger} placeholder="The change that should trigger action or escalation before the next review." minHeight={56} required />
+          </>}
+
+          {/* Escalate — what immediate action is already in place? */}
+          {decision === 'Escalate' && <>
+            <Label>What immediate action is already in place?</Label>
+            <TextArea value={immediateAction} onChangeText={setImmediateAction} placeholder="Record any immediate action, or state that none has been taken." minHeight={56} required />
           </>}
 
           {needsOwner && <>
