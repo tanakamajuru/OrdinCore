@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { Fragment, useEffect, useState } from "react";
 import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
 import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
 import { useNavigate } from "react-router";
@@ -73,6 +73,24 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [patterns, setPatterns] = useState<any>({ within: [], across: [] });
   const [dismissed, setDismissed] = useState<any[]>([]);
   const [showDismissed, setShowDismissed] = useState(false);
+  const [dismissedSearch, setDismissedSearch] = useState("");
+  const [dismissedFrom, setDismissedFrom] = useState("");
+  const [dismissedTo, setDismissedTo] = useState("");
+  const [dismissedPage, setDismissedPage] = useState(1);
+  // Expanded "View history" rows: cluster id → { loading, detail } (linked signals + prior context).
+  const [dismissedDetail, setDismissedDetail] = useState<Record<string, { loading: boolean; detail?: any; error?: string }>>({});
+  const toggleDismissedHistory = async (id: string) => {
+    if (dismissedDetail[id]) { setDismissedDetail((m) => { const n = { ...m }; delete n[id]; return n; }); return; }
+    setDismissedDetail((m) => ({ ...m, [id]: { loading: true } }));
+    try {
+      const r: any = await apiClient.get(`/clusters/${id}`);
+      const detail = r?.data?.data ?? r?.data ?? null;
+      setDismissedDetail((m) => ({ ...m, [id]: { loading: false, detail } }));
+    } catch (e: any) {
+      setDismissedDetail((m) => ({ ...m, [id]: { loading: false, error: e?.response?.data?.message || "Could not load this concern's history." } }));
+    }
+  };
+  const DISMISSED_PAGE_SIZE = 10;
   const [registerRows, setRegisterRows] = useState<any[]>([]);
   const [regType, setRegType] = useState<"active" | "strategic" | "closed">("active");
   const [lens, setLens] = useState<any[]>([]);
@@ -344,37 +362,106 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
               </div>
             )}
 
-            {/* Dismissed patterns — the audit trail: what was set aside, by whom, when and why. */}
-            <div className="mt-8 border-t border-border pt-4">
-              <button onClick={() => setShowDismissed((v) => !v)} className="text-lg text-indigo-700 font-semibold flex items-center gap-2 hover:text-primary">
-                {showDismissed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className=" text-lg text-indigo-700 font-normalw-4 h-4" />}
-                Dismissed patterns <span className="text-lg text-indigo-700 font-normal">({dismissed.length})</span>
-              </button>
-              {showDismissed && (
-                dismissed.length === 0 ? (
-                  <p className="text-sm text-muted-foreground mt-3">No patterns have been dismissed.</p>
-                ) : (
-                  <div className="mt-3 bg-card border border-border rounded-xl overflow-x-auto">
-                    <table className="w-full text-sm">
-                      <thead><tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
-                        <th className="py-2.5 px-3">Pattern</th><th className="px-2">Service</th><th className="px-2">Reason</th><th className="px-2">Dismissed by</th><th className="px-2 whitespace-nowrap">Date &amp; time</th>
-                      </tr></thead>
-                      <tbody>
-                        {dismissed.map((d: any) => (
-                          <tr key={d.id} className="border-b border-border/50">
-                            <td className="py-2.5 px-3 font-medium">{d.domain}{d.person && d.person !== "—" ? ` · ${d.person}` : ""}</td>
-                            <td className="px-2 text-muted-foreground">{d.house || (d.scope === "cross_service" ? "Cross-service" : "—")}</td>
-                            <td className="px-2 text-muted-foreground max-w-[280px]">{d.reason || "—"}</td>
-                            <td className="px-2 text-muted-foreground">{d.dismissedBy}</td>
-                            <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedAt ? new Date(d.dismissedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—"}</td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )
-              )}
-            </div>
+            {/* Dismissed concerns — the audit trail: what was set aside (or lapsed by the system),
+                by whom, when, why and through which process; each row opens its full history. */}
+            {(() => {
+              const q = dismissedSearch.trim().toLowerCase();
+              const filtered = dismissed.filter((d: any) => {
+                if (q) {
+                  const hay = `${d.domain || ""} ${d.person || ""} ${d.reason || ""} ${d.house || ""} ${d.dismissedBy || ""} ${d.eventType || ""}`.toLowerCase();
+                  if (!hay.includes(q)) return false;
+                }
+                if (dismissedFrom && (!d.dismissedAt || new Date(d.dismissedAt) < new Date(`${dismissedFrom}T00:00:00`))) return false;
+                if (dismissedTo && (!d.dismissedAt || new Date(d.dismissedAt) > new Date(`${dismissedTo}T23:59:59`))) return false;
+                return true;
+              });
+              const totalPages = Math.max(1, Math.ceil(filtered.length / DISMISSED_PAGE_SIZE));
+              const page = Math.min(dismissedPage, totalPages);
+              const paged = filtered.slice((page - 1) * DISMISSED_PAGE_SIZE, page * DISMISSED_PAGE_SIZE);
+              return (
+              <div className="mt-8 border-t border-border pt-4">
+                <button onClick={() => setShowDismissed((v) => !v)} className="text-lg text-indigo-700 font-semibold flex items-center gap-2 hover:text-primary">
+                  {showDismissed ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+                  Dismissed concerns <span className="text-lg text-indigo-700 font-normal">({dismissed.length})</span>
+                </button>
+                {showDismissed && (
+                  dismissed.length === 0 ? (
+                    <p className="text-sm text-muted-foreground mt-3">No concern has been dismissed.</p>
+                  ) : (
+                    <div className="mt-3">
+                      <div className="flex flex-wrap items-end gap-2 mb-3">
+                        <div className="flex-1 min-w-[180px]">
+                          <label className="text-[11px] text-muted-foreground block">Search</label>
+                          <input value={dismissedSearch} onChange={(e) => { setDismissedSearch(e.target.value); setDismissedPage(1); }} placeholder="Theme, person, reason, service…" className="w-full p-2 border-2 border-border rounded-lg bg-background text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground block">From</label>
+                          <input type="date" value={dismissedFrom} onChange={(e) => { setDismissedFrom(e.target.value); setDismissedPage(1); }} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+                        </div>
+                        <div>
+                          <label className="text-[11px] text-muted-foreground block">To</label>
+                          <input type="date" value={dismissedTo} onChange={(e) => { setDismissedTo(e.target.value); setDismissedPage(1); }} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+                        </div>
+                        {(dismissedSearch || dismissedFrom || dismissedTo) && <button onClick={() => { setDismissedSearch(""); setDismissedFrom(""); setDismissedTo(""); setDismissedPage(1); }} className="px-3 py-2 text-sm text-primary hover:underline">Clear</button>}
+                        <span className="text-xs text-muted-foreground ml-auto self-center">{filtered.length} result{filtered.length === 1 ? "" : "s"}</span>
+                      </div>
+                      <div className="bg-card border border-border rounded-xl overflow-x-auto">
+                        <table className="w-full text-sm">
+                          <thead><tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
+                            <th className="py-2.5 px-3">Concern</th><th className="px-2">Service</th><th className="px-2">Reason</th><th className="px-2">By / process</th><th className="px-2 whitespace-nowrap">Date &amp; time</th><th className="px-2"></th>
+                          </tr></thead>
+                          <tbody>
+                            {paged.length === 0 ? (
+                              <tr><td colSpan={6} className="py-4 px-3 text-muted-foreground">No dismissed concern matches these filters.</td></tr>
+                            ) : paged.map((d: any) => {
+                              const expanded = dismissedDetail[d.id];
+                              return (
+                              <Fragment key={d.id}>
+                              <tr className="border-b border-border/50">
+                                <td className="py-2.5 px-3 font-medium">{d.domain}{d.person && d.person !== "—" ? ` · ${d.person}` : ""}</td>
+                                <td className="px-2 text-muted-foreground">{d.house || (d.scope === "cross_service" ? "Cross-service" : "—")}</td>
+                                <td className="px-2 text-muted-foreground max-w-[260px]">{d.reason || "—"}</td>
+                                <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedBy}{d.eventType ? <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${d.eventType === "System lapse" ? "bg-slate-100 text-slate-600" : "bg-indigo-50 text-indigo-700"}`}>{d.eventType}</span> : null}</td>
+                                <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedAt ? `${new Date(d.dismissedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}${d.timestampReliable === false ? " (legacy)" : ""}` : "Not recorded"}</td>
+                                <td className="px-2 whitespace-nowrap"><button onClick={() => toggleDismissedHistory(d.id)} className="text-xs text-primary hover:underline">{expanded ? "Hide" : "View history"}</button></td>
+                              </tr>
+                              {expanded && <tr className="border-b border-border/50 bg-muted/20"><td colSpan={6} className="px-3 py-3">
+                                {expanded.loading ? <p className="text-xs text-muted-foreground">Loading history…</p>
+                                 : expanded.error ? <p className="text-xs text-destructive">{expanded.error}</p>
+                                 : (() => {
+                                     const sigs = expanded.detail?.signals || [];
+                                     return <div className="text-xs space-y-2">
+                                       <div className="text-muted-foreground"><span className="font-semibold text-foreground">Reason for dismissal:</span> {d.reason || "Not recorded"} · <span className="font-semibold text-foreground">Process:</span> {d.eventType || "—"} · <span className="font-semibold text-foreground">By:</span> {d.dismissedBy}</div>
+                                       <div className="font-semibold text-foreground">Linked signals ({sigs.length})</div>
+                                       {sigs.length === 0 ? <p className="text-muted-foreground">No linked signals are recorded for this concern.</p> : (
+                                         <ul className="space-y-1">
+                                           {sigs.map((s: any) => <li key={s.id} className="text-muted-foreground">{s.entry_date ? `${new Date(s.entry_date).toLocaleDateString("en-GB")} · ` : ""}{s.house ? `${s.house} · ` : ""}{s.related_person ? `${s.related_person} · ` : ""}{s.description || "—"}</li>)}
+                                         </ul>
+                                       )}
+                                     </div>;
+                                   })()}
+                              </td></tr>}
+                              </Fragment>
+                            ); })}
+                          </tbody>
+                        </table>
+                      </div>
+                      {filtered.length > DISMISSED_PAGE_SIZE && (
+                        <div className="flex items-center justify-between gap-4 pt-2">
+                          <span className="text-xs text-muted-foreground">Showing {(page - 1) * DISMISSED_PAGE_SIZE + 1}–{Math.min(page * DISMISSED_PAGE_SIZE, filtered.length)} of {filtered.length}</span>
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => setDismissedPage((p) => Math.max(1, p - 1))} disabled={page <= 1} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Previous</button>
+                            <span className="text-sm text-muted-foreground">Page {page} of {totalPages}</span>
+                            <button onClick={() => setDismissedPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages} className="px-3 py-1.5 text-sm border-2 border-border rounded hover:bg-muted disabled:opacity-40">Next</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                )}
+              </div>
+              );
+            })()}
           </div>
         )}
 
