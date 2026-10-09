@@ -35,7 +35,21 @@ export function ActionEffectivenessPanels() {
   const [remediationRequirement,setRemediationRequirement]=useState<"COMPLETION_ONLY"|"EFFECTIVENESS_REQUIRED">("EFFECTIVENESS_REQUIRED");
   const [searchParams] = useSearchParams();
   const focusedRef = useRef(false);
-  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setNextReviewDate(""); };
+  const [earlyReason, setEarlyReason] = useState("");
+  const [evidenceStillNeeded, setEvidenceStillNeeded] = useState("");
+  const openRating = (a: any) => { setRating(a); setOutcome(""); setEvidence(""); setNextReviewDate(""); setEarlyReason(""); setEvidenceStillNeeded(""); };
+  // Load one action's full rating payload — for an early review of a scheduled reassessment, or a
+  // focus deep-link that is not in the due list — and open the modal.
+  const openRatingById = async (id: string) => {
+    try {
+      const res: any = await apiClient.get(`/actions/${id}/effectiveness-review`);
+      const payload = res?.data?.data ?? res?.data ?? null;
+      if (payload) openRating(payload);
+      else toast.error("That action is not available for an effectiveness review.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "That action could not be opened for review.");
+    }
+  };
   const submitRating = async () => {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
     if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
@@ -45,9 +59,20 @@ export function ActionEffectivenessPanels() {
     if ((outcome === "Too Early To Assess" || outcome === "Not Effective") && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) {
       toast.error(outcome === "Too Early To Assess" ? "Choose a future effectiveness review date." : "Choose a future re-review date so the revised control is re-checked."); return;
     }
+    // An early review (before the scheduled date) must say why; Too Early must say what evidence is
+    // still needed. "Too early" is an outcome; "early" is the timing — they are independent.
+    const isEarly = !!(rating?.is_scheduled || (rating?.scheduled_review_at && new Date(rating.scheduled_review_at).getTime() > Date.now()));
+    if (isEarly && earlyReason.trim().length < 10) { toast.error("Record why you are reviewing before the scheduled date (at least 10 characters)."); return; }
+    if (outcome === "Too Early To Assess" && evidenceStillNeeded.trim().length < 3) { toast.error("Record what evidence is still needed."); return; }
     setSaving(true);
     try {
-      const res: any = await apiClient.patch(`/actions/${rating.id}/effectiveness`, { outcome, evidence: evidence.trim(), next_review_date: (["Too Early To Assess", "Not Effective", "Partially Effective"].includes(outcome) && nextReviewDate) ? nextReviewDate : undefined });
+      const res: any = await apiClient.patch(`/actions/${rating.id}/effectiveness`, {
+        outcome, evidence: evidence.trim(),
+        next_review_date: (["Too Early To Assess", "Not Effective", "Partially Effective"].includes(outcome) && nextReviewDate) ? nextReviewDate : undefined,
+        early_review_reason: isEarly ? earlyReason.trim() : undefined,
+        evidence_still_needed: outcome === "Too Early To Assess" ? evidenceStillNeeded.trim() : undefined,
+        scheduled_review_at_seen: rating?.scheduled_review_at || undefined,
+      });
       const reviewId = res?.data?.data?.review_id ?? res?.data?.review_id ?? null;
       toast.success("Effectiveness recorded");
       const rated = rating;
@@ -85,8 +110,12 @@ export function ActionEffectivenessPanels() {
   useEffect(() => {
     if (focusedRef.current || !data?.pending) return;
     const id = searchParams.get('focus');
-    const target = id && data.pending.find((action: any) => String(action.id) === id);
-    if (target) { focusedRef.current = true; openRating(target); }
+    if (!id) return;
+    const target = data.pending.find((action: any) => String(action.id) === id);
+    focusedRef.current = true;
+    if (target) openRating(target);
+    else void openRatingById(id); // resolve across scheduled / not-in-due records (early review)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, searchParams]);
 
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
@@ -224,7 +253,10 @@ export function ActionEffectivenessPanels() {
                 <p className="font-medium">{a.title}</p>
                 <p className="text-muted-foreground">{a.risk_title || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.effectiveness_outcome ? ` · last: ${a.effectiveness_outcome}` : ''}</p>
               </div>
-              <span className="shrink-0 text-xs text-muted-foreground">Re-review {a.next_review_at ? new Date(a.next_review_at).toLocaleDateString('en-GB') : '—'}</span>
+              <div className="shrink-0 flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Re-review {a.next_review_at ? new Date(a.next_review_at).toLocaleDateString('en-GB') : '—'}</span>
+                {canRate && <button onClick={() => openRatingById(a.id)} className="px-3 py-1.5 rounded-lg border border-amber-400 text-amber-700 text-xs font-medium hover:bg-amber-50">Review early</button>}
+              </div>
             </div>)}
           </CardContent>
         </Card>
@@ -348,6 +380,11 @@ export function ActionEffectivenessPanels() {
             <div className="p-6 pb-3 shrink-0">
               <h2 className="text-lg font-semibold text-foreground mb-1">Rate effectiveness</h2>
               <p className="text-sm text-muted-foreground">{rating.title}</p>
+              {(rating.is_scheduled || (rating.scheduled_review_at && new Date(rating.scheduled_review_at).getTime() > Date.now())) && (
+                <p className="mt-2 inline-flex items-center gap-1.5 text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-1">
+                  Reviewing before scheduled date{rating.scheduled_review_at ? ` · scheduled ${new Date(rating.scheduled_review_at).toLocaleDateString("en-GB")}` : ""}
+                </p>
+              )}
             </div>
             {/* One evidence packet: why the action existed, what was expected, what was done, and the
                 risk's trajectory afterwards. Rating is blocked until source + completion evidence exist.
@@ -380,6 +417,12 @@ export function ActionEffectivenessPanels() {
               {!rating.evidence_packet?.review_ready && <div className="rounded-lg border border-red-300 bg-red-50 p-3 text-sm text-red-800">
                 Rating blocked: {(rating.evidence_packet?.missing || ["Required evidence is missing."]).join(" ")}
               </div>}
+            {(rating.is_scheduled || (rating.scheduled_review_at && new Date(rating.scheduled_review_at).getTime() > Date.now())) && <div className="mb-3">
+              <label className="block text-sm text-muted-foreground mb-1">Why are you reviewing before the scheduled date? <span className="text-red-500">*</span></label>
+              <textarea value={earlyReason} onChange={(e) => setEarlyReason(e.target.value)} rows={2}
+                className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Explain what has changed or why an assessment is needed now." />
+            </div>}
             <p className="text-xs uppercase tracking-wide text-muted-foreground mb-2">Did the action reduce the risk?</p>
             <div className="grid grid-cols-2 gap-2 mb-4">
               {OUTCOMES.map((o) => (
@@ -398,6 +441,12 @@ export function ActionEffectivenessPanels() {
                   : "Re-review date (optional) — when to re-check this control"}
               </label>
               <input type="date" min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} value={nextReviewDate} onChange={(e) => setNextReviewDate(e.target.value)} className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm" />
+              {outcome === "Too Early To Assess" && <div className="mt-3">
+                <label className="block text-sm text-muted-foreground mb-1">What evidence is still needed? <span className="text-red-500">*</span></label>
+                <textarea value={evidenceStillNeeded} onChange={(e) => setEvidenceStillNeeded(e.target.value)} rows={2}
+                  className="w-full rounded-lg border-2 border-border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+                  placeholder="What would let you reach a final judgement next time?" />
+              </div>}
             </div>}
             </div>
             <div className="flex justify-end gap-2 p-6 pt-3 shrink-0 border-t border-border">

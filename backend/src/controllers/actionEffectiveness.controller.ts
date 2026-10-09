@@ -42,6 +42,18 @@ export class ActionEffectivenessController {
     }
   }
 
+  // Resolve one action's rating payload for an early review or focus deep-link (pending or scheduled).
+  async getForAction(req: Request, res: Response) {
+    try {
+      const data = await actionEffectivenessService.getEffectivenessForAction(req.user!.company_id!, req.params.id);
+      if (!data) return res.status(404).json({ success: false, message: 'Action not found, or not available to you.' });
+      if ((data as any).ineligible) return res.status(409).json({ success: false, message: (data as any).reason });
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load the effectiveness review' });
+    }
+  }
+
   async getSummary(req: Request, res: Response) {
     try {
       const end = String(req.query.end || new Date().toISOString());
