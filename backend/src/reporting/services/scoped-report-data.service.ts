@@ -296,6 +296,28 @@ export const scopedReportDataService = {
         ORDER BY COALESCE(sc.dismissed_at, sc.updated_at) DESC`, broadParams
     )).rows;
 
+    // Effectiveness review EVENTS selected by reviewed_at (not the action's completion date), so an
+    // action completed before the period but re-reviewed within it appears here — and every
+    // assessment is preserved, never replaced by the latest outcome. Carries the early-review fields.
+    const effectivenessReviews = (await query(
+      `SELECT aer.id, ra.title AS action, ra.intended_outcome,
+              aer.outcome::text AS outcome, aer.evidence, aer.reviewed_at AS date, aer.next_review_date,
+              aer.scheduled_review_at_snapshot, aer.is_early_review, aer.early_review_reason, aer.evidence_still_needed,
+              COALESCE(h.name, 'Organisation-wide') AS service,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer,
+              ra.risk_id, ra.escalation_id
+         FROM action_effectiveness_reviews aer
+         JOIN risk_actions ra ON ra.id = aer.action_id AND ra.company_id = aer.company_id
+         LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
+         LEFT JOIN houses h ON h.id = COALESCE(ra.house_id, r.house_id) AND h.company_id = ra.company_id
+         LEFT JOIN users u ON u.id = aer.reviewed_by AND u.company_id = aer.company_id
+        WHERE aer.company_id = $1
+          AND (COALESCE(ra.house_id, r.house_id) = ANY($2::uuid[]) OR ($6::boolean AND COALESCE(ra.house_id, r.house_id) IS NULL))
+          AND aer.reviewed_at BETWEEN $3::timestamptz AND $4::timestamptz
+          AND ($5::uuid IS NULL OR ra.service_user_id = $5)
+        ORDER BY aer.reviewed_at DESC`, broadParams
+    )).rows;
+
     const weeklyReviews = (await query(
       `SELECT wr.id, h.name AS service, wr.week_ending, wr.status,
               wr.governance_narrative AS content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
@@ -376,7 +398,7 @@ export const scopedReportDataService = {
       };
     });
 
-    const evidence = { signals, risks, actions, escalations, decisions, patterns, dismissed_concerns: dismissedConcerns, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
+    const evidence = { signals, risks, actions, escalations, decisions, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,

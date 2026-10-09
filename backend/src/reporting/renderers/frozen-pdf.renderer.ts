@@ -459,7 +459,14 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Reason', key: 'reason', width: 150 },
     { label: 'By / process', key: 'actor', width: 73, map: (r) => `${clean(r.actor) || 'System'} · ${clean(r.event_type)}` },
   ], 'No concern was dismissed in this period.', 8);
-  heading(doc, '6. Evidence gaps and limitations');
+  table(doc, '6. Effectiveness reviews in this period', e.effectiveness_reviews || [], [
+    { label: 'Reviewed', key: 'date', width: 72, map: (r) => date(r.date) },
+    { label: 'Action', key: 'action', width: 150 },
+    { label: 'Outcome', key: 'outcome', width: 95, map: (r) => `${clean(r.outcome)}${r.is_early_review ? ' · early' : ''}` },
+    { label: 'Evidence / basis', key: 'evidence', width: 120, map: (r) => clean(r.evidence) || (r.evidence_still_needed ? `Still needed: ${clean(r.evidence_still_needed)}` : MISSING) },
+    { label: 'Reviewer', key: 'reviewer', width: 63 },
+  ], 'No effectiveness review was recorded in this period.', 8);
+  heading(doc, '7. Evidence gaps and limitations');
   const decNoReason = (e.decisions || []).filter((d: any) => !d.reason).length;
   const riskNoReview = (e.risks || []).filter((r: any) => !r.review_due_date && isOpen(r.status)).length;
   const actNoEff = (e.actions || []).filter((a: any) => !isOpen(a.status) && /not yet/i.test(clean(a.effectiveness))).length;
@@ -487,6 +494,7 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
     ...(e.escalations || []).map((r: any) => ({ date: r.date, type: 'Escalation', information: r.reason, response: r.status, person: r.escalated_to })),
     ...(e.actions || []).map((r: any) => ({ date: r.created_at, type: 'Action', information: r.action, response: `${clean(r.status)}; due ${date(r.due_date)}; ${clean(r.effectiveness)}`, person: r.owner })),
     ...(e.dismissed_concerns || []).map((r: any) => ({ date: r.date, type: 'Concern dismissed', information: `${clean(r.domain)}${r.person ? ` · ${clean(r.person)}` : ''}`, response: `${clean(r.event_type)}: ${clean(r.reason)}`, person: r.actor || 'System' })),
+    ...(e.effectiveness_reviews || []).map((r: any) => ({ date: r.date, type: r.is_early_review ? 'Effectiveness (early)' : 'Effectiveness review', information: clean(r.action), response: `${clean(r.outcome)}${r.early_review_reason ? ` — reviewed early: ${clean(r.early_review_reason)}` : ''}`, person: r.reviewer })),
   ]).filter((r: any) => inPeriod(r.date, data))
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   heading(doc, '1. Scope and factual account');
