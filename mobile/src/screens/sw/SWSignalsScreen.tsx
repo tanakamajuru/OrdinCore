@@ -24,7 +24,8 @@ export function SWSignalsScreen() {
   const { user } = useAuth();
   const uid = user?.id || user?.user_id;
   const { data, loading, error, refetch } = useApi<any>(uid ? `/pulses?created_by=${uid}&limit=100` : '/pulses?limit=100');
-  const signals = unwrap(data);
+  const unwrapped = unwrap(data);
+  const signals: any[] = Array.isArray(unwrapped) ? unwrapped : [];
 
   const items: BoardItem[] = signals.map((s) => ({
     title: `${domainOf(s)}${s.related_person ? ` · ${s.related_person}` : ''}`,

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Pressable, Alert, Image, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -65,7 +65,18 @@ export function SWRaiseSignalScreen() {
   const nav = useNavigation<any>();
   const recorder = useAudioRecorder(RecordingPresets.HIGH_QUALITY);
 
-  const themesApi = useApi<any>('/governance/domains');
+  // Services the SW may record against, WITH names, so the site can be chosen and the
+  // resident list follows it. The server still enforces assignment.
+  const assigned = user?.assigned_house_ids || [];
+  const housesApi = useApi<any>('/houses?limit=100');
+  const allHouses: any[] = housesApi.data?.data ?? housesApi.data ?? [];
+  const services: { id: string; name: string }[] = (Array.isArray(allHouses) ? allHouses : [])
+    .filter((h: any) => assigned.length === 0 || assigned.includes('all') || assigned.includes(h.id))
+    .map((h: any) => ({ id: h.id, name: h.name }));
+  const [selectedHouseId, setSelectedHouseId] = useState<string>('');
+  useEffect(() => { if (!selectedHouseId && services.length > 0) setSelectedHouseId(services[0].id); }, [services.length]);
+
+  const themesApi = useApi<any>(selectedHouseId ? `/governance/domains?house_id=${selectedHouseId}` : '/governance/domains', [selectedHouseId]);
   const themes: Theme[] = themesApi.data?.domains ?? themesApi.data?.data?.domains ?? [];
 
   const [domain, setDomain] = useState('');
@@ -86,14 +97,17 @@ export function SWRaiseSignalScreen() {
   const [attaching, setAttaching] = useState<null | 'photo' | 'voice'>(null);
   const [recording, setRecording] = useState(false);
 
-  const houses = user?.assigned_house_ids || [];
-  const houseId = houses.length === 1 ? houses[0] : undefined;
-  const houseName = (user as any)?.house_name || (user as any)?.service_name || 'Your service';
+  const houseId = selectedHouseId || undefined;
+  const houseName = services.find((s) => s.id === houseId)?.name
+    || (user as any)?.house_name || (user as any)?.service_name
+    || (housesApi.loading ? 'Loading service…' : 'Your service');
 
   // Controlled resident selection — the people supported at this house, so a signal stores the
   // person's identifier rather than a typed name (falls back to free text if the list is empty).
-  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null);
+  // Keyed on the chosen site so the resident list follows the selected service.
+  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null, [houseId]);
   const serviceUsers: any[] = suApi.data?.data ?? suApi.data ?? [];
+  useEffect(() => { setResident(''); setResidentId(''); }, [houseId]);
 
   const addPhoto = () => {
     Alert.alert('Add photo evidence', undefined, [
@@ -237,10 +251,18 @@ export function SWRaiseSignalScreen() {
 
       <View style={{ gap: 4 }}>
         <Caption>House</Caption>
-        <Row style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 13 }} gap={8}>
-          <Feather name="home" size={15} color={c.muted} />
-          <Text size={14}>{houseName}</Text>
-        </Row>
+        {services.length > 1 ? (
+          <Dropdown
+            value={houseName}
+            options={services.map((s) => s.name)}
+            onChange={(v) => { const h = services.find((s) => s.name === v); if (h) setSelectedHouseId(h.id); }}
+          />
+        ) : (
+          <Row style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 13 }} gap={8}>
+            <Feather name="home" size={15} color={c.muted} />
+            <Text size={14}>{houseName}</Text>
+          </Row>
+        )}
       </View>
 
       <View style={{ gap: 4 }}>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Alert, View, Modal, ScrollView, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -17,11 +17,26 @@ export function RaiseSignalScreen() {
   const { user } = useAuth();
   const nav = useNavigation<any>();
 
-  const houses = user?.assigned_house_ids || [];
-  const houseId = houses.length === 1 ? houses[0] : undefined; // else the API resolves it from the TL's assignment
+  // Resolve the services the TL may record against, WITH their names, so the site can be
+  // picked explicitly (and the person list loads for the chosen site). The server still
+  // enforces assignment; this just lets the TL choose when assigned to more than one.
+  const assigned = user?.assigned_house_ids || [];
+  const housesApi = useApi<any>('/houses?limit=100');
+  const allHouses: any[] = housesApi.data?.data ?? housesApi.data ?? [];
+  const services: { id: string; name: string }[] = (Array.isArray(allHouses) ? allHouses : [])
+    .filter((h: any) => assigned.length === 0 || assigned.includes('all') || assigned.includes(h.id))
+    .map((h: any) => ({ id: h.id, name: h.name }));
+
+  const [selectedHouseId, setSelectedHouseId] = useState<string>('');
+  // Default to the first available service once loaded.
+  useEffect(() => {
+    if (!selectedHouseId && services.length > 0) setSelectedHouseId(services[0].id);
+  }, [services.length]);
+  const houseId = selectedHouseId || undefined;
+  const houseName = services.find((s) => s.id === houseId)?.name;
 
   // Live governance taxonomy (themes + per-signal escalation flags) for THIS service's sector.
-  const themesApi = useApi<any>(houseId ? `/governance/domains?house_id=${houseId}` : '/governance/domains');
+  const themesApi = useApi<any>(houseId ? `/governance/domains?house_id=${houseId}` : '/governance/domains', [houseId]);
   const themes: Theme[] = themesApi.data?.domains ?? themesApi.data?.data?.domains ?? [];
 
   const [type, setType] = useState('');
@@ -48,8 +63,11 @@ export function RaiseSignalScreen() {
   const selectedMeta = signalMetas.find((s) => s.label === signalLabel);
 
   // Controlled person selection — store the service-user's identifier, not a typed name.
-  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null);
+  // Keyed on the chosen site so the people list follows the selected service.
+  const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null, [houseId]);
   const serviceUsers: any[] = suApi.data?.data ?? suApi.data ?? [];
+  // When the site changes, clear any person chosen for the previous site.
+  useEffect(() => { setPerson(''); setPersonId(''); }, [houseId]);
 
   const submit = async () => {
     if (!observation.trim()) { Alert.alert('Add what you saw', 'A short account of the observation is required.'); return; }
@@ -89,9 +107,19 @@ export function RaiseSignalScreen() {
 
   return (
     <Screen>
-      <Row style={{ justifyContent: 'flex-end' }}>
-        <Pill tone="ghost">{houseId ? 'Your service' : 'Service auto-resolved'}</Pill>
-      </Row>
+      {/* Site (service) — pick when assigned to more than one; shown for confirmation otherwise. */}
+      <Label>Service</Label>
+      {services.length > 1 ? (
+        <Row gap={7} style={{ flexWrap: 'wrap' }}>
+          {services.map((s) => (
+            <Chip key={s.id} label={s.name} active={houseId === s.id} onPress={() => setSelectedHouseId(s.id)} />
+          ))}
+        </Row>
+      ) : (
+        <Row style={{ justifyContent: 'flex-start' }}>
+          <Pill tone="ghost">{houseName || (housesApi.loading ? 'Loading service…' : 'Service auto-resolved')}</Pill>
+        </Row>
+      )}
 
       <Label>What does this concern?</Label>
       <Row gap={7} style={{ flexWrap: 'wrap' }}>

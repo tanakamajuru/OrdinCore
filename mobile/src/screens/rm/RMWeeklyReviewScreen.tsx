@@ -22,9 +22,12 @@ const STATE_META: Record<string, { label: string; tone: 'low' | 'mod' | 'crit' |
 export function RMWeeklyReviewScreen() {
   const nav = useNavigation<any>();
   const ov = useApi<any>('/weekly-reviews/overview');
-  const data = unwrap(ov) || { services: [], summary: { completed: 0, total: 0 }, period: null };
+  // unwrap the RESPONSE BODY (ov.data), never the hook object — a null body otherwise falls
+  // through to the truthy hook and `summary` reads undefined, crashing on first render.
+  const data = unwrap(ov.data) || {};
   const services: any[] = data.services || [];
-  const period = data.period;
+  const summary = data.summary || { completed: 0, total: 0 };
+  const period = data.period || null;
   const dueDay = period?.due ? new Date(period.due).toLocaleDateString('en-GB', { weekday: 'long' }) : '';
 
   const [tab, setTab] = useState<'outstanding' | 'completed' | 'all'>('outstanding');
@@ -89,7 +92,7 @@ export function RMWeeklyReviewScreen() {
         <Chip label={`Completed · ${services.filter(isDone).length}`} active={tab === 'completed'} onPress={() => setTab('completed')} />
         <Chip label={`All · ${services.length}`} active={tab === 'all'} onPress={() => setTab('all')} />
       </Row>
-      <Text size={12.5} weight="700" color="#28633f">{data.summary.completed} of {data.summary.total} completed</Text>
+      <Text size={12.5} weight="700" color="#28633f">{summary.completed} of {summary.total} completed</Text>
     </Row>
     {shown.length === 0 ? (
       <Card><Text muted>{tab === 'outstanding' ? 'No outstanding weekly reviews for this period. Completed and submitted reviews are under the Completed tab.' : 'No weekly review for this period in this view.'}</Text></Card>

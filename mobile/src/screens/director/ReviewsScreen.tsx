@@ -21,11 +21,14 @@ export function ReviewsScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
   const ov = useApi<any>('/weekly-reviews/overview');
   const roll = useApi<any>('/weekly-reviews/service-rollup');
-  const data = unwrap(ov) || { services: [], summary: { completed: 0, total: 0 }, period: null };
+  // unwrap the RESPONSE BODY (ov.data), never the hook object — otherwise a null body falls
+  // through to the truthy hook and `summary`/`services` read undefined, crashing on first render.
+  const data = unwrap(ov.data) || {};
   const services: any[] = data.services || [];
-  const period = data.period;
+  const summary = data.summary || { completed: 0, total: 0 };
+  const period = data.period || null;
   const dueDay = period?.due ? new Date(period.due).toLocaleDateString('en-GB', { weekday: 'long' }) : '';
-  const rollHouses: any[] = unwrap(roll)?.houses || [];
+  const rollHouses: any[] = unwrap(roll.data)?.houses || [];
   const rollByHouse = (hid: string) => rollHouses.find((h: any) => h.house_id === hid);
 
   return (
@@ -33,7 +36,7 @@ export function ReviewsScreen() {
       <AppHeader title="Weekly reviews by service" subtitle={period ? `${fmtD(period.start)} – ${fmtD(period.end)}${dueDay ? ` · due ${dueDay}` : ''}` : 'Validate the week'} />
       <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
         <Label>Per service</Label>
-        <Text size={12.5} weight="700" color="#28633f">{data.summary.completed} of {data.summary.total} completed</Text>
+        <Text size={12.5} weight="700" color="#28633f">{summary.completed} of {summary.total} completed</Text>
       </Row>
       {ov.loading && !ov.data ? <Loading /> : ov.error ? <ErrorNote message={ov.error} onRetry={ov.refetch} /> : services.length === 0 ? (
         <Empty icon="file-text" title="No services to review this period." />
