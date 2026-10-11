@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
+import { signalPresentationService, presentationKey } from './signalPresentation.service';
 
 /**
  * Configurable governance domains / signal library.
@@ -37,7 +38,12 @@ export const governanceDomainsService = {
     // on exactly one. `= ANY($1)` handles both without branching the SQL.
     const sectors = sector === 'MIXED' ? ['SUPPORTED_LIVING', 'DOMICILIARY'] : [sector];
 
-    const [domains, signals, thresholds] = await Promise.all([
+    // Display-only presentation overlay (signal theme simplification). Only APPROVED rows
+    // apply, so this is inert until leadership Stage-B sign-off; canonical name/label below
+    // are never touched — only optional display_* fields are added for the UI.
+    const [overlay, [domains, signals, thresholds]] = await Promise.all([
+      signalPresentationService.getActiveOverlay(sectors),
+      Promise.all([
       query(
         `SELECT name, description, pillar, sort_order FROM governance_domains
          WHERE sector = ANY($1) AND is_active = true ORDER BY sort_order, name`,
@@ -53,6 +59,7 @@ export const governanceDomainsService = {
          WHERE sector = ANY($1) AND is_active = true`,
         [sectors]
       ),
+      ]),
     ]);
 
     const signalsByDomain: Record<string, string[]> = {};
@@ -73,22 +80,51 @@ export const governanceDomainsService = {
     const seen = new Set<string>();
     const uniqueDomains = domains.rows.filter((d) => (seen.has(d.name) ? false : (seen.add(d.name), true)));
 
+    // The theme's resolved sector for overlay lookup. For MIXED we check both libraries;
+    // the first APPROVED mapping found wins (SL then DOM).
+    const overlayFor = (theme: string, label?: string | null) => {
+      for (const sec of sectors) {
+        const hit = overlay[presentationKey(sec, theme, label)];
+        if (hit) return hit;
+      }
+      return undefined;
+    };
+
     return {
       sector,
-      domains: uniqueDomains.map(d => ({
-        name: d.name,
-        description: d.description,
-        pillar: d.pillar || null,
-        // "Other" is virtual and therefore cannot be accidentally removed,
-        // duplicated or configured as an immediate-escalation rule. It keeps
-        // capture usable while the reusable vocabulary is reviewed in batches.
-        signals: [...(signalsByDomain[d.name] || []), OTHER_SIGNAL_LABEL],
-        signalsMeta: [
-          ...(signalsMetaByDomain[d.name] || []),
-          { label: OTHER_SIGNAL_LABEL, escalation: 'NONE' },
-        ],
-        threshold: thresholdByDomain[d.name] || null,
-      })),
+      domains: uniqueDomains.map(d => {
+        const themeDisplay = overlayFor(d.name);
+        return {
+          name: d.name,
+          description: d.description,
+          pillar: d.pillar || null,
+          // Display-only overlay (inert until APPROVED). Canonical `name` is what capture
+          // submits; these optional fields only change what the UI shows.
+          display_theme: themeDisplay?.display_theme || null,
+          navigation_group: themeDisplay?.navigation_group || null,
+          help_text: themeDisplay?.help_text || null,
+          search_aliases: themeDisplay?.search_aliases || [],
+          recommended_route: themeDisplay?.recommended_route || null,
+          // "Other" is virtual and therefore cannot be accidentally removed,
+          // duplicated or configured as an immediate-escalation rule. It keeps
+          // capture usable while the reusable vocabulary is reviewed in batches.
+          signals: [...(signalsByDomain[d.name] || []), OTHER_SIGNAL_LABEL],
+          signalsMeta: [
+            ...(signalsMetaByDomain[d.name] || []).map(s => {
+              const sd = overlayFor(d.name, s.label);
+              return {
+                label: s.label,
+                escalation: s.escalation,
+                display_signal: sd?.display_signal || null,
+                help_text: sd?.help_text || null,
+                search_aliases: sd?.search_aliases || [],
+              };
+            }),
+            { label: OTHER_SIGNAL_LABEL, escalation: 'NONE', display_signal: null, help_text: null, search_aliases: [] },
+          ],
+          threshold: thresholdByDomain[d.name] || null,
+        };
+      }),
     };
   },
 };

@@ -38,8 +38,15 @@ export function SignalCaptureForm() {
   const [serviceUsers, setServiceUsers] = useState<any[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   // Configurable governance themes (grouped under six pillars) + their signal library.
-  type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE' };
-  type Domain = { name: string; description?: string; pillar?: string | null; signals: string[]; signalsMeta?: SignalMeta[] };
+  // display_* fields are the optional presentation overlay (theme simplification). They are
+  // display-only and inert until leadership approves them server-side — canonical name/label
+  // are always what we submit. Fall back to canonical wording whenever a display field is null.
+  type SignalMeta = { label: string; escalation: 'IMMEDIATE' | 'CONDITIONAL' | 'NONE'; display_signal?: string | null; help_text?: string | null };
+  type Domain = {
+    name: string; description?: string; pillar?: string | null;
+    signals: string[]; signalsMeta?: SignalMeta[];
+    display_theme?: string | null; navigation_group?: string | null; help_text?: string | null;
+  };
   const [domains, setDomains] = useState<Domain[]>([]);
 
   const now = new Date();
@@ -83,21 +90,26 @@ export function SignalCaptureForm() {
   const selectedSignalMeta = selectedDomain?.signalsMeta?.find(s => s.label === form.signal_label);
   const isOtherSignal = form.signal_label === OTHER_SIGNAL_LABEL;
 
-  // Group themes under their governance pillar for the dropdown (falls back to a
-  // single "Governance" group if a sector hasn't been tagged with pillars).
+  // Group themes for the dropdown. When the presentation overlay supplies plain-language
+  // navigation groups (approved, display-only), browse by those; otherwise fall back to the
+  // six governance pillars. Either way the stored theme is the canonical `d.name`.
+  const useNavGroups = domains.some(d => !!d.navigation_group);
   const pillarOrder = [
     'People & Safety', 'Quality of Life & Outcomes', 'Workforce & Capability',
     'Governance & Compliance', 'Culture & Leadership', 'Strategic Assurance',
   ];
+  const groupKeyOf = (d: Domain) => useNavGroups ? (d.navigation_group || 'Other') : (d.pillar || 'Governance');
   const groupedByPillar = domains.reduce<Record<string, Domain[]>>((acc, d) => {
-    const key = d.pillar || 'Governance';
+    const key = groupKeyOf(d);
     (acc[key] = acc[key] || []).push(d);
     return acc;
   }, {});
-  const pillarGroups = [
-    ...pillarOrder.filter(p => groupedByPillar[p]),
-    ...Object.keys(groupedByPillar).filter(p => !pillarOrder.includes(p)),
-  ];
+  const pillarGroups = useNavGroups
+    ? Object.keys(groupedByPillar).sort((a, b) => (a === 'Other' ? 1 : b === 'Other' ? -1 : a.localeCompare(b)))
+    : [
+        ...pillarOrder.filter(p => groupedByPillar[p]),
+        ...Object.keys(groupedByPillar).filter(p => !pillarOrder.includes(p)),
+      ];
 
   useEffect(() => {
     // Person is per-service — clear any previous selection when the service changes.
@@ -218,13 +230,13 @@ export function SignalCaptureForm() {
               {pillarGroups.map(pillar => (
                 <optgroup key={pillar} label={pillar}>
                   {groupedByPillar[pillar].map(d => (
-                    <option key={d.name} value={d.name}>{d.name}</option>
+                    <option key={d.name} value={d.name}>{d.display_theme || d.name}</option>
                   ))}
                 </optgroup>
               ))}
             </select>
-            {selectedDomain?.description && (
-              <p className="text-xs text-muted-foreground mt-1">{selectedDomain.description}</p>
+            {(selectedDomain?.help_text || selectedDomain?.description) && (
+              <p className="text-xs text-muted-foreground mt-1">{selectedDomain?.help_text || selectedDomain?.description}</p>
             )}
           </div>
 
@@ -239,9 +251,9 @@ export function SignalCaptureForm() {
               >
                 <option value="">Select a signal…</option>
                 {(selectedDomain.signalsMeta && selectedDomain.signalsMeta.length > 0
-                  ? selectedDomain.signalsMeta.map(s => s.label)
-                  : selectedDomain.signals).map(s => (
-                  <option key={s} value={s}>{s}</option>
+                  ? selectedDomain.signalsMeta.map(s => ({ value: s.label, label: s.display_signal || s.label }))
+                  : selectedDomain.signals.map(s => ({ value: s, label: s }))).map(s => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
                 ))}
               </select>
 

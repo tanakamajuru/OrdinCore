@@ -3,6 +3,7 @@ import { query, getClient } from '../config/database';
 import { refreshEscalationSLAs } from '../services/escalations.service';
 import { v4 as uuidv4 } from 'uuid';
 import { OTHER_SIGNAL_LABEL } from '../config/signalLibrary.constants';
+import { signalPresentationService } from '../services/signalPresentation.service';
 
 // Admin Governance Configuration: the sector signal library, pattern thresholds,
 // escalation SLAs and risk domains the engine reads — plus a read-only audit log.
@@ -464,6 +465,39 @@ export const governanceConfigController = {
         [req.params.id, company_id]);
       if (!r.rows[0]) return fail(res, new Error('Rule not found'), 404);
       return ok(res, { deleted: true });
+    } catch (e) { return fail(res, e, 400); }
+  },
+
+  // ---- Signal presentation catalogue (theme simplification, display-only) ----
+  // Reads show the full catalogue so leadership can review proposed plain-language wording.
+  // Promoting a row to APPROVED (Stage-B sign-off) is what makes its wording live in capture.
+  async listPresentationCatalogue(req: Request, res: Response) {
+    try {
+      const sector = req.query.sector as string | undefined;
+      const rows = await signalPresentationService.listCatalogue(sector);
+      return ok(res, rows);
+    } catch (e) { return fail(res, e); }
+  },
+  async reviewPresentationEntry(req: Request, res: Response) {
+    try {
+      const { review_status } = req.body as { review_status?: string };
+      const allowed = ['DRAFT', 'IN_REVIEW', 'APPROVED', 'REJECTED'];
+      if (!review_status || !allowed.includes(review_status))
+        return fail(res, new Error(`review_status must be one of ${allowed.join(', ')}`), 400);
+      const before = await query(`SELECT * FROM signal_presentation_catalogue WHERE id = $1`, [req.params.id]);
+      if (!before.rows[0]) return fail(res, new Error('Catalogue entry not found'), 404);
+      const row = await signalPresentationService.setReviewStatus(
+        req.params.id,
+        review_status as 'DRAFT' | 'IN_REVIEW' | 'APPROVED' | 'REJECTED',
+        req.user!.user_id
+      );
+      await query(
+        `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+         VALUES ($1,$2,$3,'SIGNAL_PRESENTATION_REVIEWED','signal_presentation_catalogue',$4,$5,$6)`,
+        [uuidv4(), req.user!.company_id, req.user!.user_id, req.params.id,
+         JSON.stringify(before.rows[0]), JSON.stringify(row)]
+      );
+      return ok(res, row);
     } catch (e) { return fail(res, e, 400); }
   },
 };

@@ -31,6 +31,11 @@ router.patch('/thresholds/:id', ...edit, c.updateThreshold);
 router.get('/slas', ...view, c.listSLAs);
 router.patch('/slas/:trigger', ...edit, c.updateSLA);
 
+// Signal presentation catalogue (theme simplification, display-only). Reads open to ADMIN+
+// for leadership review; promoting to APPROVED (Stage-B sign-off) is SUPER_ADMIN-only.
+router.get('/presentation-catalogue', ...view, c.listPresentationCatalogue);
+router.patch('/presentation-catalogue/:id/review', ...edit, c.reviewPresentationEntry);
+
 // Audit Log (read-only, tenant-scoped)
 router.get('/audit', ...view, c.listAudit);
 
