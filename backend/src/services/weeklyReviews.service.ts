@@ -469,6 +469,77 @@ export class WeeklyReviewsService {
     return row;
   }
 
+  // "Show the work first" overview (weekly-review brief): every active service for the CURRENT
+  // reporting period with one status each — Not started / In progress / Awaiting validation /
+  // Completed, plus an Overdue modifier once the shared due day/time has passed. One review per
+  // service-period (the table is UNIQUE on house_id+week_ending), so completing one service never
+  // removes the others. Period, due day/time and matching are Europe/London and ISO-week based,
+  // consistent with the My Work weekly backlog.
+  async overview(company_id: string) {
+    const rows = (await query(
+      `WITH cfg AS (
+         SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
+                COALESCE(weekly_governance_review_dow,1) AS dow,
+                COALESCE(weekly_governance_review_time,'09:00'::time) AS rt
+           FROM companies WHERE id=$1
+       ), clk AS (
+         SELECT (NOW() AT TIME ZONE tz)::date AS local_date, (NOW() AT TIME ZONE tz) AS local_now, cfg.* FROM cfg
+       ), period AS (
+         SELECT (local_date - ((EXTRACT(DOW FROM local_date)::int - dow + 7) % 7)) AS end_date,
+                local_now, rt, tz FROM clk
+       ), per AS (
+         SELECT end_date, (end_date - 6) AS start_date, (end_date + rt) AS due_local, local_now FROM period
+       )
+       SELECT h.id, h.name,
+              per.start_date, per.end_date, per.due_local, per.local_now,
+              wr.id AS review_id, wr.status, wr.step_reached, wr.updated_at,
+              wr.published_at, wr.rm_finalised_at, wr.validation_status, wr.week_ending,
+              NULLIF(TRIM(COALESCE(cu.first_name,'') || ' ' || COALESCE(cu.last_name,'')),'') AS reviewer_name
+         FROM per
+         CROSS JOIN houses h
+         LEFT JOIN LATERAL (
+           SELECT * FROM weekly_reviews w
+            WHERE w.company_id=$1 AND w.house_id=h.id
+              AND date_trunc('week', w.week_ending) = date_trunc('week', per.end_date)
+            ORDER BY w.updated_at DESC NULLS LAST LIMIT 1
+         ) wr ON TRUE
+         LEFT JOIN users cu ON cu.id = COALESCE(wr.rm_finalised_by, wr.created_by)
+        WHERE h.company_id=$1 AND h.status <> 'closed'
+        ORDER BY h.name`,
+      [company_id]
+    )).rows;
+
+    let period: any = null;
+    const services = rows.map((r: any) => {
+      period = period || { start: r.start_date, end: r.end_date, due: r.due_local };
+      const s = String(r.status || '');
+      const overdue = new Date(r.local_now).getTime() > new Date(r.due_local).getTime();
+      let state: 'NOT_STARTED' | 'IN_PROGRESS' | 'AWAITING_VALIDATION' | 'COMPLETED';
+      if (!r.review_id) state = 'NOT_STARTED';
+      else if (s === 'published' || s === 'LOCKED') state = 'COMPLETED';
+      else if (s === 'pending_validation') state = 'AWAITING_VALIDATION';
+      else state = 'IN_PROGRESS';
+      return {
+        house_id: r.id, house_name: r.name, review_id: r.review_id || null,
+        week_ending: r.week_ending || r.end_date,
+        state,
+        // Overdue only modifies work that is not yet finished for the period.
+        overdue: overdue && (state === 'NOT_STARTED' || state === 'IN_PROGRESS'),
+        step_reached: r.step_reached || 0,
+        last_saved_at: r.updated_at || null,
+        completed_at: r.published_at || r.rm_finalised_at || null,
+        validation_status: r.validation_status || null,
+        reviewer_name: r.reviewer_name || null,
+      };
+    });
+    const completed = services.filter((s) => s.state === 'COMPLETED').length;
+    return {
+      period: period ? { start: period.start, end: period.end, due: period.due } : null,
+      summary: { completed, total: services.length },
+      services,
+    };
+  }
+
   // Finalised reviews awaiting a Director/RI validation decision — the queue behind the
   // "weekly reviews to validate" item, so a validator can pick one instead of hitting a
   // non-existent /weekly-reviews/validate id.

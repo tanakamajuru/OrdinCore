@@ -40,6 +40,10 @@ export function WeeklyReview() {
 
   const [houses, setHouses] = useState<any[]>([]);
   const [houseId, setHouseId] = useState("");
+  // "Show the work first": RM lands on the per-service status list; opening a card shows the editor.
+  const [view, setView] = useState<"list" | "editor">("list");
+  const [overview, setOverview] = useState<any>(null);
+  const [wrTab, setWrTab] = useState<"outstanding" | "completed" | "history">("outstanding");
   const [weekEnding, setWeekEnding] = useState(searchParams.get("weekEnding") || new Date().toISOString().split("T")[0]);
   const [reviewId, setReviewId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -159,9 +163,20 @@ export function WeeklyReview() {
       // as it is one this manager may review; otherwise fall back to their assigned/first house.
       const fromUrl = urlHouseId && list.find((h: any) => h.id === urlHouseId) ? urlHouseId : "";
       const def = fromUrl || (list.find((h: any) => h.id === user.assigned_house_id) ? user.assigned_house_id : list[0]?.id);
+      // A My Work deep-link opens that service directly; otherwise show the service list first.
+      setView(fromUrl ? "editor" : "list");
       if (def) setHouseId(def); else setIsLoading(false);
     } catch { toast.error("Failed to load services"); setIsLoading(false); }
   };
+
+  const loadOverview = async () => {
+    try { const r: any = await apiClient.get("/weekly-reviews/overview"); setOverview(r?.data?.data ?? r?.data ?? null); }
+    catch { setOverview(null); }
+  };
+  useEffect(() => {
+    if (!isTeamLeader && !isValidator && view === "list") loadOverview();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isTeamLeader, isValidator, view]);
 
   const loadReview = async (hid: string) => {
     try {
@@ -617,8 +632,64 @@ export function WeeklyReview() {
     );
   }
 
+  // "Show the work first" — the RM lands on a per-service status list for the current reporting
+  // period. Completing one service never removes the others (one review per service-period).
+  if (userRole === "REGISTERED_MANAGER" && view === "list") {
+    const ov = overview || { services: [], summary: { completed: 0, total: 0 }, period: null };
+    const svcs: any[] = ov.services || [];
+    const period = ov.period;
+    const dueDay = period?.due ? new Date(period.due).toLocaleDateString("en-GB", { weekday: "long" }) : "";
+    const fmtD = (d: any) => d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+    const isOutstanding = (s: any) => s.state === "NOT_STARTED" || s.state === "IN_PROGRESS";
+    const isDone = (s: any) => s.state === "COMPLETED" || s.state === "AWAITING_VALIDATION";
+    const shown = wrTab === "outstanding" ? svcs.filter(isOutstanding) : wrTab === "completed" ? svcs.filter(isDone) : svcs;
+    const META: Record<string, { label: string; cls: string; btn: string }> = {
+      NOT_STARTED: { label: "Not started", cls: "bg-muted text-muted-foreground", btn: "Start review" },
+      IN_PROGRESS: { label: "In progress", cls: "bg-blue-100 text-blue-700", btn: "Continue review" },
+      AWAITING_VALIDATION: { label: "Submitted – awaiting validation", cls: "bg-amber-100 text-amber-800", btn: "View review" },
+      COMPLETED: { label: "Completed", cls: "bg-emerald-100 text-emerald-700", btn: "View signed review" },
+    };
+    const open = (s: any) => { setHouseId(s.house_id); setWeekEnding(String(s.week_ending).slice(0, 10)); setReviewId(null); setStatus("Draft"); setView("editor"); };
+    return (
+      <div className="min-h-screen bg-background">
+        <RoleBasedNavigation />
+        <main className="w-full pt-28 p-6 max-w-4xl mx-auto">
+          <div className="mb-4">
+            <h1 className="text-2xl font-semibold text-foreground">Weekly Review</h1>
+            <p className="text-sm text-muted-foreground">Review each service once for this reporting period.{period ? ` Reporting period ${fmtD(period.start)} – ${fmtD(period.end)}${dueDay ? ` · due ${dueDay}` : ""}.` : ""}</p>
+          </div>
+          <div className="flex items-center justify-between gap-3 mb-3 border-b border-border">
+            <div className="flex gap-2">
+              {([["outstanding", `Outstanding (${svcs.filter(isOutstanding).length})`], ["completed", `Completed (${svcs.filter(isDone).length})`], ["all", `All (${svcs.length})`]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => setWrTab(k as any)} className={`px-3 py-2 text-sm border-b-2 -mb-px transition-colors ${wrTab === k ? "border-primary text-primary font-medium" : "border-transparent text-muted-foreground hover:text-foreground"}`}>{label}</button>
+              ))}
+            </div>
+            <span className="text-sm font-semibold text-emerald-700 whitespace-nowrap">{ov.summary.completed} of {ov.summary.total} completed</span>
+          </div>
+          <div className="space-y-3">
+            {shown.length === 0 ? (
+              <div className="text-sm text-muted-foreground bg-muted/30 border-2 border-dashed border-border rounded-xl p-6 text-center">{wrTab === "outstanding" ? "No outstanding weekly reviews for this period. Completed and submitted reviews are under the Completed tab." : "No weekly review for this period in this view."}</div>
+            ) : shown.map((s: any) => {
+              const m = META[s.state] || META.NOT_STARTED;
+              return (
+                <div key={s.house_id} className="bg-card border-2 border-border rounded-xl p-4 flex items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-semibold text-foreground">{s.house_name}</p>
+                    <p className="text-xs text-muted-foreground">Week ending {fmtD(s.week_ending)}{s.reviewer_name ? ` · ${s.reviewer_name}` : ""}{s.state === "IN_PROGRESS" && s.last_saved_at ? ` · saved ${new Date(s.last_saved_at).toLocaleDateString("en-GB")}` : ""}{s.state === "COMPLETED" && s.completed_at ? ` · completed ${new Date(s.completed_at).toLocaleDateString("en-GB")}` : ""}</p>
+                    <span className={`inline-block mt-1.5 text-[11px] font-semibold px-2 py-0.5 rounded ${s.overdue ? "bg-red-100 text-red-700" : m.cls}`}>{s.overdue ? `Overdue · ${m.label}` : m.label}</span>
+                  </div>
+                  <button onClick={() => open(s)} className="shrink-0 px-3 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold">{m.btn}</button>
+                </div>
+              );
+            })}
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (userRole === "REGISTERED_MANAGER") {
-    return <div className="min-h-screen bg-background"><RoleBasedNavigation/><main className="w-full pt-28 p-6 max-w-7xl mx-auto"><div className="mb-5"><h1 className="text-2xl font-semibold">Weekly Governance Review</h1><p className="text-sm text-muted-foreground">Review the week’s evidence, record management judgement and preview what will be published.</p></div><RMWeeklyGovernanceWorkspace houses={houses} houseId={houseId} weekEnding={weekEnding} preview={preview} form={form} locked={locked} saving={isSaving} aiDrafting={aiDrafting} status={status} onHouseChange={(v) => { setHouseId(v); setReviewId(null); setStatus("Draft"); }} onWeekChange={(v) => { setWeekEnding(v); setReviewId(null); setStatus("Draft"); }} onField={set} onSave={saveWorkspaceDraft} onAiDraft={generateAiDraft} onFinalise={finalise} onDownload={downloadPdf}/></main></div>;
+    return <div className="min-h-screen bg-background"><RoleBasedNavigation/><main className="w-full pt-28 p-6 max-w-7xl mx-auto"><div className="mb-5"><button onClick={() => { setView("list"); loadOverview(); }} className="text-sm text-primary hover:underline mb-2 inline-flex items-center gap-1"><ArrowLeft size={14}/> Back to services</button><h1 className="text-2xl font-semibold">Weekly Governance Review</h1><p className="text-sm text-muted-foreground">Review the week’s evidence, record management judgement and preview what will be published.</p></div><RMWeeklyGovernanceWorkspace houses={houses} houseId={houseId} weekEnding={weekEnding} preview={preview} form={form} locked={locked} saving={isSaving} aiDrafting={aiDrafting} status={status} onHouseChange={(v) => { setHouseId(v); setReviewId(null); setStatus("Draft"); }} onWeekChange={(v) => { setWeekEnding(v); setReviewId(null); setStatus("Draft"); }} onField={set} onSave={saveWorkspaceDraft} onAiDraft={generateAiDraft} onFinalise={finalise} onDownload={downloadPdf}/></main></div>;
   }
 
   const stepBody = () => {

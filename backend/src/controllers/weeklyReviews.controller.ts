@@ -24,6 +24,16 @@ export class WeeklyReviewsController {
     }
   }
 
+  // Every service's status for the current reporting period — the "show the work first" overview.
+  async overview(req: Request, res: Response) {
+    try {
+      const data = await weeklyReviewsService.overview(req.user!.company_id!);
+      return res.json({ success: true, data });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch the weekly review overview' });
+    }
+  }
+
   async publishedForMe(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

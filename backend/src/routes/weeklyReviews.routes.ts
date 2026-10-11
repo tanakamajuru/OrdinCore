@@ -7,6 +7,10 @@ import { requireRole } from '../middleware/role.middleware';
 
 const router = Router();
 
+// "Show the work first" — every service's status for the current reporting period. Registered
+// before the /:id routes so the static path is not captured as an id.
+router.get('/overview', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.overview.bind(weeklyReviewsController));
+
 router.post('/', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.save);
 router.patch('/:id', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.update);
 router.post('/:id/complete', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), weeklyReviewsController.complete);
