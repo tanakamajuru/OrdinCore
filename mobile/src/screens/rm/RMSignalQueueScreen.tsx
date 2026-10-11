@@ -20,12 +20,17 @@ export function RMSignalQueueScreen() {
   const [tab, setTab] = useState<'needs'|'monitoring'|'all'>(params.tab || 'needs');
   const all = arr(q.data);
   const shown = all.filter((s) => tab === 'needs' ? needsReview(s) : tab === 'monitoring' ? /monitor/i.test(s.review_status || '') : true);
-  const items: BoardItem[] = shown.map((s) => ({
-    title: `${s.governance_domain || s.category || (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain) || 'Signal'}${s.related_person ? ` · ${s.related_person}` : ''}`,
-    meta: [s.house_name, s.description, s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : ''].filter(Boolean).join(' · '),
-    value: needsReview(s) ? 'Decision due' : s.review_status,
-    tone: tone(s), onPress: () => nav.navigate('SignalDetail', { id: s.id }),
-  }));
+  const items: BoardItem[] = shown.map((s) => {
+    const theme = s.governance_domain || s.category || (Array.isArray(s.risk_domain) ? s.risk_domain[0] : s.risk_domain) || 'Signal';
+    // Concern first: lead with what happened, then house · theme · person · date beneath it.
+    const concern = (s.description && String(s.description).trim()) || theme;
+    return {
+      title: concern,
+      meta: [s.house_name, theme, s.related_person, s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : ''].filter(Boolean).join(' · '),
+      value: needsReview(s) ? 'Decision due' : /monitor/i.test(s.review_status || '') ? 'Monitoring' : s.review_status,
+      tone: tone(s), onPress: () => nav.navigate('SignalDetail', { id: s.id }),
+    };
+  });
   return <Screen refreshing={q.loading} onRefresh={q.refetch}>
     <BoardHeader title={houseName ? `Signals · ${houseName}` : 'Daily Oversight'} subtitle={houseName ? 'Signals requiring a decision for this service' : 'Signals requiring your governance decision'} />
     <Row gap={7}>
