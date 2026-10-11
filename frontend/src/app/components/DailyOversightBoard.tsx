@@ -288,7 +288,7 @@ export function DailyOversightBoard() {
 
   const handleSignOff = async () => {
     if (isHistoricalDate) { toast.error("Historical daily governance records cannot be backdated or overwritten."); return; }
-    if (!dailyNote.trim()) { toast.error("A team brief is required for sign-off."); return; }
+    if (!dailyNote.trim()) { toast.error("A Team Brief is required before publishing."); return; }
     if (!selectedHouseId) { toast.error("Choose which service you are signing off."); return; }
     setIsSigningOff(true);
     try {
@@ -321,7 +321,7 @@ export function DailyOversightBoard() {
       }
       await complete(acknowledgeExceptions);
       setSignedOff({ by: userName, at: new Date().toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) });
-      toast.success("Team brief signed off");
+      toast.success("Team Brief published");
     } catch (e: any) {
       // Surface the real governance reason (e.g. "N signal(s) still require an RM decision") instead
       // of a mystifying "Sign-off failed", so the manager knows exactly what to clear.
@@ -335,15 +335,15 @@ export function DailyOversightBoard() {
   // signed addendum is appended here.
   const submitAddendum = async () => {
     if (!signedLogId) return;
-    if (addendumReason.trim().length < 10) { toast.error("An addendum reason of at least 10 characters is required."); return; }
+    if (addendumReason.trim().length < 10) { toast.error("Describe what changed in at least 10 characters."); return; }
     setAddendumSaving(true);
     try {
       await apiClient.post(`/daily-governance/${signedLogId}/addenda`, { reason: addendumReason.trim() });
-      toast.success("Signed addendum added to today's record");
+      toast.success("Signed update added to today's record");
       setAddendumOpen(false); setAddendumReason("");
       loadDashboard(selectedHouseId, true);
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || e?.message || "Failed to add addendum");
+      toast.error(e?.response?.data?.message || e?.message || "Failed to add signed update");
     } finally { setAddendumSaving(false); }
   };
 
@@ -542,9 +542,9 @@ export function DailyOversightBoard() {
         <div>
           <div className="bg-card border-2 border-border rounded-xl p-5">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· published to Team Leaders</span></h3>
+              <h3 className="text-sm font-semibold text-primary uppercase tracking-wide flex items-center gap-2"><Users size={15} /> Team Brief <span className="normal-case font-normal text-muted-foreground">· for Team Leaders</span></h3>
               <button onClick={generateNarrative} disabled={aiBusy || !!signedOff || isHistoricalDate} className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-primary text-white text-xs font-semibold disabled:opacity-50">
-                <RefreshCw size={13} className={aiBusy ? "animate-spin" : ""} /> {aiBusy ? "Generating…" : (dailyNote.trim() ? "Regenerate team brief" : "Generate team brief")}
+                <RefreshCw size={13} className={aiBusy ? "animate-spin" : ""} /> {aiBusy ? "Generating…" : (dailyNote.trim() ? "Regenerate draft" : "Generate draft")}
               </button>
             </div>
             {/* Service + date stay selectable even after sign-off, so leadership can browse and
@@ -569,7 +569,7 @@ export function DailyOversightBoard() {
               <p className="text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5 mb-2">No material change today — Team Leaders will see "No new governance priorities today. Continue with existing actions." You can still record a brief below.</p>
             )}
             {!dailyNote.trim() && !signedOff && !aiBusy && (
-              <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-2">Record your governance decisions and allocate today's tasks above first — then press <span className="font-semibold text-primary">Generate team brief</span> to draft the review for Team Leaders.</p>
+              <p className="text-xs text-muted-foreground bg-primary/5 border border-primary/20 rounded-lg p-2.5 mb-2">Review the signals and save your decisions first — then press <span className="font-semibold text-primary">Generate draft</span> to draft the Team Brief. Check it before publishing.</p>
             )}
             <textarea ref={noteRef} value={dailyNote} onChange={(e) => setDailyNote(e.target.value)} disabled={!!signedOff || isHistoricalDate}
               className="w-full h-64 p-4 border-2 border-border rounded-lg bg-background text-sm leading-7 disabled:opacity-70"
@@ -577,9 +577,9 @@ export function DailyOversightBoard() {
 
             {signedOff ? (
               <div className="mt-4 p-4 rounded-lg bg-emerald-500/10 border border-emerald-500/30">
-                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 size={18} /><span className="font-semibold">Today's Governance Status: Complete</span></div>
+                <div className="flex items-center gap-2 text-emerald-700"><CheckCircle2 size={18} /><span className="font-semibold">Team Brief published</span></div>
                 <p className="text-sm text-muted-foreground mt-1">Signed by: {signedOff.by} · {signedOff.at}</p>
-                <p className="text-[11px] text-muted-foreground mt-1">This entry constitutes a forensic audit point for CQC Well-Led inspections.</p>
+                <p className="text-[11px] text-muted-foreground mt-1">This signed brief and its updates remain available in history.</p>
                 {!isHistoricalDate && (
                   <div className="mt-3 flex items-center gap-2 flex-wrap">
                     {/* Signing locks the record, not the RM's ability to respond. This re-enables the
@@ -587,27 +587,27 @@ export function DailyOversightBoard() {
                     <button onClick={() => { setPostSignoffReview(true); setTimeout(() => decisionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 60); }}
                       className="text-xs font-semibold text-white bg-primary rounded px-3 py-1.5 hover:bg-primary/90">Review outstanding signals</button>
                     {signedLogId && (
-                      <button onClick={() => setAddendumOpen(true)} className="text-xs font-medium text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10">+ Add signed addendum</button>
+                      <button onClick={() => setAddendumOpen(true)} className="text-xs font-medium text-primary border border-primary/40 rounded px-3 py-1.5 hover:bg-primary/10">+ Add signed update</button>
                     )}
-                    <span className="text-[11px] text-muted-foreground">Decide signals that arrived or fell due after sign-off — the primary record is never reopened; attest them with a signed addendum.</span>
+                    <span className="text-[11px] text-muted-foreground">Decide signals that arrived or fell due after publication — the published brief is never reopened; attest them with a signed update.</span>
                   </div>
                 )}
                 {postSignoffReview && (
-                  <p className="text-[11px] text-amber-700 mt-2">Post-sign-off review is open above. Record your decisions, then add a signed addendum to attest them.</p>
+                  <p className="text-[11px] text-amber-700 mt-2">Post-publication review is open above. Record your decisions, then add a signed update to attest them.</p>
                 )}
               </div>
             ) : (
               <>
                 <div className="mt-3 flex items-start gap-2 text-xs text-muted-foreground bg-muted/40 rounded-lg p-2.5">
-                  <Info size={14} className="mt-0.5 shrink-0" /> Please review the drafted team brief. You can edit it before signing off — you remain accountable for the signed record.
+                  <Info size={14} className="mt-0.5 shrink-0" /> Please review the drafted Team Brief. You can edit it before publishing — you remain accountable for the signed record.
                 </div>
-                <p className="text-sm text-foreground mt-3 mb-2">Do you accept this team brief?</p>
+                <p className="text-sm text-foreground mt-3 mb-2">Have you checked the brief and confirmed the instructions are accurate?</p>
                 <div className="flex items-center gap-3 flex-wrap">
                   <button onClick={() => setShowPreview(true)} disabled={!dailyNote.trim()} className="flex items-center gap-2 px-4 py-2 border-2 border-primary/40 text-primary rounded-lg text-sm font-medium disabled:opacity-50">
-                    <Search size={16} /> Preview report
+                    <Search size={16} /> Preview Team Brief
                   </button>
                   <button onClick={handleSignOff} disabled={isSigningOff || !dailyNote.trim() || isHistoricalDate} className="flex items-center gap-2 px-4 py-2 bg-emerald-600 text-white rounded-lg text-sm font-semibold disabled:opacity-50">
-                    <CheckCircle2 size={16} /> {isSigningOff ? "Signing…" : "Accept & Sign Off"}
+                    <CheckCircle2 size={16} /> {isSigningOff ? "Signing…" : "Sign & publish Team Brief"}
                   </button>
                   <button onClick={() => noteRef.current?.focus()} className="flex items-center gap-2 px-4 py-2 border-2 border-border rounded-lg text-sm">
                     <FileText size={16} /> Edit Brief
@@ -634,14 +634,14 @@ export function DailyOversightBoard() {
             </div>
             <div className="px-6 py-5 space-y-6">
               <div>
-                <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Team Brief <span className="normal-case font-normal text-muted-foreground">(published to Team Leaders)</span></div>
+                <div className="text-[11px] font-bold uppercase tracking-widest text-primary mb-2">Team Brief <span className="normal-case font-normal text-muted-foreground">(for Team Leaders)</span></div>
                 <div className="text-[15px] leading-8 text-foreground whitespace-pre-wrap">{materialChange ? (dailyNote || "—") : "No new governance priorities today. Continue with existing actions."}</div>
               </div>
             </div>
             <div className="sticky bottom-0 bg-card border-t border-border px-6 py-4 flex justify-end gap-3">
               <button onClick={() => setShowPreview(false)} className="px-4 py-2 rounded-lg border-2 border-border text-sm">Keep editing</button>
               <button onClick={() => { setShowPreview(false); handleSignOff(); }} disabled={isSigningOff || !dailyNote.trim()} className="px-4 py-2 rounded-lg bg-emerald-600 text-white text-sm font-semibold disabled:opacity-50 flex items-center gap-2">
-                <CheckCircle2 size={16} /> Accept & Sign Off
+                <CheckCircle2 size={16} /> Sign & publish Team Brief
               </button>
             </div>
           </div>
@@ -651,13 +651,13 @@ export function DailyOversightBoard() {
       {addendumOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => !addendumSaving && setAddendumOpen(false)}>
           <div className="bg-card border border-border rounded-xl shadow-2xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
-            <h3 className="font-semibold text-lg">Add signed same-day addendum</h3>
-            <p className="text-sm text-muted-foreground mt-1">The signed primary review is not reopened. Record any late decision through the signal queue first, then sign this addendum describing what changed.</p>
-            <label className="block text-sm font-medium mt-4 mb-1">Reason for the addendum</label>
+            <h3 className="font-semibold text-lg">Add signed update</h3>
+            <p className="text-sm text-muted-foreground mt-1">The published brief is not reopened. Record any late decision through the signal queue first, then sign this update describing what changed.</p>
+            <label className="block text-sm font-medium mt-4 mb-1">What has changed since publication?</label>
             <textarea value={addendumReason} onChange={(e) => setAddendumReason(e.target.value)} className="w-full min-h-28 px-3 py-2 bg-input-background border border-border rounded-lg focus:outline-none focus:ring-2 focus:ring-primary resize-y" placeholder="e.g. A high-severity medication signal was recorded at 18:40 after the day was signed; reviewed and a same-day action allocated." />
             <div className="flex justify-end gap-2 mt-4">
               <button onClick={() => setAddendumOpen(false)} disabled={addendumSaving} className="px-4 py-2 border border-border rounded-lg text-sm">Cancel</button>
-              <button onClick={submitAddendum} disabled={addendumSaving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">{addendumSaving ? "Signing…" : "Sign addendum"}</button>
+              <button onClick={submitAddendum} disabled={addendumSaving} className="px-4 py-2 bg-primary text-primary-foreground rounded-lg text-sm font-semibold disabled:opacity-50">{addendumSaving ? "Signing…" : "Sign & publish update"}</button>
             </div>
           </div>
         </div>
