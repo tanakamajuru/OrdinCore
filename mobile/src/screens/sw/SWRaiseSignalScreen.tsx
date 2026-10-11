@@ -70,7 +70,8 @@ export function SWRaiseSignalScreen() {
 
   const [domain, setDomain] = useState('');
   const [signalLabel, setSignalLabel] = useState('');
-  const [requiresImmediateAction, setRequiresImmediateAction] = useState(false);
+  // Deliberate answer — neither preselected.
+  const [immediateAnswer, setImmediateAnswer] = useState<'' | 'no' | 'yes'>('');
 
   const selectedTheme = themes.find((t) => t.name === domain);
   const signalMetas: SignalMeta[] = selectedTheme?.signalsMeta
@@ -141,6 +142,7 @@ export function SWRaiseSignalScreen() {
   const submit = async () => {
     if (!domain) { Alert.alert('Choose a theme', 'Select the governance theme this signal belongs to.'); return; }
     if (!what.trim()) { Alert.alert('Add what happened', 'A short, clear account is required.'); return; }
+    if (!immediateAnswer) { Alert.alert('Immediate action?', 'Choose Yes or No for whether this needs immediate action — it is not assumed.'); return; }
     const body: any = {
       service_id: houseId,
       service_user_id: residentId || undefined,
@@ -149,7 +151,7 @@ export function SWRaiseSignalScreen() {
       governance_domain: domain,
       signal_label: signalLabel || undefined,
       signal_type: /safeguard/i.test(domain) ? 'Safeguarding' : 'Concern',
-      requires_immediate_action: requiresImmediateAction,
+      requires_immediate_action: immediateAnswer === 'yes',
       client_submission_id: submissionId,
       description: what.trim(),
       evidence_url: evidence?.url,
@@ -202,9 +204,15 @@ export function SWRaiseSignalScreen() {
       <View style={{ gap: 4 }}>
         <Caption>Does this require immediate action?</Caption>
         <Row gap={8}>
-          <Button title="No" tone={!requiresImmediateAction ? 'primary' : 'ghost'} onPress={() => setRequiresImmediateAction(false)} style={{ flex: 1 }} />
-          <Button title="Yes" tone={requiresImmediateAction ? 'primary' : 'ghost'} onPress={() => setRequiresImmediateAction(true)} style={{ flex: 1 }} />
+          <Button title="No" tone={immediateAnswer === 'no' ? 'primary' : 'ghost'} onPress={() => setImmediateAnswer('no')} style={{ flex: 1 }} />
+          <Button title="Yes" tone={immediateAnswer === 'yes' ? 'primary' : 'ghost'} onPress={() => setImmediateAnswer('yes')} style={{ flex: 1 }} />
         </Row>
+        {immediateAnswer === 'yes' && (
+          <Row gap={7} style={{ backgroundColor: c.sevCrit + '18', borderColor: c.sevCrit, borderWidth: 1, borderRadius: radius.md, padding: 10, marginTop: 4 }}>
+            <Feather name="alert-triangle" size={15} color={c.sevCrit} />
+            <Text size={12} weight="600" color={c.sevCrit} style={{ flex: 1 }}>Follow your urgent procedure now. Recording a signal does not replace urgent contact or emergency escalation.</Text>
+          </Row>
+        )}
       </View>
 
       <View style={{ gap: 4 }}>

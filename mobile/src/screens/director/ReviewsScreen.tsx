@@ -3,34 +3,57 @@ import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useApi } from '@/api/useApi';
 import { RootStackParams } from '@/navigation/types';
-import { Screen, AppHeader, Label, ListItem, Pill, Loading, ErrorNote, Empty } from '@/components/ui';
+import { Screen, AppHeader, Label, ListItem, Pill, Loading, ErrorNote, Empty, Text, Row } from '@/components/ui';
 
-const FINALISED = ['pending_validation', 'validated', 'published', 'LOCKED'];
+// Weekly reviews by service for the current period — completion first ("X of N completed"), with
+// missed (Not started) and Overdue services kept visible, not hidden. The Validate action routes
+// through the service-rollup entry (which carries the shape ValidateReview expects).
+const unwrap = (v: any): any => v?.data?.data ?? v?.data ?? v;
+const fmtD = (d: any) => d ? new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+const STATE: Record<string, { label: string; tone: 'low' | 'mod' | 'crit' | 'ghost' }> = {
+  NOT_STARTED: { label: 'Not started', tone: 'ghost' },
+  IN_PROGRESS: { label: 'In progress', tone: 'mod' },
+  AWAITING_VALIDATION: { label: 'Awaiting validation', tone: 'mod' },
+  COMPLETED: { label: 'Completed', tone: 'low' },
+};
 
 export function ReviewsScreen() {
   const nav = useNavigation<NativeStackNavigationProp<RootStackParams>>();
-  const { data, loading, error, refetch } = useApi<any>('/weekly-reviews/service-rollup');
-  const houses: any[] = data?.houses || [];
+  const ov = useApi<any>('/weekly-reviews/overview');
+  const roll = useApi<any>('/weekly-reviews/service-rollup');
+  const data = unwrap(ov) || { services: [], summary: { completed: 0, total: 0 }, period: null };
+  const services: any[] = data.services || [];
+  const period = data.period;
+  const dueDay = period?.due ? new Date(period.due).toLocaleDateString('en-GB', { weekday: 'long' }) : '';
+  const rollHouses: any[] = unwrap(roll)?.houses || [];
+  const rollByHouse = (hid: string) => rollHouses.find((h: any) => h.house_id === hid);
 
   return (
-    <Screen refreshing={loading} onRefresh={refetch}>
-      <AppHeader title="Weekly reviews" subtitle={data?.week_ending ? `W/E ${data.week_ending}` : 'Validate the week'} />
-      <Label>Per service</Label>
-      {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : houses.length === 0 ? (
-        <Empty icon="file-text" title="No reviews to validate." />
-      ) : houses.map((h) => {
-        const awaiting = h.status === 'pending_validation' || (h.finalised && h.validation_status !== 'Approved');
+    <Screen refreshing={ov.loading} onRefresh={() => { ov.refetch(); roll.refetch(); }}>
+      <AppHeader title="Weekly reviews by service" subtitle={period ? `${fmtD(period.start)} – ${fmtD(period.end)}${dueDay ? ` · due ${dueDay}` : ''}` : 'Validate the week'} />
+      <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+        <Label>Per service</Label>
+        <Text size={12.5} weight="700" color="#28633f">{data.summary.completed} of {data.summary.total} completed</Text>
+      </Row>
+      {ov.loading && !ov.data ? <Loading /> : ov.error ? <ErrorNote message={ov.error} onRetry={ov.refetch} /> : services.length === 0 ? (
+        <Empty icon="file-text" title="No services to review this period." />
+      ) : services.map((s: any) => {
+        const m = STATE[s.state] || STATE.NOT_STARTED;
+        const awaiting = s.state === 'AWAITING_VALIDATION';
+        const rollEntry = rollByHouse(s.house_id);
+        const meta = `${m.label}${s.reviewer_name ? ` · ${s.reviewer_name}` : ''}${s.completed_at ? ` · ${fmtD(s.completed_at)}` : ''}`;
         return (
           <ListItem
-            key={h.review_id || h.house_id}
+            key={s.review_id || s.house_id}
             icon="file-text"
-            title={h.house_name}
-            meta={`${h.position || 'No position'} · authored by ${h.created_by_name || 'RM'}`}
-            right={<Pill tone={awaiting ? 'mod' : 'low'}>{awaiting ? 'Validate' : 'Done'}</Pill>}
-            onPress={awaiting && h.review_id ? () => nav.navigate('ValidateReview', { review: h }) : undefined}
+            title={s.house_name}
+            meta={meta}
+            right={<Pill tone={s.overdue ? 'crit' : m.tone}>{s.overdue ? `Overdue · ${m.label}` : m.label}</Pill>}
+            onPress={awaiting && rollEntry?.review_id ? () => nav.navigate('ValidateReview', { review: rollEntry }) : undefined}
           />
         );
       })}
+      <Text size={11} muted>Missed reviews (Not started past the due day) stay visible here until completed. Completion alone is not a statement that governance is effective.</Text>
     </Screen>
   );
 }
