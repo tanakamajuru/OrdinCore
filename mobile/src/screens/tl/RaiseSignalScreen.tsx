@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, View, Modal, ScrollView, Pressable } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { useAuth } from '@/auth/AuthContext';
@@ -26,7 +26,10 @@ export function RaiseSignalScreen() {
 
   const [type, setType] = useState('');
   const [signalLabel, setSignalLabel] = useState('');
-  const [requiresImmediateAction, setRequiresImmediateAction] = useState(false);
+  // Deliberate answer — neither preselected. The TL must actively choose Yes or No.
+  const [immediateAnswer, setImmediateAnswer] = useState<'' | 'no' | 'yes'>('');
+  const [themePickerOpen, setThemePickerOpen] = useState(false);
+  const [themeQuery, setThemeQuery] = useState('');
   const [person, setPerson] = useState('');
   const [personId, setPersonId] = useState('');
   const [subjectType, setSubjectType] = useState<'PERSON' | 'SERVICE' | 'WORKFORCE' | 'PROCESS'>('PERSON');
@@ -35,6 +38,10 @@ export function RaiseSignalScreen() {
   const [busy, setBusy] = useState(false);
   const [submissionId] = useState(() => `signal-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
+  const q = themeQuery.trim().toLowerCase();
+  const filteredThemes = q
+    ? themes.filter((t) => `${t.name} ${t.pillar || ''} ${(t.signals || []).join(' ')}`.toLowerCase().includes(q))
+    : themes;
   const selectedTheme = themes.find((t) => t.name === type);
   const signalMetas: SignalMeta[] = selectedTheme?.signalsMeta
     ?? (selectedTheme?.signals || []).map((l) => ({ label: l, escalation: 'NONE' as const }));
@@ -46,7 +53,8 @@ export function RaiseSignalScreen() {
 
   const submit = async () => {
     if (!observation.trim()) { Alert.alert('Add what you saw', 'A short account of the observation is required.'); return; }
-    if (!type) { Alert.alert('Choose a theme', 'Select the governance theme this signal belongs to.'); return; }
+    if (!type) { Alert.alert('Choose a theme', 'Select the main theme this signal belongs to.'); return; }
+    if (!immediateAnswer) { Alert.alert('Immediate action?', 'Choose Yes or No for whether this needs immediate action — it is not assumed.'); return; }
     const body: any = {
       service_id: houseId,
       service_user_id: personId || undefined,
@@ -56,7 +64,7 @@ export function RaiseSignalScreen() {
       governance_domain: type,
       signal_label: signalLabel || undefined,
       signal_type: /safeguard/i.test(type) ? 'Safeguarding' : 'Concern',
-      requires_immediate_action: requiresImmediateAction,
+      requires_immediate_action: immediateAnswer === 'yes',
       client_submission_id: submissionId,
       description: observation.trim(),
       immediate_action: immediate.trim() || undefined,
@@ -107,13 +115,10 @@ export function RaiseSignalScreen() {
         <Field value={person} onChangeText={setPerson} placeholder="Who it concerns" />
       )}</>}
 
-      <Label>Governance theme</Label>
-      <Row gap={7} style={{ flexWrap: 'wrap' }}>
-        {themes.map((t) => (
-          <Chip key={t.name} label={t.name} active={type === t.name}
-            onPress={() => { setType(t.name); setSignalLabel(''); }} />
-        ))}
-      </Row>
+      <Label>Main theme</Label>
+      <Button title={type ? `${type} · Change` : 'Choose main theme'} tone="ghost" icon="search"
+        onPress={() => { setThemeQuery(''); setThemePickerOpen(true); }} />
+      <Text size={11} muted>Choose what the signal is mainly about.</Text>
 
       {selectedTheme && signalMetas.length > 0 && (
         <>
@@ -140,9 +145,15 @@ export function RaiseSignalScreen() {
 
       <Label>Does this require immediate action?</Label>
       <Row gap={8}>
-        <Chip label="No" active={!requiresImmediateAction} onPress={() => setRequiresImmediateAction(false)} />
-        <Chip label="Yes" active={requiresImmediateAction} onPress={() => setRequiresImmediateAction(true)} />
+        <Chip label="No" active={immediateAnswer === 'no'} onPress={() => setImmediateAnswer('no')} />
+        <Chip label="Yes" active={immediateAnswer === 'yes'} onPress={() => setImmediateAnswer('yes')} />
       </Row>
+      {immediateAnswer === 'yes' && (
+        <Row gap={7} style={{ backgroundColor: c.sevCrit + '18', borderColor: c.sevCrit, borderWidth: 1, borderRadius: 10, padding: 10 }}>
+          <Feather name="alert-triangle" size={15} color={c.sevCrit} />
+          <Text size={12} weight="600" color={c.sevCrit} style={{ flex: 1 }}>Follow your urgent procedure now. Recording a signal does not replace urgent contact or emergency escalation.</Text>
+        </Row>
+      )}
 
       <Label>What you saw</Label>
       <TextArea value={observation} onChangeText={setObservation} placeholder="Your account, in your own words — recorded as evidence…" required minHeight={90} />
@@ -155,6 +166,31 @@ export function RaiseSignalScreen() {
         <Feather name="cloud" size={13} color={c.muted} />
         <Text muted size={11}>Saves to this device · syncs automatically</Text>
       </Row>
+
+      {/* Searchable main-theme picker — one row per theme instead of a wall of chips. */}
+      <Modal visible={themePickerOpen} transparent animationType="slide" onRequestClose={() => setThemePickerOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: c.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '82%', padding: 16 }}>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text size={17} weight="700">Choose main theme</Text>
+              <Button title="Close" tone="ghost" onPress={() => setThemePickerOpen(false)} />
+            </Row>
+            <Text size={12} muted>Choose what the signal is mainly about.</Text>
+            <Field value={themeQuery} onChangeText={setThemeQuery} placeholder="Search e.g. repair, money, progress" />
+            <ScrollView style={{ marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              {filteredThemes.length === 0
+                ? <Text muted style={{ padding: 12 }}>No matching theme. Try another word or clear the search.</Text>
+                : filteredThemes.map((t) => (
+                  <Pressable key={t.name} onPress={() => { setType(t.name); setSignalLabel(''); setThemePickerOpen(false); }}
+                    style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.lineSoft }}>
+                    <Text size={14} weight="600">{t.name}</Text>
+                    {t.pillar ? <Text size={11.5} muted>{t.pillar}</Text> : null}
+                  </Pressable>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </Screen>
   );
 }
