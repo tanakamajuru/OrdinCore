@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "react-router";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
@@ -23,6 +24,14 @@ export function LearningRegister() {
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [searchParams] = useSearchParams();
+  // Inline "complete assessment" for a deferred (Not yet assessed) lesson that has become due.
+  const [assessing, setAssessing] = useState<string | null>(null);
+  const [assessState, setAssessState] = useState<"IDENTIFIED" | "NONE_IDENTIFIED">("IDENTIFIED");
+  const [assessWhatLearnt, setAssessWhatLearnt] = useState("");
+  const [assessChange, setAssessChange] = useState("");
+  const [assessReason, setAssessReason] = useState("");
+  const focusedRef = useRef(false);
 
   const load = async () => {
     setLoading(true);
@@ -30,6 +39,32 @@ export function LearningRegister() {
     catch { setRows([]); } finally { setLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter]);
+
+  const openAssess = (id: string) => { setAssessing(id); setAssessState("IDENTIFIED"); setAssessWhatLearnt(""); setAssessChange(""); setAssessReason(""); };
+  // Deep-link from the work queue (/learning?focus=<id>) opens that deferred lesson's assessment.
+  useEffect(() => {
+    if (focusedRef.current || loading) return;
+    const id = searchParams.get("focus");
+    if (!id) return;
+    const row = rows.find((r) => String(r.id) === id);
+    if (row && row.state === "NOT_YET_ASSESSED") { focusedRef.current = true; openAssess(id); setTimeout(() => document.getElementById(`learning-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }
+  }, [rows, loading, searchParams]);
+
+  const submitAssess = async (id: string) => {
+    if (assessState === "IDENTIFIED" && assessWhatLearnt.trim().length < 3) { toast.error("Record what was learnt."); return; }
+    if (assessState === "NONE_IDENTIFIED" && assessReason.trim().length < 3) { toast.error("Give a brief reason why no learning was identified."); return; }
+    setBusy(id);
+    try {
+      await apiClient.post(`/learning/${id}/assess`, {
+        state: assessState,
+        what_learnt: assessState === "IDENTIFIED" ? assessWhatLearnt.trim() : undefined,
+        change_needed: assessState === "IDENTIFIED" ? (assessChange.trim() || undefined) : undefined,
+        no_learning_reason: assessState === "NONE_IDENTIFIED" ? assessReason.trim() : undefined,
+      });
+      toast.success("Learning assessment completed"); setAssessing(null); load();
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Could not complete the assessment"); }
+    finally { setBusy(null); }
+  };
 
   const setProgress = async (id: string, progress: string) => {
     setBusy(id);
@@ -66,7 +101,7 @@ export function LearningRegister() {
         ) : (
           <div className="space-y-3">
             {rows.map((r) => (
-              <div key={r.id} className="bg-card border border-border rounded-xl p-4">
+              <div key={r.id} id={`learning-${r.id}`} className={`bg-card border rounded-xl p-4 ${assessing === r.id ? "border-primary" : "border-border"}`}>
                 <div className="flex items-start justify-between gap-2 flex-wrap">
                   <div className="min-w-0">
                     <span className="text-[11px] uppercase tracking-wide text-muted-foreground">{SOURCE_LABEL[r.source_type] || r.source_type}{r.house_name ? ` · ${r.house_name}` : (r.house_id ? "" : " · Organisation-wide")}</span>
@@ -92,7 +127,39 @@ export function LearningRegister() {
                   </div>
                 )}
                 {r.state === "NONE_IDENTIFIED" && r.no_learning_reason && <p className="mt-2 text-sm text-muted-foreground">Reason: {r.no_learning_reason}</p>}
-                {r.state === "NOT_YET_ASSESSED" && <p className="mt-2 text-sm text-muted-foreground">Assessment due: {fmt(r.review_date)}</p>}
+                {r.state === "NOT_YET_ASSESSED" && (
+                  <div className="mt-2">
+                    <p className="text-sm text-muted-foreground">
+                      Assessment due: {fmt(r.review_date)}
+                      {r.review_date && new Date(r.review_date) <= new Date() ? <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">DUE</span> : null}
+                      {r.owner_name ? <span> · owner: {r.owner_name}</span> : null}
+                    </p>
+                    {canManage && assessing !== r.id && (
+                      <button onClick={() => openAssess(r.id)} className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Complete assessment</button>
+                    )}
+                    {canManage && assessing === r.id && (
+                      <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
+                        <div className="flex flex-wrap gap-2">
+                          {([["IDENTIFIED", "Learning identified"], ["NONE_IDENTIFIED", "No learning identified"]] as const).map(([v, label]) => (
+                            <button key={v} type="button" onClick={() => setAssessState(v)} className={`text-xs px-2.5 py-1 rounded-full border ${assessState === v ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{label}</button>
+                          ))}
+                        </div>
+                        {assessState === "IDENTIFIED" ? (
+                          <>
+                            <textarea value={assessWhatLearnt} onChange={(e) => setAssessWhatLearnt(e.target.value)} rows={2} placeholder="What was learnt *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                            <textarea value={assessChange} onChange={(e) => setAssessChange(e.target.value)} rows={2} placeholder="Change needed (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                          </>
+                        ) : (
+                          <textarea value={assessReason} onChange={(e) => setAssessReason(e.target.value)} rows={2} placeholder="Brief reason why no learning was identified *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                        )}
+                        <div className="flex gap-2">
+                          <button disabled={busy === r.id} onClick={() => submitAssess(r.id)} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save assessment"}</button>
+                          <button onClick={() => setAssessing(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* L5 progress ladder: recording a lesson is not the same as implementing or verifying it. */}
                 {r.state === "IDENTIFIED" && (

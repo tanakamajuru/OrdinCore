@@ -34,21 +34,7 @@ export function LearningCapture({
   const [reviewDate, setReviewDate] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
-  // L4: optionally link an EXISTING improvement action that carries the change forward.
-  const [linkActionId, setLinkActionId] = useState("");
-  const [actions, setActions] = useState<any[]>([]);
   const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
-  useEffect(() => {
-    if (state !== "IDENTIFIED") return;
-    let off = false;
-    apiClient.get("/actions/oversight").then((r: any) => {
-      if (off) return;
-      const rows = unwrap(r) || [];
-      setActions((Array.isArray(rows) ? rows : []).filter((a: any) =>
-        String(a.status) !== "Cancelled" && (!houseId || String(a.house_id) === String(houseId))));
-    }).catch(() => { if (!off) setActions([]); });
-    return () => { off = true; };
-  }, [state, houseId]);
 
   // Owners for a deferred ("Not yet assessed") assessment — it needs an accountable person, not just
   // a date, so the deferred lesson cannot drift unowned.
@@ -73,7 +59,6 @@ export function LearningCapture({
         what_happened: whatHappened.trim() || undefined,
         what_learnt: state === "IDENTIFIED" ? whatLearnt.trim() : undefined,
         change_needed: state === "IDENTIFIED" ? (changeNeeded.trim() || undefined) : undefined,
-        linked_action_id: state === "IDENTIFIED" && linkActionId ? linkActionId : undefined,
         no_learning_reason: state === "NONE_IDENTIFIED" ? noReason.trim() : undefined,
         review_date: state === "NOT_YET_ASSESSED" ? reviewDate : undefined,
         owner_id: state === "NOT_YET_ASSESSED" ? ownerId : undefined,
@@ -103,6 +88,7 @@ export function LearningCapture({
           {sourceContext.outcome ? ` · outcome: ${sourceContext.outcome}` : ""}
           {sourceContext.service ? ` · ${sourceContext.service}` : ""}
           {sourceContext.reviewedAt ? ` · reviewed ${new Date(sourceContext.reviewedAt).toLocaleDateString("en-GB")}` : ""}
+          <span className="block mt-1 text-[11px]">This lesson is saved against this review automatically — you don't need to link it.</span>
         </div>
       )}
       <div className="flex flex-wrap gap-2">
@@ -116,15 +102,6 @@ export function LearningCapture({
           <textarea value={whatHappened} onChange={(e) => setWhatHappened(e.target.value)} rows={2} placeholder="What happened / what was examined (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
           <textarea value={whatLearnt} onChange={(e) => setWhatLearnt(e.target.value)} rows={2} placeholder="What was learnt *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
           <textarea value={changeNeeded} onChange={(e) => setChangeNeeded(e.target.value)} rows={2} placeholder="Change needed (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
-          {changeNeeded.trim() && actions.length > 0 && (
-            <div>
-              <label className="block text-xs text-muted-foreground mb-1">Link resulting improvement work — an existing action that carries this change forward (optional, separate from the reviewed action)</label>
-              <select value={linkActionId} onChange={(e) => setLinkActionId(e.target.value)} className="w-full text-sm p-2 border border-border rounded-lg bg-background">
-                <option value="">No linked action</option>
-                {actions.map((a: any) => <option key={a.id} value={a.id}>{(a.title || a.action || "Action")}{a.assigned_to_name ? ` · ${a.assigned_to_name}` : ""} · {a.status}</option>)}
-              </select>
-            </div>
-          )}
         </div>
       )}
       {state === "NONE_IDENTIFIED" && (

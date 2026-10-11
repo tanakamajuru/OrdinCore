@@ -120,6 +120,35 @@ export class LearningService {
     return res.rows[0];
   }
 
+  // Complete a deferred ("Not yet assessed") learning when its review date arrives: resolve it to an
+  // identified lesson or an explicit "no learning". Only a NOT_YET_ASSESSED record can be assessed;
+  // the original deferral (owner + due date) is preserved as history on the row.
+  async assess(id: string, company_id: string, actor_id: string, input: { state?: LearningState; what_happened?: string; what_learnt?: string; change_needed?: string; no_learning_reason?: string }) {
+    const cur = (await query(`SELECT state FROM learning_records WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
+    if (!cur) throw new Error('Learning record not found.');
+    if (cur.state !== 'NOT_YET_ASSESSED') throw new Error('This learning has already been assessed.');
+    const next: LearningState = input.state === 'NONE_IDENTIFIED' ? 'NONE_IDENTIFIED' : 'IDENTIFIED';
+    if (next === 'IDENTIFIED' && !String(input.what_learnt || '').trim()) throw new Error('Record what was learnt.');
+    if (next === 'NONE_IDENTIFIED' && !String(input.no_learning_reason || '').trim()) throw new Error('Give a brief reason why no learning was identified.');
+    const res = await query(
+      `UPDATE learning_records
+          SET state = $3,
+              what_happened = COALESCE($4, what_happened),
+              what_learnt = $5,
+              change_needed = $6,
+              no_learning_reason = $7,
+              approved_by = $8, approved_at = NOW(), is_ai_suggested = false, updated_at = NOW()
+        WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, next,
+       input.what_happened?.trim() || null,
+       next === 'IDENTIFIED' ? String(input.what_learnt).trim() : null,
+       next === 'IDENTIFIED' ? (input.change_needed?.trim() || null) : null,
+       next === 'NONE_IDENTIFIED' ? String(input.no_learning_reason).trim() : null,
+       actor_id],
+    );
+    return res.rows[0];
+  }
+
   // Learning register: recent records across the company (optionally scoped to houses / filtered by
   // state or progress), with author, linked improvement action and scope — for the follow-through view.
   async list(company_id: string, opts: { houseIds?: string[] | null; state?: string; progress?: string; limit?: number } = {}) {

@@ -15,5 +15,7 @@ router.get('/', requireAuth, requireTenant, learningController.listBySource.bind
 router.post('/', requireAuth, requireTenant, learningWriters, learningController.create.bind(learningController));
 router.post('/:id/approve', requireAuth, requireTenant, learningWriters, learningController.approve.bind(learningController));
 router.post('/:id/progress', requireAuth, requireTenant, learningWriters, learningController.setProgress.bind(learningController));
+// Complete a deferred ("Not yet assessed") learning when its review date is due.
+router.post('/:id/assess', requireAuth, requireTenant, learningWriters, learningController.assess.bind(learningController));
 
 export default router;

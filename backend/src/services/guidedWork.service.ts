@@ -3,7 +3,7 @@ import { query } from '../config/database';
 type GuidedRole = 'TEAM_LEADER'|'REGISTERED_MANAGER'|'DIRECTOR'|'RESPONSIBLE_INDIVIDUAL'|'ADMIN'|'SUPER_ADMIN';
 type GuidedPriority = 'URGENT'|'DUE'|'NORMAL';
 type GuidedState = 'NEEDS_YOU'|'WAITING'|'COMPLETE';
-type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance';
+type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance'|'learning';
 
 export type GuidedWorkItem = {
   id: string;
@@ -256,6 +256,26 @@ export const guidedWorkService = {
         completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
         route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
         actionLabel:'Review Escalation', whyAmISeeingThis:e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : 'This escalation is open and needs review, even if its response date has not arrived yet.' });
+
+      // Deferred learning ("Not yet assessed") returns to the queue when the review date the RM set
+      // has arrived — so a lesson that was parked for later cannot drift unassessed. Scoped to the
+      // user's houses, plus any deferral they personally own.
+      const dueLearning = await safeRows(`
+        SELECT lr.id, lr.review_date, lr.house_id, h.name AS service_name,
+               sa.title AS source_action_title
+          FROM learning_records lr
+          LEFT JOIN houses h ON h.id=lr.house_id
+          LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
+         WHERE lr.company_id=$1 AND lr.state='NOT_YET_ASSESSED'
+           AND lr.review_date IS NOT NULL AND lr.review_date <= CURRENT_DATE
+           AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL OR lr.owner_id=$3)
+         ORDER BY lr.review_date`, [companyId, houses, userId]);
+      for (const l of dueLearning) needsYou.push({ id:`learning:${l.id}`, role, state:'NEEDS_YOU', priority:priorityFor(l.review_date), taskType:'LEARNING_REVIEW',
+        title:'Complete learning assessment', summary:l.source_action_title ? `Deferred lesson from: ${l.source_action_title}` : 'A deferred learning assessment is due', reason:'The learning assessment date you set has been reached.', dueAt:l.review_date, serviceName:l.service_name,
+        canonicalEntityType:'learning', canonicalEntityId:l.id, requiredAction:'ASSESS_LEARNING',
+        completionCondition:'Record the lesson (or that no learning was identified) for this deferred assessment.',
+        route:`/learning?focus=${l.id}&gw=learning:${l.id}`,
+        actionLabel:'Complete Assessment', whyAmISeeingThis:'You scheduled this learning assessment and its date has arrived.' });
 
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
       // It becomes actionable only when the provider-local configured cadence is reached.

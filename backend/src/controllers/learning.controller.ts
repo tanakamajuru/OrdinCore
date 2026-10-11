@@ -62,6 +62,16 @@ export class LearningController {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to update learning progress' });
     }
   }
+
+  async assess(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const record = await learningService.assess(req.params.id, company_id, req.user!.user_id!, req.body || {});
+      return res.json({ success: true, data: record });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to complete the learning assessment' });
+    }
+  }
 }
 
 export const learningController = new LearningController();
