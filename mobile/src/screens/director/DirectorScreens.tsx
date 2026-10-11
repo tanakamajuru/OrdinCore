@@ -49,11 +49,20 @@ export function DirectorOverviewScreen() {
       <BoardHeader title="Governance Position" subtitle={`All services · Today, ${today()}`} />
       <OutstandingBanner />
       <StatusList items={[{ title: 'Governance position', value: position, tone: posTone }]} />
+      <Text size={11.5} muted>This is the organisation-wide position across all services{health != null ? ` (governance health ${Math.round(health)})` : ''} — separate from your personal tasks below. The reasons sit in the evidence: open Reviews and Trends.</Text>
       <SectionTitle>Requires your attention</SectionTitle>
-      <Metrics items={[
-        { value: n(byKey('weekly_validation')?.count), label: 'Reviews to validate', tone: 'amber' },
-        { value: n(byKey('actions')?.emphasis ?? byKey('actions')?.count), label: 'My overdue actions', tone: 'red' },
-      ]} />
+      {(() => {
+        const val = n(byKey('weekly_validation')?.count);
+        const acts = n(byKey('actions')?.emphasis ?? byKey('actions')?.count);
+        return <>
+          <Metrics items={[
+            { value: val, label: 'Reviews to validate', tone: 'amber' },
+            { value: acts, label: 'My overdue actions', tone: 'red' },
+          ]} />
+          {val === 0 && <Text size={11.5} muted>No reviews are awaiting your validation.</Text>}
+          {val === 0 && acts === 0 && <Text size={11.5} muted>No personal task is outstanding — this does not mean there are no unresolved concerns across services. Check the position above, Reviews and Trends.</Text>}
+        </>;
+      })()}
       <BoardButton label="Validate weekly reviews" icon="check-circle" onPress={() => nav.navigate('DirectorReviews')} />
       <BoardButton label="Cross-service trends" onPress={() => nav.navigate('Trends')} />
     </Screen>
