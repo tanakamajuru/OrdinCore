@@ -44,7 +44,7 @@ export function TLMyActionsScreen() {
         <Chip label="Done" active={tab === 'done'} onPress={() => setTab('done')} />
       </Row>
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : (
-        <StatusList items={items} empty={tab === 'done' ? 'Nothing completed yet.' : 'All caught up.'} />
+        <StatusList items={items} empty={tab === 'done' ? 'Nothing completed yet.' : 'No outstanding actions assigned to you.'} />
       )}
     </Screen>
   );
