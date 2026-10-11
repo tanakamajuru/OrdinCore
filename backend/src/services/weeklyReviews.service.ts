@@ -494,9 +494,13 @@ export class WeeklyReviewsService {
               per.start_date, per.end_date, per.due_local, per.local_now,
               wr.id AS review_id, wr.status, wr.step_reached, wr.updated_at,
               wr.published_at, wr.rm_finalised_at, wr.validation_status, wr.week_ending,
-              NULLIF(TRIM(COALESCE(cu.first_name,'') || ' ' || COALESCE(cu.last_name,'')),'') AS reviewer_name
+              COALESCE(
+                NULLIF(TRIM(COALESCE(ar.first_name,'') || ' ' || COALESCE(ar.last_name,'')),''),
+                NULLIF(TRIM(COALESCE(cu.first_name,'') || ' ' || COALESCE(cu.last_name,'')),'')
+              ) AS reviewer_name
          FROM per
          CROSS JOIN houses h
+         LEFT JOIN users ar ON ar.id = h.assigned_reviewer_id
          LEFT JOIN LATERAL (
            SELECT * FROM weekly_reviews w
             WHERE w.company_id=$1 AND w.house_id=h.id

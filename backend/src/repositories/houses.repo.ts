@@ -113,7 +113,7 @@ export const housesRepo = {
     if ('is_active' in d && d.is_active !== undefined && !('status' in d)) {
       d.status = d.is_active === true || d.is_active === 'true' ? 'active' : 'inactive';
     }
-    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'is_active', 'registration_number', 'phone', 'last_daily_review_at', 'sector'];
+    const allowed = ['name', 'address', 'postcode', 'city', 'capacity', 'manager_id', 'primary_rm_id', 'deputy_rm_id', 'status', 'is_active', 'registration_number', 'phone', 'last_daily_review_at', 'sector', 'assigned_reviewer_id'];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {
       if (key in d) filteredData[key] = d[key];

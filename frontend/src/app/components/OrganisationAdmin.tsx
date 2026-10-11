@@ -308,9 +308,14 @@ function ServicesSection() {
   const [add, setAdd] = useState(false);
   const [form, setForm] = useState({ name: "", sector: "", city: "", address: "", postcode: "" });
   const [busy, setBusy] = useState(false);
+  const [reviewers, setReviewers] = useState<any[]>([]);
 
   const load = async () => { setLoading(true); try { setList(rows(await apiClient.get("/houses?limit=500"))); } catch { toast.error("Failed to load services."); } finally { setLoading(false); } };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); (async () => { try { const us = rows(await apiClient.get("/users?limit=500")); setReviewers(us.filter((u: any) => ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN"].includes(String(u.role || "").toUpperCase().replace(/-/g, "_")))); } catch { /* optional */ } })(); }, []);
+  const setReviewer = async (houseId: string, userId: string) => {
+    try { await apiClient.patch(`/houses/${houseId}`, { assigned_reviewer_id: userId || null }); toast.success("Assigned reviewer updated."); setList((l) => l.map((h) => h.id === houseId ? { ...h, assigned_reviewer_id: userId || null } : h)); }
+    catch (e: any) { toast.error(errMsg(e, "Failed to set reviewer.")); }
+  };
 
   const submit = async () => {
     if (!form.name.trim()) { toast.error("Service name is required."); return; }
@@ -328,6 +333,13 @@ function ServicesSection() {
               <div className="flex items-center gap-2 mb-1"><Building2 size={18} className="text-emerald-600" /><span className="font-medium text-foreground truncate">{h.name}</span></div>
               <div className="text-xs text-muted-foreground capitalize">{h.sector || "Care service"}</div>
               {(h.city || h.postcode) && <div className="text-xs text-muted-foreground mt-1">{[h.address, h.city, h.postcode].filter(Boolean).join(", ")}</div>}
+              <div className="mt-2">
+                <label className="text-[11px] text-muted-foreground block mb-1">Weekly review reviewer</label>
+                <select value={h.assigned_reviewer_id || ""} onChange={(e) => setReviewer(h.id, e.target.value)} className="w-full p-2 border-2 border-border rounded-lg bg-background text-xs">
+                  <option value="">Unassigned (RM who reviews)</option>
+                  {reviewers.map((u) => <option key={u.id} value={u.id}>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}{u.role ? ` (${String(u.role).replace(/_/g, " ").toLowerCase()})` : ""}</option>)}
+                </select>
+              </div>
             </div>
           ))}
         </div>
