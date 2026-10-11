@@ -176,18 +176,23 @@ export function RMRiskRegisterScreen() {
 export function RMEscalationsScreen() {
   const nav = useNavigation<any>();
   const { data, loading, error, refetch } = useApi<any>('/escalations?limit=200');
-  const [tab, setTab] = useState<'open' | 'overdue'>('open');
-  const [range, setRange] = useState<'all' | '7' | '30' | 'month'>('all');
+  const [tab, setTab] = useState<'open' | 'overdue' | 'closed'>('open');
+  const [range, setRange] = useState<'all' | '7' | '30' | 'month'>('30');
   const inRange = (e: any) => {
     if (range === 'all') return true;
-    const t = new Date(e.created_at || e.escalated_at || 0).getTime();
+    const t = new Date(e.closed_at || e.resolved_at || e.created_at || e.escalated_at || 0).getTime();
     if (range === 'month') { const d = new Date(); return t >= new Date(d.getFullYear(), d.getMonth(), 1).getTime(); }
     return t >= Date.now() - Number(range) * 86400000;
   };
-  const all = arr(data).filter(inRange);
-  const open = all.filter(isOpen);
+  // Open work is never hidden by a date filter — an escalation raised weeks ago that is still open
+  // stays in the live queue. The date range only narrows the Closed (history) view. Open/overdue are
+  // ordered by deadline (oldest/overdue first).
+  const byDeadline = (a: any, b: any) => (a.due_by ? new Date(a.due_by).getTime() : Infinity) - (b.due_by ? new Date(b.due_by).getTime() : Infinity);
+  const rows = arr(data);
+  const open = rows.filter(isOpen).sort(byDeadline);
   const overdue = open.filter((e) => e.overdue);
-  const shown = tab === 'overdue' ? overdue : open;
+  const closed = rows.filter((e) => !isOpen(e)).filter(inRange);
+  const shown = tab === 'overdue' ? overdue : tab === 'closed' ? closed : open;
   const items: BoardItem[] = shown.map((e) => {
     const sev = String(e.priority || e.severity || '');
     const status = e.escalated_to_name ? `Assigned to ${e.escalated_to_name}` : 'Awaiting response';
@@ -204,17 +209,20 @@ export function RMEscalationsScreen() {
   return (
     <Screen refreshing={loading} onRefresh={refetch}>
       <BoardHeader title="Escalations" />
-      <Row gap={7}>
+      <Row gap={7} style={{ flexWrap: 'wrap' }}>
         <Chip label={`Open · ${open.length}`} active={tab === 'open'} onPress={() => setTab('open')} />
         <Chip label={`Overdue · ${overdue.length}`} active={tab === 'overdue'} onPress={() => setTab('overdue')} />
+        <Chip label="Closed" active={tab === 'closed'} onPress={() => setTab('closed')} />
       </Row>
-      <Row gap={6} style={{ flexWrap: 'wrap' }}>
-        {([['all','All'],['7','Last 7 days'],['30','Last 30 days'],['month','This month']] as const).map(([v,l]) => (
-          <Chip key={v} label={l} active={range === v} onPress={() => setRange(v)} />
-        ))}
-      </Row>
+      {tab === 'closed' ? (
+        <Row gap={6} style={{ flexWrap: 'wrap' }}>
+          {([['30','Last 30 days'],['7','Last 7 days'],['month','This month'],['all','All']] as const).map(([v,l]) => (
+            <Chip key={v} label={l} active={range === v} onPress={() => setRange(v)} />
+          ))}
+        </Row>
+      ) : <Text size={11} muted>All open escalations are shown, oldest deadline first — never hidden by date.</Text>}
       {loading && !data ? <Loading /> : error ? <ErrorNote message={error} onRetry={refetch} /> : (
-        <StatusList items={items} empty="No escalations here." />
+        <StatusList items={items} empty={tab === 'closed' ? 'No closed escalations in this period.' : 'No escalations here.'} />
       )}
     </Screen>
   );
