@@ -32,7 +32,6 @@ export function ReportDetailScreen() {
   const act = useApi<any>('/actions/oversight');
   const esc = useApi<any>('/escalations?limit=200');
   const risk = useApi<any>('/risks?limit=200');
-  const loading = sig.loading && !sig.data && act.loading && esc.loading;
   const refetch = () => { sig.refetch(); act.refetch(); esc.refetch(); risk.refetch(); };
 
   const signals = arr(sig.data);
@@ -40,7 +39,15 @@ export function ReportDetailScreen() {
   const escs = arr(esc.data);
   const risks = arr(risk.data);
 
-  if (loading) return <Screen><Loading /></Screen>;
+  // Truthful data states: a metric reads "—" when its own dataset is still loading or failed — never
+  // a misleading 0. A dataset that returned its full page cap may be incomplete, flagged below.
+  const ok = (q: any) => !!q.data && !q.error;
+  const cnt = (q: any, nn: number): React.ReactNode => ok(q) ? nn : '—';
+  const anyErr = sig.error || act.error || esc.error || risk.error;
+  const capped = (ok(sig) && signals.length >= 300) || (ok(esc) && escs.length >= 200) || (ok(risk) && risks.length >= 200);
+  const allPending = (sig.loading && !sig.data) && (act.loading && !act.data) && (esc.loading && !esc.data) && (risk.loading && !risk.data);
+
+  if (allPending) return <Screen><Loading /></Screen>;
 
   let metrics: { value: React.ReactNode; label: string; tone?: Tone }[] = [];
   let sectionTitle = 'Breakdown';
@@ -48,34 +55,34 @@ export function ReportDetailScreen() {
 
   if (type === 'signals-domain') {
     metrics = [
-      { value: signals.length, label: 'Total signals' },
-      { value: signals.filter((s) => within(s.created_at || s.entry_date, 7)).length, label: 'This week', tone: 'blue' },
+      { value: cnt(sig, signals.length), label: 'Total signals' },
+      { value: cnt(sig, signals.filter((s) => within(s.created_at || s.entry_date, 7)).length), label: 'Last 7 days', tone: 'blue' },
     ];
     sectionTitle = 'Signals by domain';
     items = countBy(signals.flatMap((s) => domainsOf(s).length ? domainsOf(s).map((d) => ({ d })) : [{ d: 'Uncategorised' }]), (r) => r.d);
   } else if (type === 'actions-status') {
     metrics = [
-      { value: actions.length, label: 'Total actions' },
-      { value: actions.filter((a) => !isDone(a)).length, label: 'Open', tone: 'amber' },
+      { value: cnt(act, actions.length), label: 'Total actions' },
+      { value: cnt(act, actions.filter((a) => !isDone(a)).length), label: 'Open', tone: 'amber' },
     ];
     sectionTitle = 'Actions by status';
     items = countBy(actions, (a) => a.status || 'Pending');
   } else if (type === 'escalations') {
     const open = escs.filter(isOpen);
     metrics = [
-      { value: escs.length, label: 'Total' },
-      { value: open.length, label: 'Open', tone: 'amber' },
-      { value: escs.filter((e) => e.overdue).length, label: 'Overdue', tone: 'red' },
-      { value: escs.length - open.length, label: 'Closed', tone: 'green' },
+      { value: cnt(esc, escs.length), label: 'Total' },
+      { value: cnt(esc, open.length), label: 'Open', tone: 'amber' },
+      { value: cnt(esc, escs.filter((e) => e.overdue).length), label: 'Overdue', tone: 'red' },
+      { value: cnt(esc, escs.length - open.length), label: 'Closed', tone: 'green' },
     ];
     sectionTitle = 'Open escalations';
     items = open.map((e) => ({ title: e.risk_title || e.reason || 'Escalation', meta: e.house_name || '', tone: (e.overdue ? 'red' : 'amber') as Tone }));
   } else if (type === 'daily') {
     metrics = [
-      { value: signals.filter((s) => within(s.created_at || s.entry_date, 1)).length, label: 'Signals today', tone: 'blue' },
-      { value: actions.filter((a) => !isDone(a)).length, label: 'Open actions', tone: 'amber' },
-      { value: escs.filter(isOpen).length, label: 'Open escalations', tone: 'red' },
-      { value: risks.filter((r) => (r.status || '').toLowerCase() !== 'closed').length, label: 'Open risks' },
+      { value: cnt(sig, signals.filter((s) => within(s.created_at || s.entry_date, 1)).length), label: 'Signals (last 24h)', tone: 'blue' },
+      { value: cnt(act, actions.filter((a) => !isDone(a)).length), label: 'Open actions', tone: 'amber' },
+      { value: cnt(esc, escs.filter(isOpen).length), label: 'Open escalations', tone: 'red' },
+      { value: cnt(risk, risks.filter((r) => (r.status || '').toLowerCase() !== 'closed').length), label: 'Open risks' },
     ];
     sectionTitle = 'Latest signals';
     items = signals.slice(0, 8).map((s) => ({ title: s.description || 'Signal', meta: `${s.house_name || ''}${s.severity ? ` · ${s.severity}` : ''}`, tone: /crit|high/i.test(s.severity || '') ? 'red' : 'neutral' }));
@@ -83,10 +90,10 @@ export function ReportDetailScreen() {
     // weekly / monthly governance report
     const days = type === 'monthly' ? 30 : 7;
     metrics = [
-      { value: signals.filter((s) => within(s.created_at || s.entry_date, days)).length, label: `Signals (${days}d)`, tone: 'blue' },
-      { value: actions.filter((a) => isDone(a) && within(a.completed_at, days)).length, label: 'Actions completed', tone: 'green' },
-      { value: escs.filter((e) => within(e.created_at, days)).length, label: 'New escalations', tone: 'amber' },
-      { value: risks.filter((r) => within(r.closed_at || r.resolved_at, days)).length, label: 'Risks closed', tone: 'green' },
+      { value: cnt(sig, signals.filter((s) => within(s.created_at || s.entry_date, days)).length), label: `Signals (${days}d)`, tone: 'blue' },
+      { value: cnt(act, actions.filter((a) => isDone(a) && within(a.completed_at, days)).length), label: 'Actions completed', tone: 'green' },
+      { value: cnt(esc, escs.filter((e) => within(e.created_at, days)).length), label: 'New escalations', tone: 'amber' },
+      { value: cnt(risk, risks.filter((r) => within(r.closed_at || r.resolved_at, days)).length), label: 'Risks closed', tone: 'green' },
     ];
     sectionTitle = 'Signals by domain';
     items = countBy(signals.filter((s) => within(s.created_at || s.entry_date, days)).flatMap((s) => domainsOf(s).length ? domainsOf(s).map((d) => ({ d })) : [{ d: 'Uncategorised' }]), (r) => r.d);
@@ -95,15 +102,13 @@ export function ReportDetailScreen() {
   return (
     <Screen refreshing={sig.loading} onRefresh={refetch}>
       <BoardHeader title={title} subtitle="Live summary" menu={false} />
-      {(sig.error || act.error) ? <ErrorNote message={sig.error || act.error || 'Error'} onRetry={refetch} /> : (
-        <>
-          <Metrics items={metrics} />
-          <SectionTitle>{sectionTitle}</SectionTitle>
-          <StatusList items={items} empty="Nothing to report for this period." />
-          <Label>Full report</Label>
-          <Text size={12} muted>The formatted, exportable report (PDF, board pack) is generated on the OrdinCore web app. This is the live on-device summary.</Text>
-        </>
-      )}
+      {anyErr && <ErrorNote message="Some data could not be loaded — any figure showing “—” is unavailable, not zero." onRetry={refetch} />}
+      <Metrics items={metrics} />
+      <SectionTitle>{sectionTitle}</SectionTitle>
+      <StatusList items={items} empty="Nothing to report for this period." />
+      {capped && <Text size={11} muted>Showing the most recent records only — totals may be incomplete. Use the OrdinCore web app for the full report.</Text>}
+      <Label>Full report</Label>
+      <Text size={12} muted>The formatted, exportable report (PDF, board pack) is generated on the OrdinCore web app. This is the live on-device summary.</Text>
     </Screen>
   );
 }
