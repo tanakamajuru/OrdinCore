@@ -53,6 +53,7 @@ import { TLNotesScreen } from '@/screens/tl/TLNotesScreen';
 import { TLWeeklyReviewsScreen } from '@/screens/tl/TLWeeklyReviewsScreen';
 import { TLWeeklyReviewDetailScreen } from '@/screens/tl/TLWeeklyReviewDetailScreen';
 import { RMDashboardScreen, RMRiskRegisterScreen, RMEscalationsScreen, RMGovernanceReviewScreen, RMReportsScreen, RMHouseOverviewScreen, RMComplianceScreen, RMMyActionsScreen } from '@/screens/rm/RMScreens';
+import { RMWeeklyReviewScreen } from '@/screens/rm/RMWeeklyReviewScreen';
 import { DirectorOverviewScreen, DirectorTrendsScreen, DirectorThemesScreen, DirectorGovernanceScreen, DirectorReportsScreen } from '@/screens/director/DirectorScreens';
 import { RIProviderAssuranceScreen, RIOversightScreen, RIInspectionScreen, RINarrativeScreen, RIBoardReportsScreen } from '@/screens/ri/RIScreens';
 
@@ -255,9 +256,9 @@ const RMSignalQueueA = withAccent('blue', RMSignalQueueScreen);
 const RMActionsListA = withAccent('blue', RMActionsListScreen);
 const RMPatternsA = withAccent('blue', RMPatternsScreen);
 const RMRiskRegisterA = withAccent('blue', RMRiskRegisterScreen);
-// RM weekly review is read-only on mobile (authoring/finalising is web-only): reuse the shared
-// read-only reader. RM also receives the daily governance report via the same read-only feed.
-const RMWeeklyReviewA = withAccent('blue', TLWeeklyReviewsScreen);
+// RM weekly review shows the work first: a per-service status list for the current period; opening
+// a completed one views the signed review, an outstanding one opens the mobile finalise editor.
+const RMWeeklyReviewA = withAccent('blue', RMWeeklyReviewScreen);
 const RMDailyGovernanceReportA = withAccent('blue', TLDailyGovernanceScreen);
 const RMDailyGovernanceA = withAccent('blue', RMDailyGovernanceScreen);
 const DirectorReviewsA = withAccent('orange', ReviewsScreen);
