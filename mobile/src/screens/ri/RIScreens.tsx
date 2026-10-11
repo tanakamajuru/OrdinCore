@@ -23,7 +23,7 @@ const pctOf = (n: number, d: number) => Math.round(ratio(n, d) * 100);
 // unrelated activity (RI doctrine) — it reports a defensible categorical state derived from
 // the real RAG indicators, plus the indicators themselves.
 type Rag = 'Good' | 'Warning' | 'Concern';
-type AssuranceState = 'Strong' | 'Adequate' | 'Watch' | 'Concern';
+type AssuranceState = 'Strong' | 'Adequate' | 'Watch' | 'Concern' | 'Insufficient evidence';
 // Each assurance dimension from /ri/assurance-summary is { state, basis } where state is one of
 // Assured | Partially assured | Not assured | Insufficient evidence (RI doctrine: evidence, not ticks).
 const dimState = (x: any): string => (x && typeof x === 'object' ? (x.state || '—') : (typeof x === 'string' ? x : '—'));
@@ -36,12 +36,17 @@ function useAssurance() {
   const concerns = states.filter((x) => x === 'Not assured').length;
   const warnings = states.filter((x) => x === 'Partially assured').length;
   const assured = states.filter((x) => x === 'Assured').length;
-  // No adverse finding and nothing yet assured = Adequate (honest), not Strong — the RI must not
-  // claim strong assurance where the platform holds no supporting evidence.
-  const state: AssuranceState = concerns > 0 ? 'Concern' : warnings >= 2 ? 'Watch' : warnings === 1 ? 'Adequate' : assured === 0 ? 'Adequate' : 'Strong';
+  // Missing evidence is NOT assurance: when no dimension is assured the overall position is
+  // "Insufficient evidence" (amber), never a green Adequate. Adequate/Strong require real assured
+  // evidence; an adverse finding is a Concern.
+  const state: AssuranceState = concerns > 0 ? 'Concern'
+    : assured === 0 ? 'Insufficient evidence'
+    : warnings >= 2 ? 'Watch'
+    : warnings === 1 ? 'Adequate'
+    : 'Strong';
   return { s, d, state, refetch: s.refetch };
 }
-const stateTone = (s: AssuranceState) => (s === 'Strong' ? 'green' : s === 'Adequate' ? 'green' : s === 'Watch' ? 'amber' : 'red');
+const stateTone = (s: AssuranceState) => (s === 'Strong' || s === 'Adequate' ? 'green' : s === 'Watch' || s === 'Insufficient evidence' ? 'amber' : 'red');
 
 /* 1 — Provider Assurance */
 export function RIProviderAssuranceScreen() {
@@ -138,7 +143,9 @@ export function RINarrativeScreen() {
   const nav = useNavigation<any>();
   const { s, d, state, refetch } = useAssurance();
   const month = new Date().toLocaleDateString('en-GB', { month: 'long', year: 'numeric' });
-  const position = state === 'Strong'
+  const position = state === 'Insufficient evidence'
+    ? 'There is insufficient evidence to reach an overall assurance conclusion. Missing evidence is not assurance.'
+    : state === 'Strong'
     ? 'Governance is effective with strong oversight across all services.'
     : state === 'Adequate'
       ? 'Governance is adequate, with oversight in place and areas for improvement identified.'
@@ -184,7 +191,7 @@ export function RIBoardReportsScreen() {
   const nav = useNavigation<any>();
   const reports: { title: string; type: string; meta: string }[] = [
     { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days across all services' },
-    { title: 'Risk summary report', type: 'signals-domain', meta: 'Signals by domain' },
+    { title: 'Signals by theme', type: 'signals-domain', meta: 'Signals grouped by theme' },
     { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },
     { title: 'Actions summary', type: 'actions-status', meta: 'To do · done · overdue' },
     { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
