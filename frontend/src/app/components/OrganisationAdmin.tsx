@@ -401,19 +401,69 @@ function ServiceUsersSection() {
 }
 
 /* ---------- Governance Configuration ---------- */
+const DOW_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
   const [domains, setDomains] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
   const [thresholds, setThresholds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [sched, setSched] = useState<any>(null);
+  const [schedForm, setSchedForm] = useState<{ review_dow: number; review_time: string; reason: string }>({ review_dow: 1, review_time: "09:00", reason: "" });
+  const [schedSaving, setSchedSaving] = useState(false);
+  const loadSchedule = async () => {
+    try {
+      const sc: any = await apiClient.get("/company-admin/governance-schedule");
+      const d = sc?.data?.data ?? sc?.data ?? null;
+      if (d) { setSched(d); setSchedForm({ review_dow: Number(d.review_dow ?? 1), review_time: String(d.review_time || "09:00").slice(0, 5), reason: "" }); }
+    } catch { /* non-blocking */ }
+  };
   useEffect(() => { (async () => {
     setLoading(true);
     try { const [d, s, t] = await Promise.all([apiClient.get("/governance-config/domains").catch(() => null), apiClient.get("/governance-config/signals").catch(() => null), apiClient.get("/governance-config/thresholds").catch(() => null)]); setDomains(d ? rows(d) : []); setSignals(s ? rows(s) : []); setThresholds(t ? rows(t) : []); }
     finally { setLoading(false); }
+    loadSchedule();
   })(); }, []);
+
+  const saveSchedule = async () => {
+    if (schedForm.reason.trim().length < 10) { toast.error("Record a brief reason for the schedule change (at least 10 characters)."); return; }
+    setSchedSaving(true);
+    try { await apiClient.patch("/company-admin/governance-schedule", { review_dow: schedForm.review_dow, review_time: schedForm.review_time, reason: schedForm.reason.trim() }); toast.success("Weekly review schedule saved for future periods."); setSchedForm({ ...schedForm, reason: "" }); loadSchedule(); }
+    catch (e: any) { toast.error(errMsg(e, "Failed to update the weekly review schedule.")); }
+    finally { setSchedSaving(false); }
+  };
 
   return (
     <div className="space-y-5">
+      <Panel title="Weekly governance review schedule">
+        <p className="text-xs text-muted-foreground mb-3">All services are reviewed on this day. Reviews can take place at different times. A change applies to future periods only — existing periods, due dates and signed reviews are unchanged{sched?.timezone ? ` (${sched.timezone})` : ""}.</p>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">Weekly review day</label>
+            <select value={schedForm.review_dow} onChange={(e) => setSchedForm({ ...schedForm, review_dow: Number(e.target.value) })} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm">
+              {DOW_NAMES.map((n, i) => <option key={n} value={i}>{n}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="text-[11px] text-muted-foreground block mb-1">Review due time</label>
+            <input type="time" value={schedForm.review_time} onChange={(e) => setSchedForm({ ...schedForm, review_time: e.target.value })} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+          </div>
+        </div>
+        <label className="text-[11px] text-muted-foreground block mt-3 mb-1">Reason for the change <span className="text-red-500">*</span></label>
+        <input value={schedForm.reason} onChange={(e) => setSchedForm({ ...schedForm, reason: e.target.value })} placeholder="Why the schedule is changing" className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+        <div className="flex justify-end mt-3"><button onClick={saveSchedule} disabled={schedSaving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{schedSaving ? "Saving…" : "Save for future periods"}</button></div>
+        {Array.isArray(sched?.history) && sched.history.length > 0 && (
+          <div className="mt-4 border-t border-border pt-3">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Schedule change history</div>
+            <ul className="space-y-1.5 text-xs text-muted-foreground">
+              {sched.history.slice(0, 6).map((h: any, i: number) => {
+                const v = h.new_values || {};
+                const after = v.after || {};
+                return <li key={i}>{h.created_at ? new Date(h.created_at).toLocaleString("en-GB") : ""}{h.actor ? ` · ${h.actor}` : ""} — {typeof after.review_dow === "number" ? `${DOW_NAMES[after.review_dow]} ${String(after.review_time || "").slice(0, 5)}` : "updated"}{v.reason ? ` · ${v.reason}` : ""}</li>;
+              })}
+            </ul>
+          </div>
+        )}
+      </Panel>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <StatCard icon={SlidersHorizontal} tint="bg-blue-100 text-blue-700" label="Governance domains" value={domains.length} />
         <StatCard icon={AlertTriangle} tint="bg-amber-100 text-amber-700" label="Configured signals" value={signals.length} />

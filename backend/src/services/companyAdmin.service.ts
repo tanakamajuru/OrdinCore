@@ -134,6 +134,50 @@ export const companyAdminService = {
     return res.rows[0];
   },
 
+  // Weekly governance review schedule — the day/time all services are reviewed, used to compute the
+  // reporting period and due date going forward. A change applies to FUTURE periods only; existing
+  // weekly_reviews rows (keyed by their week_ending) and signed records are untouched.
+  async getGovernanceSchedule(companyId: string) {
+    const rows = await safeRows(
+      `SELECT COALESCE(weekly_governance_review_dow,1) AS review_dow,
+              COALESCE(weekly_governance_review_time,'09:00'::time)::text AS review_time,
+              COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone
+         FROM companies WHERE id=$1`, [companyId]);
+    const history = await safeRows(
+      `SELECT a.created_at, a.new_values,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS actor
+         FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id AND (u.company_id=a.company_id OR u.company_id IS NULL)
+        WHERE a.company_id=$1 AND a.action='weekly_schedule.updated'
+        ORDER BY a.created_at DESC LIMIT 20`, [companyId]);
+    return { ...(rows[0] || { review_dow: 1, review_time: '09:00:00', timezone: 'Europe/London' }), history };
+  },
+
+  async updateGovernanceSchedule(
+    companyId: string, userId: string,
+    patch: { review_dow?: number; review_time?: string; timezone?: string; reason?: string }
+  ) {
+    const dow = patch.review_dow;
+    if (dow == null || !Number.isInteger(dow) || dow < 0 || dow > 6) throw new Error('Choose a valid review day (0 Sunday – 6 Saturday).');
+    const time = String(patch.review_time || '09:00');
+    if (!/^\d{2}:\d{2}(:\d{2})?$/.test(time)) throw new Error('Use a valid time (HH:MM).');
+    if (String(patch.reason || '').trim().length < 10) throw new Error('Record a brief reason for the schedule change (at least 10 characters).');
+    const tz = String(patch.timezone || 'Europe/London');
+    const before = (await query(`SELECT weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time, governance_timezone AS timezone FROM companies WHERE id=$1`, [companyId])).rows[0] || {};
+    const res = await query(
+      `UPDATE companies SET weekly_governance_review_dow=$2, weekly_governance_review_time=$3::time, governance_timezone=$4
+        WHERE id=$1
+        RETURNING weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time,
+                  COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone`,
+      [companyId, dow, time, tz]
+    );
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, new_values)
+       VALUES (uuid_generate_v4(), $1, $2, 'weekly_schedule.updated', 'weekly_schedule', $3)`,
+      [companyId, userId, JSON.stringify({ before, after: res.rows[0], reason: String(patch.reason).trim() })]
+    ).catch(() => {});
+    return res.rows[0];
+  },
+
   async listAccessReviews(companyId: string, status: 'OPEN' | 'COMPLETED' = 'OPEN') {
     await safeRows(`SELECT sync_due_access_reviews($1::uuid)`, [companyId]);
     return safeRows(

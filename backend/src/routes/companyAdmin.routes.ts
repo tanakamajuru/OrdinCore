@@ -36,6 +36,24 @@ router.patch('/security-policy', ...admin, async (req, res) => {
   }
 });
 
+router.get('/governance-schedule', ...admin, async (req, res) => {
+  try {
+    const data = await companyAdminService.getGovernanceSchedule(req.user!.company_id!);
+    return res.json({ success: true, data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err?.message || 'Failed to load the weekly review schedule', errors: [] });
+  }
+});
+
+router.patch('/governance-schedule', ...admin, async (req, res) => {
+  try {
+    const data = await companyAdminService.updateGovernanceSchedule(req.user!.company_id!, req.user!.user_id, req.body || {});
+    return res.json({ success: true, data });
+  } catch (err: any) {
+    return res.status(400).json({ success: false, message: err?.message || 'Failed to update the weekly review schedule', errors: [] });
+  }
+});
+
 router.get('/access-reviews', ...admin, async (req, res) => {
   try {
     const status = String(req.query.status || 'OPEN').toUpperCase() === 'COMPLETED' ? 'COMPLETED' : 'OPEN';
