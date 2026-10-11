@@ -42,6 +42,11 @@ export function EscalationDetailScreen() {
   const [monOwner, setMonOwner] = useState('');
   const [monTrigger, setMonTrigger] = useState('');
   const [showMonCal, setShowMonCal] = useState(false);
+  // Explicit closure assessment — the RM actively judges whether the reason was addressed and
+  // whether further escalation is needed; these are never preset (the server enforces both).
+  const [closureOpen, setClosureOpen] = useState(false);
+  const [patternReduced, setPatternReduced] = useState<'yes' | 'no' | ''>('');
+  const [furtherEsc, setFurtherEsc] = useState<'yes' | 'no' | ''>('');
   const e = q.data;
   // Backend-supplied role capabilities on the ONE canonical record (Escalation Doctrine). Fall back
   // to role checks if an older backend didn't send them.
@@ -129,7 +134,22 @@ export function EscalationDetailScreen() {
       <Label>Registered Manager decision</Label><TextArea value={note} onChangeText={setNote} placeholder="Evidence and rationale…" minHeight={80} required />
       <Button title="Actions implemented" onPress={() => post(`/escalations/${id}/transition`, { lifecycle_status: 'Actions Implemented', rationale: note.trim() }, 'Lifecycle updated')} disabled={note.trim().length < 10 || incomplete > 0 || busy} />
       <Button title="Monitor effectiveness" tone="ghost" onPress={() => post(`/escalations/${id}/transition`, { lifecycle_status: 'Monitoring Effectiveness', rationale: note.trim() }, 'Effectiveness monitoring started')} disabled={note.trim().length < 10 || incomplete > 0 || busy} />
-      <Button title="Start closure review" tone="block" onPress={() => post(`/escalations/${id}/closure-review`, { pattern_reduced: true, actions_completed: incomplete === 0, effectiveness_reviewed: awaitingEffectiveness === 0, further_escalation_required: false, closure_reason: note.trim(), evidence: note.trim() }, 'Escalation closed; post-closure risk review is required')} disabled={note.trim().length < 10 || actions.length === 0 || incomplete > 0 || awaitingEffectiveness > 0 || busy} />
+      {!closureOpen && <Button title="Start closure review" tone="block" onPress={() => { setClosureOpen(true); setPatternReduced(''); setFurtherEsc(''); }} disabled={actions.length === 0 || incomplete > 0 || awaitingEffectiveness > 0 || busy} />}
+      {closureOpen && <View style={{ borderTopWidth: 1, borderTopColor: '#dde6ee', marginTop: 10, paddingTop: 10 }}>
+        <Label>Closure assessment</Label>
+        <Text size={11} muted>Record your judgement — these are not assumed. Closure is only possible when the reason has been addressed and no further escalation is needed.</Text>
+        <Label>Has the reason for escalation been addressed (risk/pattern reduced)?</Label>
+        <Row gap={6}><Chip label="Yes" active={patternReduced === 'yes'} onPress={() => setPatternReduced('yes')} /><Chip label="No" active={patternReduced === 'no'} onPress={() => setPatternReduced('no')} /></Row>
+        <Label>Is further escalation required instead of closing?</Label>
+        <Row gap={6}><Chip label="No" active={furtherEsc === 'no'} onPress={() => setFurtherEsc('no')} /><Chip label="Yes" active={furtherEsc === 'yes'} onPress={() => setFurtherEsc('yes')} /></Row>
+        {(patternReduced === 'no' || furtherEsc === 'yes') && <Banner tone="warn" icon="alert-circle" title="Closure is not appropriate">{furtherEsc === 'yes' ? 'Use "Escalate further" below instead of closing.' : 'The reason has not been addressed — keep monitoring or allocate further action rather than closing.'}</Banner>}
+        <Button title="Submit closure" tone="block" onPress={() => {
+          if (patternReduced !== 'yes' || furtherEsc !== 'no') { Alert.alert('Closure assessment', 'Closure needs the reason addressed and no further escalation required.'); return; }
+          post(`/escalations/${id}/closure-review`, { pattern_reduced: true, actions_completed: incomplete === 0, effectiveness_reviewed: awaitingEffectiveness === 0, further_escalation_required: false, closure_reason: note.trim(), evidence: note.trim() }, 'Escalation closed; post-closure risk review is required');
+          setClosureOpen(false);
+        }} disabled={note.trim().length < 10 || patternReduced !== 'yes' || furtherEsc !== 'no' || busy} />
+        <Button title="Cancel closure" tone="ghost" onPress={() => setClosureOpen(false)} />
+      </View>}
       <Button title="Escalate further" tone="ghost" onPress={() => post(`/escalations/${id}/escalate-further`, { reason: note.trim() }, 'Escalated further')} disabled={note.trim().length < 10 || busy} />
       {(incomplete > 0 || awaitingEffectiveness > 0) && <Text size={11} muted>Closure blocked: {incomplete} incomplete action(s), {awaitingEffectiveness} effectiveness review(s) pending.</Text>}
     </Card>}

@@ -15,7 +15,14 @@ export function RMPatternsScreen() {
   const [rationale, setRationale] = useState('');
   const [nextDate, setNextDate] = useState('');
   const [busy, setBusy] = useState(false);
-  const patterns = arr(list.data).filter((p) => !/dismissed|resolved/i.test(p.cluster_status || ''));
+  const [pTab, setPTab] = useState<'confirmed' | 'emerging'>('confirmed');
+  // Reuse the backend's canonical status — a confirmed pattern is one the engine has confirmed, not a
+  // single signal. Never derive a new mobile threshold; just separate confirmed from emerging.
+  const live = arr(list.data).filter((p) => !/dismissed|resolved|lapsed/i.test(String(p.canonical_status || p.cluster_status || '')));
+  const isConfirmed = (p: any) => /confirmed|established/i.test(String(p.canonical_status || p.cluster_status || ''));
+  const confirmed = live.filter(isConfirmed);
+  const emerging = live.filter((p) => !isConfirmed(p));
+  const patterns = pTab === 'confirmed' ? confirmed : emerging;
   const submit = async () => {
     if (rationale.trim().length < 20) { Alert.alert('Add a rationale', 'Use at least one clear sentence.'); return; }
     if (outcome === 'Continue Monitoring' && (!nextDate || new Date(`${nextDate}T00:00:00`).getTime() <= Date.now())) { Alert.alert('Add a future review date', 'Use YYYY-MM-DD and choose a date after today.'); return; }
@@ -43,7 +50,14 @@ export function RMPatternsScreen() {
       <Button title="Back to patterns" tone="ghost" onPress={() => setSelected(null)} />
     </Screen>;
   }
-  return <Screen refreshing={list.loading} onRefresh={list.refetch}><BoardHeader title="Patterns" subtitle="Systematic and cross-service patterns" />
-    {list.loading && !list.data ? <Loading /> : list.error ? <ErrorNote message={list.error} onRetry={list.refetch} /> : patterns.map((p) => <Card key={p.id}><Button title={p.cluster_label || p.risk_domain || 'Pattern'} tone="ghost" onPress={() => setSelected(p)} /><Text muted size={11}>{p.signal_count || 0} signals · {p.trajectory || 'Stable'} · {p.cluster_status}</Text></Card>)}
+  return <Screen refreshing={list.loading} onRefresh={list.refetch}><BoardHeader title="Patterns" subtitle="Confirmed patterns and emerging concerns being watched" />
+    <Row gap={6} style={{ flexWrap: 'wrap' }}>
+      <Chip label={`Confirmed · ${confirmed.length}`} active={pTab === 'confirmed'} onPress={() => setPTab('confirmed')} />
+      <Chip label={`Emerging · ${emerging.length}`} active={pTab === 'emerging'} onPress={() => setPTab('emerging')} />
+    </Row>
+    {pTab === 'emerging' && <Text size={11} muted>Emerging concerns are being watched. They are not confirmed patterns until the engine confirms them.</Text>}
+    {list.loading && !list.data ? <Loading /> : list.error ? <ErrorNote message={list.error} onRetry={list.refetch} />
+      : patterns.length === 0 ? <Card><Text muted>{pTab === 'confirmed' ? 'No confirmed patterns.' : 'No emerging concerns being watched.'}</Text></Card>
+      : patterns.map((p) => <Card key={p.id}><Button title={p.cluster_label || p.risk_domain || 'Pattern'} tone="ghost" onPress={() => setSelected(p)} /><Text muted size={11}>{p.signal_count || 0} signal{(p.signal_count || 0) === 1 ? '' : 's'} · {p.trajectory || 'Stable'} · {p.canonical_status || p.cluster_status}{p.last_signal_date ? ` · latest ${new Date(p.last_signal_date).toLocaleDateString('en-GB')}` : ''}</Text></Card>)}
   </Screen>;
 }
