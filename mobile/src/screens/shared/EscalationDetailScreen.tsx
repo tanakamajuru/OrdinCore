@@ -1,12 +1,61 @@
 import React, { useState } from 'react';
-import { Alert, View } from 'react-native';
+import { Alert, View, Modal, Pressable, ScrollView } from 'react-native';
+import { Feather } from '@expo/vector-icons';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useApi } from '@/api/useApi';
 import { api } from '@/api/client';
 import { useAuth, normalizeRole } from '@/auth/AuthContext';
+import { useTheme } from '@/theme/ThemeProvider';
+import { radius } from '@/theme/tokens';
 import { RootStackParams } from '@/navigation/types';
-import { Screen, Card, Row, Label, Text, Pill, TextArea, Button, Loading, ErrorNote, Banner, Chip } from '@/components/ui';
+import { Screen, Card, Row, Label, Text, Pill, TextArea, Button, Loading, ErrorNote, Banner, Chip, Field } from '@/components/ui';
 import { CalendarField } from '@/components/CalendarField';
+
+// Searchable single-select picker — used for the monitoring owner, which at a large service can
+// list 20+ colleagues. Collapsed to one row by default; opens a searchable sheet on tap, so the
+// whole staff list never floods the screen as chips.
+function PersonPicker({ people, value, onSelect, placeholder, title }: {
+  people: any[]; value: string; onSelect: (id: string) => void; placeholder: string; title: string;
+}) {
+  const { c } = useTheme();
+  const [open, setOpen] = useState(false);
+  const [q, setQ] = useState('');
+  const nameOf = (u: any) => `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.name || u.email || 'Unnamed';
+  const selected = people.find((u) => u.id === value);
+  const ql = q.trim().toLowerCase();
+  const filtered = ql ? people.filter((u) => `${nameOf(u)} ${u.email || ''}`.toLowerCase().includes(ql)) : people;
+  return (
+    <View>
+      <Pressable onPress={() => { setQ(''); setOpen(true); }}
+        style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, paddingHorizontal: 12, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Text size={14} color={selected ? c.ink : c.muted}>{selected ? nameOf(selected) : placeholder}</Text>
+        <Feather name="chevron-down" size={18} color={c.muted} />
+      </Pressable>
+      <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
+        <View style={{ flex: 1, backgroundColor: '#00000066', justifyContent: 'flex-end' }}>
+          <View style={{ backgroundColor: c.card, borderTopLeftRadius: 16, borderTopRightRadius: 16, maxHeight: '80%', padding: 16 }}>
+            <Row style={{ justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text size={17} weight="700">{title}</Text>
+              <Button title="Close" tone="ghost" onPress={() => setOpen(false)} />
+            </Row>
+            <Field value={q} onChangeText={setQ} placeholder="Search by name" />
+            <ScrollView style={{ marginTop: 8 }} keyboardShouldPersistTaps="handled">
+              {filtered.length === 0
+                ? <Text muted style={{ padding: 12 }}>No matching colleague.</Text>
+                : filtered.map((u) => (
+                  <Pressable key={u.id} onPress={() => { onSelect(u.id); setOpen(false); }}
+                    style={{ paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: c.lineSoft, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Text size={14} color={u.id === value ? c.accent : c.ink}>{nameOf(u)}</Text>
+                    {u.id === value && <Feather name="check" size={16} color={c.accent} />}
+                  </Pressable>
+                ))}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+    </View>
+  );
+}
 
 const done = (s?: string) => /complete|completed|cancelled/i.test(s || '');
 const reviewed = (a: any) => !!(a.effectiveness_outcome || a.effectiveness);
@@ -112,7 +161,10 @@ export function EscalationDetailScreen() {
       <TextArea value={monNote} onChangeText={setMonNote} placeholder="Rationale — why monitoring (not an action) is the right decision now…" minHeight={64} required />
       <Label>Monitoring owner</Label>
       {owners.length === 0 ? <Text size={12} muted>{dir.loading ? 'Loading colleagues…' : 'No colleagues available.'}</Text>
-        : <Row gap={6} style={{ flexWrap: 'wrap' }}>{owners.filter((u:any)=>['TEAM_LEADER','REGISTERED_MANAGER'].includes(normalizeRole(u.role||''))).map((u:any) => <Chip key={u.id} label={`${u.first_name||''} ${u.last_name||''}`.trim() || u.name || u.email} active={monOwner===u.id} onPress={()=>setMonOwner(u.id)} />)}</Row>}
+        : <PersonPicker
+            people={owners.filter((u:any)=>['TEAM_LEADER','REGISTERED_MANAGER'].includes(normalizeRole(u.role||'')))}
+            value={monOwner} onSelect={setMonOwner}
+            placeholder="Select monitoring owner…" title="Monitoring owner" />}
       <Label>Next review date</Label>
       <Row gap={6} style={{ flexWrap: 'wrap' }}>
         {[['In 1 week',7],['In 2 weeks',14],['In 30 days',30]].map(([lbl,n]) => { const d=new Date(); d.setDate(d.getDate()+(n as number)); const iso=d.toISOString().slice(0,10); return <Chip key={lbl as string} label={lbl as string} active={monDate===iso} onPress={()=>{setMonDate(iso); setShowMonCal(false);}} />; })}
