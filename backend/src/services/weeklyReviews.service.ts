@@ -255,7 +255,7 @@ export class WeeklyReviewsService {
               (u.first_name || ' ' || u.last_name) AS owner_name
          FROM interventions i LEFT JOIN users u ON u.id = i.owner_id
         WHERE i.company_id = $1 AND i.status <> 'Complete'
-          AND (i.house_id = $2 OR i.house_id IS NULL)
+          AND i.house_id = $2
         ORDER BY i.updated_at DESC LIMIT 20`,
       [company_id, house_id]
     );
@@ -333,7 +333,7 @@ export class WeeklyReviewsService {
       `SELECT sc.id, sc.cluster_label, sc.canonical_status, sc.scope::text AS scope,
               sc.is_active, sc.review_outcome, sc.last_reviewed_at
          FROM canonical_pattern_state_v sc
-        WHERE sc.company_id = $1 AND (sc.house_id = $2 OR sc.scope = 'cross_service')
+        WHERE sc.company_id = $1 AND sc.house_id = $2
         ORDER BY sc.is_active DESC, sc.last_reviewed_at DESC NULLS LAST LIMIT 30`, [company_id, house_id]);
 
     // Serious incidents in the week + reconstruction status.
@@ -508,7 +508,7 @@ export class WeeklyReviewsService {
             ORDER BY w.updated_at DESC NULLS LAST LIMIT 1
          ) wr ON TRUE
          LEFT JOIN users cu ON cu.id = COALESCE(wr.rm_finalised_by, wr.created_by)
-        WHERE h.company_id=$1 AND h.status <> 'closed'
+        WHERE h.company_id=$1 AND h.status = 'active'
         ORDER BY h.name`,
       [company_id]
     )).rows;
@@ -679,7 +679,7 @@ export class WeeklyReviewsService {
          FROM interventions i
          LEFT JOIN users u ON u.id = i.owner_id AND u.company_id = i.company_id
         WHERE i.company_id = $1 AND i.status <> 'Complete'
-          AND (i.house_id = $2 OR i.house_id IS NULL)
+          AND i.house_id = $2
         ORDER BY i.updated_at DESC LIMIT 20`, [company_id, row.house_id])).rows;
 
     // Escalation monitoring reviews recorded this week — each is a dated, accountable decision to
@@ -716,7 +716,7 @@ export class WeeklyReviewsService {
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
-        WHERE lr.company_id = $1 AND (lr.house_id = $2 OR lr.house_id IS NULL)
+        WHERE lr.company_id = $1 AND lr.house_id = $2
           AND lr.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
         ORDER BY lr.created_at DESC`, p)).rows;
 
