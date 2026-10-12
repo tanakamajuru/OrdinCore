@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
-import { View, Alert } from 'react-native';
+import { View, Alert, Platform } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
 import { api } from '@/api/client';
 import { useApi } from '@/api/useApi';
@@ -30,16 +31,23 @@ export function TLDailyGovernanceScreen() {
   const [acked, setAcked] = useState<Record<string, boolean>>({});
   const [pdfBusy, setPdfBusy] = useState<string | null>(null);
   const { token } = useAuth();
+  const nav = useNavigation<any>();
 
-  // Download the presentable PDF (with auth) and hand it to the OS share sheet (save / email / print).
+  // Download the presentable PDF (with auth) to a local file, then VIEW it in-app on iOS (its
+  // WebView renders PDFs natively) and hand it to the OS viewer/share on Android.
   const openPdf = async (b: any) => {
     setPdfBusy(b.id);
     try {
       const target = `${FileSystem.cacheDirectory}daily-governance-${b.id}.pdf`;
       const res = await FileSystem.downloadAsync(`${API_BASE_URL}/governance/daily-log/${b.id}/pdf`, target, token ? { headers: { Authorization: `Bearer ${token}` } } : undefined);
       if (res.status !== 200) throw new Error('The report could not be generated.');
-      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(res.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
-      else Alert.alert('Report ready', 'The PDF was downloaded to the app cache.');
+      if (Platform.OS === 'ios') {
+        nav.navigate('PdfViewer', { uri: res.uri, title: 'Daily Governance Report' });
+      } else if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(res.uri, { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' });
+      } else {
+        Alert.alert('Report ready', 'The PDF was downloaded to the app cache.');
+      }
     } catch (e: any) { Alert.alert("Couldn't open the PDF", e?.message || 'Please try again.'); }
     finally { setPdfBusy(null); }
   };

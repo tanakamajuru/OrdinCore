@@ -58,6 +58,7 @@ export type RootStackParams = {
   Promote: { cluster: any };
   CloseRisk: { risk: { id: string; title?: string } };
   ValidateReview: { review: any };
+  PdfViewer: { uri: string; title?: string };
   Profile: undefined;
   MyWork: undefined;
   TLDailyGovernance: undefined;

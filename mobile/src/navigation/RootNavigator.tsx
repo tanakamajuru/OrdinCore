@@ -34,6 +34,7 @@ import { RMPatternsScreen } from '@/screens/rm/RMPatternsScreen';
 import { RMDailyGovernanceScreen } from '@/screens/rm/RMDailyGovernanceScreen';
 import { ActionDetailScreen } from '@/screens/shared/ActionDetailScreen';
 import { EscalationDetailScreen } from '@/screens/shared/EscalationDetailScreen';
+import { PdfViewerScreen } from '@/screens/shared/PdfViewerScreen';
 import { AdminBoundaryScreen } from '@/screens/shared/AdminBoundaryScreen';
 import { SWTodayScreen } from '@/screens/sw/SWTodayScreen';
 import { SWSignalsScreen } from '@/screens/sw/SWSignalsScreen';
@@ -301,6 +302,7 @@ export function RootNavigator() {
       <Stack.Screen name="Promote" component={PromoteScreen} options={{ title: 'Promote to risk' }} />
       <Stack.Screen name="CloseRisk" component={CloseRiskScreen} options={{ title: 'Close risk' }} />
       <Stack.Screen name="ValidateReview" component={ValidateReviewScreen} options={{ title: 'Validate review' }} />
+      <Stack.Screen name="PdfViewer" component={PdfViewerScreen} options={{ title: 'Report' }} />
       <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile' }} />
       <Stack.Screen name="MyWork" component={MyWorkScreen} options={{ title: 'My Work' }} />
       <Stack.Screen name="RateEffectiveness" component={RateEffectivenessScreen} options={{ title: 'Rate effectiveness' }} />
