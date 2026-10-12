@@ -134,6 +134,23 @@ export function LearningRegister() {
                       {r.review_date && new Date(r.review_date) <= new Date() ? <span className="ml-2 text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">DUE</span> : null}
                       {r.owner_name ? <span> · owner: {r.owner_name}</span> : null}
                     </p>
+                    {/* Context so the reviewer knows WHAT this learning is about before assessing it —
+                        the originating effectiveness review, its outcome/evidence and the concern. */}
+                    {(r.source_action_title || r.source_pattern_label || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
+                      <div className="mt-2 space-y-1 text-sm bg-muted/40 rounded-lg p-2.5">
+                        {(r.source_action_title || r.source_review_outcome) && (
+                          <p className="text-muted-foreground"><span className="text-foreground font-medium">From review:</span> {r.source_action_title || "Reviewed action"}
+                            {r.source_review_outcome ? ` · rated ${r.source_review_outcome}` : ""}
+                            {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
+                        )}
+                        {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
+                        {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
+                        {r.source_review_evidence && <p className="text-muted-foreground"><span className="text-foreground font-medium">Evidence examined:</span> {r.source_review_evidence}</p>}
+                        {r.linked_action_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Improvement action:</span> {r.linked_action_title}{r.linked_action_status ? ` (${r.linked_action_status})` : ""}</p>}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-muted-foreground italic">No source detail was recorded for this learning — review against the service's recent governance record for this date.</p>
+                    )}
                     {canManage && assessing !== r.id && (
                       <button onClick={() => openAssess(r.id)} className="mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Complete assessment</button>
                     )}

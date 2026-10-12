@@ -166,13 +166,17 @@ export class LearningService {
               ra.title AS linked_action_title, ra.status::text AS linked_action_status,
               sa.title AS source_action_title,
               aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
-              aer.evidence AS source_review_evidence
+              aer.evidence AS source_review_evidence,
+              -- Pattern-closure learnings point at a cluster, not an action — surface its label
+              -- so the reviewer still has context for what the learning is about.
+              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
          LEFT JOIN houses h ON h.id = lr.house_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE ${where}
         ORDER BY lr.created_at DESC
