@@ -66,13 +66,13 @@ export function RoleBasedNavigation() {
           { path: "/super-admin/settings", label: "System Settings", icon: Settings },
         ];
       case "ADMIN":
+        // Provider administration is the Organisation Admin workspace (/admin). Legacy admin-*
+        // pages are redirected there; global Governance Config is platform-only (SUPER_ADMIN) and
+        // is not a provider-admin destination.
         return [
-          { path: "/admin-dashboard", label: "Admin Dashboard", icon: Settings },
-          { path: "/admin-users", label: "Users", icon: Users },
-          { path: "/admin/houses", label: "Sites", icon: Home },
+          { path: "/admin", label: "Organisation Admin", icon: Settings },
           { path: "/org-structure", label: "Org Structure", icon: Building2 },
           { path: "/service-users", label: "Service Users", icon: Users },
-          { path: "/governance-config", label: "Governance Config", icon: ClipboardList },
         ];
       case "REGISTERED_MANAGER":
         // Stage 4 spine rail (10 -> 5). Today · Pipeline · Weekly review · Serious

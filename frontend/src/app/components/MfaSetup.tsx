@@ -23,7 +23,7 @@ export function MfaSetup() {
     const role = (localStorage.getItem("userRole") || "").toUpperCase().replace(/-/g, "_");
     localStorage.removeItem("mfaEnrolmentRequired");
     if (role === "SUPER_ADMIN") navigate("/super-admin");
-    else if (role === "ADMIN") navigate("/admin-dashboard");
+    else if (role === "ADMIN") navigate("/admin");
     else if (["REGISTERED_MANAGER", "DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "TEAM_LEADER"].includes(role)) navigate("/my-work");
     else navigate("/dashboard");
   };

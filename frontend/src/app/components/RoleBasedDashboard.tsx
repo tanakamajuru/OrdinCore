@@ -17,7 +17,7 @@ export function RoleBasedDashboard() {
     if (userRole === 'SUPER_ADMIN') {
       navigate("/super-admin");
     } else if (userRole === 'ADMIN') {
-      navigate("/admin-dashboard");
+      navigate("/admin");
     }
   }, [userRole, navigate]);
 

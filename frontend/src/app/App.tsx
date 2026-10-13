@@ -212,46 +212,20 @@ export default function App() {
               <OrganisationAdmin />
             </CompanyAdminRoute>
           } />
-          <Route path="/admin-classic" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminDashboard /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-dashboard" element={
-            <CompanyAdminRoute>
-              <AdminDashboardSimple />
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-users" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminUserManagement /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-houses" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminHouseManagement /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin/houses" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminHouseManagement /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-pulses" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminPulseManagement /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-risks" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminRiskManagement /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
-          <Route path="/admin-settings" element={
-            <CompanyAdminRoute>
-              <AdminLayout><AdminSettings /></AdminLayout>
-            </CompanyAdminRoute>
-          } />
+          {/* Legacy admin pages are superseded by the Organisation Admin workspace (/admin).
+              Their functions live there (Users -> People & Access, Sites -> Services, Settings ->
+              Review Schedule/Security); pulses/risks were operational screens that do not belong in
+              provider administration. Redirect so old bookmarks/links land in the approved workspace.
+              Backend APIs remain role-guarded independently — this is a route redirect, not the
+              security boundary. */}
+          <Route path="/admin-classic" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-dashboard" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-users" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-houses" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin/houses" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-pulses" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-risks" element={<Navigate to="/admin" replace />} />
+          <Route path="/admin-settings" element={<Navigate to="/admin" replace />} />
           <Route path="/admin/service-users" element={
             <CompanyAdminRoute>
               <AdminServiceUsers />

@@ -73,7 +73,7 @@ export function Login() {
     if (localStorage.getItem('mfaEnrolmentRequired')) { navigate('/mfa-setup'); return; }
     const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
     if (role === 'SUPER_ADMIN') navigate('/super-admin');
-    else if (role === 'ADMIN') navigate('/admin-dashboard');
+    else if (role === 'ADMIN') navigate('/admin');
     else if (['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role)) navigate('/my-work');
     else navigate('/dashboard');
   };
@@ -84,7 +84,7 @@ export function Login() {
   if (isAuthenticated) {
     const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
     const home = role === 'SUPER_ADMIN' ? '/super-admin'
-      : role === 'ADMIN' ? '/admin-dashboard'
+      : role === 'ADMIN' ? '/admin'
       : ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'TEAM_LEADER'].includes(role) ? '/my-work'
       : '/dashboard';
     return <Navigate to={home} replace />;
