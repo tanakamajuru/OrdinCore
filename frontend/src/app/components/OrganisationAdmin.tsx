@@ -5,7 +5,7 @@ import {
   Home, Users, Building2, UsersRound, SlidersHorizontal, ShieldCheck, Database, HelpCircle,
   Shield, Lock, Calendar, AlertTriangle, ChevronRight, UserPlus, ArrowLeftRight, KeyRound,
   RefreshCw, CheckCircle2, UserX, FileDown, ArrowRight, X, Plus, Search, Mail, ExternalLink,
-  CreditCard,
+  CreditCard, Menu,
 } from "lucide-react";
 import apiClient from "@/services/apiClient";
 
@@ -40,12 +40,12 @@ const errMsg = (e: any, fb: string) => e?.response?.data?.message || fb;
 function Modal({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
   return (
     <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
+      <div className="bg-card border border-border rounded-xl w-full max-w-md shadow-xl max-h-[90vh] flex flex-col" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between px-5 py-4 border-b border-border shrink-0">
           <h3 className="font-semibold text-foreground">{title}</h3>
           <button onClick={onClose} className="text-muted-foreground hover:text-foreground"><X size={18} /></button>
         </div>
-        <div className="p-5 space-y-3">{children}</div>
+        <div className="p-5 space-y-3 overflow-y-auto">{children}</div>
       </div>
     </div>
   );
@@ -72,6 +72,7 @@ function Spinner() { return <div className="py-16 flex justify-center"><div clas
 export default function OrganisationAdmin() {
   const navigate = useNavigate();
   const [section, setSection] = useState<Section>("overview");
+  const [navOpen, setNavOpen] = useState(false);
   const [data, setData] = useState<Overview | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -95,16 +96,20 @@ export default function OrganisationAdmin() {
     { key: "help", label: "Help", icon: HelpCircle },
   ];
 
+  const currentLabel = NAV.find(n => n.key === section)?.label || "Overview";
   return (
     <div className="min-h-screen flex bg-background">
-      <aside className="w-64 shrink-0 min-h-screen flex flex-col text-[#D9E8F3]" style={{ background: "linear-gradient(180deg,#0D2944,#081B2E)" }}>
+      {/* Mobile drawer backdrop */}
+      {navOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setNavOpen(false)} />}
+      <aside className={`w-64 shrink-0 min-h-screen flex flex-col text-[#D9E8F3] fixed lg:static inset-y-0 left-0 z-40 transform transition-transform duration-200 lg:translate-x-0 ${navOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ background: "linear-gradient(180deg,#0D2944,#081B2E)" }}>
         <div className="px-5 py-5 flex items-center gap-2.5 border-b border-white/10">
           <div className="w-9 h-9 rounded-lg bg-primary/90 flex items-center justify-center"><Shield size={18} className="text-white" /></div>
-          <div><div className="font-bold tracking-tight text-white leading-none">ORDIN <span className="font-light">CORE</span></div><div className="text-[10px] text-sky-200/70 mt-0.5">Safer care. Stronger organisations.</div></div>
+          <div className="flex-1"><div className="font-bold tracking-tight text-white leading-none">ORDIN <span className="font-light">CORE</span></div><div className="text-[10px] text-sky-200/70 mt-0.5">Safer care. Stronger organisations.</div></div>
+          <button onClick={() => setNavOpen(false)} className="lg:hidden text-sky-100/80 p-1" aria-label="Close menu"><X size={20} /></button>
         </div>
-        <nav className="flex-1 p-3 space-y-1">
+        <nav className="flex-1 p-3 space-y-1 overflow-y-auto">
           {NAV.map(n => (
-            <button key={n.key} onClick={() => setSection(n.key)}
+            <button key={n.key} onClick={() => { setSection(n.key); setNavOpen(false); }}
               className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${section === n.key ? "bg-primary text-white shadow-[inset_3px_0_0_#71C4EE]" : "text-sky-100/80 hover:bg-white/8 hover:text-white"}`}>
               <n.icon size={18} strokeWidth={1.8} /> {n.label}
             </button>
@@ -113,10 +118,15 @@ export default function OrganisationAdmin() {
         <div className="px-5 py-4 text-[11px] text-sky-200/50 leading-snug">Good governance<br />brighter tomorrows.</div>
       </aside>
 
-      <main className="flex-1 min-w-0 p-6 lg:p-8 max-w-[1200px]">
+      <main className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8 max-w-[1200px]">
+        {/* Mobile top bar with menu toggle */}
+        <div className="lg:hidden flex items-center gap-3 mb-4 -mt-1">
+          <button onClick={() => setNavOpen(true)} className="p-2 -ml-2 rounded-lg hover:bg-muted text-foreground" aria-label="Open menu"><Menu size={22} /></button>
+          <span className="text-sm font-semibold text-foreground">{currentLabel}</span>
+        </div>
         <header className="flex flex-wrap items-start justify-between gap-4 mb-6">
           <div>
-            <h1 className="text-3xl font-bold text-foreground tracking-tight">Organisation Administration</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground tracking-tight">Organisation Administration</h1>
             <p className="text-muted-foreground mt-1"><span className="font-semibold text-foreground/80">{data?.company || "…"}</span> · Provider workspace</p>
           </div>
           <div className="flex items-center gap-2">
