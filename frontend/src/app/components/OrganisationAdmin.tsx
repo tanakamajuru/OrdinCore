@@ -88,7 +88,7 @@ export default function OrganisationAdmin() {
     { key: "people", label: "People & Access", icon: Users },
     { key: "services", label: "Services", icon: Building2 },
     { key: "serviceusers", label: "Service Users", icon: UsersRound },
-    { key: "governance", label: "Governance Configuration", icon: SlidersHorizontal },
+    { key: "governance", label: "Review Schedule", icon: SlidersHorizontal },
     { key: "security", label: "Audit & Security", icon: ShieldCheck },
     { key: "retention", label: "Data & Retention", icon: Database },
     { key: "billing", label: "Billing & Subscription", icon: CreditCard },
@@ -121,7 +121,7 @@ export default function OrganisationAdmin() {
           </div>
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 text-primary px-3 py-1.5 text-sm font-semibold"><Shield size={15} /> Company Admin</span>
-            <span className="inline-flex items-center gap-1.5 rounded-lg bg-emerald-50 text-emerald-700 px-3 py-1.5 text-sm font-semibold border border-emerald-200"><Lock size={14} /> Tenant isolated</span>
+            <span className="inline-flex items-center gap-1.5 rounded-lg bg-muted text-muted-foreground px-3 py-1.5 text-sm font-medium border border-border" title="Access is scoped to your organisation by the platform. This describes the access model, not a test result."><Lock size={14} /> Organisation-scoped</span>
           </div>
         </header>
 
@@ -200,7 +200,7 @@ function OverviewSection({ data, go, reload }: { data: Overview | null; go: (s: 
         </Panel>
         <Panel title="Quick actions">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <QuickAction icon={UserPlus} label="Invite user" onClick={() => go("people")} />
+            <QuickAction icon={UserPlus} label="Create account" onClick={() => go("people")} />
             <QuickAction icon={Building2} label="Add service" onClick={() => go("services")} />
             <QuickAction icon={ArrowLeftRight} label="Transfer service user" onClick={() => go("serviceusers")} />
             <QuickAction icon={KeyRound} label="Review permissions" onClick={() => go("people")} />
@@ -238,7 +238,7 @@ function PeopleSection() {
     if (!form.first_name || !form.last_name || !form.email) { toast.error("Name and email are required."); return; }
     if (form.password.length < 8) { toast.error("Set a temporary password of at least 8 characters."); return; }
     setBusy(true);
-    try { await apiClient.post("/users", form); toast.success("User invited."); setInvite(false); setForm({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" }); load(); }
+    try { await apiClient.post("/users", form); toast.success("Account created. Share the temporary password securely with the user — no email invitation is sent."); setInvite(false); setForm({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" }); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to invite user.")); } finally { setBusy(false); }
   };
   const toggleStatus = async (u: any) => {
@@ -255,7 +255,7 @@ function PeopleSection() {
     <Panel title={`People & Access (${filtered.length})`} right={
       <div className="flex items-center gap-2">
         <div className="relative"><Search size={14} className="absolute left-2.5 top-2.5 text-muted-foreground" /><input value={q} onChange={e => setQ(e.target.value)} placeholder="Search…" className="pl-8 pr-3 py-1.5 rounded-lg border border-border bg-background text-sm w-44" /></div>
-        <button onClick={() => setInvite(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold"><UserPlus size={15} /> Invite user</button>
+        <button onClick={() => setInvite(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold"><UserPlus size={15} /> Create account</button>
       </div>}>
       {loading ? <Spinner /> : (
         <div className="overflow-x-auto">
@@ -286,7 +286,8 @@ function PeopleSection() {
         </div>
       )}
       {invite && (
-        <Modal title="Invite user" onClose={() => setInvite(false)}>
+        <Modal title="Create account" onClose={() => setInvite(false)}>
+          <p className="text-xs text-muted-foreground -mt-1 mb-1">This creates the account immediately with a temporary password. No email invitation is sent — share the password securely with the user, who signs in and can change it.</p>
           <div className="grid grid-cols-2 gap-3">
             <Field label="First name"><input className={inputCls} value={form.first_name} onChange={e => setForm({ ...form, first_name: e.target.value })} /></Field>
             <Field label="Last name"><input className={inputCls} value={form.last_name} onChange={e => setForm({ ...form, last_name: e.target.value })} /></Field>
@@ -294,7 +295,7 @@ function PeopleSection() {
           <Field label="Email"><input className={inputCls} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
           <Field label="Role"><select className={inputCls} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>{ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}</select></Field>
           <Field label="Temporary password"><input className={inputCls} type="text" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="They can change it after first sign-in" /></Field>
-          <div className="flex justify-end gap-2 pt-1"><button onClick={() => setInvite(false)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submitInvite} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Inviting…" : "Invite"}</button></div>
+          <div className="flex justify-end gap-2 pt-1"><button onClick={() => setInvite(false)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submitInvite} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Creating…" : "Create account"}</button></div>
         </Modal>
       )}
     </Panel>
@@ -311,7 +312,10 @@ function ServicesSection() {
   const [reviewers, setReviewers] = useState<any[]>([]);
 
   const load = async () => { setLoading(true); try { setList(rows(await apiClient.get("/houses?limit=500"))); } catch { toast.error("Failed to load services."); } finally { setLoading(false); } };
-  useEffect(() => { load(); (async () => { try { const us = rows(await apiClient.get("/users?limit=500")); setReviewers(us.filter((u: any) => ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN"].includes(String(u.role || "").toUpperCase().replace(/-/g, "_")))); } catch { /* optional */ } })(); }, []);
+  // Only a Registered Manager can author and finalise a weekly review (POST /weekly-reviews/:id/finalise
+  // is RM-only), so the assigned reviewer must be an RM. Listing Directors/Admins here would imply a
+  // finalising permission they do not have, and blur authoring vs independent validation.
+  useEffect(() => { load(); (async () => { try { const us = rows(await apiClient.get("/users?limit=500")); setReviewers(us.filter((u: any) => String(u.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER")); } catch { /* optional */ } })(); }, []);
   const setReviewer = async (houseId: string, userId: string) => {
     try { await apiClient.patch(`/houses/${houseId}`, { assigned_reviewer_id: userId || null }); toast.success("Assigned reviewer updated."); setList((l) => l.map((h) => h.id === houseId ? { ...h, assigned_reviewer_id: userId || null } : h)); }
     catch (e: any) { toast.error(errMsg(e, "Failed to set reviewer.")); }
@@ -339,6 +343,7 @@ function ServicesSection() {
                   <option value="">Unassigned (RM who reviews)</option>
                   {reviewers.map((u) => <option key={u.id} value={u.id}>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}{u.role ? ` (${String(u.role).replace(/_/g, " ").toLowerCase()})` : ""}</option>)}
                 </select>
+                {reviewers.length === 0 && <p className="text-[10px] text-muted-foreground mt-1">No Registered Managers available — only an RM can author and finalise a weekly review.</p>}
               </div>
             </div>
           ))}
@@ -481,10 +486,10 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
         <StatCard icon={AlertTriangle} tint="bg-amber-100 text-amber-700" label="Configured signals" value={signals.length} />
         <StatCard icon={ShieldCheck} tint="bg-emerald-100 text-emerald-700" label="Thresholds" value={thresholds.length} />
       </div>
-      <Panel title="Governance domains" right={<button onClick={() => navigate("/governance-config")} className="inline-flex items-center gap-1.5 text-sm text-primary font-medium">Open full editor <ExternalLink size={14} /></button>}>
-        {loading ? <Spinner /> : domains.length === 0 ? <p className="text-sm text-muted-foreground">No domains configured.</p> :
+      <Panel title="Themes used by your organisation">
+        {loading ? <Spinner /> : domains.length === 0 ? <p className="text-sm text-muted-foreground">No themes configured.</p> :
           <div className="flex flex-wrap gap-2">{domains.map((d: any) => <Badge key={d.id} tone="blue">{d.name || d.label || d.domain || d.key}</Badge>)}</div>}
-        <p className="text-xs text-muted-foreground mt-4">Domains, signal library and escalation thresholds are edited in the dedicated Governance Configuration editor, which keeps the frozen governance model consistent.</p>
+        <p className="text-xs text-muted-foreground mt-4">Read-only reference. The governance themes, signal library and escalation thresholds are part of the shared platform model and are maintained centrally — they are not edited from provider administration.</p>
       </Panel>
     </div>
   );
@@ -496,8 +501,11 @@ function SecuritySection({ data, onChanged }: { data: Overview | null; onChanged
   const [saving, setSaving] = useState(false);
   const [reviews, setReviews] = useState<AccessReview[]>([]);
   const [loadingR, setLoadingR] = useState(true);
+  const [reviewsErr, setReviewsErr] = useState(false);
   useEffect(() => { if (data?.security) setForm(data.security); }, [data?.security]);
-  const loadReviews = async () => { setLoadingR(true); try { setReviews(rows(await apiClient.get("/company-admin/access-reviews?status=OPEN"))); } catch { setReviews([]); } finally { setLoadingR(false); } };
+  // A load FAILURE must not read as "no reviews due" — that would hide an outstanding obligation.
+  // Track the error distinctly and offer a retry instead of silently showing an empty list.
+  const loadReviews = async () => { setLoadingR(true); setReviewsErr(false); try { setReviews(rows(await apiClient.get("/company-admin/access-reviews?status=OPEN"))); } catch { setReviewsErr(true); setReviews([]); } finally { setLoadingR(false); } };
   useEffect(() => { loadReviews(); }, []);
 
   const save = async () => { setSaving(true); try { await apiClient.patch("/company-admin/security-policy", form); toast.success("Security policy updated."); onChanged(); } catch (e: any) { toast.error(errMsg(e, "Failed to update policy.")); } finally { setSaving(false); } };
@@ -513,8 +521,13 @@ function SecuritySection({ data, onChanged }: { data: Overview | null; onChanged
           <div className="flex justify-end"><button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{saving ? "Saving…" : "Save policy"}</button></div>
         </div>
       </Panel>
-      <Panel title={`Access reviews due (${reviews.length})`}>
-        {loadingR ? <Spinner /> : reviews.length === 0 ? <p className="text-sm text-muted-foreground flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-600" /> All access is up to date.</p> :
+      <Panel title={`Access reviews due${reviewsErr ? "" : ` (${reviews.length})`}`}>
+        {loadingR ? <Spinner /> : reviewsErr ? (
+          <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between gap-3">
+            <span className="flex items-center gap-2"><AlertTriangle size={16} /> Access reviews are unavailable right now — this does not mean none are due.</span>
+            <button onClick={loadReviews} className="text-xs font-semibold text-amber-800 border border-amber-300 rounded px-2.5 py-1 hover:bg-amber-100 shrink-0">Retry</button>
+          </div>
+        ) : reviews.length === 0 ? <p className="text-sm text-muted-foreground flex items-center gap-2"><CheckCircle2 size={16} className="text-emerald-600" /> All access is up to date.</p> :
           <ul className="divide-y divide-border">{reviews.map(r => (
             <li key={r.id} className="py-3 flex items-center gap-3"><span className="w-8 h-8 rounded-full bg-muted text-foreground/70 text-xs font-semibold flex items-center justify-center shrink-0">{initials(r.user_name)}</span>
               <div className="flex-1 min-w-0"><div className="text-sm font-medium text-foreground truncate">{r.user_name || r.email}</div><div className="text-xs text-muted-foreground truncate">{r.email} · {roleLabel(r.role)} · last sign-in {ago(r.last_login)}</div></div>
@@ -621,7 +634,7 @@ function BillingSection() {
 /* ---------- Help ---------- */
 function HelpSection() {
   const items = [
-    { icon: UserPlus, t: "People & Access", d: "Invite staff, set their role, suspend or reactivate accounts, and confirm periodic access reviews." },
+    { icon: UserPlus, t: "People & Access", d: "Create staff accounts, set their role, suspend or reactivate accounts, and confirm periodic access reviews." },
     { icon: Building2, t: "Services", d: "Add and view the services (houses) in your organisation." },
     { icon: UsersRound, t: "Service Users", d: "View service users and transfer them between services; governance history stays intact." },
     { icon: ShieldCheck, t: "Audit & Security", d: "Record MFA and timeout policy targets, review actual MFA coverage, inspect audit activity and complete access reviews. Export restrictions remain server-enforced." },

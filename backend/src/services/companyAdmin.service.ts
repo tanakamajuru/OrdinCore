@@ -1,4 +1,4 @@
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 
 const safeRows = async (sql: string, params: any[] = []) => {
   try { return (await query(sql, params)).rows; } catch { return []; }
@@ -162,31 +162,47 @@ export const companyAdminService = {
     if (!/^\d{2}:\d{2}(:\d{2})?$/.test(time)) throw new Error('Use a valid time (HH:MM).');
     if (String(patch.reason || '').trim().length < 10) throw new Error('Record a brief reason for the schedule change (at least 10 characters).');
     const tz = String(patch.timezone || 'Europe/London');
-    const before = (await query(`SELECT weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time, governance_timezone AS timezone FROM companies WHERE id=$1`, [companyId])).rows[0] || {};
-    const res = await query(
-      `UPDATE companies SET weekly_governance_review_dow=$2, weekly_governance_review_time=$3::time, governance_timezone=$4
-        WHERE id=$1
-        RETURNING weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time,
-                  COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone`,
-      [companyId, dow, time, tz]
-    );
-    await query(
-      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, new_values)
-       VALUES (uuid_generate_v4(), $1, $2, 'weekly_schedule.updated', 'weekly_schedule', $3)`,
-      [companyId, userId, JSON.stringify({ before, after: res.rows[0], reason: String(patch.reason).trim() })]
-    ).catch(() => {});
-    return res.rows[0];
+    // The schedule change and its audit record must succeed or fail TOGETHER. Previously the audit
+    // insert was fire-and-forget (.catch(()=>{})), so an auditable change could be reported as fully
+    // successful even if the audit event was never stored. Do both in one transaction.
+    const client = await getClient();
+    try {
+      await client.query('BEGIN');
+      const before = (await client.query(`SELECT weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time, governance_timezone AS timezone FROM companies WHERE id=$1`, [companyId])).rows[0] || {};
+      const res = await client.query(
+        `UPDATE companies SET weekly_governance_review_dow=$2, weekly_governance_review_time=$3::time, governance_timezone=$4
+          WHERE id=$1
+          RETURNING weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time,
+                    COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone`,
+        [companyId, dow, time, tz]
+      );
+      await client.query(
+        `INSERT INTO audit_logs (id, company_id, user_id, action, resource, new_values)
+         VALUES (uuid_generate_v4(), $1, $2, 'weekly_schedule.updated', 'weekly_schedule', $3)`,
+        [companyId, userId, JSON.stringify({ before, after: res.rows[0], reason: String(patch.reason).trim() })]
+      );
+      await client.query('COMMIT');
+      return res.rows[0];
+    } catch (e) {
+      await client.query('ROLLBACK').catch(() => {});
+      throw e;
+    } finally {
+      client.release();
+    }
   },
 
   async listAccessReviews(companyId: string, status: 'OPEN' | 'COMPLETED' = 'OPEN') {
     await safeRows(`SELECT sync_due_access_reviews($1::uuid)`, [companyId]);
-    return safeRows(
+    // The listing itself must NOT swallow errors into an empty array — an empty result then
+    // reads as "no reviews due", hiding an outstanding governance obligation. Let it throw so the
+    // caller surfaces an "unavailable" state instead. (The sync above stays best-effort.)
+    return (await query(
       `SELECT ar.id, ar.status, ar.reason, ar.due_at, ar.completed_at, ar.note,
               u.id AS user_id, TRIM(COALESCE(u.first_name,'')||' '||COALESCE(u.last_name,'')) AS user_name,
               u.email, u.role, u.status AS account_status, u.last_login
          FROM access_reviews ar JOIN users u ON u.id=ar.subject_user_id
         WHERE ar.company_id=$1 AND ar.status=$2
-        ORDER BY ar.due_at ASC`, [companyId, status]);
+        ORDER BY ar.due_at ASC`, [companyId, status])).rows;
   },
 
   async completeAccessReview(companyId: string, id: string, userId: string, note?: string) {
