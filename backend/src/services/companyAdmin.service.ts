@@ -138,18 +138,33 @@ export const companyAdminService = {
   // reporting period and due date going forward. A change applies to FUTURE periods only; existing
   // weekly_reviews rows (keyed by their week_ending) and signed records are untouched.
   async getGovernanceSchedule(companyId: string) {
+    // "Current" is the version in force TODAY (effective-dated), not simply the latest companies
+    // columns — so a saved future change is not shown as if it were already live.
     const rows = await safeRows(
-      `SELECT COALESCE(weekly_governance_review_dow,1) AS review_dow,
-              COALESCE(weekly_governance_review_time,'09:00'::time)::text AS review_time,
-              COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone
-         FROM companies WHERE id=$1`, [companyId]);
+      `SELECT COALESCE(v.review_dow, c.weekly_governance_review_dow, 1) AS review_dow,
+              COALESCE(v.review_time, c.weekly_governance_review_time, '09:00'::time)::text AS review_time,
+              COALESCE(NULLIF(c.governance_timezone,''),'Europe/London') AS timezone
+         FROM companies c
+         LEFT JOIN LATERAL (
+           SELECT review_dow, review_time FROM company_schedule_versions
+            WHERE company_id=c.id AND effective_from <= (NOW() AT TIME ZONE COALESCE(NULLIF(c.governance_timezone,''),'Europe/London'))::date
+            ORDER BY effective_from DESC LIMIT 1
+         ) v ON TRUE
+        WHERE c.id=$1`, [companyId]);
+    // Scheduled future changes not yet in force — the provider can see what is coming and when.
+    const pending = await safeRows(
+      `SELECT review_dow, review_time::text AS review_time, effective_from::text AS effective_from, reason
+         FROM company_schedule_versions
+        WHERE company_id=$1
+          AND effective_from > (NOW() AT TIME ZONE COALESCE((SELECT NULLIF(governance_timezone,'') FROM companies WHERE id=$1),'Europe/London'))::date
+        ORDER BY effective_from ASC`, [companyId]);
     const history = await safeRows(
       `SELECT a.created_at, a.new_values,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS actor
          FROM audit_logs a LEFT JOIN users u ON u.id=a.user_id AND (u.company_id=a.company_id OR u.company_id IS NULL)
         WHERE a.company_id=$1 AND a.action='weekly_schedule.updated'
         ORDER BY a.created_at DESC LIMIT 20`, [companyId]);
-    return { ...(rows[0] || { review_dow: 1, review_time: '09:00:00', timezone: 'Europe/London' }), history };
+    return { ...(rows[0] || { review_dow: 1, review_time: '09:00:00', timezone: 'Europe/London' }), pending, history };
   },
 
   async updateGovernanceSchedule(
@@ -168,21 +183,56 @@ export const companyAdminService = {
     const client = await getClient();
     try {
       await client.query('BEGIN');
-      const before = (await client.query(`SELECT weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time, governance_timezone AS timezone FROM companies WHERE id=$1`, [companyId])).rows[0] || {};
-      const res = await client.query(
-        `UPDATE companies SET weekly_governance_review_dow=$2, weekly_governance_review_time=$3::time, governance_timezone=$4
-          WHERE id=$1
-          RETURNING weekly_governance_review_dow AS review_dow, weekly_governance_review_time::text AS review_time,
-                    COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS timezone`,
+      // The schedule in force TODAY (effective-dated) — this is "before", and its day governs when
+      // the upcoming review falls so we can place the change strictly AFTER it.
+      const before = (await client.query(
+        `SELECT COALESCE(v.review_dow, c.weekly_governance_review_dow, 1) AS review_dow,
+                COALESCE(v.review_time, c.weekly_governance_review_time, '09:00'::time)::text AS review_time,
+                COALESCE(NULLIF(c.governance_timezone,''),'Europe/London') AS timezone
+           FROM companies c
+           LEFT JOIN LATERAL (
+             SELECT review_dow, review_time FROM company_schedule_versions
+              WHERE company_id=c.id AND effective_from <= (NOW() AT TIME ZONE COALESCE(NULLIF(c.governance_timezone,''),'Europe/London'))::date
+              ORDER BY effective_from DESC LIMIT 1
+           ) v ON TRUE
+          WHERE c.id=$1`, [companyId])).rows[0] || { review_dow: 1, review_time: '09:00:00', timezone: 'Europe/London' };
+
+      // Effective from the day AFTER the next review under the CURRENT schedule, so the imminent
+      // review and every established period keep their due date; the change applies from the
+      // following period only. (next review day strictly after today, + 1 day)
+      const ef = (await client.query(
+        `WITH t AS (SELECT (NOW() AT TIME ZONE $1)::date AS today)
+         SELECT (today + ((((($2::int - EXTRACT(DOW FROM today)::int + 7) % 7)
+                  + CASE WHEN (($2::int - EXTRACT(DOW FROM today)::int + 7) % 7) = 0 THEN 7 ELSE 0 END)) + 1))::text AS effective_from
+           FROM t`,
+        [before.timezone, before.review_dow])).rows[0].effective_from;
+
+      // Append the future-effective version (re-saving before it takes effect replaces that intent).
+      await client.query(
+        `INSERT INTO company_schedule_versions (company_id, review_dow, review_time, timezone, effective_from, reason, created_by)
+         VALUES ($1, $2, $3::time, $4, $5::date, $6, $7)
+         ON CONFLICT (company_id, effective_from)
+         DO UPDATE SET review_dow=EXCLUDED.review_dow, review_time=EXCLUDED.review_time, timezone=EXCLUDED.timezone,
+                       reason=EXCLUDED.reason, created_by=EXCLUDED.created_by, created_at=NOW()`,
+        [companyId, dow, time, tz, ef, String(patch.reason).trim(), userId]
+      );
+
+      // Keep the companies columns as a convenience cache/fallback (timezone governs the clock).
+      // Period calculations read the effective-dated versions, so this never moves existing periods.
+      await client.query(
+        `UPDATE companies SET weekly_governance_review_dow=$2, weekly_governance_review_time=$3::time, governance_timezone=$4 WHERE id=$1`,
         [companyId, dow, time, tz]
       );
+
+      const after = { review_dow: dow, review_time: time, timezone: tz, effective_from: ef };
       await client.query(
         `INSERT INTO audit_logs (id, company_id, user_id, action, resource, new_values)
          VALUES (uuid_generate_v4(), $1, $2, 'weekly_schedule.updated', 'weekly_schedule', $3)`,
-        [companyId, userId, JSON.stringify({ before, after: res.rows[0], reason: String(patch.reason).trim() })]
+        [companyId, userId, JSON.stringify({ before, after, reason: String(patch.reason).trim() })]
       );
       await client.query('COMMIT');
-      return res.rows[0];
+      // Return the schedule still IN FORCE today, plus when the change takes effect.
+      return { ...before, pending_change: after, effective_from: ef };
     } catch (e) {
       await client.query('ROLLBACK').catch(() => {});
       throw e;

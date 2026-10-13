@@ -444,7 +444,12 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
   const saveSchedule = async () => {
     if (schedForm.reason.trim().length < 10) { toast.error("Record a brief reason for the schedule change (at least 10 characters)."); return; }
     setSchedSaving(true);
-    try { await apiClient.patch("/company-admin/governance-schedule", { review_dow: schedForm.review_dow, review_time: schedForm.review_time, reason: schedForm.reason.trim() }); toast.success("Weekly review schedule saved for future periods."); setSchedForm({ ...schedForm, reason: "" }); loadSchedule(); }
+    try {
+      const r: any = await apiClient.patch("/company-admin/governance-schedule", { review_dow: schedForm.review_dow, review_time: schedForm.review_time, reason: schedForm.reason.trim() });
+      const ef = r?.data?.effective_from ?? r?.data?.data?.effective_from;
+      toast.success(ef ? `Change saved — it takes effect from ${new Date(ef).toLocaleDateString("en-GB")}. Existing periods are unchanged.` : "Weekly review schedule change saved.");
+      setSchedForm({ ...schedForm, reason: "" }); loadSchedule();
+    }
     catch (e: any) { toast.error(errMsg(e, "Failed to update the weekly review schedule.")); }
     finally { setSchedSaving(false); }
   };
@@ -453,6 +458,12 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
     <div className="space-y-5">
       <Panel title="Weekly governance review schedule">
         <p className="text-xs text-muted-foreground mb-3">All services are reviewed on this day. Reviews can take place at different times. A change applies to future periods only — existing periods, due dates and signed reviews are unchanged{sched?.timezone ? ` (${sched.timezone})` : ""}.</p>
+        {sched?.review_dow != null && <p className="text-xs text-foreground mb-2"><span className="font-medium">In force now:</span> {DOW_NAMES[sched.review_dow]} · due by {String(sched.review_time || "").slice(0, 5)}</p>}
+        {Array.isArray(sched?.pending) && sched.pending.length > 0 && (
+          <div className="mb-3 text-xs text-amber-800 bg-amber-50 border border-amber-200 rounded-lg p-2.5">
+            <span className="font-semibold">Scheduled change:</span> {sched.pending.map((p: any, i: number) => <span key={i}>{DOW_NAMES[p.review_dow]} · {String(p.review_time || "").slice(0, 5)} from {new Date(p.effective_from).toLocaleDateString("en-GB")}{p.reason ? ` (${p.reason})` : ""}{i < sched.pending.length - 1 ? "; " : ""}</span>)}
+          </div>
+        )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="text-[11px] text-muted-foreground block mb-1">Weekly review day</label>

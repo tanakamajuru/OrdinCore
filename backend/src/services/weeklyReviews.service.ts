@@ -478,10 +478,19 @@ export class WeeklyReviewsService {
   async overview(company_id: string) {
     const rows = (await query(
       `WITH cfg AS (
-         SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
-                COALESCE(weekly_governance_review_dow,1) AS dow,
-                COALESCE(weekly_governance_review_time,'09:00'::time) AS rt
-           FROM companies WHERE id=$1
+         -- Effective-dated schedule: the version in force today (changes are stored future-dated,
+         -- so a schedule change never moves the current/existing period's due date). Falls back to
+         -- the company columns if no version row exists yet.
+         SELECT COALESCE(NULLIF(c.governance_timezone,''),'Europe/London') AS tz,
+                COALESCE(v.review_dow, c.weekly_governance_review_dow, 1) AS dow,
+                COALESCE(v.review_time, c.weekly_governance_review_time, '09:00'::time) AS rt
+           FROM companies c
+           LEFT JOIN LATERAL (
+             SELECT review_dow, review_time FROM company_schedule_versions
+              WHERE company_id=c.id AND effective_from <= (NOW() AT TIME ZONE COALESCE(NULLIF(c.governance_timezone,''),'Europe/London'))::date
+              ORDER BY effective_from DESC LIMIT 1
+           ) v ON TRUE
+          WHERE c.id=$1
        ), clk AS (
          SELECT (NOW() AT TIME ZONE tz)::date AS local_date, (NOW() AT TIME ZONE tz) AS local_now, cfg.* FROM cfg
        ), period AS (
@@ -1276,10 +1285,17 @@ export class WeeklyReviewsService {
     const params: unknown[] = hasHouseFilter ? [company_id, houseIds] : [company_id];
     const res = await query(
       `WITH cfg AS (
-         SELECT COALESCE(NULLIF(governance_timezone,''),'Europe/London') AS tz,
-                COALESCE(weekly_governance_review_dow,1) AS review_dow,
-                COALESCE(weekly_governance_review_time,'09:00'::time) AS review_time
-           FROM companies WHERE id=$1
+         -- Effective-dated schedule in force today (see overview()); consistent across queues.
+         SELECT COALESCE(NULLIF(c.governance_timezone,''),'Europe/London') AS tz,
+                COALESCE(v.review_dow, c.weekly_governance_review_dow, 1) AS review_dow,
+                COALESCE(v.review_time, c.weekly_governance_review_time, '09:00'::time) AS review_time
+           FROM companies c
+           LEFT JOIN LATERAL (
+             SELECT review_dow, review_time FROM company_schedule_versions
+              WHERE company_id=c.id AND effective_from <= (NOW() AT TIME ZONE COALESCE(NULLIF(c.governance_timezone,''),'Europe/London'))::date
+              ORDER BY effective_from DESC LIMIT 1
+           ) v ON TRUE
+          WHERE c.id=$1
        ), local_clock AS (
          SELECT (NOW() AT TIME ZONE cfg.tz) AS local_now, cfg.* FROM cfg
        ), weeks AS (
