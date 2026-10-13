@@ -119,6 +119,30 @@ export class ServiceUsersService {
     }
   }
 
+  // Pre-transfer preview: the person's current placement and the OUTSTANDING work that would need
+  // continuity of ownership after a move. Read-only — nothing is changed. Lets the UI show "what
+  // moves with the person" and "what stays owned by the originating service" before confirming.
+  async transferPreview(company_id: string, service_user_id: string) {
+    // service_users is house-scoped (no company_id column) — derive tenant via the house.
+    const person = (await query(
+      `SELECT su.id, su.display_name, su.first_name, su.last_name, su.house_id, h.name AS house_name
+         FROM service_users su JOIN houses h ON h.id = su.house_id
+        WHERE su.id = $2 AND h.company_id = $1`,
+      [company_id, service_user_id]
+    )).rows[0];
+    if (!person) throw new Error('Service user not found.');
+    const outstanding = (await query(
+      `SELECT
+         (SELECT COUNT(*)::int FROM canonical_action_state_v     WHERE company_id=$1 AND service_user_id=$2 AND is_open)              AS open_actions,
+         (SELECT COUNT(*)::int FROM canonical_risk_state_v       WHERE company_id=$1 AND service_user_id=$2 AND is_active)            AS open_risks,
+         (SELECT COUNT(*)::int FROM canonical_escalation_state_v WHERE company_id=$1 AND service_user_id=$2 AND is_open)              AS open_escalations,
+         (SELECT COUNT(*)::int FROM interventions                WHERE company_id=$1 AND service_user_id=$2 AND status <> 'Complete') AS open_interventions,
+         (SELECT COUNT(*)::int FROM governance_pulses            WHERE company_id=$1 AND service_user_id=$2)                          AS total_signals`,
+      [company_id, service_user_id]
+    )).rows[0];
+    return { service_user: person, outstanding };
+  }
+
   async placementHistory(company_id: string, service_user_id: string) {
     const result = await query(
       `SELECT sup.id, sup.house_id, h.name AS house_name, sup.started_at, sup.ended_at,

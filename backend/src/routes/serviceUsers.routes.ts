@@ -13,6 +13,7 @@ router.patch('/:id', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADM
 
 // A transfer changes current placement only; governance records retain their original site.
 router.post('/:id/transfer', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'DIRECTOR'), serviceUsersController.transfer.bind(serviceUsersController));
+router.get('/:id/transfer-preview', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'DIRECTOR'), serviceUsersController.transferPreview.bind(serviceUsersController));
 router.get('/:id/placements', requireAuth, requireTenant, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'), serviceUsersController.placementHistory.bind(serviceUsersController));
 
 export default router;

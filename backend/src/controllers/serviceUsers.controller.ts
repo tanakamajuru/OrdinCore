@@ -112,6 +112,30 @@ export class ServiceUsersController {
     }
   }
 
+  async transferPreview(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const role = (req.user!.role || '').toUpperCase().replace('-', '_');
+      if (role === 'REGISTERED_MANAGER') {
+        const allowed = (req.user!.assigned_house_ids || []).map(String);
+        const source = await query(
+          `SELECT su.house_id FROM service_users su JOIN houses h ON h.id = su.house_id
+            WHERE su.id = $1 AND h.company_id = $2`,
+          [req.params.id, company_id]
+        );
+        if (!allowed.includes(String(source.rows[0]?.house_id))) {
+          return res.status(403).json({ success: false, message: 'This service user is outside your assigned services.', errors: [] });
+        }
+      }
+      const data = await serviceUsersService.transferPreview(company_id, req.params.id);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to load transfer preview';
+      const status = /not found/i.test(message) ? 404 : 500;
+      return res.status(status).json({ success: false, message, errors: [] });
+    }
+  }
+
   async placementHistory(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

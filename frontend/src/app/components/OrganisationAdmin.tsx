@@ -371,6 +371,12 @@ function ServiceUsersSection() {
   const [dest, setDest] = useState("");
   const [reason, setReason] = useState("");
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<"form" | "confirm">("form");
+  const [preview, setPreview] = useState<any | null>(null);
+  const [previewing, setPreviewing] = useState(false);
+  const [historyFor, setHistoryFor] = useState<any | null>(null);
+  const [placements, setPlacements] = useState<any[]>([]);
+  const [loadingP, setLoadingP] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -379,13 +385,34 @@ function ServiceUsersSection() {
   };
   useEffect(() => { load(); }, []);
 
-  const submit = async () => {
+  const openTransfer = async (su: any) => {
+    setTransfer(su); setDest(""); setReason(""); setStep("form"); setPreview(null); setPreviewing(true);
+    try { const r: any = await apiClient.get(`/service-users/${su.id}/transfer-preview`); setPreview(r?.data?.data ?? r?.data ?? null); }
+    catch { setPreview(null); } finally { setPreviewing(false); }
+  };
+
+  const openHistory = async (su: any) => {
+    setHistoryFor(su); setPlacements([]); setLoadingP(true);
+    try { setPlacements(rows(await apiClient.get(`/service-users/${su.id}/placements`))); }
+    catch (e: any) { toast.error(errMsg(e, "Failed to load placement history.")); } finally { setLoadingP(false); }
+  };
+
+  const proceed = () => {
     if (!dest) { toast.error("Choose a destination service."); return; }
     if (reason.trim().length < 5) { toast.error("Add a short reason for the transfer."); return; }
+    setStep("confirm");
+  };
+
+  const submit = async () => {
     setBusy(true);
-    try { await apiClient.post(`/service-users/${transfer.id}/transfer`, { destination_house_id: dest, reason: reason.trim() }); toast.success("Service user transferred."); setTransfer(null); setDest(""); setReason(""); load(); }
+    try { await apiClient.post(`/service-users/${transfer.id}/transfer`, { destination_house_id: dest, reason: reason.trim() }); toast.success("Transfer complete. The current placement has moved; governance history stays with the originating service."); setTransfer(null); setDest(""); setReason(""); setStep("form"); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to transfer.")); } finally { setBusy(false); }
   };
+
+  const houseName = (id: string) => houses.find(h => h.id === id)?.name || "—";
+  const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
+  const out = preview?.outstanding || {};
+  const outTotal = (Number(out.open_actions) || 0) + (Number(out.open_risks) || 0) + (Number(out.open_escalations) || 0) + (Number(out.open_interventions) || 0);
 
   return (
     <Panel title={`Service Users (${list.length})`}>
@@ -398,19 +425,73 @@ function ServiceUsersSection() {
                 <tr key={su.id} className="border-b border-border/60">
                   <td className="py-2.5 pr-3 font-medium text-foreground">{fullName(su)}</td>
                   <td className="py-2.5 pr-3 text-muted-foreground">{su.house_name || houses.find(h => h.id === su.house_id)?.name || "—"}</td>
-                  <td className="py-2.5 text-right"><button onClick={() => { setTransfer(su); setDest(""); setReason(""); }} className="text-xs font-semibold text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10 inline-flex items-center gap-1"><ArrowLeftRight size={13} /> Transfer</button></td>
+                  <td className="py-2.5 text-right whitespace-nowrap">
+                    <button onClick={() => openHistory(su)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1 hover:bg-muted inline-flex items-center gap-1 mr-2"><Calendar size={13} /> History</button>
+                    <button onClick={() => openTransfer(su)} className="text-xs font-semibold text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10 inline-flex items-center gap-1"><ArrowLeftRight size={13} /> Transfer</button>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       )}
+
       {transfer && (
-        <Modal title={`Transfer ${fullName(transfer)}`} onClose={() => setTransfer(null)}>
-          <p className="text-xs text-muted-foreground">Transfers change the current placement only; governance history stays with the originating service.</p>
-          <Field label="Destination service"><select className={inputCls} value={dest} onChange={e => setDest(e.target.value)}><option value="">Choose…</option>{houses.filter(h => h.id !== transfer.house_id).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
-          <Field label="Reason"><textarea className={inputCls} rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this service user moving?" /></Field>
-          <div className="flex justify-end gap-2 pt-1"><button onClick={() => setTransfer(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Transferring…" : "Transfer"}</button></div>
+        <Modal title={`Transfer ${fullName(transfer)}`} onClose={() => { setTransfer(null); setStep("form"); }}>
+          {step === "form" ? (
+            <>
+              <p className="text-xs text-muted-foreground">Transfers change the current placement only; governance history stays with the originating service. Same-organisation moves only.</p>
+              <Field label="Current service"><input className={inputCls} value={transfer.house_name || houseName(transfer.house_id)} disabled /></Field>
+              <Field label="Destination service"><select className={inputCls} value={dest} onChange={e => setDest(e.target.value)}><option value="">Choose…</option>{houses.filter(h => h.id !== transfer.house_id && (h.is_active !== false)).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
+              <Field label="Reason"><textarea className={inputCls} rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this service user moving?" /></Field>
+              <div className="flex justify-end gap-2 pt-1"><button onClick={() => setTransfer(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={proceed} disabled={!dest || reason.trim().length < 5} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">Review transfer</button></div>
+            </>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 text-sm font-medium text-foreground bg-muted/50 rounded-lg p-3">
+                <span className="truncate">{transfer.house_name || houseName(transfer.house_id)}</span>
+                <ArrowRight size={16} className="text-primary shrink-0" />
+                <span className="truncate">{houseName(dest)}</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-2"><span className="font-medium text-foreground">Transfer now</span> — recorded at the moment you confirm. Reason: “{reason.trim()}”.</p>
+              <div className="mt-3 rounded-lg border border-border p-3 text-sm">
+                {previewing ? <span className="text-muted-foreground text-xs">Checking outstanding work…</span> : outTotal > 0 ? (
+                  <>
+                    <p className="text-foreground font-medium mb-1 flex items-center gap-1.5"><AlertTriangle size={14} className="text-amber-600" /> Outstanding work stays owned by {transfer.house_name || houseName(transfer.house_id)}</p>
+                    <ul className="text-muted-foreground text-xs space-y-0.5">
+                      {out.open_actions > 0 && <li>{out.open_actions} open action{out.open_actions === 1 ? "" : "s"}</li>}
+                      {out.open_risks > 0 && <li>{out.open_risks} open risk{out.open_risks === 1 ? "" : "s"}</li>}
+                      {out.open_escalations > 0 && <li>{out.open_escalations} open escalation{out.open_escalations === 1 ? "" : "s"}</li>}
+                      {out.open_interventions > 0 && <li>{out.open_interventions} active improvement plan{out.open_interventions === 1 ? "" : "s"}</li>}
+                    </ul>
+                    <p className="text-[11px] text-muted-foreground mt-1.5">These are not reassigned by the transfer — the originating service remains accountable. Arrange any handover separately.</p>
+                  </>
+                ) : (
+                  <p className="text-muted-foreground text-xs flex items-center gap-1.5"><CheckCircle2 size={14} className="text-emerald-600" /> No open actions, risks or escalations are linked to this person.</p>
+                )}
+                {preview?.outstanding?.total_signals != null && <p className="text-[11px] text-muted-foreground mt-2">Governance history ({preview.outstanding.total_signals} signal{preview.outstanding.total_signals === 1 ? "" : "s"}) stays with the originating service.</p>}
+              </div>
+              <div className="flex justify-end gap-2 pt-3"><button onClick={() => setStep("form")} disabled={busy} className="px-4 py-2 rounded-lg border border-border text-sm">Back</button><button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Transferring…" : "Confirm transfer"}</button></div>
+            </>
+          )}
+        </Modal>
+      )}
+
+      {historyFor && (
+        <Modal title={`Placement history — ${fullName(historyFor)}`} onClose={() => setHistoryFor(null)}>
+          {loadingP ? <Spinner /> : placements.length === 0 ? <p className="text-sm text-muted-foreground">No placement history recorded.</p> : (
+            <ul className="divide-y divide-border">
+              {placements.map((p: any) => (
+                <li key={p.id} className="py-2.5 text-sm">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-medium text-foreground">{p.house_name}</span>
+                    <span className="text-xs text-muted-foreground">{fmtDate(p.started_at)} → {p.ended_at ? fmtDate(p.ended_at) : "current"}</span>
+                  </div>
+                  {p.transfer_reason && <p className="text-xs text-muted-foreground mt-0.5">Reason: {p.transfer_reason}</p>}
+                </li>
+              ))}
+            </ul>
+          )}
         </Modal>
       )}
     </Panel>
