@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router";
+import { useAuth } from "@/hooks/useAuth";
 import { toast } from "sonner";
 import {
   Home, Users, Building2, UsersRound, SlidersHorizontal, ShieldCheck, Database, HelpCircle,
   Shield, Lock, Calendar, AlertTriangle, ChevronRight, UserPlus, ArrowLeftRight, KeyRound,
   RefreshCw, CheckCircle2, UserX, FileDown, ArrowRight, X, Plus, Search, Mail, ExternalLink,
-  CreditCard, Menu,
+  CreditCard, Menu, LogOut,
 } from "lucide-react";
 import apiClient from "@/services/apiClient";
 
@@ -71,6 +72,8 @@ function Spinner() { return <div className="py-16 flex justify-center"><div clas
 /* ---------- shell ---------- */
 export default function OrganisationAdmin() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
+  const handleLogout = () => { if (window.confirm("Log out of OrdinCore?")) { logout(); navigate("/login"); } };
   const [section, setSection] = useState<Section>("overview");
   const [navOpen, setNavOpen] = useState(false);
   const [data, setData] = useState<Overview | null>(null);
@@ -115,7 +118,12 @@ export default function OrganisationAdmin() {
             </button>
           ))}
         </nav>
-        <div className="px-5 py-4 text-[11px] text-sky-200/50 leading-snug">Good governance<br />brighter tomorrows.</div>
+        <div className="px-3 pb-2">
+          <button onClick={handleLogout} className="w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium text-sky-100/80 hover:bg-white/8 hover:text-white transition-colors">
+            <LogOut size={18} strokeWidth={1.8} /> Log out
+          </button>
+        </div>
+        <div className="px-5 py-4 text-[11px] text-sky-200/50 leading-snug border-t border-white/10">Good governance<br />brighter tomorrows.</div>
       </aside>
 
       <main className="flex-1 min-w-0 w-full p-4 sm:p-6 lg:p-8 max-w-[1200px]">
