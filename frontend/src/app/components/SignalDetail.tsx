@@ -15,6 +15,7 @@ interface SignalDetail {
   entry_date: string;
   entry_time: string;
   related_person: string;
+  service_user_id?: string;
   signal_type: string;
   risk_domain: string[];
   description: string;
@@ -53,12 +54,39 @@ export function SignalDetail() {
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  const [editingPerson, setEditingPerson] = useState(false);
+  const [personDraft, setPersonDraft] = useState("");
+  const [savingPerson, setSavingPerson] = useState(false);
+  const [serviceUsers, setServiceUsers] = useState<any[]>([]);
   const currentUserId = JSON.parse(localStorage.getItem("user") || "{}").id;
   const canEditNote = !!signal && (
     signal.created_by === currentUserId ||
     signal.assigned_to === currentUserId ||
     ["REGISTERED_MANAGER", "ADMIN", "SUPER_ADMIN", "DIRECTOR"].includes(String(user?.role || "").toUpperCase())
   );
+
+  // Load the service's people so the person can be set/corrected on a signal.
+  useEffect(() => {
+    if (!signal?.house_id) { setServiceUsers([]); return; }
+    apiClient.get(`/houses/${signal.house_id}/service-users`)
+      .then((res: any) => { const u = res?.data?.data || res?.data || []; setServiceUsers(Array.isArray(u) ? u : []); })
+      .catch(() => setServiceUsers([]));
+  }, [signal?.house_id]);
+
+  const savePerson = async () => {
+    if (!signal) return;
+    setSavingPerson(true);
+    try {
+      await apiClient.patch(`/pulses/${signal.id}/person`, { service_user_id: personDraft || null });
+      toast.success("Person updated");
+      setEditingPerson(false);
+      loadSignalDetails(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to update the person");
+    } finally {
+      setSavingPerson(false);
+    }
+  };
 
   const saveNote = async () => {
     if (!signal || !noteDraft.trim()) { toast.error("The note cannot be empty."); return; }
@@ -286,8 +314,29 @@ export function SignalDetail() {
                 <p className="text-lg  text-foreground">{signal.escalation_required || 'None recorded'}</p>
             </div>
             <div className="bg-card border-2 border-border p-4">
-                <h3 className="text-xs  text-muted-foreground uppercase mb-1">Related Person</h3>
-                <p className="text-lg  text-foreground">{signal.related_person || 'N/A'}</p>
+                <div className="flex items-center justify-between mb-1">
+                    <h3 className="text-xs text-muted-foreground uppercase">Related Person</h3>
+                    {canEditNote && !editingPerson && (
+                        <button onClick={() => { setPersonDraft(signal.service_user_id || ""); setEditingPerson(true); }}
+                            className="text-xs text-primary font-medium hover:underline">Edit</button>
+                    )}
+                </div>
+                {editingPerson ? (
+                    <div>
+                        <select value={personDraft} onChange={(e) => setPersonDraft(e.target.value)}
+                            className="w-full border-2 border-primary bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary">
+                            <option value="">— Not about a specific person —</option>
+                            {serviceUsers.map((u: any) => <option key={u.id} value={u.id}>{u.display_name}</option>)}
+                        </select>
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button onClick={() => setEditingPerson(false)} className="px-3 py-1.5 border-2 border-border text-xs hover:bg-muted">Cancel</button>
+                            <button onClick={savePerson} disabled={savingPerson} className="px-3 py-1.5 bg-primary text-primary-foreground text-xs disabled:opacity-50">{savingPerson ? "Saving…" : "Save"}</button>
+                        </div>
+                        {serviceUsers.length === 0 && <p className="text-[11px] text-muted-foreground mt-1">No people are recorded for this service yet.</p>}
+                    </div>
+                ) : (
+                    <p className="text-lg text-foreground">{signal.related_person || 'N/A'}</p>
+                )}
             </div>
         </div>
 

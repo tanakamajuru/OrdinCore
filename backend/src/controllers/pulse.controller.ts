@@ -215,6 +215,18 @@ export class PulseController {
         }
     }
 
+    async updatePerson(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { service_user_id } = req.body || {};
+            const updated = await pulseService.updatePerson(id, company_id, req.user!.user_id, req.user!.role || '', service_user_id || null);
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     // Accepts base64-encoded media captured on the mobile app and returns a hosted URL to store
     // as a signal's evidence_url. Body: { data: "<base64>", mime: "image/jpeg", kind?: "photo"|"voice" }.
     async uploadMedia(req: Request, res: Response) {

@@ -84,6 +84,9 @@ router.patch('/:id/assignee', requireAuth, requireTenant, requireRole('TEAM_LEAD
 // Edit the observation note — appended as a new attributed version (TL who logged it, or RM/admin).
 router.patch('/:id/note', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updateNote.bind(pulseController));
 
+// Set/change the person the signal concerns (e.g. recorded without a name). Owner or RM/admin/director.
+router.patch('/:id/person', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updatePerson.bind(pulseController));
+
 // Support Worker / Team Leader escalate a signal up to their Team Leader (or RM).
 router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER'), pulseController.escalateToTeamLeader.bind(pulseController));
 // Chapter 4 — leadership-attention marker + the signal's Linked Governance Activity.

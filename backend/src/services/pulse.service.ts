@@ -326,6 +326,39 @@ export class PulseService {
         return pulsesRepo.findById(pulse_id, company_id);
     }
 
+    // Set or change the person a signal concerns — e.g. when it was recorded without a name, or
+    // the wrong person was selected. Same permission as editing the note (owner or privileged).
+    // The person must be a service user AT the signal's service; passing null clears the person.
+    async updatePerson(pulse_id: string, company_id: string, user_id: string, role: string, service_user_id: string | null) {
+        const cur = await query('SELECT created_by, assigned_to, house_id, service_user_id, related_person FROM governance_pulses WHERE id = $1 AND company_id = $2', [pulse_id, company_id]);
+        if (!cur.rows[0]) throw new Error('Signal not found');
+        const r = String(role || '').toUpperCase();
+        const isPrivileged = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'].includes(r);
+        const isOwner = cur.rows[0].created_by === user_id || cur.rows[0].assigned_to === user_id;
+        if (!isPrivileged && !isOwner) throw new Error('You can only edit a signal you logged.');
+
+        let suId: string | null = null;
+        let name: string | null = null;
+        if (service_user_id) {
+            const su = await query('SELECT id, display_name FROM service_users WHERE id = $1 AND house_id = $2 AND is_active = true', [service_user_id, cur.rows[0].house_id]);
+            if (!su.rows[0]) throw new Error('That person is not an active service user at this service.');
+            suId = su.rows[0].id;
+            name = su.rows[0].display_name;
+        }
+        await query(
+            `UPDATE governance_pulses SET service_user_id = $1, related_person = $2, updated_at = NOW() WHERE id = $3 AND company_id = $4`,
+            [suId, name, pulse_id, company_id]
+        );
+        await query(
+            `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+             VALUES ($1, $2, $3, 'SIGNAL_PERSON_UPDATED', 'governance_pulse', $4, $5, $6)`,
+            [uuidv4(), company_id, user_id, pulse_id,
+             JSON.stringify({ service_user_id: cur.rows[0].service_user_id, related_person: cur.rows[0].related_person }),
+             JSON.stringify({ service_user_id: suId, related_person: name })]
+        );
+        return pulsesRepo.findById(pulse_id, company_id);
+    }
+
     // Reassign a signal to a different Team Leader (deliberate human allocation).
     // Validates the target is an active staff member in the same company, logs the
     // change, and notifies the new owner.
