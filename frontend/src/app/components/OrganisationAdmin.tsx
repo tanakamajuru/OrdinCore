@@ -341,6 +341,7 @@ function ServicesSection() {
 
   const submit = async () => {
     if (!form.name.trim()) { toast.error("Service name is required."); return; }
+    if (!form.sector) { toast.error("Choose the care model (Supported Living or Domiciliary)."); return; }
     setBusy(true);
     try { await apiClient.post("/houses", form); toast.success("Service added."); setAdd(false); setForm({ name: "", sector: "", city: "", address: "", postcode: "" }); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to add service.")); } finally { setBusy(false); }
@@ -353,7 +354,7 @@ function ServicesSection() {
           {list.map(h => (
             <div key={h.id} className="rounded-lg border border-border p-4">
               <div className="flex items-center gap-2 mb-1"><Building2 size={18} className="text-emerald-600" /><span className="font-medium text-foreground truncate">{h.name}</span></div>
-              <div className="text-xs text-muted-foreground capitalize">{h.sector || "Care service"}</div>
+              <div className="text-xs text-muted-foreground">{h.sector === "DOMICILIARY" ? "Domiciliary / Home Care" : h.sector === "SUPPORTED_LIVING" ? "Supported Living" : (h.sector || "Care service")}</div>
               {(h.city || h.postcode) && <div className="text-xs text-muted-foreground mt-1">{[h.address, h.city, h.postcode].filter(Boolean).join(", ")}</div>}
               <div className="mt-2">
                 <label className="text-[11px] text-muted-foreground block mb-1">Weekly review reviewer</label>
@@ -370,7 +371,7 @@ function ServicesSection() {
       {add && (
         <Modal title="Add service" onClose={() => setAdd(false)}>
           <Field label="Service name"><input className={inputCls} value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} /></Field>
-          <Field label="Type / sector"><input className={inputCls} value={form.sector} onChange={e => setForm({ ...form, sector: e.target.value })} placeholder="e.g. Residential care" /></Field>
+          <Field label="Care model / sector"><select className={inputCls} value={form.sector} onChange={e => setForm({ ...form, sector: e.target.value })}><option value="">Choose a care model…</option><option value="SUPPORTED_LIVING">Supported Living</option><option value="DOMICILIARY">Domiciliary / Home Care</option></select><p className="text-[11px] text-muted-foreground mt-1">Determines the signal themes and governance taxonomy for this service.</p></Field>
           <div className="grid grid-cols-2 gap-3"><Field label="City"><input className={inputCls} value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} /></Field><Field label="Postcode"><input className={inputCls} value={form.postcode} onChange={e => setForm({ ...form, postcode: e.target.value })} /></Field></div>
           <Field label="Address"><input className={inputCls} value={form.address} onChange={e => setForm({ ...form, address: e.target.value })} /></Field>
           <div className="flex justify-end gap-2 pt-1"><button onClick={() => setAdd(false)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submit} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Adding…" : "Add service"}</button></div>

@@ -13,6 +13,7 @@ export interface CreateHouseDto {
   deputy_rm_id?: string;
   registration_number?: string;
   phone?: string;
+  sector?: string;
   last_daily_review_at?: string | Date;
 }
 
@@ -97,12 +98,16 @@ export const housesRepo = {
     }
 
     const id = uuidv4();
+    // Sector drives the whole signal taxonomy for the service, so it must be set on creation
+    // (it was previously ignored, forcing every new service to the SUPPORTED_LIVING default).
+    // Only the two supported sectors are accepted; anything else falls back to Supported Living.
+    const sector = String(dto.sector || '').toUpperCase() === 'DOMICILIARY' ? 'DOMICILIARY' : 'SUPPORTED_LIVING';
     const result = await query(
-      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number, phone)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number, phone, sector)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
        RETURNING *`,
       [id, dto.company_id, dto.name, dto.address || null, dto.postcode || null, dto.city || null,
-       dto.capacity || 0, dto.manager_id || null, dto.primary_rm_id || null, dto.deputy_rm_id || null, dto.registration_number || null, dto.phone || null]
+       dto.capacity || 0, dto.manager_id || null, dto.primary_rm_id || null, dto.deputy_rm_id || null, dto.registration_number || null, dto.phone || null, sector]
     );
     return result.rows[0];
   },
