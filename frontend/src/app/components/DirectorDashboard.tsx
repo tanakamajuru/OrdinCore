@@ -88,6 +88,9 @@ export function DirectorDashboard() {
   const [, setHealth] = useState<any>(null);
   const [themeTrends, setThemeTrends] = useState<any[]>([]);
   const [weeklyAgeing, setWeeklyAgeing] = useState<{ overdue: number; missedThisMonth: number } | null>(null);
+  // Authoritative org-wide counts over the full dataset (not the capped lists) so headline tiles
+  // reconcile with mobile and are never truncated. Falls back to list counts if unavailable.
+  const [reportMetrics, setReportMetrics] = useState<any>(null);
 
   useEffect(() => { apiClient.get("/interventions/governance-health").then((r: any) => setHealth(r?.data ?? null)).catch(() => setHealth(null)); }, []);
   useEffect(() => { apiClient.get("/interventions/themes").then((r: any) => setThemeTrends(Array.isArray(r?.data) ? r.data : [])).catch(() => setThemeTrends([])); }, []);
@@ -99,7 +102,7 @@ export function DirectorDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, act, eff, hs, hm, effSummary, age] = await Promise.all([
+      const [rk, esc, st, act, eff, hs, hm, effSummary, age, rs] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -109,6 +112,7 @@ export function DirectorDashboard() {
         apiClient.getCrossSiteHeatmap().catch(() => ({})),
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
         apiClient.get(`/weekly-reviews/ageing`).catch(() => ({})),
+        apiClient.get(`/reports/summary`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -119,6 +123,7 @@ export function DirectorDashboard() {
       setHeatmap(asArray(unwrap(hm)));
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
       setWeeklyAgeing(unwrap(age) || null);
+      { const s = unwrap(rs); setReportMetrics(s && !Array.isArray(s) ? (s.metrics || null) : null); }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load director dashboard");
@@ -159,6 +164,13 @@ export function DirectorDashboard() {
   const effPct = finalRatings ? Math.round((effEffective / finalRatings) * 100) : 0;
 
   const actionsDue = actions.filter(a => !["Complete", "Completed", "Cancelled"].includes(a.status));
+
+  // Authoritative headline counts (full dataset) with a safe fallback to the loaded lists. Trend
+  // split (rising/stable/improving) stays list-derived — it needs each risk's trajectory.
+  const rmRisksOpen = reportMetrics?.risks_open ?? openRisks.length;
+  const rmEscOpen = reportMetrics?.escalations_open ?? openEsc.length;
+  const rmEscOverdue = reportMetrics?.escalations_overdue ?? overdueEsc;
+  const rmActionsOpen = reportMetrics?.actions_open ?? actionsDue.length;
 
   const themeCount: Record<string, number> = {};
   openRisks.forEach(r => { const t = themeOf(r); if (t) themeCount[t] = (themeCount[t] || 0) + 1; });
@@ -202,13 +214,13 @@ export function DirectorDashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-6">
-          <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}
+          <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={rmRisksOpen}
             footer={<><span className="text-red-600">↑ {rising}</span><span className="text-amber-600">→ {stable}</span><span className="text-emerald-600">↓ {improving}</span></>} />
-          <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={openEsc.length}
-            footer={<><span className="text-red-600">● {overdueEsc} Overdue</span><span className="text-emerald-600">● {openEsc.length - overdueEsc} On time</span></>} />
-          <StatCard icon={Clock} tone="bg-amber-100 text-amber-600" label="Overdue Reviews" value={overdueEsc}
+          <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={rmEscOpen}
+            footer={<><span className="text-red-600">● {rmEscOverdue} Overdue</span><span className="text-emerald-600">● {Math.max(0, rmEscOpen - rmEscOverdue)} On time</span></>} />
+          <StatCard icon={Clock} tone="bg-amber-100 text-amber-600" label="Overdue Reviews" value={rmEscOverdue}
             footer={<span className="text-muted-foreground">need attention</span>} />
-          <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Actions Due" value={actionsDue.length}
+          <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Actions Due" value={rmActionsOpen}
             footer={<span className="text-muted-foreground">across services</span>} />
           <StatCard icon={TrendingUp} tone="bg-emerald-100 text-emerald-600" label="Action Effectiveness" value={`${effPct}%`}
             footer={<><span className="text-amber-600">{finalRatings ? Math.round(effPartial / finalRatings * 100) : 0}% Partial</span><span className="text-red-600">{finalRatings ? Math.round(effNot / finalRatings * 100) : 0}% Not</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
@@ -238,7 +250,7 @@ export function DirectorDashboard() {
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Risks by Trend <span className="text-xs text-muted-foreground font-normal">({openRisks.length} open)</span></h3>
+            <h3 className="font-semibold mb-4">Risks by Trend <span className="text-xs text-muted-foreground font-normal">({rmRisksOpen} open)</span></h3>
             <Donut data={[
               { name: "Rising / Deteriorating", value: rising, color: "#ef4444" },
               { name: "Stable", value: Math.max(stable, 0), color: "#f59e0b" },

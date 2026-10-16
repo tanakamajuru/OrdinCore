@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { periodService } from '../reporting/services/period.service';
 import { Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { eventBus, EVENTS } from '../events/eventBus';
@@ -116,11 +117,31 @@ export class ReportsService {
       metricsQ, domainQ(null), domainQ('7 days'), domainQ('30 days'), actionsByStatusQ,
     ]);
 
-    return {
+    const now = new Date().toISOString();
+    // Unified report metadata (same shape every surface exposes): scope, timezone, definition,
+    // data status and the exact rolling-window boundaries. A live summary is an "as-at now" view,
+    // explicitly NOT a signed governance period.
+    const metadata = {
       scope: { company_id, house_ids: houseIds && houseIds.length ? houseIds : null },
       timezone: 'Europe/London',
-      generated_at: new Date().toISOString(),
+      definition: 'live' as const,
+      as_at: now,
       data_status: 'COMPLETE' as const,
+      generated_at: now,
+      last_successful_update: now,
+      windows: {
+        rolling_24h: periodService.rollingWindow(1),
+        rolling_7d: periodService.rollingWindow(7),
+        rolling_30d: periodService.rollingWindow(30),
+      },
+    };
+    return {
+      // Top-level fields kept for back-compat with the deployed mobile binary.
+      scope: metadata.scope,
+      timezone: metadata.timezone,
+      generated_at: now,
+      data_status: 'COMPLETE' as const,
+      metadata,
       metrics: m.rows[0],
       breakdowns: {
         signals_by_domain: dAll.rows,

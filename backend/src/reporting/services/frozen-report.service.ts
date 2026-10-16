@@ -2,6 +2,7 @@
 import { query } from '../../config/database';
 import { reportScopeService } from './report-scope.service';
 import { scopedReportDataService } from './scoped-report-data.service';
+import { periodService } from './period.service';
 import { hashService } from './hash.service';
 import { narrativeService } from '../../services/narrative.service';
 import { findReport } from '../config/report-catalog';
@@ -19,23 +20,14 @@ export const frozenReportService = {
     // end-EXCLUSIVE window — local midnight of the first day up to local midnight AFTER the last
     // day — converted to UTC. This fixes inclusive-end double counting on adjacent period
     // boundaries and keeps boundaries correct across UK daylight-saving and non-UK device clocks.
+    // Exact boundaries via the shared period service (start-inclusive, end-exclusive, Europe/London).
     const tz = req.timezone || 'Europe/London';
-    const b = (await query(
-      `SELECT (date_trunc('day', $1::timestamptz AT TIME ZONE $3)) AT TIME ZONE $3 AS start_utc,
-              (date_trunc('day', $2::timestamptz AT TIME ZONE $3) + INTERVAL '1 day') AT TIME ZONE $3 AS end_utc,
-              (date_trunc('day', $1::timestamptz AT TIME ZONE $3))::date AS start_date,
-              (date_trunc('day', $2::timestamptz AT TIME ZONE $3) + INTERVAL '1 day')::date AS end_date_excl`,
-      [req.periodStart, req.periodEnd, tz]
-    )).rows[0];
-    const start: string = new Date(b.start_utc).toISOString();
-    const end: string = new Date(b.end_utc).toISOString();          // EXCLUSIVE boundary for queries
-    // Local calendar-date boundaries (for DATE columns, which must not be compared against a
-    // UTC-cast timestamptz — that is off by a day under BST).
-    const startDate: string = String(b.start_date);
-    const endDateExcl: string = String(b.end_date_excl);
-    // Inclusive last instant of the period for DISPLAY/stored metadata (the PDF header renders
-    // period_end as a date; the exclusive next-midnight boundary would mislabel it as the next day).
-    const endInclusive: string = new Date(new Date(b.end_utc).getTime() - 1000).toISOString();
+    const bounds = await periodService.boundsForRange(req.periodStart, req.periodEnd, tz);
+    const start = bounds.start;                 // EXCLUSIVE window for queries: [start, end)
+    const end = bounds.end;
+    const startDate = bounds.startDate;          // local date boundaries for DATE columns
+    const endDateExcl = bounds.endDateExcl;
+    const endInclusive = bounds.endInclusive;    // inclusive last instant for stored/display metadata
 
     const data = await scopedReportDataService.build(resolved, start, end, startDate, endDateExcl);
 

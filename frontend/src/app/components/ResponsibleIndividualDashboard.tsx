@@ -66,6 +66,8 @@ export function ResponsibleIndividualDashboard() {
   const [reviewQueue, setReviewQueue] = useState<any[]>([]);
   const [effectivenessSummary, setEffectivenessSummary] = useState<any>({});
   const [assuranceSummary, setAssuranceSummary] = useState<any>(null);
+  // Authoritative org-wide counts (full dataset) for headline tiles; falls back to loaded lists.
+  const [reportMetrics, setReportMetrics] = useState<any>(null);
 
   useEffect(() => { load(); }, []);
 
@@ -74,7 +76,7 @@ export function ResponsibleIndividualDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, rv, rq, effSummary, asum] = await Promise.all([
+      const [rk, esc, st, rv, rq, effSummary, asum, rs] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -82,6 +84,7 @@ export function ResponsibleIndividualDashboard() {
         apiClient.getGovernanceReviewQueue().catch(() => ({})),
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
         apiClient.get(`/ri/assurance-summary`).catch(() => ({})),
+        apiClient.get(`/reports/summary`).catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -90,6 +93,7 @@ export function ResponsibleIndividualDashboard() {
       setReviewQueue(asArray(unwrap(rq)));
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
       setAssuranceSummary(unwrap(asum) || null);
+      { const s = unwrap(rs); setReportMetrics(s && !Array.isArray(s) ? (s.metrics || null) : null); }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load assurance dashboard");
@@ -113,6 +117,9 @@ export function ResponsibleIndividualDashboard() {
 
   const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
+  const rmRisksOpen = reportMetrics?.risks_open ?? openRisks.length;
+  const rmEscOpen = reportMetrics?.escalations_open ?? openEsc.length;
+  const rmEscOverdue = reportMetrics?.escalations_overdue ?? overdueEsc;
   const reopened = escalations.filter(e => e.lifecycle_status === "Reopened").length
     + openRisks.filter(r => Number(r.reopened_count) > 0).length;
 
@@ -154,10 +161,10 @@ export function ResponsibleIndividualDashboard() {
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-          <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={openRisks.length}
+          <StatCard icon={Shield} tone="bg-indigo-100 text-indigo-600" label="Strategic Risks" value={rmRisksOpen}
             footer={<><span className="text-red-600">↑ {rising}</span><span className="text-amber-600">→ {stable}</span><span className="text-emerald-600">↓ {improving}</span></>} />
-          <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={openEsc.length}
-            footer={<><span className="text-red-600">● {overdueEsc} Overdue</span><span className="text-emerald-600">● {openEsc.length - overdueEsc} On time</span></>} />
+          <StatCard icon={Flag} tone="bg-orange-100 text-orange-600" label="Escalations Open" value={rmEscOpen}
+            footer={<><span className="text-red-600">● {rmEscOverdue} Overdue</span><span className="text-emerald-600">● {Math.max(0, rmEscOpen - rmEscOverdue)} On time</span></>} />
           <StatCard icon={ClipboardCheck} tone="bg-blue-100 text-blue-600" label="Governance Reviews" value={reviewsCompleted + reviewsPending}
             footer={<><span className="text-emerald-600">{reviewsCompleted} Completed</span><span className="text-amber-600">{reviewsPending} Pending</span></>} />
           <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews" value={effectivenessReviewed}
