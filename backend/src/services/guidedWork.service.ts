@@ -149,6 +149,44 @@ export const guidedWorkService = {
         route:`/weekly-review/${w.id}?guided=1&gw=weekly_ack:${w.id}`,
         actionLabel:'Read & Acknowledge', whyAmISeeingThis:'This weekly review has been published for your service and has not yet been acknowledged by you.'
       });
+
+      // Signal monitoring assigned to this TL (Signal Monitoring correction, 14 Oct 2026): appear the
+      // moment the RM saves the Monitor decision — not gated on due_at, which only governs when the
+      // decision RETURNS to the RM. The signal stays under RM governance throughout.
+      const monitoredSignals = await safeRows(`
+        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.monitoring_trigger, gr.due_at, h.name AS service_name
+          FROM governance_reviews gr LEFT JOIN houses h ON h.id=gr.service_id
+         WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
+           AND gr.decision_owner_id=$2`, [companyId, userId]);
+      for (const m of monitoredSignals) needsYou.push({
+        id:`signal_monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'SIGNAL_MONITORING',
+        title:'Monitor signal', summary:m.what_is_happening || 'Record monitoring evidence for this signal',
+        reason:m.monitoring_trigger ? `Watch for: ${m.monitoring_trigger}` : 'The Registered Manager asked you to monitor this signal.',
+        dueAt:m.due_at, serviceName:m.service_name,
+        canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'SIGNAL_MONITORING_UPDATE',
+        completionCondition:'Factual monitoring evidence is recorded, or urgent RM attention is flagged. The Registered Manager retains the next governance decision.',
+        route:m.pulse_entry_id ? `/governance-dashboard?pulseId=${m.pulse_entry_id}&houseId=${m.service_id}&guided=1&gw=signal_monitor:${m.id}` : `/governance-dashboard?guided=1&gw=signal_monitor:${m.id}`,
+        actionLabel:'Record Monitoring Update', whyAmISeeingThis:'The Registered Manager named you as the monitoring owner for this signal.'
+      });
+
+      // Escalation monitoring assigned to this TL (Escalation Monitoring correction, 14 Oct 2026):
+      // derived from the escalation itself the moment the RM names them as monitoring owner — not a
+      // second canonical action, and not gated on the review date (the TL needs to see it immediately).
+      const monitoredEscalations = await safeRows(`
+        SELECT e.id, e.reason, e.next_review_at, e.metadata, h.name AS service_name
+          FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
+         WHERE e.company_id=$1 AND e.is_open
+           AND (e.metadata->>'monitoring_owner_id') = $2::text`, [companyId, userId]);
+      for (const e of monitoredEscalations) needsYou.push({
+        id:`escalation_monitor:${e.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'ESCALATION_MONITORING',
+        title:'Monitor escalation', summary:e.metadata?.evidence_to_observe || e.reason || 'Record monitoring evidence for this escalation',
+        reason:e.metadata?.monitoring_trigger ? `Watch for: ${e.metadata.monitoring_trigger}` : 'The Registered Manager asked you to monitor this escalation.',
+        dueAt:e.next_review_at, serviceName:e.service_name,
+        canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_MONITORING_UPDATE',
+        completionCondition:'Factual monitoring evidence is recorded on this escalation, or urgent RM attention is flagged. The Registered Manager retains the governance decision.',
+        route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation_monitor:${e.id}`,
+        actionLabel:'Record Monitoring Update', whyAmISeeingThis:'The Registered Manager named you as the monitoring owner for this escalation.'
+      });
     }
 
     // RM: signal decisions, monitoring reviews, effectiveness, escalation/risk/pattern reviews, weekly governance.
@@ -245,17 +283,43 @@ export const guidedWorkService = {
       }
 
       const escalations = await safeRows(`
-        SELECT e.id,e.reason,e.priority,e.due_by,h.name AS service_name
+        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,h.name AS service_name
           FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
          WHERE e.company_id=$1 AND e.house_id=ANY($2::uuid[])
            AND e.is_open
          ORDER BY e.due_by NULLS FIRST`, [companyId, houses]);
-      for (const e of escalations) needsYou.push({ id:`escalation:${e.id}`, role, state:'NEEDS_YOU', priority:priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
-        title:'Review open escalation', summary:e.reason || 'Open escalation needs review', reason:e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.' : 'An open escalation needs active follow-up.', dueAt:e.due_by, serviceName:e.service_name,
-        canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
-        completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
-        route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
-        actionLabel:'Review Escalation', whyAmISeeingThis:e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : 'This escalation is open and needs review, even if its response date has not arrived yet.' });
+      for (const e of escalations) {
+        // Escalation Monitoring correction (14 Oct 2026): a valid Continue-monitoring decision (named
+        // owner + future next_review_at) is a governance decision, not an unfinished review. Respect it
+        // — sit the escalation in Waiting/Being managed — until the review point is reached, an urgent
+        // TL update is flagged, or the monitoring owner becomes invalid. due_by (the original SLA) is
+        // never used to manufacture a second routine decision while monitoring is active.
+        const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
+        const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
+        const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
+        const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
+
+        if (validMonitoring) {
+          waiting.push({ id:`escalation:${e.id}`, role, state:'WAITING', priority:'NORMAL', taskType:'ESCALATION_MONITORING_WAIT',
+            title:'Being managed', summary:e.reason || 'Escalation under active monitoring',
+            reason:`Monitoring continues until ${new Date(e.next_review_at as string).toLocaleDateString('en-GB')} or an urgent update.`,
+            dueAt:e.next_review_at, serviceName:e.service_name,
+            canonicalEntityType:'escalation', canonicalEntityId:e.id,
+            route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
+            actionLabel:'View', whyAmISeeingThis:'You decided to continue monitoring this escalation; it returns to you at the scheduled review or sooner if the Team Leader flags something urgent.' });
+          continue;
+        }
+
+        const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
+          : (e.next_review_at ? 'The monitoring review point has been reached.'
+          : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.' : 'An open escalation needs active follow-up.'));
+        needsYou.push({ id:`escalation:${e.id}`, role, state:'NEEDS_YOU', priority: rmAttention ? 'URGENT' : priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
+          title: rmAttention ? 'Urgent: monitored escalation needs you' : 'Review open escalation', summary:e.reason || 'Open escalation needs review', reason, dueAt:e.due_by, serviceName:e.service_name,
+          canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
+          completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
+          route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
+          actionLabel:'Review Escalation', whyAmISeeingThis: rmAttention ? 'The Team Leader monitoring this escalation flagged it as urgent.' : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : 'This escalation is open and needs review, even if its response date has not arrived yet.') });
+      }
 
       // Deferred learning ("Not yet assessed") returns to the queue when the review date the RM set
       // has arrived — so a lesson that was parked for later cannot drift unassessed. Scoped to the
@@ -368,6 +432,28 @@ export const guidedWorkService = {
 
     // DIRECTOR: weekly validations, cross-service patterns, strategic/critical risks and incomplete effectiveness.
     if (role === 'DIRECTOR') {
+      // Director Mobile My Work Navigation correction (13 Oct 2026): the Director's own personal
+      // "overdue actions"/"assigned actions requiring attention" counts must come from the SAME
+      // canonical action population this queue returns — not a separately-computed card total that
+      // has no matching list to open. Mirrors the Team Leader assigned-action query above.
+      const directorActions = await safeRows(`
+        SELECT ra.id, ra.title, ra.due_date, h.name AS service_name
+          FROM canonical_action_state_v ra
+          LEFT JOIN risks r ON r.id=ra.risk_id AND r.company_id=ra.company_id
+          LEFT JOIN houses h ON h.id=r.house_id
+         WHERE ra.company_id=$1 AND ra.assigned_to=$2
+           AND ra.is_open
+         ORDER BY ra.due_date NULLS LAST, ra.created_at`, [companyId, userId]);
+      for (const a of directorActions) needsYou.push({
+        id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
+        title:a.title || 'Complete assigned action', summary:'Complete the assigned governance action and record factual completion evidence.',
+        reason:'This governance action is personally assigned to you.', dueAt:a.due_date, serviceName:a.service_name,
+        canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
+        completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
+        route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
+        actionLabel:'Complete Action', whyAmISeeingThis:'This action is assigned to you and remains open.'
+      });
+
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
       for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${fmtWeek(w.week_ending)}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,requiredAction:'DIRECTOR_WEEKLY_VALIDATION',
 completionCondition:'The specified weekly review is validated through the existing Director validation function.',

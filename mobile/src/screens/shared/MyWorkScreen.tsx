@@ -45,7 +45,11 @@ function routeFor(role: string, it: GWItem): (() => void) | undefined {
   const id = it.canonicalEntityId;
   switch (it.canonicalEntityType) {
     case 'action':
-      return r === 'REGISTERED_MANAGER' ? go('RMMyActions') : r === 'TEAM_LEADER' ? go('TLMyActions') : r === 'SUPPORT_WORKER' ? go('SWActions') : tab('Actions');
+      // Director (and any other role without its own filtered actions list) opens the exact
+      // canonical action directly — there is no separate Director action list to land on, and an
+      // attention item must open the underlying work, not a dead tab (Director Mobile My Work
+      // Navigation correction, 13 Oct 2026).
+      return r === 'REGISTERED_MANAGER' ? go('RMMyActions') : r === 'TEAM_LEADER' ? go('TLMyActions') : r === 'SUPPORT_WORKER' ? go('SWActions') : r === 'DIRECTOR' ? go('ActionDetail', { id }) : tab('Actions');
     case 'signal':
       return r === 'REGISTERED_MANAGER' ? go('RMDailyGovernance') : r === 'SUPPORT_WORKER' ? go('SWSignalDetail', { id }) : go('SignalDetail', { id });
     case 'risk':

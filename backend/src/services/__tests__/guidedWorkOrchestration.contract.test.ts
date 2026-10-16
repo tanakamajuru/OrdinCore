@@ -36,6 +36,21 @@ describe('Guided Work orchestration contract',()=>{
     expect(sql).toMatch(/e\.house_id=ANY\(\$2::uuid\[\]\)/);
     expect(sql).toMatch(/e\.is_open/);
     expect(sql).not.toMatch(/due_by\s*<=\s*NOW\(\)/i);
-    expect(service).toMatch(/title:'Review open escalation'/);
+    expect(service).toMatch(/'Review open escalation'/);
+  });
+  it('does not re-queue a validly monitored escalation as a routine RM decision (Escalation Monitoring correction, 14 Oct 2026)',()=>{
+    // A named monitoring owner + future next_review_at must route to Waiting, not Needs You,
+    // and must not be gated on the original due_by SLA field.
+    expect(service).toMatch(/validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention/);
+    expect(service).toMatch(/waiting\.push\(\{ id:`escalation:\$\{e\.id\}`/);
+    // An urgent TL flag (rm_attention) must surface RM attention immediately regardless of next_review_at.
+    expect(service).toMatch(/rmAttention = e\.metadata\?\.rm_attention/);
+    // due_by (the SLA) is preserved untouched and is not what gates the monitoring re-queue.
+    expect(service).toMatch(/const reviewDue = !e\.next_review_at \|\| new Date\(e\.next_review_at\)\.getTime\(\) <= Date\.now\(\)/);
+  });
+  it('derives an immediate TL My Work item from escalation monitoring assignment, not a second action',()=>{
+    expect(service).toMatch(/taskType:'ESCALATION_MONITORING'/);
+    expect(service).toMatch(/\(e\.metadata->>'monitoring_owner_id'\) = \$2::text/);
+    expect(service).not.toMatch(/INSERT INTO risk_actions[\s\S]*ESCALATION_MONITORING/);
   });
 });

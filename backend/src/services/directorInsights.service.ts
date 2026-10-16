@@ -126,7 +126,7 @@ export class DirectorInsightsService {
       return { state, basis: opts.basis };
     };
 
-    return {
+    const dims = {
       risks_identified_early: assess({
         denominator: openRisks, assured: evidenceBased === openRisks, partial: evidenceBased >= openRisks / 2,
         basis: `${evidenceBased} of ${openRisks} open risk(s) are evidence-linked to a source pattern.`,
@@ -147,6 +147,26 @@ export class DirectorInsightsService {
         basis: `${Number(c.closure_reviews)} evidenced closure review(s) against ${rerResolved} resolved risk(s).`,
         noEvidence: 'No closures in scope — closure evidence cannot be assessed.',
       }),
+    };
+
+    // RI Assurance Interface correction (14 Oct 2026): one defensible overall state, derived by the
+    // worst dimension — never "Assured" merely because no dimension is explicitly adverse. A pillar
+    // with no evidence (Insufficient evidence) caps the overall conclusion below Assured; a pillar
+    // that actively fails (Not assured) caps it there regardless of how the others score.
+    const order: AssuranceState[] = ['Not assured', 'Partially assured', 'Insufficient evidence', 'Assured'];
+    const states = Object.values(dims).map(d => d.state);
+    const overallState = order.find(s => states.includes(s)) || 'Insufficient evidence';
+    const overallBasis = overallState === 'Assured'
+      ? 'All assurance questions are evidenced and assured for the current scope and period.'
+      : overallState === 'Not assured'
+      ? 'At least one assurance question indicates a material governance weakness.'
+      : overallState === 'Partially assured'
+      ? 'Governance is operating but at least one assurance question has a material gap or overdue matter.'
+      : 'At least one assurance question has no reliable evidence to form a defensible conclusion.';
+
+    return {
+      ...dims,
+      overall: { state: overallState, basis: overallBasis },
       reopened_risks: reopened,
       overdue_reviews: overdue,
       resolution_effectiveness_rate: rerResolved ? Math.round((rerStayed / rerResolved) * 100) : null,

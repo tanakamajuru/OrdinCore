@@ -69,7 +69,20 @@ export class ReportsService {
     // $2 null → all houses in the company; otherwise restrict to the listed houses.
     const hp = `($2::uuid[] IS NULL OR house_id = ANY($2))`;
 
-    const metricsQ = query(
+    // Report accuracy correction (11-13 Oct 2026): a failed source must surface as PARTIAL/
+    // UNAVAILABLE with the exact degraded source named — never silently as COMPLETE. Each query
+    // runs independently so one failing view does not take the rest of the report down with it.
+    const degradedSources: string[] = [];
+    const safe = async <T>(name: string, fn: () => Promise<T>, fallback: T): Promise<T> => {
+      try { return await fn(); }
+      catch (e: any) {
+        degradedSources.push(name);
+        try { require('../utils/logger').default.error(`reports.summary source failed (${name}): ${e?.message || e}`); } catch { /* best-effort */ }
+        return fallback;
+      }
+    };
+
+    const metricsQ = safe('metrics', () => query(
       `SELECT
          (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp}) AS signals_total,
          (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND created_at >= NOW()-INTERVAL '1 day') AS signals_24h,
@@ -91,11 +104,11 @@ export class ReportsService {
          (SELECT COUNT(*)::int FROM canonical_risk_state_v WHERE company_id=$1 AND ${hp} AND NOT is_active AND COALESCE(closed_at, resolved_at) >= NOW()-INTERVAL '7 days') AS risks_closed_7d,
          (SELECT COUNT(*)::int FROM canonical_risk_state_v WHERE company_id=$1 AND ${hp} AND NOT is_active AND COALESCE(closed_at, resolved_at) >= NOW()-INTERVAL '30 days') AS risks_closed_30d`,
       p
-    );
+    ), { rows: [null] } as any);
 
     // Signals-by-domain over the full dataset (a signal may carry several domains, so category
     // totals can exceed the distinct signal total — this is expected, not inflation).
-    const domainQ = (interval: string | null) => query(
+    const domainQ = (interval: string | null) => safe(`signals_by_domain${interval ? `_${interval.replace(' ', '')}` : ''}`, () => query(
       `SELECT COALESCE(NULLIF(TRIM(d.dom), ''), 'Uncategorised') AS label, COUNT(*)::int AS count
          FROM governance_pulses p
          LEFT JOIN LATERAL unnest(
@@ -105,19 +118,23 @@ export class ReportsService {
           ${interval ? `AND p.created_at >= NOW()-INTERVAL '${interval}'` : ''}
         GROUP BY 1 ORDER BY count DESC, label`,
       p
-    );
-    const actionsByStatusQ = query(
+    ), { rows: [] } as any);
+    const actionsByStatusQ = safe('actions_by_status', () => query(
       `SELECT COALESCE(NULLIF(status::text, ''), 'Pending') AS label, COUNT(*)::int AS count
          FROM canonical_action_state_v WHERE company_id=$1 AND ${hp}
         GROUP BY 1 ORDER BY count DESC, label`,
       p
-    );
+    ), { rows: [] } as any);
 
     const [m, dAll, d7, d30, aStatus] = await Promise.all([
       metricsQ, domainQ(null), domainQ('7 days'), domainQ('30 days'), actionsByStatusQ,
     ]);
 
     const now = new Date().toISOString();
+    // Truthful data status (Report Accuracy Implementation Review, 13 Oct 2026): COMPLETE only when
+    // every source succeeded. A degraded source produces PARTIAL (its metrics are zeroed/absent, not
+    // silently presented as a real zero) rather than a false "all is well" COMPLETE.
+    const dataStatus: 'COMPLETE' | 'PARTIAL' = degradedSources.length === 0 ? 'COMPLETE' : 'PARTIAL';
     // Unified report metadata (same shape every surface exposes): scope, timezone, definition,
     // data status and the exact rolling-window boundaries. A live summary is an "as-at now" view,
     // explicitly NOT a signed governance period.
@@ -126,7 +143,8 @@ export class ReportsService {
       timezone: 'Europe/London',
       definition: 'live' as const,
       as_at: now,
-      data_status: 'COMPLETE' as const,
+      data_status: dataStatus,
+      degraded_sources: degradedSources,
       generated_at: now,
       last_successful_update: now,
       windows: {
@@ -140,9 +158,9 @@ export class ReportsService {
       scope: metadata.scope,
       timezone: metadata.timezone,
       generated_at: now,
-      data_status: 'COMPLETE' as const,
+      data_status: dataStatus,
       metadata,
-      metrics: m.rows[0],
+      metrics: m.rows[0] || null,
       breakdowns: {
         signals_by_domain: dAll.rows,
         signals_by_domain_7d: d7.rows,

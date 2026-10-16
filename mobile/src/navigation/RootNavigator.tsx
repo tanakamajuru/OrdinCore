@@ -21,7 +21,6 @@ import { CloseRiskScreen } from '@/screens/rm/CloseRiskScreen';
 import { DirectorAssuranceScreen } from '@/screens/director/AssuranceScreen';
 import { ReviewsScreen } from '@/screens/director/ReviewsScreen';
 import { ValidateReviewScreen } from '@/screens/director/ValidateReviewScreen';
-import { RIAssuranceScreen } from '@/screens/ri/AssuranceScreen';
 import { ProviderSignoffScreen } from '@/screens/ri/ProviderSignoffScreen';
 import { ProfileScreen } from '@/screens/shared/ProfileScreen';
 import { MyWorkScreen } from '@/screens/shared/MyWorkScreen';
@@ -170,7 +169,10 @@ function RegisteredManagerTabs() {
   // is now My Actions, so the RM's own work is one tap away.
   return (
     <Tab.Navigator screenOptions={boardTabOptions(c)}>
-      <Tab.Screen name="Home" component={RMDashboardScreen} options={{ tabBarIcon: tabIcon('home') }} />
+      {/* Route name stays "Home" (navigateTab('Home') / the drawer rely on it); only the displayed
+          label changes to match the brief's "My Work" wording — the screen already shows assigned
+          work first (Role navigation correction, 10-16 Oct 2026). */}
+      <Tab.Screen name="Home" component={RMDashboardScreen} options={{ tabBarLabel: 'My Work', tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Daily Oversight" component={RMSignalQueueScreen} options={{ tabBarIcon: tabIcon('activity') }} />
       <Tab.Screen name="Reports" component={RMReportsScreen} options={{ tabBarIcon: tabIcon('file-text') }} />
       <Tab.Screen name="My Actions" component={RMMyActionsScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
@@ -182,7 +184,9 @@ function DirectorTabs() {
   const { c } = useTheme(); // orange accent
   return (
     <Tab.Navigator screenOptions={boardTabOptions(c)}>
-      <Tab.Screen name="Home" component={DirectorOverviewScreen} options={{ tabBarIcon: tabIcon('home') }} />
+      {/* Route name stays "Home"; label matches the brief's "My Work" wording — the Director
+          overview now leads with personal attention items (see the 13 Oct click-through fix). */}
+      <Tab.Screen name="Home" component={DirectorOverviewScreen} options={{ tabBarLabel: 'My Work', tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Trends" component={DirectorTrendsScreen} options={{ tabBarIcon: tabIcon('trending-up') }} />
       <Tab.Screen name="Themes" component={DirectorThemesScreen} options={{ tabBarIcon: tabIcon('bar-chart-2') }} />
       <Tab.Screen name="Governance" component={DirectorGovernanceScreen} options={{ tabBarIcon: tabIcon('shield') }} />

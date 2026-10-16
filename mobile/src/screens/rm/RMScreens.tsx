@@ -247,7 +247,7 @@ export function RMGovernanceReviewScreen() {
         { label: 'Effectiveness reviews due', value: String(d.effectiveness_reviews_due ?? 0), showCheck: true },
         { label: 'Risks requiring decision', value: String(d.risks_requiring_decision ?? 0), showCheck: true },
       ]} />
-      <BoardButton label="View weekly report" icon="file-text" onPress={() => nav.navigate('ReportDetail', { type: 'weekly', title: 'Weekly governance report' })} />
+      <BoardButton label="View 7-day governance summary" icon="file-text" onPress={() => nav.navigate('ReportDetail', { type: 'weekly', title: '7-day governance summary' })} />
     </Screen>
   );
 }
@@ -257,8 +257,8 @@ export function RMReportsScreen() {
   const nav = useNavigation<any>();
   const reports: { title: string; type: string; meta: string }[] = [
     { title: 'Daily summary', type: 'daily', meta: "Today's signals, actions & escalations" },
-    { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
-    { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days' },
+    { title: '7-day governance summary', type: 'weekly', meta: 'Last 7 days' },
+    { title: '30-day governance summary', type: 'monthly', meta: 'Last 30 days' },
     { title: 'Signals by domain', type: 'signals-domain', meta: 'Where signals are coming from' },
     { title: 'Actions by status', type: 'actions-status', meta: 'To do · done · overdue' },
     { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },

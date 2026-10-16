@@ -43,17 +43,25 @@ export function BoardHeader({ title, subtitle, menu = true }: { title: string; s
   );
 }
 
-/* 2-column metric tiles: big tone-coloured value + small label. */
-export function Metrics({ items }: { items: { value: React.ReactNode; label: string; tone?: Tone }[] }) {
+/* 2-column metric tiles: big tone-coloured value + small label. `onPress` makes a tile open the
+   work it counts (Director Mobile My Work Navigation correction, 13 Oct 2026) — a count that tells
+   someone work needs attention must not be a dead end. */
+export function Metrics({ items }: { items: { value: React.ReactNode; label: string; tone?: Tone; onPress?: () => void }[] }) {
   const { c } = useTheme();
   return (
     <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
-      {items.map((m, i) => (
-        <View key={i} style={{ width: '47.7%', flexGrow: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }}>
-          <Text size={26} weight="700" color={toneColor(c, m.tone)} style={{ letterSpacing: -0.5 }}>{m.value}</Text>
-          <Text size={11.5} muted style={{ marginTop: 4 }}>{m.label}</Text>
-        </View>
-      ))}
+      {items.map((m, i) => {
+        const base = { width: '47.7%' as const, flexGrow: 1, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 };
+        const body = (
+          <>
+            <Text size={26} weight="700" color={toneColor(c, m.tone)} style={{ letterSpacing: -0.5 }}>{m.value}</Text>
+            <Text size={14} muted style={{ marginTop: 4 }}>{m.label}</Text>
+          </>
+        );
+        return m.onPress
+          ? <Pressable key={i} onPress={m.onPress} style={({ pressed }) => ({ ...base, opacity: pressed ? 0.6 : 1 })}>{body}</Pressable>
+          : <View key={i} style={base}>{body}</View>;
+      })}
     </View>
   );
 }
@@ -87,16 +95,19 @@ export function StatusList({ items, button, onButton, empty, pageSize = 8 }: {
 
   return (
     <View style={{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, paddingHorizontal: 13 }}>
-      {items.length === 0 && <Text size={12.5} muted style={{ paddingVertical: 16, textAlign: 'center' }}>{empty || 'Nothing here.'}</Text>}
+      {items.length === 0 && <Text size={14} muted style={{ paddingVertical: 16, textAlign: 'center' }}>{empty || 'Nothing here.'}</Text>}
       {shown.map((it, i) => {
         const body = (
-          <Row style={{ paddingVertical: 11, borderBottomWidth: i < shown.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
-            <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: toneColor(c, it.tone) }} />
+          // Readable-card correction (10-16 Oct 2026): body text at 16/14 (not 13.5/11.5) and the
+          // concern title wraps to two lines instead of truncating, so a long real-world concern
+          // isn't cut off mid-sentence. Full wording remains available in detail.
+          <Row style={{ paddingVertical: 12, borderBottomWidth: i < shown.length - 1 ? 1 : 0, borderBottomColor: c.lineSoft }} gap={10}>
+            <View style={{ width: 9, height: 9, borderRadius: 3, backgroundColor: toneColor(c, it.tone), marginTop: 6 }} />
             <View style={{ flex: 1, minWidth: 0 }}>
-              <Text size={13.5} weight="600" numberOfLines={1}>{it.title}</Text>
-              {!!it.meta && <Text size={11.5} muted={!it.metaTone} color={it.metaTone ? toneColor(c, it.metaTone) : undefined} numberOfLines={1} style={{ marginTop: 2 }}>{it.meta}</Text>}
+              <Text size={16} weight="600" numberOfLines={2}>{it.title}</Text>
+              {!!it.meta && <Text size={14} muted={!it.metaTone} color={it.metaTone ? toneColor(c, it.metaTone) : undefined} numberOfLines={2} style={{ marginTop: 3 }}>{it.meta}</Text>}
             </View>
-            {!!it.value && <Text size={13.5} weight="700" color={it.valueTone ? toneColor(c, it.valueTone) : undefined}>{it.value}</Text>}
+            {!!it.value && <Text size={14} weight="700" color={it.valueTone ? toneColor(c, it.valueTone) : undefined}>{it.value}</Text>}
             {it.onPress && <Feather name="chevron-right" size={16} color={c.faint} />}
           </Row>
         );

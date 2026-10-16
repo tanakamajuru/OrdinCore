@@ -35,16 +35,35 @@ export const governanceWorkflowService = {
     const rows: any[] = [];
 
     // Governance decisions taken on this signal (Chapter 3 lineage).
+    // Signal Monitoring, History and Role Visibility correction (14 Oct 2026): the history must show
+    // the CANONICAL decision (Monitor/Create Action/Escalate/Close) as the decision — never the
+    // monitoring instruction, intended outcome or workflow state. Those stay separate, named fields.
     const decisions = await query(
-      `SELECT gr.id, gr.decision, gr.decision_status, gr.what_is_happening, gr.created_at
+      `SELECT gr.id, gr.decision, gr.decision_status, gr.what_is_happening, gr.decision_rationale,
+              gr.due_at, gr.intended_outcome, gr.monitoring_trigger, gr.created_at, gr.reviewed_by,
+              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
+              NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name
          FROM governance_reviews gr
+         LEFT JOIN users ow ON ow.id = gr.decision_owner_id
+         LEFT JOIN users au ON au.id = gr.reviewed_by
         WHERE gr.company_id = $1 AND gr.pulse_entry_id = $2
         ORDER BY gr.created_at`,
       [company_id, pulse_id]
     );
     for (const d of decisions.rows) rows.push({
       record: 'Governance Decision', id: d.id, relationship: 'Decision from this signal',
-      label: d.what_is_happening, status: d.decision_status || d.decision, at: d.created_at, link: null,
+      // Backward-compatible fields consumed by the generic timeline table:
+      label: d.what_is_happening, status: d.decision, at: d.created_at, link: null,
+      // Required separate fields (do not derive the decision label from any of these):
+      governanceDecision: d.decision,
+      workflowState: d.decision_status || null,
+      reason: d.decision_rationale || null,
+      monitoringOwner: d.decision === 'Monitor' ? (d.owner_name || null) : null,
+      whatToWatch: d.decision === 'Monitor' ? (d.what_is_happening || null) : null,
+      reviewDue: d.decision === 'Monitor' ? (d.due_at || null) : null,
+      actSoonerIf: d.decision === 'Monitor' ? (d.monitoring_trigger || null) : null,
+      expectedReviewOutcome: d.decision === 'Monitor' ? (d.intended_outcome || null) : null,
+      author: d.author_name || null,
     });
 
     // Tasks created from this signal.

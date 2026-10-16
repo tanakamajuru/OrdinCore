@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { useApi } from '@/api/useApi';
 import { RootStackParams } from '@/navigation/types';
@@ -24,14 +24,28 @@ export function ReportDetailScreen() {
   const B = body?.breakdowns || {};
   const sumOk = !!body && !sum.error;
   const mv = (v: number | undefined | null): React.ReactNode => (sumOk && v != null ? v : '—');
+  // Truthful data status (Report Accuracy correction, 11-13 Oct 2026): only call a report Complete
+  // when every source succeeded; a degraded source produces Partial with the affected areas named
+  // and the last time the whole summary DID load successfully, not silently as Complete.
+  const dataStatus: string | null = body?.data_status ?? body?.metadata?.data_status ?? null;
+  const degradedSources: string[] = body?.metadata?.degraded_sources || [];
+  const lastSuccessfulUpdate: string | null = body?.metadata?.last_successful_update || null;
 
-  // Drill-down evidence lists — their own independent state.
-  const sig = useApi<any>('/pulses?limit=50');
-  const esc = useApi<any>('/escalations?limit=100');
+  // Drill-down evidence lists — their own independent state. These never define a headline total
+  // (that's the authoritative aggregate above); an increasing limit is their pagination so older
+  // unresolved records stay reachable rather than silently capped (Report accuracy correction,
+  // 11 Oct 2026 / Implementation Review, 13 Oct 2026).
+  const PAGE = 50;
+  const [sigLimit, setSigLimit] = useState(PAGE);
+  const [escLimit, setEscLimit] = useState(100);
+  const sig = useApi<any>(`/pulses?limit=${sigLimit}`, [sigLimit]);
+  const esc = useApi<any>(`/escalations?limit=${escLimit}`, [escLimit]);
   const signals = arr(sig.data);
   const escs = arr(esc.data);
   const sigOk = !!sig.data && !sig.error;
   const escOk = !!esc.data && !esc.error;
+  const sigMayHaveMore = sigOk && signals.length >= sigLimit;
+  const escMayHaveMore = escOk && escs.length >= escLimit;
 
   const refetch = () => { sum.refetch(); sig.refetch(); esc.refetch(); };
 
@@ -103,6 +117,12 @@ export function ReportDetailScreen() {
     <Screen refreshing={sum.loading} onRefresh={refetch}>
       <BoardHeader title={title} subtitle="Live summary · full dataset" menu={false} />
       {sum.error && <ErrorNote message="Headline figures are unavailable right now — values show “—”, not zero." onRetry={refetch} />}
+      {!sum.error && dataStatus === 'PARTIAL' && (
+        <ErrorNote
+          message={`Partial data — ${degradedSources.length ? degradedSources.join(', ') : 'some sources'} could not be read. ${lastSuccessfulUpdate ? `Last fully successful update: ${new Date(lastSuccessfulUpdate).toLocaleString('en-GB', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}.` : ''} Figures below may be incomplete — do not treat this as a complete report.`}
+          onRetry={refetch}
+        />
+      )}
       <Metrics items={metrics} />
       <SectionTitle>{sectionTitle}</SectionTitle>
       {srcLoading ? (
@@ -110,7 +130,10 @@ export function ReportDetailScreen() {
       ) : srcError ? (
         <ErrorNote message={`${sectionTitle} is unavailable — tap to retry.`} onRetry={refetch} />
       ) : (
-        <StatusList items={items} empty={srcOk ? 'No matching records for this period.' : ''} />
+        <StatusList items={items} empty={srcOk ? 'No matching records for this period.' : ''}
+          button={listSource === 'signals' && sigMayHaveMore ? 'Load more signals' : listSource === 'escalations' && escMayHaveMore ? 'Load more escalations' : undefined}
+          onButton={listSource === 'signals' ? () => setSigLimit((n) => n + PAGE) : listSource === 'escalations' ? () => setEscLimit((n) => n + PAGE) : undefined}
+        />
       )}
       <Label>Full report</Label>
       <Text size={12} muted>The formatted, exportable report (PDF, board pack) is generated on the OrdinCore web app. This is the live on-device summary over your full authorised data.</Text>

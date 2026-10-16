@@ -47,7 +47,7 @@ export function DirectorOverviewScreen() {
   return (
     <Screen refreshing={gh.loading} onRefresh={() => { gh.refetch(); mw.refetch(); }}>
       <BoardHeader title="Governance Position" subtitle={`All services · Today, ${today()}`} />
-      <OutstandingBanner />
+      <OutstandingBanner onPress={() => nav.navigate('MyWork')} />
       <StatusList items={[{ title: 'Governance position', value: position, tone: posTone }]} />
       <Text size={11.5} muted>This is the organisation-wide position across all services{health != null ? ` (governance health ${Math.round(health)})` : ''} — separate from your personal tasks below. The reasons sit in the evidence: open Reviews and Trends.</Text>
       <SectionTitle>Requires your attention</SectionTitle>
@@ -56,8 +56,8 @@ export function DirectorOverviewScreen() {
         const acts = n(byKey('actions')?.emphasis ?? byKey('actions')?.count);
         return <>
           <Metrics items={[
-            { value: val, label: 'Reviews to validate', tone: 'amber' },
-            { value: acts, label: 'My overdue actions', tone: 'red' },
+            { value: val, label: 'Reviews to validate', tone: 'amber', onPress: val > 0 ? () => nav.navigate('DirectorReviews') : undefined },
+            { value: acts, label: 'My overdue actions', tone: 'red', onPress: acts > 0 ? () => nav.navigate('MyWork') : undefined },
           ]} />
           {val === 0 && <Text size={11.5} muted>No reviews are awaiting your validation.</Text>}
           {val === 0 && acts === 0 && <Text size={11.5} muted>No personal task is outstanding — this does not mean there are no unresolved concerns across services. Check the position above, Reviews and Trends.</Text>}
@@ -147,13 +147,15 @@ export function DirectorGovernanceScreen() {
   const loading = mw.loading && !mw.data;
   const items: any[] = mw.data?.items ?? mw.data?.data?.items ?? [];
   const toneOf = (t: string): Tone => (t === 'red' ? 'red' : t === 'amber' ? 'amber' : t === 'blue' ? 'blue' : t === 'emerald' ? 'green' : 'slate') as Tone;
-  const row = (key: string, label: string): BoardItem | null => {
+  const row = (key: string, label: string, onPress?: () => void): BoardItem | null => {
     const it = items.find((i: any) => i.key === key);
-    return it ? { title: label, value: String(it.count), tone: toneOf(it.tone) } : null;
+    return it ? { title: label, value: String(it.count), tone: toneOf(it.tone), onPress } : null;
   };
   const workload = [
-    row('weekly_validation', 'Weekly reviews awaiting validation'),
-    row('actions', 'My assigned actions requiring attention'),
+    row('weekly_validation', 'Weekly reviews awaiting validation', () => nav.navigate('DirectorReviews')),
+    // Must open the exact underlying work, not just show a count (Director Mobile My Work
+    // Navigation correction, 13 Oct 2026). My Work is the same canonical queue the count derives from.
+    row('actions', 'My assigned actions requiring attention', () => nav.navigate('MyWork')),
   ].filter(Boolean) as BoardItem[];
 
   if (loading) return <Screen><Loading /></Screen>;
@@ -171,8 +173,8 @@ export function DirectorGovernanceScreen() {
 export function DirectorReportsScreen() {
   const nav = useNavigation<any>();
   const reports: { title: string; type: string; meta: string }[] = [
-    { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days across all services' },
-    { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
+    { title: '30-day governance summary', type: 'monthly', meta: 'Last 30 days across all services' },
+    { title: '7-day governance summary', type: 'weekly', meta: 'Last 7 days' },
     { title: 'Signals by domain', type: 'signals-domain', meta: 'Where signals are coming from' },
     { title: 'Actions by status', type: 'actions-status', meta: 'To do · done · overdue' },
     { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, Fragment } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, AlertCircle, Shield, User, AlertTriangle } from "lucide-react";
@@ -525,18 +525,43 @@ export function SignalDetail() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border">
-                      <th className="py-2 pr-3">Record</th><th className="pr-3">Relationship</th><th className="pr-3">Detail</th><th className="pr-3">Status</th><th>When</th>
+                      <th className="py-2 pr-3">Record</th><th className="pr-3">Relationship</th><th className="pr-3">Detail</th><th className="pr-3">Governance Decision</th><th>When</th>
                     </tr></thead>
                     <tbody>
-                      {activity.map((a: any, i: number) => (
-                        <tr key={i} className={`border-b border-border/50 ${a.link ? "cursor-pointer hover:bg-muted/40" : ""}`} onClick={() => a.link && navigate(a.link)}>
+                      {activity.map((a: any, i: number) => {
+                        const isMonitor = a.record === 'Governance Decision' && a.governanceDecision === 'Monitor';
+                        return (
+                        <Fragment key={i}>
+                        <tr className={`border-b border-border/50 ${a.link ? "cursor-pointer hover:bg-muted/40" : ""}`} onClick={() => a.link && navigate(a.link)}>
                           <td className="py-2.5 pr-3 font-medium text-foreground whitespace-nowrap">{a.record}</td>
                           <td className="pr-3 text-muted-foreground whitespace-nowrap">{a.relationship}</td>
                           <td className="pr-3 text-foreground">{a.label}</td>
-                          <td className="pr-3 whitespace-nowrap">{a.status}</td>
+                          <td className="pr-3 whitespace-nowrap">
+                            {a.status}
+                            {a.workflowState && a.workflowState !== a.status && (
+                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded-full bg-muted text-muted-foreground align-middle">{a.workflowState}</span>
+                            )}
+                          </td>
                           <td className="text-muted-foreground whitespace-nowrap">{a.at ? new Date(a.at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</td>
                         </tr>
-                      ))}
+                        {isMonitor && (
+                          <tr className="border-b border-border/50 bg-muted/20">
+                            <td colSpan={5} className="px-3 py-2.5">
+                              <dl className="grid grid-cols-2 gap-x-6 gap-y-1.5 text-xs">
+                                {a.reason && (<><dt className="text-muted-foreground">Reason</dt><dd className="text-foreground">{a.reason}</dd></>)}
+                                {a.monitoringOwner && (<><dt className="text-muted-foreground">Monitoring owner</dt><dd className="text-foreground">{a.monitoringOwner}</dd></>)}
+                                {a.whatToWatch && (<><dt className="text-muted-foreground">What to watch</dt><dd className="text-foreground">{a.whatToWatch}</dd></>)}
+                                {a.reviewDue && (<><dt className="text-muted-foreground">Review due</dt><dd className="text-foreground">{new Date(a.reviewDue).toLocaleDateString('en-GB')}</dd></>)}
+                                {a.actSoonerIf && (<><dt className="text-muted-foreground">Act sooner if</dt><dd className="text-foreground">{a.actSoonerIf}</dd></>)}
+                                {a.expectedReviewOutcome && (<><dt className="text-muted-foreground">Expected review outcome</dt><dd className="text-foreground">{a.expectedReviewOutcome}</dd></>)}
+                                {a.author && (<><dt className="text-muted-foreground">Author</dt><dd className="text-foreground">{a.author}</dd></>)}
+                              </dl>
+                            </td>
+                          </tr>
+                        )}
+                        </Fragment>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

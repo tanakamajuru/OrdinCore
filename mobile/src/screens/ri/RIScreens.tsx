@@ -190,11 +190,11 @@ export function RINarrativeScreen() {
 export function RIBoardReportsScreen() {
   const nav = useNavigation<any>();
   const reports: { title: string; type: string; meta: string }[] = [
-    { title: 'Monthly governance report', type: 'monthly', meta: 'Last 30 days across all services' },
+    { title: '30-day governance summary', type: 'monthly', meta: 'Last 30 days across all services' },
     { title: 'Signals by theme', type: 'signals-domain', meta: 'Signals grouped by theme' },
     { title: 'Escalations report', type: 'escalations', meta: 'Open · overdue · closed' },
     { title: 'Actions summary', type: 'actions-status', meta: 'To do · done · overdue' },
-    { title: 'Weekly governance report', type: 'weekly', meta: 'Last 7 days' },
+    { title: '7-day governance summary', type: 'weekly', meta: 'Last 7 days' },
   ];
   const items: BoardItem[] = reports.map((r) => ({
     title: r.title, meta: r.meta, tone: 'neutral',

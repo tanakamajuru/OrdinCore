@@ -4,7 +4,7 @@ import { useNavigate } from "react-router";
 import { isOpenRisk } from "@/lib/governanceStatus";
 import {
   Shield, Flag, ClipboardCheck, TrendingUp, RefreshCw, ShieldCheck,
-  CheckCircle2, AlertTriangle, Download,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 import { PieChart, Pie, Cell, ResponsiveContainer } from "recharts";
@@ -133,17 +133,18 @@ export function ResponsibleIndividualDashboard() {
   const reviewsPending = reviewQueue.length;
   const reviewPct = (reviewsCompleted + reviewsPending) ? Math.round((reviewsCompleted / (reviewsCompleted + reviewsPending)) * 100) : 100;
 
-  // Assurance status: Good unless overdue escalations or many rising risks
-  const assurance = overdueEsc > 3 || rising > openRisks.length / 2 ? "Watch" : "Good";
-
-  const questions = [
-    { q: "Are risks being identified early?", ok: openRisks.length > 0 },
-    { q: "Are escalations timely?", ok: overdueEsc === 0 },
-    { q: "Are actions effective?", ok: effEffective >= effNot },
-    { q: "Are reviews completed on time?", ok: reviewsPending === 0 },
-    { q: "Are items closed appropriately?", ok: reopened <= 2 },
-    { q: "Is governance evidence sufficient?", ok: reviewsCompleted > 0 },
-  ];
+  // RI Assurance Interface correction (14 Oct 2026): overall assurance is the RI's four-state
+  // conclusion from the canonical Assurance Questions below — never a separate "Good"/"Watch"
+  // quality rating computed from raw counts. Falls back to Insufficient evidence (never Assured)
+  // while the assurance summary hasn't loaded, since that is the maximum defensible state.
+  const overallAssurance: { state: string; basis: string } =
+    assuranceSummary?.overall || { state: 'Insufficient evidence', basis: 'Assurance evidence is still loading.' };
+  const assuranceTone: Record<string, string> = {
+    'Assured': 'bg-emerald-100 text-emerald-600',
+    'Partially assured': 'bg-amber-100 text-amber-600',
+    'Not assured': 'bg-red-100 text-red-600',
+    'Insufficient evidence': 'bg-slate-100 text-slate-600',
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -169,10 +170,10 @@ export function ResponsibleIndividualDashboard() {
             footer={<><span className="text-emerald-600">{reviewsCompleted} Completed</span><span className="text-amber-600">{reviewsPending} Pending</span></>} />
           <StatCard icon={TrendingUp} tone="bg-violet-100 text-violet-600" label="Effectiveness Reviews" value={effectivenessReviewed}
             footer={<><span className="text-emerald-600">{effEffective} Effective</span><span className="text-amber-600">{effPartial} Partial</span><span className="text-red-600">{effNot} Not effective</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
-          <StatCard icon={RefreshCw} tone="bg-rose-100 text-rose-600" label="Reopened Items" value={reopened}
+          <StatCard icon={RefreshCw} tone="bg-rose-100 text-rose-600" label="Reopened / Recurring Concerns" value={reopened}
             footer={<span className="text-muted-foreground">risks & escalations</span>} />
-          <StatCard icon={ShieldCheck} tone={assurance === "Good" ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"} label="Assurance Status" value={assurance}
-            footer={<span className="text-muted-foreground">overall rating</span>} />
+          <StatCard icon={ShieldCheck} tone={assuranceTone[overallAssurance.state] || "bg-slate-100 text-slate-600"} label="Overall Assurance" value={overallAssurance.state}
+            footer={<span className="text-muted-foreground">{overallAssurance.basis}</span>} />
         </div>
 
         {assuranceSummary && (() => {
@@ -217,14 +218,24 @@ export function ResponsibleIndividualDashboard() {
             ]} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Governance Review Completion</h3>
+            <h3 className="font-semibold mb-1">Governance cycle status</h3>
+            <p className="text-sm text-foreground mb-3">
+              {reviewsPending === 0
+                ? "All expected governance reviews are complete for the current period."
+                : `${reviewsPending} review${reviewsPending === 1 ? '' : 's'} ${reviewsPending === 1 ? 'is' : 'are'} not yet complete.`}
+            </p>
             <Donut centerLabel={`${reviewPct}%`} data={[
               { name: "Completed", value: reviewsCompleted, color: "#10b981" },
               { name: "Pending", value: reviewsPending, color: "#f59e0b" },
             ]} />
           </div>
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Escalations Assurance</h3>
+            <h3 className="font-semibold mb-1">Escalation assurance</h3>
+            <p className="text-sm text-foreground mb-3">
+              {overdueEsc === 0
+                ? "Current escalations are owned and within required review arrangements."
+                : `${overdueEsc} escalation${overdueEsc === 1 ? '' : 's'} ${overdueEsc === 1 ? 'is' : 'are'} overdue and require${overdueEsc === 1 ? 's' : ''} leadership attention.`}
+            </p>
             <Donut data={[
               { name: "Overdue", value: overdueEsc, color: "#ef4444" },
               { name: "Under Review", value: Number(escStats.under_review || 0), color: "#f59e0b" },
@@ -232,44 +243,33 @@ export function ResponsibleIndividualDashboard() {
               { name: "Monitoring", value: Number(escStats.monitoring_effectiveness || 0), color: "#8b5cf6" },
               { name: "Closed", value: Number(escStats.closed || 0), color: "#10b981" },
             ]} />
+            <p className="text-xs text-muted-foreground mt-3">A count of closed escalations is supporting evidence, not itself an assurance conclusion.</p>
           </div>
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Open Escalations Requiring RI Oversight</h3>
-            <div className="overflow-x-auto">
-              <table className="w-full text-sm">
-                <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
-                  <th className="py-2 pr-2">Escalation</th><th className="px-2">Reason</th><th className="px-2">Status</th><th className="px-2">Days Open</th>
-                </tr></thead>
-                <tbody>
-                  {openEsc.slice(0, 6).map(e => (
-                    <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
-                      <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
-                      <td className="px-2 max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
-                      <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
-                      <td className="px-2">{Math.max(0, Math.round((Date.now() - new Date(e.created_at).getTime()) / 86400000))}</td>
-                    </tr>
-                  ))}
-                  {openEsc.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-muted-foreground text-xs">No open escalations</td></tr>}
-                </tbody>
-              </table>
-            </div>
-          </div>
-
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Key Assurance Questions</h3>
-            <div className="space-y-2.5">
-              {questions.map(({ q, ok }) => (
-                <div key={q} className="flex items-center justify-between text-sm border-b border-border/50 pb-2">
-                  <span>{q}</span>
-                  {ok
-                    ? <CheckCircle2 className="w-5 h-5 text-emerald-500" />
-                    : <AlertTriangle className="w-5 h-5 text-amber-500" />}
-                </div>
-              ))}
-            </div>
+        {/* Open Escalations Requiring RI Oversight: material exceptions only, not every operational
+            escalation. The canonical Assurance Questions section above is the single assurance
+            framework — there is deliberately no second "Key Assurance Questions" panel here
+            (RI Assurance Interface correction, 14 Oct 2026). */}
+        <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
+          <h3 className="font-semibold mb-4">Open Escalations Requiring RI Oversight</h3>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead><tr className="text-left text-xs text-muted-foreground border-b border-border">
+                <th className="py-2 pr-2">Escalation</th><th className="px-2">Reason</th><th className="px-2">Status</th><th className="px-2">Days Open</th>
+              </tr></thead>
+              <tbody>
+                {openEsc.slice(0, 6).map(e => (
+                  <tr key={e.id} className="border-b border-border/50 hover:bg-muted/30 cursor-pointer" onClick={() => navigate("/escalation-log")}>
+                    <td className="py-2.5 pr-2">{e.risk_title || e.reason || "Escalation"}</td>
+                    <td className="px-2 max-w-[160px] truncate text-muted-foreground">{e.reason}</td>
+                    <td className="px-2"><span className={`text-xs rounded px-2 py-0.5 ${e.overdue ? "bg-red-100 text-red-700" : "bg-muted"}`}>{e.overdue ? "Overdue" : (e.lifecycle_status || e.status)}</span></td>
+                    <td className="px-2">{Math.max(0, Math.round((Date.now() - new Date(e.created_at).getTime()) / 86400000))}</td>
+                  </tr>
+                ))}
+                {openEsc.length === 0 && <tr><td colSpan={4} className="py-8 text-center text-muted-foreground text-xs">No escalations currently require RI oversight.</td></tr>}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
