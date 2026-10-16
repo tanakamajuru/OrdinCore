@@ -21,7 +21,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
             COUNT(DISTINCT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date)::int AS distinct_days
        FROM governance_pulses gp
       WHERE gp.company_id = $1 AND gp.house_id = $2
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3 AND $4 ${personPulse}`,
+        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4 ${personPulse}`,
     [companyId, siteId, start, end]
   )).rows[0];
 
@@ -54,9 +54,9 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
                               AND ((ra.completed_at IS NULL AND ra.status NOT IN ${done}) OR ra.completed_at > $3::timestamptz)
                               AND ra.due_date < $3::timestamptz)::int AS overdue_actions,
             COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
-                              AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz)::int AS completed_actions,
+                              AND ra.completed_at >= $4::timestamptz AND ra.completed_at < $3::timestamptz)::int AS completed_actions,
             COUNT(*) FILTER (WHERE ra.status IN ('Complete','Completed')
-                              AND ra.completed_at BETWEEN $4::timestamptz AND $3::timestamptz
+                              AND ra.completed_at >= $4::timestamptz AND ra.completed_at < $3::timestamptz
                               AND (ra.due_date IS NULL OR ra.completed_at <= ra.due_date))::int AS completed_on_time,
             -- Controls = effectiveness-bearing actions completed by the cut-off. Control Assurance
             -- counts only those with a FINAL Effective judgement; existence/completion alone, and
@@ -85,7 +85,10 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
 }
 
 export const scopedReportDataService = {
-  async build(resolved: ResolvedScope, start: string, end: string) {
+  // Boundaries are start-inclusive, end-EXCLUSIVE. `start`/`end` are UTC timestamps for timestamptz
+  // columns; `startDate`/`endDateExcl` are the equivalent local calendar dates for DATE columns
+  // (e.g. weekly_reviews.week_ending) — a timestamptz boundary must not be ::date-cast in UTC.
+  async build(resolved: ResolvedScope, start: string, end: string, startDate?: string, endDateExcl?: string) {
     const { companyId, siteIds, personId } = resolved;
     const siteRows = (await query(`SELECT id, name FROM houses WHERE id = ANY($1::uuid[]) ORDER BY name`, [siteIds])).rows;
 
@@ -102,7 +105,7 @@ export const scopedReportDataService = {
       `SELECT unnest(gp.risk_domain)::text AS theme, COUNT(*)::int AS n
          FROM governance_pulses gp
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3 AND $4
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
           ${personId ? `AND gp.service_user_id = '${personId}'` : ''}
         GROUP BY theme ORDER BY n DESC LIMIT 8`,
       [companyId, siteIds, start, end]
@@ -147,7 +150,7 @@ export const scopedReportDataService = {
          FROM governance_pulses gp
          JOIN houses h ON h.id = gp.house_id AND h.company_id = gp.company_id
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3 AND $4
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5)
         ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC`, detailParams
     )).rows;
@@ -246,7 +249,7 @@ export const scopedReportDataService = {
         WHERE gr.company_id = $1
           AND (gr.service_id = ANY($2::uuid[])
                OR ($6::boolean AND gr.service_id IS NULL))
-          AND gr.review_date BETWEEN $3 AND $4
+          AND gr.review_date >= $3 AND gr.review_date < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5 OR r.service_user_id = $5 OR e.service_user_id = $5)
         ORDER BY gr.review_date DESC`, broadParams
     )).rows;
@@ -267,7 +270,7 @@ export const scopedReportDataService = {
          LEFT JOIN houses h2 ON h2.id = gp.house_id AND h2.company_id = sc.company_id
         WHERE sc.company_id = $1
           AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) BETWEEN $3::timestamptz AND $4::timestamptz
+          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3::timestamptz AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4::timestamptz
           AND ($5::uuid IS NULL)
         GROUP BY sc.id, sc.risk_domain, sc.scope, sc.cluster_status, sc.review_outcome, sc.next_review_date
         ORDER BY MAX(gp.entry_date) DESC`, [companyId, siteIds, start, end, personId || null]
@@ -291,7 +294,7 @@ export const scopedReportDataService = {
          LEFT JOIN users u ON u.id = sc.dismissed_by AND u.company_id = sc.company_id
         WHERE sc.company_id = $1 AND sc.cluster_status = 'Dismissed'
           AND (sc.house_id = ANY($2::uuid[]) OR ($6::boolean AND sc.house_id IS NULL))
-          AND COALESCE(sc.dismissed_at, sc.updated_at) BETWEEN $3::timestamptz AND $4::timestamptz
+          AND COALESCE(sc.dismissed_at, sc.updated_at) >= $3::timestamptz AND COALESCE(sc.dismissed_at, sc.updated_at) < $4::timestamptz
           AND ($5::uuid IS NULL)
         ORDER BY COALESCE(sc.dismissed_at, sc.updated_at) DESC`, broadParams
     )).rows;
@@ -313,7 +316,7 @@ export const scopedReportDataService = {
          LEFT JOIN users u ON u.id = aer.reviewed_by AND u.company_id = aer.company_id
         WHERE aer.company_id = $1
           AND (COALESCE(ra.house_id, r.house_id) = ANY($2::uuid[]) OR ($6::boolean AND COALESCE(ra.house_id, r.house_id) IS NULL))
-          AND aer.reviewed_at BETWEEN $3::timestamptz AND $4::timestamptz
+          AND aer.reviewed_at >= $3::timestamptz AND aer.reviewed_at < $4::timestamptz
           AND ($5::uuid IS NULL OR ra.service_user_id = $5)
         ORDER BY aer.reviewed_at DESC`, broadParams
     )).rows;
@@ -324,8 +327,8 @@ export const scopedReportDataService = {
          FROM weekly_reviews wr
          JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
         WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])
-          AND wr.week_ending BETWEEN $3::date AND $4::date
-        ORDER BY wr.week_ending DESC, h.name`, [companyId, siteIds, start, end]
+          AND wr.week_ending >= $3::date AND wr.week_ending < $4::date
+        ORDER BY wr.week_ending DESC, h.name`, [companyId, siteIds, startDate ?? start, endDateExcl ?? end]
     )).rows;
 
     // Audit rows are only included where they reference a record already inside the snapshot scope
@@ -340,7 +343,7 @@ export const scopedReportDataService = {
               COALESCE(NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), ''), 'System') AS actor
          FROM audit_logs a
          LEFT JOIN users u ON u.id = a.user_id AND (u.company_id = a.company_id OR u.company_id IS NULL)
-        WHERE a.company_id = $1 AND a.created_at BETWEEN $2 AND $3
+        WHERE a.company_id = $1 AND a.created_at >= $2 AND a.created_at < $3
         ORDER BY a.created_at DESC`,
       [companyId, start, end]
     )).rows;
@@ -426,7 +429,7 @@ export const scopedReportDataService = {
          LEFT JOIN risk_actions la ON la.id = lr.linked_action_id
         WHERE lr.company_id = $1 AND lr.source_type = 'EFFECTIVENESS'
           AND (lr.house_id = ANY($2::uuid[]) OR lr.house_id IS NULL)
-          AND lr.created_at::date BETWEEN $3 AND $4
+          AND lr.created_at >= $3 AND lr.created_at < $4
         ORDER BY lr.created_at DESC`,
       [companyId, siteIds, start, end],
     )).rows;

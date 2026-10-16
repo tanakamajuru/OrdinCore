@@ -14,10 +14,30 @@ export const frozenReportService = {
     const def = findReport(reportKey);
     if (!def) throw new Error('Unknown report.');
     const resolved = await reportScopeService.resolve(user, reportKey, req.scope);
-    const start = req.periodStart;
-    const end = req.periodEnd;
+    // Central, DST-safe period boundaries: interpret the requested period as calendar days in the
+    // organisation governance timezone (default Europe/London) and build a start-inclusive,
+    // end-EXCLUSIVE window — local midnight of the first day up to local midnight AFTER the last
+    // day — converted to UTC. This fixes inclusive-end double counting on adjacent period
+    // boundaries and keeps boundaries correct across UK daylight-saving and non-UK device clocks.
+    const tz = req.timezone || 'Europe/London';
+    const b = (await query(
+      `SELECT (date_trunc('day', $1::timestamptz AT TIME ZONE $3)) AT TIME ZONE $3 AS start_utc,
+              (date_trunc('day', $2::timestamptz AT TIME ZONE $3) + INTERVAL '1 day') AT TIME ZONE $3 AS end_utc,
+              (date_trunc('day', $1::timestamptz AT TIME ZONE $3))::date AS start_date,
+              (date_trunc('day', $2::timestamptz AT TIME ZONE $3) + INTERVAL '1 day')::date AS end_date_excl`,
+      [req.periodStart, req.periodEnd, tz]
+    )).rows[0];
+    const start: string = new Date(b.start_utc).toISOString();
+    const end: string = new Date(b.end_utc).toISOString();          // EXCLUSIVE boundary for queries
+    // Local calendar-date boundaries (for DATE columns, which must not be compared against a
+    // UTC-cast timestamptz — that is off by a day under BST).
+    const startDate: string = String(b.start_date);
+    const endDateExcl: string = String(b.end_date_excl);
+    // Inclusive last instant of the period for DISPLAY/stored metadata (the PDF header renders
+    // period_end as a date; the exclusive next-midnight boundary would mislabel it as the next day).
+    const endInclusive: string = new Date(new Date(b.end_utc).getTime() - 1000).toISOString();
 
-    const data = await scopedReportDataService.build(resolved, start, end);
+    const data = await scopedReportDataService.build(resolved, start, end, startDate, endDateExcl);
 
     // Defensibility gate (doctrine §13.2): a Critical Governance Exception must name the specific
     // supporting risk. A frozen report cannot assert CRITICAL it cannot substantiate.
@@ -73,7 +93,7 @@ export const frozenReportService = {
       contract_version, report_key: reportKey, scope_type: resolved.type,
       requested_scope: req.scope, resolved_site_ids: resolved.siteIds,
       person_id: resolved.personId || null, service_id: resolved.serviceId || null,
-      region_id: resolved.regionId || null, period_start: start, period_end: end,
+      region_id: resolved.regionId || null, period_start: start, period_end: endInclusive,
       source_cutoff_at, data, narrative,
     };
     const evidence_hash = hashService.hash(integrity_payload);
@@ -87,7 +107,7 @@ export const frozenReportService = {
        RETURNING id, created_at`,
       [user.company_id, reportKey, resolved.type, JSON.stringify(req.scope), resolved.siteIds,
        resolved.personId || null, resolved.serviceId || null, resolved.regionId || null,
-       start, end, JSON.stringify(data), narrative, JSON.stringify(data.organisation), evidence_hash, user.user_id,
+       start, endInclusive, JSON.stringify(data), narrative, JSON.stringify(data.organisation), evidence_hash, user.user_id,
        contract_version, JSON.stringify(integrity_payload), source_cutoff_at]
     )).rows[0];
 
