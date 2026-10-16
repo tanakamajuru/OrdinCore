@@ -28,7 +28,9 @@ describe('Guided Work orchestration contract',()=>{
     // obligation-backed items win the collapse (they clear deterministically)
     expect(service).toMatch(/itBacked !== curBacked/);
     // every needsYou item is tagged assigned-work vs role-decision
-    expect(service).toMatch(/category: \(it\.taskType==='ASSIGNED_ACTION'/);
+    expect(service).toMatch(/ASSIGNED_TASK_TYPES\.has\(it\.taskType\)/);
+    // TL monitoring updates are assigned work, not a governance decision (16 Oct field report)
+    expect(service).toMatch(/ASSIGNED_TASK_TYPES = new Set\(\[[^\]]*'SIGNAL_MONITORING'[^\]]*'ESCALATION_MONITORING'/);
   });
   it('surfaces every open escalation in the tenant-scoped RM decision queue',()=>{
     const sql=service.match(/const escalations = await safeRows\(`([\s\S]*?)`/)?.[1] || '';

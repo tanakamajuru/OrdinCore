@@ -58,6 +58,11 @@ export function SignalDetail() {
   const [personDraft, setPersonDraft] = useState("");
   const [savingPerson, setSavingPerson] = useState(false);
   const [serviceUsers, setServiceUsers] = useState<any[]>([]);
+  const [monitoringHistory, setMonitoringHistory] = useState<any[]>([]);
+  const [monitoringNote, setMonitoringNote] = useState("");
+  const [monitoringUrgent, setMonitoringUrgent] = useState(false);
+  const [monitoringUrgentReason, setMonitoringUrgentReason] = useState("");
+  const [savingMonitoringUpdate, setSavingMonitoringUpdate] = useState(false);
   const currentUserId = JSON.parse(localStorage.getItem("user") || "{}").id;
   const canEditNote = !!signal && (
     signal.created_by === currentUserId ||
@@ -118,6 +123,7 @@ export function SignalDetail() {
     if (id) {
       loadSignalDetails(id);
       loadActivity(id);
+      loadMonitoringHistory(id);
     }
   }, [id]);
 
@@ -127,6 +133,36 @@ export function SignalDetail() {
       const list = res?.data?.data ?? res?.data ?? [];
       setActivity(Array.isArray(list) ? list : []);
     } catch { setActivity([]); }
+  };
+
+  // Signal Monitoring correction (16 Oct 2026): the monitoring owner (usually a TL) records a
+  // factual update here — this is evidence, not a governance decision, and never changes the
+  // decision, closes the signal or creates an action. An urgent flag surfaces the RM immediately.
+  const loadMonitoringHistory = async (signalId: string) => {
+    try {
+      const res: any = await apiClient.get(`/pulses/${signalId}/monitoring-history`);
+      const list = res?.data?.data ?? res?.data ?? [];
+      setMonitoringHistory(Array.isArray(list) ? list : []);
+    } catch { setMonitoringHistory([]); }
+  };
+
+  const saveMonitoringUpdate = async () => {
+    if (!signal || monitoringNote.trim().length < 3) { toast.error("Record a brief factual update first."); return; }
+    if (monitoringUrgent && monitoringUrgentReason.trim().length < 5) { toast.error("Say briefly why this needs urgent RM attention."); return; }
+    setSavingMonitoringUpdate(true);
+    try {
+      await apiClient.post(`/pulses/${signal.id}/monitoring-update`, {
+        note: monitoringNote.trim(), urgent: monitoringUrgent,
+        urgent_reason: monitoringUrgent ? monitoringUrgentReason.trim() : undefined,
+      });
+      toast.success(monitoringUrgent ? "Update recorded — RM notified immediately." : "Monitoring update recorded.");
+      setMonitoringNote(""); setMonitoringUrgent(false); setMonitoringUrgentReason("");
+      loadMonitoringHistory(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to record the update");
+    } finally {
+      setSavingMonitoringUpdate(false);
+    }
   };
 
   // Chapter 4 — mark this signal for leadership attention (visibility marker, not severity).
@@ -499,6 +535,52 @@ export function SignalDetail() {
                     </p>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Signal Monitoring correction (16 Oct 2026): the monitoring owner records factual
+                updates here. Shown whenever the signal is under an active Monitor decision —
+                the backend enforces that only the named owner (or RM/Admin oversight) can post. */}
+            {signal?.review_status === 'Monitoring' && (
+              <div className="mt-8 border-t border-border pt-6">
+                <h3 className="text-lg font-semibold text-foreground mb-1">Monitoring</h3>
+                <p className="text-xs text-muted-foreground mb-4">Record what you have observed while monitoring this signal. This is factual evidence — it does not close the signal or change the governance decision. The Registered Manager reviews this at the scheduled review point, or immediately if you flag it urgent.</p>
+                {monitoringHistory.length > 0 && (
+                  <div className="space-y-2 mb-4">
+                    {monitoringHistory.map((u) => (
+                      <div key={u.id} className={`rounded-lg border p-3 text-sm ${u.urgent ? 'border-amber-300 bg-amber-50' : 'border-border bg-muted/20'}`}>
+                        {u.urgent && <div className="text-xs font-semibold text-amber-700 mb-1">Urgent — {u.urgent_reason || 'flagged for RM attention'}</div>}
+                        <div className="text-foreground">{u.note}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{u.author_name || 'Unknown'} · {new Date(u.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <textarea
+                  value={monitoringNote}
+                  onChange={(e) => setMonitoringNote(e.target.value)}
+                  placeholder="What did you observe? (factual update)"
+                  className="w-full min-h-[80px] rounded-lg border border-border p-3 text-sm bg-background"
+                />
+                <label className="flex items-center gap-2 mt-3 text-sm">
+                  <input type="checkbox" checked={monitoringUrgent} onChange={(e) => setMonitoringUrgent(e.target.checked)} />
+                  This needs the Registered Manager's attention now, before the scheduled review
+                </label>
+                {monitoringUrgent && (
+                  <input
+                    value={monitoringUrgentReason}
+                    onChange={(e) => setMonitoringUrgentReason(e.target.value)}
+                    placeholder="Briefly, why does this need attention now?"
+                    className="w-full mt-2 rounded-lg border border-amber-300 p-2.5 text-sm bg-background"
+                  />
+                )}
+                <button
+                  onClick={saveMonitoringUpdate}
+                  disabled={savingMonitoringUpdate}
+                  className="mt-3 bg-primary text-primary-foreground px-5 py-2.5 rounded-lg text-sm font-medium hover:bg-primary/90 disabled:opacity-50"
+                >
+                  {savingMonitoringUpdate ? 'Saving…' : monitoringUrgent ? 'Record update & notify RM' : 'Record monitoring update'}
+                </button>
               </div>
             )}
 

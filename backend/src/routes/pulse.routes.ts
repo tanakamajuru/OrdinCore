@@ -93,6 +93,11 @@ router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPPORT_WO
 router.post('/:id/leadership-attention', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.markLeadershipAttention.bind(pulseController));
 router.get('/:id/linked-activity', requireAuth, requireTenant, pulseController.linkedActivity.bind(pulseController));
 
+// Signal Monitoring correction (16 Oct 2026): the named monitoring owner records a factual update
+// on the signal they were asked to monitor; RM/Admin/SuperAdmin oversight can also add one.
+router.post('/:id/monitoring-update', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.addMonitoringUpdate.bind(pulseController));
+router.get('/:id/monitoring-history', requireAuth, requireTenant, pulseController.monitoringHistory.bind(pulseController));
+
 // Alias for singular /pulse to reuse existing /pulses logic
 router.get('/pulse', requireAuth, requireTenant, pulseController.getPulses.bind(pulseController));
 

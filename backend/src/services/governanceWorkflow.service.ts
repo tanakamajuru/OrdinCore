@@ -29,6 +29,57 @@ export const governanceWorkflowService = {
     return result.rows[0];
   },
 
+  // Signal Monitoring correction (16 Oct 2026 field report): the monitoring owner (usually a TL)
+  // records a FACTUAL update on the signal they were asked to monitor. This is evidence, not a
+  // governance decision — it never changes the decision, closes the signal or creates an action.
+  // An urgent flag surfaces the RM immediately via Daily Oversight/Decisions Due, before the
+  // scheduled review point (mirrors escalations.metadata.rm_attention).
+  async addMonitoringUpdate(company_id: string, pulse_id: string, user_id: string, user_role: string, data: { note?: string; urgent?: boolean; urgent_reason?: string }) {
+    const note = String(data.note || '').trim();
+    if (note.length < 3) throw new Error('A monitoring update needs a brief factual note.');
+
+    const review = await query(
+      `SELECT gr.id, gr.decision_owner_id
+         FROM governance_reviews gr
+        WHERE gr.company_id = $1 AND gr.pulse_entry_id = $2
+          AND gr.decision = 'Monitor' AND gr.decision_status = 'Monitoring'
+        ORDER BY gr.created_at DESC LIMIT 1`,
+      [company_id, pulse_id]
+    );
+    const active = review.rows[0];
+    if (!active) throw new Error('This signal is not currently under an active monitoring decision.');
+
+    const role = String(user_role || '').toUpperCase();
+    const isOwner = active.decision_owner_id === user_id;
+    const isOversight = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(role);
+    if (!isOwner && !isOversight) throw new Error('Only the named monitoring owner can record this update.');
+
+    const urgent = !!data.urgent;
+    const result = await query(
+      `INSERT INTO signal_monitoring_updates (company_id, governance_review_id, pulse_entry_id, author_id, note, urgent, urgent_reason)
+       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
+      [company_id, active.id, pulse_id, user_id, note, urgent, urgent ? (data.urgent_reason ? String(data.urgent_reason).trim() : null) : null]
+    );
+    if (urgent) {
+      await query(`UPDATE governance_reviews SET rm_attention = TRUE, rm_attention_at = NOW() WHERE id = $1`, [active.id]);
+    }
+    return result.rows[0];
+  },
+
+  // Full monitoring update history for a signal's active and prior monitoring decisions.
+  async monitoringHistory(company_id: string, pulse_id: string) {
+    const rows = await query(
+      `SELECT smu.id, smu.note, smu.urgent, smu.urgent_reason, smu.created_at,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS author_name
+         FROM signal_monitoring_updates smu
+         LEFT JOIN users u ON u.id = smu.author_id
+        WHERE smu.company_id = $1 AND smu.pulse_entry_id = $2
+        ORDER BY smu.created_at`,
+      [company_id, pulse_id]
+    );
+    return rows.rows;
+  },
+
   // The Linked Governance Activity for a signal: every record that extends its history,
   // with the relationship and current status. The signal itself is never mutated here.
   async signalTimeline(company_id: string, pulse_id: string) {

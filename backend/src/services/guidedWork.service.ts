@@ -153,19 +153,27 @@ export const guidedWorkService = {
       // Signal monitoring assigned to this TL (Signal Monitoring correction, 14 Oct 2026): appear the
       // moment the RM saves the Monitor decision — not gated on due_at, which only governs when the
       // decision RETURNS to the RM. The signal stays under RM governance throughout.
+      // Join the ORIGINAL signal (governance_pulses) as well as the monitoring decision: the field
+      // report (16 Oct 2026) was that the item showed only the monitoring instruction with no way
+      // to tell what the original concern was, and the button landed on the dashboard instead of
+      // the exact signal.
       const monitoredSignals = await safeRows(`
-        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.monitoring_trigger, gr.due_at, h.name AS service_name
-          FROM governance_reviews gr LEFT JOIN houses h ON h.id=gr.service_id
+        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.monitoring_trigger, gr.due_at,
+               h.name AS service_name, gp.description AS original_description, gp.related_person
+          FROM governance_reviews gr
+          LEFT JOIN houses h ON h.id=gr.service_id
+          LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
            AND gr.decision_owner_id=$2`, [companyId, userId]);
       for (const m of monitoredSignals) needsYou.push({
         id:`signal_monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'SIGNAL_MONITORING',
-        title:'Monitor signal', summary:m.what_is_happening || 'Record monitoring evidence for this signal',
+        title:`Monitor signal${m.related_person ? ` · ${m.related_person}` : ''}`,
+        summary:`Original concern: ${m.original_description || 'see signal'}. What to watch: ${m.what_is_happening || 'see signal'}.`,
         reason:m.monitoring_trigger ? `Watch for: ${m.monitoring_trigger}` : 'The Registered Manager asked you to monitor this signal.',
         dueAt:m.due_at, serviceName:m.service_name,
         canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'SIGNAL_MONITORING_UPDATE',
         completionCondition:'Factual monitoring evidence is recorded, or urgent RM attention is flagged. The Registered Manager retains the next governance decision.',
-        route:m.pulse_entry_id ? `/governance-dashboard?pulseId=${m.pulse_entry_id}&houseId=${m.service_id}&guided=1&gw=signal_monitor:${m.id}` : `/governance-dashboard?guided=1&gw=signal_monitor:${m.id}`,
+        route:m.pulse_entry_id ? `/signals/${m.pulse_entry_id}?guided=1&gw=signal_monitor:${m.id}` : `/governance-dashboard?guided=1&gw=signal_monitor:${m.id}`,
         actionLabel:'Record Monitoring Update', whyAmISeeingThis:'The Registered Manager named you as the monitoring owner for this signal.'
       });
 
@@ -210,19 +218,27 @@ export const guidedWorkService = {
         actionLabel:'Review Signal', whyAmISeeingThis:'This signal has not yet received an RM governance decision.'
       });
 
+      // Scoped to the RM's houses, not just signals the RM personally nominated themselves to
+      // monitor: a signal a TEAM LEADER is monitoring must still return to RM Daily Oversight /
+      // Decisions Due at the review point — or immediately if the TL flags urgent attention
+      // (Signal Monitoring correction, 16 Oct 2026 field report).
       const monitoring = await safeRows(`
-        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.due_at, h.name AS service_name
+        SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.due_at, gr.rm_attention, h.name AS service_name
           FROM governance_reviews gr LEFT JOIN houses h ON h.id=gr.service_id
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
-           AND gr.decision_owner_id=$2 AND gr.due_at <= NOW()
-         ORDER BY gr.due_at`, [companyId, userId]);
+           AND gr.service_id=ANY($2::uuid[])
+           AND (gr.due_at <= NOW() OR gr.rm_attention)
+         ORDER BY gr.rm_attention DESC, gr.due_at`, [companyId, houses]);
       for (const m of monitoring) needsYou.push({
-        id:`monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'DUE', taskType:'MONITORING_REVIEW', title:'Review monitored concern',
-        summary:m.what_is_happening || 'Monitoring review due', reason:'The monitoring review point has been reached.', dueAt:m.due_at, serviceName:m.service_name,
+        id:`monitor:${m.id}`, role, state:'NEEDS_YOU', priority: m.rm_attention ? 'URGENT' : 'DUE', taskType:'MONITORING_REVIEW',
+        title: m.rm_attention ? 'Urgent: monitored signal needs you' : 'Review monitored concern',
+        summary:m.what_is_happening || 'Monitoring review due',
+        reason: m.rm_attention ? 'The monitoring owner flagged this signal for your immediate attention.' : 'The monitoring review point has been reached.',
+        dueAt:m.due_at, serviceName:m.service_name,
         canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'RM_MONITORING_REVIEW',
         completionCondition:'A new canonical RM decision is persisted for the monitored signal at its due review point.',
         route:m.pulse_entry_id ? `/governance-dashboard?pulseId=${m.pulse_entry_id}&houseId=${m.service_id}&guided=1&gw=monitor:${m.id}` : `/governance-dashboard?guided=1&gw=monitor:${m.id}`,
-        actionLabel:'Review Monitoring', whyAmISeeingThis:'You previously chose Monitor and the review date is now due.'
+        actionLabel:'Review Monitoring', whyAmISeeingThis: m.rm_attention ? 'The Team Leader monitoring this signal flagged it as urgent.' : 'The review date for this monitored signal has been reached.'
       });
 
       const obligations = await safeRows(`
@@ -507,10 +523,13 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
       }
       return [...best.values()];
     };
-    // Assigned-to-me work vs role decisions that are due (the mockup's two columns), expressed
-    // as data on each item; the current UI ignores it, so nothing visible changes yet.
+    // Assigned-to-me work vs role decisions that are due (the mockup's two columns). A TL's
+    // monitoring item is factual work they personally do, not a governance decision they own —
+    // tagging it DECISION made it read as a decision overdue under "Decisions Due" (field report
+    // 16 Oct 2026). Only the RM/owner-facing governance decision items are DECISION.
+    const ASSIGNED_TASK_TYPES = new Set(['ASSIGNED_ACTION', 'WEEKLY_ACK', 'SIGNAL_MONITORING', 'ESCALATION_MONITORING']);
     const withCategory = (it: GuidedWorkItem): GuidedWorkItem =>
-      ({ ...it, category: (it.taskType==='ASSIGNED_ACTION' || it.taskType==='WEEKLY_ACK') ? 'ASSIGNED' : 'DECISION' });
+      ({ ...it, category: ASSIGNED_TASK_TYPES.has(it.taskType) ? 'ASSIGNED' : 'DECISION' });
 
     // Guided Work never hides active work: the full canonical population is returned and
     // ordered by priority. Completion removes an item only by changing canonical state.
