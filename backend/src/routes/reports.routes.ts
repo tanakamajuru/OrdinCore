@@ -34,6 +34,10 @@ router.post('/request', requireAuth, requireTenant, reportsController.request.bi
  */
 router.get('/', requireAuth, requireTenant, reportsController.findAll.bind(reportsController));
 
+// Authoritative live summary (headline totals + breakdowns over the full authorised dataset).
+// Declared before '/:id' so 'summary' isn't read as a report id.
+router.get('/summary', requireAuth, requireTenant, reportsController.summary.bind(reportsController));
+
 // ─── Canonical four reports (spec module 10) — declared before '/:id' ─────────
 router.get('/weekly-governance', requireAuth, requireTenant, reportsController.weeklyGovernance.bind(reportsController));
 router.get('/strategic-risks', requireAuth, requireTenant, reportsController.strategicRisks.bind(reportsController));

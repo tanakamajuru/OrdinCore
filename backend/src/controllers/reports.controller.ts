@@ -207,6 +207,31 @@ export class ReportsController {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Download unavailable', errors: [] });
     }
   }
+
+  // Authoritative live summary (headline totals + breakdowns) over the full authorised dataset.
+  // RM and above see the whole organisation; TL/SW are scoped to their assigned services. An
+  // explicit house_id query param narrows further (must be within the caller's allowed set).
+  async summary(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const role = (req.user!.role || '').toUpperCase().replace(/-/g, '_');
+      const scoped = ['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role);
+      let houseIds: string[] | null = scoped ? (req.user!.assigned_house_ids || []) : null;
+      const requested = (req.query.house_id as string) || '';
+      if (requested && requested !== 'all') {
+        if (scoped && !(houseIds || []).map(String).includes(requested)) {
+          return res.status(403).json({ success: false, message: 'Not authorised for this service.', errors: [] });
+        }
+        houseIds = [requested];
+      }
+      // A scoped user with no assigned service has an empty authorised set → return zeros, not all.
+      if (scoped && (!houseIds || houseIds.length === 0)) houseIds = ['00000000-0000-0000-0000-000000000000'];
+      const data = await reportsService.summary(company_id, houseIds);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build the summary', errors: [] });
+    }
+  }
 }
 
 export const reportsController = new ReportsController();
