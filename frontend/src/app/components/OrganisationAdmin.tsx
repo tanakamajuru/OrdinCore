@@ -241,22 +241,32 @@ function QuickAction({ icon: Icon, label, onClick }: { icon: any; label: string;
 /* ---------- People & Access ---------- */
 function PeopleSection() {
   const [list, setList] = useState<any[]>([]);
+  const [houses, setHouses] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [q, setQ] = useState("");
   const [invite, setInvite] = useState(false);
   const [form, setForm] = useState({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" });
+  const [inviteHouses, setInviteHouses] = useState<string[]>([]);
   const [busy, setBusy] = useState(false);
+  const [editServicesFor, setEditServicesFor] = useState<any | null>(null);
+  const [editHouses, setEditHouses] = useState<string[]>([]);
+  const [savingServices, setSavingServices] = useState(false);
 
-  const load = async () => { setLoading(true); try { setList(rows(await apiClient.get("/users?limit=500"))); } catch { toast.error("Failed to load users."); } finally { setLoading(false); } };
+  const load = async () => {
+    setLoading(true);
+    try { const [u, h] = await Promise.all([apiClient.get("/users?limit=500"), apiClient.get("/houses?limit=500")]); setList(rows(u)); setHouses(rows(h)); }
+    catch { toast.error("Failed to load users."); } finally { setLoading(false); }
+  };
   useEffect(() => { load(); }, []);
 
   const filtered = list.filter(u => { const s = q.toLowerCase(); return !s || fullName(u).toLowerCase().includes(s) || (u.email || "").toLowerCase().includes(s) || roleLabel(u.role).toLowerCase().includes(s); });
+  const toggleIn = (arr: string[], id: string) => arr.includes(id) ? arr.filter(x => x !== id) : [...arr, id];
 
   const submitInvite = async () => {
     if (!form.first_name || !form.last_name || !form.email) { toast.error("Name and email are required."); return; }
     if (form.password.length < 8) { toast.error("Set a temporary password of at least 8 characters."); return; }
     setBusy(true);
-    try { await apiClient.post("/users", form); toast.success("Account created. Share the temporary password securely with the user — no email invitation is sent."); setInvite(false); setForm({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" }); load(); }
+    try { await apiClient.post("/users", { ...form, house_ids: inviteHouses }); toast.success("Account created. Share the temporary password securely with the user — no email invitation is sent."); setInvite(false); setForm({ first_name: "", last_name: "", email: "", role: "SUPPORT_WORKER", password: "" }); setInviteHouses([]); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to invite user.")); } finally { setBusy(false); }
   };
   const toggleStatus = async (u: any) => {
@@ -267,6 +277,13 @@ function PeopleSection() {
   const changeRole = async (u: any, role: string) => {
     try { await apiClient.patch(`/users/${u.id}`, { role }); toast.success("Role updated."); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to update role.")); }
+  };
+  const openEditServices = (u: any) => { setEditServicesFor(u); setEditHouses([]); };
+  const saveServices = async () => {
+    if (!editServicesFor) return;
+    setSavingServices(true);
+    try { await apiClient.patch(`/users/${editServicesFor.id}`, { house_ids: editHouses }); toast.success("Services updated — this replaces their previous allocation."); setEditServicesFor(null); load(); }
+    catch (e: any) { toast.error(errMsg(e, "Failed to update services.")); } finally { setSavingServices(false); }
   };
 
   return (
@@ -279,7 +296,7 @@ function PeopleSection() {
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead><tr className="text-left text-muted-foreground border-b border-border">
-              <th className="py-2 pr-3 font-semibold">Name</th><th className="py-2 pr-3 font-semibold">Email</th><th className="py-2 pr-3 font-semibold">Role</th><th className="py-2 pr-3 font-semibold">Status</th><th className="py-2 pr-3 font-semibold">Last sign-in</th><th className="py-2 font-semibold text-right">Actions</th></tr></thead>
+              <th className="py-2 pr-3 font-semibold">Name</th><th className="py-2 pr-3 font-semibold">Email</th><th className="py-2 pr-3 font-semibold">Role</th><th className="py-2 pr-3 font-semibold">Service(s)</th><th className="py-2 pr-3 font-semibold">Status</th><th className="py-2 pr-3 font-semibold">Last sign-in</th><th className="py-2 font-semibold text-right">Actions</th></tr></thead>
             <tbody>
               {filtered.map(u => {
                 const active = String(u.status || (u.is_active ? "active" : "inactive")).toLowerCase() === "active";
@@ -292,13 +309,17 @@ function PeopleSection() {
                         {ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}
                       </select>
                     </td>
+                    <td className="py-2.5 pr-3 text-muted-foreground">{u.assigned_house_name || "—"}</td>
                     <td className="py-2.5 pr-3">{active ? <Badge tone="green">Active</Badge> : <Badge tone="slate">Inactive</Badge>}</td>
                     <td className="py-2.5 pr-3 text-muted-foreground">{ago(u.last_login)}</td>
-                    <td className="py-2.5 text-right"><button onClick={() => toggleStatus(u)} className={`text-xs font-semibold rounded px-2.5 py-1 border ${active ? "text-amber-700 border-amber-300 hover:bg-amber-50" : "text-emerald-700 border-emerald-300 hover:bg-emerald-50"}`}>{active ? "Suspend" : "Activate"}</button></td>
+                    <td className="py-2.5 text-right whitespace-nowrap">
+                      <button onClick={() => openEditServices(u)} className="text-xs font-medium text-muted-foreground border border-border rounded px-2.5 py-1 hover:bg-muted mr-2">Edit services</button>
+                      <button onClick={() => toggleStatus(u)} className={`text-xs font-semibold rounded px-2.5 py-1 border ${active ? "text-amber-700 border-amber-300 hover:bg-amber-50" : "text-emerald-700 border-emerald-300 hover:bg-emerald-50"}`}>{active ? "Suspend" : "Activate"}</button>
+                    </td>
                   </tr>
                 );
               })}
-              {filtered.length === 0 && <tr><td colSpan={6} className="py-8 text-center text-muted-foreground">No users found.</td></tr>}
+              {filtered.length === 0 && <tr><td colSpan={7} className="py-8 text-center text-muted-foreground">No users found.</td></tr>}
             </tbody>
           </table>
         </div>
@@ -313,7 +334,34 @@ function PeopleSection() {
           <Field label="Email"><input className={inputCls} type="email" value={form.email} onChange={e => setForm({ ...form, email: e.target.value })} /></Field>
           <Field label="Role"><select className={inputCls} value={form.role} onChange={e => setForm({ ...form, role: e.target.value })}>{ROLES.map(r => <option key={r} value={r}>{roleLabel(r)}</option>)}</select></Field>
           <Field label="Temporary password"><input className={inputCls} type="text" value={form.password} onChange={e => setForm({ ...form, password: e.target.value })} placeholder="They can change it after first sign-in" /></Field>
+          <Field label="Service(s)">
+            <div className="max-h-40 overflow-y-auto rounded-lg border border-border p-2 space-y-1">
+              {houses.length === 0 && <p className="text-xs text-muted-foreground px-1">No services set up yet.</p>}
+              {houses.filter(h => h.is_active !== false).map(h => (
+                <label key={h.id} className="flex items-center gap-2 text-sm px-1 py-0.5">
+                  <input type="checkbox" checked={inviteHouses.includes(h.id)} onChange={() => setInviteHouses(toggleIn(inviteHouses, h.id))} />
+                  {h.name}
+                </label>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted-foreground mt-1">Which service(s)/site(s) this person works at. Leave unchecked for a role with no single-service scope.</p>
+          </Field>
           <div className="flex justify-end gap-2 pt-1"><button onClick={() => setInvite(false)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submitInvite} disabled={busy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Creating…" : "Create account"}</button></div>
+        </Modal>
+      )}
+
+      {editServicesFor && (
+        <Modal title={`Services — ${fullName(editServicesFor)}`} onClose={() => setEditServicesFor(null)}>
+          <p className="text-xs text-muted-foreground -mt-1 mb-1">Currently: {editServicesFor.assigned_house_name || "no service assigned"}. Selecting and saving below replaces their current allocation.</p>
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-border p-2 space-y-1">
+            {houses.filter(h => h.is_active !== false).map(h => (
+              <label key={h.id} className="flex items-center gap-2 text-sm px-1 py-0.5">
+                <input type="checkbox" checked={editHouses.includes(h.id)} onChange={() => setEditHouses(toggleIn(editHouses, h.id))} />
+                {h.name}
+              </label>
+            ))}
+          </div>
+          <div className="flex justify-end gap-2 pt-3"><button onClick={() => setEditServicesFor(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={saveServices} disabled={savingServices} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{savingServices ? "Saving…" : "Save services"}</button></div>
         </Modal>
       )}
     </Panel>
@@ -396,6 +444,9 @@ function ServiceUsersSection() {
   const [historyFor, setHistoryFor] = useState<any | null>(null);
   const [placements, setPlacements] = useState<any[]>([]);
   const [loadingP, setLoadingP] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [addForm, setAddForm] = useState({ house_id: "", first_name: "", last_name: "" });
+  const [addBusy, setAddBusy] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -428,13 +479,24 @@ function ServiceUsersSection() {
     catch (e: any) { toast.error(errMsg(e, "Failed to transfer.")); } finally { setBusy(false); }
   };
 
+  const submitAdd = async () => {
+    if (!addForm.house_id) { toast.error("Choose which service they're allocated to."); return; }
+    if (!addForm.first_name.trim() || !addForm.last_name.trim()) { toast.error("Enter a first and last name."); return; }
+    setAddBusy(true);
+    try {
+      await apiClient.post(`/houses/${addForm.house_id}/service-users`, { first_name: addForm.first_name.trim(), last_name: addForm.last_name.trim() });
+      toast.success("Client added and allocated.");
+      setAddOpen(false); setAddForm({ house_id: "", first_name: "", last_name: "" }); load();
+    } catch (e: any) { toast.error(errMsg(e, "Failed to add the client.")); } finally { setAddBusy(false); }
+  };
+  const sectorLabel = (h: any) => h.sector === "DOMICILIARY" ? "Domiciliary / Home Care" : h.sector === "SUPPORTED_LIVING" ? "Supported Living" : (h.sector || "Care service");
   const houseName = (id: string) => houses.find(h => h.id === id)?.name || "—";
   const fmtDate = (d: string) => d ? new Date(d).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : "—";
   const out = preview?.outstanding || {};
   const outTotal = (Number(out.open_actions) || 0) + (Number(out.open_risks) || 0) + (Number(out.open_escalations) || 0) + (Number(out.open_interventions) || 0);
 
   return (
-    <Panel title={`Service Users (${list.length})`}>
+    <Panel title={`Service Users (${list.length})`} right={<button onClick={() => setAddOpen(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-primary text-primary-foreground px-3 py-1.5 text-sm font-semibold"><UserPlus size={15} /> Add client</button>}>
       {loading ? <Spinner /> : list.length === 0 ? <p className="text-sm text-muted-foreground">No service users yet.</p> : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
@@ -511,6 +573,23 @@ function ServiceUsersSection() {
               ))}
             </ul>
           )}
+        </Modal>
+      )}
+
+      {addOpen && (
+        <Modal title="Add client" onClose={() => setAddOpen(false)}>
+          <p className="text-xs text-muted-foreground -mt-1 mb-1">Allocate them to the service they receive care from — a Domiciliary/Home Care service, or a Supported Living house.</p>
+          <Field label="Service">
+            <select className={inputCls} value={addForm.house_id} onChange={e => setAddForm({ ...addForm, house_id: e.target.value })}>
+              <option value="">Choose a service…</option>
+              {houses.filter(h => h.is_active !== false).map(h => <option key={h.id} value={h.id}>{h.name} — {sectorLabel(h)}</option>)}
+            </select>
+          </Field>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="First name"><input className={inputCls} value={addForm.first_name} onChange={e => setAddForm({ ...addForm, first_name: e.target.value })} /></Field>
+            <Field label="Last name"><input className={inputCls} value={addForm.last_name} onChange={e => setAddForm({ ...addForm, last_name: e.target.value })} /></Field>
+          </div>
+          <div className="flex justify-end gap-2 pt-1"><button onClick={() => setAddOpen(false)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={submitAdd} disabled={addBusy} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{addBusy ? "Adding…" : "Add client"}</button></div>
         </Modal>
       )}
     </Panel>
