@@ -34,9 +34,20 @@ export const governanceWorkflowService = {
   // governance decision — it never changes the decision, closes the signal or creates an action.
   // An urgent flag surfaces the RM immediately via Daily Oversight/Decisions Due, before the
   // scheduled review point (mirrors escalations.metadata.rm_attention).
-  async addMonitoringUpdate(company_id: string, pulse_id: string, user_id: string, user_role: string, data: { note?: string; urgent?: boolean; urgent_reason?: string }) {
+  async addMonitoringUpdate(company_id: string, pulse_id: string, user_id: string, user_role: string, data: { note?: string; urgent?: boolean; urgent_reason?: string; client_submission_id?: string }) {
     const note = String(data.note || '').trim();
     if (note.length < 3) throw new Error('A monitoring update needs a brief factual note.');
+
+    // Retry/offline-replay protection (17 Oct 2026 findings, P2): a stable client-supplied
+    // reference means a double tap or a replayed offline submission returns the existing update
+    // instead of inserting a duplicate.
+    if (data.client_submission_id) {
+      const existing = await query(
+        `SELECT * FROM signal_monitoring_updates WHERE company_id = $1 AND client_submission_id = $2 LIMIT 1`,
+        [company_id, data.client_submission_id]
+      );
+      if (existing.rows[0]) return existing.rows[0];
+    }
 
     const review = await query(
       `SELECT gr.id, gr.decision_owner_id
@@ -56,10 +67,17 @@ export const governanceWorkflowService = {
 
     const urgent = !!data.urgent;
     const result = await query(
-      `INSERT INTO signal_monitoring_updates (company_id, governance_review_id, pulse_entry_id, author_id, note, urgent, urgent_reason)
-       VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING *`,
-      [company_id, active.id, pulse_id, user_id, note, urgent, urgent ? (data.urgent_reason ? String(data.urgent_reason).trim() : null) : null]
+      `INSERT INTO signal_monitoring_updates (company_id, governance_review_id, pulse_entry_id, author_id, note, urgent, urgent_reason, client_submission_id)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       ON CONFLICT (company_id, client_submission_id) WHERE client_submission_id IS NOT NULL DO NOTHING
+       RETURNING *`,
+      [company_id, active.id, pulse_id, user_id, note, urgent, urgent ? (data.urgent_reason ? String(data.urgent_reason).trim() : null) : null, data.client_submission_id || null]
     );
+    if (!result.rows[0] && data.client_submission_id) {
+      // Lost the race to a concurrent identical retry — return the row it inserted.
+      const won = await query(`SELECT * FROM signal_monitoring_updates WHERE company_id = $1 AND client_submission_id = $2 LIMIT 1`, [company_id, data.client_submission_id]);
+      return won.rows[0];
+    }
     if (urgent) {
       await query(`UPDATE governance_reviews SET rm_attention = TRUE, rm_attention_at = NOW() WHERE id = $1`, [active.id]);
     }

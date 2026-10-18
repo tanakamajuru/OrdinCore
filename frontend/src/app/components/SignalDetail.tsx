@@ -1,4 +1,4 @@
-import { useState, useEffect, Fragment } from "react";
+import { useState, useEffect, useRef, Fragment } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, AlertCircle, Shield, User, AlertTriangle } from "lucide-react";
@@ -63,6 +63,9 @@ export function SignalDetail() {
   const [monitoringUrgent, setMonitoringUrgent] = useState(false);
   const [monitoringUrgentReason, setMonitoringUrgentReason] = useState("");
   const [savingMonitoringUpdate, setSavingMonitoringUpdate] = useState(false);
+  // Generated once per draft, not per click — reused across retries of the SAME attempt so a
+  // dropped-connection retry is recognised as the same submission, not a new one.
+  const monitoringSubmissionId = useRef<string | null>(null);
   const currentUserId = JSON.parse(localStorage.getItem("user") || "{}").id;
   const canEditNote = !!signal && (
     signal.created_by === currentUserId ||
@@ -151,12 +154,18 @@ export function SignalDetail() {
     if (monitoringUrgent && monitoringUrgentReason.trim().length < 5) { toast.error("Say briefly why this needs urgent RM attention."); return; }
     setSavingMonitoringUpdate(true);
     try {
+      // Stable reference, reused across retries of the SAME attempt (cleared only after success
+      // or when the note is edited again) so a dropped-connection retry returns the existing
+      // update instead of recording it twice (17 Oct 2026 findings, P2).
+      if (!monitoringSubmissionId.current) monitoringSubmissionId.current = `monupd-${signal.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
       await apiClient.post(`/pulses/${signal.id}/monitoring-update`, {
         note: monitoringNote.trim(), urgent: monitoringUrgent,
         urgent_reason: monitoringUrgent ? monitoringUrgentReason.trim() : undefined,
+        client_submission_id: monitoringSubmissionId.current,
       });
       toast.success(monitoringUrgent ? "Update recorded — RM notified immediately." : "Monitoring update recorded.");
       setMonitoringNote(""); setMonitoringUrgent(false); setMonitoringUrgentReason("");
+      monitoringSubmissionId.current = null;
       loadMonitoringHistory(signal.id);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to record the update");
