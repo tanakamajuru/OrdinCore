@@ -174,6 +174,20 @@ export class PulseController {
         }
     }
 
+    // Evidence-validity correction (17 Oct 2026) — mark a signal VALID/DUPLICATE/ENTERED_IN_ERROR/
+    // DISPROVED/PENDING_VALIDATION. Route-level role gate restricts this to oversight roles.
+    async setValidity(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { governanceWorkflowService } = await import('../services/governanceWorkflow.service');
+            const updated = await governanceWorkflowService.setSignalValidity(company_id, id, req.user!.user_id, req.body || {});
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     // Signal Monitoring correction (16 Oct 2026) — the monitoring owner records a factual update.
     async addMonitoringUpdate(req: Request, res: Response) {
         try {

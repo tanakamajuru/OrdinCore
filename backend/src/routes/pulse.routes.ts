@@ -93,6 +93,11 @@ router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPPORT_WO
 router.post('/:id/leadership-attention', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), pulseController.markLeadershipAttention.bind(pulseController));
 router.get('/:id/linked-activity', requireAuth, requireTenant, pulseController.linkedActivity.bind(pulseController));
 
+// Evidence-validity correction (17 Oct 2026): mark a signal VALID/DUPLICATE/ENTERED_IN_ERROR/
+// DISPROVED/PENDING_VALIDATION. Restricted to oversight roles — a workflow/delivery role recording
+// the signal must not also be able to invalidate it as evidence.
+router.post('/:id/validity', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), pulseController.setValidity.bind(pulseController));
+
 // Signal Monitoring correction (16 Oct 2026): the named monitoring owner records a factual update
 // on the signal they were asked to monitor; RM/Admin/SuperAdmin oversight can also add one.
 router.post('/:id/monitoring-update', requireAuth, requireTenant, requireRole('TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'), pulseController.addMonitoringUpdate.bind(pulseController));

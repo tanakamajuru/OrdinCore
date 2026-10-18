@@ -98,6 +98,44 @@ export const governanceWorkflowService = {
     return rows.rows;
   },
 
+  // Evidence-validity correction (17 Oct 2026 findings, P1 "separate four concepts"): a workflow
+  // decision is not a decision about whether an event happened. This sets ONLY the
+  // validity_status axis — it never touches review_status, the governance decision, or detection
+  // windows. VALID and PENDING_VALIDATION remain visible as qualifying evidence everywhere;
+  // DUPLICATE/ENTERED_IN_ERROR/DISPROVED are excluded from qualifying counts (reports, detection)
+  // but the row itself is never deleted and stays in the full history/evidence views.
+  async setSignalValidity(company_id: string, pulse_id: string, user_id: string, data: { status: string; reason?: string; duplicate_of_id?: string }) {
+    const allowed = ['VALID', 'DUPLICATE', 'ENTERED_IN_ERROR', 'DISPROVED', 'PENDING_VALIDATION'];
+    const status = String(data.status || '').toUpperCase();
+    if (!allowed.includes(status)) throw new Error(`Validity status must be one of: ${allowed.join(', ')}.`);
+    const reason = String(data.reason || '').trim();
+    if (status !== 'VALID' && status !== 'PENDING_VALIDATION' && reason.length < 10) {
+      throw new Error('Marking a signal DUPLICATE, ENTERED_IN_ERROR or DISPROVED needs a clear reason (at least a short sentence) — this is an auditable exclusion from qualifying counts, not a deletion.');
+    }
+    let duplicateOfId: string | null = null;
+    if (status === 'DUPLICATE') {
+      duplicateOfId = String(data.duplicate_of_id || '').trim() || null;
+      if (!duplicateOfId) throw new Error('A duplicate must be linked to the canonical occurrence it duplicates.');
+      const canonical = await query(`SELECT id FROM governance_pulses WHERE id = $1 AND company_id = $2`, [duplicateOfId, company_id]);
+      if (!canonical.rows[0]) throw new Error('The canonical occurrence to link to was not found in this organisation.');
+      if (duplicateOfId === pulse_id) throw new Error('A signal cannot be marked a duplicate of itself.');
+    }
+    const result = await query(
+      `UPDATE governance_pulses gp
+          SET validity_status = $1::signal_validity_status,
+              validity_reason = $2,
+              validity_set_by = $3,
+              validity_set_at = NOW(),
+              validity_duplicate_of_id = $4
+         FROM houses h
+        WHERE gp.id = $5 AND gp.house_id = h.id AND h.company_id = $6
+        RETURNING gp.*`,
+      [status, reason || null, user_id, duplicateOfId, pulse_id, company_id]
+    );
+    if (!result.rows[0]) throw new Error('Signal not found.');
+    return result.rows[0];
+  },
+
   // The Linked Governance Activity for a signal: every record that extends its history,
   // with the relationship and current status. The signal itself is never mutated here.
   async signalTimeline(company_id: string, pulse_id: string) {

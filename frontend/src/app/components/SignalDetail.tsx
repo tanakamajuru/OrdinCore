@@ -33,6 +33,10 @@ interface SignalDetail {
   cluster_label?: string;
   created_by?: string;
   note_versions?: { id: string; note: string; created_at: string; edited_by_name: string }[];
+  validity_status?: string;
+  validity_reason?: string;
+  validity_set_at?: string;
+  validity_duplicate_of_id?: string;
 }
 
 interface TeamLeaderOption {
@@ -66,6 +70,10 @@ export function SignalDetail() {
   // Generated once per draft, not per click — reused across retries of the SAME attempt so a
   // dropped-connection retry is recognised as the same submission, not a new one.
   const monitoringSubmissionId = useRef<string | null>(null);
+  const [validityOpen, setValidityOpen] = useState(false);
+  const [validityForm, setValidityForm] = useState({ status: 'DUPLICATE', reason: '', duplicate_of_id: '' });
+  const [savingValidity, setSavingValidity] = useState(false);
+  const canSetValidity = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(String(user?.role || "").toUpperCase());
   const currentUserId = JSON.parse(localStorage.getItem("user") || "{}").id;
   const canEditNote = !!signal && (
     signal.created_by === currentUserId ||
@@ -171,6 +179,34 @@ export function SignalDetail() {
       toast.error(e?.response?.data?.message || "Failed to record the update");
     } finally {
       setSavingMonitoringUpdate(false);
+    }
+  };
+
+  // Evidence-validity correction (17 Oct 2026): mark this specific entry DUPLICATE/
+  // ENTERED_IN_ERROR/DISPROVED/PENDING_VALIDATION. This is auditable exclusion from qualifying
+  // counts, never deletion — the row and its full history remain visible.
+  const saveValidity = async () => {
+    if (!signal) return;
+    if (validityForm.status !== 'VALID' && validityForm.status !== 'PENDING_VALIDATION' && validityForm.reason.trim().length < 10) {
+      toast.error("Give a clear reason (at least a short sentence) — this excludes the entry from qualifying counts."); return;
+    }
+    if (validityForm.status === 'DUPLICATE' && !validityForm.duplicate_of_id.trim()) {
+      toast.error("Enter the ID of the canonical occurrence this duplicates."); return;
+    }
+    setSavingValidity(true);
+    try {
+      await apiClient.post(`/pulses/${signal.id}/validity`, {
+        status: validityForm.status,
+        reason: validityForm.reason.trim() || undefined,
+        duplicate_of_id: validityForm.status === 'DUPLICATE' ? validityForm.duplicate_of_id.trim() : undefined,
+      });
+      toast.success("Validity recorded.");
+      setValidityOpen(false); setValidityForm({ status: 'DUPLICATE', reason: '', duplicate_of_id: '' });
+      loadSignalDetails(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to record validity");
+    } finally {
+      setSavingValidity(false);
     }
   };
 
@@ -542,6 +578,53 @@ export function SignalDetail() {
                     <p className="text-sm text-muted-foreground">
                       This signal builds toward its <span className="font-medium text-foreground">pattern</span>. Promote from the cluster once it reaches the threshold — only a <span className="font-medium text-foreground">Critical</span> signal or a <span className="font-medium text-foreground">Safeguarding</span> concern can become a risk on its own. A High signal must form a pattern first.
                     </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Evidence-validity correction (17 Oct 2026): shows a clear badge when this entry is
+                excluded from qualifying counts, and the control to set/change it. VALID and
+                PENDING_VALIDATION are not flagged here — they remain ordinary qualifying evidence. */}
+            {signal?.validity_status && !['VALID', 'PENDING_VALIDATION'].includes(signal.validity_status) && (
+              <div className="mt-6 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm">
+                <p className="font-semibold text-amber-800">Excluded from qualifying counts — {signal.validity_status.replace(/_/g, ' ').toLowerCase()}</p>
+                {signal.validity_reason && <p className="text-amber-800 mt-1">{signal.validity_reason}</p>}
+                <p className="text-xs text-amber-700 mt-1">This record is never deleted and remains visible in full history. {signal.validity_set_at ? `Set ${new Date(signal.validity_set_at).toLocaleDateString('en-GB')}.` : ''}</p>
+              </div>
+            )}
+            {signal?.validity_status === 'PENDING_VALIDATION' && (
+              <div className="mt-6 rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm">
+                <p className="font-semibold text-slate-700">Pending validation</p>
+                <p className="text-xs text-slate-600 mt-1">Still counts as qualifying evidence while this is unresolved — urgent review is not delayed by it.</p>
+              </div>
+            )}
+            {canSetValidity && (
+              <div className="mt-6">
+                {!validityOpen ? (
+                  <button onClick={() => setValidityOpen(true)} className="text-xs font-medium text-muted-foreground border border-border rounded-lg px-3 py-1.5 hover:bg-muted">
+                    {signal?.validity_status && signal.validity_status !== 'VALID' ? 'Change validity' : 'Mark as duplicate / error / disproved'}
+                  </button>
+                ) : (
+                  <div className="rounded-lg border border-border p-3 space-y-2">
+                    <p className="text-xs text-muted-foreground">A workflow decision is not a decision about whether this happened — this only affects whether it counts as qualifying evidence. The entry is never deleted.</p>
+                    <select value={validityForm.status} onChange={(e) => setValidityForm({ ...validityForm, status: e.target.value })} className="w-full rounded-lg border border-border p-2 text-sm bg-background">
+                      <option value="DUPLICATE">Duplicate of another entry</option>
+                      <option value="ENTERED_IN_ERROR">Entered in error</option>
+                      <option value="DISPROVED">Disproved</option>
+                      <option value="PENDING_VALIDATION">Pending validation</option>
+                      <option value="VALID">Valid (restore as qualifying evidence)</option>
+                    </select>
+                    {validityForm.status === 'DUPLICATE' && (
+                      <input value={validityForm.duplicate_of_id} onChange={(e) => setValidityForm({ ...validityForm, duplicate_of_id: e.target.value })} placeholder="ID of the canonical occurrence this duplicates" className="w-full rounded-lg border border-border p-2 text-sm bg-background" />
+                    )}
+                    {validityForm.status !== 'VALID' && validityForm.status !== 'PENDING_VALIDATION' && (
+                      <textarea value={validityForm.reason} onChange={(e) => setValidityForm({ ...validityForm, reason: e.target.value })} placeholder="Reason (required)" className="w-full min-h-[60px] rounded-lg border border-border p-2 text-sm bg-background" />
+                    )}
+                    <div className="flex justify-end gap-2">
+                      <button onClick={() => setValidityOpen(false)} className="px-3 py-1.5 rounded-lg border border-border text-xs">Cancel</button>
+                      <button onClick={saveValidity} disabled={savingValidity} className="px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-semibold disabled:opacity-50">{savingValidity ? "Saving…" : "Save"}</button>
+                    </div>
                   </div>
                 )}
               </div>

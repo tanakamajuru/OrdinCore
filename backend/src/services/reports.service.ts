@@ -89,12 +89,19 @@ export class ReportsService {
     // didn't, so it counted reminders as genuine signals and dumped their blank theme into
     // Uncategorised. Same exclusion, applied here for consistency across all surfaces.
     const notReminder = `COALESCE(description,'') <> 'Scheduled Governance Pulse'`;
+    // Evidence-validity correction (17 Oct 2026, P1 "one evidence-selection contract"): a
+    // signal marked DUPLICATE/ENTERED_IN_ERROR/DISPROVED must not count as a qualifying
+    // occurrence — but PENDING_VALIDATION stays visible (it must not silently disappear while
+    // its validity is unresolved, and urgent review must not wait on that resolution). The
+    // row itself is never deleted; it stays in full history/evidence views regardless.
+    const isQualifying = `validity_status IN ('VALID','PENDING_VALIDATION')`;
+    const eligible = `${notReminder} AND ${isQualifying}`;
     const metricsQ = safe('metrics', () => query(
       `SELECT
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder}) AS signals_total,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '1 day') AS signals_24h,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '7 days') AS signals_7d,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '30 days') AS signals_30d,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${eligible}) AS signals_total,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${eligible} AND created_at >= NOW()-INTERVAL '1 day') AS signals_24h,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${eligible} AND created_at >= NOW()-INTERVAL '7 days') AS signals_7d,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${eligible} AND created_at >= NOW()-INTERVAL '30 days') AS signals_30d,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp}) AS actions_total,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp} AND is_open) AS actions_open,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp} AND is_completed AND completed_at >= NOW()-INTERVAL '7 days') AS actions_completed_7d,
@@ -131,7 +138,7 @@ export class ReportsService {
              ELSE ARRAY['Uncategorised']
            END
          ) AS d(dom) ON TRUE
-        WHERE p.company_id=$1 AND ($2::uuid[] IS NULL OR p.house_id = ANY($2)) AND ${notReminder.replace('description', 'p.description')}
+        WHERE p.company_id=$1 AND ($2::uuid[] IS NULL OR p.house_id = ANY($2)) AND ${eligible.replace(/(?<!p\.)description/g, 'p.description').replace('validity_status', 'p.validity_status')}
           ${interval ? `AND p.created_at >= NOW()-INTERVAL '${interval}'` : ''}
         GROUP BY 1 ORDER BY count DESC, label`,
       p
