@@ -11,6 +11,14 @@ import logger from '../utils/logger';
 const CROSS_SERVICE_RULE_NUMBER = 11;
 const PATTERN_COHERENCE_V3 = process.env.PATTERN_COHERENCE_V3 !== 'false';
 
+// Evidence-eligibility correction (17 Oct 2026 findings, P1 "count distinct genuine pulse IDs in
+// formation"): a reminder row or a signal marked DUPLICATE/ENTERED_IN_ERROR/DISPROVED must not
+// form or strengthen a pattern, trigger cross-service detection, or materialise as risk evidence.
+// PENDING_VALIDATION still qualifies (it must not silently disappear). Applied additively to the
+// existing evidence-selection queries below — the domain/theme-matching logic itself (risk_domain
+// vs governance_domain) is a separate, larger change deferred to its own pass.
+const QUALIFYING_PULSE = `COALESCE(gp.description,'') <> 'Scheduled Governance Pulse' AND gp.validity_status IN ('VALID','PENDING_VALIDATION')`;
+
 // "Other" and missing labels are deliberately unique. They remain visible in the
 // parent domain theme but cannot manufacture a coherent pattern merely by sharing
 // a broad domain. Set PATTERN_COHERENCE_V3=false for an immediate code rollback.
@@ -91,6 +99,7 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          WHERE gp.company_id = $1 AND gp.house_id = $2
          AND gp.entry_date >= CURRENT_DATE - (INTERVAL '1 day' * $5)
          AND $3 = ANY(gp.risk_domain)
+         AND ${QUALIFYING_PULSE}
          ${personClause}
          -- Closed signals leave the live queue but remain historical pattern evidence.
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
@@ -353,6 +362,7 @@ async function evaluateCrossServiceRisk(
            FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
           WHERE gp.company_id=$1 AND $2=ANY(gp.risk_domain)
             AND gp.entry_date >= CURRENT_DATE-INTERVAL '28 days'
+            AND ${QUALIFYING_PULSE}
             AND gp.signal_label IS NOT NULL AND BTRIM(gp.signal_label)<>''
             AND LOWER(BTRIM(gp.signal_label))<>'other'
           GROUP BY LOWER(BTRIM(gp.signal_label))
@@ -370,6 +380,7 @@ async function evaluateCrossServiceRisk(
           WHERE gp.company_id = $1
             AND $2 = ANY(gp.risk_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '7 days'
+            AND ${QUALIFYING_PULSE}
             `,
         [company_id, domain]
     );
@@ -388,6 +399,7 @@ async function evaluateCrossServiceRisk(
            FROM governance_pulses gp
           WHERE gp.company_id = $1 AND $2 = ANY(gp.risk_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '28 days'
+            AND ${QUALIFYING_PULSE}
             `,
         [company_id, domain]
     )).rows[0];
@@ -453,6 +465,7 @@ async function evaluateCrossServiceRisk(
                         AND ($5::text IS NULL OR LOWER(BTRIM(gp.signal_label))=$5)
                         AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW()-INTERVAL '28 days'
                         AND gp.created_by IS NOT NULL
+                        AND ${QUALIFYING_PULSE}
                      ON CONFLICT DO NOTHING`,
                     [crossServiceClusterId, company_id, domain, houseIds, PATTERN_COHERENCE_V3 ? shared?.coherence_key : null]
                 );
