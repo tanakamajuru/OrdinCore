@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import { useNavigate } from "react-router";
+import { useNavigate, Navigate } from "react-router";
 import { ResponsibleIndividualDashboard } from "./ResponsibleIndividualDashboard";
 import { DirectorDashboard } from "./DirectorDashboard";
 import { TeamLeaderDashboard } from "./TeamLeaderDashboard";
@@ -34,6 +34,12 @@ export function RoleBasedDashboard() {
       return <ResponsibleIndividualDashboard />;
     case 'DIRECTOR':
       return <DirectorDashboard />;
+    case 'SUPPORT_WORKER':
+      // Support Worker is mobile-first with no dedicated web dashboard. The previous fallthrough
+      // to the RM 5-screen pipeline interface rendered RM-only data a Support Worker isn't
+      // authorised to read, producing "Failed to load" and a nav with nothing in it (field report
+      // 17-18 Oct 2026). Land them on the one read/evidence screen the backend already permits.
+      return <Navigate to="/pulse-history" replace />;
     default:
       return <Rm5Interface initialScreen="today" />;
   }

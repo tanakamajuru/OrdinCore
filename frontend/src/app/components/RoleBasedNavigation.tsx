@@ -140,6 +140,16 @@ export function RoleBasedNavigation() {
           { path: "#help", label: "Help & Guides", icon: HelpCircle, section: "Support", action: "help" },
           { path: "#support", label: "Contact Support", icon: LifeBuoy, section: "Support", action: "support" },
         ];
+      case "SUPPORT_WORKER":
+        // Support Worker is a mobile-first role — raising a signal and recording evidence happen
+        // in the Ordin Core app. A SW who does sign into the web app previously got a completely
+        // empty sidebar (default: []), which looked broken rather than explaining the role is
+        // mobile-first (field report 17-18 Oct 2026). Give them the two read/evidence screens the
+        // backend already permits them (GET /pulses, GET /actions/my) instead of a dead end.
+        return [
+          { path: "/pulse-history", label: "My Signals", icon: Activity },
+          { path: "/my-actions", label: "My Actions", icon: ClipboardList, badgeKey: "actions" },
+        ];
       default:
         return [];
     }
@@ -169,6 +179,7 @@ export function RoleBasedNavigation() {
       case "RESPONSIBLE_INDIVIDUAL": return "Responsible Individual";
       case "DIRECTOR": return "Director";
       case "TEAM_LEADER": return "Team Leader";
+      case "SUPPORT_WORKER": return "Support Worker";
       case "SUPER_ADMIN": return "Super Admin";
       default: return "User";
     }
