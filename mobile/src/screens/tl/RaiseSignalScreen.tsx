@@ -66,8 +66,11 @@ export function RaiseSignalScreen() {
   // Keyed on the chosen site so the people list follows the selected service.
   const suApi = useApi<any>(houseId ? `/houses/${houseId}/service-users` : null, [houseId]);
   const serviceUsers: any[] = suApi.data?.data ?? suApi.data ?? [];
-  // When the site changes, clear any person chosen for the previous site.
-  useEffect(() => { setPerson(''); setPersonId(''); }, [houseId]);
+  // When the site changes, clear any person AND theme chosen for the previous site — each
+  // service has its own active theme library (sector), so a theme valid for one service can be
+  // inactive for another; leaving it selected submits a theme the new service rejects (field
+  // report 17 Oct 2026).
+  useEffect(() => { setPerson(''); setPersonId(''); setType(''); setSignalLabel(''); }, [houseId]);
 
   const submit = async () => {
     if (!observation.trim()) { Alert.alert('Add what you saw', 'A short account of the observation is required.'); return; }

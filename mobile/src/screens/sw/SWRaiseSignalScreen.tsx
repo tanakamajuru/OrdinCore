@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Pressable, Alert, Image, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -81,6 +81,16 @@ export function SWRaiseSignalScreen() {
 
   const [domain, setDomain] = useState('');
   const [signalLabel, setSignalLabel] = useState('');
+  // Each service has its own active theme library (care model/sector) — a theme valid for one
+  // service can be inactive for another (e.g. Supported Living vs Domiciliary). Switching service
+  // must clear a stale theme/signal selection, or the form can submit a theme that is no longer
+  // valid for the newly-selected service, failing with a confusing "select an active theme" error
+  // even though one is visibly selected (field report 17 Oct 2026).
+  const firstHouseLoad = useRef(true);
+  useEffect(() => {
+    if (firstHouseLoad.current) { firstHouseLoad.current = false; return; }
+    setDomain(''); setSignalLabel('');
+  }, [selectedHouseId]);
   // Deliberate answer — neither preselected.
   const [immediateAnswer, setImmediateAnswer] = useState<'' | 'no' | 'yes'>('');
 
