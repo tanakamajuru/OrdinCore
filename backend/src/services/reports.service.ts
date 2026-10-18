@@ -82,12 +82,19 @@ export class ReportsService {
       }
     };
 
+    // Report accuracy correction (17 Oct 2026, confirmed defect): auditChecklist.service inserts
+    // "Scheduled Governance Pulse" reminder rows with no theme. Every other signal-counting query
+    // in the codebase (guidedWork, myWork, rm5, weeklyReviews, dailyGovernance, the reconciliation
+    // worker) already excludes this exact description — reports.summary was the one place that
+    // didn't, so it counted reminders as genuine signals and dumped their blank theme into
+    // Uncategorised. Same exclusion, applied here for consistency across all surfaces.
+    const notReminder = `COALESCE(description,'') <> 'Scheduled Governance Pulse'`;
     const metricsQ = safe('metrics', () => query(
       `SELECT
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp}) AS signals_total,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND created_at >= NOW()-INTERVAL '1 day') AS signals_24h,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND created_at >= NOW()-INTERVAL '7 days') AS signals_7d,
-         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND created_at >= NOW()-INTERVAL '30 days') AS signals_30d,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder}) AS signals_total,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '1 day') AS signals_24h,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '7 days') AS signals_7d,
+         (SELECT COUNT(*)::int FROM governance_pulses WHERE company_id=$1 AND ${hp} AND ${notReminder} AND created_at >= NOW()-INTERVAL '30 days') AS signals_30d,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp}) AS actions_total,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp} AND is_open) AS actions_open,
          (SELECT COUNT(*)::int FROM canonical_action_state_v WHERE company_id=$1 AND ${hp} AND is_completed AND completed_at >= NOW()-INTERVAL '7 days') AS actions_completed_7d,
@@ -108,13 +115,23 @@ export class ReportsService {
 
     // Signals-by-domain over the full dataset (a signal may carry several domains, so category
     // totals can exceed the distinct signal total — this is expected, not inflation).
+    // Classification-gap correction (17 Oct 2026, confirmed defect): the normal creation route
+    // writes BOTH governance_domain and risk_domain, but this breakdown read only risk_domain —
+    // an empty risk_domain array skipped theme evaluation even when governance_domain was
+    // populated, inflating Uncategorised. Prefer risk_domain (it can carry >1 theme) and fall back
+    // to governance_domain before giving up as genuinely Uncategorised. Reminders are excluded —
+    // they carry no theme by design and are not a classification gap.
     const domainQ = (interval: string | null) => safe(`signals_by_domain${interval ? `_${interval.replace(' ', '')}` : ''}`, () => query(
       `SELECT COALESCE(NULLIF(TRIM(d.dom), ''), 'Uncategorised') AS label, COUNT(*)::int AS count
          FROM governance_pulses p
          LEFT JOIN LATERAL unnest(
-           CASE WHEN COALESCE(array_length(p.risk_domain, 1), 0) > 0 THEN p.risk_domain ELSE ARRAY['Uncategorised'] END
+           CASE
+             WHEN COALESCE(array_length(p.risk_domain, 1), 0) > 0 THEN p.risk_domain
+             WHEN NULLIF(TRIM(p.governance_domain), '') IS NOT NULL THEN ARRAY[p.governance_domain]
+             ELSE ARRAY['Uncategorised']
+           END
          ) AS d(dom) ON TRUE
-        WHERE p.company_id=$1 AND ($2::uuid[] IS NULL OR p.house_id = ANY($2))
+        WHERE p.company_id=$1 AND ($2::uuid[] IS NULL OR p.house_id = ANY($2)) AND ${notReminder.replace('description', 'p.description')}
           ${interval ? `AND p.created_at >= NOW()-INTERVAL '${interval}'` : ''}
         GROUP BY 1 ORDER BY count DESC, label`,
       p
