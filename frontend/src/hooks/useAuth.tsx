@@ -95,6 +95,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
+  // M-06 (cross-tenant leak via shared storage) — localStorage is shared across every tab of this
+  // origin. If another tab logs out, or logs in as a different account, this tab's in-memory user/
+  // company state goes stale while its next API call would silently authenticate under the new
+  // token. Force a hard reload so no component can render or fetch with a mismatched session.
+  useEffect(() => {
+    const onStorage = (e: StorageEvent) => {
+      // The storage event only fires in OTHER tabs of this origin, never the one that wrote the
+      // change — so any authToken change here means a different tab logged in/out/switched account.
+      if (e.key !== 'authToken') return;
+      window.location.reload();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   // Persist a completed session (shared by password login and the MFA second factor).
   const storeSession = (data: any) => {
     const { user: userData, token: userToken } = data;
