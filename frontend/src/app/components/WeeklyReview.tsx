@@ -157,6 +157,21 @@ export function WeeklyReview() {
         const res = await apiClient.get("/houses?limit=100");
         const data = res.data?.data || res.data || [];
         list = Array.isArray(data) ? data : (data.items || []);
+      } else if (uid) {
+        // Field report 19 Oct 2026: the Weekly Review Outstanding queue correctly listed a service
+        // where this RM is the ASSIGNED REVIEWER (houses.assigned_reviewer_id), but this picker only
+        // offered their operational user_houses sites — a different assignment mechanism. Being the
+        // designated weekly reviewer for a service must be enough to open its review even if the RM
+        // isn't also given everyday operational access to it via user_houses.
+        try {
+          const all = await apiClient.get("/houses?limit=100");
+          const allHouses = all.data?.data || all.data || [];
+          const allList: any[] = Array.isArray(allHouses) ? allHouses : (allHouses.items || []);
+          const known = new Set(list.map((h: any) => h.id));
+          for (const h of allList) {
+            if (!known.has(h.id) && h.assigned_reviewer_id === uid) { list.push(h); known.add(h.id); }
+          }
+        } catch { /* scoped list alone still works */ }
       }
       setHouses(list);
       // A guided-work deep-link's houseId wins (open the service the RM actually clicked), as long

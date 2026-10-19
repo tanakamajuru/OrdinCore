@@ -278,11 +278,28 @@ function PeopleSection() {
     try { await apiClient.patch(`/users/${u.id}`, { role }); toast.success("Role updated."); load(); }
     catch (e: any) { toast.error(errMsg(e, "Failed to update role.")); }
   };
-  const openEditServices = (u: any) => { setEditServicesFor(u); setEditHouses([]); };
+  const [loadingCurrentHouses, setLoadingCurrentHouses] = useState(false);
+  const openEditServices = async (u: any) => {
+    setEditServicesFor(u); setEditHouses([]); setLoadingCurrentHouses(true);
+    // Field report 19 Oct 2026: the modal always opened with every box unchecked, even when the
+    // user already had a service assigned — saving then looked like it did nothing, because
+    // reopening showed the same empty state regardless of whether the save actually worked.
+    // Prefill from the user's ACTUAL current assignment instead of assuming none.
+    try {
+      const r: any = await apiClient.get(`/users/${u.id}/houses`);
+      const current = rows(r).map((h: any) => h.id).filter(Boolean);
+      setEditHouses(current);
+    } catch { /* leave empty — the "Currently: ..." text above the list still shows the real state */ }
+    finally { setLoadingCurrentHouses(false); }
+  };
   const saveServices = async () => {
     if (!editServicesFor) return;
     setSavingServices(true);
-    try { await apiClient.patch(`/users/${editServicesFor.id}`, { house_ids: editHouses }); toast.success("Services updated — this replaces their previous allocation."); setEditServicesFor(null); load(); }
+    try {
+      await apiClient.patch(`/users/${editServicesFor.id}`, { house_ids: editHouses });
+      toast.success(editHouses.length ? "Services updated." : "All service allocations removed.");
+      setEditServicesFor(null); load();
+    }
     catch (e: any) { toast.error(errMsg(e, "Failed to update services.")); } finally { setSavingServices(false); }
   };
 
@@ -353,15 +370,17 @@ function PeopleSection() {
       {editServicesFor && (
         <Modal title={`Services — ${fullName(editServicesFor)}`} onClose={() => setEditServicesFor(null)}>
           <p className="text-xs text-muted-foreground -mt-1 mb-1">Currently: {editServicesFor.assigned_house_name || "no service assigned"}. Selecting and saving below replaces their current allocation.</p>
-          <div className="max-h-56 overflow-y-auto rounded-lg border border-border p-2 space-y-1">
-            {houses.filter(h => h.is_active !== false).map(h => (
-              <label key={h.id} className="flex items-center gap-2 text-sm px-1 py-0.5">
-                <input type="checkbox" checked={editHouses.includes(h.id)} onChange={() => setEditHouses(toggleIn(editHouses, h.id))} />
-                {h.name}
-              </label>
-            ))}
-          </div>
-          <div className="flex justify-end gap-2 pt-3"><button onClick={() => setEditServicesFor(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={saveServices} disabled={savingServices} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{savingServices ? "Saving…" : "Save services"}</button></div>
+          {loadingCurrentHouses ? <p className="text-sm text-muted-foreground py-3">Loading current allocation…</p> : (
+            <div className="max-h-56 overflow-y-auto rounded-lg border border-border p-2 space-y-1">
+              {houses.filter(h => h.is_active !== false).map(h => (
+                <label key={h.id} className="flex items-center gap-2 text-sm px-1 py-0.5">
+                  <input type="checkbox" checked={editHouses.includes(h.id)} onChange={() => setEditHouses(toggleIn(editHouses, h.id))} />
+                  {h.name}
+                </label>
+              ))}
+            </div>
+          )}
+          <div className="flex justify-end gap-2 pt-3"><button onClick={() => setEditServicesFor(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={saveServices} disabled={savingServices || loadingCurrentHouses} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{savingServices ? "Saving…" : "Save services"}</button></div>
         </Modal>
       )}
     </Panel>
