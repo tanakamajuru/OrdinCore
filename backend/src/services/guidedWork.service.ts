@@ -157,6 +157,10 @@ export const guidedWorkService = {
       // report (16 Oct 2026) was that the item showed only the monitoring instruction with no way
       // to tell what the original concern was, and the button landed on the dashboard instead of
       // the exact signal.
+      // Defence in depth (TL closed-signal fix, 19 Oct 2026): decision_status='Monitoring' alone is
+      // not sufficient — a signal can be closed through a path that predates the retirement logic in
+      // governanceDecisions.service.ts, leaving a stale active Monitor row. Never surface monitoring
+      // work for a signal whose source is already closed/linked, regardless of how that happened.
       const monitoredSignals = await safeRows(`
         SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.monitoring_trigger, gr.due_at,
                h.name AS service_name, gp.description AS original_description, gp.related_person
@@ -164,7 +168,8 @@ export const guidedWorkService = {
           LEFT JOIN houses h ON h.id=gr.service_id
           LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
-           AND gr.decision_owner_id=$2`, [companyId, userId]);
+           AND gr.decision_owner_id=$2
+           AND (gp.id IS NULL OR gp.review_status NOT IN ('Closed','Linked'))`, [companyId, userId]);
       for (const m of monitoredSignals) needsYou.push({
         id:`signal_monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'SIGNAL_MONITORING',
         title:`Monitor signal${m.related_person ? ` · ${m.related_person}` : ''}`,

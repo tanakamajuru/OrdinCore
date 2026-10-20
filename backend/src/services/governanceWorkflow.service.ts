@@ -49,16 +49,21 @@ export const governanceWorkflowService = {
       if (existing.rows[0]) return existing.rows[0];
     }
 
+    // TL closed-signal fix (19 Oct 2026): reject at the write, not just the queue — a closed signal
+    // or a superseded cycle must never accept a monitoring update even if a stale form is submitted
+    // directly (bypassing the queue display).
     const review = await query(
       `SELECT gr.id, gr.decision_owner_id
          FROM governance_reviews gr
+         JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id
         WHERE gr.company_id = $1 AND gr.pulse_entry_id = $2
           AND gr.decision = 'Monitor' AND gr.decision_status = 'Monitoring'
+          AND gp.review_status NOT IN ('Closed','Linked')
         ORDER BY gr.created_at DESC LIMIT 1`,
       [company_id, pulse_id]
     );
     const active = review.rows[0];
-    if (!active) throw new Error('This signal is not currently under an active monitoring decision.');
+    if (!active) throw new Error('This signal is not currently under an active monitoring decision — it may already be closed or have moved to a new decision.');
 
     const role = String(user_role || '').toUpperCase();
     const isOwner = active.decision_owner_id === user_id;
