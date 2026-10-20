@@ -494,10 +494,16 @@ export class WeeklyReviewsService {
        ), clk AS (
          SELECT (NOW() AT TIME ZONE tz)::date AS local_date, (NOW() AT TIME ZONE tz) AS local_now, cfg.* FROM cfg
        ), period AS (
-         SELECT (local_date - ((EXTRACT(DOW FROM local_date)::int - dow + 7) % 7)) AS end_date,
-                local_now, rt, tz FROM clk
+         -- The reviewed period is the completed week ENDING THE DAY BEFORE the configured review
+         -- day (e.g. dow=Monday => period ends the prior Sunday, due Monday morning), matching
+         -- guidedWork.service.ts's definition exactly -- that is what review rows are actually
+         -- saved against. Computing end_date as "most recent occurrence of dow" instead lands on
+         -- TODAY when today IS the review day, a day ahead of the real period, which left genuinely
+         -- completed reviews showing as Not started on the due day itself.
+         SELECT (local_date - ((EXTRACT(DOW FROM local_date)::int - ((dow - 1 + 7) % 7) + 7) % 7)) AS end_date,
+                dow, local_now, rt, tz FROM clk
        ), per AS (
-         SELECT end_date, (end_date - 6) AS start_date, (end_date + rt) AS due_local, local_now FROM period
+         SELECT end_date, (end_date - 6) AS start_date, (end_date + 1 + rt) AS due_local, local_now FROM period
        )
        SELECT h.id, h.name,
               per.start_date, per.end_date, per.due_local, per.local_now,
