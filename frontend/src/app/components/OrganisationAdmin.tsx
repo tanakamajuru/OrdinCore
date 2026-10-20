@@ -405,6 +405,13 @@ function ServicesSection() {
     try { await apiClient.patch(`/houses/${houseId}`, { assigned_reviewer_id: userId || null }); toast.success("Assigned reviewer updated."); setList((l) => l.map((h) => h.id === houseId ? { ...h, assigned_reviewer_id: userId || null } : h)); }
     catch (e: any) { toast.error(errMsg(e, "Failed to set reviewer.")); }
   };
+  // Ownership fix (Admin setup, 19 Oct 2026): daily RM and deputy must be visible and editable
+  // separately from the weekly reviewer -- previously the admin UI only exposed assigned_reviewer_id,
+  // even though houses already has manager_id (daily RM) and deputy_rm_id columns.
+  const setOwner = async (houseId: string, field: "manager_id" | "deputy_rm_id", userId: string) => {
+    try { await apiClient.patch(`/houses/${houseId}`, { [field]: userId || null }); toast.success("Updated."); setList((l) => l.map((h) => h.id === houseId ? { ...h, [field]: userId || null } : h)); }
+    catch (e: any) { toast.error(errMsg(e, "Failed to update.")); }
+  };
 
   const submit = async () => {
     if (!form.name.trim()) { toast.error("Service name is required."); return; }
@@ -423,6 +430,20 @@ function ServicesSection() {
               <div className="flex items-center gap-2 mb-1"><Building2 size={18} className="text-emerald-600" /><span className="font-medium text-foreground truncate">{h.name}</span></div>
               <div className="text-xs text-muted-foreground">{h.sector === "DOMICILIARY" ? "Domiciliary / Home Care" : h.sector === "SUPPORTED_LIVING" ? "Supported Living" : (h.sector || "Care service")}</div>
               {(h.city || h.postcode) && <div className="text-xs text-muted-foreground mt-1">{[h.address, h.city, h.postcode].filter(Boolean).join(", ")}</div>}
+              <div className="mt-2">
+                <label className="text-[11px] text-muted-foreground block mb-1">Daily Registered Manager</label>
+                <select value={h.manager_id || ""} onChange={(e) => setOwner(h.id, "manager_id", e.target.value)} className="w-full p-2 border-2 border-border rounded-lg bg-background text-xs">
+                  <option value="">Unassigned</option>
+                  {reviewers.map((u) => <option key={u.id} value={u.id}>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}</option>)}
+                </select>
+              </div>
+              <div className="mt-2">
+                <label className="text-[11px] text-muted-foreground block mb-1">Deputy RM (cover)</label>
+                <select value={h.deputy_rm_id || ""} onChange={(e) => setOwner(h.id, "deputy_rm_id", e.target.value)} className="w-full p-2 border-2 border-border rounded-lg bg-background text-xs">
+                  <option value="">Unassigned</option>
+                  {reviewers.map((u) => <option key={u.id} value={u.id}>{`${u.first_name || ""} ${u.last_name || ""}`.trim() || u.email}</option>)}
+                </select>
+              </div>
               <div className="mt-2">
                 <label className="text-[11px] text-muted-foreground block mb-1">Weekly review reviewer</label>
                 <select value={h.assigned_reviewer_id || ""} onChange={(e) => setReviewer(h.id, e.target.value)} className="w-full p-2 border-2 border-border rounded-lg bg-background text-xs">
