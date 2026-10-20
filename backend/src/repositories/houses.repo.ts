@@ -98,10 +98,16 @@ export const housesRepo = {
     }
 
     const id = uuidv4();
-    // Sector drives the whole signal taxonomy for the service, so it must be set on creation
-    // (it was previously ignored, forcing every new service to the SUPPORTED_LIVING default).
-    // Only the two supported sectors are accepted; anything else falls back to Supported Living.
-    const sector = String(dto.sector || '').toUpperCase() === 'DOMICILIARY' ? 'DOMICILIARY' : 'SUPPORTED_LIVING';
+    // Sector drives the whole signal taxonomy for the service (Admin setup fix, 19 Oct 2026): a
+    // missing or invalid value must be REJECTED, not silently defaulted to Supported Living -- a
+    // defaulted sector silently misclassifies a Domiciliary or Mixed service's entire signal
+    // library and governance_domains scoping with no visible error.
+    const sectorInput = String(dto.sector || '').toUpperCase();
+    const ALLOWED_SECTORS = ['SUPPORTED_LIVING', 'DOMICILIARY', 'MIXED'];
+    if (!ALLOWED_SECTORS.includes(sectorInput)) {
+      throw new Error('sector must be one of SUPPORTED_LIVING, DOMICILIARY or MIXED.');
+    }
+    const sector = sectorInput;
     const result = await query(
       `INSERT INTO houses (id, company_id, name, address, postcode, city, capacity, manager_id, primary_rm_id, deputy_rm_id, registration_number, phone, sector)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
