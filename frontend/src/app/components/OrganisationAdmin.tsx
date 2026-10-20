@@ -279,8 +279,9 @@ function PeopleSection() {
     catch (e: any) { toast.error(errMsg(e, "Failed to update role.")); }
   };
   const [loadingCurrentHouses, setLoadingCurrentHouses] = useState(false);
+  const [loadHousesFailed, setLoadHousesFailed] = useState(false);
   const openEditServices = async (u: any) => {
-    setEditServicesFor(u); setEditHouses([]); setLoadingCurrentHouses(true);
+    setEditServicesFor(u); setEditHouses([]); setLoadingCurrentHouses(true); setLoadHousesFailed(false);
     // Field report 19 Oct 2026: the modal always opened with every box unchecked, even when the
     // user already had a service assigned — saving then looked like it did nothing, because
     // reopening showed the same empty state regardless of whether the save actually worked.
@@ -289,11 +290,16 @@ function PeopleSection() {
       const r: any = await apiClient.get(`/users/${u.id}/houses`);
       const current = rows(r).map((h: any) => h.id).filter(Boolean);
       setEditHouses(current);
-    } catch { /* leave empty — the "Currently: ..." text above the list still shows the real state */ }
+    } catch {
+      // Safe handover fix (Admin setup, 19 Oct 2026): a failed load must BLOCK saving, not fall
+      // back to an empty list — proceeding here would silently wipe every real allocation this
+      // person has, mistaken for "the admin chose to remove everything."
+      setLoadHousesFailed(true);
+    }
     finally { setLoadingCurrentHouses(false); }
   };
   const saveServices = async () => {
-    if (!editServicesFor) return;
+    if (!editServicesFor || loadHousesFailed) return;
     setSavingServices(true);
     try {
       await apiClient.patch(`/users/${editServicesFor.id}`, { house_ids: editHouses });
@@ -370,7 +376,12 @@ function PeopleSection() {
       {editServicesFor && (
         <Modal title={`Services — ${fullName(editServicesFor)}`} onClose={() => setEditServicesFor(null)}>
           <p className="text-xs text-muted-foreground -mt-1 mb-1">Currently: {editServicesFor.assigned_house_name || "no service assigned"}. Selecting and saving below replaces their current allocation.</p>
-          {loadingCurrentHouses ? <p className="text-sm text-muted-foreground py-3">Loading current allocation…</p> : (
+          {loadingCurrentHouses ? <p className="text-sm text-muted-foreground py-3">Loading current allocation…</p> : loadHousesFailed ? (
+            <div className="rounded-lg border-2 border-red-200 bg-red-50 p-3 text-sm text-red-700">
+              Could not load this person's current service allocation. Saving is disabled to avoid accidentally removing services they still have — try again.
+              <div className="pt-2"><button onClick={() => openEditServices(editServicesFor)} className="text-xs font-semibold underline">Retry</button></div>
+            </div>
+          ) : (
             <div className="max-h-56 overflow-y-auto rounded-lg border border-border p-2 space-y-1">
               {houses.filter(h => h.is_active !== false).map(h => (
                 <label key={h.id} className="flex items-center gap-2 text-sm px-1 py-0.5">
@@ -380,7 +391,7 @@ function PeopleSection() {
               ))}
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-3"><button onClick={() => setEditServicesFor(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={saveServices} disabled={savingServices || loadingCurrentHouses} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{savingServices ? "Saving…" : "Save services"}</button></div>
+          <div className="flex justify-end gap-2 pt-3"><button onClick={() => setEditServicesFor(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={saveServices} disabled={savingServices || loadingCurrentHouses || loadHousesFailed} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{savingServices ? "Saving…" : "Save services"}</button></div>
         </Modal>
       )}
     </Panel>
