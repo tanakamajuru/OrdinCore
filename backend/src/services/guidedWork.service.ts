@@ -227,12 +227,18 @@ export const guidedWorkService = {
       // monitor: a signal a TEAM LEADER is monitoring must still return to RM Daily Oversight /
       // Decisions Due at the review point — or immediately if the TL flags urgent attention
       // (Signal Monitoring correction, 16 Oct 2026 field report).
+      // Same closed-signal guard as the TL queue above (RM Decisions Due fix, 19 Oct 2026): a closed
+      // or linked signal must never resurface as a monitoring review due, even if a stale Monitor
+      // row's decision_status still reads Monitoring.
       const monitoring = await safeRows(`
         SELECT gr.id, gr.pulse_entry_id, gr.service_id, gr.what_is_happening, gr.due_at, gr.rm_attention, h.name AS service_name
-          FROM governance_reviews gr LEFT JOIN houses h ON h.id=gr.service_id
+          FROM governance_reviews gr
+          LEFT JOIN houses h ON h.id=gr.service_id
+          LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
            AND gr.service_id=ANY($2::uuid[])
            AND (gr.due_at <= NOW() OR gr.rm_attention)
+           AND (gp.id IS NULL OR gp.review_status NOT IN ('Closed','Linked'))
          ORDER BY gr.rm_attention DESC, gr.due_at`, [companyId, houses]);
       for (const m of monitoring) needsYou.push({
         id:`monitor:${m.id}`, role, state:'NEEDS_YOU', priority: m.rm_attention ? 'URGENT' : 'DUE', taskType:'MONITORING_REVIEW',

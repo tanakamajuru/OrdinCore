@@ -56,7 +56,14 @@ export const governanceComplianceService = {
          LEFT JOIN canonical_action_state_v a ON a.assigned_to = u.id AND a.company_id = $1
          LEFT JOIN risks r ON r.id = a.risk_id
         WHERE u.company_id = $1 AND u.status = 'active'
-          AND u.role = ANY(ARRAY['REGISTERED_MANAGER','TEAM_LEADER','SUPPORT_WORKER'])
+          -- Role/tracker visibility fix (19 Oct 2026): eligibility checked only the primary role
+          -- column, so a person whose operational capacity was GRANTED (not primary) -- e.g. an
+          -- Admin's primary record switched but TL capacity still granted via user_roles --
+          -- vanished from this tracker while still showing elsewhere that reads granted roles too
+          -- (users.repo.ts findByCompany). Match either, same as that existing pattern.
+          AND (u.role = ANY(ARRAY['REGISTERED_MANAGER','TEAM_LEADER','SUPPORT_WORKER'])
+               OR EXISTS (SELECT 1 FROM user_roles ur WHERE ur.user_id = u.id
+                            AND ur.role = ANY(ARRAY['REGISTERED_MANAGER','TEAM_LEADER','SUPPORT_WORKER'])))
           ${scoped ? `AND EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = u.id AND uh.house_id = ANY($2::uuid[]))` : ``}
         GROUP BY u.id, name, u.role
         ORDER BY overdue DESC, due_today DESC, name ASC`,
