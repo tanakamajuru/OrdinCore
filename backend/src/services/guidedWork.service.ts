@@ -3,7 +3,7 @@ import { query } from '../config/database';
 type GuidedRole = 'TEAM_LEADER'|'REGISTERED_MANAGER'|'DIRECTOR'|'RESPONSIBLE_INDIVIDUAL'|'ADMIN'|'SUPER_ADMIN';
 type GuidedPriority = 'URGENT'|'DUE'|'NORMAL';
 type GuidedState = 'NEEDS_YOU'|'WAITING'|'COMPLETE';
-type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance'|'learning';
+type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance'|'learning'|'query';
 
 export type GuidedWorkItem = {
   id: string;
@@ -476,6 +476,37 @@ export const guidedWorkService = {
         summary:`Assigned to ${[a.first_name,a.last_name].filter(Boolean).join(' ') || 'another owner'}`, reason:'Another owner has the next action.', dueAt:a.due_date, serviceName:a.service_name,
         canonicalEntityType:'action', canonicalEntityId:a.id, route:`/my-actions?focus=${a.id}&guided=1&gw=waiting_action:${a.id}`,
         actionLabel:'View', whyAmISeeingThis:'This linked action remains open, but another owner is responsible for the next step.' });
+    }
+
+    // RI Queries (scoped and confirmed 21 Oct 2026): an OPEN query assigned to this user needs an
+    // evidenced answer; an ANSWERED query this user raised needs them to review it and either close
+    // it satisfied or reopen with a reason. Role-agnostic — a query's assigned_to/raised_by is
+    // whichever RM/Director/RI/Admin it actually names, not inferred from role.
+    if (['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL','ADMIN','SUPER_ADMIN'].includes(role)) {
+      const toAnswer = await safeRows(`
+        SELECT q.id, q.subject, q.raised_at, h.name AS service_name
+          FROM governance_queries q LEFT JOIN houses h ON h.id=q.house_id
+         WHERE q.company_id=$1 AND q.assigned_to=$2 AND q.status='OPEN'
+         ORDER BY q.raised_at`, [companyId, userId]);
+      for (const q of toAnswer) needsYou.push({
+        id:`query_answer:${q.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'QUERY_ANSWER',
+        title:'Query raised', summary:q.subject, reason:'An RI/Director query needs an evidenced answer.',
+        dueAt:null, serviceName:q.service_name, canonicalEntityType:'query', canonicalEntityId:q.id, requiredAction:'ANSWER_QUERY',
+        completionCondition:'An evidenced answer is recorded for this query.', route:`/queries?focus=${q.id}&guided=1&gw=query_answer:${q.id}`,
+        actionLabel:'Answer', whyAmISeeingThis:'This query was raised against you or your service and is awaiting your answer.'
+      });
+      const toReview = await safeRows(`
+        SELECT q.id, q.subject, q.response_text, q.responded_at, h.name AS service_name
+          FROM governance_queries q LEFT JOIN houses h ON h.id=q.house_id
+         WHERE q.company_id=$1 AND q.raised_by=$2 AND q.status='ANSWERED'
+         ORDER BY q.responded_at`, [companyId, userId]);
+      for (const q of toReview) needsYou.push({
+        id:`query_review:${q.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'QUERY_REVIEW',
+        title:'Query answered — review', summary:q.response_text || q.subject, reason:'Your query has been answered and is awaiting your review.',
+        dueAt:null, serviceName:q.service_name, canonicalEntityType:'query', canonicalEntityId:q.id, requiredAction:'REVIEW_QUERY_ANSWER',
+        completionCondition:'The query is closed as satisfied, or reopened with a reason.', route:`/queries?focus=${q.id}&guided=1&gw=query_review:${q.id}`,
+        actionLabel:'Review answer', whyAmISeeingThis:'You raised this query and it now has an answer for you to accept or challenge.'
+      });
     }
 
     // DIRECTOR: weekly validations, cross-service patterns, strategic/critical risks and incomplete effectiveness.
