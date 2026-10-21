@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { Plus, Search, Calendar, MapPin, AlertTriangle, Filter, X, Ambulance } from "lucide-react";
 import { Button } from "./ui/button";
@@ -43,6 +43,10 @@ export function IncidentCaseHub() {
   const [userHouseName, setUserHouseName] = useState<string>('');
   const [userHouses, setUserHouses] = useState<{ id: string; name: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // C2 correction: "Prevent duplicate submissions ... without duplicating the case." A ref (not
+  // state) so it survives re-renders but stays stable across a retry of the SAME attempt; only
+  // cleared after a successful submission, so a retry after a failure reuses the same id.
+  const submissionIdRef = useRef<string | null>(null);
   
   const [riskSearchTerm, setRiskSearchTerm] = useState('');
   const [escalationSearchTerm, setEscalationSearchTerm] = useState('');
@@ -251,7 +255,9 @@ export function IncidentCaseHub() {
 
     setIsSubmitting(true);
     try {
+      if (!submissionIdRef.current) submissionIdRef.current = crypto.randomUUID();
       const created = await apiClient.post('/incidents', {
+        client_submission_id: submissionIdRef.current,
         house_id: targetHouseId,
         title: incidentForm.title,
         description: incidentForm.description,
@@ -269,6 +275,9 @@ export function IncidentCaseHub() {
         linked_escalations: incidentForm.linked_escalations || [],
         linked_signals: incidentForm.linked_signals || [],
         linked_patterns: incidentForm.linked_patterns || [],
+        // C2 correction: "Persist warning-signals answer" -- captured in the form but never
+        // actually included in the submit payload before.
+        warning_signals: incidentForm.warning_signals || undefined,
         la_referral: incidentForm.la_referral,
         cqc_notification: incidentForm.cqc_notification,
         police_reference: incidentForm.police_reference,
@@ -283,6 +292,7 @@ export function IncidentCaseHub() {
       const ref = (created.data as any)?.data?.reference || (created.data as any)?.reference;
       toast.success(ref ? `Serious incident ${ref} logged` : 'Incident reported successfully');
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
+      submissionIdRef.current = null; // only clear on confirmed success -- a retry after failure reuses the same id
       setShowCreateModal(false);
       setIncidentPersons([]); setNoIndividualAffected(false); setPersonDraftName(''); setPersonDraftRoles([]);
       setIncidentForm({

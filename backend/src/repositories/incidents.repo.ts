@@ -173,17 +173,33 @@ export const incidentsRepo = {
     linked_escalations?: string[];
     linked_signals?: string[];
     linked_patterns?: string[];
+    warning_signals?: string;
+    client_submission_id?: string;
   }) {
     const id = uuidv4();
+    // C2 correction: "Prevent duplicate submissions" -- a stable client-supplied reference means a
+    // double-click or a replayed retry returns the existing incident instead of creating a second
+    // one. The reference number is generated INSIDE this, so a retry after a timeout never produces
+    // two different reference numbers for the same report.
+    if (dto.client_submission_id) {
+      const existing = await query(
+        `SELECT * FROM incidents WHERE company_id = $1 AND client_submission_id = $2 LIMIT 1`,
+        [dto.company_id, dto.client_submission_id]
+      );
+      if (existing.rows[0]) return existing.rows[0];
+    }
     const reference = await nextIncidentReference(dto.company_id, dto.occurred_at);
     const result = await query(
       `INSERT INTO incidents (
         id, company_id, house_id, category_id, source_pulse_id, title, description, severity, status, occurred_at, location,
         immediate_action, created_by, assigned_to, persons_involved, follow_up_required,
         la_referral, cqc_notification, police_reference, other_references, is_foreseeable,
-        risk_factors, preventive_measures, leadership_commentary, reference, lessons_learned, learning_shared
+        risk_factors, preventive_measures, leadership_commentary, reference, lessons_learned, learning_shared, warning_signals,
+        client_submission_id
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27) RETURNING *`,
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+      ON CONFLICT (company_id, client_submission_id) WHERE client_submission_id IS NOT NULL DO NOTHING
+      RETURNING *`,
       [
         id, dto.company_id, dto.house_id, dto.category_id || null, dto.source_pulse_id || null, dto.title, dto.description,
         dto.severity || 'Moderate', dto.status || 'Open', dto.occurred_at, dto.location || null,
@@ -191,9 +207,15 @@ export const incidentsRepo = {
         JSON.stringify(dto.persons_involved || []), dto.follow_up_required || false,
         dto.la_referral || null, dto.cqc_notification || null, dto.police_reference || null, dto.other_references || null,
         dto.is_foreseeable || null, dto.risk_factors || null, dto.preventive_measures || null, dto.leadership_commentary || null,
-        reference, dto.lessons_learned || null, dto.learning_shared || false
+        reference, dto.lessons_learned || null, dto.learning_shared || false,
+        dto.warning_signals || null, dto.client_submission_id || null
       ]
     );
+    if (!result.rows[0] && dto.client_submission_id) {
+      // Lost the race to a concurrent identical retry -- return the row it inserted.
+      const won = await query(`SELECT * FROM incidents WHERE company_id = $1 AND client_submission_id = $2 LIMIT 1`, [dto.company_id, dto.client_submission_id]);
+      return won.rows[0];
+    }
 
     const incident = result.rows[0];
 

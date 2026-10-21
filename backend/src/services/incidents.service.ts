@@ -65,19 +65,25 @@ export class IncidentsService {
   }
 
   async create(company_id: string, created_by: string, data: any) {
+    // C2 correction (21 Oct 2026): "Standardise severity: UI High currently represents Serious
+    // while task logic checks serious. Validate server-side." Confirmed: the incidents.severity
+    // column's CHECK constraint only ever permits Low/Moderate/High/Critical -- the literal string
+    // "serious" can never be stored, so `severity === 'serious'` below was dead code that could
+    // never match. The UI's "High" option is what a reviewer means by "serious", so the cross-check
+    // now matches that instead of a value that structurally cannot exist.
     const severity = (data.severity || '').toString().toLowerCase();
-    const isSeriousOrCritical = severity === 'serious' || severity === 'critical';
+    const isSeriousOrCritical = severity === 'high' || severity === 'critical';
 
+    // C2 correction: "Permit direct reports without a qualifying signal/promoted risk." A High/
+    // Critical incident with NO source_pulse_id is allowed -- this only cross-validates when one
+    // IS supplied, so a genuinely direct report (the incident itself is the first record of the
+    // concern, no prior signal existed) is never blocked.
     if (isSeriousOrCritical && data.source_pulse_id) {
       const pulse = await pulsesRepo.findById(data.source_pulse_id, company_id);
       const pulseSeverity = pulse?.severity?.toString().toLowerCase();
       if (!pulse || !(pulseSeverity === 'critical' || pulse?.is_fatal || pulse?.serious_injury)) {
-        throw new Error('Serious incidents can only be created from Critical severity signals or when fatality/serious injury is indicated.');
+        throw new Error('Serious incidents can only be linked to a Critical severity signal, or one indicating fatality/serious injury.');
       }
-    }
-
-    if (severity === 'serious' && !data.source_pulse_id) {
-      throw new Error('Serious incidents must be created from a qualifying critical signal.');
     }
 
     const incident = await incidentsRepo.create({ company_id, created_by, ...data });
