@@ -63,6 +63,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'clipboard', label: 'Governance', go: go(() => navigate('DirectorGovernance')) },
       { icon: 'file-text', label: 'Reports', go: go(() => navigate('DirectorReports')) },
       { icon: 'check-circle', label: 'Validate Reviews', go: go(() => navigate('DirectorReviews')) },
+      { icon: 'bar-chart-2', label: 'Recurring Themes', go: go(() => navigate('DirectorThemes')) },
     ]);
   }
   if (r === 'RESPONSIBLE_INDIVIDUAL') {

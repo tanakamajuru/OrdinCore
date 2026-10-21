@@ -192,7 +192,12 @@ function DirectorTabs() {
           overview now leads with personal attention items (see the 13 Oct click-through fix). */}
       <Tab.Screen name="Home" component={DirectorOverviewScreen} options={{ tabBarLabel: 'My Work', tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Trends" component={DirectorTrendsScreen} options={{ tabBarIcon: tabIcon('trending-up') }} />
-      <Tab.Screen name="Themes" component={DirectorThemesScreen} options={{ tabBarIcon: tabIcon('bar-chart-2') }} />
+      {/* Functional correction (21 Oct 2026, within existing screens per agreed scope): tab 3 was
+          "Themes", reusing the already-existing ReviewsScreen (per-service weekly-review status +
+          Director validation entry point, previously reachable only via My Work/the drawer) for
+          tab-bar prominence -- independent validation is a core Director duty. Themes analytics
+          moved into the drawer so it stays reachable, not lost. */}
+      <Tab.Screen name="Themes" component={ReviewsScreen} options={{ tabBarLabel: 'Reviews', tabBarIcon: tabIcon('check-circle') }} />
       <Tab.Screen name="Governance" component={DirectorGovernanceScreen} options={{ tabBarIcon: tabIcon('shield') }} />
     </Tab.Navigator>
   );
@@ -272,6 +277,7 @@ const RMWeeklyReviewA = withAccent('blue', RMWeeklyReviewScreen);
 const RMDailyGovernanceReportA = withAccent('blue', TLDailyGovernanceScreen);
 const RMDailyGovernanceA = withAccent('blue', RMDailyGovernanceScreen);
 const DirectorReviewsA = withAccent('orange', ReviewsScreen);
+const DirectorThemesA = withAccent('orange', DirectorThemesScreen);
 const ProviderSignoffA = withAccent('violet', ProviderSignoffScreen);
 const DirectorGovernanceA = withAccent('orange', DirectorGovernanceScreen);
 const DirectorReportsA = withAccent('orange', DirectorReportsScreen);
@@ -341,6 +347,7 @@ export function RootNavigator() {
       <Stack.Screen name="RMDailyGovernance" component={RMDailyGovernanceA} options={{ title: '' }} />
       <Stack.Screen name="RMDailyGovernanceReport" component={RMDailyGovernanceReportA} options={{ title: 'Daily Governance Report' }} />
       <Stack.Screen name="DirectorReviews" component={DirectorReviewsA} options={{ title: '' }} />
+      <Stack.Screen name="DirectorThemes" component={DirectorThemesA} options={{ title: '' }} />
       <Stack.Screen name="ProviderSignoff" component={ProviderSignoffA} options={{ title: '' }} />
       <Stack.Screen name="DirectorGovernance" component={DirectorGovernanceA} options={{ title: '' }} />
       <Stack.Screen name="DirectorReports" component={DirectorReportsA} options={{ title: '' }} />

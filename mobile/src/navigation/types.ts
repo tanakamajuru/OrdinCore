@@ -44,6 +44,7 @@ export type RootStackParams = {
   // count); 'effectiveness' = completed controls awaiting an effectiveness verdict.
   RMActionsList: { lens?: 'oversight' | 'effectiveness' } | undefined;
   DirectorReviews: undefined;
+  DirectorThemes: undefined;
   ProviderSignoff: undefined;
   // Director hub screens
   DirectorGovernance: undefined;
