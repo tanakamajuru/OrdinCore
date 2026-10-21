@@ -199,11 +199,20 @@ export class PulseService {
 
         // Trigger Pattern Detection Job
         try {
+            // Domain/theme-matching fix (17 Oct v3 findings): capture writes BOTH risk_domain (array)
+            // and governance_domain (single canonical value), but some signals end up with an empty
+            // risk_domain while governance_domain IS populated (same gap reports.service.ts's
+            // summary() already works around). pattern.worker.ts matches only on risk_domain, so
+            // those signals were invisible to pattern/cluster detection entirely -- never
+            // contributing to a threshold, cluster or systemic pattern. Fall back the same way.
+            const patternDomains = Array.isArray(pulse.risk_domain) && pulse.risk_domain.length > 0
+                ? pulse.risk_domain
+                : (pulse.governance_domain ? [pulse.governance_domain] : []);
             await patternQueue.add('pattern:check', {
                 pulse_id: pulse.id,
                 company_id,
                 house_id: pulse.house_id,
-                risk_domain: pulse.risk_domain,
+                risk_domain: patternDomains,
                 related_person: pulse.related_person,
                 service_user_id: pulse.service_user_id
             });
