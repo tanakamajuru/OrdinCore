@@ -37,10 +37,14 @@ export class IncidentsController {
       const status = req.query.status as string;
       const severityRaw = req.query.severity as string;
       const severity = severityRaw ? severityRaw.charAt(0).toUpperCase() + severityRaw.slice(1).toLowerCase() : undefined;
-      const filters = { 
-        status: status && status.includes(',') ? status.split(',') : status, 
-        severity, 
-        house_id: req.query.house_id 
+      // C1 correction (21 Oct 2026): "Remove first-assigned-service-only ... list filtering. Allow
+      // every authorised assigned service." A multi-service RM/TL now passes every assigned house,
+      // comma-joined -- same pattern already used for status above.
+      const houseIdRaw = req.query.house_id as string | undefined;
+      const filters = {
+        status: status && status.includes(',') ? status.split(',') : status,
+        severity,
+        house_id: houseIdRaw && houseIdRaw.includes(',') ? houseIdRaw.split(',') : houseIdRaw
       };
       const result = await incidentsService.findAll(company_id, filters, page, limit);
       return res.json({ success: true, data: result.incidents, meta: { total: result.total, page, limit, pages: result.pages } });

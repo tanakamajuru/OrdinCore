@@ -35,8 +35,13 @@ export function IncidentCaseHub() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [houseFilter, setHouseFilter] = useState<string>("All");
   const [statusFilter, setStatusFilter] = useState<string>("All");
+  // C1 correction (21 Oct 2026): "Remove first-assigned-service-only selection/submission/list
+  // filtering. Allow every authorised assigned service and save the selected ID." Previously only
+  // the FIRST house from a multi-service RM/TL's assignment list was ever used -- for selection,
+  // submission and the incident list filter alike. Now holds every assigned house.
   const [userHouseId, setUserHouseId] = useState<string | null>(null);
   const [userHouseName, setUserHouseName] = useState<string>('');
+  const [userHouses, setUserHouses] = useState<{ id: string; name: string }[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
   
   const [riskSearchTerm, setRiskSearchTerm] = useState('');
@@ -133,19 +138,24 @@ export function IncidentCaseHub() {
         setPeople([...patients, ...staff]);
       } catch { /* people picker is best-effort */ }
 
-      let houseId: string | null = null;
+      let houseIds: string[] = [];
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
         const hRes = await apiClient.get(`/users/${userId}/houses`);
         const hData = (hRes.data as any).data || (hRes.data as any) || [];
-        const myHouse = Array.isArray(hData) ? hData[0] : hData;
-        if (myHouse) { 
-          houseId = myHouse.id; 
-          setUserHouseId(myHouse.id); 
-          setUserHouseName(myHouse.name);
-          setIncidentForm((f: any) => ({ ...f, house_id: myHouse.id }));
+        const myHouses: { id: string; name: string }[] = Array.isArray(hData) ? hData : (hData ? [hData] : []);
+        if (myHouses.length) {
+          houseIds = myHouses.map((h) => h.id);
+          setUserHouses(myHouses);
+          setUserHouseId(myHouses[0].id);
+          setUserHouseName(myHouses[0].name);
+          // Default the form to the first assigned service, but every assigned service remains
+          // selectable (getAvailableHouses) and nothing forces this value on submit.
+          setIncidentForm((f: any) => ({ ...f, house_id: myHouses[0].id }));
         }
       }
-      const params = houseId ? `?house_id=${houseId}&limit=100` : '?limit=100';
+      // Every authorised assigned service, not just the first -- the list is no longer filtered
+      // down to a single house for a multi-service RM/TL.
+      const params = houseIds.length ? `?house_id=${houseIds.join(',')}&limit=100` : '?limit=100';
       const res = await apiClient.get(`/incidents${params}`);
       const data = (res.data as any).data || (res.data as any) || {};
       const rawIncs = data.incidents || data.items || (Array.isArray(data) ? data : []);
@@ -176,7 +186,10 @@ export function IncidentCaseHub() {
     if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
       toast.error('Please fill in title, description and date'); return;
     }
-    const targetHouseId = (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') ? (userHouseId || incidentForm.house_id) : incidentForm.house_id;
+    // C1 correction (21 Oct 2026): "Allow every authorised assigned service and save the selected
+    // ID." This used to force userHouseId (the single first assigned house) over whatever the form
+    // actually held, silently discarding a deliberate selection of a different assigned service.
+    const targetHouseId = incidentForm.house_id;
     if (!targetHouseId) { toast.error('Please select a house'); return; }
     if (!incidentForm.occurred_at) { toast.error('Please select a date'); return; }
 
@@ -237,8 +250,10 @@ export function IncidentCaseHub() {
     return filtered;
   };
 
+  // C1 correction: every house the RM/TL is actually assigned to is selectable, not just the
+  // first one returned by the API.
   const getAvailableHouses = () => {
-    if (userHouseName) return [{ id: userHouseId || '', name: userHouseName }];
+    if (userHouses.length) return userHouses;
     return allHouses;
   };
 
@@ -287,7 +302,10 @@ export function IncidentCaseHub() {
   // Pattern detection (debounced): prior incidents + recent signals for the people/service.
   useEffect(() => {
     if (!showCreateModal) return;
-    const houseId = userHouseId || incidentForm.house_id;
+    // C1 correction: the actively selected service takes priority -- if the user switched the
+    // dropdown to a different assigned service, pattern detection must follow that choice, not
+    // silently stay pinned to whichever house loaded first.
+    const houseId = incidentForm.house_id || userHouseId;
     if (!houseId && !incidentForm.persons_involved) { setPatterns(null); return; }
     const t = setTimeout(async () => {
       setDetecting(true);
@@ -583,7 +601,7 @@ export function IncidentCaseHub() {
                 <h3 className="text-xl  text-foreground mb-2">No incidents found</h3>
                 <p>
                   {userRole === 'REGISTERED_MANAGER'
-                    ? 'There are no incidents for your assigned house.'
+                    ? 'There are no incidents for your assigned service(s).'
                     : 'No incidents match your current filters.'
                   }
                 </p>
@@ -646,8 +664,8 @@ export function IncidentCaseHub() {
                             </option>
                           ))}
                         </select>
-                        {userRole === 'REGISTERED_MANAGER' && (
-                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Only your assigned service is available</p>
+                        {(userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') && (
+                          <p className="text-[11px] text-muted-foreground mt-1.5 ml-1 ">Only services you are assigned to are shown</p>
                         )}
                       </div>
                       <div>

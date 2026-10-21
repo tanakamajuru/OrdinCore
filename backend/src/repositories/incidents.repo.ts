@@ -101,7 +101,15 @@ export const incidentsRepo = {
       }
     }
     if (filters.severity) { conditions.push(`i.severity = $${idx++}`); params.push(filters.severity); }
-    if (filters.house_id) { conditions.push(`i.house_id = $${idx++}`); params.push(filters.house_id); }
+    if (filters.house_id) {
+      if (Array.isArray(filters.house_id)) {
+        conditions.push(`i.house_id = ANY($${idx++})`);
+        params.push(filters.house_id);
+      } else {
+        conditions.push(`i.house_id = $${idx++}`);
+        params.push(filters.house_id);
+      }
+    }
 
     const where = conditions.join(' AND ');
     const result = await query(
