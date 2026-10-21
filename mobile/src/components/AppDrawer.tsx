@@ -40,6 +40,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'clipboard', label: 'Weekly Review', go: go(() => navigate('RMWeeklyReview')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
       { icon: 'file-text', label: 'Reports', go: go(() => navigate('RMReports')) },
+      { icon: 'help-circle', label: 'Queries', go: go(() => navigate('GovernanceQueries')) },
       { icon: 'clipboard', label: 'Governance Review', go: go(() => navigate('RMGovernanceReview')) },
       { icon: 'home', label: 'Site Overview', go: go(() => navigate('RMHouseOverview')) },
       { icon: 'shield', label: 'Action Tracker', go: go(() => navigate('RMCompliance')) },
@@ -63,6 +64,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'clipboard', label: 'Governance', go: go(() => navigate('DirectorGovernance')) },
       { icon: 'file-text', label: 'Reports', go: go(() => navigate('DirectorReports')) },
       { icon: 'check-circle', label: 'Validate Reviews', go: go(() => navigate('DirectorReviews')) },
+      { icon: 'help-circle', label: 'Queries', go: go(() => navigate('GovernanceQueries')) },
       { icon: 'bar-chart-2', label: 'Recurring Themes', go: go(() => navigate('DirectorThemes')) },
     ]);
   }

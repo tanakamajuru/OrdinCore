@@ -56,6 +56,7 @@ import { RMDashboardScreen, RMRiskRegisterScreen, RMEscalationsScreen, RMGoverna
 import { RMWeeklyReviewScreen } from '@/screens/rm/RMWeeklyReviewScreen';
 import { DirectorOverviewScreen, DirectorTrendsScreen, DirectorThemesScreen, DirectorGovernanceScreen, DirectorReportsScreen } from '@/screens/director/DirectorScreens';
 import { RIProviderAssuranceScreen, RIOversightScreen, RIInspectionScreen, RINarrativeScreen, RIBoardReportsScreen } from '@/screens/ri/RIScreens';
+import { RIQueriesScreen } from '@/screens/ri/RIQueriesScreen';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator<RootStackParams>();
@@ -220,6 +221,11 @@ function ResponsibleIndividualTabs() {
           when tab 1 already owns that name. Readiness moved to the drawer so it stays reachable. */}
       <Tab.Screen name="Readiness" component={ProviderSignoffScreen} options={{ tabBarLabel: 'Sign-off', tabBarIcon: tabIcon('check-square') }} />
       <Tab.Screen name="Narrative" component={RINarrativeScreen} options={{ tabBarIcon: tabIcon('book-open') }} />
+      {/* Queries (scoped and confirmed 21 Oct 2026): deliberately left out of the nav correction
+          above until a real tracked-query workflow existed (migration 192, /queries endpoints).
+          Now that it does, it gets its own tab rather than being squeezed out of one that already
+          has accurate content. */}
+      <Tab.Screen name="Queries" component={RIQueriesScreen} options={{ tabBarIcon: tabIcon('help-circle') }} />
     </Tab.Navigator>
   );
 }
@@ -289,6 +295,7 @@ const DirectorReviewsA = withAccent('orange', ReviewsScreen);
 const DirectorThemesA = withAccent('orange', DirectorThemesScreen);
 const ProviderSignoffA = withAccent('violet', ProviderSignoffScreen);
 const RIInspectionA = withAccent('violet', RIInspectionScreen);
+const GovernanceQueriesA = withAccent('violet', RIQueriesScreen);
 const DirectorGovernanceA = withAccent('orange', DirectorGovernanceScreen);
 const DirectorReportsA = withAccent('orange', DirectorReportsScreen);
 const RINarrativeA = withAccent('violet', RINarrativeScreen);
@@ -360,6 +367,7 @@ export function RootNavigator() {
       <Stack.Screen name="DirectorThemes" component={DirectorThemesA} options={{ title: '' }} />
       <Stack.Screen name="ProviderSignoff" component={ProviderSignoffA} options={{ title: '' }} />
       <Stack.Screen name="RIInspection" component={RIInspectionA} options={{ title: '' }} />
+      <Stack.Screen name="GovernanceQueries" component={GovernanceQueriesA} options={{ title: '' }} />
       <Stack.Screen name="DirectorGovernance" component={DirectorGovernanceA} options={{ title: '' }} />
       <Stack.Screen name="DirectorReports" component={DirectorReportsA} options={{ title: '' }} />
       <Stack.Screen name="RINarrative" component={RINarrativeA} options={{ title: '' }} />

@@ -46,6 +46,7 @@ export type RootStackParams = {
   DirectorReviews: undefined;
   DirectorThemes: undefined;
   RIInspection: undefined;
+  GovernanceQueries: undefined;
   ProviderSignoff: undefined;
   // Director hub screens
   DirectorGovernance: undefined;
