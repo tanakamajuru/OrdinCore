@@ -254,10 +254,15 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
 
     // Reactivation Check (21-day rolling)
     if (recentSignals.length >= 3) {
-        await query(
-            `UPDATE signal_clusters SET cluster_status = 'Confirmed' WHERE id = $1 AND cluster_status = 'Emerging'`,
+        const reactivated = await query(
+            `UPDATE signal_clusters SET cluster_status = 'Confirmed' WHERE id = $1 AND cluster_status = 'Emerging' RETURNING id`,
             [cluster_id]
         );
+        // Lifecycle fix (17 Oct v3 findings): existingClusterStatus was captured BEFORE this write,
+        // so the final preserveLifecycle(existingClusterStatus, cluster_status) call below compared
+        // against stale state and could silently overwrite the Confirmed just set here back down to
+        // Emerging. Keep the in-memory value in sync with what was actually just written.
+        if (reactivated.rows[0]) existingClusterStatus = 'Confirmed';
     }
 
     // Domain-Specific Thresholds
@@ -430,8 +435,14 @@ async function evaluateCrossServiceRisk(
         const houseIds: string[] = houseIds7.length ? houseIds7 : ((wide?.house_ids_28d || []).filter(Boolean));
         const totalSignals: number = PATTERN_COHERENCE_V3 ? Number(shared?.total_signals || 0) : (affectedRes.rows[0]?.total_signals ?? (wide?.signals_28d ?? houseCount));
         const csLabel = `${domain} — systemic (${reasons || `${houseCount} services`})`;
+        // Lifecycle fix (17 Oct v3 findings, "dismissed concern returning"): this lookup previously
+        // had no status filter, so a cross-service cluster an RM/Director had explicitly Dismissed
+        // or Resolved could be found again here and silently flipped back to Emerging below once
+        // fresh signals made isSystemic true again -- resurrecting a human closure decision with no
+        // audit trail. A terminal cluster must stay closed; new evidence opens a NEW cluster instead.
         const existingCs = await query(
-            `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service' LIMIT 1`,
+            `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service'
+               AND cluster_status NOT IN ('Dismissed', 'Resolved') LIMIT 1`,
             [company_id, domain]
         );
         if (isSystemic) {
