@@ -24,7 +24,12 @@ export class UsersController {
     try {
       const companyId = req.user!.company_id!;
       const wantedRole = req.query.role ? String(req.query.role).toUpperCase() : null;
-      const senior = ['ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(req.user!.role);
+      // RM scoping fix (21 Oct 2026 field report): a Registered Manager oversees the whole
+      // registered service company-wide (confirmed doctrine, scope.middleware.ts) -- restricting
+      // this picker to the RM's own assigned_house_ids silently hid a newly-added Team Leader on a
+      // service the RM's own house list hadn't caught up with, even though that TL was correctly
+      // visible company-wide on the compliance tracker (governanceCompliance.service.ts).
+      const senior = ['ADMIN', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'REGISTERED_MANAGER'].includes(req.user!.role);
       const siteIds = req.user!.assigned_house_ids || [];
       const result = await query(
         `SELECT u.id, TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')) AS name,
