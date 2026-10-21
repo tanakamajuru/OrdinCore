@@ -73,4 +73,18 @@ router.post('/access-reviews/:id/complete', ...admin, async (req, res) => {
   }
 });
 
+// Full, paginated audit log behind the "Security alerts" / "Recent admin activity" cards.
+router.get('/audit-log', ...admin, async (req, res) => {
+  try {
+    const data = await companyAdminService.auditLog(req.user!.company_id!, {
+      action: req.query.action as string | undefined,
+      page: req.query.page ? Number(req.query.page) : undefined,
+      limit: req.query.limit ? Number(req.query.limit) : undefined,
+    });
+    return res.json({ success: true, data });
+  } catch (err: any) {
+    return res.status(500).json({ success: false, message: err?.message || 'Failed to load audit log', errors: [] });
+  }
+});
+
 export default router;

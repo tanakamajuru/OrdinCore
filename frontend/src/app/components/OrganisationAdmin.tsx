@@ -165,12 +165,14 @@ export default function OrganisationAdmin() {
 }
 
 /* ---------- Overview ---------- */
-function StatCard({ icon: Icon, tint, label, value }: { icon: any; tint: string; label: string; value: number }) {
+function StatCard({ icon: Icon, tint, label, value, onClick }: { icon: any; tint: string; label: string; value: number; onClick?: () => void }) {
+  const Comp: any = onClick ? "button" : "div";
   return (
-    <div className="rounded-xl border border-border bg-card p-5 flex items-center gap-4">
+    <Comp onClick={onClick} className={`rounded-xl border border-border bg-card p-5 flex items-center gap-4 text-left w-full ${onClick ? "hover:border-primary/40 hover:shadow-sm transition-colors cursor-pointer" : ""}`}>
       <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${tint}`}><Icon size={22} /></div>
-      <div><div className="text-sm text-muted-foreground">{label}</div><div className="text-3xl font-bold text-foreground leading-tight">{value}</div></div>
-    </div>
+      <div className="flex-1"><div className="text-sm text-muted-foreground">{label}</div><div className="text-3xl font-bold text-foreground leading-tight">{value}</div></div>
+      {onClick && <ChevronRight size={18} className="text-muted-foreground shrink-0" />}
+    </Comp>
   );
 }
 function OverviewSection({ data, go, reload }: { data: Overview | null; go: (s: Section) => void; reload: () => void }) {
@@ -182,7 +184,7 @@ function OverviewSection({ data, go, reload }: { data: Overview | null; go: (s: 
         <StatCard icon={Users} tint="bg-blue-100 text-blue-700" label="Active users" value={data.stats.active_users} />
         <StatCard icon={Building2} tint="bg-emerald-100 text-emerald-700" label="Services" value={data.stats.services} />
         <StatCard icon={Calendar} tint="bg-amber-100 text-amber-700" label="Access reviews due" value={data.stats.access_reviews_due} />
-        <StatCard icon={AlertTriangle} tint="bg-red-100 text-red-700" label="Security alerts" value={data.stats.security_alerts} />
+        <StatCard icon={AlertTriangle} tint="bg-red-100 text-red-700" label="Security alerts" value={data.stats.security_alerts} onClick={() => go("security")} />
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Panel title="Access requiring attention">
@@ -201,11 +203,17 @@ function OverviewSection({ data, go, reload }: { data: Overview | null; go: (s: 
                 <span className="text-sm text-muted-foreground whitespace-nowrap">{s.staff} staff</span></li>))}</ul>}
           <button onClick={() => go("services")} className="mt-4 w-full inline-flex items-center justify-center gap-2 rounded-lg bg-primary text-primary-foreground py-2.5 text-sm font-semibold">Manage assignments <ChevronRight size={16} /></button>
         </Panel>
-        <Panel title="Recent admin activity">
+        <Panel title="Recent admin activity" right={<button onClick={() => go("security")} className="text-muted-foreground hover:text-primary"><ChevronRight size={18} /></button>}>
           {data.activity.length === 0 ? <p className="text-sm text-muted-foreground">No recent activity.</p> :
-            <ul className="space-y-3">{data.activity.slice(0, 5).map(ev => (
-              <li key={ev.id} className="flex items-start gap-3"><span className="w-8 h-8 rounded-full bg-muted text-foreground/70 text-xs font-semibold flex items-center justify-center shrink-0">{initials(ev.actor)}</span>
-                <div className="min-w-0"><div className="text-sm text-foreground"><strong>{ev.actor}</strong> {ev.text}</div><div className="text-xs text-muted-foreground">{ago(ev.at)}</div></div></li>))}</ul>}
+            <ul className="space-y-1">{data.activity.slice(0, 5).map(ev => (
+              <li key={ev.id}>
+                <button onClick={() => go("security")} className="w-full flex items-start gap-3 text-left -mx-1 px-1 py-1.5 rounded-lg hover:bg-muted/60 transition-colors">
+                  <span className="w-8 h-8 rounded-full bg-muted text-foreground/70 text-xs font-semibold flex items-center justify-center shrink-0">{initials(ev.actor)}</span>
+                  <div className="min-w-0 flex-1"><div className="text-sm text-foreground"><strong>{ev.actor}</strong> {ev.text}</div><div className="text-xs text-muted-foreground">{ago(ev.at)}</div></div>
+                  <ChevronRight size={14} className="text-muted-foreground shrink-0 mt-2" />
+                </button>
+              </li>))}</ul>}
+          <button onClick={() => go("security")} className="mt-3 text-xs font-semibold text-primary hover:underline">View full audit log →</button>
         </Panel>
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
@@ -774,13 +782,109 @@ function SecuritySection({ data, onChanged }: { data: Overview | null; onChanged
               <div className="flex-1 min-w-0"><div className="text-sm font-medium text-foreground truncate">{r.user_name || r.email}</div><div className="text-xs text-muted-foreground truncate">{r.email} · {roleLabel(r.role)} · last sign-in {ago(r.last_login)}</div></div>
               <button onClick={() => complete(r.id)} className="text-xs font-semibold text-primary border border-primary/30 rounded px-2.5 py-1 hover:bg-primary/10">Confirm access</button></li>))}</ul>}
       </Panel>
-      <Panel title="Recent admin activity">
-        {(data?.activity || []).length === 0 ? <p className="text-sm text-muted-foreground">No recent activity.</p> :
-          <ul className="space-y-3">{(data?.activity || []).map(ev => (
-            <li key={ev.id} className="flex items-start gap-3"><span className="w-8 h-8 rounded-full bg-muted text-foreground/70 text-xs font-semibold flex items-center justify-center shrink-0">{initials(ev.actor)}</span>
-              <div className="min-w-0"><div className="text-sm text-foreground"><strong>{ev.actor}</strong> {ev.text}</div><div className="text-xs text-muted-foreground">{ago(ev.at)}</div></div></li>))}</ul>}
-      </Panel>
+      <AuditLogPanel />
     </div>
+  );
+}
+
+/* ---------- Full audit log (detailed, paginated, clickable) ---------- */
+type AuditLogEntry = {
+  id: string; action: string; resource: string; resource_id: string | null;
+  old_values: any; new_values: any; metadata: any; ip_address: string | null; user_agent: string | null;
+  created_at: string; actor_name: string | null; actor_email: string | null; text: string;
+};
+function AuditLogPanel() {
+  const [items, setItems] = useState<AuditLogEntry[]>([]);
+  const [total, setTotal] = useState(0);
+  const [page, setPage] = useState(1);
+  const [filter, setFilter] = useState<"all" | "security">("all");
+  const [loading, setLoading] = useState(true);
+  const [err, setErr] = useState(false);
+  const [openId, setOpenId] = useState<string | null>(null);
+  const limit = 25;
+
+  const load = async (p = page, f = filter) => {
+    setLoading(true); setErr(false);
+    try {
+      const qs = new URLSearchParams({ page: String(p), limit: String(limit) });
+      if (f === "security") qs.set("action", "security");
+      const res: any = await apiClient.get(`/company-admin/audit-log?${qs.toString()}`);
+      const d = res?.data?.data ?? res?.data ?? {};
+      setItems(d.items || []); setTotal(d.total || 0);
+    } catch { setErr(true); setItems([]); } finally { setLoading(false); }
+  };
+  useEffect(() => { load(1, filter); setPage(1); setOpenId(null); }, [filter]);
+
+  const pages = Math.max(1, Math.ceil(total / limit));
+  const goPage = (p: number) => { const np = Math.min(Math.max(p, 1), pages); setPage(np); load(np, filter); setOpenId(null); };
+  const fullDate = (iso?: string | null) => iso ? new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }) : "—";
+
+  return (
+    <Panel title={`Audit log${total ? ` (${total})` : ""}`} right={
+      <div className="flex items-center gap-1 text-xs">
+        <button onClick={() => setFilter("all")} className={`px-2.5 py-1 rounded-lg font-medium ${filter === "all" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>All activity</button>
+        <button onClick={() => setFilter("security")} className={`px-2.5 py-1 rounded-lg font-medium ${filter === "security" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-muted"}`}>Security alerts</button>
+      </div>
+    }>
+      {loading ? <Spinner /> : err ? (
+        <div className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3 flex items-center justify-between gap-3">
+          <span className="flex items-center gap-2"><AlertTriangle size={16} /> Could not load the audit log.</span>
+          <button onClick={() => load()} className="text-xs font-semibold text-amber-800 border border-amber-300 rounded px-2.5 py-1 hover:bg-amber-100 shrink-0">Retry</button>
+        </div>
+      ) : items.length === 0 ? <p className="text-sm text-muted-foreground">No activity recorded{filter === "security" ? " for failed sign-ins" : ""}.</p> : (
+        <>
+          <ul className="divide-y divide-border">
+            {items.map(ev => {
+              const open = openId === ev.id;
+              const isSecurity = ev.action === "auth.login_failed";
+              return (
+                <li key={ev.id}>
+                  <button onClick={() => setOpenId(open ? null : ev.id)} className="w-full flex items-start gap-3 text-left py-3 hover:bg-muted/40 -mx-1 px-1 rounded-lg transition-colors">
+                    <span className={`w-8 h-8 rounded-full text-xs font-semibold flex items-center justify-center shrink-0 ${isSecurity ? "bg-red-100 text-red-700" : "bg-muted text-foreground/70"}`}>
+                      {isSecurity ? <AlertTriangle size={15} /> : initials(ev.actor_name || "?")}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="text-sm text-foreground"><strong>{ev.actor_name || ev.actor_email || "Unknown"}</strong> {ev.text}</div>
+                      <div className="text-xs text-muted-foreground">{fullDate(ev.created_at)}{ev.ip_address ? ` · ${ev.ip_address}` : ""}</div>
+                    </div>
+                    <ChevronRight size={16} className={`text-muted-foreground shrink-0 mt-1.5 transition-transform ${open ? "rotate-90" : ""}`} />
+                  </button>
+                  {open && (
+                    <div className="ml-11 mb-3 -mt-1 rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1.5">
+                      <div className="grid grid-cols-2 gap-x-4 gap-y-1">
+                        <div><span className="text-muted-foreground">Action: </span><code className="text-foreground">{ev.action}</code></div>
+                        <div><span className="text-muted-foreground">Resource: </span><span className="text-foreground">{ev.resource}{ev.resource_id ? ` · ${ev.resource_id}` : ""}</span></div>
+                        <div><span className="text-muted-foreground">Actor email: </span><span className="text-foreground">{ev.actor_email || "—"}</span></div>
+                        <div><span className="text-muted-foreground">IP address: </span><span className="text-foreground">{ev.ip_address || "—"}</span></div>
+                        <div className="col-span-2 truncate"><span className="text-muted-foreground">User agent: </span><span className="text-foreground">{ev.user_agent || "—"}</span></div>
+                      </div>
+                      {ev.old_values && Object.keys(ev.old_values).length > 0 && (
+                        <div><div className="text-muted-foreground mt-2 mb-1">Before</div><pre className="bg-background border border-border rounded p-2 overflow-x-auto">{JSON.stringify(ev.old_values, null, 2)}</pre></div>
+                      )}
+                      {ev.new_values && Object.keys(ev.new_values).length > 0 && (
+                        <div><div className="text-muted-foreground mt-2 mb-1">After</div><pre className="bg-background border border-border rounded p-2 overflow-x-auto">{JSON.stringify(ev.new_values, null, 2)}</pre></div>
+                      )}
+                      {ev.metadata && Object.keys(ev.metadata).length > 0 && (
+                        <div><div className="text-muted-foreground mt-2 mb-1">Metadata</div><pre className="bg-background border border-border rounded p-2 overflow-x-auto">{JSON.stringify(ev.metadata, null, 2)}</pre></div>
+                      )}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+          {pages > 1 && (
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-border text-xs text-muted-foreground">
+              <span>Page {page} of {pages}</span>
+              <div className="flex gap-2">
+                <button onClick={() => goPage(page - 1)} disabled={page <= 1} className="px-2.5 py-1 rounded-lg border border-border font-medium disabled:opacity-40">Previous</button>
+                <button onClick={() => goPage(page + 1)} disabled={page >= pages} className="px-2.5 py-1 rounded-lg border border-border font-medium disabled:opacity-40">Next</button>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+    </Panel>
   );
 }
 

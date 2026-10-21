@@ -268,4 +268,43 @@ export const companyAdminService = {
     ).catch(() => {});
     return res.rows[0];
   },
+
+  // Full audit log (requested 22 Oct 2026, from the "Security alerts" / "Recent admin activity"
+  // cards on the overview, which only ever showed the latest 8 rows with no detail and no way to
+  // drill in). Paginated, filterable by action family, and every row carries everything the table
+  // actually stores -- IP, user agent, before/after values, metadata -- not just the human sentence.
+  async auditLog(companyId: string, filters: { action?: string; page?: number; limit?: number } = {}) {
+    const limit = Math.min(Math.max(Number(filters.limit) || 25, 1), 100);
+    const page = Math.max(Number(filters.page) || 1, 1);
+    const offset = (page - 1) * limit;
+    const conditions = ['a.company_id = $1'];
+    const params: any[] = [companyId];
+    let idx = 2;
+    if (filters.action === 'security') {
+      // The "Security alerts" card's own definition: failed sign-ins.
+      conditions.push(`a.action = 'auth.login_failed'`);
+    } else if (filters.action) {
+      conditions.push(`a.action = $${idx++}`);
+      params.push(filters.action);
+    }
+    const where = conditions.join(' AND ');
+    const [rowsRes, countRes] = await Promise.all([
+      query(
+        `SELECT a.id, a.action, a.resource, a.resource_id, a.old_values, a.new_values, a.metadata,
+                a.ip_address::text AS ip_address, a.user_agent, a.created_at,
+                TRIM(COALESCE(u.first_name,'')||' '||COALESCE(u.last_name,'')) AS actor_name, u.email AS actor_email
+           FROM audit_logs a LEFT JOIN users u ON u.id = a.user_id AND u.company_id = a.company_id
+          WHERE ${where}
+          ORDER BY a.created_at DESC
+          LIMIT $${idx} OFFSET $${idx + 1}`,
+        [...params, limit, offset]
+      ),
+      query(`SELECT COUNT(*)::int AS n FROM audit_logs a WHERE ${where}`, params),
+    ]);
+    return {
+      items: rowsRes.rows.map((r: any) => ({ ...r, text: activityText(r) })),
+      total: countRes.rows[0]?.n || 0,
+      page, limit,
+    };
+  },
 };
