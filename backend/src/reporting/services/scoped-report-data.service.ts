@@ -504,16 +504,29 @@ export const scopedReportDataService = {
       const reviewed = tSignals.filter((s: any) => String(s.review_status || 'New') !== 'New').length;
       const tRisks = risks.filter((r: any) => String(r.domain || '').toLowerCase().includes(dl));
       const riskIds = new Set(tRisks.map((r: any) => r.id));
-      const tActions = actions.filter((a: any) => a.risk_id && riskIds.has(a.risk_id));
+      // B9 correction (21 Oct 2026): "retrieve controls through signals, reviews and escalations as
+      // well as registered risks. The present theme query's risk-only linkage hides direct
+      // responses." Confirmed: tActions matched only a.risk_id -- a control still responding
+      // directly to a signal or an unpromoted pattern (no formal risk raised yet) was entirely
+      // invisible here, undercounting controls and wrongly implying "no control action is linked"
+      // even when a direct response existed. Broaden via source_cluster_id against this theme's own
+      // patterns, and via escalation_id against escalations already tied to those risks/clusters.
+      const tClusterIds = new Set((patterns || []).filter((p: any) => String(p.domain || '').toLowerCase().includes(dl)).map((p: any) => p.id));
+      const tEscalations = escalations.filter((esc: any) => (esc.risk_id && riskIds.has(esc.risk_id)) || (esc.source_cluster_id && tClusterIds.has(esc.source_cluster_id)));
+      const tEscalationIds = new Set(tEscalations.map((esc: any) => esc.id));
+      const tActions = actions.filter((a: any) =>
+        (a.risk_id && riskIds.has(a.risk_id))
+        || (a.source_cluster_id && tClusterIds.has(a.source_cluster_id))
+        || (a.escalation_id && tEscalationIds.has(a.escalation_id)));
       const controlsCompleted = tActions.filter((a: any) => /complete/i.test(String(a.status))).length;
       const eff = tActions.filter((a: any) => String(a.effectiveness).startsWith('Effective')).length;
       const notEff = tActions.filter((a: any) => String(a.effectiveness) === 'Not Effective').length;
       const unrev = tActions.filter((a: any) => ['Not yet reviewed', 'Too Early To Assess'].includes(String(a.effectiveness))).length;
       const openActions = tActions.filter((a: any) => isOpenSt(a.status)).length;
-      const openEsc = escalations.filter((e: any) => e.risk_id && riskIds.has(e.risk_id) && isOpenSt(e.status)).length;
+      const openEsc = tEscalations.filter((esc: any) => isOpenSt(esc.status)).length;
       const gaps: string[] = [];
-      if (tRisks.length === 0 && tSignals.length > 0) gaps.push('No registered risk is linked to this theme yet.');
-      if (tActions.length === 0 && tRisks.length > 0) gaps.push("No control action is linked to this theme's risks.");
+      if (tRisks.length === 0 && tClusterIds.size === 0 && tSignals.length > 0) gaps.push('No registered risk or pattern is linked to this theme yet.');
+      if (tActions.length === 0 && (tRisks.length > 0 || tClusterIds.size > 0)) gaps.push("No control action is linked to this theme's risks or patterns.");
       if (unrev > 0) gaps.push(`${unrev} completed control(s) await a final effectiveness judgement.`);
       return {
         theme: domain,

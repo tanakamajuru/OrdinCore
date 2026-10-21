@@ -252,6 +252,20 @@ const isDemonstratedEffective = (a: any) => clean(a?.effectiveness) === 'Effecti
   && clean(a?.effectiveness_review_state) === 'FINAL'
   && !!a?.effectiveness_reviewed_at
   && !!String(a?.effectiveness_evidence || '').trim();
+// B9 correction (21 Oct 2026): "Correct unsupported effectiveness examples, including case
+// closure, future intentions and an acknowledged mismatched entry" (doctrine A5: "police case
+// closure, attendance, intentions or a completed review do not automatically demonstrate control
+// effectiveness"). isDemonstratedEffective() checks the rating is final and evidence text exists,
+// but never checked what the evidence text actually SAYS -- an "Effective" rating backed only by
+// "police closed the case" or "staff will continue to monitor" passed through unflagged. This
+// flags, rather than silently rewrites (A5: "flag weak/conflicting source judgements for review
+// without silently rewriting them") -- a match here moves the entry to its own section instead of
+// counting it as solid evidence.
+// Tuned against real production effectiveness_evidence text (21 Oct 2026) -- the initial pattern
+// missed real examples like "closed the case" (reversed word order) and "the client withdrew
+// charges" (case-closure-by-implication, no literal "closed").
+const WEAK_EVIDENCE_PATTERN = /\b(case (was |is |has been )?closed|closed the case|police (closed|have closed|reviewed)|closure of the case|withdrew (the )?charges|no charges|dealt with by the police|will (continue|monitor|ensure|aim)|continue(s|d)? to monitor|going forward|intends? to|plans? to|planned to|attendance (was |is )?(confirmed|recorded)|completed (the |a )?review)\b/i;
+const hasWeakEvidence = (a: any) => WEAK_EVIDENCE_PATTERN.test(String(a?.effectiveness_evidence || ''));
 const inPeriod = (value: any, data: any) => {
   if (!value || !data.period?.start || !data.period?.end) return false;
   const at = new Date(value).getTime();
@@ -670,12 +684,26 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Open risks', key: 'open_risks', width: 75, map: (r) => String(r.open_risks ?? 0) },
     { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
   ], 'No service was in scope for this report.', 12);
+  const effectiveActions = (e.actions || []).filter((a: any) => isDemonstratedEffective(a));
+  const weakEvidence = effectiveActions.filter((a: any) => hasWeakEvidence(a));
+  const solidEffective = effectiveActions.filter((a: any) => !hasWeakEvidence(a));
   heading(doc, '3. Demonstrated effective controls');
-  bullets(doc, (e.actions || []).filter((a: any) => isDemonstratedEffective(a)).map((a: any) => `${clean(a.action)} - evidence: ${clean(a.effectiveness_evidence)}`), 'No control is yet supported by a final Effective judgement and recorded evidence.', 5);
+  bullets(doc, solidEffective.map((a: any) => `${clean(a.action)} - evidence: ${clean(a.effectiveness_evidence)}`), 'No control is yet supported by a final Effective judgement and recorded evidence.', 5);
+  if (weakEvidence.length) {
+    heading(doc, '3a. Flagged — evidence may not support the rating');
+    paragraph(doc, 'Rated Effective, but the recorded evidence reads as case closure, a future intention, or a completed review rather than a demonstrated outcome. Not automatically wrong, but requires management confirmation before being relied on as proof of effectiveness.', true);
+    bullets(doc, weakEvidence.map((a: any) => `${clean(a.action)} - evidence: ${clean(a.effectiveness_evidence)}`), '', 5);
+  }
   heading(doc, '4. Improvement evident but control incomplete');
   bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Partially Effective').map((a: any) => `${clean(a.action)} — evidence: ${clean(a.effectiveness_evidence || a.completion_evidence)}`), 'No partially effective control was recorded.', 5);
-  heading(doc, '5. Control not demonstrated / awaiting review');
-  bullets(doc, (e.actions || []).filter((a: any) => ['Not Effective','Too Early To Assess','Not yet reviewed'].includes(clean(a.effectiveness))).map((a: any) => `${clean(a.action)} — ${clean(a.effectiveness)}${a.effectiveness_evidence ? ` — evidence: ${clean(a.effectiveness_evidence)}` : ''}`), 'No failed, interim or unreviewed control was recorded.', 5);
+  // B9 correction: "Separate failed, partial, interim and unreviewed controls" -- these three were
+  // previously merged into one undifferentiated section.
+  heading(doc, '5. Failed controls');
+  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Not Effective').map((a: any) => `${clean(a.action)}${a.effectiveness_evidence ? ` — evidence: ${clean(a.effectiveness_evidence)}` : ''}`), 'No control was rated Not Effective.', 5);
+  heading(doc, '5a. Interim — too early to assess');
+  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Too Early To Assess').map((a: any) => `${clean(a.action)}${a.effectiveness_evidence ? ` — evidence: ${clean(a.effectiveness_evidence)}` : ''}`), 'No control is currently too early to assess.', 5);
+  heading(doc, '5b. Unreviewed controls');
+  bullets(doc, (e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Not yet reviewed').map((a: any) => clean(a.action)), 'No completed control is awaiting its effectiveness review.', 5);
   heading(doc, '6. Assurance limitations');
   bullets(doc, [
     ...(data.material_exceptions || []).map((x: any) => {
