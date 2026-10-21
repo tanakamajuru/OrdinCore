@@ -433,17 +433,49 @@ function renderRisks(doc: PDFKit.PDFDocument, data: any) {
     'No significant pattern is currently unpromoted.', 6);
 }
 
+// B5 correction (21 Oct 2026): "Classify raised, carried-forward, closed and outstanding items
+// explicitly" -- previously only a free-text lifecycle status string, no classification against
+// the period boundary.
+function escalationStage(r: any, data: any): string {
+  const st = String(r.status || '').toLowerCase();
+  if (st === 'closed') return 'Closed';
+  const raisedInPeriod = inPeriod(r.date, data);
+  if (raisedInPeriod) return 'Raised this period';
+  const dueBy = r.due_by ? new Date(r.due_by).getTime() : null;
+  if (dueBy && dueBy < Date.now()) return 'Outstanding (overdue)';
+  return 'Carried forward';
+}
+
 function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
+  const escalations = e.escalations || [];
   heading(doc, '1. Escalations and management response');
   paragraph(doc, `This report covers matters escalated for management attention in ${clean(data.scope_label)} during the selected period, with the recorded response to each.`);
-  table(doc, '2. Escalations', e.escalations || [], [
-    { label: 'Raised', key: 'date', width: 60, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 75 },
-    { label: 'Reason', key: 'reason', width: 150 }, { label: 'Recipient', key: 'escalated_to', width: 80 },
-    { label: 'Position / due', key: 'status', width: 130, map: (r) => `${clean(r.status)} / ${date(r.due_by)}` },
+  // B5 correction: "Show reason/priority, recipient, management response, controls/actions,
+  // deadline, stage" -- priority, controls/actions and an explicit stage classification were not
+  // shown at all; deadline was combined into one ambiguous "position / due" string.
+  table(doc, '2. Escalations', escalations, [
+    { label: 'Raised', key: 'date', width: 55, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 65 },
+    { label: 'Reason', key: 'reason', width: 110 }, { label: 'Priority', key: 'priority', width: 45, map: (r) => r.priority || '—' },
+    { label: 'Recipient', key: 'escalated_to', width: 65 },
+    { label: 'Stage', key: 'stage', width: 70, map: (r) => escalationStage(r, data) },
+    { label: 'Deadline', key: 'due_by', width: 55, map: (r) => date(r.due_by) },
   ], 'No escalation was recorded in this period.', 10);
-  heading(doc, '3. Outcomes recorded');
-  bullets(doc, (e.escalations || []).filter((x: any) => x.outcome).map((x: any) => `${date(x.date)} ${clean(x.service)} - escalated to ${clean(x.escalated_to)}: ${clean(x.outcome)}`), 'No escalation outcome was recorded in this period.', 6);
+  // B5 correction: "outcome, closure evidence/date and continuing work" as distinct fields --
+  // closure evidence/date was conflated with the general "outcome" text, and ongoing (non-closed)
+  // continuing work was not shown at all alongside the closed ones.
+  heading(doc, '3. Response, controls and outcome');
+  bullets(doc, escalations.map((x: any) => {
+    const closed = /closed/i.test(clean(x.status));
+    const parts = [
+      `${date(x.date)} ${clean(x.service)} - escalated to ${clean(x.escalated_to)}`,
+      x.linked_actions ? `Controls/actions: ${x.linked_actions}` : 'Controls/actions: none recorded',
+      closed
+        ? `Closed ${date(x.closed_at || x.resolved_at)}. Closure evidence: ${clean(x.outcome)}`
+        : `Continuing work: ${clean(x.status)}, due ${date(x.due_by)}. Outcome so far: ${x.outcome ? clean(x.outcome) : 'not yet recorded'}`,
+    ];
+    return parts.join(' — ');
+  }), 'No escalation was recorded in this period.', 6);
   paragraph(doc, 'Closing an escalation does not automatically close the underlying concern or risk.', true);
 }
 

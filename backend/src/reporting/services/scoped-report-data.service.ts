@@ -249,10 +249,16 @@ export const scopedReportDataService = {
               CASE WHEN COALESCE(e.closed_at,e.resolved_at) IS NOT NULL AND COALESCE(e.closed_at,e.resolved_at) <= $4::timestamptz
                    THEN 'Closed' ELSE COALESCE(e.lifecycle_status::text, e.status::text) END AS status,
               e.due_by, COALESCE(e.closure_evidence, e.resolution_notes) AS outcome,
+              e.closed_at, e.resolved_at,
               e.risk_id, e.source_cluster_id, e.source_governance_review_id,
-              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to,
+              -- B5 correction: "Show ... controls/actions" -- the actions actually raised against
+              -- this escalation, not just its own text fields.
+              (SELECT string_agg(DISTINCT a.title, '; ' ORDER BY a.title) FROM risk_actions a
+                WHERE a.escalation_id = e.id AND a.company_id = e.company_id AND a.status NOT IN ('Cancelled')) AS linked_actions
          FROM canonical_escalation_state_v e
          LEFT JOIN risks r ON r.id = e.risk_id AND r.company_id = e.company_id
+         LEFT JOIN governance_pulses gp ON gp.id = e.source_pulse_id AND gp.company_id = e.company_id
          LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id) AND h.company_id = e.company_id
          LEFT JOIN users u ON u.id = e.escalated_to AND u.company_id = e.company_id
         WHERE e.company_id = $1
@@ -260,7 +266,12 @@ export const scopedReportDataService = {
                OR ($6::boolean AND COALESCE(e.house_id, r.house_id) IS NULL))
           AND e.created_at <= $4::timestamptz
           AND COALESCE(e.closed_at, e.resolved_at, $4::timestamptz) >= $3::timestamptz
-          AND ($5::uuid IS NULL OR e.service_user_id = $5)
+          -- B5 correction (21 Oct 2026): "Reconcile the theft escalation present in the service
+          -- report but absent from Jonathan's person report." e.service_user_id is set directly on
+          -- only ~30% of escalations -- confirmed against production that 63/97 trace to a real
+          -- person only through the linked signal or risk. Inherit the link the same way, instead
+          -- of requiring the escalation's own column to have been set at creation time.
+          AND ($5::uuid IS NULL OR e.service_user_id = $5 OR gp.service_user_id = $5 OR r.service_user_id = $5)
         ORDER BY e.created_at DESC`, broadParams
     )).rows;
 
