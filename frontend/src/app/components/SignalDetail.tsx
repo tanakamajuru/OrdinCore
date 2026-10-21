@@ -498,6 +498,12 @@ export function SignalDetail() {
                     </button>
                   ) : (signal.cluster_signal_count ?? 0) >= 2 ? (
                     <p className="text-lg text-amber-600 font-semibold">Part of a {signal.cluster_signal_count}-signal pattern{signal.pattern_concern && signal.pattern_concern !== "None" ? ` · ${signal.pattern_concern}` : ""}</p>
+                  ) : signal.evaluation_status === "FAILED" ? (
+                    // Evaluation recovery (17 Oct v3 findings) — a failed/incomplete automated
+                    // evaluation must never read the same as a genuine "no pattern found".
+                    <p className="text-lg text-red-600 font-semibold">Automated pattern evaluation failed — not yet checked</p>
+                  ) : signal.evaluation_status === "PENDING" || signal.evaluation_status === "PROCESSING" ? (
+                    <p className="text-lg text-muted-foreground">Pattern evaluation in progress…</p>
                   ) : (
                     <p className="text-lg ">{signal.pattern_concern && signal.pattern_concern !== "None" ? signal.pattern_concern : "Not yet part of a pattern"}</p>
                   )}

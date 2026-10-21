@@ -215,10 +215,23 @@ export class PulseService {
                 risk_domain: patternDomains,
                 related_person: pulse.related_person,
                 service_user_id: pulse.service_user_id
+            }, {
+                // Evaluation recovery (17 Oct v3 findings): BullMQ's own retry layer on top of the
+                // reconciliation sweep in pattern.worker.ts -- a transient failure (e.g. a brief DB
+                // hiccup) gets retried quickly without waiting for the 5-minute sweep interval.
+                attempts: 3,
+                backoff: { type: 'exponential', delay: 5000 },
             });
             logger.info(`Pattern detection job queued for pulse ${pulse.id}`);
         } catch (err) {
+            // The job never reached the queue at all -- governance_pulses defaults to PENDING, which
+            // the worker's recovery sweep will re-queue after its grace period, but mark it FAILED
+            // with the real reason now so it is visible immediately rather than waiting that out.
             logger.error(`Failed to queue pattern detection for pulse ${pulse.id}`, err);
+            await query(
+                `UPDATE governance_pulses SET evaluation_status = 'FAILED', evaluation_last_error = $2 WHERE id = $1`,
+                [pulse.id, String((err as any)?.message || err).slice(0, 2000)]
+            ).catch(() => { /* best-effort */ });
         }
 
         return pulse;

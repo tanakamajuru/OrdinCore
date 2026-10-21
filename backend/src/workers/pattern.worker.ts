@@ -1,4 +1,4 @@
-import { Worker, Job } from 'bullmq';
+import { Worker, Job, Queue } from 'bullmq';
 import { redisConnection } from '../config/redis';
 import { query } from '../config/database';
 import { notificationsService } from '../services/notifications.service';
@@ -42,20 +42,57 @@ function preserveLifecycle(existing: string | undefined, proposed: string): stri
     return rank[existing] > (rank[proposed] || 0) ? existing : proposed;
 }
 
+// Recovery cap: after this many failed attempts, stop auto-retrying and leave the signal as FAILED
+// for a human to see (surfaced to the RM via guidedWork.service.ts) rather than retrying forever.
+const MAX_EVALUATION_ATTEMPTS = 5;
+// A PROCESSING row with no completion past this long means the worker that claimed it died
+// mid-job (crash, deploy, OOM) without reaching the catch block — the sweep reclaims it.
+const STUCK_PROCESSING_MINUTES = 10;
+
+// Same queue name pulse.service.ts enqueues to — used only by the recovery sweep to re-add a job
+// built from governance_pulses' own columns, never by request-path code.
+const patternDetectionQueueRef = new Queue('pattern-detection', { connection: redisConnection });
+
 export const startPatternWorker = () => {
     const worker = new Worker('pattern-detection', async (job: Job) => {
         const { pulse_id, company_id, house_id, risk_domain, service_user_id } = job.data;
         logger.info(`Processing pattern detection for pulse ${pulse_id}`);
 
-        // Handle multiple domains if risk_domain is an array
-        const domains = Array.isArray(risk_domain) ? risk_domain : [risk_domain];
-        for (const domain of domains) {
-            // Every signal strengthens its service theme. A person-linked signal also
-            // strengthens a separate person lens using the immutable service_user_id.
-            await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id || null, 'service');
-            if (service_user_id) {
-                await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id, 'person');
+        // Evaluation recovery (17 Oct v3 findings, decision confirmed 21 Oct 2026): mark this signal
+        // under active evaluation BEFORE doing any work, so a crash mid-job leaves a visible
+        // PROCESSING trace (reclaimed by sweepStuckEvaluations below) instead of silently vanishing.
+        await query(
+            `UPDATE governance_pulses SET evaluation_status = 'PROCESSING', evaluation_started_at = NOW(),
+                    evaluation_attempts = evaluation_attempts + 1, evaluation_last_error = NULL
+              WHERE id = $1`,
+            [pulse_id]
+        );
+
+        try {
+            // Handle multiple domains if risk_domain is an array
+            const domains = Array.isArray(risk_domain) ? risk_domain : [risk_domain];
+            for (const domain of domains) {
+                if (!domain) continue;
+                // Every signal strengthens its service theme. A person-linked signal also
+                // strengthens a separate person lens using the immutable service_user_id.
+                await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id || null, 'service');
+                if (service_user_id) {
+                    await evaluateRules(company_id, house_id, domain, pulse_id, job.data.related_person, service_user_id, 'person');
+                }
             }
+            await query(
+                `UPDATE governance_pulses SET evaluation_status = 'EVALUATED', evaluation_completed_at = NOW() WHERE id = $1`,
+                [pulse_id]
+            );
+        } catch (err: any) {
+            // A failed/incomplete evaluation must never read as "no concerns found" -- record the
+            // failure explicitly and rethrow so BullMQ's own retry/backoff (configured at enqueue
+            // time) and the reconciliation sweep both still see this as unfinished work.
+            await query(
+                `UPDATE governance_pulses SET evaluation_status = 'FAILED', evaluation_last_error = $2 WHERE id = $1`,
+                [pulse_id, String(err?.message || err).slice(0, 2000)]
+            ).catch((e) => logger.error(`Failed to record evaluation failure for pulse ${pulse_id}`, e));
+            throw err;
         }
     }, { connection: redisConnection });
 
@@ -66,6 +103,43 @@ export const startPatternWorker = () => {
     worker.on('failed', (job, err) => {
         logger.error(`Pattern detection job ${job?.id} failed`, err);
     });
+
+    // Recovery sweep: catches work a crashed process or a lost Redis job never finished -- signals
+    // stuck PROCESSING past the stuck threshold, FAILED with retry budget left, or never queued at
+    // all (PENDING past a grace period, e.g. the enqueue call itself threw). Rebuilds the job
+    // payload from governance_pulses' own columns, so nothing extra needs to be stored to recover.
+    // Idempotent: evaluateRules()'s own ON CONFLICT DO NOTHING / UPDATE clauses make re-running a
+    // signal's evaluation safe -- it does not duplicate clusters, risk_candidates or escalations.
+    const sweepStuckEvaluations = async () => {
+        try {
+            const stuck = await query(
+                `SELECT id, company_id, house_id, risk_domain, governance_domain, related_person, service_user_id
+                   FROM governance_pulses
+                  WHERE (
+                          (evaluation_status = 'PROCESSING' AND evaluation_started_at < NOW() - INTERVAL '${STUCK_PROCESSING_MINUTES} minutes')
+                       OR (evaluation_status = 'FAILED' AND evaluation_attempts < ${MAX_EVALUATION_ATTEMPTS})
+                       OR (evaluation_status = 'PENDING' AND created_at < NOW() - INTERVAL '5 minutes')
+                        )
+                    AND COALESCE(description,'') <> 'Scheduled Governance Pulse'
+                  LIMIT 200`
+            );
+            for (const row of stuck.rows) {
+                const domains = Array.isArray(row.risk_domain) && row.risk_domain.length > 0
+                    ? row.risk_domain
+                    : (row.governance_domain ? [row.governance_domain] : []);
+                if (domains.length === 0) continue;
+                await patternDetectionQueueRef.add('pattern:check', {
+                    pulse_id: row.id, company_id: row.company_id, house_id: row.house_id,
+                    risk_domain: domains, related_person: row.related_person, service_user_id: row.service_user_id,
+                });
+                logger.info(`Recovery sweep re-queued stuck pattern evaluation for pulse ${row.id}`);
+            }
+        } catch (e) {
+            logger.error('Pattern evaluation recovery sweep failed', e);
+        }
+    };
+    sweepStuckEvaluations();
+    setInterval(sweepStuckEvaluations, 5 * 60 * 1000);
 
     return worker;
 };

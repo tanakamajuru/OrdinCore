@@ -223,6 +223,27 @@ export const guidedWorkService = {
         actionLabel:'Review Signal', whyAmISeeingThis:'This signal has not yet received an RM governance decision.'
       });
 
+      // Evaluation recovery (17 Oct v3 findings, decision confirmed 21 Oct 2026): a signal whose
+      // pattern/immediate-detection evaluation has exhausted its auto-retry budget must never sit
+      // silently indistinguishable from "evaluated, no concern found" — surface it to the RM as its
+      // own work item so a human knows pattern detection genuinely has not run for this signal.
+      const failedEvaluations = await safeRows(`
+        SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.evaluation_attempts, h.name AS service_name
+          FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
+         WHERE gp.company_id=$1 AND gp.house_id=ANY($2::uuid[])
+           AND gp.evaluation_status='FAILED' AND gp.evaluation_attempts>=5
+         ORDER BY gp.created_at`, [companyId, houses]);
+      for (const f of failedEvaluations) needsYou.push({
+        id:`eval_failed:${f.id}`, role, state:'NEEDS_YOU', priority:'URGENT', taskType:'EVALUATION_FAILED',
+        title:`Pattern evaluation failed${f.related_person ? ` · ${f.related_person}` : ''}`,
+        summary:f.description || 'A signal failed automated pattern/safeguarding evaluation after repeated retries.',
+        reason:`Automated evaluation has failed ${f.evaluation_attempts} times and will not retry further — this signal has not been checked for a pattern or immediate safeguarding concern.`,
+        serviceName:f.service_name, canonicalEntityType:'signal', canonicalEntityId:f.id, requiredAction:'MANUAL_SIGNAL_REVIEW',
+        completionCondition:'An RM Daily Governance decision is persisted for this signal (manual review substitutes for the failed automated check).',
+        route:`/governance-dashboard?guided=1&gw=eval_failed:${f.id}&pulseId=${f.id}&houseId=${f.house_id}`,
+        actionLabel:'Review Signal', whyAmISeeingThis:'Automated pattern/safeguarding evaluation could not complete for this signal after repeated attempts.'
+      });
+
       // Scoped to the RM's houses, not just signals the RM personally nominated themselves to
       // monitor: a signal a TEAM LEADER is monitoring must still return to RM Daily Oversight /
       // Decisions Due at the review point — or immediately if the TL flags urgent attention

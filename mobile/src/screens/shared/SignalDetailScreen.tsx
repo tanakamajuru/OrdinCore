@@ -354,7 +354,13 @@ export function SignalDetailScreen() {
       ) : null}
 
       <Label>History &amp; pattern</Label>
-      {clusters.length > 0 ? clusters.map((cl) => (
+      {/* Evaluation recovery (17 Oct v3 findings): a failed/incomplete automated evaluation must
+          never read the same as a genuine "no pattern found" -- distinguish the two explicitly. */}
+      {s?.evaluation_status === 'FAILED' ? (
+        <Text size={12.5} color={c.sevHigh}>Automated pattern evaluation failed for this signal and could not be confirmed — it has not been checked for a pattern.</Text>
+      ) : s?.evaluation_status === 'PENDING' || s?.evaluation_status === 'PROCESSING' ? (
+        <Text muted size={12.5}>Pattern evaluation is still in progress for this signal.</Text>
+      ) : clusters.length > 0 ? clusters.map((cl) => (
         <View key={cl.id} style={{ backgroundColor: c.accentTint, borderColor: c.accent + '55', borderWidth: 1, borderRadius: 14, padding: 12 }}>
           <Row style={{ justifyContent: 'space-between' }}>
             <Row gap={7}><Feather name="activity" size={14} color={c.accent} /><Text weight="600" size={12.5}>{cl.cluster_label || `${cl.risk_domain} pattern`}</Text></Row>
