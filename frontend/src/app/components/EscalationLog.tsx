@@ -293,7 +293,18 @@ export function EscalationLog() {
     // status is used only when a pre-migration record has no lifecycle value.
     if (ls) {
       if (ls === 'closed' || ls === 'resolved') return 'resolved';
-      if (ls === 'open' || ls === 'reopened') return 'needs';
+      if (ls === 'open' || ls === 'reopened') {
+        // Cross-screen consistency fix (21 Oct 2026): lifecycle_status stays 'open' for the
+        // whole life of a Continue-monitoring decision, so this previously always read as
+        // "Needs review" even while guidedWork.service.ts correctly sat the exact same
+        // escalation in Waiting/Being managed. Port the identical validMonitoring check (same
+        // name, same three conditions) so this list and Guided Work can never disagree.
+        const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
+        const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
+        const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
+        const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
+        return validMonitoring ? 'progress' : 'needs';
+      }
       return 'progress';
     }
     if (s === 'resolved' || s === 'closed') return 'resolved';
