@@ -72,6 +72,28 @@ export function IncidentCaseHub() {
   const [allRisks, setAllRisks] = useState<any[]>([]);
   const [allEscalations, setAllEscalations] = useState<any[]>([]);
   const [people, setPeople] = useState<{ name: string; kind: string }[]>([]);
+  // C1 correction (21 Oct 2026): "Show directory loading/error/retry" -- the directory fetch was a
+  // bare try/catch with no loading state and no way to retry a failed load; a failure just left the
+  // picker permanently empty with no explanation.
+  const [peopleStatus, setPeopleStatus] = useState<'loading' | 'ready' | 'error'>('loading');
+  // C1 correction: "Record stable identity, client/staff/external/unknown type and roles: affected
+  // person, witness, person alleged to have caused harm, reporter or other. Permit multiple roles,
+  // no individual affected." Replaces the free-text comma list (persons_involved as a plain
+  // string) that stored unstructured names with no type or role -- confirmed every incident on
+  // production has persons_involved=[] because the field was never actually structured data the
+  // backend could use meaningfully.
+  type IncidentPersonType = 'client' | 'staff' | 'external' | 'unknown';
+  type IncidentPersonRole = 'affected' | 'witness' | 'alleged' | 'reporter' | 'other';
+  type IncidentPerson = { name: string; type: IncidentPersonType; roles: IncidentPersonRole[] };
+  const [incidentPersons, setIncidentPersons] = useState<IncidentPerson[]>([]);
+  const [noIndividualAffected, setNoIndividualAffected] = useState(false);
+  const [personDraftName, setPersonDraftName] = useState('');
+  const [personDraftType, setPersonDraftType] = useState<IncidentPersonType>('client');
+  const [personDraftRoles, setPersonDraftRoles] = useState<IncidentPersonRole[]>([]);
+  const ROLE_LABEL: Record<IncidentPersonRole, string> = {
+    affected: 'Affected person', witness: 'Witness', alleged: 'Person alleged to have caused harm',
+    reporter: 'Reporter', other: 'Other',
+  };
 
   const userString = localStorage.getItem('user') || '{}';
   const user = JSON.parse(userString);
@@ -102,6 +124,29 @@ export function IncidentCaseHub() {
     }
   }, [location.state]);
 
+  // C1 correction: directory loading now has an explicit loading/error/retry state instead of
+  // silently leaving the picker empty on failure with no way to recover without a full page reload.
+  const loadPeopleDirectory = async () => {
+    setPeopleStatus('loading');
+    try {
+      const [usersRes, suRes] = await Promise.all([
+        apiClient.get('/users/directory'),
+        apiClient.get('/service-users?limit=200'),
+      ]);
+      const uData = (usersRes.data as any).data || (usersRes.data as any) || [];
+      const uList = Array.isArray(uData) ? uData : (uData.users || uData.items || []);
+      const sData = (suRes.data as any).data || (suRes.data as any) || [];
+      const sList = Array.isArray(sData) ? sData : (sData.serviceUsers || sData.service_users || sData.items || []);
+      const nameOf = (p: any) => (p.name || p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.full_name || '').trim();
+      const staff = uList.map((u: any) => ({ name: nameOf(u), kind: 'Staff' })).filter((p: any) => p.name);
+      const patients = sList.map((s: any) => ({ name: nameOf(s), kind: 'Service User' })).filter((p: any) => p.name);
+      setPeople([...patients, ...staff]);
+      setPeopleStatus('ready');
+    } catch {
+      setPeopleStatus('error');
+    }
+  };
+
   const loadIncidents = async () => {
     try {
       // Load all houses
@@ -122,21 +167,7 @@ export function IncidentCaseHub() {
       const escalationsList = Array.isArray(eData) ? eData : (eData.escalations || eData.items || []);
       setAllEscalations(escalationsList);
 
-      // People Involved picker: system users (staff) + service users (patients).
-      try {
-        const [usersRes, suRes] = await Promise.all([
-          apiClient.get('/users/directory'),
-          apiClient.get('/service-users?limit=200'),
-        ]);
-        const uData = (usersRes.data as any).data || (usersRes.data as any) || [];
-        const uList = Array.isArray(uData) ? uData : (uData.users || uData.items || []);
-        const sData = (suRes.data as any).data || (suRes.data as any) || [];
-        const sList = Array.isArray(sData) ? sData : (sData.serviceUsers || sData.service_users || sData.items || []);
-        const nameOf = (p: any) => (p.name || p.display_name || `${p.first_name || ''} ${p.last_name || ''}`.trim() || p.full_name || '').trim();
-        const staff = uList.map((u: any) => ({ name: nameOf(u), kind: 'Staff' })).filter((p: any) => p.name);
-        const patients = sList.map((s: any) => ({ name: nameOf(s), kind: 'Service User' })).filter((p: any) => p.name);
-        setPeople([...patients, ...staff]);
-      } catch { /* people picker is best-effort */ }
+      loadPeopleDirectory();
 
       let houseIds: string[] = [];
       if (userRole === 'REGISTERED_MANAGER' || userRole === 'TEAM_LEADER') {
@@ -186,6 +217,11 @@ export function IncidentCaseHub() {
     if (!incidentForm.title || !incidentForm.description || !incidentForm.occurred_at) {
       toast.error('Please fill in title, description and date'); return;
     }
+    // C1 correction: "no individual affected" must be an explicit, recorded confirmation, not just
+    // an empty list that could equally mean "forgot to add anyone".
+    if (!noIndividualAffected && incidentPersons.length === 0) {
+      toast.error('Add at least one person involved, or confirm no individual was affected.'); return;
+    }
     // C1 correction (21 Oct 2026): "Allow every authorised assigned service and save the selected
     // ID." This used to force userHouseId (the single first assigned house) over whatever the form
     // actually held, silently discarding a deliberate selection of a different assigned service.
@@ -205,7 +241,9 @@ export function IncidentCaseHub() {
         immediate_action: incidentForm.immediate_action,
         type: incidentForm.type,
         source_pulse_id: incidentForm.source_pulse_id || undefined,
-        persons_involved: incidentForm.persons_involved ? incidentForm.persons_involved.split(',').map((s: string) => s.trim()).filter(Boolean) : [],
+        // C1 correction: structured identity (name, type, roles) instead of a flat name list.
+        persons_involved: incidentPersons,
+        no_individual_affected: noIndividualAffected,
         follow_up_required: true,
         linked_risks: incidentForm.linked_risks || [],
         linked_escalations: incidentForm.linked_escalations || [],
@@ -224,6 +262,7 @@ export function IncidentCaseHub() {
       toast.success(ref ? `Serious incident ${ref} logged` : 'Incident reported successfully');
       try { localStorage.removeItem(DRAFT_KEY); } catch { /* ignore */ }
       setShowCreateModal(false);
+      setIncidentPersons([]); setNoIndividualAffected(false); setPersonDraftName(''); setPersonDraftRoles([]);
       setIncidentForm({
         house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(),
         immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '', linked_risks: [], linked_escalations: [],
@@ -306,13 +345,13 @@ export function IncidentCaseHub() {
     // dropdown to a different assigned service, pattern detection must follow that choice, not
     // silently stay pinned to whichever house loaded first.
     const houseId = incidentForm.house_id || userHouseId;
-    if (!houseId && !incidentForm.persons_involved) { setPatterns(null); return; }
+    if (!houseId && incidentPersons.length === 0) { setPatterns(null); return; }
     const t = setTimeout(async () => {
       setDetecting(true);
       try {
         const res = await apiClient.post('/incidents/detect-patterns', {
           house_id: houseId || undefined,
-          persons_involved: incidentForm.persons_involved,
+          persons_involved: incidentPersons.map((p) => p.name),
           type: incidentForm.type,
           severity: incidentForm.severity,
         });
@@ -321,7 +360,7 @@ export function IncidentCaseHub() {
       finally { setDetecting(false); }
     }, 700);
     return () => clearTimeout(t);
-  }, [incidentForm.house_id, incidentForm.persons_involved, incidentForm.type, incidentForm.severity, showCreateModal, userHouseId]);
+  }, [incidentForm.house_id, incidentPersons, incidentForm.type, incidentForm.severity, showCreateModal, userHouseId]);
 
   const generateNarrative = async () => {
     setNarrativeBusy(true);
@@ -333,7 +372,8 @@ export function IncidentCaseHub() {
         data: {
           title: incidentForm.title, type: incidentForm.type, severity: incidentForm.severity,
           what_happened: incidentForm.description, immediate_action: incidentForm.immediate_action,
-          people_involved: incidentForm.persons_involved, location: incidentForm.location,
+          people_involved: incidentPersons.map((p) => `${p.name} (${p.type}; ${p.roles.map((r) => ROLE_LABEL[r]).join('/')})`).join(', ') || (noIndividualAffected ? 'No individual affected' : ''),
+          location: incidentForm.location,
           warning_signals_present: incidentForm.warning_signals, risk_factors: incidentForm.risk_factors,
         },
       });
@@ -867,43 +907,72 @@ export function IncidentCaseHub() {
                         />
                       </div>
                       <div>
-                        <label className="block text-sm  text-foreground mb-1">People Involved</label>
-                        {/* Explicit person picker — appends the chosen service user / staff member to the
-                            list. A visible <select> is used because a bare datalist combobox does not
-                            reliably let users browse and select a person across all browsers. */}
-                        {people.length > 0 && (
-                          <select
-                            value=""
-                            onChange={(e) => {
-                              const name = e.target.value;
-                              if (!name) return;
-                              const current = String(incidentForm.persons_involved || '').split(',').map((s: string) => s.trim()).filter(Boolean);
-                              if (!current.includes(name)) current.push(name);
-                              setIncidentForm({ ...incidentForm, persons_involved: current.join(', ') });
-                            }}
-                            className="w-full h-10 px-3 mb-2 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          >
-                            <option value="">Select a service user or staff member to add…</option>
-                            <optgroup label="Service users">
-                              {people.filter(p => p.kind === 'Service User').map((p, i) => <option key={`su${i}`} value={p.name}>{p.name}</option>)}
-                            </optgroup>
-                            <optgroup label="Staff">
-                              {people.filter(p => p.kind === 'Staff').map((p, i) => <option key={`st${i}`} value={p.name}>{p.name}</option>)}
-                            </optgroup>
-                          </select>
+                        <label className="block text-sm  text-foreground mb-1">People involved</label>
+                        {/* C1 correction: "Record stable identity, client/staff/external/unknown
+                            type and roles: affected person, witness, person alleged to have caused
+                            harm, reporter or other. Permit multiple roles, no individual affected."
+                            "Show directory loading/error/retry." */}
+                        {peopleStatus === 'loading' && <p className="text-xs text-muted-foreground mb-2">Loading staff and service user directory…</p>}
+                        {peopleStatus === 'error' && (
+                          <div className="flex items-center justify-between gap-2 mb-2 text-xs bg-amber-50 border border-amber-200 rounded-lg px-2.5 py-2">
+                            <span className="text-amber-800">Could not load the directory — you can still add people by name below.</span>
+                            <button type="button" onClick={loadPeopleDirectory} className="font-semibold text-amber-900 underline shrink-0">Retry</button>
+                          </div>
                         )}
-                        <input
-                          list="people-involved-options"
-                          value={incidentForm.persons_involved}
-                          onChange={(e) => setIncidentForm({ ...incidentForm, persons_involved: e.target.value })}
-                          placeholder="Pick from the dropdown above, or type others; separate multiple with commas"
-                          className="w-full h-10 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                        />
-                        <datalist id="people-involved-options">
-                          {people.map((p, i) => (
-                            <option key={i} value={p.name}>{p.kind}</option>
-                          ))}
-                        </datalist>
+                        <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                          <input type="checkbox" checked={noIndividualAffected} onChange={(e) => { setNoIndividualAffected(e.target.checked); if (e.target.checked) setIncidentPersons([]); }} />
+                          No individual was affected by this incident
+                        </label>
+                        {!noIndividualAffected && (
+                          <>
+                            {incidentPersons.length > 0 && (
+                              <ul className="space-y-1.5 mb-2">
+                                {incidentPersons.map((p, i) => (
+                                  <li key={i} className="flex items-center justify-between gap-2 text-xs bg-muted/50 border border-border rounded-lg px-2.5 py-1.5">
+                                    <span><strong>{p.name}</strong> · {p.type} · {p.roles.map((r) => ROLE_LABEL[r]).join(', ') || 'no role set'}</span>
+                                    <button type="button" onClick={() => setIncidentPersons(incidentPersons.filter((_, idx) => idx !== i))} className="text-muted-foreground hover:text-destructive shrink-0">Remove</button>
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
+                            <div className="border border-border rounded-lg p-3 space-y-2">
+                              <input
+                                list="people-involved-options"
+                                value={personDraftName}
+                                onChange={(e) => setPersonDraftName(e.target.value)}
+                                placeholder="Search the directory, or type a name (external/unknown person)"
+                                className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                              />
+                              <datalist id="people-involved-options">
+                                {people.map((p, i) => <option key={i} value={p.name}>{p.kind}</option>)}
+                              </datalist>
+                              <div className="flex flex-wrap gap-3 items-center">
+                                <select value={personDraftType} onChange={(e) => setPersonDraftType(e.target.value as IncidentPersonType)} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
+                                  <option value="client">Client</option>
+                                  <option value="staff">Staff</option>
+                                  <option value="external">External</option>
+                                  <option value="unknown">Unknown</option>
+                                </select>
+                                {(Object.keys(ROLE_LABEL) as IncidentPersonRole[]).map((role) => (
+                                  <label key={role} className="flex items-center gap-1 text-xs">
+                                    <input type="checkbox" checked={personDraftRoles.includes(role)}
+                                      onChange={(e) => setPersonDraftRoles(e.target.checked ? [...personDraftRoles, role] : personDraftRoles.filter((r) => r !== role))} />
+                                    {ROLE_LABEL[role]}
+                                  </label>
+                                ))}
+                              </div>
+                              <Button type="button" variant="outline" size="sm"
+                                onClick={() => {
+                                  if (!personDraftName.trim()) { toast.error('Enter a name.'); return; }
+                                  if (!personDraftRoles.length) { toast.error('Select at least one role.'); return; }
+                                  setIncidentPersons([...incidentPersons, { name: personDraftName.trim(), type: personDraftType, roles: personDraftRoles }]);
+                                  setPersonDraftName(''); setPersonDraftType('client'); setPersonDraftRoles([]);
+                                }}>
+                                Add person
+                              </Button>
+                            </div>
+                          </>
+                        )}
                         {people.length > 0 && (
                           <p className="text-[11px] text-muted-foreground mt-1">{people.filter(p => p.kind === 'Service User').length} service users · {people.filter(p => p.kind === 'Staff').length} staff available</p>
                         )}

@@ -21,7 +21,7 @@ interface IncidentDetail {
   category_name: string;
   location: string;
   immediate_action: string;
-  persons_involved: string[];
+  persons_involved: (string | { name: string; type: string; roles: string[] })[];
   follow_up_required: boolean;
   updated_at: string;
   linked_risks?: any[];
@@ -287,9 +287,20 @@ export function IncidentDetail() {
                 <User className="w-4 h-4 text-muted-foreground" />
                 <h3 className=" text-foreground">Persons Involved</h3>
               </div>
-              <p className="text-foreground">
-                {incident.persons_involved?.length > 0 ? incident.persons_involved.join(', ') : 'None specified'}
-              </p>
+              {/* C1 correction (21 Oct 2026): persons_involved is now structured
+                  {name,type,roles} objects, not plain name strings -- handle both so existing
+                  incidents (plain strings) still render correctly. */}
+              {incident.persons_involved?.length > 0 ? (
+                <ul className="space-y-1">
+                  {(incident.persons_involved as any[]).map((p: any, i: number) => (
+                    <li key={i} className="text-foreground text-sm">
+                      {typeof p === 'string' ? p : `${p.name}${p.type ? ` · ${p.type}` : ''}${Array.isArray(p.roles) && p.roles.length ? ` · ${p.roles.join(', ')}` : ''}`}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-foreground">None specified</p>
+              )}
             </div>
           </div>
 
