@@ -39,6 +39,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'eye', label: 'Patterns', go: go(() => navigate('RMPatterns')) },
       { icon: 'clipboard', label: 'Weekly Review', go: go(() => navigate('RMWeeklyReview')) },
       { icon: 'trending-up', label: 'Escalations', go: go(() => navigate('RMEscalations')) },
+      { icon: 'file-text', label: 'Reports', go: go(() => navigate('RMReports')) },
       { icon: 'clipboard', label: 'Governance Review', go: go(() => navigate('RMGovernanceReview')) },
       { icon: 'home', label: 'Site Overview', go: go(() => navigate('RMHouseOverview')) },
       { icon: 'shield', label: 'Action Tracker', go: go(() => navigate('RMCompliance')) },

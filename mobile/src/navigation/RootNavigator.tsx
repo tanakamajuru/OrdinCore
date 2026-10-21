@@ -174,7 +174,11 @@ function RegisteredManagerTabs() {
           work first (Role navigation correction, 10-16 Oct 2026). */}
       <Tab.Screen name="Home" component={RMDashboardScreen} options={{ tabBarLabel: 'My Work', tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Daily Oversight" component={RMSignalQueueScreen} options={{ tabBarIcon: tabIcon('activity') }} />
-      <Tab.Screen name="Reports" component={RMReportsScreen} options={{ tabBarIcon: tabIcon('file-text') }} />
+      {/* Functional correction (21 Oct 2026, within existing screens per agreed scope): tab 3 was
+          "Reports", reusing the already-existing RMEscalationsScreen (previously reachable only via
+          the drawer) for tab-bar prominence. Reports moved into the drawer below so it stays
+          reachable, not lost. */}
+      <Tab.Screen name="Reports" component={RMEscalationsScreen} options={{ tabBarLabel: 'Escalations', tabBarIcon: tabIcon('trending-up') }} />
       <Tab.Screen name="My Actions" component={RMMyActionsScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
     </Tab.Navigator>
   );
@@ -253,6 +257,7 @@ const TLTeamOverviewA = withAccent('purple', TLTeamOverviewScreen);
 const TLWeeklyReviewsA = withAccent('purple', TLWeeklyReviewsScreen);
 const TLWeeklyReviewDetailA = withAccent('purple', TLWeeklyReviewDetailScreen);
 const RMEscalationsA = withAccent('blue', RMEscalationsScreen);
+const RMReportsA = withAccent('blue', RMReportsScreen);
 const RMGovernanceReviewA = withAccent('blue', RMGovernanceReviewScreen);
 const RMHouseOverviewA = withAccent('blue', RMHouseOverviewScreen);
 const RMComplianceA = withAccent('blue', RMComplianceScreen);
@@ -323,6 +328,7 @@ export function RootNavigator() {
       <Stack.Screen name="TLWeeklyReviewDetail" component={TLWeeklyReviewDetailA} options={{ title: '' }} />
       {/* RM / Director / RI hub screens carry their own in-content header, so the nav bar is a bare back-bar */}
       <Stack.Screen name="RMEscalations" component={RMEscalationsA} options={{ title: '' }} />
+      <Stack.Screen name="RMReports" component={RMReportsA} options={{ title: '' }} />
       <Stack.Screen name="RMGovernanceReview" component={RMGovernanceReviewA} options={{ title: '' }} />
       <Stack.Screen name="RMHouseOverview" component={RMHouseOverviewA} options={{ title: '' }} />
       <Stack.Screen name="RMCompliance" component={RMComplianceA} options={{ title: '' }} />

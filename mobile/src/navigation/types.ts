@@ -27,6 +27,7 @@ export type RootStackParams = {
   TLTeamOverview: undefined;
   // Registered Manager hub screens
   RMEscalations: undefined;
+  RMReports: undefined;
   RMGovernanceReview: undefined;
   RMHouseOverview: undefined;
   RMCompliance: undefined;
