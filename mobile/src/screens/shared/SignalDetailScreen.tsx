@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { View, Alert } from 'react-native';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import { Feather } from '@expo/vector-icons';
@@ -24,7 +24,36 @@ export function SignalDetailScreen() {
   const signal = useApi<any>(`/pulses/${id}`);
   const ctx = useApi<any>(`/pulses/${id}/context`);
   const activity = useApi<any>(`/pulses/${id}/linked-activity`);
+  const monitoringHistoryQ = useApi<any>(`/pulses/${id}/monitoring-history`);
   const s = signal.data;
+
+  // Mobile parity for the web's Monitoring section (Signal Monitoring correction, 16 Oct 2026):
+  // the monitoring owner (usually a TL) records factual updates here while the signal is under an
+  // active Monitor decision. This never closes the signal or changes the governance decision.
+  const [monitoringNote, setMonitoringNote] = useState('');
+  const [monitoringUrgent, setMonitoringUrgent] = useState(false);
+  const [monitoringUrgentReason, setMonitoringUrgentReason] = useState('');
+  const [savingMonitoringUpdate, setSavingMonitoringUpdate] = useState(false);
+  const monitoringSubmissionId = useRef<string | null>(null);
+  const monitoringHistory: any[] = Array.isArray(monitoringHistoryQ.data) ? monitoringHistoryQ.data : monitoringHistoryQ.data?.data ?? [];
+  const saveMonitoringUpdate = async () => {
+    if (monitoringNote.trim().length < 3) { Alert.alert('Add a note', 'Record a brief factual update first.'); return; }
+    if (monitoringUrgent && monitoringUrgentReason.trim().length < 5) { Alert.alert('Add a reason', 'Say briefly why this needs urgent RM attention.'); return; }
+    setSavingMonitoringUpdate(true);
+    try {
+      if (!monitoringSubmissionId.current) monitoringSubmissionId.current = `monupd-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await api.post(`/pulses/${id}/monitoring-update`, {
+        note: monitoringNote.trim(), urgent: monitoringUrgent,
+        urgent_reason: monitoringUrgent ? monitoringUrgentReason.trim() : undefined,
+        client_submission_id: monitoringSubmissionId.current,
+      });
+      Alert.alert(monitoringUrgent ? 'Recorded — RM notified' : 'Update recorded', monitoringUrgent ? 'The Registered Manager has been notified immediately.' : 'Monitoring update recorded.');
+      setMonitoringNote(''); setMonitoringUrgent(false); setMonitoringUrgentReason('');
+      monitoringSubmissionId.current = null;
+      monitoringHistoryQ.refetch();
+    } catch (e: any) { Alert.alert("Couldn't record update", e?.message || 'Please try again.'); }
+    finally { setSavingMonitoringUpdate(false); }
+  };
 
   const canAttn = ['TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL'].includes(normalizeRole(role || ''));
   const [showAttn, setShowAttn] = useState(false);
@@ -161,6 +190,35 @@ export function SignalDetailScreen() {
           </View>
         )}
       </Card>
+
+      {/* Monitoring — shown whenever the signal is under an active Monitor decision. Record what
+          you have observed; this is factual evidence, it never closes the signal or changes the
+          governance decision. The RM reviews it at the scheduled review point, or immediately if
+          flagged urgent. */}
+      {s?.review_status === 'Monitoring' && (
+        <Card>
+          <Label>Monitoring</Label>
+          <Text muted size={11.5} style={{ marginBottom: 6 }}>Record what you have observed while monitoring this signal.</Text>
+          {monitoringHistory.length > 0 && monitoringHistory.map((u: any) => (
+            <View key={u.id} style={{ borderLeftWidth: 2, borderLeftColor: u.urgent ? c.sevHigh + '88' : c.line, paddingLeft: 10, paddingVertical: 4 }}>
+              <Row gap={7}>
+                <Text faint size={10.5}>{u.created_at ? new Date(u.created_at).toLocaleDateString('en-GB') : ''}</Text>
+                {!!u.urgent && <Pill tone="mod">Urgent</Pill>}
+              </Row>
+              <Text size={12} style={{ marginTop: 2 }}>{u.note}</Text>
+            </View>
+          ))}
+          <Label>Update</Label>
+          <TextArea value={monitoringNote} onChangeText={setMonitoringNote} placeholder="What have you observed?" minHeight={64} required />
+          <Row gap={8} style={{ alignItems: 'center', marginTop: 6 }}>
+            <Chip label="Needs RM attention now" active={monitoringUrgent} onPress={() => setMonitoringUrgent((v) => !v)} />
+          </Row>
+          {monitoringUrgent && (
+            <TextArea value={monitoringUrgentReason} onChangeText={setMonitoringUrgentReason} placeholder="Why does this need the RM's immediate attention?" minHeight={48} required />
+          )}
+          <Button title={monitoringUrgent ? 'Record update & notify RM' : 'Record monitoring update'} icon="check" onPress={saveMonitoringUpdate} loading={savingMonitoringUpdate} />
+        </Card>
+      )}
 
       {isRM && String(s?.review_status || 'New').toLowerCase() !== 'closed' && (
         <Card>
