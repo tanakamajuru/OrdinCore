@@ -176,6 +176,12 @@ export const scopedReportDataService = {
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
           AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5)
+          -- B7 correction (21 Oct 2026): "a reminder belongs under governance activity, with
+          -- findings absent if none exist. Scheduled reminder entries are permitted by the query."
+          -- Confirmed: no exclusion existed here at all, unlike every other evidence query in this
+          -- service -- an auto-generated reminder placeholder could appear in "Recorded concerns"
+          -- as if it were an actual observation.
+          AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'
         ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC`, detailParams
     )).rows;
 
@@ -389,7 +395,12 @@ export const scopedReportDataService = {
         WHERE sc.company_id = $1 AND sc.cluster_status = 'Dismissed'
           AND (sc.house_id = ANY($2::uuid[]) OR ($6::boolean AND sc.house_id IS NULL))
           AND COALESCE(sc.dismissed_at, sc.updated_at) >= $3::timestamptz AND COALESCE(sc.dismissed_at, sc.updated_at) < $4::timestamptz
-          AND ($5::uuid IS NULL)
+          -- B7 correction (21 Oct 2026): "person-scope exclusion cannot justify 'none dismissed'."
+          -- Confirmed: ($5::uuid IS NULL) unconditionally excluded every row whenever $5 (personId)
+          -- was set, so a PERSON-scoped report always showed "No concern was dismissed" regardless
+          -- of the truth. signal_clusters.service_user_id is populated for person-scoped clusters
+          -- (uq_active_person_pattern enforces it) -- filter by it properly instead.
+          AND ($5::uuid IS NULL OR sc.service_user_id = $5)
         ORDER BY COALESCE(sc.dismissed_at, sc.updated_at) DESC`, broadParams
     )).rows;
 
