@@ -45,6 +45,7 @@ export type RootStackParams = {
   RMActionsList: { lens?: 'oversight' | 'effectiveness' } | undefined;
   DirectorReviews: undefined;
   DirectorThemes: undefined;
+  RIInspection: undefined;
   ProviderSignoff: undefined;
   // Director hub screens
   DirectorGovernance: undefined;

@@ -207,9 +207,18 @@ function ResponsibleIndividualTabs() {
   const { c } = useTheme(); // violet accent
   return (
     <Tab.Navigator screenOptions={boardTabOptions(c)}>
-      <Tab.Screen name="Home" component={RIProviderAssuranceScreen} options={{ tabBarIcon: tabIcon('home') }} />
+      {/* Functional correction (21 Oct 2026, within existing screens per agreed scope): this screen's
+          content already IS the assurance dashboard (/ri/assurance-summary, the deduplicated overall
+          state) -- it only lacked the explicit "Assurance" label. Route name stays "Home" so
+          navigateTab('Home')/the drawer are untouched. */}
+      <Tab.Screen name="Home" component={RIProviderAssuranceScreen} options={{ tabBarLabel: 'Assurance', tabBarIcon: tabIcon('home') }} />
       <Tab.Screen name="Oversight" component={RIOversightScreen} options={{ tabBarIcon: tabIcon('grid') }} />
-      <Tab.Screen name="Readiness" component={RIInspectionScreen} options={{ tabBarIcon: tabIcon('check-square') }} />
+      {/* "Readiness" (RIInspectionScreen) turned out to be near-duplicate content of the Home/
+          Assurance tab above -- same assurance dimensions, same checklist. Sign-off is RI's actual
+          distinct accountability act and had no tab at all (ProviderSignoffScreen existed, drawer-
+          only), so it replaces Readiness here rather than mislabeling a duplicate as "Assurance"
+          when tab 1 already owns that name. Readiness moved to the drawer so it stays reachable. */}
+      <Tab.Screen name="Readiness" component={ProviderSignoffScreen} options={{ tabBarLabel: 'Sign-off', tabBarIcon: tabIcon('check-square') }} />
       <Tab.Screen name="Narrative" component={RINarrativeScreen} options={{ tabBarIcon: tabIcon('book-open') }} />
     </Tab.Navigator>
   );
@@ -279,6 +288,7 @@ const RMDailyGovernanceA = withAccent('blue', RMDailyGovernanceScreen);
 const DirectorReviewsA = withAccent('orange', ReviewsScreen);
 const DirectorThemesA = withAccent('orange', DirectorThemesScreen);
 const ProviderSignoffA = withAccent('violet', ProviderSignoffScreen);
+const RIInspectionA = withAccent('violet', RIInspectionScreen);
 const DirectorGovernanceA = withAccent('orange', DirectorGovernanceScreen);
 const DirectorReportsA = withAccent('orange', DirectorReportsScreen);
 const RINarrativeA = withAccent('violet', RINarrativeScreen);
@@ -349,6 +359,7 @@ export function RootNavigator() {
       <Stack.Screen name="DirectorReviews" component={DirectorReviewsA} options={{ title: '' }} />
       <Stack.Screen name="DirectorThemes" component={DirectorThemesA} options={{ title: '' }} />
       <Stack.Screen name="ProviderSignoff" component={ProviderSignoffA} options={{ title: '' }} />
+      <Stack.Screen name="RIInspection" component={RIInspectionA} options={{ title: '' }} />
       <Stack.Screen name="DirectorGovernance" component={DirectorGovernanceA} options={{ title: '' }} />
       <Stack.Screen name="DirectorReports" component={DirectorReportsA} options={{ title: '' }} />
       <Stack.Screen name="RINarrative" component={RINarrativeA} options={{ title: '' }} />

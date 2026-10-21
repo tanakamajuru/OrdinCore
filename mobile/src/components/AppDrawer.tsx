@@ -73,6 +73,7 @@ function itemsForRole(role: string, close: () => void): DrawerItem[] {
       { icon: 'book-open', label: 'Narrative', go: go(() => navigate('RINarrative')) },
       { icon: 'file-text', label: 'Board Reports', go: go(() => navigate('RIBoardReports')) },
       { icon: 'check-circle', label: 'Provider Sign-off', go: go(() => navigate('ProviderSignoff')) },
+      { icon: 'check-square', label: 'Governance Readiness', go: go(() => navigate('RIInspection')) },
     ]);
   }
   // Support Worker
