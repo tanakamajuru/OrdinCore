@@ -42,6 +42,11 @@ export interface Confidence {
   evidence: number;                // 0-100 (retained for back-compat; == evidence_coverage)
   evidence_coverage: number;       // 0-100 — volume/spread of evidence
   control_assurance: number | null; // 0-100, or null when there are no controls to assure
+  // B2 correction (21 Oct 2026): a period with literally no recorded activity must never read as
+  // 100% confidence -- every component ratio defaults to 1 when its denominator is 0, which is
+  // silence, not assurance. assurance_label makes that distinction explicit wherever the raw
+  // percentages are shown.
+  assurance_label: 'Assured' | 'Limited assurance' | 'Insufficient evidence';
   basis: string;
 }
 

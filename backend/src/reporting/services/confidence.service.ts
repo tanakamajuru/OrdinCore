@@ -20,6 +20,10 @@ export interface SiteMetrics {
   controls_total: number;
   controls_effective: number;
   controls_unreviewed: number;
+  // B2 correction (21 Oct 2026): fields the status rule previously ignored entirely.
+  controls_ineffective: number;   // final Partially Effective / Not Effective judgement
+  overdue_monitoring: number;     // active Monitor decisions whose review point has passed
+  urgent_unpromoted: number;      // Escalated/Confirmed patterns with no risk promoted yet
 }
 
 const clamp = (n: number) => Math.max(0, Math.min(100, Math.round(n)));
@@ -48,8 +52,24 @@ export const confidenceService = {
     // CRITICAL is an evidence classification, not a workload alarm. An overdue item is
     // important, but cannot by itself upgrade the underlying concern to Critical.
     if (m.critical_risks > 0) return 'CRITICAL';
-    if (m.high_critical > 0 || m.open_escalations > 0 || m.overdue_actions > 0) return 'ATTENTION';
+    // B2 correction (21 Oct 2026): "Revise the rule to expose urgent unpromoted concerns,
+    // ineffective controls and unresolved monitoring" -- a service could previously show STABLE
+    // with zero open escalations/overdue actions while carrying Not Effective control ratings, an
+    // overdue monitoring review, or a confirmed cross-service pattern nobody had promoted to a
+    // risk yet. None of those moved the status at all before this.
+    if (m.high_critical > 0 || m.open_escalations > 0 || m.overdue_actions > 0
+        || m.controls_ineffective > 0 || m.overdue_monitoring > 0 || m.urgent_unpromoted > 0) return 'ATTENTION';
     return 'STABLE';
+  },
+
+  // B2 correction: a period with no recorded signals and no completed/open work is silence, not
+  // assurance -- every ratio above defaults to 1 on a 0/0 division, which previously read as a
+  // full 100% governance/evidence score. Distinguish that explicitly.
+  assuranceLabel(m: SiteMetrics): 'Assured' | 'Limited assurance' | 'Insufficient evidence' {
+    const hasAnyEvidence = m.signals > 0 || m.completed_actions > 0 || m.open_actions > 0 || m.open_escalations > 0;
+    if (!hasAnyEvidence) return 'Insufficient evidence';
+    if (m.critical_risks > 0 || m.controls_ineffective > 0 || m.overdue_monitoring > 0 || m.urgent_unpromoted > 0) return 'Limited assurance';
+    return 'Assured';
   },
 
   // Control Assurance (doctrine §7.9): of the effectiveness-bearing controls completed, how many
@@ -68,12 +88,17 @@ export const confidenceService = {
 
   confidenceObject(m: SiteMetrics): Confidence {
     const controlAssurance = this.controlAssurance(m);
+    // B2 correction: "Label process metrics and evidence coverage accurately: record volume/
+    // spread are not evidence quality, safety or integrity." evidence_coverage measures how much
+    // was recorded and how often, not whether it was correct, safe or complete -- the basis text
+    // says that explicitly rather than implying coverage is a quality/safety measure.
     return {
       governance: this.governance(m),
       evidence: this.evidence(m),
       evidence_coverage: this.evidenceCoverage(m),
       control_assurance: controlAssurance,
-      basis: `${m.signals} signal(s) over ${m.distinct_days} day(s); evidence coverage ${this.evidenceCoverage(m)}%; control assurance ${controlAssurance === null ? 'n/a (no controls)' : controlAssurance + '%'} (${m.controls_effective}/${m.controls_total} controls finally Effective, ${m.controls_unreviewed} unreviewed); ${m.critical_risks} critical risk(s).`,
+      assurance_label: this.assuranceLabel(m),
+      basis: `${m.signals} signal(s) over ${m.distinct_days} day(s) -- recorded volume/spread, not a measure of evidence quality, safety or integrity. Control assurance ${controlAssurance === null ? 'n/a (no controls)' : controlAssurance + '%'} (${m.controls_effective}/${m.controls_total} controls finally Effective, ${m.controls_ineffective} Partially/Not Effective, ${m.controls_unreviewed} unreviewed). ${m.critical_risks} critical risk(s), ${m.overdue_monitoring} overdue monitoring review(s), ${m.urgent_unpromoted} unpromoted concern(s) with confirmed/escalated evidence.`,
     };
   },
 };

@@ -369,12 +369,22 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
 function renderOverview(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
   heading(doc, '1. Overall position'); paragraph(doc, position(data));
+  // B2 correction: status now also triggers on ineffective controls, overdue monitoring and
+  // unpromoted urgent concerns -- a "Why" column makes the reason visible (previously a service
+  // could show ATTENTION with 0 open risks and 0 overdue, with no way to tell why from this table).
   table(doc, '2. Services requiring attention', (data.per_site || []).filter((s: any) => s.status !== 'STABLE'), [
-    { label: 'Service', key: 'site_name', width: 140 }, { label: 'Position', key: 'status', width: 80 },
-    { label: 'Evidence cov.', key: 'evidence_coverage', width: 75, map: (r) => `${r.evidence_coverage ?? r.evidence_confidence ?? '—'}%` },
-    { label: 'Control assur.', key: 'control_assurance', width: 80, map: (r) => r.control_assurance == null ? 'n/a' : `${r.control_assurance}%` },
-    { label: 'Open risks', key: 'open_risks', width: 70, map: (r) => String(r.open_risks ?? 0) },
-    { label: 'Overdue', key: 'overdue_actions', width: 70, map: (r) => String(r.overdue_actions ?? 0) },
+    { label: 'Service', key: 'site_name', width: 110 }, { label: 'Position', key: 'status', width: 60 },
+    { label: 'Assurance', key: 'assurance_label', width: 90 },
+    { label: 'Evidence cov.', key: 'evidence_coverage', width: 60, map: (r) => `${r.evidence_coverage ?? r.evidence_confidence ?? '—'}%` },
+    { label: 'Control assur.', key: 'control_assurance', width: 60, map: (r) => r.control_assurance == null ? 'n/a' : `${r.control_assurance}%` },
+    { label: 'Why', key: 'why', width: 100, map: (r) => [
+        r.critical_risks ? `${r.critical_risks} critical risk` : null,
+        r.open_risks ? `${r.open_risks} open risk` : null,
+        r.overdue_actions ? `${r.overdue_actions} overdue action` : null,
+        r.controls_ineffective ? `${r.controls_ineffective} ineffective control` : null,
+        r.overdue_monitoring ? `${r.overdue_monitoring} overdue monitoring` : null,
+        r.urgent_unpromoted ? `${r.urgent_unpromoted} unpromoted concern` : null,
+      ].filter(Boolean).join(', ') || 'See basis' },
   ], 'No service was rated ATTENTION or CRITICAL in this period.', 12);
   heading(doc, '3. Recorded response');
   bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);

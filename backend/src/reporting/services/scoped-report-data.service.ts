@@ -68,10 +68,33 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
                               AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) ILIKE 'Effective%')::int AS controls_effective,
             COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
                               AND ra.completed_at <= $3::timestamptz
-                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NULL)::int AS controls_unreviewed
+                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NULL)::int AS controls_unreviewed,
+            -- B2 correction: a final Partially Effective / Not Effective judgement is distinct
+            -- from "unreviewed" -- it is a KNOWN ineffective control, not an absence of evidence.
+            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+                              AND ra.completed_at <= $3::timestamptz
+                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL
+                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) NOT ILIKE 'Effective%')::int AS controls_ineffective
        FROM canonical_action_state_v ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
       WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) = $2 ${personAct}`,
     [companyId, siteId, end, start]
+  )).rows[0];
+
+  // B2 correction: unresolved monitoring and urgent unpromoted concerns, neither of which the
+  // site status previously considered at all.
+  const mon = (await query(
+    `SELECT COUNT(*)::int AS overdue_monitoring FROM governance_reviews gr
+      WHERE gr.company_id = $1 AND gr.service_id = $2
+        AND gr.decision = 'Monitor' AND gr.decision_status = 'Monitoring' AND gr.due_at < $3::timestamptz`,
+    [companyId, siteId, end]
+  )).rows[0];
+  const unpromoted = (await query(
+    `SELECT COUNT(DISTINCT sc.id)::int AS urgent_unpromoted
+       FROM canonical_pattern_state_v sc JOIN risk_signal_links rsl ON rsl.cluster_id = sc.id
+       JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id AND gp.company_id = sc.company_id
+      WHERE sc.company_id = $1 AND gp.house_id = $2 AND sc.linked_risk_id IS NULL
+        AND sc.cluster_status IN ('Escalated', 'Confirmed')`,
+    [companyId, siteId]
   )).rows[0];
 
   return {
@@ -81,6 +104,7 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
     open_actions: act.open_actions, overdue_actions: act.overdue_actions,
     completed_actions: act.completed_actions, completed_on_time: act.completed_on_time,
     controls_total: act.controls_total, controls_effective: act.controls_effective, controls_unreviewed: act.controls_unreviewed,
+    controls_ineffective: act.controls_ineffective, overdue_monitoring: mon.overdue_monitoring, urgent_unpromoted: unpromoted.urgent_unpromoted,
   };
 }
 
@@ -97,7 +121,7 @@ export const scopedReportDataService = {
       const m = await metricsForSite(companyId, s.id, start, end, personId);
       const conf = confidenceService.confidenceObject(m);
       const status = confidenceService.status(m);
-      perSite.push({ site_id: s.id, site_name: s.name, status, governance_confidence: conf.governance, evidence_confidence: conf.evidence, evidence_coverage: conf.evidence_coverage, control_assurance: conf.control_assurance, metrics: m });
+      perSite.push({ site_id: s.id, site_name: s.name, status, governance_confidence: conf.governance, evidence_confidence: conf.evidence, evidence_coverage: conf.evidence_coverage, control_assurance: conf.control_assurance, assurance_label: conf.assurance_label, basis: conf.basis, metrics: m });
     }
 
     // Cross-site themes (signal domains across the authorised sites in the period).
