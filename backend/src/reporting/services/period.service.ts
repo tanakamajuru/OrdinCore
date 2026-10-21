@@ -58,8 +58,13 @@ export async function boundsForRange(
     timezone: tz,
     start,
     end,
-    startDate: String(r.start_date),
-    endDateExcl: String(r.end_date_excl),
+    // node-pg parses a `date`-typed column into a JS Date object, so String(r.start_date) produced
+    // its locale toString() ("Mon Sep 21 2026 00:00:00 GMT+0100 (British Summer Time)") instead of
+    // a plain date -- Postgres then rejected that as an invalid date literal wherever this value
+    // was used as a query parameter against a DATE column (e.g. scoped-report-data.service.ts's
+    // weekly_reviews.week_ending comparison). Format explicitly as YYYY-MM-DD instead.
+    startDate: new Date(r.start_date).toISOString().slice(0, 10),
+    endDateExcl: new Date(r.end_date_excl).toISOString().slice(0, 10),
     endInclusive: new Date(new Date(r.end_utc).getTime() - 1000).toISOString(),
     label: `${r.start_label}–${r.end_label} (UK time)`,
   };
