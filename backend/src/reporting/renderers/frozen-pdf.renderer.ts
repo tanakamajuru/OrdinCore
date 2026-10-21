@@ -526,20 +526,38 @@ function renderManager(doc: PDFKit.PDFDocument, data: any) {
   bullets(doc, continuedAttention, 'No open risk, escalation, action or unresolved effectiveness concern was identified in the frozen snapshot.', 4);
 }
 
+// B6 correction (21 Oct 2026): "Distinguish suspected recurrence, confirmed cross-service patterns
+// and no recorded pattern" -- previously one undifferentiated table lumped Emerging (suspected)
+// together with Confirmed/Escalated (confirmed), with no distinction visible to the reader.
 function renderPatterns(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
-  table(doc, '1. Patterns identified across services', (e.patterns || []).filter((p: any) => p.scope === 'cross_service' && !/dismissed|closed/i.test(clean(p.status))), [
-    { label: 'Pattern', key: 'pattern', width: 150 }, { label: 'Domain', key: 'domain', width: 90 },
-    { label: 'Services affected', key: 'affected_scope', width: 140 },
-    { label: 'Evidence / review', key: 'signal_count', width: 115, map: (r) => `${clean(r.signal_count)} signal(s); ${clean(r.review_outcome || r.status)}` },
-  ], 'No active cross-service pattern was recorded.', 8);
-  heading(doc, '2. Why the connection matters');
-  paragraph(doc, 'A repeated category alone is not enough. Management must confirm the shared feature, consider alternatives and record why organisation-wide oversight is justified.');
-  const patternIds = new Set((e.patterns || []).filter((p: any) => p.scope === 'cross_service' && !/dismissed|closed/i.test(clean(p.status))).map((p: any) => p.id));
-  table(doc, '3. Organisation-wide response', (e.actions || []).filter((a: any) => a.source_cluster_id && patternIds.has(a.source_cluster_id)), [
-    { label: 'Required response', key: 'action', width: 230 }, { label: 'Owner', key: 'owner', width: 110 },
-    { label: 'Position / due', key: 'status', width: 155, map: (r) => `${clean(r.status)} / ${date(r.due_date)}` },
-  ], 'No organisation-wide response was recorded.', 6);
+  const crossService = (e.patterns || []).filter((p: any) => p.scope === 'cross_service' && !/dismissed|closed/i.test(clean(p.status)));
+  const confirmed = crossService.filter((p: any) => /confirmed|escalated/i.test(clean(p.status)));
+  const suspected = crossService.filter((p: any) => /emerging/i.test(clean(p.status)));
+
+  const columns = [
+    { label: 'Pattern (shared feature)', key: 'pattern', width: 110 }, { label: 'Domain', key: 'domain', width: 65 },
+    { label: 'Services', key: 'affected_scope', width: 90 },
+    { label: 'Dated examples', key: 'dated_examples', width: 130, map: (r: any) => r.dated_examples || 'Not recorded' },
+    { label: 'Reviewer decision', key: 'review_outcome', width: 85, map: (r: any) => r.review_outcome || 'Not yet decided' },
+  ];
+  table(doc, '1. Confirmed cross-service patterns', confirmed, columns, 'No pattern has been confirmed across services in this period.', 8);
+  table(doc, '2. Suspected recurrence (not yet confirmed)', suspected, columns, 'No suspected recurrence is currently under review.', 8);
+  if (crossService.length === 0) paragraph(doc, 'No recorded pattern spans more than one service in this period.', true);
+
+  heading(doc, '3. Why the connection matters');
+  paragraph(doc, 'A repeated category alone is not enough. Management must confirm the shared feature and record why organisation-wide oversight is justified, rather than inferring a shared problem from category counts.');
+  // Honest gap, not a fabricated field: the system does not currently capture a structured
+  // "alternative explanations considered" record against a pattern (only a constrained
+  // review_outcome decision). Say so rather than leaving it silently absent.
+  paragraph(doc, 'Alternative explanations considered are not currently captured as a structured field against a pattern — only the reviewer\'s decision (above) is recorded. This is a gap in what the system captures, not a confirmation that no alternative was considered.', true);
+
+  const patternIds = new Set(crossService.map((p: any) => p.id));
+  table(doc, '4. Organisation-wide response and outcome', (e.actions || []).filter((a: any) => a.source_cluster_id && patternIds.has(a.source_cluster_id)), [
+    { label: 'Required response', key: 'action', width: 170 }, { label: 'Owner', key: 'owner', width: 80 },
+    { label: 'Status / due', key: 'status', width: 110, map: (r) => `${clean(r.status)} / ${date(r.due_date)}` },
+    { label: 'Outcome', key: 'effectiveness', width: 110, map: (r) => r.effectiveness || 'Not yet reviewed' },
+  ], 'No organisation-wide response was recorded. This does not by itself mean no response is required.', 6);
 }
 
 function renderEvidence(doc: PDFKit.PDFDocument, data: any) {

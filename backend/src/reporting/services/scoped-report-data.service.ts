@@ -351,7 +351,13 @@ export const scopedReportDataService = {
               COUNT(DISTINCT gp.id)::int AS signal_count, sc.review_outcome, sc.next_review_date,
               MIN(gp.entry_date) AS first_signal_date, MAX(gp.entry_date) AS last_signal_date,
               COUNT(DISTINCT gp.house_id)::int AS service_count,
-              COALESCE(string_agg(DISTINCT h2.name, ', ' ORDER BY h2.name), 'Service not recorded') AS affected_scope
+              COALESCE(string_agg(DISTINCT h2.name, ', ' ORDER BY h2.name), 'Service not recorded') AS affected_scope,
+              -- B6 correction (21 Oct 2026): "Show ... dated examples" -- up to 3 specific
+              -- contributing signals with their date/service/description, not just a signal count.
+              (SELECT string_agg(DISTINCT (gp2.entry_date::text || ' ' || h3.name || ': ' || LEFT(gp2.description, 80)), ' | ' ORDER BY (gp2.entry_date::text || ' ' || h3.name || ': ' || LEFT(gp2.description, 80)))
+                 FROM (SELECT gp2x.* FROM risk_signal_links rsl2 JOIN governance_pulses gp2x ON gp2x.id = rsl2.pulse_entry_id
+                        WHERE rsl2.cluster_id = sc.id ORDER BY gp2x.entry_date DESC LIMIT 3) gp2
+                 LEFT JOIN houses h3 ON h3.id = gp2.house_id) AS dated_examples
          FROM canonical_pattern_state_v sc
          JOIN risk_signal_links rsl ON rsl.cluster_id = sc.id
          JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id AND gp.company_id = sc.company_id
