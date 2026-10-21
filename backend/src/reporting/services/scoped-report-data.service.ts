@@ -186,9 +186,18 @@ export const scopedReportDataService = {
               CASE WHEN COALESCE(r.closed_at,r.resolved_at) IS NOT NULL AND COALESCE(r.closed_at,r.resolved_at) <= $4::timestamptz THEN r.status::text ELSE CASE WHEN LOWER(r.status::text) IN ('closed','resolved') THEN 'Open' ELSE r.status::text END END AS status,
               r.source_cluster_id,
               COALESCE(r.trajectory::text, r.trend::text, 'Insufficient evidence') AS direction,
-              r.review_due_date, r.resolution_reason
+              r.review_due_date, r.resolution_reason,
+              -- B3 correction (21 Oct 2026): "For in-period closures include date, decision-maker,
+              -- reason and outcome evidence" -- none of these four were previously retrieved.
+              r.closed_at, r.resolved_at, r.resolution_outcome,
+              NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')), '') AS closed_by_name,
+              -- "linked work" -- the actions/escalations actually tied to this risk, not just a count.
+              (SELECT string_agg(DISTINCT a.title, '; ' ORDER BY a.title) FROM risk_actions a
+                WHERE a.risk_id = r.id AND a.company_id = r.company_id AND a.status NOT IN ('Cancelled')) AS linked_actions,
+              (SELECT COUNT(*)::int FROM escalations esc WHERE esc.risk_id = r.id AND esc.company_id = r.company_id) AS linked_escalation_count
          FROM canonical_risk_state_v r
          LEFT JOIN houses h ON h.id = r.house_id AND h.company_id = r.company_id
+         LEFT JOIN users ru ON ru.id = r.resolved_by AND ru.company_id = r.company_id
         WHERE r.company_id = $1
           AND (r.house_id = ANY($2::uuid[]) OR ($6::boolean AND r.house_id IS NULL))
           AND r.created_at <= $4 AND COALESCE(r.closed_at, r.resolved_at, $4::timestamptz) >= $3
@@ -327,7 +336,7 @@ export const scopedReportDataService = {
     // parameter makes Postgres unable to infer its type ("could not determine data type").
     const patterns = (await query(
       `SELECT sc.id, COALESCE(NULLIF(TRIM(sc.risk_domain), ''), 'Uncategorised') AS pattern,
-              sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status,
+              sc.risk_domain AS domain, sc.scope, sc.cluster_status::text AS status, sc.linked_risk_id,
               COUNT(DISTINCT gp.id)::int AS signal_count, sc.review_outcome, sc.next_review_date,
               MIN(gp.entry_date) AS first_signal_date, MAX(gp.entry_date) AS last_signal_date,
               COUNT(DISTINCT gp.house_id)::int AS service_count,
@@ -340,7 +349,7 @@ export const scopedReportDataService = {
           AND gp.house_id = ANY($2::uuid[])
           AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3::timestamptz AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4::timestamptz
           AND ($5::uuid IS NULL)
-        GROUP BY sc.id, sc.risk_domain, sc.scope, sc.cluster_status, sc.review_outcome, sc.next_review_date
+        GROUP BY sc.id, sc.risk_domain, sc.scope, sc.cluster_status, sc.linked_risk_id, sc.review_outcome, sc.next_review_date
         ORDER BY MAX(gp.entry_date) DESC`, [companyId, siteIds, start, end, personId || null]
     )).rows;
 

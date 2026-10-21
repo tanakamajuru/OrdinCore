@@ -397,16 +397,38 @@ function renderOverview(doc: PDFKit.PDFDocument, data: any) {
 
 function renderRisks(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
+  const risks = e.risks || [];
   heading(doc, '1. Key risks and management response');
-  paragraph(doc, 'Each risk below is drawn from the frozen snapshot with its recorded severity, direction, status and review date. A missing review date is shown so it can be corrected.');
-  table(doc, '2. Risks on record', e.risks || [], [
-    { label: 'Service', key: 'service', width: 80 }, { label: 'Risk', key: 'risk', width: 170 },
-    { label: 'Severity / direction', key: 'severity', width: 110, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
-    { label: 'Status', key: 'status', width: 60 },
-    { label: 'Review due', key: 'review_due_date', width: 75, map: (r) => date(r.review_due_date) },
+  paragraph(doc, 'Each risk below is drawn from the frozen snapshot with its recorded severity, direction, status, response and review date. A missing field is shown as such so it can be corrected.');
+  // B3 correction (21 Oct 2026): "Populate sections 2-3 with risks active during the period,
+  // severity/basis, direction/evidence, response, linked work and review date" -- the table only
+  // showed severity/direction/status/review date before; basis, evidence and linked work were
+  // never shown anywhere.
+  table(doc, '2. Risks on record', risks, [
+    { label: 'Service', key: 'service', width: 70 }, { label: 'Risk', key: 'risk', width: 130 },
+    { label: 'Severity / direction', key: 'severity', width: 90, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
+    { label: 'Evidence / basis', key: 'trajectory_basis', width: 100, map: (r) => r.trajectory_basis || r.description || 'Not recorded' },
+    { label: 'Linked work', key: 'linked_actions', width: 100, map: (r) => [r.linked_actions, r.linked_escalation_count ? `${r.linked_escalation_count} escalation(s)` : null].filter(Boolean).join('; ') || 'None recorded' },
+    { label: 'Status', key: 'status', width: 50 },
+    { label: 'Review due', key: 'review_due_date', width: 65, map: (r) => date(r.review_due_date) },
   ], 'No risk was recorded in scope for this period.', 12);
-  heading(doc, '3. Closed risks - reason for closure');
-  bullets(doc, (e.risks || []).filter((r: any) => /closed|resolved/i.test(clean(r.status))).map((r: any) => `${clean(r.risk)} (${clean(r.service)}): ${clean(r.resolution_reason)}`), 'No risk was closed in this period.', 6);
+  // B3 correction: "For in-period closures include date, decision-maker, reason and outcome
+  // evidence" -- previously only the reason text, with no date, no decision-maker and no outcome
+  // evidence distinct from the reason.
+  table(doc, '3. Closed risks - decision and outcome evidence', risks.filter((r: any) => /closed|resolved/i.test(clean(r.status))), [
+    { label: 'Risk', key: 'risk', width: 130 }, { label: 'Service', key: 'service', width: 70 },
+    { label: 'Closed', key: 'closed_at', width: 60, map: (r) => date(r.closed_at || r.resolved_at) },
+    { label: 'Decision-maker', key: 'closed_by_name', width: 80, map: (r) => r.closed_by_name || 'Not recorded' },
+    { label: 'Reason', key: 'resolution_reason', width: 100, map: (r) => r.resolution_reason || 'Not recorded' },
+    { label: 'Outcome evidence', key: 'resolution_outcome', width: 115, map: (r) => r.resolution_outcome || 'Not recorded' },
+  ], 'No risk was closed in this period.', 6);
+  // B3 correction: "Add a separate section for significant unpromoted/monitored concerns" --
+  // confirmed/escalated patterns with no risk promoted yet were otherwise invisible from this report.
+  const unpromoted = (e.patterns || []).filter((p: any) => !p.linked_risk_id && /escalated|confirmed/i.test(clean(p.status)));
+  heading(doc, '4. Significant unpromoted or monitored concerns');
+  paragraph(doc, 'Patterns with confirmed or escalated evidence that have not been promoted to a formal risk. These remain under active monitoring, not formal risk management.', true);
+  bullets(doc, unpromoted.map((p: any) => `${clean(p.pattern)} (${clean(p.affected_scope)}): ${p.signal_count} signal(s), ${clean(p.status)}${p.next_review_date ? `, next review ${date(p.next_review_date)}` : ''}.`),
+    'No significant pattern is currently unpromoted.', 6);
 }
 
 function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
