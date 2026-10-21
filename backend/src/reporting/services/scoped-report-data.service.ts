@@ -408,6 +408,24 @@ export const scopedReportDataService = {
         ORDER BY wr.week_ending DESC, h.name`, [companyId, siteIds, startDate ?? start, endDateExcl ?? end]
     )).rows;
 
+    // B4 correction (21 Oct 2026): "An optional combined summary derives from approved reviews and
+    // identifies included/missing services. Account for all three service review statuses." --
+    // weeklyReviews above only lists services that HAVE a row; a service with none was invisible.
+    // LEFT JOIN every site in scope so a missing review shows as missing, not silently absent.
+    const serviceCoverage = (await query(
+      `SELECT h.id AS site_id, h.name AS service, wr.status, wr.published_at, wr.week_ending,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
+         FROM houses h
+         LEFT JOIN LATERAL (
+           SELECT * FROM weekly_reviews w WHERE w.company_id = h.company_id AND w.house_id = h.id
+             AND w.week_ending >= $3::date AND w.week_ending < $4::date
+           ORDER BY w.week_ending DESC LIMIT 1
+         ) wr ON TRUE
+         LEFT JOIN users u ON u.id = wr.created_by AND u.company_id = h.company_id
+        WHERE h.company_id = $1 AND h.id = ANY($2::uuid[]) AND h.status = 'active'
+        ORDER BY h.name`, [companyId, siteIds, startDate ?? start, endDateExcl ?? end]
+    )).rows;
+
     // Audit rows are only included where they reference a record already inside the snapshot scope
     // (except organisation reports, which see all company audit rows) — never another provider's.
     const scopedIds = new Set<string>([
@@ -478,7 +496,7 @@ export const scopedReportDataService = {
       };
     });
 
-    const evidence = { signals, risks, actions, escalations, decisions, due_monitoring: dueMonitoring, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
+    const evidence = { signals, risks, actions, escalations, decisions, due_monitoring: dueMonitoring, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, service_coverage: serviceCoverage, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,

@@ -278,8 +278,10 @@ function position(data: any): string {
   return 'No immediate exception was identified from the information reviewed for this period.';
 }
 
-function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit = 3) {
-  const shown = (reviews || []).slice(0, limit);
+function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit?: number) {
+  // B4 correction (21 Oct 2026): "Remove the three-reflection cap" -- every approved review in
+  // scope is the authoritative record and must be shown, not an arbitrary first-3 subset.
+  const shown = limit ? (reviews || []).slice(0, limit) : (reviews || []);
   if (!shown.length) return paragraph(doc, 'No manager reflection was recorded for this reporting period.', true);
   for (const review of shown) {
     heading(doc, `${clean(review.service)} - week ending ${date(review.week_ending)}`);
@@ -445,14 +447,42 @@ function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
   paragraph(doc, 'Closing an escalation does not automatically close the underlying concern or risk.', true);
 }
 
+// B4 correction (21 Oct 2026): "The RM-completed weekly review is authoritative. Reports must
+// display/download that approved version; remove the independent summary narrative." This report
+// previously opened with a system-generated "What stood out"/"conclusion" narrative (position())
+// that competed with, and could drift from, what the RM actually wrote and signed. The approved
+// weekly reviews are now the primary, uncapped content; the combined summary is the optional
+// service-coverage view the correction also asks for, not a replacement narrative.
 function renderManager(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
-  heading(doc, '1. What stood out this week'); paragraph(doc, position(data));
-  heading(doc, '2. What the information may be telling us');
-  bullets(doc, (data.cross_site_themes || []).map((t: any) => `${clean(t.theme)} appeared in ${t.n} recorded signal(s). This is not by itself proof of a pattern.`), 'No recurring theme was visible.', 4);
-  heading(doc, '3. Important decisions made');
+  const coverage: any[] = e.service_coverage || [];
+  const statusLabel = (s: any) => {
+    const st = String(s?.status || '').toLowerCase();
+    if (st === 'published' || st === 'locked') return 'Approved';
+    if (st === 'pending_validation') return 'Awaiting validation';
+    if (!s?.status) return 'Not started';
+    return 'In progress';
+  };
+  const missing = coverage.filter((s) => !s.status);
+
+  heading(doc, '1. Approved weekly reviews');
+  paragraph(doc, 'Every RM-approved weekly review in scope for this period, shown in full as the authoritative record -- not a system-generated summary of it.', true);
+  renderWeeklyReviews(doc, e.weekly_reviews || []);
+
+  table(doc, '2. Service coverage this period', coverage, [
+    { label: 'Service', key: 'service', width: 160 },
+    { label: 'Status', key: 'status', width: 110, map: statusLabel },
+    { label: 'Reviewer', key: 'reviewer', width: 110, map: (r) => r.reviewer || '—' },
+    { label: 'Approved', key: 'published_at', width: 115, map: (r) => r.published_at ? date(r.published_at) : '—' },
+  ], 'No service is in scope for this report.', 20);
+  if (missing.length) {
+    paragraph(doc, `Missing or unpublished: ${missing.map((s) => clean(s.service)).join(', ')}.`, true);
+  }
+
+  heading(doc, '3. Decisions recorded');
   bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)} · ${short(d.concern, 110)} — ${clean(d.decision)}. Rationale: ${clean(d.reason)}${d.reviewer ? ` · ${clean(d.reviewer)}` : ''}${d.due_at ? ` · review/due ${date(d.due_at)}` : ''}`), 'No management decision was recorded.', 5);
-  heading(doc, '4. What requires continued attention');
+
+  heading(doc, '4. Open and unresolved at cut-off');
   const continuedAttention = [
     ...(e.risks || []).filter((r: any) => isOpen(r.status)).map((r: any) => `Risk: ${clean(r.risk)} (${clean(r.service)}) · ${clean(r.severity)} · review ${date(r.review_due_date)}`),
     ...(e.escalations || []).filter((x: any) => isOpen(x.status)).map((x: any) => `Escalation: ${short(x.reason, 120)} · ${clean(x.status)} · due ${date(x.due_by)}`),
@@ -462,8 +492,6 @@ function renderManager(doc: PDFKit.PDFDocument, data: any) {
     ...(e.actions || []).filter((a: any) => clean(a.effectiveness) === 'Too Early To Assess').map((a: any) => `Effectiveness review pending: ${clean(a.action)} · too early to assess`),
   ];
   bullets(doc, continuedAttention, 'No open risk, escalation, action or unresolved effectiveness concern was identified in the frozen snapshot.', 4);
-  heading(doc, '5. Reflections recorded by managers'); renderWeeklyReviews(doc, e.weekly_reviews || [], 3);
-  heading(doc, '6. Management conclusion'); paragraph(doc, position(data));
 }
 
 function renderPatterns(doc: PDFKit.PDFDocument, data: any) {
