@@ -234,8 +234,16 @@ export const scopedReportDataService = {
     const decisions = (await query(
       `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
               gr.review_date AS date,
-              COALESCE(NULLIF(TRIM(gr.what_is_happening), ''), gp.description,
-                       COALESCE(r.strategic_theme, r.title), e.reason) AS concern,
+              -- Report corrections (21 Oct 2026, B1): gr.what_is_happening is "the management
+              -- decision and what must happen next" (a required field on every decision, e.g.
+              -- "Attend the bank") -- a response instruction, not the concern. Putting it first
+              -- meant the true original concern (the signal/risk/escalation this decision was
+              -- ABOUT) never showed whenever one was linked, which is nearly always. The concern
+              -- is now the linked record's own text; what_is_happening moves to its own field
+              -- below, shown as the decision/instruction, never substituted for the concern.
+              COALESCE(NULLIF(TRIM(gp.description), ''), COALESCE(r.strategic_theme, r.title), NULLIF(TRIM(e.reason), ''),
+                       NULLIF(TRIM(gr.what_is_happening), '')) AS concern,
+              NULLIF(TRIM(gr.what_is_happening), '') AS management_instruction,
               gr.decision, COALESCE(NULLIF(TRIM(gr.decision_rationale), ''), NULLIF(TRIM(gr.evidence), '')) AS reason,
               -- Report corrections (21 Oct 2026, B1): decision_status is stored 'Open' on every
               -- decision at creation except Monitor -- passing it straight through produced
@@ -271,6 +279,23 @@ export const scopedReportDataService = {
           AND gr.review_date >= $3 AND gr.review_date < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5 OR r.service_user_id = $5 OR e.service_user_id = $5)
         ORDER BY gr.review_date DESC`, broadParams
+    )).rows;
+
+    // B1 correction: "Next-week priorities must include due monitoring, actions, escalations and
+    // effectiveness reviews" -- previously only open actions were shown. An active Monitor cycle
+    // whose scheduled review point has arrived (or passed) is itself outstanding governance work.
+    const dueMonitoring = (await query(
+      `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
+              COALESCE(NULLIF(TRIM(gr.monitoring_trigger), ''), NULLIF(TRIM(gr.what_is_happening), '')) AS concern,
+              gr.due_at, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS owner
+         FROM governance_reviews gr
+         LEFT JOIN houses h ON h.id = gr.service_id AND h.company_id = gr.company_id
+         LEFT JOIN users u ON u.id = gr.decision_owner_id AND u.company_id = gr.company_id
+        WHERE gr.company_id = $1
+          AND (gr.service_id = ANY($2::uuid[]) OR ($6::boolean AND gr.service_id IS NULL))
+          AND gr.decision = 'Monitor' AND gr.decision_status = 'Monitoring'
+          AND gr.due_at < $4::timestamptz
+        ORDER BY gr.due_at ASC`, broadParams
     )).rows;
 
     // Patterns are cluster-level (never person-level), so PERSON scope returns none. This query
@@ -420,7 +445,7 @@ export const scopedReportDataService = {
       };
     });
 
-    const evidence = { signals, risks, actions, escalations, decisions, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
+    const evidence = { signals, risks, actions, escalations, decisions, due_monitoring: dueMonitoring, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,

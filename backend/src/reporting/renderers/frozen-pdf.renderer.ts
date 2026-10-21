@@ -314,7 +314,10 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
   ], 'No significant open risk or high-severity concern was identified from the selected snapshot.', 4);
 
   table(doc, '2. What did we do?', [
-    ...(e.decisions || []).map((r: any) => ({ ...r, response: r.decision, owner_name: r.reviewer, response_status: r.status })),
+    // B1 correction: the response column shows the decision AND the recorded management
+    // instruction together (e.g. "Monitor: Attend the bank") -- the instruction is no longer
+    // substituted for the concern column, which now shows the actual concern.
+    ...(e.decisions || []).map((r: any) => ({ ...r, response: r.management_instruction ? `${clean(r.decision)}: ${short(r.management_instruction, 90)}` : clean(r.decision), owner_name: r.reviewer, response_status: r.status })),
     ...completedThisWeek.map((r: any) => ({ ...r, concern: r.action, response: 'Action completed', owner_name: r.owner, response_status: r.effectiveness })),
     ...openEscalations.map((r: any) => ({ ...r, concern: r.reason, response: 'Escalated', owner_name: r.escalated_to, response_status: r.status })),
   ], [
@@ -322,17 +325,28 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Responsible', key: 'owner_name', width: 90 }, { label: 'Evidence / position', key: 'response_status', width: 110 },
   ], 'No management decision, completed response or escalation was recorded this week.', 6);
 
+  // B1 correction: "What did we learn?" must come from the RM's actual learning/reflection, never
+  // manufactured from completion text or an effectiveness rating -- a rating is a judgement about
+  // an action, not a recorded lesson, and conflating the two let a completed-but-unreflected-on
+  // action read as "learning" when none was actually written down.
   heading(doc, '3. What did we learn?');
-  bullets(doc, [
-    asText(latestReview?.lessons_learnt),
-    ...(e.actions || []).filter((a: any) => a.effectiveness && !/not yet/i.test(a.effectiveness)).map((a: any) => `${clean(a.action)}: ${clean(a.effectiveness)}. Evidence: ${clean(a.completion_evidence)}`),
-  ], 'No learning or effectiveness conclusion was recorded. A completed action is not proof that the concern was resolved.', 4);
+  bullets(doc, [asText(latestReview?.lessons_learnt)],
+    'No learning was recorded for this period. A completed action or an effectiveness rating is not itself a recorded lesson.', 4);
 
-  table(doc, '4. What should we expect next week?', openActions, [
+  // B1 correction: next week's priorities must include due monitoring reviews, open escalations
+  // and actions awaiting an effectiveness review -- not only open actions.
+  const dueMonitoring = e.due_monitoring || [];
+  const pendingEffectiveness = (e.actions || []).filter((a: any) => !isOpen(a.status) && a.effectiveness_review_state === 'NOT_REVIEWED');
+  table(doc, '4. What should we expect next week?', [
+    ...openActions.map((r: any) => ({ ...r, action: clean(r.action), due_date: r.due_date, evidence_expected: r.completion_evidence || 'Outcome evidence required' })),
+    ...dueMonitoring.map((r: any) => ({ action: `Monitoring review due: ${clean(r.concern) || 'see signal'}`, owner: r.owner, due_date: r.due_at, evidence_expected: 'Record what happened during monitoring and the next decision' })),
+    ...openEscalations.map((r: any) => ({ action: `Escalation outstanding: ${clean(r.reason)}`, owner: r.escalated_to, due_date: r.due_by, evidence_expected: 'Management response and closure evidence' })),
+    ...pendingEffectiveness.map((r: any) => ({ action: `Effectiveness review due: ${clean(r.action)}`, owner: r.owner, due_date: r.next_review_date, evidence_expected: 'Outcome evidence against the intended outcome' })),
+  ], [
     { label: 'Required action', key: 'action', width: 205 }, { label: 'Owner', key: 'owner', width: 90 },
     { label: 'Due', key: 'due_date', width: 70, map: (r) => date(r.due_date) },
-    { label: 'Evidence expected', key: 'completion_evidence', width: 130, map: (r) => r.completion_evidence || 'Outcome evidence required' },
-  ], 'No open action was identified. The manager should confirm whether any follow-up is still required.', 5);
+    { label: 'Evidence expected', key: 'evidence_expected', width: 130 },
+  ], 'No open action, due monitoring review, open escalation or pending effectiveness review was identified.', 5);
   const anticipated = asText(latestReview?.anticipated_risks);
   if (anticipated) {
     doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Risks to watch', LEFT, doc.y, { width: WIDTH });
