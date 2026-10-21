@@ -33,6 +33,13 @@ interface RiskPattern {
   promotedAt: string | null;
   scope: "service" | "person" | "cross_service";
   linkedRiskClosed?: boolean;
+  // Reassessment of a dismissed pattern (17 Oct v3 findings, fixed 21 Oct 2026): set when this
+  // pattern was formed from fresh evidence after an earlier one for the same theme/house/person
+  // was explicitly dismissed or resolved -- never a silent revival, always a new record, but the
+  // connection to what was closed before must be visible.
+  reassessedFromReason?: string | null;
+  reassessedFromDismissedByName?: string | null;
+  reassessedFromClosedAt?: string | null;
 }
 
 type Readiness = "promoted" | "ready" | "nearly" | "forming";
@@ -110,6 +117,9 @@ export function CrossHousePatternDetection() {
         promotedAt: c.promoted_at || null,
         scope: c.scope || lens,
         linkedRiskClosed: !!c.linked_risk_closed,
+        reassessedFromReason: c.reassessed_from_reason || null,
+        reassessedFromDismissedByName: c.reassessed_from_dismissed_by_name || null,
+        reassessedFromClosedAt: c.reassessed_from_closed_at || null,
       }));
 
       // Ready-first, then nearly, then forming, with already-promoted patterns last.
@@ -357,6 +367,15 @@ export function CrossHousePatternDetection() {
                   </CardHeader>
                   <CardContent className="p-6">
                     <div className="space-y-4">
+                      {selectedPattern.reassessedFromReason && (
+                        <div className="rounded-lg border border-amber-300 bg-amber-50 p-3">
+                          <div className="text-sm font-semibold text-amber-800">Reassessment of a previously dismissed concern</div>
+                          <div className="text-xs text-amber-700 mt-1">
+                            A concern on this theme was dismissed{selectedPattern.reassessedFromDismissedByName ? ` by ${selectedPattern.reassessedFromDismissedByName}` : ''}
+                            {selectedPattern.reassessedFromClosedAt ? ` on ${new Date(selectedPattern.reassessedFromClosedAt).toLocaleDateString('en-GB')}` : ''}: "{selectedPattern.reassessedFromReason}". This is a new pattern formed from fresh evidence — the earlier dismissal was not reopened.
+                          </div>
+                        </div>
+                      )}
                       <div>
                         <div className="text-sm text-muted-foreground mb-1">Pattern Type</div>
                         <div className=" text-foreground">{selectedPattern.patternType}</div>

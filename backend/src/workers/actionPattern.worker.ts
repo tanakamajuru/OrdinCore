@@ -72,7 +72,7 @@ async function runRule13() {
         WHERE ra.completion_outcome = 'Risk reduced'
           AND EXISTS (
             SELECT 1 FROM governance_pulses p
-            WHERE rc.name = ANY(p.risk_domain)
+            WHERE (rc.name = ANY(p.risk_domain) OR rc.name = p.governance_domain)
               AND p.house_id = r.house_id
               AND p.entry_date > ra.completed_at
               AND p.entry_date <= ra.completed_at + INTERVAL '14 days'

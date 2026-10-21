@@ -172,7 +172,9 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          FROM governance_pulses gp
          WHERE gp.company_id = $1 AND gp.house_id = $2
          AND gp.entry_date >= CURRENT_DATE - (INTERVAL '1 day' * $5)
-         AND $3 = ANY(gp.risk_domain)
+         -- Theme-matching fix (17 Oct v3 findings): a historical signal with an empty risk_domain
+         -- array but a populated governance_domain still counts as evidence for this theme.
+         AND ($3 = ANY(gp.risk_domain) OR $3 = gp.governance_domain)
          AND ${QUALIFYING_PULSE}
          ${personClause}
          -- Closed signals leave the live queue but remain historical pattern evidence.
@@ -205,11 +207,27 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
             ? `${domain} Pattern for ${related_person} – ${houseName}`
             : `${domain} Service Theme – ${houseName}`;
 
+        // Reassessment of a dismissed pattern (17 Oct v3 findings, fixed 21 Oct 2026): the lookup
+        // above deliberately excludes Dismissed/Resolved clusters, so new evidence for the same
+        // domain/house/person/scope always starts a fresh cluster -- correct, since a human closure
+        // decision is never silently reopened. But that fresh cluster must carry the link back to
+        // what was dismissed, so a reviewer sees "new evidence against a previously dismissed
+        // concern" rather than an unrelated first-time pattern.
+        const priorDismissed = await query(
+            `SELECT id FROM signal_clusters
+              WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3 AND scope = $4
+                AND (($4 = 'person' AND service_user_id = $5::uuid) OR ($4 = 'service' AND service_user_id IS NULL))
+                AND cluster_status IN ('Dismissed', 'Resolved')
+              ORDER BY updated_at DESC LIMIT 1`,
+            [company_id, house_id, domain, scope, service_user_id]
+        );
+        const reassessedFromId = priorDismissed.rows[0]?.id || null;
+
         const newClusterRes = await query(
-            `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, service_user_id, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, 'Emerging', 0, NOW(), NOW(), 'Stable')
+            `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, service_user_id, cluster_label, cluster_status, signal_count, first_signal_date, last_signal_date, trajectory, reassessed_from_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, 'Emerging', 0, NOW(), NOW(), 'Stable', $8)
              ON CONFLICT DO NOTHING RETURNING id`,
-            [company_id, house_id, scope, domain, scope === 'person' ? related_person : null, scope === 'person' ? service_user_id : null, clusterLabel]
+            [company_id, house_id, scope, domain, scope === 'person' ? related_person : null, scope === 'person' ? service_user_id : null, clusterLabel, reassessedFromId]
         );
         if (newClusterRes.rows[0]) cluster_id = newClusterRes.rows[0].id;
         else {
@@ -439,7 +457,7 @@ async function evaluateCrossServiceRisk(
                 COUNT(*)::int AS total_signals,
                 MIN(gp.entry_date) AS first_signal
            FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
-          WHERE gp.company_id=$1 AND $2=ANY(gp.risk_domain)
+          WHERE gp.company_id=$1 AND ($2=ANY(gp.risk_domain) OR $2=gp.governance_domain)
             AND gp.entry_date >= CURRENT_DATE-INTERVAL '28 days'
             AND ${QUALIFYING_PULSE}
             AND gp.signal_label IS NOT NULL AND BTRIM(gp.signal_label)<>''
@@ -457,7 +475,7 @@ async function evaluateCrossServiceRisk(
            FROM governance_pulses gp
            JOIN houses h ON h.id = gp.house_id
           WHERE gp.company_id = $1
-            AND $2 = ANY(gp.risk_domain)
+            AND ($2 = ANY(gp.risk_domain) OR $2 = gp.governance_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '7 days'
             AND ${QUALIFYING_PULSE}
             `,
@@ -476,7 +494,7 @@ async function evaluateCrossServiceRisk(
                 MIN(gp.entry_date) AS first_signal,
                 COUNT(*)::int AS signals_28d
            FROM governance_pulses gp
-          WHERE gp.company_id = $1 AND $2 = ANY(gp.risk_domain)
+          WHERE gp.company_id = $1 AND ($2 = ANY(gp.risk_domain) OR $2 = gp.governance_domain)
             AND gp.entry_date >= CURRENT_DATE - INTERVAL '28 days'
             AND ${QUALIFYING_PULSE}
             `,
@@ -528,11 +546,20 @@ async function evaluateCrossServiceRisk(
                     [houseIds, totalSignals, csLabel, existingCs.rows[0].id]
                 );
             } else {
+                // Reassessment of a dismissed pattern (17 Oct v3 findings, fixed 21 Oct 2026): link
+                // the fresh cross-service cluster back to whatever was previously Dismissed/Resolved
+                // for this domain, same reasoning as the per-house/person path above -- new evidence
+                // never silently reopens a closed decision, but the connection must be visible.
+                const priorDismissedCs = await query(
+                    `SELECT id FROM signal_clusters WHERE company_id = $1 AND risk_domain = $2 AND scope = 'cross_service'
+                       AND cluster_status IN ('Dismissed', 'Resolved') ORDER BY updated_at DESC LIMIT 1`,
+                    [company_id, domain]
+                );
                 const inserted = await query(
-                    `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, cluster_label, cluster_status, signal_count, affected_house_ids, first_signal_date, last_signal_date)
-                     VALUES ($1, NULL, 'cross_service', $2, NULL, $3, 'Emerging', $4, $5, CURRENT_DATE, CURRENT_DATE)
+                    `INSERT INTO signal_clusters (company_id, house_id, scope, risk_domain, linked_person, cluster_label, cluster_status, signal_count, affected_house_ids, first_signal_date, last_signal_date, reassessed_from_id)
+                     VALUES ($1, NULL, 'cross_service', $2, NULL, $3, 'Emerging', $4, $5, CURRENT_DATE, CURRENT_DATE, $6)
                      RETURNING id`,
-                    [company_id, domain, csLabel, totalSignals, houseIds]
+                    [company_id, domain, csLabel, totalSignals, houseIds, priorDismissedCs.rows[0]?.id || null]
                 );
                 existingCs.rows[0] = inserted.rows[0];
             }
@@ -545,7 +572,7 @@ async function evaluateCrossServiceRisk(
                      SELECT uuid_generate_v4(), $1, gp.id, gp.created_by,
                             'Contributing signal — cross-service pattern materialisation'
                        FROM governance_pulses gp
-                      WHERE gp.company_id=$2 AND $3=ANY(gp.risk_domain)
+                      WHERE gp.company_id=$2 AND ($3=ANY(gp.risk_domain) OR $3=gp.governance_domain)
                         AND gp.house_id=ANY($4::uuid[])
                         AND ($5::text IS NULL OR LOWER(BTRIM(gp.signal_label))=$5)
                         AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= NOW()-INTERVAL '28 days'

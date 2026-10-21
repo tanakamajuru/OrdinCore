@@ -75,7 +75,10 @@ export class DirectorGovernanceService {
       AND EXISTS (
         SELECT 1 FROM governance_pulses gp
         WHERE gp.house_id = r.house_id
-        AND r.risk_domain = ANY(gp.risk_domain)
+        -- Theme-matching fix (17 Oct v3 findings): a signal with an empty risk_domain array but a
+        -- populated governance_domain must still count as a theme match, same fallback used
+        -- throughout pattern.worker.ts and reports.service.ts.
+        AND (r.risk_domain = ANY(gp.risk_domain) OR r.risk_domain = gp.governance_domain)
         AND gp.entry_date > r.closed_at::date
       )
     `;

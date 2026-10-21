@@ -83,10 +83,16 @@ export class GovernanceService {
                     pf.current_window_count, pf.qualifying_count, pf.historical_evidence_count,
                     pf.window_days, pf.threshold AS configured_threshold, pf.subthemes, pf.formation_basis,
                     (SELECT array_agg(hh.name ORDER BY hh.name) FROM houses hh WHERE hh.id = ANY(sc.affected_house_ids)) AS affected_house_names,
+                    -- Reassessment of a dismissed pattern (17 Oct v3 findings, fixed 21 Oct 2026):
+                    -- resolve who dismissed the prior cluster and why, so the UI can say "new
+                    -- evidence against a previously dismissed concern" with real context, not a bare id.
+                    rfc.dismiss_reason AS reassessed_from_reason, rfc.closed_at AS reassessed_from_closed_at,
+                    rfu.first_name || ' ' || rfu.last_name AS reassessed_from_dismissed_by_name,
                     EXISTS (
                       SELECT 1 FROM governance_pulses gp
                        WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
-                         AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
+                         AND gp.severity = 'Critical'
+                         AND (sc.risk_domain = ANY(gp.risk_domain) OR sc.risk_domain = gp.governance_domain)
                          AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
                     ) AS has_critical,
                     -- A pattern closes LAST: flag when its linked risk is already resolved so the UI
@@ -98,6 +104,8 @@ export class GovernanceService {
              FROM canonical_pattern_state_v sc
              LEFT JOIN houses h ON h.id = sc.house_id
              LEFT JOIN canonical_pattern_formation_v pf ON pf.cluster_id=sc.id
+             LEFT JOIN signal_clusters rfc ON rfc.id = sc.reassessed_from_id
+             LEFT JOIN users rfu ON rfu.id = rfc.dismissed_by
              WHERE sc.company_id = $1`;
     const params: any[] = [company_id];
     // Default to the service-theme lens: this prevents several person patterns hiding the

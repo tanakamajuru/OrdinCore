@@ -28,7 +28,7 @@ export const startRecurrenceWatchWorker = () => {
                 WHERE gp.company_id = $1
                 AND ($2::uuid IS NULL OR gp.house_id = $2)
                 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) > $3
-                AND $4 = ANY(gp.risk_domain)
+                AND ($4 = ANY(gp.risk_domain) OR $4 = gp.governance_domain)
                 LIMIT 1
             `, [risk.company_id, risk.house_id, risk.closed_at, risk.risk_domain]);
 

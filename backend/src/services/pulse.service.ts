@@ -448,7 +448,8 @@ export class PulseService {
                     EXISTS (
                       SELECT 1 FROM governance_pulses gp
                        WHERE gp.house_id = sc.house_id AND gp.company_id = sc.company_id
-                         AND gp.severity = 'Critical' AND sc.risk_domain = ANY(gp.risk_domain)
+                         AND gp.severity = 'Critical'
+                         AND (sc.risk_domain = ANY(gp.risk_domain) OR sc.risk_domain = gp.governance_domain)
                          AND gp.entry_date BETWEEN sc.first_signal_date AND sc.last_signal_date
                     ) AS has_critical
              FROM canonical_pattern_state_v sc
