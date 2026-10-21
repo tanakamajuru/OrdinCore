@@ -81,6 +81,25 @@ export const incidentsRepo = {
         [id]
       );
       incident.linked_escalations = escResult.rows;
+
+      // C1 correction: signals and patterns, including unpromoted ones.
+      const sigResult = await query(
+        `SELECT gp.id, gp.description, gp.severity, gp.review_status, gp.entry_date
+         FROM governance_pulses gp
+         JOIN incident_signals isg ON isg.pulse_id = gp.id
+         WHERE isg.incident_id = $1`,
+        [id]
+      );
+      incident.linked_signals = sigResult.rows;
+
+      const patResult = await query(
+        `SELECT sc.id, sc.cluster_label, sc.risk_domain, sc.cluster_status
+         FROM signal_clusters sc
+         JOIN incident_patterns ipt ON ipt.cluster_id = sc.id
+         WHERE ipt.incident_id = $1`,
+        [id]
+      );
+      incident.linked_patterns = patResult.rows;
     }
 
     return incident;
@@ -147,11 +166,13 @@ export const incidentsRepo = {
     return parseInt(result.rows[0].count);
   },
 
-  async create(dto: CreateIncidentDto & { 
-    persons_involved?: string[]; 
+  async create(dto: CreateIncidentDto & {
+    persons_involved?: string[];
     follow_up_required?: boolean;
     linked_risks?: string[];
     linked_escalations?: string[];
+    linked_signals?: string[];
+    linked_patterns?: string[];
   }) {
     const id = uuidv4();
     const reference = await nextIncidentReference(dto.company_id, dto.occurred_at);
@@ -192,6 +213,27 @@ export const incidentsRepo = {
         await query(
           `INSERT INTO incident_escalations (incident_id, escalation_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
           [id, escId]
+        );
+      }
+    }
+
+    // C1 correction: linked signals, including unpromoted ones and closed/dismissed signals --
+    // never filtered out, so the original reason stays attached to the incident record.
+    if (dto.linked_signals && dto.linked_signals.length > 0) {
+      for (const pulseId of dto.linked_signals) {
+        await query(
+          `INSERT INTO incident_signals (incident_id, pulse_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [id, pulseId]
+        );
+      }
+    }
+
+    // C1 correction: linked patterns.
+    if (dto.linked_patterns && dto.linked_patterns.length > 0) {
+      for (const clusterId of dto.linked_patterns) {
+        await query(
+          `INSERT INTO incident_patterns (incident_id, cluster_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+          [id, clusterId]
         );
       }
     }

@@ -71,6 +71,10 @@ export function IncidentCaseHub() {
   const [allHouses, setAllHouses] = useState<any[]>([]);
   const [allRisks, setAllRisks] = useState<any[]>([]);
   const [allEscalations, setAllEscalations] = useState<any[]>([]);
+  const [allSignals, setAllSignals] = useState<any[]>([]);
+  const [allPatterns, setAllPatterns] = useState<any[]>([]);
+  const [signalSearchTerm, setSignalSearchTerm] = useState('');
+  const [patternSearchTerm, setPatternSearchTerm] = useState('');
   const [people, setPeople] = useState<{ name: string; kind: string }[]>([]);
   // C1 correction (21 Oct 2026): "Show directory loading/error/retry" -- the directory fetch was a
   // bare try/catch with no loading state and no way to retry a failed load; a failure just left the
@@ -167,6 +171,22 @@ export function IncidentCaseHub() {
       const escalationsList = Array.isArray(eData) ? eData : (eData.escalations || eData.items || []);
       setAllEscalations(escalationsList);
 
+      // C1 correction (21 Oct 2026): "Replace register-only linking with 'Link relevant records':
+      // signals, monitoring, incidents, decisions, actions, escalations, patterns and risks.
+      // Permit multiple unpromoted source signals and relevant closed/dismissed records with
+      // original reasons." Risks and escalations were the only linkable record types -- signals
+      // and patterns (including ones never promoted to a formal risk) were entirely absent.
+      try {
+        const signalsRes = await apiClient.get('/pulses?limit=200');
+        const sigData = (signalsRes.data as any).data || (signalsRes.data as any) || [];
+        setAllSignals(Array.isArray(sigData) ? sigData : (sigData.pulses || sigData.items || []));
+      } catch { setAllSignals([]); }
+      try {
+        const patternsRes = await apiClient.get('/governance/clusters?scope=service');
+        const patData = (patternsRes.data as any).data || (patternsRes.data as any) || [];
+        setAllPatterns(Array.isArray(patData) ? patData : (patData.clusters || patData.items || []));
+      } catch { setAllPatterns([]); }
+
       loadPeopleDirectory();
 
       let houseIds: string[] = [];
@@ -247,6 +267,8 @@ export function IncidentCaseHub() {
         follow_up_required: true,
         linked_risks: incidentForm.linked_risks || [],
         linked_escalations: incidentForm.linked_escalations || [],
+        linked_signals: incidentForm.linked_signals || [],
+        linked_patterns: incidentForm.linked_patterns || [],
         la_referral: incidentForm.la_referral,
         cqc_notification: incidentForm.cqc_notification,
         police_reference: incidentForm.police_reference,
@@ -265,7 +287,7 @@ export function IncidentCaseHub() {
       setIncidentPersons([]); setNoIndividualAffected(false); setPersonDraftName(''); setPersonDraftRoles([]);
       setIncidentForm({
         house_id: userHouseId || '', title: '', description: '', severity: 'moderate', occurred_at: defaultOccurredAt(),
-        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '', linked_risks: [], linked_escalations: [],
+        immediate_action: '', persons_involved: '', location: '', type: '', warning_signals: '', source_pulse_id: '', linked_risks: [], linked_escalations: [], linked_signals: [], linked_patterns: [],
         la_referral: '', cqc_notification: '', police_reference: '', other_references: '',
         is_foreseeable: '', risk_factors: '', preventive_measures: '', leadership_commentary: '',
         lessons_learned: '', learning_shared: false
@@ -391,6 +413,19 @@ export function IncidentCaseHub() {
   const filteredEscalations = allEscalations.filter(esc => {
     const label = esc.reason || esc.description || esc.id || '';
     return label.toLowerCase().includes(escalationSearchTerm.toLowerCase());
+  });
+
+  // C1 correction: unpromoted signals/patterns are deliberately NOT filtered out by status --
+  // "permit multiple unpromoted source signals and relevant closed/dismissed records with
+  // original reasons" -- a closed or dismissed record stays linkable, with its own status shown
+  // so the reviewer sees it was closed/dismissed rather than that being hidden.
+  const filteredSignals = allSignals.filter((s: any) => {
+    const label = s.description || s.concern || s.related_person || s.id || '';
+    return String(label).toLowerCase().includes(signalSearchTerm.toLowerCase());
+  });
+  const filteredPatterns = allPatterns.filter((p: any) => {
+    const label = p.cluster_label || p.risk_domain || p.id || '';
+    return String(label).toLowerCase().includes(patternSearchTerm.toLowerCase());
   });
 
   const filteredIncidents = getFilteredIncidents();
@@ -866,6 +901,58 @@ export function IncidentCaseHub() {
                                 {display}
                               </option>
                             );
+                          })}
+                        </select>
+                      </div>
+                      <div>
+                        <label htmlFor="signal-link" className="block text-sm  text-foreground mb-1">Link to Signals (including unpromoted)</label>
+                        <input
+                          id="signal-link"
+                          type="text"
+                          placeholder="Search signals..."
+                          value={signalSearchTerm}
+                          onChange={(e) => setSignalSearchTerm(e.target.value)}
+                          className="w-full mb-2 px-3 py-2 border-2 border-border rounded bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
+                        <select
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-32"
+                          multiple
+                          value={incidentForm.linked_signals || []}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                            setIncidentForm((prev: any) => ({ ...prev, linked_signals: values }));
+                          }}
+                        >
+                          {filteredSignals.map((s: any) => {
+                            const display = s.description || s.concern || 'Signal';
+                            const statusTag = s.review_status && s.review_status !== 'New' ? ` [${s.review_status}]` : '';
+                            return <option key={s.id} value={s.id}>{display}{statusTag}</option>;
+                          })}
+                        </select>
+                        <p className="text-[11px] text-muted-foreground mt-1.5 ml-1">Includes signals never promoted to a risk — a dismissed or closed signal is still selectable, with its status shown.</p>
+                      </div>
+                      <div>
+                        <label htmlFor="pattern-link" className="block text-sm  text-foreground mb-1">Link to Patterns</label>
+                        <input
+                          id="pattern-link"
+                          type="text"
+                          placeholder="Search patterns..."
+                          value={patternSearchTerm}
+                          onChange={(e) => setPatternSearchTerm(e.target.value)}
+                          className="w-full mb-2 px-3 py-2 border-2 border-border rounded bg-background text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+                        />
+                        <select
+                          className="w-full border-2 border-border rounded-lg p-2.5 bg-background focus:ring-2 focus:ring-primary focus:outline-none text-sm h-32"
+                          multiple
+                          value={incidentForm.linked_patterns || []}
+                          onChange={(e) => {
+                            const values = Array.from(e.target.selectedOptions, option => option.value);
+                            setIncidentForm((prev: any) => ({ ...prev, linked_patterns: values }));
+                          }}
+                        >
+                          {filteredPatterns.map((p: any) => {
+                            const display = p.cluster_label || p.risk_domain || 'Pattern';
+                            return <option key={p.id} value={p.id}>{display} [{p.cluster_status || p.status}]</option>;
                           })}
                         </select>
                       </div>
