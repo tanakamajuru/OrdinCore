@@ -237,7 +237,20 @@ export const scopedReportDataService = {
               COALESCE(NULLIF(TRIM(gr.what_is_happening), ''), gp.description,
                        COALESCE(r.strategic_theme, r.title), e.reason) AS concern,
               gr.decision, COALESCE(NULLIF(TRIM(gr.decision_rationale), ''), NULLIF(TRIM(gr.evidence), '')) AS reason,
-              COALESCE(gr.decision_status::text, 'Open') AS status,
+              -- Report corrections (21 Oct 2026, B1): decision_status is stored 'Open' on every
+              -- decision at creation except Monitor -- passing it straight through produced
+              -- unexplained pairs like "Close ... Open". Derive a status that actually reflects
+              -- this specific decision's own outcome, by decision type.
+              CASE
+                WHEN gr.decision IN ('Close', 'Close Signal') THEN 'Closed'
+                WHEN gr.decision = 'Monitor' THEN COALESCE(gr.decision_status::text, 'Monitoring')
+                WHEN gr.decision = 'Create Action' THEN COALESCE(ra.concern_status, 'Action allocated')
+                WHEN gr.decision = 'Escalate' THEN COALESCE(e.lifecycle_status::text, e.status::text, 'Escalated')
+                ELSE COALESCE(gr.decision_status::text, 'Recorded')
+              END AS status,
+              -- Separate field per the correction: the concern's status (above) must not be
+              -- conflated with the linked action's own completion state.
+              ra.id AS linked_action_id, ra.status AS linked_action_status,
               gr.due_at,
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer
          FROM governance_reviews gr
@@ -246,6 +259,12 @@ export const scopedReportDataService = {
          LEFT JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id AND gp.company_id = gr.company_id
          LEFT JOIN risks r ON r.id = gr.risk_id AND r.company_id = gr.company_id
          LEFT JOIN escalations e ON e.id = gr.escalation_id AND e.company_id = gr.company_id
+         LEFT JOIN LATERAL (
+           SELECT a.id, a.status::text,
+                  CASE WHEN a.status::text IN ('Completed','Complete','Cancelled') THEN 'Action completed' ELSE 'Action open' END AS concern_status
+             FROM risk_actions a WHERE a.governance_review_id = gr.id AND a.company_id = gr.company_id
+            ORDER BY a.created_at DESC LIMIT 1
+         ) ra ON TRUE
         WHERE gr.company_id = $1
           AND (gr.service_id = ANY($2::uuid[])
                OR ($6::boolean AND gr.service_id IS NULL))
