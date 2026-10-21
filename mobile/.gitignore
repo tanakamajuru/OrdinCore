@@ -6,3 +6,15 @@ credentials/
 # Machine-specific Android SDK path — must never be uploaded to EAS (Linux builders)
 android/local.properties
 **/local.properties
+
+# Local Gradle build output -- caches absolute paths from the machine that generated it
+# (expo-modules-autolinking's autolinking.json embeds the project's own absolute filesystem path).
+# Android/Gradle "No matching variant... No variants exist" build failures (21 Oct 2026) were
+# traced to this: a Windows machine's local build here got uploaded by EAS's own archive step
+# (never gitignored, so swept up even though never git-tracked), and the Linux builder tried to
+# evaluate a build.gradle at a path with a literal Windows "C:\..." segment pasted into it.
+android/build/
+android/app/build/
+android/.gradle/
+ios/build/
+ios/Pods/
