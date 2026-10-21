@@ -606,19 +606,22 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
 function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
   const locked = data.reconstruction_record;
+  // B8 correction: a genuinely unrecorded author/reference is now shown as "Not recorded", never
+  // the vague "Recorded source" that implied something was sourced when nothing was.
   const storedTimeline = Array.isArray(locked?.timeline_events) ? locked.timeline_events.map((r: any) => ({
     date: r.date || r.created_at, type: r.type || r.event_type || 'Event',
     information: r.information || r.description || r.event || r.title,
     response: r.response || r.outcome || r.action || r.status,
-    person: r.person || r.actor || r.source || 'Recorded source',
+    person: r.person || r.actor || r.source || 'Not recorded',
   })) : [];
   const timeline = (storedTimeline.length ? storedTimeline : [
-    ...(e.signals || []).map((r: any) => ({ date: r.date, type: 'Signal', information: r.concern, response: r.review_status, person: 'Recorded source' })),
-    ...(e.decisions || []).map((r: any) => ({ date: r.date, type: 'Decision', information: r.concern, response: `${clean(r.decision)}: ${clean(r.reason)}`, person: r.reviewer })),
-    ...(e.escalations || []).map((r: any) => ({ date: r.date, type: 'Escalation', information: r.reason, response: r.status, person: r.escalated_to })),
-    ...(e.actions || []).map((r: any) => ({ date: r.created_at, type: 'Action', information: r.action, response: `${clean(r.status)}; due ${date(r.due_date)}; ${clean(r.effectiveness)}`, person: r.owner })),
+    // Signal entries now carry the actual reporter and the precise recorded time, not a filler string.
+    ...(e.signals || []).map((r: any) => ({ date: r.date, type: 'Signal', information: r.concern, response: r.review_status, person: r.reported_by ? `${r.reported_by} · ${dateTime(r.recorded_at || r.created_at)}` : 'Not recorded' })),
+    ...(e.decisions || []).map((r: any) => ({ date: r.date, type: 'Decision', information: r.concern, response: `${clean(r.decision)}: ${clean(r.reason)}`, person: r.reviewer || 'Not recorded' })),
+    ...(e.escalations || []).map((r: any) => ({ date: r.date, type: 'Escalation', information: r.reason, response: r.status, person: r.escalated_to || 'Not recorded' })),
+    ...(e.actions || []).map((r: any) => ({ date: r.created_at, type: 'Action', information: r.action, response: `${clean(r.status)}; due ${date(r.due_date)}; ${clean(r.effectiveness)}`, person: r.owner || 'Not recorded' })),
     ...(e.dismissed_concerns || []).map((r: any) => ({ date: r.date, type: 'Concern dismissed', information: `${clean(r.domain)}${r.person ? ` · ${clean(r.person)}` : ''}`, response: `${clean(r.event_type)}: ${clean(r.reason)}`, person: r.actor || 'System' })),
-    ...(e.effectiveness_reviews || []).map((r: any) => ({ date: r.date, type: r.is_early_review ? 'Effectiveness (early)' : 'Effectiveness review', information: clean(r.action), response: `${clean(r.outcome)}${r.early_review_reason ? ` — reviewed early: ${clean(r.early_review_reason)}` : ''}`, person: r.reviewer })),
+    ...(e.effectiveness_reviews || []).map((r: any) => ({ date: r.date, type: r.is_early_review ? 'Effectiveness (early)' : 'Effectiveness review', information: clean(r.action), response: `${clean(r.outcome)}${r.early_review_reason ? ` — reviewed early: ${clean(r.early_review_reason)}` : ''}`, person: r.reviewer || 'Not recorded' })),
   ]).filter((r: any) => inPeriod(r.date, data))
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   heading(doc, '1. Scope and factual account');
@@ -626,12 +629,25 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   table(doc, '2. Governance timeline', timeline, [
     { label: 'Date / type', key: 'date', width: 90, map: (r) => `${date(r.date)} / ${r.type}` },
     { label: 'Information available', key: 'information', width: 185 },
-    { label: 'Response recorded', key: 'response', width: 150 }, { label: 'Source', key: 'person', width: 70 },
+    { label: 'Response recorded', key: 'response', width: 150 }, { label: 'Source (author · time)', key: 'person', width: 70 },
   ], 'No in-period governance event was recorded for this reconstruction.', 20);
-  table(doc, '3. Actions and follow-through', (e.actions || []).filter((a: any) => inPeriod(a.created_at, data)), [
-    { label: 'Action', key: 'action', width: 190 }, { label: 'Completed / status', key: 'status', width: 100, map: (r) => `${clean(r.status)} (created ${date(r.created_at)})` },
-    { label: 'Evidence', key: 'completion_evidence', width: 115, map: (r) => `${clean(r.completion_evidence)}${r.effectiveness_evidence ? ` / Effectiveness: ${clean(r.effectiveness_evidence)}` : ''}` }, { label: 'Effectiveness', key: 'effectiveness', width: 90 },
-  ], 'No action was created within this reconstruction period.', 10);
+  // B8 correction: "Resolve Jethro's Create Action decisions versus absent action rows: distinguish
+  // missing, omitted or outside-window records and include carried-forward follow-through."
+  // Previously only actions CREATED inside the exact period appeared here -- a Create Action
+  // decision shown in the timeline above could have no corresponding row below simply because the
+  // resulting action was created slightly outside the window, or because the action is older and
+  // still being carried forward through this period. Show both: created in-period, OR still open
+  // (carried forward) through the period, OR completed in-period.
+  const relevantActions = (e.actions || []).filter((a: any) =>
+    inPeriod(a.created_at, data) || isOpen(a.status) || inPeriod(a.completed_at, data));
+  table(doc, '3. Actions and follow-through', relevantActions, [
+    { label: 'Action', key: 'action', width: 170 },
+    { label: 'Completed / status', key: 'status', width: 95, map: (r) => {
+        const carried = !inPeriod(r.created_at, data);
+        return `${clean(r.status)} (created ${date(r.created_at)}${carried ? ' — carried forward' : ''})`;
+      } },
+    { label: 'Evidence', key: 'completion_evidence', width: 105, map: (r) => `${clean(r.completion_evidence)}${r.effectiveness_evidence ? ` / Effectiveness: ${clean(r.effectiveness_evidence)}` : ''}` }, { label: 'Effectiveness', key: 'effectiveness', width: 80 },
+  ], 'No action is recorded as created in this period, carried forward through it, or completed within it. A Create Action decision in the timeline above with no row here is a missing or outside-window record, not evidence that no action was ever created.', 10);
   heading(doc, '4. Learning and limitations');
   // Learning tied to the exact effectiveness review it came from — the source action, the review
   // outcome, the lesson, and any separate improvement action (titles only; no identifiers).

@@ -170,9 +170,15 @@ export const scopedReportDataService = {
               gp.description AS concern, gp.risk_domain::text AS domain,
               gp.severity::text AS severity,
               COALESCE(gp.review_status::text, 'New') AS review_status,
-              gp.immediate_action
+              gp.immediate_action,
+              -- B8 correction (21 Oct 2026): "Replace generic 'Recorded source' with record
+              -- reference, author and time" -- the signal's own reporter and precise time were
+              -- never selected at all, so the reconstruction timeline had nothing real to show.
+              gp.created_at, (gp.entry_date + gp.entry_time) AS recorded_at,
+              NULLIF(TRIM(COALESCE(cu.first_name,'') || ' ' || COALESCE(cu.last_name,'')), '') AS reported_by
          FROM governance_pulses gp
          JOIN houses h ON h.id = gp.house_id AND h.company_id = gp.company_id
+         LEFT JOIN users cu ON cu.id = gp.created_by AND cu.company_id = gp.company_id
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
           AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5)
@@ -541,6 +547,13 @@ export const scopedReportDataService = {
     // Effectiveness learning recorded in the period — each lesson shown against its source action and
     // the exact review outcome it came from, plus any separate improvement action. Titles/outcomes
     // only (no identifiers), so it is defensibility-safe for the frozen report.
+    // B8 correction (21 Oct 2026): "Fix the learning query's missing person filter." Confirmed:
+    // this query took no personId parameter at all, so a PERSON-scoped reconstruction received
+    // learning records for every person at the service, not just the one in scope -- unrelated
+    // person material entering a report (doctrine A1). Joined to the source action's
+    // service_user_id, same as every other person-filtered query here. Also tightened the
+    // house_id IS NULL branch: it previously let every organisation-wide learning record leak into
+    // any site-scoped report unconditionally, instead of only when org-wide inclusion is intended.
     const effectivenessLearning = (await query(
       `SELECT lr.state, lr.what_learnt, lr.change_needed, lr.no_learning_reason,
               sa.title AS source_action_title,
@@ -548,13 +561,15 @@ export const scopedReportDataService = {
               la.title AS improvement_action_title
          FROM learning_records lr
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN risks sr ON sr.id = sa.risk_id AND sr.company_id = lr.company_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
          LEFT JOIN risk_actions la ON la.id = lr.linked_action_id
         WHERE lr.company_id = $1 AND lr.source_type = 'EFFECTIVENESS'
-          AND (lr.house_id = ANY($2::uuid[]) OR lr.house_id IS NULL)
+          AND (lr.house_id = ANY($2::uuid[]) OR ($6::boolean AND lr.house_id IS NULL))
           AND lr.created_at >= $3 AND lr.created_at < $4
+          AND ($5::uuid IS NULL OR sa.service_user_id = $5 OR sr.service_user_id = $5)
         ORDER BY lr.created_at DESC`,
-      [companyId, siteIds, start, end],
+      broadParams,
     )).rows;
 
     return {
