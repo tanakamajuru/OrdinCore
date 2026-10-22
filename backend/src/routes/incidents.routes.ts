@@ -237,6 +237,13 @@ router.get('/:id/timeline', requireAuth, requireTenant, incidentsController.getT
  */
 router.get('/:id/governance-timeline', requireAuth, requireTenant, incidentsController.getGovernanceTimeline.bind(incidentsController));
 
+// C2 correction (21 Oct 2026): "Surface/retry failed required tasks or reconstruction creation
+// without duplicating the case." Required investigation/notification tasks and the reconstruction
+// snapshot are created best-effort at incident creation time; if that step partially failed, this
+// lets an RM/TL retry it safely (both halves are idempotent by incident_id, so this can never
+// create a duplicate).
+router.post('/:id/retry-followup', requireAuth, requireTenant, requireScope, requireRole('SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'), incidentsController.retryFollowUp.bind(incidentsController));
+
 // Extra utility endpoints
 /**
  * @openapi

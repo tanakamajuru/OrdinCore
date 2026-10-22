@@ -97,57 +97,114 @@ export class IncidentsService {
       created_by
     });
 
-    // [GOVERNANCE] Serious/critical incidents create their governance tasks on the ONE canonical
-    // action spine (doctrine §8.2), carrying incident lineage — so they appear in My Work, the
-    // Action Tracker, effectiveness, closure and reports like any other governance action. The
-    // previous separate `incident_actions` path did not (its table does not even exist in prod,
-    // so those INSERTs threw). Type-aware suggestions stay RECOMMENDATIONS (surfaced via
-    // recommended_actions), not auto-created tasks, per the doctrine.
-    if (incident.severity === 'serious' || incident.severity === 'critical') {
-      const owner = data.assigned_to || created_by;
-      const fixedTasks = [
-        { title: `Immediate Investigation Required: ${incident.title}`,
-          description: `Formal investigation required for serious/critical incident. Source: ${data.source_pulse_id ? 'Promoted from signal' : 'Direct report'}`,
-          dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) },
-        { title: 'Notify Regulatory Bodies if Required',
-          description: 'Assess whether notification to CQC, LA, or police is required for this serious/critical incident.',
-          dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
-        { title: 'Complete Incident Reconstruction',
-          description: 'Conduct structured incident reconstruction to identify contributing factors, control weaknesses, and learning points.',
-          dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) },
-      ];
-      for (const t of fixedTasks) {
-        try {
-          await canonicalGovernanceActionService.create({
-            companyId: company_id, createdBy: created_by, title: t.title, description: t.description,
-            assignedTo: owner, dueDate: t.dueDate, houseId: incident.house_id || null,
-            incidentId: incident.id, sourcePulseId: data.source_pulse_id || null,
-            reviewRequirement: 'COMPLETION_ONLY',
-          });
-        } catch (e: any) {
-          // Best-effort: a task failure must not roll back an already-created incident record.
-          logger.error(`Failed to create canonical incident action "${t.title}" for incident ${incident.id}: ${e?.message || e}`);
-        }
-      }
-
-      if (data.source_pulse_id) {
-        try {
-          const reconstruction = await incidentReconstructionService.create(company_id, created_by, {
-            incident_id: incident.id,
-            house_id: incident.house_id,
-            lead_investigator: created_by
-          });
-          await incidentReconstructionService.linkPulses(reconstruction.id, company_id, [data.source_pulse_id]);
-        } catch (reconErr) {
-          console.error('Failed to create incident reconstruction snapshot:', reconErr);
-        }
-      }
+    // C2 correction: the required-tasks/reconstruction block below previously re-checked the
+    // same dead 'serious' literal (never stored by the DB) instead of reusing isSeriousOrCritical
+    // computed above -- so for every High-severity incident (the UI's "Serious" option) NONE of
+    // the mandatory follow-up work (investigation task, regulatory-notification task,
+    // reconstruction) was ever created, only for 'critical'. Extracted into a standalone,
+    // retry-safe method so a failed attempt can be surfaced and retried without duplicating work.
+    if (isSeriousOrCritical) {
+      await this.createFollowUpWork(company_id, created_by, incident, data);
     }
 
     await eventBus.emitEvent(EVENTS.INCIDENT_CREATED,
       { incident_id: incident.id, company_id, created_by, severity: incident.severity },
       { idempotencyKey: `incident-created:${incident.id}` });
     return incident;
+  }
+
+  // [GOVERNANCE] Serious/critical incidents create their governance tasks on the ONE canonical
+  // action spine (doctrine §8.2), carrying incident lineage — so they appear in My Work, the
+  // Action Tracker, effectiveness, closure and reports like any other governance action. The
+  // previous separate `incident_actions` path did not (its table does not even exist in prod, so
+  // those INSERTs threw). Type-aware suggestions stay RECOMMENDATIONS (surfaced via
+  // recommended_actions), not auto-created tasks, per the doctrine.
+  //
+  // C2 correction: "Surface/retry failed required tasks or reconstruction creation without
+  // duplicating the case." This is called both at creation time and from retryFollowUp(). Both
+  // halves are now idempotent -- canonicalGovernanceActionService.create() dedupes on
+  // (company, title, incident_id) for any still-open action, and the reconstruction INSERT below
+  // first checks for an existing row for this incident -- so a retry after a partial failure can
+  // never create a second task or a second reconstruction for the same incident.
+  async createFollowUpWork(company_id: string, created_by: string, incident: any, data: any) {
+    const owner = data.assigned_to || incident.assigned_to || created_by;
+    const failures: string[] = [];
+    const fixedTasks = [
+      { title: `Immediate Investigation Required: ${incident.title}`,
+        description: `Formal investigation required for serious/critical incident. Source: ${data.source_pulse_id ? 'Promoted from signal' : 'Direct report'}`,
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) },
+      { title: 'Notify Regulatory Bodies if Required',
+        description: 'Assess whether notification to CQC, LA, or police is required for this serious/critical incident.',
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) },
+      { title: 'Complete Incident Reconstruction',
+        description: 'Conduct structured incident reconstruction to identify contributing factors, control weaknesses, and learning points.',
+        dueDate: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000) },
+    ];
+    for (const t of fixedTasks) {
+      try {
+        await canonicalGovernanceActionService.create({
+          companyId: company_id, createdBy: created_by, title: t.title, description: t.description,
+          assignedTo: owner, dueDate: t.dueDate, houseId: incident.house_id || null,
+          incidentId: incident.id, sourcePulseId: data.source_pulse_id || null,
+          reviewRequirement: 'COMPLETION_ONLY',
+        });
+      } catch (e: any) {
+        logger.error(`Failed to create canonical incident action "${t.title}" for incident ${incident.id}: ${e?.message || e}`);
+        failures.push(t.title);
+      }
+    }
+
+    if (data.source_pulse_id) {
+      try {
+        const existingRecon = await incidentReconstructionService.findByIncident(incident.id, company_id);
+        const reconstruction = existingRecon || await incidentReconstructionService.create(company_id, created_by, {
+          incident_id: incident.id,
+          house_id: incident.house_id,
+          lead_investigator: created_by
+        });
+        await incidentReconstructionService.linkPulses(reconstruction.id, company_id, [data.source_pulse_id]);
+      } catch (reconErr: any) {
+        logger.error(`Failed to create incident reconstruction snapshot for incident ${incident.id}: ${reconErr?.message || reconErr}`);
+        failures.push('Incident reconstruction');
+      }
+    }
+
+    // Surface any failure on the incident's own timeline so it is visible to whoever is
+    // reviewing the case (not just backend logs), with enough detail to know a retry is needed.
+    if (failures.length) {
+      try {
+        await incidentsRepo.addEvent(incident.id, company_id, {
+          event_type: 'follow_up_incomplete',
+          title: 'Required follow-up work could not be created',
+          description: `Failed to create: ${failures.join(', ')}. Use "Retry follow-up work" on this case to try again.`,
+          metadata: { failures },
+          created_by
+        });
+      } catch (e: any) {
+        logger.error(`Failed to record follow_up_incomplete event for incident ${incident.id}: ${e?.message || e}`);
+      }
+    }
+    return { failures };
+  }
+
+  async retryFollowUp(company_id: string, user_id: string, incident_id: string) {
+    const incident = await incidentsRepo.findById(incident_id, company_id);
+    if (!incident) throw new Error('Incident not found');
+    const severity = (incident.severity || '').toString().toLowerCase();
+    if (!(severity === 'high' || severity === 'critical')) {
+      throw new Error('Follow-up work only applies to High or Critical incidents.');
+    }
+    const result = await this.createFollowUpWork(company_id, user_id, incident, { source_pulse_id: incident.source_pulse_id, assigned_to: incident.assigned_to });
+    if (!result.failures.length) {
+      await incidentsRepo.addEvent(incident.id, company_id, {
+        event_type: 'follow_up_retried',
+        title: 'Required follow-up work retried successfully',
+        description: 'All required tasks and/or reconstruction are now in place.',
+        metadata: {},
+        created_by: user_id
+      });
+    }
+    return result;
   }
 
   async findAll(company_id: string, filters: Record<string, unknown> = {}, page = 1, limit = 50) {

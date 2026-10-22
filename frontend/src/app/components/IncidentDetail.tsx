@@ -55,6 +55,7 @@ export function IncidentDetail() {
   const [timeline, setTimeline] = useState<TimelineEvent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
     if (id) {
@@ -102,6 +103,36 @@ export function IncidentDetail() {
       toast.error('Failed to update incident status');
     } finally {
       setIsUpdating(false);
+    }
+  };
+
+  // C2 correction: "Surface/retry failed required tasks or reconstruction creation without
+  // duplicating the case." A follow_up_incomplete event with no later follow_up_retried event
+  // means the required investigation/notification tasks and/or reconstruction never got created --
+  // surface that plainly instead of leaving it only in backend logs, and let the user retry
+  // (the backend dedupes by incident_id so this can never create a duplicate).
+  const lastIncomplete = [...timeline].reverse().find(e => e.event_type === 'follow_up_incomplete');
+  const resolvedAfter = lastIncomplete
+    ? timeline.some(e => e.event_type === 'follow_up_retried' && new Date(e.created_at) > new Date(lastIncomplete.created_at))
+    : false;
+  const needsFollowUpRetry = !!lastIncomplete && !resolvedAfter;
+
+  const retryFollowUp = async () => {
+    if (!id) return;
+    try {
+      setIsRetrying(true);
+      const res = await apiClient.post(`/incidents/${id}/retry-followup`, {});
+      const data = (res.data as any).data || {};
+      if (data.failures && data.failures.length) {
+        toast.error(`Still failed: ${data.failures.join(', ')}`);
+      } else {
+        toast.success('Required follow-up work created successfully');
+      }
+      loadIncidentDetails(id);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to retry follow-up work');
+    } finally {
+      setIsRetrying(false);
     }
   };
 
@@ -179,6 +210,21 @@ export function IncidentDetail() {
             {incident.house_name} • Occurred {incident.occurred_at ? new Date(incident.occurred_at).toLocaleDateString('en-GB') : 'N/A'} • Reported by {incident.created_by_name || 'Unknown'}
           </p>
         </div>
+
+        {needsFollowUpRetry && (
+          <div className="bg-yellow-50 border-2 border-yellow-400 p-4 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
+            <div>
+              <h3 className="text-base text-foreground flex items-center gap-2">
+                <AlertTriangle className="w-5 h-5 text-yellow-700" />
+                Required follow-up work could not be created
+              </h3>
+              <p className="text-sm text-muted-foreground">{lastIncomplete?.description}</p>
+            </div>
+            <Button onClick={retryFollowUp} disabled={isRetrying}>
+              {isRetrying ? 'Retrying…' : 'Retry follow-up work'}
+            </Button>
+          </div>
+        )}
 
         {/* Governance Moderation Actions */}
         {['REGISTERED_MANAGER', 'RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && incident.status !== 'closed' && (

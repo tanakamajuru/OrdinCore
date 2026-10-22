@@ -14,6 +14,16 @@ export class IncidentReconstructionService {
     return result.rows[0];
   }
 
+  // C2 correction: lets createFollowUpWork() be retry-safe -- a retry after a partial failure
+  // reuses an existing reconstruction for this incident instead of inserting a second one.
+  async findByIncident(incident_id: string, company_id: string) {
+    const result = await query(
+      `SELECT * FROM incident_reconstruction WHERE incident_id = $1 AND company_id = $2 ORDER BY created_at LIMIT 1`,
+      [incident_id, company_id]
+    );
+    return result.rows[0];
+  }
+
   async findById(id: string, company_id: string) {
     const result = await query(
       `SELECT ir.*, h.name as house_name, i.title AS incident_type, i.severity as incident_severity,

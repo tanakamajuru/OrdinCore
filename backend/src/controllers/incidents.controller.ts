@@ -65,6 +65,17 @@ export class IncidentsController {
     }
   }
 
+  async retryFollowUp(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const result = await incidentsService.retryFollowUp(company_id, req.user!.user_id, req.params.id);
+      return res.json({ success: true, data: result, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to retry follow-up work';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async update(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
