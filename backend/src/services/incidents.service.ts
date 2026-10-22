@@ -23,6 +23,17 @@ export function recommendedActionsFor(type?: string, severity?: string): string[
   return Array.from(new Set(out));
 }
 
+// D1 correction (21 Oct 2026): "Case ownership and lifecycle." Confirmed against production: the
+// incidents.status CHECK constraint stores 'Open'/'In Progress'/'Resolved'/'Closed' (title case --
+// matching what the frontend's status buttons send), but both lock checks below compared against
+// the lowercase literals 'resolved'/'closed', which can never equal the actual stored value. "Locked
+// Means Locked" (Governance Integrity Rule §7.2) was therefore dead code: a resolved or closed
+// incident could still be edited or re-resolved through the API.
+function isLockedStatus(status: string | undefined | null): boolean {
+  const s = (status || '').toLowerCase();
+  return s === 'resolved' || s === 'closed';
+}
+
 export class IncidentsService {
   // Pattern detection: surface prior related incidents (same service and/or the same
   // people) and recent signals for the people involved, so the recorder sees at a
@@ -274,7 +285,7 @@ export class IncidentsService {
     if (!incident) throw new Error('Incident not found');
 
     // [GOVERNANCE] Locked Means Locked
-    if (incident.status === 'resolved' || incident.status === 'closed') {
+    if (isLockedStatus(incident.status)) {
       throw new Error('This incident is resolved/closed and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
@@ -339,7 +350,33 @@ export class IncidentsService {
   async assignIncident(incident_id: string, company_id: string, user_id: string, assigned_to: string) {
     const incident = await incidentsRepo.findById(incident_id, company_id);
     if (!incident) throw new Error('Incident not found');
+    // D1 correction: ownership of a locked (resolved/closed) case must not change -- the same
+    // "Locked Means Locked" rule applied to update()/resolveIncident() applied here too.
+    if (isLockedStatus(incident.status)) {
+      throw new Error('This incident is resolved/closed and its ownership cannot be changed (Governance Integrity Rule Section 7.2)');
+    }
     const updated = await incidentsRepo.assignIncident(incident_id, company_id, assigned_to);
+
+    // D1 correction: case reassignment previously had no timeline record and never notified
+    // either party -- the new owner had no way to know a case was handed to them, and there was
+    // no audit trail of who held ownership when.
+    await incidentsRepo.addEvent(incident_id, company_id, {
+      event_type: 'reassigned',
+      title: 'Incident ownership changed',
+      description: incident.assigned_to ? `Reassigned from the previous owner.` : 'Incident assigned.',
+      metadata: { previous_owner: incident.assigned_to || null, new_owner: assigned_to },
+      created_by: user_id
+    });
+    if (assigned_to && assigned_to !== user_id) {
+      try {
+        await notificationsService.create({
+          company_id, user_id: assigned_to, type: 'INCIDENT_ASSIGNED',
+          title: 'Incident case assigned to you',
+          body: `"${incident.title}" has been assigned to you.`,
+          link: `/incidents/${incident_id}`,
+        });
+      } catch { /* best-effort */ }
+    }
     return updated;
   }
 
@@ -348,7 +385,7 @@ export class IncidentsService {
     if (!incident) throw new Error('Incident not found');
 
     // [GOVERNANCE] Locked Means Locked
-    if (incident.status === 'resolved' || incident.status === 'closed') {
+    if (isLockedStatus(incident.status)) {
       throw new Error('This incident is already resolved/closed (Governance Integrity Rule Section 7.2)');
     }
 
