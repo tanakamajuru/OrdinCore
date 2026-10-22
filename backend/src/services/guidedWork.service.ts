@@ -227,11 +227,19 @@ export const guidedWorkService = {
       // pattern/immediate-detection evaluation has exhausted its auto-retry budget must never sit
       // silently indistinguishable from "evaluated, no concern found" — surface it to the RM as its
       // own work item so a human knows pattern detection genuinely has not run for this signal.
+      // Bug fix (confirmed live, 22 Oct 2026, user-reported): this query never checked whether the
+      // signal had already been reviewed -- once a signal's evaluation failed 5 times it showed as
+      // "Pattern evaluation failed" FOREVER, even after the RM recorded a real governance decision
+      // (Close/Monitor/etc.) on it, because closing a signal doesn't touch evaluation_status/
+      // evaluation_attempts. Added the same open-queue condition used everywhere else a signal's
+      // "still needs a decision" state is checked (risks.service.ts, rm5.service.ts,
+      // governanceWorkflow.service.ts): review_status IS NULL OR = 'New'.
       const failedEvaluations = await safeRows(`
         SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.evaluation_attempts, h.name AS service_name
           FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
          WHERE gp.company_id=$1 AND gp.house_id=ANY($2::uuid[])
            AND gp.evaluation_status='FAILED' AND gp.evaluation_attempts>=5
+           AND (gp.review_status IS NULL OR gp.review_status = 'New')
          ORDER BY gp.created_at`, [companyId, houses]);
       for (const f of failedEvaluations) needsYou.push({
         id:`eval_failed:${f.id}`, role, state:'NEEDS_YOU', priority:'URGENT', taskType:'EVALUATION_FAILED',

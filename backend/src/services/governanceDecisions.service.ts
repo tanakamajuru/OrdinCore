@@ -273,11 +273,29 @@ export const governanceDecisionsService = {
     } else if (decision === 'Request Risk Closure' && input.risk_id) {
       // Do NOT close directly — mark the risk for a closure review.
       await client.query(`UPDATE risks SET closure_eligible = true, last_governance_review_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2`, [input.risk_id, c]);
+    } else if (decision === 'Reopen') {
+      // Bug fix (confirmed live, 22 Oct 2026): 'Reopen' was a declared/allowed decision type with
+      // no handling branch at all -- it fell through to the generic "advance status" block below,
+      // which set review_status to 'Reviewed' (since decision !== 'Monitor'). The open-queue check
+      // used everywhere else (risks.service.ts, rm5.service.ts, governanceWorkflow.service.ts) is
+      // `review_status IS NULL OR review_status = 'New'`, so 'Reviewed' never actually returns a
+      // signal to the day's undecided queue -- a mistaken Close (e.g. the wrong findings pasted
+      // onto the wrong signal) had no way to be corrected before it carried forward into a signed
+      // Daily Oversight record. Reopen now genuinely clears the prior review so the signal is
+      // undecided again; the original (mistaken) decision row is never deleted or edited in place
+      // -- it stays as permanent audit history, and this Reopen row records why it was reopened.
+      if (!input.pulse_entry_id) throw new Error('Reopen needs the originating signal.');
+      await client.query(
+        `UPDATE governance_pulses SET review_status = 'New', reviewed_by = NULL, reviewed_at = NULL, updated_at = NOW()
+          WHERE id = $1 AND company_id = $2`,
+        [input.pulse_entry_id, c]
+      );
     }
 
-    // The source signal remains permanent evidence — only its status advances. Pattern-linking
-    // and closing decisions already set the signal's status above, so skip the generic update.
-    if (input.pulse_entry_id && !['Close', 'Close Signal', 'Create Pattern', 'Link to Pattern'].includes(decision)) {
+    // The source signal remains permanent evidence — only its status advances. Pattern-linking,
+    // closing and reopening decisions already set the signal's status above, so skip the generic
+    // update for those (Reopen must not be re-marked 'Reviewed' immediately after being reopened).
+    if (input.pulse_entry_id && !['Close', 'Close Signal', 'Create Pattern', 'Link to Pattern', 'Reopen'].includes(decision)) {
       await client.query(
         `UPDATE governance_pulses SET review_status = CASE WHEN $2 = 'Monitor' THEN 'Monitoring'::review_status ELSE 'Reviewed'::review_status END,
                 reviewed_by = COALESCE(reviewed_by,$1), reviewed_at = COALESCE(reviewed_at, NOW())

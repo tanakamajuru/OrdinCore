@@ -54,6 +54,7 @@ export function GovernanceDecisions({
   const [previousList, setPreviousList] = useState<any[]>([]);
   const [previousSummary, setPreviousSummary] = useState<any>(null);
   const [busy, setBusy] = useState(false);
+  const [reopeningId, setReopeningId] = useState<string | null>(null);
   const [form, setForm] = useState({
     what: "",
     decision: "" as string, // no preselected decision — the RM chooses "What should happen now?"
@@ -343,6 +344,38 @@ export function GovernanceDecisions({
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Failed to allocate task");
     } finally { setTaskBusy(false); }
+  };
+
+  // Correct a mistaken decision made earlier today (e.g. the wrong findings/reason pasted onto
+  // the wrong signal) before it carries forward into a signed Daily Oversight record. This does
+  // NOT edit or delete the original decision — it's permanent audit history — it returns the
+  // signal to today's undecided queue so a fresh, correct decision can be recorded on it.
+  const reopenDecision = async (d: any) => {
+    if (readOnly || !d.pulse_entry_id) return;
+    const reason = window.prompt(
+      `Reopen "${d.what_is_happening?.slice(0, 80) || "this decision"}"?\n\nThis signal will return to today's undecided queue so you can record the correct decision. The original decision stays as audit history.\n\nBriefly record why (e.g. "Findings were recorded against the wrong signal"):`
+    );
+    if (!reason || reason.trim().length < 10) {
+      if (reason !== null) toast.error("Record a reason of at least 10 characters to reopen.");
+      return;
+    }
+    setReopeningId(d.id);
+    try {
+      await apiClient.post("/governance-decisions", {
+        house_id: houseId,
+        pulse_entry_id: d.pulse_entry_id,
+        what_is_happening: d.what_is_happening,
+        decision: "Reopen",
+        decision_rationale: reason.trim(),
+        severity: d.signal_severity,
+        idempotency_key: (crypto?.randomUUID?.() || String(Date.now() + Math.random())),
+      });
+      toast.success("Reopened — the signal is back in today's undecided queue.");
+      await Promise.all([loadDecisions(), loadSignals()]);
+      await onChanged?.();
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || "Failed to reopen this decision");
+    } finally { setReopeningId(null); }
   };
 
   const StatusPill = ({ s }: { s: string }) => {
@@ -746,7 +779,20 @@ export function GovernanceDecisions({
                       {d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}
                       {when ? <span className="text-muted-foreground"> · {when}</span> : null}
                     </span>
-                    <StatusPill s={d.rollup_status} />
+                    <div className="flex items-center gap-2 shrink-0">
+                      <StatusPill s={d.rollup_status} />
+                      {!readOnly && d.pulse_entry_id && d.decision !== "Reopen" && (
+                        <button
+                          type="button"
+                          onClick={() => reopenDecision(d)}
+                          disabled={reopeningId === d.id}
+                          title="Wrong decision recorded on this signal? Reopen it to correct before it's finalised."
+                          className="text-[11px] text-primary underline disabled:opacity-50 whitespace-nowrap"
+                        >
+                          {reopeningId === d.id ? "Reopening…" : "Reopen"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   {d.decision_rationale ? <div className="text-[11px] text-muted-foreground mt-0.5"><span className="font-medium">{reasonLabel}:</span> {d.decision_rationale}</div> : null}
                   {d.findings ? <div className="text-[11px] text-muted-foreground"><span className="font-medium">Findings:</span> {d.findings}</div> : null}
