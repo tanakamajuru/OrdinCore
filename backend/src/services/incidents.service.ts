@@ -2,6 +2,7 @@ import { incidentsRepo } from '../repositories/incidents.repo';
 import { pulsesRepo } from '../repositories/pulses.repo';
 import { incidentReconstructionService } from './incidentReconstruction.service';
 import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
+import { notificationsService } from './notifications.service';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { query } from '../config/database';
 import logger from '../utils/logger';
@@ -105,6 +106,29 @@ export class IncidentsService {
     // retry-safe method so a failed attempt can be surfaced and retried without duplicating work.
     if (isSeriousOrCritical) {
       await this.createFollowUpWork(company_id, created_by, incident, data);
+
+      // C3 correction: "Notifications and improvement." Confirmed against production: the
+      // `notifications` table has never once held an incident-related row (type counts show
+      // GOVERNANCE_ABSENCE_72H, ESCALATION_*, ACTION_* etc. in the thousands, but nothing for
+      // incidents) -- INCIDENT_CREATED is emitted on the event bus but nothing has ever listened
+      // for it, so oversight (RI/Director) learned of a serious incident only by noticing it in
+      // a list. Best-effort, never blocks incident creation.
+      try {
+        const oversight = await query(
+          `SELECT id FROM users WHERE company_id = $1 AND status = 'active' AND role = ANY(ARRAY['DIRECTOR','RESPONSIBLE_INDIVIDUAL']) AND id <> $2`,
+          [company_id, created_by]
+        );
+        for (const row of oversight.rows) {
+          await notificationsService.create({
+            company_id, user_id: row.id, type: 'INCIDENT_REPORTED',
+            title: `${incident.severity} incident reported`,
+            body: `"${incident.title}" was reported and requires oversight review.`,
+            link: `/incidents/${incident.id}`,
+          });
+        }
+      } catch (e: any) {
+        logger.error(`Failed to notify oversight of incident ${incident.id}: ${e?.message || e}`);
+      }
     }
 
     await eventBus.emitEvent(EVENTS.INCIDENT_CREATED,
@@ -142,12 +166,35 @@ export class IncidentsService {
     ];
     for (const t of fixedTasks) {
       try {
+        // Checked up front (same still-open/title/incident_id match the shared create() uses
+        // internally) so we know whether this call is inserting a fresh row or returning an
+        // existing one -- only a fresh row should notify its owner, or a retry would re-notify
+        // for work that was already assigned.
+        const alreadyExisted = !!(await query(
+          `SELECT 1 FROM risk_actions WHERE company_id=$1 AND incident_id=$2 AND LOWER(BTRIM(title))=$3
+             AND completed_at IS NULL AND COALESCE(status,'') NOT IN ('Completed','Complete','Closed','Resolved','Cancelled') LIMIT 1`,
+          [company_id, incident.id, t.title.trim().toLowerCase()]
+        )).rows[0];
         await canonicalGovernanceActionService.create({
           companyId: company_id, createdBy: created_by, title: t.title, description: t.description,
           assignedTo: owner, dueDate: t.dueDate, houseId: incident.house_id || null,
           incidentId: incident.id, sourcePulseId: data.source_pulse_id || null,
           reviewRequirement: 'COMPLETION_ONLY',
         });
+        if (!alreadyExisted) {
+          // C3 correction: canonicalGovernanceActionService.create() never notifies the
+          // assignee (confirmed -- no notificationsService reference in that file), so the
+          // owner of a required incident task previously learned of it only by finding it
+          // themselves in My Work/Action Tracker. Mirrors the pattern already used for
+          // escalation-raised tasks (escalations.service.ts addTask()).
+          try {
+            await notificationsService.create({
+              company_id, user_id: owner, type: 'task_assigned',
+              title: 'Required incident task assigned to you',
+              body: t.title, link: '/my-actions',
+            });
+          } catch { /* best-effort */ }
+        }
       } catch (e: any) {
         logger.error(`Failed to create canonical incident action "${t.title}" for incident ${incident.id}: ${e?.message || e}`);
         failures.push(t.title);
