@@ -60,7 +60,7 @@ export function MyWork(){
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2"><span className={`text-xs font-bold ${priorityText[item.priority]}`}>{item.priority}</span>{item.serviceName&&<span className="text-xs text-muted-foreground">• {item.serviceName}</span>}{item.id===nextId&&tab==='NEEDS_YOU'&&<span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">Next</span>}</div>
             <h2 className="font-semibold text-foreground mt-1">{item.title}</h2><p className="text-sm text-muted-foreground mt-1">{item.summary}</p>
-            {item.dueAt&&<div className="text-xs text-muted-foreground mt-2">Due/review: {fmt(item.dueAt)}</div>}
+            {item.dueAt&&<div className="text-xs text-muted-foreground mt-2">{item.taskType==='EVALUATION_FAILED'?'Raised':'Due/review'}: {fmt(item.dueAt)}</div>}
             {expanded===item.id&&<div className="mt-3 rounded-lg bg-background/70 border border-border p-3 text-sm"><div className="font-semibold">Why am I seeing this?</div><div className="text-muted-foreground mt-1">{item.whyAmISeeingThis}</div><div className="font-semibold mt-3">What happens next?</div><div className="text-muted-foreground mt-1">Open the existing canonical screen and complete the normal Ordin Core function there.</div></div>}
           </div>
           <div className="flex flex-col gap-2 shrink-0"><button onClick={()=>open(item)} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">{item.actionLabel}<ChevronRight size={15}/></button><button onClick={()=>setExpanded(expanded===item.id?null:item.id)} className="text-xs text-primary">Why?</button></div>

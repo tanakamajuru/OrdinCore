@@ -257,7 +257,8 @@ export const guidedWorkService = {
       // "still needs a decision" state is checked (risks.service.ts, rm5.service.ts,
       // governanceWorkflow.service.ts): review_status IS NULL OR = 'New'.
       const failedEvaluations = await safeRows(`
-        SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.evaluation_attempts, h.name AS service_name
+        SELECT gp.id, gp.house_id, gp.description, gp.related_person, gp.evaluation_attempts, h.name AS service_name,
+               COALESCE(gp.entry_date::timestamptz, gp.created_at) AS raised_at
           FROM governance_pulses gp JOIN houses h ON h.id=gp.house_id
          WHERE gp.company_id=$1 AND gp.house_id=ANY($2::uuid[])
            AND gp.evaluation_status='FAILED' AND gp.evaluation_attempts>=5
@@ -268,7 +269,13 @@ export const guidedWorkService = {
         title:`Pattern evaluation failed${f.related_person ? ` · ${f.related_person}` : ''}`,
         summary:f.description || 'A signal failed automated pattern/safeguarding evaluation after repeated retries.',
         reason:`Automated evaluation has failed ${f.evaluation_attempts} times and will not retry further — this signal has not been checked for a pattern or immediate safeguarding concern.`,
-        serviceName:f.service_name, canonicalEntityType:'signal', canonicalEntityId:f.id, requiredAction:'MANUAL_SIGNAL_REVIEW',
+        // Bug fix (confirmed live, 22 Oct 2026, user-reported): this card never carried a date at
+        // all -- "Due/review" only renders when dueAt is set -- so there was no way to tell how
+        // long a failed evaluation had been sitting unreviewed. It needed review from the moment
+        // it was raised (there is no future "due" point to wait for), so dueAt is the signal's own
+        // raised date/time, which both fills in the date and correctly conveys it's been
+        // outstanding since then, not newly appeared.
+        dueAt:f.raised_at, serviceName:f.service_name, canonicalEntityType:'signal', canonicalEntityId:f.id, requiredAction:'MANUAL_SIGNAL_REVIEW',
         completionCondition:'An RM Daily Governance decision is persisted for this signal (manual review substitutes for the failed automated check).',
         route:`/governance-dashboard?guided=1&gw=eval_failed:${f.id}&pulseId=${f.id}&houseId=${f.house_id}`,
         actionLabel:'Review Signal', whyAmISeeingThis:'Automated pattern/safeguarding evaluation could not complete for this signal after repeated attempts.'
