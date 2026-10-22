@@ -14,6 +14,10 @@ const UPLOAD_DIR = path.join(__dirname, '../../storage/uploads');
 const EXT_BY_MIME: Record<string, string> = {
     'image/jpeg': 'jpg', 'image/jpg': 'jpg', 'image/png': 'png', 'image/heic': 'heic', 'image/webp': 'webp',
     'audio/m4a': 'm4a', 'audio/mp4': 'm4a', 'audio/x-m4a': 'm4a', 'audio/mpeg': 'mp3', 'audio/wav': 'wav', 'audio/webm': 'webm',
+    // D2 correction: incident evidence is often a scanned document (police reference letter,
+    // safeguarding referral), not just a photo/voice note -- this endpoint is now reused for
+    // incident attachments too.
+    'application/pdf': 'pdf',
 };
 // Cap raw media at 6MB: base64 inflates ~1.37x, keeping the request under the app's 10mb JSON limit.
 const MAX_UPLOAD_BYTES = 6 * 1024 * 1024;
@@ -315,17 +319,30 @@ export class PulseController {
             if (!/^[A-Za-z0-9][A-Za-z0-9-]*\.[A-Za-z0-9]+$/.test(filename)) {
                 return res.status(404).json({ success: false, message: 'Not found.' });
             }
-            // The file must be referenced by a signal in THIS company.
+            // The file must be referenced by a signal OR an incident attachment in THIS company.
+            // D2 correction (21 Oct 2026): "Storage, retrieval." Confirmed: incident_attachments
+            // has a full insert/list/remove API, but this is the ONLY authenticated file-serving
+            // route in the app (incident_attachments.file_url points here the same way
+            // governance_pulses.evidence_url does) and it only ever checked governance_pulses --
+            // so a stored incident attachment could never actually be retrieved; every download
+            // attempt 404'd regardless of who asked.
             const pulse = (await query(
                 `SELECT house_id FROM governance_pulses
                   WHERE company_id = $1 AND evidence_url LIKE '%' || $2 || '%' LIMIT 1`,
                 [company_id, filename]
             )).rows[0];
-            if (!pulse) return res.status(404).json({ success: false, message: 'Not found.' });
+            const incidentAttachment = pulse ? null : (await query(
+                `SELECT i.house_id FROM incident_attachments a
+                   JOIN incidents i ON i.id = a.incident_id
+                  WHERE a.company_id = $1 AND a.file_url LIKE '%' || $2 || '%' LIMIT 1`,
+                [company_id, filename]
+            )).rows[0];
+            const record = pulse || incidentAttachment;
+            if (!record) return res.status(404).json({ success: false, message: 'Not found.' });
             // Frontline roles are confined to their assigned service.
             if (['SUPPORT_WORKER', 'TEAM_LEADER'].includes(role)) {
                 const allowed = (user.assigned_house_ids || []).map(String);
-                if (!pulse.house_id || !allowed.includes(String(pulse.house_id))) {
+                if (!record.house_id || !allowed.includes(String(record.house_id))) {
                     return res.status(404).json({ success: false, message: 'Not found.' });
                 }
             }

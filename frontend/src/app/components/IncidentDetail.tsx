@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useNavigate, useParams } from "react-router";
 import { ArrowLeft, Calendar, MapPin, AlertTriangle, User, Clock, Shield } from "lucide-react";
@@ -44,6 +44,17 @@ interface TimelineEvent {
   created_by_name: string;
 }
 
+interface Attachment {
+  id: string;
+  file_name: string;
+  file_url: string;
+  file_type?: string;
+  file_size?: number;
+  uploaded_by_name?: string;
+  created_at: string;
+}
+
+
 export function IncidentDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
@@ -56,6 +67,9 @@ export function IncidentDetail() {
   const [isLoading, setIsLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (id) {
@@ -81,7 +95,17 @@ export function IncidentDetail() {
       } catch (err) {
         setTimeline([]);
       }
-      
+
+      // D2 correction: load existing attachments so evidence already stored for this case
+      // (previously unreachable from any screen) is visible here.
+      try {
+        const attRes = await apiClient.get(`/incidents/${incidentId}/attachments`);
+        const attData = (attRes.data as any).data || [];
+        setAttachments(Array.isArray(attData) ? attData : []);
+      } catch (err) {
+        setAttachments([]);
+      }
+
     } catch (error) {
       console.error('Failed to load incident details:', error);
       toast.error('Failed to load incident details');
@@ -133,6 +157,58 @@ export function IncidentDetail() {
       toast.error(err?.response?.data?.message || 'Failed to retry follow-up work');
     } finally {
       setIsRetrying(false);
+    }
+  };
+
+  // D2 correction: "Storage, retrieval." Attachments had a full backend API (upload/list/remove)
+  // but no screen ever called it, and the only authenticated file-serving endpoint only checked
+  // signal evidence, so a stored attachment could never actually be downloaded either (now fixed
+  // server-side too). Upload reuses the same base64 media endpoint signals already use.
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !id) return;
+    const mime = file.type || '';
+    if (!['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'application/pdf'].includes(mime)) {
+      toast.error('Only JPG, PNG, WEBP or PDF files can be attached.');
+      return;
+    }
+    if (file.size > 6 * 1024 * 1024) {
+      toast.error('File is too large (max 6MB).');
+      return;
+    }
+    try {
+      setIsUploading(true);
+      const base64 = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result || ''));
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+      const mediaRes = await apiClient.post('/pulses/media', { data: base64, mime });
+      const { url } = (mediaRes.data as any).data || {};
+      if (!url) throw new Error('Upload did not return a file URL.');
+      await apiClient.post(`/incidents/${id}/attachments`, {
+        file_name: file.name, file_url: url, file_type: mime, file_size: file.size,
+      });
+      toast.success('Attachment uploaded.');
+      loadIncidentDetails(id);
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Failed to upload attachment.');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const downloadAttachment = async (att: Attachment) => {
+    try {
+      const res = await apiClient.get(att.file_url.replace(/^https?:\/\/[^/]+\/api\/v1/, ''), { responseType: 'blob' });
+      const url = URL.createObjectURL(res.data as Blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = att.file_name || 'attachment'; a.click();
+      URL.revokeObjectURL(url);
+    } catch {
+      toast.error('Could not download this attachment.');
     }
   };
 
@@ -477,6 +553,38 @@ export function IncidentDetail() {
                   )}
                 </div>
               </div>
+            )}
+          </div>
+
+          {/* Attachments */}
+          <div className="bg-card border-2 border-border p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl text-foreground">Evidence & Attachments</h2>
+              {['SUPER_ADMIN', 'ADMIN', 'REGISTERED_MANAGER', 'TEAM_LEADER'].includes(userRole) && (
+                <>
+                  <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp,application/pdf" className="hidden" onChange={handleFileSelected} disabled={isUploading} />
+                  <Button disabled={isUploading} onClick={() => fileInputRef.current?.click()}>
+                    {isUploading ? 'Uploading…' : 'Add attachment'}
+                  </Button>
+                </>
+              )}
+            </div>
+            {attachments.length === 0 ? (
+              <p className="text-sm text-muted-foreground">No attachments recorded for this incident.</p>
+            ) : (
+              <ul className="space-y-2">
+                {attachments.map((att) => (
+                  <li key={att.id} className="flex items-center justify-between border border-border p-3 rounded">
+                    <div>
+                      <p className="text-sm font-medium text-foreground">{att.file_name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Uploaded by {att.uploaded_by_name || 'Unknown'} • {att.created_at ? new Date(att.created_at).toLocaleDateString('en-GB') : 'N/A'}
+                      </p>
+                    </div>
+                    <button onClick={() => downloadAttachment(att)} className="text-primary underline text-sm">Download</button>
+                  </li>
+                ))}
+              </ul>
             )}
           </div>
 
