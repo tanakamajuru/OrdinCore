@@ -662,6 +662,29 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
   const [signals, setSignals] = useState<any[]>([]);
   const [thresholds, setThresholds] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [catalogue, setCatalogue] = useState<any[]>([]);
+  const [catalogueLoading, setCatalogueLoading] = useState(true);
+  const [catalogueSaving, setCatalogueSaving] = useState<string | null>(null);
+  const [showAllCatalogue, setShowAllCatalogue] = useState(false);
+  const { user } = useAuth();
+  const canApprove = String(user?.role || "").toUpperCase() === "SUPER_ADMIN";
+
+  const loadCatalogue = async () => {
+    setCatalogueLoading(true);
+    try { const r: any = await apiClient.get("/governance-config/presentation-catalogue"); setCatalogue(rows(r)); }
+    catch { setCatalogue([]); }
+    finally { setCatalogueLoading(false); }
+  };
+
+  const reviewEntry = async (id: string, review_status: "APPROVED" | "REJECTED") => {
+    setCatalogueSaving(id);
+    try {
+      await apiClient.patch(`/governance-config/presentation-catalogue/${id}/review`, { review_status });
+      toast.success(review_status === "APPROVED" ? "Wording approved and now live." : "Wording rejected — canonical labels remain in use.");
+      loadCatalogue();
+    } catch (e: any) { toast.error(errMsg(e, "Failed to update review status.")); }
+    finally { setCatalogueSaving(null); }
+  };
   const [sched, setSched] = useState<any>(null);
   const [schedForm, setSchedForm] = useState<{ review_dow: number; review_time: string; reason: string }>({ review_dow: 1, review_time: "09:00", reason: "" });
   const [schedSaving, setSchedSaving] = useState(false);
@@ -677,6 +700,7 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
     try { const [d, s, t] = await Promise.all([apiClient.get("/governance-config/domains").catch(() => null), apiClient.get("/governance-config/signals").catch(() => null), apiClient.get("/governance-config/thresholds").catch(() => null)]); setDomains(d ? rows(d) : []); setSignals(s ? rows(s) : []); setThresholds(t ? rows(t) : []); }
     finally { setLoading(false); }
     loadSchedule();
+    loadCatalogue();
   })(); }, []);
 
   const saveSchedule = async () => {
@@ -739,6 +763,46 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
         {loading ? <Spinner /> : domains.length === 0 ? <p className="text-sm text-muted-foreground">No themes configured.</p> :
           <div className="flex flex-wrap gap-2">{domains.map((d: any) => <Badge key={d.id} tone="blue">{d.name || d.label || d.domain || d.key}</Badge>)}</div>}
         <p className="text-xs text-muted-foreground mt-4">Read-only reference. The governance themes, signal library and escalation thresholds are part of the shared platform model and are maintained centrally — they are not edited from provider administration.</p>
+      </Panel>
+      <Panel
+        title="Plain-language wording review (Stage B)"
+        right={<label className="flex items-center gap-1.5 text-[11px] text-muted-foreground"><input type="checkbox" checked={showAllCatalogue} onChange={(e) => setShowAllCatalogue(e.target.checked)} />Show approved/rejected too</label>}
+      >
+        <p className="text-xs text-muted-foreground mb-3">
+          Simplified display wording is prepared here but never affects what staff submit — the underlying canonical theme/signal is always what's recorded. A row only changes what people see once it is approved below.
+          {!canApprove && " Approving or rejecting is restricted to a Super Admin."}
+        </p>
+        {catalogueLoading ? <Spinner /> : (() => {
+          const visible = showAllCatalogue ? catalogue : catalogue.filter((c: any) => c.review_status === "DRAFT" || c.review_status === "IN_REVIEW");
+          if (visible.length === 0) return <p className="text-sm text-muted-foreground">{showAllCatalogue ? "No wording entries exist yet." : "Nothing is awaiting review."}</p>;
+          return (
+            <div className="space-y-2">
+              {visible.map((c: any) => (
+                <div key={c.id} className="border border-border rounded-lg p-3 flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap mb-1">
+                      <Badge tone="slate">{c.sector}</Badge>
+                      <Badge tone={c.review_status === "APPROVED" ? "green" : c.review_status === "REJECTED" ? "red" : "amber"}>{c.review_status}</Badge>
+                    </div>
+                    <p className="text-sm text-foreground">
+                      <span className="text-muted-foreground">{c.canonical_signal_label ? `${c.canonical_theme} / ${c.canonical_signal_label}` : c.canonical_theme}</span>
+                      {(c.display_theme || c.display_signal) && (
+                        <> → <span className="font-medium">{c.display_signal || c.display_theme}</span></>
+                      )}
+                    </p>
+                    {c.help_text && <p className="text-xs text-muted-foreground mt-1">{c.help_text}</p>}
+                  </div>
+                  {canApprove && (c.review_status === "DRAFT" || c.review_status === "IN_REVIEW") && (
+                    <div className="flex gap-2 shrink-0">
+                      <button disabled={catalogueSaving === c.id} onClick={() => reviewEntry(c.id, "APPROVED")} className="px-3 py-1.5 rounded-lg bg-emerald-600 text-white text-xs font-semibold disabled:opacity-50">Approve</button>
+                      <button disabled={catalogueSaving === c.id} onClick={() => reviewEntry(c.id, "REJECTED")} className="px-3 py-1.5 rounded-lg border border-border text-xs font-semibold disabled:opacity-50">Reject</button>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          );
+        })()}
       </Panel>
     </div>
   );
