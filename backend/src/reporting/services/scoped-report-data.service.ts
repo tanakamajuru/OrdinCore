@@ -340,6 +340,15 @@ export const scopedReportDataService = {
     // B1 correction: "Next-week priorities must include due monitoring, actions, escalations and
     // effectiveness reviews" -- previously only open actions were shown. An active Monitor cycle
     // whose scheduled review point has arrived (or passed) is itself outstanding governance work.
+    // Bug fix (confirmed live, 22 Oct 2026): this query was bound with the full 6-element
+    // broadParams array but only ever referenced $1/$2/$4/$6 in its text -- $3 and $5 never
+    // appear anywhere in the SQL. Postgres requires every parameter index up to the highest one
+    // referenced to be resolvable from the query text, so a skipped index (here $3) makes the
+    // whole statement fail to prepare with "could not determine data type of parameter $3" --
+    // reproduced directly against production for a PERSON-scoped Governance Timeline and
+    // Reconstruction report (Aug 2026 period), which is what surfaced this to the user as a raw,
+    // unexplained error instead of a report. Fixed by giving this query its own tight, fully
+    // self-consistent parameter list instead of reusing the shared broadParams positionally.
     const dueMonitoring = (await query(
       `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
               COALESCE(NULLIF(TRIM(gr.monitoring_trigger), ''), NULLIF(TRIM(gr.what_is_happening), '')) AS concern,
@@ -348,10 +357,11 @@ export const scopedReportDataService = {
          LEFT JOIN houses h ON h.id = gr.service_id AND h.company_id = gr.company_id
          LEFT JOIN users u ON u.id = gr.decision_owner_id AND u.company_id = gr.company_id
         WHERE gr.company_id = $1
-          AND (gr.service_id = ANY($2::uuid[]) OR ($6::boolean AND gr.service_id IS NULL))
+          AND (gr.service_id = ANY($2::uuid[]) OR ($4::boolean AND gr.service_id IS NULL))
           AND gr.decision = 'Monitor' AND gr.decision_status = 'Monitoring'
-          AND gr.due_at < $4::timestamptz
-        ORDER BY gr.due_at ASC`, broadParams
+          AND gr.due_at < $3::timestamptz
+        ORDER BY gr.due_at ASC`,
+      [companyId, siteIds, end, includeOrganisationWide]
     )).rows;
 
     // Patterns are cluster-level (never person-level), so PERSON scope returns none. This query
