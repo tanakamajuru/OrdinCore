@@ -71,6 +71,23 @@ const priorityFor = (dueAt?: string | Date | null, critical = false): GuidedPrio
   return due <= Date.now() ? 'DUE' : 'NORMAL';
 };
 
+// Bug fix (confirmed live, 22 Oct 2026, user-reported): "Decisions Due" was showing open
+// escalations and assigned actions/monitoring due on a FUTURE day (e.g. a Create Action due
+// 24/10 appeared under Decisions Due on 22/10) — the governance-pulses/monitoring/obligation
+// queries already correctly filtered to "due now" with SQL, but escalations and assigned actions
+// never did, so they sat in needsYou from the moment they were created regardless of due date.
+// This compares calendar days in the organisation's governance timezone (Europe/London, same as
+// periodService) rather than a raw millisecond cutoff, so "due today" means the whole UK day, not
+// just up to the current instant.
+const londonDay = (d: Date): string => new Intl.DateTimeFormat('en-CA', { timeZone: 'Europe/London', year: 'numeric', month: '2-digit', day: '2-digit' }).format(d);
+const isDueByToday = (dueAt?: string | Date | null): boolean => {
+  if (!dueAt) return true; // no due date at all = untriaged, needs a decision now
+  const due = new Date(dueAt);
+  if (isNaN(due.getTime())) return true;
+  return londonDay(due) <= londonDay(new Date());
+};
+const dueDateLabel = (dueAt: string | Date): string => new Date(dueAt).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+
 async function houseScope(companyId: string, userId: string, role: GuidedRole): Promise<string[]> {
   if (['REGISTERED_MANAGER','DIRECTOR','RESPONSIBLE_INDIVIDUAL','ADMIN','SUPER_ADMIN'].includes(role)) {
     const res = await query(`SELECT id FROM canonical_house_state_v WHERE company_id=$1 AND is_active`, [companyId]);
@@ -124,15 +141,20 @@ export const guidedWorkService = {
          WHERE ra.company_id=$1 AND ra.assigned_to=$2
            AND ra.is_open
          ORDER BY ra.due_date NULLS LAST, ra.created_at`, [companyId, userId]);
-      for (const a of actions) needsYou.push({
-        id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
-        title:a.title || 'Complete assigned action', summary:'Complete the assigned intervention and record factual completion evidence.',
-        reason:'Management has assigned this action to you.', dueAt:a.due_date, serviceName:a.service_name,
-        canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
-        completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
-        route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
-        actionLabel:'Complete Action', whyAmISeeingThis:'This action is assigned to you and remains open.'
-      });
+      for (const a of actions) {
+        const dueNow = isDueByToday(a.due_date);
+        const item: GuidedWorkItem = {
+          id:`action:${a.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
+          title:a.title || 'Complete assigned action', summary:'Complete the assigned intervention and record factual completion evidence.',
+          reason: dueNow ? 'Management has assigned this action to you.' : `Due ${dueDateLabel(a.due_date)} — not yet due.`,
+          dueAt:a.due_date, serviceName:a.service_name,
+          canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
+          completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
+          route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
+          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you but is not due until ${dueDateLabel(a.due_date)}.`
+        };
+        (dueNow ? needsYou : waiting).push(item);
+      }
 
       const weekly = await safeRows(`
         SELECT wr.id, wr.week_ending, h.name AS service_name
@@ -366,15 +388,26 @@ export const guidedWorkService = {
           continue;
         }
 
+        // Bug fix (confirmed live, 22 Oct 2026, user-reported): an escalation that has never been
+        // triaged (no next_review_at) but has a future due_by was showing in Decisions Due
+        // immediately on creation, labelled URGENT regardless of how far off its response date
+        // was -- because escalations default to priority='Urgent' at creation (pulse.service.ts,
+        // governanceDecisions.service.ts), the computed URGENT badge here was not a genuine
+        // override signal, just the default. Only a real override (rmAttention, or a next_review_at
+        // that has actually arrived -- handled above) now keeps an escalation in Decisions Due
+        // ahead of its own due_by; otherwise it waits until its response date.
+        const dueNow = rmAttention || !!e.next_review_at || isDueByToday(e.due_by);
         const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
           : (e.next_review_at ? 'The monitoring review point has been reached.'
-          : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.' : 'An open escalation needs active follow-up.'));
-        needsYou.push({ id:`escalation:${e.id}`, role, state:'NEEDS_YOU', priority: rmAttention ? 'URGENT' : priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
+          : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.'
+          : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`));
+        const item: GuidedWorkItem = { id:`escalation:${e.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority: rmAttention ? 'URGENT' : priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
           title: rmAttention ? 'Urgent: monitored escalation needs you' : 'Review open escalation', summary:e.reason || 'Open escalation needs review', reason, dueAt:e.due_by, serviceName:e.service_name,
           canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
           completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
           route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
-          actionLabel:'Review Escalation', whyAmISeeingThis: rmAttention ? 'The Team Leader monitoring this escalation flagged it as urgent.' : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : 'This escalation is open and needs review, even if its response date has not arrived yet.') });
+          actionLabel:'Review Escalation', whyAmISeeingThis: rmAttention ? 'The Team Leader monitoring this escalation flagged it as urgent.' : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'This escalation is open and its response date has arrived.' : dueNow ? 'This escalation is open and needs review.' : `This escalation is open but its response date is not until ${dueDateLabel(e.due_by)}.`) };
+        (dueNow ? needsYou : waiting).push(item);
       }
 
       // Deferred learning ("Not yet assessed") returns to the queue when the review date the RM set
@@ -531,15 +564,20 @@ export const guidedWorkService = {
          WHERE ra.company_id=$1 AND ra.assigned_to=$2
            AND ra.is_open
          ORDER BY ra.due_date NULLS LAST, ra.created_at`, [companyId, userId]);
-      for (const a of directorActions) needsYou.push({
-        id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
-        title:a.title || 'Complete assigned action', summary:'Complete the assigned governance action and record factual completion evidence.',
-        reason:'This governance action is personally assigned to you.', dueAt:a.due_date, serviceName:a.service_name,
-        canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
-        completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
-        route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
-        actionLabel:'Complete Action', whyAmISeeingThis:'This action is assigned to you and remains open.'
-      });
+      for (const a of directorActions) {
+        const dueNow = isDueByToday(a.due_date);
+        const item: GuidedWorkItem = {
+          id:`action:${a.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
+          title:a.title || 'Complete assigned action', summary:'Complete the assigned governance action and record factual completion evidence.',
+          reason: dueNow ? 'This governance action is personally assigned to you.' : `Due ${dueDateLabel(a.due_date)} — not yet due.`,
+          dueAt:a.due_date, serviceName:a.service_name,
+          canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
+          completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
+          route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
+          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you but is not due until ${dueDateLabel(a.due_date)}.`
+        };
+        (dueNow ? needsYou : waiting).push(item);
+      }
 
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
       for (const w of weekly) needsYou.push({id:`director_weekly:${w.id}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'WEEKLY_VALIDATION',title:'Validate weekly governance review',summary:`Week ending ${fmtWeek(w.week_ending)}`,reason:'A Registered Manager weekly review is awaiting Director validation.',canonicalEntityType:'weekly_governance',canonicalEntityId:w.id,requiredAction:'DIRECTOR_WEEKLY_VALIDATION',
