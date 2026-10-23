@@ -18,9 +18,8 @@ const fail = (res: Response, e: any) => {
 
 // Billing correction, 23 Oct 2026: server-calculated quote under the approved Ordin Core
 // pricing schedule (supported-living capacity bands + multi-site discount, homecare marginal
-// rate + branch fee) -- replaces the earlier illustrative/fixed-band figures. Read-only: does
-// not create a Stripe subscription or change `/status`'s billing_tiers-based figures above,
-// which still drive the live Checkout flow until that is migrated onto this pricing engine.
+// rate + branch fee) -- replaces the earlier illustrative/fixed-band figures. Also what
+// `/status` and Checkout below now price from.
 router.get('/quote', ...admin, async (req: Request, res: Response) => {
   try { return res.json({ success: true, data: await billingEntitlementService.getOrganisationQuote(req.user!.company_id!) }); }
   catch (e: any) { return res.status(400).json({ success: false, message: e?.message || 'Failed to calculate quote' }); }
@@ -32,9 +31,17 @@ router.get('/status', ...admin, async (req: Request, res: Response) => {
   catch (e) { return fail(res, e); }
 });
 
-// Start a subscription Checkout for the tier matching the company's current unit count.
+// Start a subscription Checkout priced from the live quote (approved schedule).
 router.post('/checkout', ...admin, async (req: Request, res: Response) => {
   try { return res.json({ success: true, data: await billingService.createCheckoutSession(req.user!.company_id!) }); }
+  catch (e) { return fail(res, e); }
+});
+
+// Plan/quantity change (billing rules doc section 9/11): preview the revised quote without
+// `confirm`, apply it to the live Stripe subscription only when `confirm: true` is sent --
+// never a silent change when sites/clients move.
+router.post('/refresh-pricing', ...admin, async (req: Request, res: Response) => {
+  try { return res.json({ success: true, data: await billingService.refreshSubscriptionPricing(req.user!.company_id!, !!req.body?.confirm, req.user!.user_id) }); }
   catch (e) { return fail(res, e); }
 });
 

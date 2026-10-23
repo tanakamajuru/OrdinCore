@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { getStripe, isStripeConfigured, appBaseUrl } from '../config/stripe';
+import { billingEntitlementService } from './billingEntitlement.service';
 import logger from '../utils/logger';
 
 export type CareModel = 'RESIDENTIAL' | 'DOMICILIARY';
@@ -46,24 +47,21 @@ export const billingService = {
     return r.rows[0] || null;
   },
 
-  /** Public status for the Company Admin billing panel (safe to call even when Stripe is unconfigured). */
+  /** Public status for the Company Admin billing panel (safe to call even when Stripe is unconfigured).
+   *  Pricing correction, 23 Oct 2026: reports the server-calculated quote under the approved
+   *  per-site/marginal pricing schedule (billingEntitlementService) instead of the old flat
+   *  billing_tiers lookup, which cannot represent per-site discounts or homecare's marginal rate.
+   *  `care_model`/`is_pilot`/`billable_units` are kept in the response for any caller still reading
+   *  them, but no longer drive the price shown or the Checkout line items below. */
   async status(companyId: string) {
     const c = await this.getCompany(companyId);
     if (!c) throw new Error('Company not found');
-    const careModel = (c.care_model as CareModel) || null;
-    const units = careModel ? await this.billableUnits(companyId, careModel) : 0;
-    const tier = careModel ? await this.selectTier(careModel, units, !!c.is_pilot) : null;
+    const quote = await billingEntitlementService.getOrganisationQuote(companyId);
     return {
       configured: isStripeConfigured(),
-      care_model: careModel,
+      care_model: (c.care_model as CareModel) || null,
       is_pilot: !!c.is_pilot,
-      billable_units: units,
-      unit_label: careModel === 'DOMICILIARY' ? 'clients' : 'houses',
-      current_tier: tier ? {
-        tier_key: tier.tier_key, monthly_amount_pence: tier.monthly_amount_pence,
-        currency: tier.currency, min_units: tier.min_units, max_units: tier.max_units,
-        price_ready: !!tier.stripe_price_id,
-      } : null,
+      quote,
       subscription_status: c.subscription_status || null,
       current_period_end: c.subscription_current_period_end,
       cancel_at_period_end: !!c.subscription_cancel_at_period_end,
@@ -94,30 +92,94 @@ export const billingService = {
     return customer.id;
   },
 
-  /** Create a Checkout session for the tier that matches the company's current unit count. */
+  /** Create a Checkout session priced from the server-calculated quote (approved pricing schedule,
+   *  22 Oct 2026). Pricing correction, 23 Oct 2026: per-site discounts and homecare's marginal rate
+   *  don't map onto a single pre-created Stripe Price the way a flat billing_tiers band did, so each
+   *  chargeable line (supported living / homecare) is an inline `price_data` item built from the
+   *  live quote total -- the server still owns the price (report doctrine: "never accept a
+   *  browser-supplied price"), Stripe just hosts the computed amount as this month's Price object.
+   *  A quantity/site change later requires `refreshSubscriptionPricing` (below), never a silent
+   *  Stripe-side change. */
   async createCheckoutSession(companyId: string) {
     const stripe = getStripe();
     if (!stripe) throw new BillingNotConfiguredError();
     const c = await this.getCompany(companyId);
     if (!c) throw new Error('Company not found');
-    if (!c.care_model) throw new Error('Billing basis is not set for this company. Ask your platform administrator to set the care model.');
-    const units = await this.billableUnits(companyId, c.care_model);
-    const tier = await this.selectTier(c.care_model, units, !!c.is_pilot);
-    if (!tier) throw new Error('No price tier matches this company. Ask your platform administrator to configure billing tiers.');
-    if (!tier.stripe_price_id) throw new Error('This tier has no Stripe price yet. Ask your platform administrator to run the Stripe setup.');
+    const quote = await billingEntitlementService.getOrganisationQuote(companyId);
+    if (quote.hasQuote) throw new Error('One or more services need an individual quotation (16+ client capacity, or 11+ supported-living sites). Contact Ordin Core before subscribing.');
+    if (quote.total <= 0) throw new Error('No chargeable supported-living sites or homecare clients are configured yet.');
+
+    const lineItems: any[] = [];
+    if (quote.supportedLiving.total > 0) {
+      lineItems.push({
+        price_data: {
+          currency: 'gbp',
+          product_data: { name: `Supported living — ${quote.supportedLiving.lines.length} site${quote.supportedLiving.lines.length === 1 ? '' : 's'}` },
+          unit_amount: Math.round(quote.supportedLiving.total * 100),
+          recurring: { interval: 'month' },
+        },
+        quantity: 1,
+      });
+    }
+    if (quote.homecare && !quote.homecare.quote && quote.homecare.total) {
+      lineItems.push({
+        price_data: {
+          currency: 'gbp',
+          product_data: { name: `Homecare — ${quote.homecare.clientCount} clients, ${quote.homecare.branchCount} branch${quote.homecare.branchCount === 1 ? '' : 'es'}` },
+          unit_amount: Math.round(quote.homecare.total * 100),
+          recurring: { interval: 'month' },
+        },
+        quantity: 1,
+      });
+    }
+
     const customerId = await this.ensureCustomer(companyId);
     const base = appBaseUrl();
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       customer: customerId,
-      line_items: [{ price: tier.stripe_price_id, quantity: 1 }],
+      line_items: lineItems,
       success_url: `${base}/company-admin?billing=success`,
       cancel_url: `${base}/company-admin?billing=cancelled`,
-      subscription_data: { metadata: { company_id: companyId, tier_key: tier.tier_key } },
-      metadata: { company_id: companyId, tier_key: tier.tier_key },
+      subscription_data: { metadata: { company_id: companyId, price_version: String(quote.priceVersion) } },
+      metadata: { company_id: companyId, price_version: String(quote.priceVersion) },
       allow_promotion_codes: true,
     });
     return { url: session.url };
+  },
+
+  /** Plan/quantity change (billing rules doc section 9/11): recalculates the quote and, once an
+   *  authorised admin confirms, replaces the live subscription's line items with the new amounts
+   *  effective from the next billing period -- never silently. Returns the would-be quote without
+   *  `confirm`; only applies it to Stripe when `confirm` is true. */
+  async refreshSubscriptionPricing(companyId: string, confirm: boolean, userId?: string) {
+    const c = await this.getCompany(companyId);
+    if (!c?.stripe_subscription_id) throw new Error('No active subscription to update — subscribe first.');
+    const quote = await billingEntitlementService.getOrganisationQuote(companyId);
+    if (!confirm) return { quote, applied: false };
+
+    const stripe = getStripe();
+    if (!stripe) throw new BillingNotConfiguredError();
+    const existing = await stripe.subscriptions.retrieve(c.stripe_subscription_id);
+    const newItems: any[] = existing.items.data.map((it: any) => ({ id: it.id, deleted: true }));
+    if (quote.supportedLiving.total > 0) {
+      newItems.push({ price_data: { currency: 'gbp', product_data: { name: `Supported living — ${quote.supportedLiving.lines.length} site${quote.supportedLiving.lines.length === 1 ? '' : 's'}` }, unit_amount: Math.round(quote.supportedLiving.total * 100), recurring: { interval: 'month' } }, quantity: 1 });
+    }
+    if (quote.homecare && !quote.homecare.quote && quote.homecare.total) {
+      newItems.push({ price_data: { currency: 'gbp', product_data: { name: `Homecare — ${quote.homecare.clientCount} clients, ${quote.homecare.branchCount} branch${quote.homecare.branchCount === 1 ? '' : 'es'}` }, unit_amount: Math.round(quote.homecare.total * 100), recurring: { interval: 'month' } }, quantity: 1 });
+    }
+    const updated = await stripe.subscriptions.update(c.stripe_subscription_id, {
+      items: newItems,
+      proration_behavior: 'none', // effective date is the next billing period, not retroactive
+      metadata: { ...(existing.metadata || {}), company_id: companyId, price_version: String(quote.priceVersion) },
+    });
+    await this.syncSubscription(updated);
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+       VALUES (gen_random_uuid(), $1, $2, 'BILLING_PRICING_REFRESHED', 'billing_subscriptions', $3, $4)`,
+      [companyId, userId || null, c.id, JSON.stringify({ total: quote.total, priceVersion: quote.priceVersion })]
+    );
+    return { quote, applied: true };
   },
 
   /** Self-serve Billing Portal (update card, view invoices, cancel — cancel_at_period_end). */

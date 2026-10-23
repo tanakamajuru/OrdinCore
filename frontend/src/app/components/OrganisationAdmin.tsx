@@ -970,6 +970,7 @@ function BillingSection() {
   const [status, setStatus] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
+  const [pendingChange, setPendingChange] = useState<any>(null);
 
   const load = async () => {
     setLoading(true);
@@ -990,10 +991,31 @@ function BillingSection() {
     finally { setBusy(null); }
   };
 
+  const refreshPricing = async () => {
+    setBusy("refresh-pricing");
+    try {
+      const r = await apiClient.post("/billing/refresh-pricing", { confirm: false });
+      setPendingChange(r.data?.data?.quote || null);
+      if (!r.data?.data?.quote) toast.success("No price change — your subscription already matches the current quote.");
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to check pricing."); }
+    finally { setBusy(null); }
+  };
+  const confirmPricing = async () => {
+    setBusy("confirm-pricing");
+    try {
+      await apiClient.post("/billing/refresh-pricing", { confirm: true });
+      toast.success("Revised price confirmed — it takes effect from your next billing period.");
+      setPendingChange(null);
+      load();
+    } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to apply the revised price."); }
+    finally { setBusy(null); }
+  };
+
   if (loading) return <Spinner />;
   if (!status) return <Panel title="Billing & subscription"><p className="text-sm text-muted-foreground">Billing status is unavailable.</p></Panel>;
 
-  const money = (pence: number, ccy = "GBP") => new Intl.NumberFormat("en-GB", { style: "currency", currency: ccy }).format((pence || 0) / 100);
+  const quote = status.quote || { supportedLiving: { lines: [], total: 0 }, homecare: null, total: 0, hasQuote: false };
+  const gbp = (n: number) => new Intl.NumberFormat("en-GB", { style: "currency", currency: "GBP" }).format(n || 0);
   const s = String(status.subscription_status || "").toLowerCase();
   const tone = !status.subscription_status ? "slate" : ["active", "trialing", "pilot"].includes(s) ? "green" : ["past_due", "incomplete"].includes(s) ? "amber" : "red";
   const statusLabel = status.subscription_status ? status.subscription_status.replace(/_/g, " ") : "Not subscribed";
@@ -1007,35 +1029,56 @@ function BillingSection() {
         </div>
       )}
       <Panel title="Your subscription" right={<Badge tone={tone as any}>{statusLabel}</Badge>}>
-        {!status.care_model ? (
-          <p className="text-sm text-muted-foreground">Your billing basis has not been set. Please contact <a className="text-primary underline" href="mailto:support@ordincore.co.uk">support@ordincore.co.uk</a> to configure it.</p>
-        ) : (
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Billed on</div>
-              <div className="text-lg font-semibold text-foreground mt-1">{status.billable_units} {status.unit_label}</div>
-              <div className="text-xs text-muted-foreground mt-0.5">{status.care_model === "DOMICILIARY" ? "Domiciliary care" : "Residential / supported living"}{status.is_pilot ? " · Pilot" : ""}</div>
-            </div>
-            <div className="rounded-lg border border-border bg-background p-4">
-              <div className="text-xs uppercase tracking-wide text-muted-foreground">Monthly price</div>
-              <div className="text-lg font-semibold text-foreground mt-1">{status.current_tier ? `${money(status.current_tier.monthly_amount_pence, status.current_tier.currency)}/mo` : "—"}</div>
-              {status.current_tier && <div className="text-xs text-muted-foreground mt-0.5">Tier {status.current_tier.min_units}{status.current_tier.max_units ? `–${status.current_tier.max_units}` : "+"} {status.unit_label}</div>}
-            </div>
+        {quote.hasQuote && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/70 px-3 py-2.5 mb-4 text-sm text-amber-900">
+            One or more services need an individual quotation (16+ client capacity, or 11+ supported-living sites). Contact <a className="underline" href="mailto:support@ordincore.co.uk">support@ordincore.co.uk</a> before subscribing.
           </div>
         )}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Supported living</div>
+            <div className="text-lg font-semibold text-foreground mt-1">{quote.supportedLiving.lines.length ? gbp(quote.supportedLiving.total) + "/mo" : "—"}</div>
+            <div className="text-xs text-muted-foreground mt-0.5">{quote.supportedLiving.lines.length} site{quote.supportedLiving.lines.length === 1 ? "" : "s"}</div>
+          </div>
+          <div className="rounded-lg border border-border bg-background p-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">Homecare</div>
+            <div className="text-lg font-semibold text-foreground mt-1">{quote.homecare && !quote.homecare.quote ? gbp(quote.homecare.total) + "/mo" : "—"}</div>
+            {quote.homecare && <div className="text-xs text-muted-foreground mt-0.5">{quote.homecare.clientCount} clients · {quote.homecare.branchCount} branch{quote.homecare.branchCount === 1 ? "" : "es"}</div>}
+          </div>
+        </div>
+        <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 mt-4">
+          <div className="text-xs uppercase tracking-wide text-muted-foreground">Total monthly charge</div>
+          <div className="text-xl font-bold text-foreground mt-1">{quote.hasQuote ? "Includes quotation item(s)" : gbp(quote.total) + "/mo"}</div>
+        </div>
         {status.current_period_end && (
           <p className="text-xs text-muted-foreground mt-4">{status.cancel_at_period_end ? "Access ends" : "Renews"} on {new Date(status.current_period_end).toLocaleDateString("en-GB")}.</p>
         )}
         <div className="flex flex-wrap gap-3 mt-5">
           {["active", "trialing", "past_due", "pilot"].includes(s) ? (
-            <button onClick={() => go("portal")} disabled={busy !== null} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "portal" ? "Opening…" : "Manage billing"}</button>
+            <>
+              <button onClick={() => go("portal")} disabled={busy !== null} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "portal" ? "Opening…" : "Manage billing"}</button>
+              <button onClick={refreshPricing} disabled={busy !== null} className="px-4 py-2 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-2">{busy === "refresh-pricing" ? "Checking…" : "Review price change"}</button>
+            </>
           ) : (
-            <button onClick={() => go("checkout")} disabled={busy !== null || !status.configured || !status.current_tier?.price_ready} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "checkout" ? "Opening…" : "Subscribe"}</button>
+            <button onClick={() => go("checkout")} disabled={busy !== null || !status.configured || quote.hasQuote || quote.total <= 0} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60 inline-flex items-center gap-2"><CreditCard size={16} /> {busy === "checkout" ? "Opening…" : "Subscribe"}</button>
           )}
           <button onClick={load} disabled={busy !== null} className="px-4 py-2 rounded-lg border border-border text-sm font-medium inline-flex items-center gap-2"><RefreshCw size={15} /> Refresh</button>
         </div>
-        <p className="text-xs text-muted-foreground mt-4">Payments are collected automatically each month. You can cancel any time from “Manage billing” — access continues until the end of the period you have paid for, after which staff access is suspended until you renew.</p>
+        <p className="text-xs text-muted-foreground mt-4">Payments are collected automatically each month. You can cancel any time from "Manage billing" — access continues until the end of the period you have paid for, after which staff access is suspended until you renew.</p>
       </Panel>
+      {pendingChange && (
+        <Panel title="Confirm revised price">
+          <p className="text-sm text-muted-foreground mb-3">Your service counts have changed since the subscription was last priced. The revised charge below takes effect from your next billing period — nothing is charged until you confirm.</p>
+          <div className="rounded-lg border-2 border-primary/30 bg-primary/5 p-4 mb-4">
+            <div className="text-xs uppercase tracking-wide text-muted-foreground">New total monthly charge</div>
+            <div className="text-xl font-bold text-foreground mt-1">{gbp(pendingChange.total)}/mo</div>
+          </div>
+          <div className="flex gap-3">
+            <button onClick={confirmPricing} disabled={busy !== null} className="px-4 py-2 rounded-lg bg-primary text-white text-sm font-semibold disabled:opacity-60">{busy === "confirm-pricing" ? "Applying…" : "Confirm new price"}</button>
+            <button onClick={() => setPendingChange(null)} disabled={busy !== null} className="px-4 py-2 rounded-lg border border-border text-sm font-medium">Dismiss</button>
+          </div>
+        </Panel>
+      )}
     </div>
   );
 }
