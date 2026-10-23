@@ -421,25 +421,26 @@ export default function App() {
             <Button onClick={() => setIsPilotModalOpen(true)} className="rounded-full px-5 py-2 text-sm shadow-md hover:shadow-lg transition">
               Book a Pilot
             </Button>
-            <button
+            <Button
+              variant="outline"
+              size="icon"
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="relative h-9 w-9 rounded-full border border-[#C6D5E1] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#28536F] hover:bg-[#E6EDF2]/45"
               aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
               <SunIcon
                 className={cn(
-                  "h-4.5 w-4.5 text-amber-400 transition-all duration-300",
+                  "size-4 text-amber-400 transition-all duration-300",
                   theme === "dark" ? "scale-0 -rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100",
                 )}
               />
               <MoonIcon
                 className={cn(
-                  "absolute h-4.5 w-4.5 text-slate-500 dark:text-slate-300 transition-all duration-300",
+                  "absolute size-4 text-slate-500 dark:text-slate-300 transition-all duration-300",
                   theme === "dark" ? "scale-100 rotate-0 opacity-100" : "scale-0 rotate-90 opacity-0",
                 )}
               />
               <span className="sr-only">Toggle theme</span>
-            </button>
+            </Button>
           </div>
         </div>
       </header>

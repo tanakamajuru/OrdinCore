@@ -323,7 +323,13 @@ export function EscalationLog() {
     if (s === 'closed' || s === 'resolved') return 'resolved';
     if (s === 'open') return 'open';        // all awaiting-response (Needs + In progress)
     if (s === 'pending') return 'needs';
-    return 'all';
+    // Bug fix (confirmed live, 23 Oct 2026, user-reported): with no status param, filter
+    // defaulted to 'all' -- which includes resolved/closed escalations -- under a list heading
+    // that unconditionally read "Open escalations" and no tab shown as selected (no tab's key is
+    // 'all'). A closed escalation sat in the "currently dealing with" list forever. Default to
+    // 'open' (Needs attention + Being managed) to match the "All open" tab it lands under;
+    // closed escalations are still one click away on the "Closed" tab, with their evidence intact.
+    return 'open';
   })();
   const [filter, setFilter] = useState<'all' | 'open' | 'needs' | 'progress' | 'resolved'>(initialFilter as any);
   const [page, setPage] = useState(1);
