@@ -274,6 +274,13 @@ export function DailyOversightBoard() {
           const at = log.published_at || log.completed_at;
           setSignedOff({ by: log.published_by_name || log.reviewed_by_name || "—", at: at ? new Date(at).toLocaleString("en-GB", { hour: "2-digit", minute: "2-digit", day: "2-digit", month: "long", year: "numeric" }) : prettyDay(reviewDate) });
           setSignedLogId(log.id || null);
+          // Bug fix (confirmed live, 23 Oct 2026, user-reported): a Decisions Due card deep-links
+          // here with a specific pulseId to review (e.g. an overdue monitoring review). If today's
+          // oversight was already signed off, GovernanceDecisions renders fully read-only with no
+          // way to act -- looking like the screen "isn't responding" to a click that in fact landed
+          // correctly. A guided deep-link always needs something actioned, so switch straight into
+          // the existing post-signoff review mode instead of showing a dead read-only screen.
+          if (guidedPulseId) setPostSignoffReview(true);
           return;
         }
       } catch { /* no stored log — leave the draft empty until the RM generates it */ }

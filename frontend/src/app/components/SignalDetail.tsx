@@ -641,7 +641,7 @@ export function SignalDetail() {
                 the backend enforces that only the named owner (or RM/Admin oversight) can post. */}
             {signal?.review_status === 'Monitoring' && (
               <div className="mt-8 border-t border-border pt-6">
-                <h3 className="text-lg font-semibold text-foreground mb-1">Monitoring</h3>
+                <h3 className="text-lg font-semibold text-purple-700 mb-1">Monitoring Update</h3>
                 <p className="text-xs text-muted-foreground mb-4">Record what you have observed while monitoring this signal. This is factual evidence — it does not close the signal or change the governance decision. The Registered Manager reviews this at the scheduled review point, or immediately if you flag it urgent.</p>
                 {monitoringHistory.length > 0 && (
                   <div className="space-y-2 mb-4">
@@ -658,7 +658,7 @@ export function SignalDetail() {
                   value={monitoringNote}
                   onChange={(e) => setMonitoringNote(e.target.value)}
                   placeholder="What did you observe? (factual update)"
-                  className="w-full min-h-[80px] rounded-lg border border-border p-3 text-sm bg-background"
+                  className="w-full min-h-[80px] rounded-lg border border-border p-3 text-sm bg-background placeholder:text-slate-500 placeholder:opacity-100 dark:placeholder:text-slate-400"
                 />
                 <label className="flex items-center gap-2 mt-3 text-sm">
                   <input type="checkbox" checked={monitoringUrgent} onChange={(e) => setMonitoringUrgent(e.target.checked)} />

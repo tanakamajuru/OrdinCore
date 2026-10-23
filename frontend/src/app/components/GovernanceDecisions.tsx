@@ -402,6 +402,22 @@ export function GovernanceDecisions({
   // New (undecided) signals vs monitoring reviews that are due/overdue — the two queue tabs.
   const newSignals = useMemo(() => signals.filter((s: any) => { const st = String(s.review_status || "New"); return st === "New" || st === ""; }), [signals]);
   const dueSignals = useMemo(() => signals.filter((s: any) => String(s.review_status) === "Monitoring"), [signals]);
+
+  // Bug fix (confirmed live, 23 Oct 2026, user-reported): the monitoring owner's (usually a TL)
+  // recorded observations never reached this screen at all -- the "Previous monitoring decision"
+  // box below only ever showed the ORIGINAL Monitor decision's own evidence field, never the
+  // ongoing notes written via SignalDetail.tsx's "Record monitoring update" (signal_monitoring_
+  // updates, already fetched there via GET /pulses/:id/monitoring-history). The RM had no way to
+  // see what the TL actually observed without separately opening the signal's own page.
+  const [monitoringUpdates, setMonitoringUpdates] = useState<any[]>([]);
+  useEffect(() => {
+    if (!returningReview || !selectedSignal) { setMonitoringUpdates([]); return; }
+    let cancelled = false;
+    apiClient.get(`/pulses/${selectedSignal.id}/monitoring-history`)
+      .then((r: any) => { if (!cancelled) setMonitoringUpdates(r.data?.data || []); })
+      .catch(() => { if (!cancelled) setMonitoringUpdates([]); });
+    return () => { cancelled = true; };
+  }, [returningReview, selectedSignal?.id]);
   const tabSignals = queueTab === "due" ? dueSignals : newSignals;
   // Land on the tab that actually has work: if there are no new signals but monitoring is due,
   // open the Monitoring due tab (and vice-versa) so the RM is not shown an empty list.
@@ -555,6 +571,20 @@ export function GovernanceDecisions({
                   <div><span className="text-amber-700/80">Review due: </span>{fmtWhen(prev.due_at) || "—"}</div>
                   {prev.findings && <div><span className="text-amber-700/80">Findings so far: </span>{prev.findings}</div>}
                 </dl>
+                {monitoringUpdates.length > 0 && (
+                  <div className="mt-3 pt-3 border-t border-amber-200">
+                    <div className="font-semibold text-amber-900 mb-1.5">What the monitoring owner recorded</div>
+                    <div className="space-y-1.5">
+                      {monitoringUpdates.map((u: any) => (
+                        <div key={u.id} className={`rounded p-2 ${u.urgent ? "bg-red-100 border border-red-300" : "bg-white/60"}`}>
+                          {u.urgent && <div className="font-semibold text-red-700 mb-0.5">Urgent — {u.urgent_reason || "flagged for RM attention"}</div>}
+                          <div className="text-amber-900">{u.note}</div>
+                          <div className="text-amber-700/70 mt-0.5">{u.author_name || "Unknown"} · {fmtWhen(u.created_at)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             );
           })()}
