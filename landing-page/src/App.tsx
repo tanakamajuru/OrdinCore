@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
+import { cn } from "./lib/utils";
 import logoImg from "./assets/logo.png";
 import heroSeeWorseImg from "./assets/See what is getting worse eralier.png";
 import heroTrackConcernsImg from "./assets/track concerns.png";
@@ -422,10 +423,22 @@ export default function App() {
             </Button>
             <button
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
-              className="h-9 w-9 rounded-full border border-[#C6D5E1] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#28536F] hover:bg-[#E6EDF2]/45"
-              aria-label="Toggle theme"
+              className="relative h-9 w-9 rounded-full border border-[#C6D5E1] dark:border-slate-700 bg-white dark:bg-slate-800 flex items-center justify-center transition hover:border-[#28536F] hover:bg-[#E6EDF2]/45"
+              aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
             >
-              {theme === "dark" ? <SunIcon className="h-4.5 w-4.5 text-amber-400" /> : <MoonIcon className="h-4.5 w-4.5 text-slate-500" />}
+              <SunIcon
+                className={cn(
+                  "h-4.5 w-4.5 text-amber-400 transition-all duration-300",
+                  theme === "dark" ? "scale-0 -rotate-90 opacity-0" : "scale-100 rotate-0 opacity-100",
+                )}
+              />
+              <MoonIcon
+                className={cn(
+                  "absolute h-4.5 w-4.5 text-slate-500 dark:text-slate-300 transition-all duration-300",
+                  theme === "dark" ? "scale-100 rotate-0 opacity-100" : "scale-0 rotate-90 opacity-0",
+                )}
+              />
+              <span className="sr-only">Toggle theme</span>
             </button>
           </div>
         </div>
