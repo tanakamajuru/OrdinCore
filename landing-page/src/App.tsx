@@ -58,8 +58,7 @@ const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  // { label: "Pilot", href: "#pricing" }, // hidden with the pricing section — re-enable later
-
+  { label: "Pricing", href: "#pricing" },
   { label: "FAQ", href: "#faq" },
   { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
@@ -1004,6 +1003,95 @@ export default function App() {
           </div>
         </section>
         )}
+
+        {/* ── PRICING ──
+             Approved rates from Ordin_Core_Supported_Living_and_Homecare_Pricing_Schedules
+             (22 Oct 2026). Monthly GBP, tax shown separately at checkout. These replace the
+             earlier £29/£79/£149 placeholder tiers, which were never approved rates. */}
+        <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
+          <div className="mx-auto max-w-5xl px-6 lg:px-8">
+            <div className="mx-auto max-w-2xl text-center mb-14">
+              <span className="inline-flex items-center rounded-full border border-emerald-200 dark:border-emerald-800 bg-emerald-50 dark:bg-emerald-900/30 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-emerald-600 dark:text-emerald-400">
+                Pricing
+              </span>
+              <h2 className="mt-5 text-3xl font-extrabold tracking-tight text-[#172B3B] dark:text-white sm:text-4xl">
+                Simple, per-service pricing
+              </h2>
+              <p className="mt-4 text-base leading-relaxed text-slate-600 dark:text-slate-400">
+                Product charges for the governance platform, not care-delivery fees. All bands include the same core governance functions. Prices shown are monthly, before tax.
+              </p>
+            </div>
+
+            <div className="grid gap-8 lg:grid-cols-2">
+              {/* Supported living */}
+              <Card className="p-7 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="text-lg font-black text-[#172B3B] dark:text-white mb-1">Supported living</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Priced per address, by agreed operational capacity — not daily occupancy.</p>
+                <div className="overflow-hidden rounded-xl border border-[#C6D5E1] dark:border-slate-800">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#DDE7EF] dark:bg-slate-800 text-left text-[#172B3B] dark:text-white">
+                        <th className="px-4 py-2.5 font-bold">Capacity</th>
+                        <th className="px-4 py-2.5 font-bold">Monthly site price</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#C6D5E1]/60 dark:divide-slate-800">
+                      {[
+                        ["1–6 clients", "£100"],
+                        ["7–10 clients", "£125"],
+                        ["11–15 clients", "£150"],
+                        ["16+ clients", "Individual quotation"],
+                      ].map(([band, price]) => (
+                        <tr key={band} className="text-slate-700 dark:text-slate-300">
+                          <td className="px-4 py-2.5">{band}</td>
+                          <td className="px-4 py-2.5 font-semibold text-[#172B3B] dark:text-white">{price}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#28536F] dark:text-[#5B9FD4]">Multi-site discount</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Sites 1–3: full price · Sites 4–6: 5% off · Sites 7–10: 10% off. Beyond 10 active sites, individual quotation.</p>
+              </Card>
+
+              {/* Homecare */}
+              <Card className="p-7 dark:border-slate-800 dark:bg-slate-900">
+                <h3 className="text-lg font-black text-[#172B3B] dark:text-white mb-1">Homecare</h3>
+                <p className="text-sm text-slate-500 dark:text-slate-400 mb-5">Priced on provider-wide active client count, calculated once across all branches.</p>
+                <div className="overflow-hidden rounded-xl border border-[#C6D5E1] dark:border-slate-800">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="bg-[#DDE7EF] dark:bg-slate-800 text-left text-[#172B3B] dark:text-white">
+                        <th className="px-4 py-2.5 font-bold">Clients (provider-wide)</th>
+                        <th className="px-4 py-2.5 font-bold">Rate</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#C6D5E1]/60 dark:divide-slate-800">
+                      {[
+                        ["First 25 clients", "£100/mo minimum, includes 1st branch"],
+                        ["Clients 26–50", "+£2 per client"],
+                        ["Clients 51–200", "+£1.50 per client"],
+                        ["Clients 201–300", "+£1.25 per client"],
+                        ["Above 300", "Individual quotation"],
+                      ].map(([band, price]) => (
+                        <tr key={band} className="text-slate-700 dark:text-slate-300">
+                          <td className="px-4 py-2.5">{band}</td>
+                          <td className="px-4 py-2.5 font-semibold text-[#172B3B] dark:text-white">{price}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-4 text-xs font-bold uppercase tracking-wider text-[#28536F] dark:text-[#5B9FD4]">Additional branches</p>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">£25/month per additional branch beyond the first. E.g. 80 clients across 3 branches = £245/month.</p>
+              </Card>
+            </div>
+
+            <p className="mt-10 text-center text-xs text-slate-500 dark:text-slate-500">
+              One provider running both service types receives a single invoice with separate supported-living and homecare lines. Supported-living multi-site discounts do not apply to homecare. <a href="#" className="underline hover:text-[#28536F] dark:hover:text-[#5B9FD4]">See full pricing schedule</a>.
+            </p>
+          </div>
+        </section>
 
         {/* ── FAQ ── */}
         <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="faq">
