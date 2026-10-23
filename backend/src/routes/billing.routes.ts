@@ -3,6 +3,7 @@ import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { billingService, BillingNotConfiguredError } from '../services/billing.service';
+import { billingEntitlementService } from '../services/billingEntitlement.service';
 import { getStripe, getWebhookSecret } from '../config/stripe';
 import { query } from '../config/database';
 import logger from '../utils/logger';
@@ -14,6 +15,16 @@ const fail = (res: Response, e: any) => {
   const code = e instanceof BillingNotConfiguredError ? 503 : 400;
   return res.status(code).json({ success: false, message: e?.message || 'Billing request failed' });
 };
+
+// Billing correction, 23 Oct 2026: server-calculated quote under the approved Ordin Core
+// pricing schedule (supported-living capacity bands + multi-site discount, homecare marginal
+// rate + branch fee) -- replaces the earlier illustrative/fixed-band figures. Read-only: does
+// not create a Stripe subscription or change `/status`'s billing_tiers-based figures above,
+// which still drive the live Checkout flow until that is migrated onto this pricing engine.
+router.get('/quote', ...admin, async (req: Request, res: Response) => {
+  try { return res.json({ success: true, data: await billingEntitlementService.getOrganisationQuote(req.user!.company_id!) }); }
+  catch (e: any) { return res.status(400).json({ success: false, message: e?.message || 'Failed to calculate quote' }); }
+});
 
 // Current billing status for the Company Admin panel (safe when Stripe is unconfigured).
 router.get('/status', ...admin, async (req: Request, res: Response) => {
