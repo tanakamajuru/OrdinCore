@@ -165,8 +165,16 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
     // Memory window: at least 21 days (doctrine), widened if a rule's window is longer.
     const memoryDays = Math.max(21, windowDays);
 
-    // Service lens deliberately ignores person attribution; person lens uses the stable ID.
-    const personClause = scope === 'person' ? 'AND gp.service_user_id = $4::uuid' : '';
+    // Bug fix (confirmed live, 23 Oct 2026, user-reported): 100% of signals stuck at
+    // "Pattern evaluation failed" after 5 retries had the identical saved error --
+    // "could not determine data type of parameter $4" -- the exact same skipped-placeholder
+    // bug fixed yesterday in scoped-report-data.service.ts. The old `personClause` string was
+    // '' for scope==='service', so $4 (service_user_id) never appeared anywhere in the query
+    // text for a service-lens evaluation (every signal runs a service-lens pass), and Postgres
+    // cannot infer a type for a parameter index it never sees. Replaced with an always-present
+    // clause gated on scope itself ($6) rather than string-building the clause in/out, so $4 is
+    // referenced in every evaluation regardless of scope -- same person/service lens behaviour,
+    // service lens still ignores person attribution entirely.
     const history21dRes = await query(
         `SELECT gp.*
          FROM governance_pulses gp
@@ -176,10 +184,10 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
          -- array but a populated governance_domain still counts as evidence for this theme.
          AND ($3 = ANY(gp.risk_domain) OR $3 = gp.governance_domain)
          AND ${QUALIFYING_PULSE}
-         ${personClause}
+         AND ($6 <> 'person' OR gp.service_user_id = $4::uuid)
          -- Closed signals leave the live queue but remain historical pattern evidence.
          ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
-        [company_id, house_id, domain, service_user_id, memoryDays]
+        [company_id, house_id, domain, service_user_id, memoryDays, scope]
     );
     const recentSignals = history21dRes.rows;
     if (recentSignals.length === 0) return;

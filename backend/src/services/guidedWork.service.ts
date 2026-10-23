@@ -192,17 +192,27 @@ export const guidedWorkService = {
          WHERE gr.company_id=$1 AND gr.decision='Monitor' AND gr.decision_status='Monitoring'
            AND gr.decision_owner_id=$2
            AND (gp.id IS NULL OR gp.review_status NOT IN ('Closed','Linked'))`, [companyId, userId]);
-      for (const m of monitoredSignals) needsYou.push({
-        id:`signal_monitor:${m.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'SIGNAL_MONITORING',
-        title:`Monitor signal${m.related_person ? ` · ${m.related_person}` : ''}`,
-        summary:`Original concern: ${m.original_description || 'see signal'}. What to watch: ${m.what_is_happening || 'see signal'}.`,
-        reason:m.monitoring_trigger ? `Watch for: ${m.monitoring_trigger}` : 'The Registered Manager asked you to monitor this signal.',
-        dueAt:m.due_at, serviceName:m.service_name,
-        canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'SIGNAL_MONITORING_UPDATE',
-        completionCondition:'Factual monitoring evidence is recorded, or urgent RM attention is flagged. The Registered Manager retains the next governance decision.',
-        route:m.pulse_entry_id ? `/signals/${m.pulse_entry_id}?guided=1&gw=signal_monitor:${m.id}` : `/governance-dashboard?guided=1&gw=signal_monitor:${m.id}`,
-        actionLabel:'Record Monitoring Update', whyAmISeeingThis:'The Registered Manager named you as the monitoring owner for this signal.'
-      });
+      // Bug fix (confirmed live, 23 Oct 2026, user-reported): a TL's "Monitor signal" items were
+      // pushed to My Work from the moment the RM set them up, regardless of due_at -- a monitoring
+      // instruction due 24/27/30 Oct sat in Needs You today (23 Oct) exactly like the escalation/
+      // action due-date bug fixed yesterday. Same isDueByToday() gate applied here.
+      for (const m of monitoredSignals) {
+        const dueNow = isDueByToday(m.due_at);
+        const item: GuidedWorkItem = {
+          id:`signal_monitor:${m.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:'NORMAL', taskType:'SIGNAL_MONITORING',
+          title:`Monitor signal${m.related_person ? ` · ${m.related_person}` : ''}`,
+          summary:`Original concern: ${m.original_description || 'see signal'}. What to watch: ${m.what_is_happening || 'see signal'}.`,
+          reason: dueNow
+            ? (m.monitoring_trigger ? `Watch for: ${m.monitoring_trigger}` : 'The Registered Manager asked you to monitor this signal.')
+            : `Due ${dueDateLabel(m.due_at)} — not yet due.`,
+          dueAt:m.due_at, serviceName:m.service_name,
+          canonicalEntityType:'signal', canonicalEntityId:m.pulse_entry_id || m.id, requiredAction:'SIGNAL_MONITORING_UPDATE',
+          completionCondition:'Factual monitoring evidence is recorded, or urgent RM attention is flagged. The Registered Manager retains the next governance decision.',
+          route:m.pulse_entry_id ? `/signals/${m.pulse_entry_id}?guided=1&gw=signal_monitor:${m.id}` : `/governance-dashboard?guided=1&gw=signal_monitor:${m.id}`,
+          actionLabel:'Record Monitoring Update', whyAmISeeingThis: dueNow ? 'The Registered Manager named you as the monitoring owner for this signal.' : `You're the monitoring owner for this signal, but it's not due for review until ${dueDateLabel(m.due_at)}.`
+        };
+        (dueNow ? needsYou : waiting).push(item);
+      }
 
       // Escalation monitoring assigned to this TL (Escalation Monitoring correction, 14 Oct 2026):
       // derived from the escalation itself the moment the RM names them as monitoring owner — not a
