@@ -148,6 +148,22 @@ export const governanceDecisionsService = {
       input.evidence_reference?.trim() ? `Evidence reference: ${input.evidence_reference.trim()}` : null,
     ].filter(Boolean).join('\n\n') || null;
 
+    // Bug fix (confirmed live, 23 Oct 2026, user-reported): a "continue monitoring" decision on a
+    // signal that already has an active Monitor row threw a raw Postgres error --
+    // "duplicate key value violates unique constraint idx_governance_reviews_one_active_monitor_
+    // per_signal" -- straight into the UI. Root cause: the INSERT below ran BEFORE the prior active
+    // Monitor row was marked Completed, so inserting a second decision_status='Monitoring' row for
+    // the same signal collided with the partial unique index (one active Monitor per signal) every
+    // time the decision being recorded was itself 'Monitor'. Complete the prior cycle FIRST, so the
+    // new row is the only active one at insert time.
+    if (input.pulse_entry_id && decision === 'Monitor') {
+      await client.query(
+        `UPDATE governance_reviews SET decision_status='Completed'
+          WHERE company_id=$1 AND pulse_entry_id=$2 AND decision='Monitor' AND decision_status='Monitoring'`,
+        [c, input.pulse_entry_id]
+      );
+    }
+
     const review = await client.query(
       `INSERT INTO governance_reviews (
          company_id, service_id, risk_id, escalation_id, pulse_entry_id, cluster_id, daily_governance_log_id,
@@ -169,9 +185,9 @@ export const governanceDecisionsService = {
       return { decision: existing.rows[0] || null, idempotent: true, task: null, escalation: null, risk: null, pattern: null };
     }
     const decisionId = review.rows[0].id;
-    if (input.pulse_entry_id) {
-      // A new decision completes the previous monitoring cycle for this signal. The new Monitor
-      // row (if selected) becomes the sole active monitoring instruction.
+    if (input.pulse_entry_id && decision !== 'Monitor') {
+      // A non-Monitor decision (Close, Escalate, Create Action, etc.) also completes any still-open
+      // monitoring cycle for this signal -- the Monitor-decision case above already did this first.
       await client.query(
         `UPDATE governance_reviews SET decision_status='Completed'
           WHERE company_id=$1 AND pulse_entry_id=$2 AND decision='Monitor'
@@ -413,8 +429,13 @@ export const governanceDecisionsService = {
         } catch { /* notification is best-effort */ }
       }
       return out;
-    } catch (err) {
+    } catch (err: any) {
       await client.query('ROLLBACK');
+      // Defensive translation, in case this is ever reached by a path other than the one fixed
+      // above (e.g. a genuine concurrent submission) -- never leak a raw constraint name to the UI.
+      if (err?.code === '23505' && String(err?.constraint || '').includes('one_active_monitor_per_signal')) {
+        throw new Error('This signal already has an active monitoring cycle. Refresh and try again — your decision will complete it and start the new one.');
+      }
       throw err;
     } finally {
       client.release();
