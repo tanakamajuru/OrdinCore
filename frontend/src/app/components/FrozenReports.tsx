@@ -32,6 +32,22 @@ export function FrozenReports() {
   const [snapshot, setSnapshot] = useState<any>(null);
   const [history, setHistory] = useState<any[]>([]);
   const [lockedReconstructions, setLockedReconstructions] = useState<any[]>([]);
+  // User-reported, 23 Oct 2026: "locked reconstructions remain on screen after we have seen
+  // them." The underlying governance record is never hidden or deleted -- it's still produceable
+  // from the full history, and from /reconstruction/record/:id/pdf directly -- this only
+  // declutters the quick-access list in this browser once an item has been opened. Recoverable
+  // via "Show viewed" rather than a one-way dismiss.
+  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
+    try { return new Set(JSON.parse(localStorage.getItem("viewedReconstructions") || "[]")); } catch { return new Set(); }
+  });
+  const [showViewedReconstructions, setShowViewedReconstructions] = useState(false);
+  const markReconstructionViewed = (id: string) => {
+    setViewedIds((prev) => {
+      const next = new Set(prev); next.add(id);
+      try { localStorage.setItem("viewedReconstructions", JSON.stringify([...next])); } catch { /* best-effort */ }
+      return next;
+    });
+  };
 
   useEffect(() => {
     apiClient.get("/frozen-reports/catalog").then((r) => setCatalog(unwrap(r) || [])).catch(() => setCatalog([]));
@@ -109,6 +125,7 @@ export function FrozenReports() {
       const { blob, filename } = await (apiClient as any).getBlob(`/reconstruction/record/${id}/pdf`);
       const url = URL.createObjectURL(blob); const a = document.createElement('a');
       a.href = url; a.download = filename || `governance-reconstruction-${id}.pdf`; a.click(); URL.revokeObjectURL(url);
+      markReconstructionViewed(id);
     } catch { toast.error('Could not produce the locked reconstruction PDF.'); }
   };
 
@@ -272,17 +289,32 @@ export function FrozenReports() {
                 </div>
               </div>
             )}
-            {lockedReconstructions.length > 0 && (
-              <div className="bg-card border-2 border-border rounded-xl p-4">
-                <p className="text-xs uppercase tracking-widest text-muted-foreground mb-2">Locked reconstructions</p>
-                <div className="divide-y divide-border">{lockedReconstructions.map((r: any) => (
-                  <div key={r.id} className="flex items-center justify-between gap-3 py-2.5">
-                    <div><p className="text-sm font-medium">{r.scope_label || r.scope}</p><p className="text-xs text-muted-foreground">Locked governance record</p></div>
-                    <button onClick={() => downloadLockedReconstruction(r.id)} className="text-xs text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" />PDF</button>
+            {lockedReconstructions.length > 0 && (() => {
+              const visible = showViewedReconstructions ? lockedReconstructions : lockedReconstructions.filter((r: any) => !viewedIds.has(r.id));
+              const viewedCount = lockedReconstructions.length - lockedReconstructions.filter((r: any) => !viewedIds.has(r.id)).length;
+              return (
+                <div className="bg-card border-2 border-border rounded-xl p-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <p className="text-xs uppercase tracking-widest text-muted-foreground">Locked reconstructions</p>
+                    {viewedCount > 0 && (
+                      <button onClick={() => setShowViewedReconstructions((v) => !v)} className="text-xs text-primary">
+                        {showViewedReconstructions ? "Hide viewed" : `Show viewed (${viewedCount})`}
+                      </button>
+                    )}
                   </div>
-                ))}</div>
-              </div>
-            )}
+                  {visible.length === 0 ? (
+                    <p className="text-xs text-muted-foreground py-2">No unseen reconstructions — all caught up.</p>
+                  ) : (
+                    <div className="divide-y divide-border">{visible.map((r: any) => (
+                      <div key={r.id} className="flex items-center justify-between gap-3 py-2.5">
+                        <div><p className="text-sm font-medium">{r.scope_label || r.scope}</p><p className="text-xs text-muted-foreground">Locked governance record{viewedIds.has(r.id) ? " · Viewed" : ""}</p></div>
+                        <button onClick={() => downloadLockedReconstruction(r.id)} className="text-xs text-primary flex items-center gap-1"><Download className="w-3.5 h-3.5" />PDF</button>
+                      </div>
+                    ))}</div>
+                  )}
+                </div>
+              );
+            })()}
           </div>
         </div>
       </div>
