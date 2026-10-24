@@ -213,12 +213,19 @@ export function GovernanceDecisions({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [houseId, reviewDate, fromDate, toDate]);
 
-  // If another Ordin Core screen changes the same canonical case (for example an action is
-  // completed, an escalation is transitioned or an effectiveness review is recorded), refresh
-  // the decision evidence without altering the decision workflow. This prevents Daily Oversight
-  // from showing a stale signal/decision position until the page is manually reloaded.
+  // Bug fix (confirmed live, 23-24 Oct 2026, user-reported -- clinical safety): a decision recorded
+  // for one resident was saved against a DIFFERENT resident's signal. Root cause: this refresh
+  // fires on every `governance.case.updated` broadcast -- which is company-wide, so ANY decision
+  // recorded anywhere (a different house, a different RM/TL entirely) re-sorts the signal list the
+  // moment it lands, visually reshuffling rows ("the screen keeps jumping"). The actual submit is
+  // id-bound (form.source), so this never corrupts a decision already in flight -- the danger is a
+  // human one: the list reorders between glancing at a name and clicking its row, or between
+  // composing a note and hitting Save, so the row now under the cursor/below the context box
+  // belongs to someone else. Freeze this refresh entirely once a signal is selected into the form
+  // (the whole reason to look at live data disappears once committed to one record) and resume it
+  // only after the decision is submitted or the selection is cleared.
   useGovernanceRefresh(() => {
-    if (!houseId) return;
+    if (!houseId || form.source) return;
     void Promise.all([loadDecisions(), loadSignals()]);
   });
 
@@ -740,6 +747,19 @@ export function GovernanceDecisions({
               </div>}
 
               {form.decision === "Close" && <p className="text-[11px] text-muted-foreground">The signal and its history remain available. Closing this signal does not close linked risks, actions or escalations.</p>}
+
+              {/* Clinical-safety check (user-reported, 23-24 Oct 2026): a decision meant for one
+                  resident was saved against a different resident's signal after the list reordered
+                  mid-interaction. The refresh that caused the reorder is now frozen once a signal is
+                  selected (above), but this is the last line of defence against a misclick before
+                  that point — name exactly who the decision is about, right next to Save, so it is
+                  the last thing seen before committing. */}
+              {selectedSignal && (
+                <div className="rounded-lg border-2 border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+                  Recording for: <span className="font-semibold text-foreground">{selectedSignal.related_person || "No named person"}</span>
+                  <span className="text-muted-foreground"> — {(selectedSignal.description || "").slice(0, 80)}{(selectedSignal.description || "").length > 80 ? "…" : ""}</span>
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <button onClick={record} disabled={busy} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">
