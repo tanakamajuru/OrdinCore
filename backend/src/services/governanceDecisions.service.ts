@@ -4,6 +4,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { emitToCompany } from '../websocket/socket.server';
 import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
 import { escalationLifecycleService } from './escalationLifecycle.service';
+import { PROMOTION_THRESHOLD } from '../config/governance.constants';
+import { severityToScore } from './risks.service';
 
 /**
  * The Daily Governance Review is the engine that generates management work. A Governance
@@ -352,22 +354,54 @@ export const governanceDecisionsService = {
 
   // Promote a pattern (or a single signal) to ONE formal risk, in-transaction. Idempotent:
   // a pattern that already has a linked risk returns it instead of creating a duplicate.
+  // P1 correction (23 Oct developer corrections, "Conflicting promotion rules"): this executor
+  // previously bypassed EVERY eligibility/threshold check the dedicated promotion service
+  // (risks.service.ts) enforces -- a cluster could be promoted here with 1 signal (the real
+  // service requires >=3, or a Critical, or Safeguarding), and a bare signal could be promoted
+  // with no severity check at all (the real service requires Critical or Safeguarding). It also
+  // hard-coded severity='Moderate'/trajectory='Stable' regardless of the actual evidence -- a
+  // Critical signal and a Low signal promoted here scored identically. Both branches now apply
+  // the SAME rules risksService.promoteFromCluster/promoteFromSignal apply, so a signal's
+  // eligibility and starting assessment no longer depend on which screen was used to promote it.
   async promoteToRiskInTx(client: PoolClient, input: DecisionInput, decisionId: string) {
     const c = input.company_id, u = input.user_id;
     if (input.cluster_id) {
-      const cl = (await client.query(`SELECT id, risk_domain, linked_person, house_id, linked_risk_id, affected_house_ids, scope FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [input.cluster_id, c])).rows[0];
+      const cl = (await client.query(`SELECT id, risk_domain, linked_person, house_id, linked_risk_id, affected_house_ids, scope, signal_count FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`, [input.cluster_id, c])).rows[0];
       if (!cl) throw new Error('Pattern not found.');
       if (cl.linked_risk_id) {
         const existing = (await client.query(`SELECT * FROM risks WHERE id = $1`, [cl.linked_risk_id])).rows[0];
         if (existing) return existing; // already promoted — no duplicate
       }
+
+      // Same evidentiary floor as the dedicated promotion service: >=3 linked signals (or the
+      // cluster's own configured threshold), OR a Critical signal, OR a Safeguarding theme.
+      const fv = (await client.query(`SELECT historical_evidence_count AS count, qualifying_count, threshold FROM canonical_pattern_formation_v WHERE cluster_id = $1`, [input.cluster_id])).rows[0];
+      const linkedSignals = Number(fv?.count) || Number(cl.signal_count) || 0;
+      const qualifyingSignals = process.env.PATTERN_COHERENCE_V3 === 'false' ? linkedSignals : Number(fv?.qualifying_count || 0);
+      const promotionThreshold = Number(fv?.threshold || PROMOTION_THRESHOLD);
+      const sigRows = (await client.query(
+        `SELECT gp.severity FROM risk_signal_links rsl JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id WHERE rsl.cluster_id = $1`,
+        [input.cluster_id]
+      )).rows;
+      const hasCritical = sigRows.some((s: any) => String(s.severity).toLowerCase() === 'critical');
+      const isSafeguarding = String(cl.risk_domain || '').toLowerCase().includes('safeguard');
+      if (qualifyingSignals < promotionThreshold && !hasCritical && !isSafeguarding) {
+        throw new Error(`Cluster does not meet the promotion threshold: ${qualifyingSignals} coherent signal(s), and no Critical signal. A risk requires at least ${promotionThreshold} related signals, or one Critical signal, or a Safeguarding theme.`);
+      }
+
+      // Derive severity from the evidence rather than a fixed default, same rule as the
+      // dedicated service: a Critical signal wins; else the strongest linked signal.
+      const sevRank: Record<string, number> = { critical: 4, high: 3, medium: 2, moderate: 2, low: 1 };
+      const maxSev = sigRows.reduce((m: number, s: any) => Math.max(m, sevRank[String(s.severity || '').toLowerCase()] || 0), 0);
+      const effectiveSeverity = hasCritical ? 'Critical' : maxSev >= 3 ? 'High' : maxSev === 2 ? 'Moderate' : 'Low';
+
       const riskId = uuidv4();
       const affectedIds: string[] = Array.isArray(cl.affected_house_ids) ? cl.affected_house_ids : [];
       const isCrossService = cl.scope === 'cross_service' || affectedIds.length > 1;
       const r = await client.query(
-        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, source_cluster_id, risk_domain, linked_person, trajectory, services_affected_count, strategic_theme)
-         VALUES ($1,$2,$3,$4,$5,'Moderate','Open',$6,$7,$8,$9,'Stable',$10,$11) RETURNING *`,
-        [riskId, c, isCrossService ? null : (cl.house_id || affectedIds[0] || null), (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), u, cl.id, cl.risk_domain, cl.linked_person || null, isCrossService ? Math.max(2, affectedIds.length) : 1, isCrossService ? cl.risk_domain : null]
+        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, source_cluster_id, risk_domain, linked_person, trajectory, services_affected_count, strategic_theme, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,'Open',$7,$8,$9,$10,'Stable',$11,$12,$13) RETURNING *`,
+        [riskId, c, isCrossService ? null : (cl.house_id || affectedIds[0] || null), (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), effectiveSeverity, u, cl.id, cl.risk_domain, cl.linked_person || null, isCrossService ? Math.max(2, affectedIds.length) : 1, isCrossService ? cl.risk_domain : null, JSON.stringify({ critical_exception_reason: (input.decision_rationale || '').trim() })]
       );
       await client.query(`UPDATE signal_clusters SET linked_risk_id = $1, cluster_status = 'Confirmed', updated_at = NOW() WHERE id = $2`, [riskId, cl.id]);
       await client.query(
@@ -380,14 +414,35 @@ export const governanceDecisionsService = {
       return r.rows[0];
     }
     if (input.pulse_entry_id) {
-      const p = (await client.query(`SELECT id, house_id, risk_domain, related_person, description FROM governance_pulses WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c])).rows[0];
+      const p = (await client.query(`SELECT id, house_id, risk_domain, related_person, description, severity FROM governance_pulses WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c])).rows[0];
       if (!p) throw new Error('Signal not found.');
+
+      // Idempotency, same pattern as the cluster branch and as risksService.promoteFromSignal:
+      // never spawn a second risk from the same signal.
+      const already = (await client.query(
+        `SELECT r.* FROM risk_signal_links rsl JOIN risks r ON r.id = rsl.risk_id AND r.company_id = $2
+          WHERE rsl.pulse_entry_id = $1 AND r.status NOT IN ('Closed','Resolved') ORDER BY rsl.linked_at ASC LIMIT 1`,
+        [p.id, c]
+      )).rows[0];
+      if (already) { await client.query(`UPDATE governance_reviews SET risk_id = $1 WHERE id = $2`, [already.id, decisionId]); return already; }
+
+      // Same eligibility floor as the dedicated promotion service: only a Critical signal, or a
+      // Safeguarding concern, may bypass the pattern route and become a risk on its own.
+      const severity = String(p.severity || '').toLowerCase();
+      const domainStr = (Array.isArray(p.risk_domain) ? p.risk_domain.join(' ') : String(p.risk_domain || '')).toLowerCase();
+      const isSafeguarding = domainStr.includes('safeguard');
+      const isCritical = severity === 'critical';
+      if (!isCritical && !isSafeguarding) {
+        throw new Error('This signal is not eligible for direct promotion. Only a Critical signal, or a Safeguarding concern, may become a risk on its own — everything else must build toward a pattern first.');
+      }
+
       const riskId = uuidv4();
       const dom = Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain;
+      const effectiveSeverity = p.severity || (isSafeguarding ? 'High' : 'Critical');
       const r = await client.query(
-        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, risk_domain, linked_person, trajectory)
-         VALUES ($1,$2,$3,$4,$5,'Moderate','Open',$6,$7,$8,'Stable') RETURNING *`,
-        [riskId, c, p.house_id, (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), u, dom, p.related_person || null]
+        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, risk_domain, linked_person, trajectory, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,'Open',$7,$8,$9,'Stable',$10) RETURNING *`,
+        [riskId, c, p.house_id, (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), effectiveSeverity, u, dom, p.related_person || null, JSON.stringify({ critical_exception_reason: (input.decision_rationale || '').trim() })]
       );
       await client.query(`INSERT INTO risk_signal_links (id, risk_id, pulse_entry_id, linked_by) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [uuidv4(), riskId, p.id, u]);
       await client.query(`UPDATE governance_pulses SET review_status = 'Linked' WHERE id = $1`, [p.id]);
