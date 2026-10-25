@@ -52,6 +52,27 @@ export class DirectorInsightsService {
     // cluster if a company grows past a few hundred open risks.
   }
 
+  // Risks by Trend (Director dashboard donut): full-dataset breakdown using the
+  // SAME authoritative trajectoryForRisk engine the heat map reads, so the donut
+  // and heat map can never disagree and a capped risk list can never hide a theme.
+  async risksByTrend(companyId: string) {
+    const rows = (await query(
+      `SELECT id AS risk_id, source_cluster_id
+         FROM risks
+        WHERE company_id = $1 AND LOWER(status) <> 'closed'`,
+      [companyId]
+    )).rows;
+
+    let deteriorating = 0, stable = 0, improving = 0;
+    for (const row of rows) {
+      const tr = await trajectoryForRisk(row.risk_id, row.source_cluster_id);
+      if (tr.direction === 'Deteriorating') deteriorating++;
+      else if (tr.direction === 'Improving') improving++;
+      else stable++;
+    }
+    return { deteriorating, stable, improving, total: rows.length };
+  }
+
   async effectivenessByService(companyId: string) {
     const res = await query(
       `SELECT h.id AS service_id, h.name AS service_name,

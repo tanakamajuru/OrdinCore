@@ -748,14 +748,24 @@ export class EscalationsService {
     // open unless one of them says Closed/Resolved. My Work, the nav badge and the daily
     // board all use this identical definition so the numbers can never disagree.
     const OPEN = `is_open`;
+    // lifecycle_status has 10 enum values in use (Open, Under Review, Actions
+    // Implemented, Monitoring Effectiveness, Closed, Reopened, Actions In Progress,
+    // Awaiting Effectiveness, Monitoring, Ready For Closure). The buckets below are
+    // gated on is_open (not the raw status string) and are exhaustive, so they
+    // always sum to exactly the open total -- a legacy row whose lifecycle_status
+    // is stale (e.g. still 'Open' after resolution) is correctly placed by is_open,
+    // never double-counted into both an open bucket and "closed".
     const result = await query(
       `SELECT
         COUNT(*) AS total,
         COUNT(*) FILTER (WHERE ${OPEN}) AS open,
-        COUNT(*) FILTER (WHERE lifecycle_status = 'Open') AS new_open,
-        COUNT(*) FILTER (WHERE lifecycle_status = 'Under Review') AS under_review,
-        COUNT(*) FILTER (WHERE lifecycle_status = 'Actions Implemented') AS actions_implemented,
-        COUNT(*) FILTER (WHERE lifecycle_status = 'Monitoring Effectiveness') AS monitoring_effectiveness,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status = 'Open') AS new_open,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status = 'Under Review') AS under_review,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status IN ('Actions Implemented', 'Actions In Progress')) AS actions_implemented,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status IN ('Monitoring Effectiveness', 'Awaiting Effectiveness', 'Monitoring')) AS monitoring_effectiveness,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status = 'Ready For Closure') AS ready_for_closure,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status = 'Reopened') AS reopened,
+        COUNT(*) FILTER (WHERE ${OPEN} AND lifecycle_status NOT IN ('Open', 'Under Review', 'Actions Implemented', 'Actions In Progress', 'Monitoring Effectiveness', 'Awaiting Effectiveness', 'Monitoring', 'Ready For Closure', 'Reopened')) AS other_open,
         COUNT(*) FILTER (WHERE NOT (${OPEN})) AS closed,
         COUNT(*) FILTER (WHERE ${OPEN} AND due_by IS NOT NULL AND due_by < NOW()) AS overdue,
         COUNT(*) FILTER (WHERE ${OPEN} AND (due_by IS NULL OR due_by >= NOW())) AS on_time,

@@ -10,6 +10,14 @@ export class DirectorInsightsController {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build heat map', errors: [] });
     }
   }
+  async risksByTrend(req: Request, res: Response) {
+    try {
+      const data = await directorInsightsService.risksByTrend(req.user!.company_id!);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build risk trend summary', errors: [] });
+    }
+  }
   async effectivenessByService(req: Request, res: Response) {
     try {
       const data = await directorInsightsService.effectivenessByService(req.user!.company_id!);

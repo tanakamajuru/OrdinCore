@@ -615,6 +615,9 @@ class ApiClient {
   async getCrossSiteHeatmap(): Promise<ApiResponse<any[]>> {
     return this.get<any[]>('/director/cross-site-heatmap');
   }
+  async getRisksByTrend(): Promise<ApiResponse<any>> {
+    return this.get<any>('/director/risks-by-trend');
+  }
   async getEffectivenessByService(): Promise<ApiResponse<any[]>> {
     return this.get<any[]>('/director/effectiveness-by-service');
   }

@@ -62,14 +62,15 @@ function Donut({ data, centerLabel }: { data: { name: string; value: number; col
   );
 }
 
-function HeatCell({ trend }: { trend?: string }) {
-  if (!trend) return <td className="p-2 text-center"><span className="inline-block w-6 h-6 rounded bg-muted" /></td>;
+function HeatCell({ trend, riskCount }: { trend?: string; riskCount?: number }) {
+  if (!trend) return <td className="p-2 text-center"><span className="inline-block w-6 h-6 rounded bg-muted" title="No open risk for this service and theme" /></td>;
   const cfg = isRising(trend)
-    ? { bg: "bg-red-500", icon: <ArrowUpRight className="w-4 h-4 text-white" /> }
+    ? { bg: "bg-red-500", icon: <ArrowUpRight className="w-4 h-4 text-white" />, word: "Rising — the worst-trending open risk in this cell is deteriorating" }
     : trend === "Improving"
-      ? { bg: "bg-emerald-500", icon: <ArrowDownRight className="w-4 h-4 text-white" /> }
-      : { bg: "bg-amber-500", icon: <Minus className="w-4 h-4 text-white" /> };
-  return <td className="p-2 text-center"><span className={`inline-flex items-center justify-center w-7 h-7 rounded ${cfg.bg}`}>{cfg.icon}</span></td>;
+      ? { bg: "bg-emerald-500", icon: <ArrowDownRight className="w-4 h-4 text-white" />, word: "Improving — every open risk in this cell is improving" }
+      : { bg: "bg-amber-500", icon: <Minus className="w-4 h-4 text-white" />, word: "Stable — no deteriorating or fully-improving signal yet" };
+  const title = `${cfg.word}${riskCount ? ` · ${riskCount} open risk${riskCount === 1 ? "" : "s"}` : ""}`;
+  return <td className="p-2 text-center"><span className={`inline-flex items-center justify-center w-7 h-7 rounded ${cfg.bg}`} title={title}>{cfg.icon}</span></td>;
 }
 
 export function DirectorDashboard() {
@@ -87,6 +88,7 @@ export function DirectorDashboard() {
   const [escPage, setEscPage] = useState(1);
   const [, setHealth] = useState<any>(null);
   const [themeTrends, setThemeTrends] = useState<any[]>([]);
+  const [riskTrend, setRiskTrend] = useState<{ deteriorating: number; stable: number; improving: number; total: number } | null>(null);
   const [weeklyAgeing, setWeeklyAgeing] = useState<{ overdue: number; missedThisMonth: number } | null>(null);
   // Authoritative org-wide counts over the full dataset (not the capped lists) so headline tiles
   // reconcile with mobile and are never truncated. Falls back to list counts if unavailable.
@@ -102,7 +104,7 @@ export function DirectorDashboard() {
       setLoading(true);
       const end = new Date().toISOString();
       const start = new Date(Date.now() - 30 * 86400000).toISOString();
-      const [rk, esc, st, act, eff, hs, hm, effSummary, age, rs] = await Promise.all([
+      const [rk, esc, st, act, eff, hs, hm, effSummary, age, rs, rbt] = await Promise.all([
         apiClient.get(`/risks?limit=200`).catch(() => ({})),
         apiClient.getEscalations(1, 200).catch(() => ({})),
         apiClient.getEscalationStats().catch(() => ({})),
@@ -113,6 +115,7 @@ export function DirectorDashboard() {
         apiClient.get(`/actions/effectiveness-summary?start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`).catch(() => ({})),
         apiClient.get(`/weekly-reviews/ageing`).catch(() => ({})),
         apiClient.get(`/reports/summary`).catch(() => ({})),
+        apiClient.getRisksByTrend().catch(() => ({})),
       ]);
       setRisks(asArray(unwrap(rk)));
       setEscalations(asArray(unwrap(esc)));
@@ -124,6 +127,7 @@ export function DirectorDashboard() {
       setEffectivenessSummary(unwrap(effSummary)?.org_summary || {});
       setWeeklyAgeing(unwrap(age) || null);
       { const s = unwrap(rs); setReportMetrics(s && !Array.isArray(s) ? (s.metrics || null) : null); }
+      { const t = unwrap(rbt); setRiskTrend(t && !Array.isArray(t) ? t : null); }
     } catch (err) {
       console.error(err);
       toast.error("Failed to load director dashboard");
@@ -149,9 +153,13 @@ export function DirectorDashboard() {
   };
   // Trajectory SSOT: authoritative direction first, legacy trend only as last resort.
   const trendOf = (r: any) => r.trajectory_direction || r.trajectory || r.trend || "Stable";
-  const rising = openRisks.filter(r => isRising(trendOf(r))).length;
-  const improving = openRisks.filter(r => trendOf(r) === "Improving").length;
-  const stable = openRisks.length - rising - improving;
+  // Risks by Trend reads the authoritative, full-dataset /director/risks-by-trend
+  // breakdown (same trajectoryForRisk engine the heat map uses) so it can't disagree
+  // with the heat map and can't be skewed by the capped (limit=200) risk list. Falls
+  // back to the capped client computation only if that endpoint is unavailable.
+  const rising = riskTrend ? riskTrend.deteriorating : openRisks.filter(r => isRising(trendOf(r))).length;
+  const improving = riskTrend ? riskTrend.improving : openRisks.filter(r => trendOf(r) === "Improving").length;
+  const stable = riskTrend ? riskTrend.stable : openRisks.length - rising - improving;
 
   const openEsc = escalations.filter(isOpenEscalation);
   const overdueEsc = escalations.filter(e => e.overdue).length;
@@ -182,21 +190,27 @@ export function DirectorDashboard() {
     if (rs.some(r => trendOf(r) === "Stable")) return "Stable";
     return "Improving";
   };
-  const servicesWithRisk = services.slice(0, 7);
+  // All services with any open risk, never capped — a service past position 7 must
+  // still be visible, not silently dropped off the dashboard.
+  const servicesWithRisk = services;
   const servicesNeedingAttention = servicesWithRisk.filter(s => openRisks.some(r => r.house_id === s.id && isRising(trendOf(r)))).length;
 
   // Heat map from the server-side /director/cross-site-heatmap endpoint, with a
   // client-side fallback so the panel still renders if the endpoint is empty.
+  // Every theme and every service is shown — no slice caps — since a hidden row or
+  // column is a hidden risk from the one view meant to catch cross-service patterns.
   const heatTrend: Record<string, string> = {};
-  heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; });
+  const heatCount: Record<string, number> = {};
+  heatmap.forEach((h: any) => { heatTrend[`${h.service_id}|${h.theme}`] = h.trend; heatCount[`${h.service_id}|${h.theme}`] = Number(h.risk_count || 1); });
   const heatThemes = heatmap.length
     ? Array.from(heatmap.reduce((m: Map<string, number>, h: any) => m.set(h.theme, (m.get(h.theme) || 0) + Number(h.risk_count || 1)), new Map<string, number>()).entries())
-        .sort((a: [string, number], b: [string, number]) => b[1] - a[1]).slice(0, 6).map((e: [string, number]) => e[0])
-    : topThemes.slice(0, 6);
+        .sort((a: [string, number], b: [string, number]) => b[1] - a[1]).map((e: [string, number]) => e[0])
+    : topThemes;
   const heatServices = heatmap.length
-    ? Array.from(new Map(heatmap.map((h: any) => [h.service_id, { id: h.service_id, name: h.service_name }])).values()).slice(0, 7)
+    ? Array.from(new Map(heatmap.map((h: any) => [h.service_id, { id: h.service_id, name: h.service_name }])).values())
     : servicesWithRisk;
   const trendFor = (svcId: string, theme: string) => heatmap.length ? heatTrend[`${svcId}|${theme}`] : worstTrend(svcId, theme);
+  const countFor = (svcId: string, theme: string) => heatmap.length ? heatCount[`${svcId}|${theme}`] : undefined;
 
   return (
     <div className="min-h-screen bg-background">
@@ -234,18 +248,21 @@ export function DirectorDashboard() {
         {/* Risk Heat Map — full width so every service row and theme column is visible
             at once, without horizontal scrolling. */}
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm mb-6">
-          <h3 className="font-semibold mb-4">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
-          <table className="w-full text-xs table-fixed">
-            <thead>
-              <tr><th className="text-left p-2 text-muted-foreground w-40">Service</th>{heatThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal">{t}</th>)}</tr>
-            </thead>
-            <tbody>
-              {heatServices.map(s => (
-                <tr key={s.id}><td className="p-2 font-medium truncate">{s.name}</td>{heatThemes.map(t => <HeatCell key={t} trend={trendFor(s.id, t)} />)}</tr>
-              ))}
-              {heatServices.length === 0 && <tr><td colSpan={heatThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
-            </tbody>
-          </table>
+          <h3 className="font-semibold mb-1">Risk Heat Map <span className="text-xs text-muted-foreground font-normal">(By Service & Theme)</span></h3>
+          <p className="text-[11px] text-muted-foreground mb-3">Each cell is the worst-trending open risk for that service and theme. Hover a cell for the open risk count and what the colour means.</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-xs min-w-max">
+              <thead>
+                <tr><th className="text-left p-2 text-muted-foreground w-40 sticky left-0 bg-card">Service</th>{heatThemes.map(t => <th key={t} className="p-2 text-muted-foreground font-normal whitespace-nowrap">{t}</th>)}</tr>
+              </thead>
+              <tbody>
+                {heatServices.map(s => (
+                  <tr key={s.id}><td className="p-2 font-medium truncate sticky left-0 bg-card">{s.name}</td>{heatThemes.map(t => <HeatCell key={t} trend={trendFor(s.id, t)} riskCount={countFor(s.id, t)} />)}</tr>
+                ))}
+                {heatServices.length === 0 && <tr><td colSpan={heatThemes.length + 1} className="p-6 text-center text-muted-foreground">No services</td></tr>}
+              </tbody>
+            </table>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
@@ -259,16 +276,21 @@ export function DirectorDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Escalations by Status</h3>
-            <ResponsiveContainer width="100%" height={180}>
+            <h3 className="font-semibold mb-1">Escalations by Status</h3>
+            <p className="text-[11px] text-muted-foreground mb-3">
+              Mutually-exclusive lifecycle stages — these bars sum to {Number(escStats.open || 0)} open{Number(escStats.closed || 0) ? ` (+ ${Number(escStats.closed)} closed, not shown)` : ""}.
+            </p>
+            <ResponsiveContainer width="100%" height={220}>
               <BarChart layout="vertical" data={[
                 { name: "Open", value: Number(escStats.new_open || 0) },
                 { name: "Under Review", value: Number(escStats.under_review || 0) },
                 { name: "Actions Impl.", value: Number(escStats.actions_implemented || 0) },
                 { name: "Monitoring", value: Number(escStats.monitoring_effectiveness || 0) },
-                { name: "Closed", value: Number(escStats.closed || 0) },
+                { name: "Ready for Closure", value: Number(escStats.ready_for_closure || 0) },
+                { name: "Reopened", value: Number(escStats.reopened || 0) },
+                ...(Number(escStats.other_open || 0) > 0 ? [{ name: "Other", value: Number(escStats.other_open || 0) }] : []),
               ]} margin={{ left: 20 }}>
-                <XAxis type="number" hide /><YAxis type="category" dataKey="name" width={90} tick={{ fontSize: 11 }} />
+                <XAxis type="number" hide /><YAxis type="category" dataKey="name" width={110} tick={{ fontSize: 11 }} />
                 <Bar dataKey="value" radius={[0, 4, 4, 0]} fill="#6366f1" />
               </BarChart>
             </ResponsiveContainer>
@@ -279,9 +301,13 @@ export function DirectorDashboard() {
             <p className="text-[11px] text-muted-foreground mb-3">Each theme tells a story — is it improving, holding, or getting worse? Open the Intervention Panel to act.</p>
             <div className="space-y-2">
               {(themeTrends.length ? themeTrends : []).slice(0, 6).map((t: any) => {
-                const dir = t.trajectory?.label || "Stable";
-                const arrow = dir === "Increasing" ? "↗" : dir === "Reducing" ? "↘" : "→";
-                const dirTone = dir === "Increasing" ? "text-red-600" : dir === "Reducing" ? "text-emerald-600" : "text-amber-600";
+                // trajectory.label is the authoritative engine's own vocabulary:
+                // Deteriorating / Improving / Stable (or "Insufficient evidence" for a
+                // closed-theme historical card) — never the Increasing/Reducing labels
+                // this used to compare against, which no longer exist.
+                const dir = t.trajectory?.label || t.trajectory?.direction || "Stable";
+                const arrow = dir === "Deteriorating" ? "↗" : dir === "Improving" ? "↘" : "→";
+                const dirTone = dir === "Deteriorating" ? "text-red-600" : dir === "Improving" ? "text-emerald-600" : "text-amber-600";
                 const concernTone = ["Attention", "Review required"].includes(t.concern) ? "bg-red-100 text-red-700" : t.concern === "Controlled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700";
                 return (
                   <button key={t.theme} onClick={() => navigate("/interventions")}
@@ -308,12 +334,19 @@ export function DirectorDashboard() {
                 // real risks is never shown as "Low" just because none are currently rising.
                 const level = (risingN >= 2 || sr.length >= 5) ? "High"
                   : (risingN >= 1 || sr.length >= 2) ? "Medium"
-                  : sr.length > 0 ? "Low" : "Low";
+                  : "Low";
+                // Explain the badge rather than leave it as an unexplained colour: the
+                // tooltip states exactly what was counted, and the visible count makes
+                // the threshold legible without having to ask what "High" means.
+                const basis = `${level}: ${sr.length} open risk${sr.length === 1 ? "" : "s"}, ${risingN} rising/deteriorating. High = 2+ rising or 5+ open risks; Medium = 1+ rising or 2+ open risks; Low = otherwise.`;
                 return (
-                  <button key={s.id} onClick={() => navigate(`/risk-register?house=${s.id}`)}
+                  <button key={s.id} onClick={() => navigate(`/risk-register?house=${s.id}`)} title={basis}
                     className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
                     <span className="font-medium">{s.name}</span>
-                    <span className={`text-xs rounded px-2 py-0.5 ${level === "High" ? "bg-red-100 text-red-700" : level === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{level}</span>
+                    <span className="flex items-center gap-2">
+                      <span className="text-[11px] text-muted-foreground">{sr.length} open{risingN > 0 ? ` · ${risingN} rising` : ""}</span>
+                      <span className={`text-xs rounded px-2 py-0.5 ${level === "High" ? "bg-red-100 text-red-700" : level === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{level}</span>
+                    </span>
                   </button>
                 );
               })}
