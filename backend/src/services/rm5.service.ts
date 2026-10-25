@@ -255,6 +255,17 @@ export const rm5Service = {
               c.first_signal_date, c.last_signal_date, c.last_reviewed_at, c.review_outcome,
               c.cluster_status, c.closed_at,
               (SELECT COUNT(*)::int FROM escalations e WHERE e.source_cluster_id = c.id) AS escalation_count,
+              -- Section 7 correction (23 Oct developer corrections, "Review before adding work"):
+              -- an RM deciding whether to promote/add work to a pattern previously had no
+              -- visibility into whether action work already existed for it -- covers actions
+              -- linked directly to the cluster, to any of its linked signals, or to an escalation
+              -- that originated from it, so a reviewer sees existing work before creating more.
+              (SELECT COUNT(*)::int FROM canonical_action_state_v ra
+                WHERE ra.company_id = c.company_id AND ra.canonical_status <> 'CANCELLED'
+                  AND (ra.source_cluster_id = c.id
+                       OR ra.source_pulse_id IN (SELECT pulse_entry_id FROM risk_signal_links WHERE cluster_id = c.id)
+                       OR ra.escalation_id IN (SELECT id FROM escalations WHERE source_cluster_id = c.id))
+              ) AS existing_action_count,
               EXISTS (SELECT 1 FROM risk_signal_links l JOIN governance_pulses p ON p.id = l.pulse_entry_id
                         WHERE l.cluster_id = c.id AND p.severity = 'Critical') AS "hasCritical"
          FROM canonical_pattern_state_v c LEFT JOIN houses h ON h.id = c.house_id
@@ -285,6 +296,7 @@ export const rm5Service = {
         days_since_last_signal: c.last_signal_date ? Math.max(0, Math.round((Date.now() - new Date(c.last_signal_date).getTime()) / 86400000)) : null,
         cluster_status: c.cluster_status, closed_at: c.closed_at || null,
         escalation_count: Number(c.escalation_count) || 0,
+        existing_action_count: Number(c.existing_action_count) || 0,
         last_reviewed_at: c.last_reviewed_at, review_outcome: c.review_outcome,
       };
     };

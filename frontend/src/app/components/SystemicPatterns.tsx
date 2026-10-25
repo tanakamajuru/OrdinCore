@@ -177,6 +177,17 @@ export function SystemicPatterns() {
                   <span className="font-semibold" style={{ color: (TRAJ as any)[dirOf(reviewTarget.trajectory)]?.color || "#64748b" }}>{(TRAJ as any)[dirOf(reviewTarget.trajectory)]?.label || "No material change detected"}</span>
                 </div>
               )}
+              {/* Section 7 correction (23 Oct developer corrections): "Review before adding
+                  work" -- show what already exists before offering to add more, so a
+                  reviewer links/strengthens existing work instead of duplicating it. */}
+              {(reviewTarget.existing_action_count > 0 || reviewTarget.escalation_count > 0) && (
+                <div className="mb-3 text-xs rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-amber-900">
+                  Already has {[
+                    reviewTarget.existing_action_count > 0 ? `${reviewTarget.existing_action_count} open action${reviewTarget.existing_action_count === 1 ? "" : "s"}` : null,
+                    reviewTarget.escalation_count > 0 ? `${reviewTarget.escalation_count} escalation${reviewTarget.escalation_count === 1 ? "" : "s"}` : null,
+                  ].filter(Boolean).join(" and ")} recorded — check whether this strengthens existing work before adding more.
+                </div>
+              )}
               <label className="block text-sm font-medium mb-1">Governance decision</label>
               <select value={outcome} onChange={(e) => setOutcome(e.target.value)} className="w-full mb-3 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
                 {["Continue Monitoring", "Promote to Risk", "Escalate", "Close"].map((o) => <option key={o} value={o}>{o}</option>)}
