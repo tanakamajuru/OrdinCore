@@ -174,12 +174,26 @@ export class WeeklyReviewsService {
     const house = houseRes.rows[0];
     if (!house) throw new Error('House not found or access denied');
 
+    // Bug fix (confirmed live, 25 Oct 2026, user-reported): 1 Grafton Rd's weekly narrative said
+    // 73 signals for 12-18 Oct; the user's own count of genuine TL entries was 10. Reproduced
+    // exactly against production: 73 raw governance_pulses rows for that house/week, 10 once the
+    // auto-generated 'Scheduled Governance Pulse' reminder placeholders are excluded -- this
+    // query (the base signal set the headline count, repeats grouping and AI narrative input all
+    // derive from) had no exclusion at all, unlike guidedWork.service.ts/pattern.worker.ts/
+    // rm5.service.ts, which already correctly exclude reminders and non-qualifying validity
+    // states (DUPLICATE/ENTERED_IN_ERROR/DISPROVED) everywhere else in the app. Dismissed/closed
+    // signals are deliberately still INCLUDED here (they remain genuine recorded occurrences,
+    // per doctrine) -- only reminders and confirmed-invalid records are excluded.
+    const QUALIFYING_WEEKLY_PULSE = `COALESCE(description,'') <> 'Scheduled Governance Pulse'
+       AND COALESCE(validity_status, 'VALID') NOT IN ('DUPLICATE', 'ENTERED_IN_ERROR', 'DISPROVED')`;
+
     // Step 3 & 4: Pulse Data
     const signalsRes = await query(
-      `SELECT id, entry_date, entry_time, signal_type, severity, risk_domain, pattern_concern, description 
-       FROM governance_pulses 
-       WHERE house_id = $1 AND company_id = $2 
+      `SELECT id, entry_date, entry_time, signal_type, severity, risk_domain, pattern_concern, description
+       FROM governance_pulses
+       WHERE house_id = $1 AND company_id = $2
        AND entry_date BETWEEN $3 AND $4
+       AND ${QUALIFYING_WEEKLY_PULSE}
        ORDER BY entry_date DESC, entry_time DESC`,
       [house_id, company_id, startStr, endStr]
     );
@@ -190,6 +204,7 @@ export class WeeklyReviewsService {
       `SELECT risk_domain, COUNT(*) as count, ARRAY_AGG(DISTINCT pattern_concern) as concerns
        FROM governance_pulses
        WHERE house_id = $1 AND company_id = $2 AND entry_date BETWEEN $3 AND $4
+       AND ${QUALIFYING_WEEKLY_PULSE}
        GROUP BY risk_domain
        HAVING COUNT(*) >= 2`,
       [house_id, company_id, startStr, endStr]
