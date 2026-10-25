@@ -59,7 +59,8 @@ const NAV_LINKS = [
   { label: "Why Ordin Core", href: "#why" },
   { label: "How It Works", href: "#workflow" },
   { label: "For Who", href: "#audience" },
-  { label: "Pricing", href: "#pricing" },
+  // Pricing section hidden for now (25 Oct 2026) — remove this comment and restore the
+  // link when the pricing section is re-enabled above.
   { label: "FAQ", href: "#faq" },
   { label: "Login", href: "https://work.ordincore.co.uk" },
 ];
@@ -1021,7 +1022,10 @@ export default function App() {
         {/* ── PRICING ──
              Approved rates from Ordin_Core_Supported_Living_and_Homecare_Pricing_Schedules
              (22 Oct 2026). Monthly GBP, tax shown separately at checkout. These replace the
-             earlier £29/£79/£149 placeholder tiers, which were never approved rates. */}
+             earlier £29/£79/£149 placeholder tiers, which were never approved rates.
+             Hidden for now (25 Oct 2026). Kept in the code so it can be re-enabled later
+             by changing `{false && (` back to `{(`. */}
+        {false && (
         <section className="py-20 bg-white dark:bg-slate-950 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="pricing">
           <div className="mx-auto max-w-5xl px-6 lg:px-8">
             <div className="mx-auto max-w-2xl text-center mb-14">
@@ -1106,6 +1110,7 @@ export default function App() {
             </p>
           </div>
         </section>
+        )}
 
         {/* ── FAQ ── */}
         <section className="py-20 bg-[#DDE7EF] dark:bg-slate-900 border-t border-[#C6D5E1]/35 dark:border-slate-800" id="faq">
