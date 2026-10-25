@@ -948,6 +948,21 @@ export class RisksService {
     if (sigRes.rows.length === 0) throw new Error('Source signal not found');
     const sig = sigRes.rows[0];
 
+    // P1 correction (23 Oct 2026 developer corrections): "Conflicting promotion rules... Repeated
+    // requests ... create no duplicate risks." Unlike promoteFromCluster (which checks
+    // signal_clusters.linked_risk_id before creating), this route had no existing-risk check at
+    // all -- a double-click or retry created a second risk from the same signal. Mirrors
+    // promoteFromCluster's idempotency: if this signal is already linked to an active risk,
+    // return that risk instead of creating another.
+    const already = await query(
+      `SELECT r.* FROM risk_signal_links rsl
+         JOIN risks r ON r.id = rsl.risk_id AND r.company_id = $2
+        WHERE rsl.pulse_entry_id = $1 AND r.status NOT IN ('Closed', 'Resolved')
+        ORDER BY rsl.linked_at ASC LIMIT 1`,
+      [data.source_pulse_id, company_id]
+    );
+    if (already.rows[0]) return already.rows[0];
+
     // Eligibility is deliberately narrow: only a CRITICAL signal, or a Safeguarding concern
     // (which cannot wait for a pattern), may bypass the pattern route. A single HIGH signal is
     // NOT enough — it must build toward its cluster first; otherwise every High becomes a

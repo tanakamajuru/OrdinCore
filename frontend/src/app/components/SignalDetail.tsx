@@ -522,7 +522,14 @@ export function SignalDetail() {
                </div>
             </div>
             
-            {signal.review_status === 'New' && user?.role !== 'TEAM_LEADER' && (
+            {/* P2 correction (23 Oct 2026 developer corrections): "Hidden promotion control" --
+                this was gated on review_status === 'New' only, so a Critical/Safeguarding signal
+                that had already been through monitoring or a governance review (review_status
+                'Monitoring' or 'Reviewed') lost access to direct promotion entirely, even though it
+                was never promoted and remains eligible. 'Linked'/'Closed' stay excluded -- those
+                mean it was already promoted (direct or via pattern) or closed without promotion,
+                either of which needs its own reassessment flow, not this control. */}
+            {['New', 'Monitoring', 'Reviewed'].includes(signal.review_status) && user?.role !== 'TEAM_LEADER' && (
               <div className="flex justify-end gap-4 mt-8">
                 {/* Show Promote to Serious Incident only for critical signals */}
                 {signal.severity && signal.severity.toLowerCase() === 'critical' && (
