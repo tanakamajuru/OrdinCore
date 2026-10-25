@@ -109,12 +109,56 @@ export class LearningService {
     return res.rows[0];
   }
 
-  // Advance the progress ladder: recording a lesson is not the same as implementing or verifying it.
-  async setProgress(id: string, company_id: string, progress: LearningProgress) {
-    if (!PROGRESS.includes(progress)) throw new Error('Invalid progress stage.');
+  // Record implementation: the change itself, not just the stage label. Requires evidence of what
+  // was actually done, so "Change implemented" can never be set with nothing behind it.
+  async recordImplementation(id: string, company_id: string, actor_id: string, evidence: string) {
+    if (!String(evidence || '').trim()) throw new Error('Describe the change that was implemented.');
+    const cur = (await query(`SELECT progress FROM learning_records WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
+    if (!cur) throw new Error('Learning record not found.');
+    if (cur.progress === 'IMPROVEMENT_VERIFIED') throw new Error('This learning has already been verified as implemented.');
     const res = await query(
-      `UPDATE learning_records SET progress = $3, updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING *`,
-      [id, company_id, progress],
+      `UPDATE learning_records
+          SET progress = 'CHANGE_IMPLEMENTED', implementation_evidence = $3,
+              implemented_at = NOW(), implemented_by = $4, updated_at = NOW()
+        WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, evidence.trim(), actor_id],
+    );
+    return res.rows[0];
+  }
+
+  // Verify improvement: a formal review of whether the implemented change actually worked, with
+  // one of the four governance effectiveness outcomes (doctrine-consistent with action effectiveness
+  // review) plus "Too Early" and "Insufficient Evidence" for an honest non-verdict.
+  async verifyImprovement(
+    id: string, company_id: string, actor_id: string,
+    outcome: 'Effective' | 'Partly Effective' | 'Not Effective' | 'Too Early' | 'Insufficient Evidence',
+    evidence: string,
+  ) {
+    const OUTCOMES = ['Effective', 'Partly Effective', 'Not Effective', 'Too Early', 'Insufficient Evidence'];
+    if (!OUTCOMES.includes(outcome)) throw new Error('Invalid verification outcome.');
+    if (!String(evidence || '').trim()) throw new Error('Give the evidence behind this verification.');
+    const cur = (await query(`SELECT progress FROM learning_records WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
+    if (!cur) throw new Error('Learning record not found.');
+    if (cur.progress !== 'CHANGE_IMPLEMENTED') throw new Error('Record the implementation before verifying its effect.');
+    const res = await query(
+      `UPDATE learning_records
+          SET progress = 'IMPROVEMENT_VERIFIED', verification_outcome = $3, verification_evidence = $4,
+              verified_at = NOW(), verified_by = $5, updated_at = NOW()
+        WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, outcome, evidence.trim(), actor_id],
+    );
+    return res.rows[0];
+  }
+
+  // "Learning already recorded" — short-circuits a duplicate capture (e.g. the same lesson surfaced
+  // from two sources) by linking it to the existing record rather than inventing a second lesson.
+  async markDuplicate(id: string, company_id: string, duplicate_of_id: string) {
+    if (id === duplicate_of_id) throw new Error('A learning cannot duplicate itself.');
+    const original = (await query(`SELECT id FROM learning_records WHERE id = $1 AND company_id = $2`, [duplicate_of_id, company_id])).rows[0];
+    if (!original) throw new Error('The learning record it duplicates was not found.');
+    const res = await query(
+      `UPDATE learning_records SET duplicate_of_id = $3, updated_at = NOW() WHERE id = $1 AND company_id = $2 RETURNING *`,
+      [id, company_id, duplicate_of_id],
     );
     if (!res.rows[0]) throw new Error('Learning record not found.');
     return res.rows[0];
@@ -162,6 +206,8 @@ export class LearningService {
       `SELECT lr.*,
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
               NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
+              NULLIF(TRIM(COALESCE(iu.first_name,'') || ' ' || COALESCE(iu.last_name,'')),'') AS implemented_by_name,
+              NULLIF(TRIM(COALESCE(vu.first_name,'') || ' ' || COALESCE(vu.last_name,'')),'') AS verified_by_name,
               h.name AS house_name,
               ra.title AS linked_action_title, ra.status::text AS linked_action_status,
               sa.title AS source_action_title,
@@ -173,6 +219,8 @@ export class LearningService {
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
+         LEFT JOIN users iu ON iu.id = lr.implemented_by
+         LEFT JOIN users vu ON vu.id = lr.verified_by
          LEFT JOIN houses h ON h.id = lr.house_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'

@@ -447,6 +447,39 @@ export const guidedWorkService = {
         route:`/learning?focus=${l.id}&gw=learning:${l.id}`,
         actionLabel:'Complete Assessment', whyAmISeeingThis:'You scheduled this learning assessment and its date has arrived.' });
 
+      // A lesson identified but never implemented, and a change implemented but never verified,
+      // are the two gaps the 24 Oct Learning Workflow brief found: the register could sit at
+      // "Recorded" or "Change implemented" indefinitely with nothing pushing it forward.
+      const pendingImplementation = await safeRows(`
+        SELECT lr.id, lr.house_id, h.name AS service_name, sa.title AS source_action_title
+          FROM learning_records lr
+          LEFT JOIN houses h ON h.id=lr.house_id
+          LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
+         WHERE lr.company_id=$1 AND lr.state='IDENTIFIED' AND lr.progress='RECORDED'
+           AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL)
+         ORDER BY lr.created_at`, [companyId, houses]);
+      for (const l of pendingImplementation) needsYou.push({ id:`learning-implement:${l.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'LEARNING_REVIEW',
+        title:'Record learning implementation', summary:l.source_action_title ? `Lesson from: ${l.source_action_title}` : 'A recorded lesson needs its change implemented', reason:'This learning has been identified but no implementation has been recorded.', serviceName:l.service_name,
+        canonicalEntityType:'learning', canonicalEntityId:l.id, requiredAction:'IMPLEMENT_LEARNING',
+        completionCondition:'Record the change that was made as a result of this learning.',
+        route:`/learning?focus=${l.id}&gw=learning-implement:${l.id}`,
+        actionLabel:'Record Implementation', whyAmISeeingThis:'A lesson was identified here and the change it calls for has not yet been recorded.' });
+
+      const pendingVerification = await safeRows(`
+        SELECT lr.id, lr.house_id, h.name AS service_name, sa.title AS source_action_title
+          FROM learning_records lr
+          LEFT JOIN houses h ON h.id=lr.house_id
+          LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
+         WHERE lr.company_id=$1 AND lr.progress='CHANGE_IMPLEMENTED'
+           AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL)
+         ORDER BY lr.implemented_at`, [companyId, houses]);
+      for (const l of pendingVerification) needsYou.push({ id:`learning-verify:${l.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'LEARNING_REVIEW',
+        title:'Verify learning improvement', summary:l.source_action_title ? `Lesson from: ${l.source_action_title}` : 'An implemented change needs its effect verified', reason:'The change was implemented but its effect has not been formally verified.', serviceName:l.service_name,
+        canonicalEntityType:'learning', canonicalEntityId:l.id, requiredAction:'VERIFY_LEARNING',
+        completionCondition:'Verify whether the implemented change actually improved the position, with evidence.',
+        route:`/learning?focus=${l.id}&gw=learning-verify:${l.id}`,
+        actionLabel:'Verify Improvement', whyAmISeeingThis:'A change was implemented from this lesson and its effect is due a formal verification.' });
+
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
       // It becomes actionable only when the provider-local configured cadence is reached.
       // The review spine is not just "this week": a missed week stays owed until it is done, so the

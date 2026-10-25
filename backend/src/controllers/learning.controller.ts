@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { learningService, LearningSource, LearningProgress } from '../services/learning.service';
+import { learningService, LearningSource } from '../services/learning.service';
 import { governancePdfService } from '../services/governancePdf.service';
 
 export class LearningController {
@@ -85,13 +85,33 @@ export class LearningController {
     }
   }
 
-  async setProgress(req: Request, res: Response) {
+  async recordImplementation(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const record = await learningService.setProgress(req.params.id, company_id, (req.body?.progress) as LearningProgress);
+      const record = await learningService.recordImplementation(req.params.id, company_id, req.user!.user_id!, req.body?.evidence);
       return res.json({ success: true, data: record });
     } catch (err: unknown) {
-      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to update learning progress' });
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to record implementation' });
+    }
+  }
+
+  async verifyImprovement(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const record = await learningService.verifyImprovement(req.params.id, company_id, req.user!.user_id!, req.body?.outcome, req.body?.evidence);
+      return res.json({ success: true, data: record });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to verify improvement' });
+    }
+  }
+
+  async markDuplicate(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const record = await learningService.markDuplicate(req.params.id, company_id, req.body?.duplicate_of_id);
+      return res.json({ success: true, data: record });
+    } catch (err: unknown) {
+      return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to mark as already recorded' });
     }
   }
 

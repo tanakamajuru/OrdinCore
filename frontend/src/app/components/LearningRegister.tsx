@@ -47,6 +47,12 @@ export function LearningRegister() {
   const [assessChange, setAssessChange] = useState("");
   const [assessReason, setAssessReason] = useState("");
   const focusedRef = useRef(false);
+  // Implementation/verification each need their own evidence — not a bare stage flip.
+  const [implementing, setImplementing] = useState<string | null>(null);
+  const [implementEvidence, setImplementEvidence] = useState("");
+  const [verifying, setVerifying] = useState<string | null>(null);
+  const [verifyOutcome, setVerifyOutcome] = useState("Effective");
+  const [verifyEvidence, setVerifyEvidence] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -81,10 +87,16 @@ export function LearningRegister() {
     finally { setBusy(null); }
   };
 
-  const setProgress = async (id: string, progress: string) => {
+  const recordImplementation = async (id: string, evidence: string) => {
     setBusy(id);
-    try { await apiClient.post(`/learning/${id}/progress`, { progress }); toast.success("Progress updated"); load(); }
-    catch (e: any) { toast.error(e?.response?.data?.message || "Could not update progress"); }
+    try { await apiClient.post(`/learning/${id}/implement`, { evidence }); toast.success("Implementation recorded"); setImplementing(null); load(); }
+    catch (e: any) { toast.error(e?.response?.data?.message || "Could not record implementation"); }
+    finally { setBusy(null); }
+  };
+  const verifyImprovement = async (id: string, outcome: string, evidence: string) => {
+    setBusy(id);
+    try { await apiClient.post(`/learning/${id}/verify`, { outcome, evidence }); toast.success("Improvement verified"); setVerifying(null); load(); }
+    catch (e: any) { toast.error(e?.response?.data?.message || "Could not verify improvement"); }
     finally { setBusy(null); }
   };
   const approve = async (id: string) => {
@@ -203,20 +215,62 @@ export function LearningRegister() {
                   </div>
                 )}
 
-                {/* L5 progress ladder: recording a lesson is not the same as implementing or verifying it. */}
+                {/* Progress ladder is now evidence-gated: each stage is reached only through its own
+                    form, never by flipping a label with nothing behind it. */}
                 {r.state === "IDENTIFIED" && (
-                  <div className="mt-3 flex items-center gap-1.5 flex-wrap">
-                    {PROGRESS.map((p, i) => {
-                      const currentIdx = PROGRESS.findIndex((x) => x.v === r.progress);
-                      const reached = i <= currentIdx;
-                      return (
-                        <button key={p.v} disabled={!canManage || busy === r.id || r.progress === p.v} onClick={() => setProgress(r.id, p.v)}
-                          title={canManage ? "Set progress" : undefined}
-                          className={`text-[11px] px-2.5 py-1 rounded-full border ${reached ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-700" : "border-border text-muted-foreground"} ${canManage && r.progress !== p.v ? "hover:bg-muted cursor-pointer" : ""} disabled:opacity-60`}>
-                          {reached ? "✓ " : ""}{p.label}
-                        </button>
-                      );
-                    })}
+                  <div className="mt-3">
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {PROGRESS.map((p, i) => {
+                        const currentIdx = PROGRESS.findIndex((x) => x.v === r.progress);
+                        const reached = i <= currentIdx;
+                        return (
+                          <span key={p.v} className={`text-[11px] px-2.5 py-1 rounded-full border ${reached ? "bg-emerald-500/15 border-emerald-500/40 text-emerald-700" : "border-border text-muted-foreground"}`}>
+                            {reached ? "✓ " : ""}{p.label}
+                          </span>
+                        );
+                      })}
+                    </div>
+                    {r.progress === "RECORDED" && (
+                      <div className="mt-2">
+                        {canManage && implementing !== r.id && (
+                          <button onClick={() => { setImplementing(r.id); setImplementEvidence(""); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Record implementation</button>
+                        )}
+                        {canManage && implementing === r.id && (
+                          <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
+                            <textarea value={implementEvidence} onChange={(e) => setImplementEvidence(e.target.value)} rows={2} placeholder="What change was actually made *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                            <div className="flex gap-2">
+                              <button disabled={busy === r.id} onClick={() => { if (implementEvidence.trim().length < 3) { toast.error("Describe the change that was implemented."); return; } recordImplementation(r.id, implementEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save implementation"}</button>
+                              <button onClick={() => setImplementing(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {r.progress === "CHANGE_IMPLEMENTED" && (
+                      <div className="mt-2">
+                        <p className="text-xs text-muted-foreground">Implemented: {r.implementation_evidence}{r.implemented_by_name ? ` (${r.implemented_by_name}, ${fmt(r.implemented_at)})` : ""}</p>
+                        {canManage && verifying !== r.id && (
+                          <button onClick={() => { setVerifying(r.id); setVerifyOutcome("Effective"); setVerifyEvidence(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
+                        )}
+                        {canManage && verifying === r.id && (
+                          <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
+                            <div className="flex flex-wrap gap-2">
+                              {["Effective", "Partly Effective", "Not Effective", "Too Early", "Insufficient Evidence"].map((o) => (
+                                <button key={o} type="button" onClick={() => setVerifyOutcome(o)} className={`text-xs px-2.5 py-1 rounded-full border ${verifyOutcome === o ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{o}</button>
+                              ))}
+                            </div>
+                            <textarea value={verifyEvidence} onChange={(e) => setVerifyEvidence(e.target.value)} rows={2} placeholder="Evidence behind this verification *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                            <div className="flex gap-2">
+                              <button disabled={busy === r.id} onClick={() => { if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; } verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>
+                              <button onClick={() => setVerifying(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {r.progress === "IMPROVEMENT_VERIFIED" && (
+                      <p className="mt-2 text-xs text-muted-foreground">Verified {r.verification_outcome}{r.verified_by_name ? ` by ${r.verified_by_name}, ${fmt(r.verified_at)}` : ""}: {r.verification_evidence}</p>
+                    )}
                   </div>
                 )}
                 {canManage && r.is_ai_suggested && (

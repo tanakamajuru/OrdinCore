@@ -17,7 +17,11 @@ router.get('/:id/pdf', requireAuth, requireTenant, learningWriters, learningCont
 router.get('/', requireAuth, requireTenant, learningController.listBySource.bind(learningController));
 router.post('/', requireAuth, requireTenant, learningWriters, learningController.create.bind(learningController));
 router.post('/:id/approve', requireAuth, requireTenant, learningWriters, learningController.approve.bind(learningController));
-router.post('/:id/progress', requireAuth, requireTenant, learningWriters, learningController.setProgress.bind(learningController));
+// Implementation and verification each require evidence — replaces the old direct
+// progress-stage set, which could flip to "Implemented"/"Verified" with nothing behind it.
+router.post('/:id/implement', requireAuth, requireTenant, learningWriters, learningController.recordImplementation.bind(learningController));
+router.post('/:id/verify', requireAuth, requireTenant, learningWriters, learningController.verifyImprovement.bind(learningController));
+router.post('/:id/duplicate', requireAuth, requireTenant, learningWriters, learningController.markDuplicate.bind(learningController));
 // Complete a deferred ("Not yet assessed") learning when its review date is due.
 router.post('/:id/assess', requireAuth, requireTenant, learningWriters, learningController.assess.bind(learningController));
 
