@@ -414,7 +414,7 @@ export const governanceDecisionsService = {
       return r.rows[0];
     }
     if (input.pulse_entry_id) {
-      const p = (await client.query(`SELECT id, house_id, risk_domain, related_person, description, severity FROM governance_pulses WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c])).rows[0];
+      const p = (await client.query(`SELECT id, house_id, risk_domain, related_person, description, severity, service_user_id FROM governance_pulses WHERE id = $1 AND company_id = $2`, [input.pulse_entry_id, c])).rows[0];
       if (!p) throw new Error('Signal not found.');
 
       // Idempotency, same pattern as the cluster branch and as risksService.promoteFromSignal:
@@ -440,9 +440,9 @@ export const governanceDecisionsService = {
       const dom = Array.isArray(p.risk_domain) ? p.risk_domain[0] : p.risk_domain;
       const effectiveSeverity = p.severity || (isSafeguarding ? 'High' : 'Critical');
       const r = await client.query(
-        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, risk_domain, linked_person, trajectory, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,'Open',$7,$8,$9,'Stable',$10) RETURNING *`,
-        [riskId, c, p.house_id, (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), effectiveSeverity, u, dom, p.related_person || null, JSON.stringify({ critical_exception_reason: (input.decision_rationale || '').trim() })]
+        `INSERT INTO risks (id, company_id, house_id, title, description, severity, status, created_by, risk_domain, linked_person, trajectory, metadata, service_user_id)
+         VALUES ($1,$2,$3,$4,$5,$6,'Open',$7,$8,$9,'Stable',$10,$11) RETURNING *`,
+        [riskId, c, p.house_id, (input.action_description || input.what_is_happening).slice(0, 255), input.what_is_happening.trim(), effectiveSeverity, u, dom, p.related_person || null, JSON.stringify({ critical_exception_reason: (input.decision_rationale || '').trim() }), p.service_user_id || null]
       );
       await client.query(`INSERT INTO risk_signal_links (id, risk_id, pulse_entry_id, linked_by) VALUES ($1,$2,$3,$4) ON CONFLICT DO NOTHING`, [uuidv4(), riskId, p.id, u]);
       await client.query(`UPDATE governance_pulses SET review_status = 'Linked' WHERE id = $1`, [p.id]);

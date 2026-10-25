@@ -939,7 +939,7 @@ export class RisksService {
     if (!data.source_pulse_id) throw new Error('source_pulse_id is required');
 
     const sigRes = await query(
-      `SELECT id, house_id, severity, signal_type, risk_domain, related_person,
+      `SELECT id, house_id, severity, signal_type, risk_domain, related_person, service_user_id,
               description, immediate_action
          FROM governance_pulses
         WHERE id = $1 AND company_id = $2`,
@@ -1002,6 +1002,15 @@ export class RisksService {
       critical_exception_reason: provenance,
       metadata: { source_pulse_id: sig.id, immediate_action: sig.immediate_action },
     });
+    // P1 correction (23 Oct developer corrections, "Incomplete ongoing risk updates"): a
+    // directly-promoted risk had no stable person key, so nothing could later match new signals
+    // to it as ongoing evidence (unlike a cluster-linked risk, which keeps absorbing evidence
+    // automatically). risksRepo.create() doesn't carry service_user_id through its generic
+    // insert, so set it directly here rather than widen that shared insert for one caller.
+    if (sig.service_user_id) {
+      await query(`UPDATE risks SET service_user_id = $1 WHERE id = $2`, [sig.service_user_id, risk.id]);
+      risk.service_user_id = sig.service_user_id;
+    }
 
     // Carry the originating signal across as the risk's first evidence.
     await query(

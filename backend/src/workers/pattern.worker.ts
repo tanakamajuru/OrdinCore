@@ -190,6 +190,46 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         [company_id, house_id, domain, service_user_id, memoryDays, scope]
     );
     const recentSignals = history21dRes.rows;
+
+    // P1 correction (23 Oct developer corrections, "Incomplete ongoing risk updates" --
+    // direct-signal route): a cluster-linked risk keeps absorbing new qualifying signals
+    // automatically (via risk_signal_links on the cluster) and its trajectory stays current. A
+    // risk created via DIRECT promotion (the Critical/Safeguarding bypass -- no cluster at all)
+    // had no equivalent: nothing ever linked a later matching signal to it as ongoing evidence,
+    // so its trajectory was frozen at whatever it was computed as on day one, however much the
+    // person's situation changed afterwards. Scoped deliberately narrow to avoid linking evidence
+    // to the wrong risk: only the person lens, only an exact match on company + house + risk
+    // domain + the SAME stable service_user_id (never free-text name matching), and only a risk
+    // that is still Open and was never cluster-promoted (source_cluster_id IS NULL -- a
+    // cluster-linked risk already gets its evidence through the cluster itself, never duplicate).
+    if (scope === 'person' && service_user_id) {
+        try {
+            const directRisk = await query(
+                `SELECT id FROM risks
+                  WHERE company_id = $1 AND house_id = $2 AND risk_domain = $3
+                    AND service_user_id = $4 AND source_cluster_id IS NULL AND status = 'Open'
+                  LIMIT 1`,
+                [company_id, house_id, domain, service_user_id]
+            );
+            const directRiskId = directRisk.rows[0]?.id;
+            if (directRiskId) {
+                // linked_by is NOT NULL (it records who/what attributed this evidence) -- use the
+                // signal's own author, same as the cross-service materialisation above.
+                const authorRes = await query(`SELECT created_by FROM governance_pulses WHERE id = $1`, [pulse_id]);
+                const linked = await query(
+                    `INSERT INTO risk_signal_links (id, risk_id, pulse_entry_id, linked_by, link_note)
+                     VALUES (uuid_generate_v4(), $1, $2, $3, 'Ongoing evidence — direct-promotion risk')
+                     ON CONFLICT DO NOTHING RETURNING id`,
+                    [directRiskId, pulse_id, authorRes.rows[0]?.created_by || null]
+                );
+                if (linked.rows[0]) {
+                    const dtr = await trajectoryForRisk(directRiskId, null);
+                    await query(`UPDATE risks SET trajectory = $1, updated_at = NOW() WHERE id = $2`, [dtr.direction, directRiskId]);
+                }
+            }
+        } catch (e) { logger.error('Direct-promotion risk evidence link failed', e); }
+    }
+
     if (recentSignals.length === 0) return;
 
     // Find/create exactly one active cluster for the selected lens. The migration's
