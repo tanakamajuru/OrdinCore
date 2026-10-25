@@ -591,6 +591,20 @@ async function evaluateCrossServiceRisk(
                 );
                 const tr = await trajectoryForCluster(crossServiceClusterId);
                 await query(`UPDATE signal_clusters SET trajectory=$1, updated_at=NOW() WHERE id=$2`, [tr.direction, crossServiceClusterId]);
+
+                // P1 correction (23 Oct developer corrections, "Incomplete ongoing risk updates"):
+                // the per-service/person cluster update above already refreshes a linked risk's
+                // cached trajectory when new evidence lands -- this cross-service block updated
+                // only the cluster's own trajectory, so a systemic risk's displayed trajectory went
+                // stale the moment new signals arrived after promotion. Same refresh, same reason.
+                try {
+                    const csLinked = await query(`SELECT linked_risk_id FROM signal_clusters WHERE id = $1`, [crossServiceClusterId]);
+                    const csRiskId = csLinked.rows[0]?.linked_risk_id;
+                    if (csRiskId) {
+                        const csTr = await trajectoryForRisk(csRiskId, crossServiceClusterId);
+                        await query(`UPDATE risks SET trajectory = $1, updated_at = NOW() WHERE id = $2`, [csTr.direction, csRiskId]);
+                    }
+                } catch (e) { logger.error('Cross-service linked-risk trajectory refresh failed', e); }
             }
         } else if (existingCs.rows[0]) {
             await query(`UPDATE signal_clusters SET cluster_status = 'Dismissed' WHERE id = $1`, [existingCs.rows[0].id]);
