@@ -185,6 +185,36 @@ export class LearningService {
     )).rows;
   }
 
+  // Single record detail for the individual-record PDF export — same joined shape as list(),
+  // scoped by id so the export can never be used to reach another tenant's record.
+  async findById(id: string, company_id: string) {
+    const res = await query(
+      `SELECT lr.*,
+              NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
+              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
+              NULLIF(TRIM(COALESCE(ap.first_name,'') || ' ' || COALESCE(ap.last_name,'')),'') AS approved_by_name,
+              h.name AS house_name,
+              ra.title AS linked_action_title, ra.status::text AS linked_action_status,
+              sa.title AS source_action_title,
+              aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
+              aer.evidence AS source_review_evidence,
+              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label
+         FROM learning_records lr
+         LEFT JOIN users au ON au.id = lr.author_id
+         LEFT JOIN users ow ON ow.id = lr.owner_id
+         LEFT JOIN users ap ON ap.id = lr.approved_by
+         LEFT JOIN houses h ON h.id = lr.house_id
+         LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
+         LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
+         LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
+        WHERE lr.id = $1 AND lr.company_id = $2`,
+      [id, company_id],
+    );
+    if (!res.rows[0]) throw new Error('Learning record not found.');
+    return res.rows[0];
+  }
+
   async listBySource(company_id: string, source_type: LearningSource, source_id: string) {
     return (await query(
       `SELECT lr.*,

@@ -1,7 +1,39 @@
 import { Request, Response } from 'express';
 import { learningService, LearningSource, LearningProgress } from '../services/learning.service';
+import { governancePdfService } from '../services/governancePdf.service';
 
 export class LearningController {
+  async downloadPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { content, filename, contentType } = await governancePdfService.learningRecord(req.params.id, company_id);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(content);
+    } catch (err: unknown) {
+      return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build learning record PDF' });
+    }
+  }
+
+  async downloadSummaryPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const houseIds = (req.user as any)?.assigned_house_ids as string[] | undefined;
+      const role = String(req.user!.role || '').toUpperCase();
+      const scoped = ['DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(role) ? null : (houseIds || null);
+      const { content, filename, contentType } = await governancePdfService.learningSummary(company_id, {
+        houseIds: scoped,
+        state: req.query.state as string | undefined,
+        progress: req.query.progress as string | undefined,
+      });
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(content);
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build learning summary PDF' });
+    }
+  }
+
   async create(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

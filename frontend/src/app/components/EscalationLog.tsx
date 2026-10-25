@@ -1,13 +1,27 @@
 import { useState, useEffect, useRef } from "react";
 import { useSearchParams, useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity, SlidersHorizontal, ChevronDown } from "lucide-react";
+import { AlertCircle, CheckCircle2, Clock, MapPin, ChevronRight, MessageSquare, ShieldAlert, User, Activity, SlidersHorizontal, ChevronDown, Download } from "lucide-react";
 import { Button } from "./ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { ClosureReviewModal } from "@/components/ClosureReviewModal";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+
+async function downloadPdf(url: string, fallbackName: string) {
+  try {
+    const res: any = await apiClient.get(url, { responseType: "blob" });
+    const blob = res?.data instanceof Blob ? res.data : new Blob([res?.data ?? res], { type: "application/pdf" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fallbackName;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    toast.error("Could not download the PDF.");
+  }
+}
 
 interface Escalation {
   id: string;
@@ -440,6 +454,10 @@ export function EscalationLog() {
           </h1>
           <p className="text-muted-foreground">See what needs a decision, act, and keep a clear record.</p>
           </div>
+          <button onClick={() => downloadPdf(`/escalations/summary/pdf${filter === 'resolved' ? '?status=closed' : ''}`, `Escalations_Summary_${new Date().toISOString().split("T")[0]}.pdf`)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted shrink-0">
+            <Download className="w-3.5 h-3.5" /> Download summary PDF
+          </button>
         </div>
 
         {/* A short adoption-first summary. Each card is also a queue shortcut; no new
@@ -582,7 +600,12 @@ export function EscalationLog() {
                   <CardHeader className="bg-card border-b border-border">
                     <div className="flex items-center justify-between gap-3">
                       <CardTitle className="text-lg text-foreground">Review escalation</CardTitle>
-                      <span className={`px-2 py-1 rounded text-[11px] font-semibold ${getPriorityColor(selectedEscalation.priority)}`}>{selectedEscalation.priority}</span>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => downloadPdf(`/escalations/${selectedEscalation.id}/pdf`, `Escalation_${selectedEscalation.id}.pdf`)} title="Download this escalation as a PDF" className="p-1.5 rounded hover:bg-muted text-muted-foreground">
+                          <Download className="w-4 h-4" />
+                        </button>
+                        <span className={`px-2 py-1 rounded text-[11px] font-semibold ${getPriorityColor(selectedEscalation.priority)}`}>{selectedEscalation.priority}</span>
+                      </div>
                     </div>
                     <p className="text-xs text-muted-foreground mt-1">{selectedEscalation.house_name} · {firstDomain(selectedEscalation.signal_risk_domain) || 'Governance concern'}</p>
                   </CardHeader>

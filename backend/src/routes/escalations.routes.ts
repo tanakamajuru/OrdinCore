@@ -36,6 +36,9 @@ router.get('/', requireAuth, requireTenant, requireScope, escalationsController.
  *         description: Success
  */
 router.get('/stats', requireAuth, requireTenant, escalationsController.getStats.bind(escalationsController));
+// Declared before '/:id' so 'summary/pdf' is not swallowed as an escalation id.
+router.get('/summary/pdf', requireAuth, requireTenant, requireScope, escalationsController.downloadSummaryPdf.bind(escalationsController));
+router.get('/:id/pdf', requireAuth, requireTenant, escalationsController.downloadPdf.bind(escalationsController));
 /**
  * @openapi
  * /api/v1/escalations/{id}:

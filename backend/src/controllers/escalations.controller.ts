@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { escalationsService } from '../services/escalations.service';
+import { governancePdfService } from '../services/governancePdf.service';
 import { emitToCompany } from '../websocket/socket.server';
 
 // Role-based authority on one canonical escalation record (Escalation Screen Doctrine, 29 Sep 2026).
@@ -25,6 +26,31 @@ export function escalationCapabilities(roleRaw: string) {
 }
 
 export class EscalationsController {
+  async downloadPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { content, filename, contentType } = await governancePdfService.escalationRecord(req.params.id, company_id);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(content);
+    } catch (err: unknown) {
+      return res.status(404).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build escalation PDF' });
+    }
+  }
+
+  async downloadSummaryPdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const filters = { status: req.query.status as string | undefined, house_id: req.query.house_id as string | string[] | undefined };
+      const { content, filename, contentType } = await governancePdfService.escalationSummary(company_id, filters);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(content);
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build escalation summary PDF' });
+    }
+  }
+
   async findAll(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

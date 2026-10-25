@@ -4,6 +4,21 @@ import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useAuth } from "@/hooks/useAuth";
+import { Download } from "lucide-react";
+
+async function downloadPdf(url: string, fallbackName: string) {
+  try {
+    const res: any = await apiClient.get(url, { responseType: "blob" });
+    const blob = res?.data instanceof Blob ? res.data : new Blob([res?.data ?? res], { type: "application/pdf" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = fallbackName;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(a.href);
+  } catch {
+    toast.error("Could not download the PDF.");
+  }
+}
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
@@ -83,9 +98,16 @@ export function LearningRegister() {
     <div className="min-h-screen bg-background">
       <RoleBasedNavigation />
       <main className="w-full pt-24 p-6 max-w-5xl mx-auto">
-        <div className="mb-4">
-          <h1 className="text-2xl font-semibold text-foreground">Learning & follow-through</h1>
-          <p className="text-sm text-muted-foreground">Lessons recorded across governance, their linked improvement work, and whether the change was implemented and verified.</p>
+        <div className="mb-4 flex items-start justify-between gap-3 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-semibold text-foreground">Learning & follow-through</h1>
+            <p className="text-sm text-muted-foreground">Lessons recorded across governance, their linked improvement work, and whether the change was implemented and verified.</p>
+          </div>
+          <button
+            onClick={() => downloadPdf(`/learning/summary/pdf${filter ? `?state=${filter}` : ""}`, `Learning_Summary_${new Date().toISOString().split("T")[0]}.pdf`)}
+            className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted shrink-0">
+            <Download className="w-3.5 h-3.5" /> Download summary PDF {filter ? "(current filter)" : "(all)"}
+          </button>
         </div>
 
         <div className="flex flex-wrap gap-2 mb-4">
@@ -110,6 +132,9 @@ export function LearningRegister() {
                   <div className="flex items-center gap-2">
                     {r.is_ai_suggested && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">AI suggestion</span>}
                     <span className="text-[11px] text-muted-foreground">{r.author_name || "—"} · {fmt(r.created_at)}</span>
+                    <button onClick={() => downloadPdf(`/learning/${r.id}/pdf`, `Learning_${r.id}.pdf`)} title="Download this record as a PDF" className="p-1 rounded hover:bg-muted text-muted-foreground">
+                      <Download className="w-3.5 h-3.5" />
+                    </button>
                   </div>
                 </div>
 
