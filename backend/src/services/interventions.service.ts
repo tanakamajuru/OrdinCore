@@ -364,6 +364,58 @@ export const interventionsService = {
       });
     }
 
+    // Bug fix (24 Oct developer corrections, "Existing plans disappear when active risks end"):
+    // themeRows above is built ONLY from active risks (line ~166 "r.is_active"), and this loop
+    // only ever iterates themeRows — so the moment a theme's last active risk closes, its theme
+    // entirely stops existing here and the loop above never reaches it, even though the
+    // intervention row (already fetched into `interventions`/`intvByTheme`) is still there.
+    // Surface those orphaned interventions as their own historical cards: risks=0 and
+    // services=0 are honest (none are active), never fabricated; the intervention and its
+    // linked-action history stay retrievable. Never reopens a risk or relabels a closed one active.
+    const coveredThemes = new Set(themeRows.map((t: any) => String(t.theme).toLowerCase()));
+    for (const intv of interventions) {
+      const key = String(intv.theme).toLowerCase();
+      if (coveredThemes.has(key)) continue;
+      coveredThemes.add(key); // interventions is already one row per theme (house_id IS NULL)
+
+      const effectiveness = normalizeEffectiveness(intv.effectiveness_outcome);
+      out.push({
+        theme: intv.theme,
+        services: 0,
+        risks: 0,
+        primary_risk_id: intv.linked_risk_id || null,
+        historical: true,
+        historical_reason: 'No active risk remains for this theme — the plan and its history are retained.',
+        openActions: 0, completedActions: 0, overdueActions: 0,
+        implementation: { completed: 0, total: 0, overdue: 0 },
+        trajectory: { direction: 'Insufficient evidence', basis: 'No active risk — theme closed.' },
+        risk_trajectories: [],
+        timeline_metric: 'Weighted signal burden', timeline: [],
+        needsAttention: false, attentionReasons: [],
+        concern: 'Historical — no active risk', readyToClose: false, readyToCloseReason: null,
+        closure_position: 'closed', closure_readiness: { eligible: false, source: 'risk-closure-review', risks: [] },
+        intervention: {
+          id: intv.id, intervention: intv.intervention, status: intv.status,
+          owner_id: intv.owner_id, owner_name: intv.owner_name, owner_role: intv.owner_role,
+          expected_outcome: intv.expected_outcome, review_date: intv.review_date, started_at: intv.started_at,
+          last_reviewed_at: intv.effectiveness_reviewed_at || intv.updated_at,
+          linked_risk_id: intv.linked_risk_id, linked_action_id: intv.linked_action_id,
+          linked_action_status: intv.linked_action_status, linked_action_due_date: intv.linked_action_due_date,
+          linked_action_completed_at: intv.linked_action_completed_at,
+          linked_action_stage: !intv.linked_action_id ? null
+            : intv.linked_action_completed_at
+              ? (intv.effectiveness_outcome ? 'Effectiveness rated' : 'Completed · awaiting effectiveness')
+              : 'Assigned · in progress',
+          effectiveness_review: {
+            outcome: effectiveness, evidence: intv.effectiveness_evidence || null,
+            reviewed_at: intv.effectiveness_reviewed_at || null, reviewed_by: intv.effectiveness_reviewed_by || null,
+          },
+          evidence_comparison: null,
+          oversight_events: Array.isArray(intv.oversight_events) ? intv.oversight_events : [],
+        },
+      });
+    }
+
     return out;
   },
 
@@ -660,13 +712,21 @@ export const interventionsService = {
     // evidence and is never auto-set here.
     if (intv?.linked_action_id) {
       try {
+        // Bug fix (24 Oct developer corrections, "Clearing review date leaves stale action
+        // deadline"): the intervention's own upsert (line ~558) clears review_date to NULL when
+        // blank, matching EXCLUDED.review_date directly. This sync used COALESCE($5, due_date)
+        // for the linked action's due_date -- COALESCE falls through to the EXISTING due_date
+        // whenever $5 is null, so clearing the intervention's review date never actually cleared
+        // the linked action's deadline; the two records silently disagreed from then on. due_date
+        // now always takes exactly what the intervention's review_date resolves to (null when
+        // cleared), the same direct-assignment rule already used for title/description above.
         await query(
           `UPDATE risk_actions
               SET title = $1,
                   description = $2,
                   intended_outcome = COALESCE($3, intended_outcome),
                   assigned_to = COALESCE($4, assigned_to),
-                  due_date = COALESCE($5, due_date),
+                  due_date = $5,
                   updated_at = NOW()
             WHERE id = $6 AND company_id = $7`,
           [
@@ -686,21 +746,38 @@ export const interventionsService = {
       }
     }
 
-    // Alert the assigned person when the RM saves the intervention, so the delegated work lands in
-    // their My Work / My Actions and pings them (post-write, best-effort). Completing it later
-    // notifies the RM back for effectiveness review (actions.controller → 'action_completed').
+    // Bug fix (24 Oct developer corrections, "Delivery task missing despite assignment
+    // notification"): starting a plan only creates a linked_action_id when an eligible
+    // cross-service risk exists or a qualifying pattern successfully promotes (lines 582-655
+    // above) — neither is guaranteed. This notification previously fired unconditionally
+    // whenever an owner was set, claiming "a governance action was assigned" and linking to
+    // My Actions even when linked_action_id stayed null, so the owner opened My Actions to find
+    // nothing there. Only send the real task-assigned notification when a delivery action
+    // genuinely exists; otherwise tell the owner honestly that a plan was saved without one.
     if (data.owner_id && intv) {
       try {
         const { notificationsService } = await import('./notifications.service');
-        await notificationsService.create({
-          company_id,
-          user_id: data.owner_id,
-          type: 'task_assigned',
-          title: 'Governance action assigned to you',
-          body: `Intervention: ${String(data.intervention).trim()}${data.review_date ? ` · due ${new Date(data.review_date).toLocaleDateString('en-GB')}` : ''}`,
-          link: '/my-actions',
-          metadata: { intervention_id: intv.id, risk_id: intv.linked_risk_id || null, action_id: intv.linked_action_id || null },
-        });
+        if (intv.linked_action_id) {
+          await notificationsService.create({
+            company_id,
+            user_id: data.owner_id,
+            type: 'task_assigned',
+            title: 'Governance action assigned to you',
+            body: `Intervention: ${String(data.intervention).trim()}${data.review_date ? ` · due ${new Date(data.review_date).toLocaleDateString('en-GB')}` : ''}`,
+            link: '/my-actions',
+            metadata: { intervention_id: intv.id, risk_id: intv.linked_risk_id || null, action_id: intv.linked_action_id },
+          });
+        } else {
+          await notificationsService.create({
+            company_id,
+            user_id: data.owner_id,
+            type: 'intervention_plan_saved',
+            title: 'An intervention plan was saved for you',
+            body: `${String(data.theme).trim()}: ${String(data.intervention).trim()} — saved as a plan; no delivery action could be linked yet.`,
+            link: '/interventions',
+            metadata: { intervention_id: intv.id, risk_id: intv.linked_risk_id || null },
+          });
+        }
       } catch {
         // best-effort — the intervention is saved regardless of notification delivery.
       }

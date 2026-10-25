@@ -3,7 +3,7 @@ import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert, Plus, Link2 } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert, Plus, Link2, AlertTriangle } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
 import { useAuth } from "@/hooks/useAuth";
 
@@ -18,14 +18,26 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
   const [candidates, setCandidates] = useState<any[]>([]);
   const [selected, setSelected] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  // Bug fix (24 Oct developer corrections, "Action retrieval failures appear as empty
+  // results"): both catch handlers below replaced a failed request with an empty array, so
+  // "No delivery actions linked" / "no candidates" looked identical to a genuine zero-result
+  // response when the request had actually failed (network/server error). Track loading and
+  // failure explicitly so a failure shows "couldn't load, retry" instead of a false empty state,
+  // and never discard a previously-loaded list just because a refresh attempt failed.
+  const [linksLoading, setLinksLoading] = useState(true);
+  const [linksFailed, setLinksFailed] = useState(false);
+  const [candidatesFailed, setCandidatesFailed] = useState(false);
 
   const load = async () => {
-    try { setLinks(unwrap(await apiClient.get(`/interventions/${interventionId}/actions`)) || []); } catch { setLinks([]); }
+    setLinksLoading(true); setLinksFailed(false);
+    try { setLinks(unwrap(await apiClient.get(`/interventions/${interventionId}/actions`)) || []); }
+    catch { setLinksFailed(true); }
+    finally { setLinksLoading(false); }
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [interventionId]);
 
   const openPicker = async () => {
-    setSelected({}); setPicking(true);
+    setSelected({}); setPicking(true); setCandidatesFailed(false);
     try {
       const rows = unwrap(await apiClient.get('/actions/oversight')) || [];
       const riskIds = new Set((theme?.risk_refs || []).map((r: any) => String(r.id)));
@@ -33,7 +45,7 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
       setCandidates((Array.isArray(rows) ? rows : []).filter((a: any) =>
         !linkedIds.has(String(a.id)) && String(a.status) !== 'Cancelled' &&
         (riskIds.size === 0 || riskIds.has(String(a.risk_id)))));
-    } catch { setCandidates([]); }
+    } catch { setCandidatesFailed(true); setCandidates([]); }
   };
 
   const linkSelected = async () => {
@@ -62,7 +74,15 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
           <button onClick={openPicker} className="text-[11px] text-primary flex items-center gap-1 hover:underline"><Plus className="w-3 h-3" /> Link existing action</button>
         )}
       </div>
-      {links.length === 0 && <p className="text-[11px] text-muted-foreground">No delivery actions linked yet.</p>}
+      {linksLoading ? (
+        <p className="text-[11px] text-muted-foreground">Loading…</p>
+      ) : linksFailed ? (
+        <p className="text-[11px] text-red-600 flex items-center gap-2">
+          Couldn't load linked actions. <button onClick={load} className="underline">Retry</button>
+        </p>
+      ) : links.length === 0 && (
+        <p className="text-[11px] text-muted-foreground">No delivery actions linked yet.</p>
+      )}
       <div className="space-y-1.5">
         {links.map((l: any) => (
           <div key={l.action_id} className="flex items-start justify-between gap-2 text-xs">
@@ -83,7 +103,13 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
         <div className="mt-2 border-t border-border/60 pt-2">
           <p className="text-[11px] text-muted-foreground mb-1">Relevant existing actions{(theme?.risk_refs || []).length ? ' for this theme’s risks' : ''} — select to link (no new work is created):</p>
           <div className="max-h-40 overflow-y-auto space-y-1">
-            {candidates.length === 0 && <p className="text-[11px] text-muted-foreground">No unlinked relevant actions found.</p>}
+            {candidatesFailed ? (
+              <p className="text-[11px] text-red-600 flex items-center gap-2">
+                Couldn't load candidate actions. <button onClick={openPicker} className="underline">Retry</button>
+              </p>
+            ) : candidates.length === 0 && (
+              <p className="text-[11px] text-muted-foreground">No unlinked relevant actions found.</p>
+            )}
             {candidates.map((a: any) => (
               <label key={a.id} className="flex items-center gap-2 text-xs cursor-pointer">
                 <input type="checkbox" checked={!!selected[a.id]} onChange={(e) => setSelected((s) => ({ ...s, [a.id]: e.target.checked }))} />
@@ -385,7 +411,11 @@ export function InterventionPanel() {
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <h3 className="font-semibold text-foreground truncate">{t.theme}</h3>
-                      <p className="text-xs text-muted-foreground">{t.services} service{t.services === 1 ? "" : "s"} · {t.risks} risk{t.risks === 1 ? "" : "s"}</p>
+                      {t.historical ? (
+                        <p className="text-xs text-amber-700" title={t.historical_reason}>Historical — no active risk</p>
+                      ) : (
+                        <p className="text-xs text-muted-foreground">{t.services} service{t.services === 1 ? "" : "s"} · {t.risks} risk{t.risks === 1 ? "" : "s"}</p>
+                      )}
                     </div>
                     <span className={`text-[11px] rounded px-2 py-0.5 shrink-0 ${CONCERN_TONE[t.concern] || "bg-muted"}`}>{t.concern}</span>
                   </div>
@@ -407,11 +437,26 @@ export function InterventionPanel() {
                         <p className="text-sm text-foreground">{intv.intervention}</p>
                         {(() => {
                           const due = intv.review_date ? new Date(intv.review_date) : null;
-                          const overdue = due ? due.setHours(0,0,0,0) < new Date().setHours(0,0,0,0) : false;
+                          // Bug fix (24 Oct developer corrections, "Overdue display ignores review
+                          // completion"): this compared the due date against today with no check
+                          // of whether the required effectiveness review had actually happened --
+                          // a completed/reviewed plan kept showing overdue forever past its date.
+                          // A manually-set status is not proof either; the real signal is a
+                          // recorded effectiveness outcome (shown below at intv.effectiveness_review).
+                          const reviewCompleted = !!intv.effectiveness_review?.outcome;
+                          const overdue = due && !reviewCompleted ? due.setHours(0,0,0,0) < new Date().setHours(0,0,0,0) : false;
                           return (
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
                               <div><span className="text-foreground font-medium">Owner:</span> {intv.owner_name || intv.owner_role || "—"}</div>
-                              <div><span className="text-foreground font-medium">Actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done</div>
+                              {/* Bug fix (24 Oct developer corrections, "Completion count differs
+                                  from linked delivery work"): this counts EVERY action on every
+                                  active risk in the theme, not just the actions actually linked
+                                  to this intervention (that's the separate "Linked delivery
+                                  actions" list below) -- labelled explicitly as theme-wide rather
+                                  than implying it measures this intervention's own delivery. */}
+                              <div title="Counts every action across all of this theme's active risks, not only actions linked to this plan">
+                                <span className="text-foreground font-medium">Theme actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done
+                              </div>
                               <div className={overdue ? "text-red-600" : ""}>
                                 <span className="text-foreground font-medium">Due:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}{overdue ? " · overdue" : ""}
                               </div>
@@ -422,7 +467,7 @@ export function InterventionPanel() {
                         })()}
                         {/* Assigned-action lifecycle — so the RM can see the delegated work has been
                             done and where it is for review / effectiveness. */}
-                        {intv.linked_action_stage && (
+                        {intv.linked_action_stage ? (
                           <div className="mt-2 flex items-center gap-2 text-xs">
                             {intv.linked_action_completed_at
                               ? <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
@@ -432,6 +477,17 @@ export function InterventionPanel() {
                             {intv.linked_action_completed_at && (
                               <span className="text-muted-foreground">· {new Date(intv.linked_action_completed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>
                             )}
+                          </div>
+                        ) : (
+                          // Fix (24 Oct developer corrections, "Delivery task missing despite
+                          // assignment notification"): starting a plan only creates a delivery
+                          // action when an eligible cross-service risk or qualifying pattern
+                          // exists — otherwise it's saved with no linked_action_id. Previously
+                          // this showed nothing at all here, so a saved-but-unlinked plan looked
+                          // identical to one still loading. State it explicitly.
+                          <div className="mt-2 flex items-center gap-2 text-xs text-muted-foreground">
+                            <AlertTriangle className="w-3.5 h-3.5 text-amber-600" />
+                            <span>Saved as a plan — no delivery action linked yet (no eligible risk or pattern found).</span>
                           </div>
                         )}
                         {/* Multiple linked delivery actions (brief 2 §1) — the plan's relevant existing
