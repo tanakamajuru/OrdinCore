@@ -2,31 +2,40 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate } from 'react-router';
 import { ArrowRight, ListChecks, X } from 'lucide-react';
 import apiClient from '@/services/apiClient';
+import { isGuidedWorkActive, setGuidedWorkActive } from '@/lib/guidedWorkSession';
 
 export function GuidedWorkBridge() {
   const location = useLocation();
   const navigate = useNavigate();
   const params = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const active = params.get('guided') === '1';
   const currentId = params.get('gw') || '';
-  const [hidden,setHidden] = useState(false);
+  // 26 Oct developer correction, "Guided Work: optional display". Every My Work queue item's
+  // route carries `guided=1` server-side (guidedWork.service.ts) -- so simply opening an
+  // ordinary task used to activate guided mode on its own. Visibility is now driven ONLY by the
+  // persisted per-user session flag below, never by the URL, so an ordinary task/notification/
+  // record link (old or new, with or without `guided=1`) can open its screen without switching
+  // guided mode on, and a dismissal survives navigation, refresh and future logins until the
+  // user deliberately starts it again from My Work.
+  const [active, setActive] = useState(isGuidedWorkActive);
+  useEffect(() => {
+    const sync = () => setActive(isGuidedWorkActive());
+    window.addEventListener('storage', sync);
+    return () => window.removeEventListener('storage', sync);
+  }, []);
+  // Reserve page space so the bar never covers inputs/validation/save buttons underneath it.
+  useEffect(() => {
+    document.body.classList.toggle('guided-work-active', active);
+    return () => document.body.classList.remove('guided-work-active');
+  }, [active]);
   const [loading,setLoading] = useState(false);
   const [message,setMessage] = useState('');
   const [blocker,setBlocker] = useState<any>(null);
-  useEffect(()=>setHidden(false),[location.pathname,location.search]);
   // My Work is the queue itself; the bridge only belongs on canonical execution screens.
-  if (!active || hidden || location.pathname === '/my-work') return null;
+  if (!active || location.pathname === '/my-work') return null;
 
-  // Dismissing must actually END guided mode on this screen, not just hide for a moment: the previous
-  // behaviour reset `hidden` on every navigation, so the bar reappeared and could never be dismissed
-  // (field-test: "Guided Work keeps getting in the way"). Stripping the guided params ends it cleanly;
-  // starting another guided action from My Work brings it back as intended.
   const dismiss = () => {
-    setHidden(true);
-    const p = new URLSearchParams(location.search);
-    p.delete('guided'); p.delete('gw');
-    const qs = p.toString();
-    navigate(`${location.pathname}${qs ? `?${qs}` : ''}`, { replace: true });
+    setGuidedWorkActive(false);
+    setActive(false);
   };
 
   const next = async () => {

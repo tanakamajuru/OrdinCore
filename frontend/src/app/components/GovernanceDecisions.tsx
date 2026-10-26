@@ -550,6 +550,12 @@ export function GovernanceDecisions({
                     className={`w-full text-left px-3 py-2 hover:bg-muted ${isSel ? "bg-primary/5" : ""}`}>
                     <div className="text-[11px] text-muted-foreground">{monitoringDue ? "Monitoring review due · " : ""}{when}{s.related_person ? ` · ${s.related_person}` : ""} · {kind}</div>
                     <div className="text-sm text-foreground whitespace-pre-wrap break-words">{(s.description || "—").trim()}</div>
+                    {/* 26 Oct field report: the TL's recorded immediate action was invisible on this
+                        picker card, so the RM saw only half the picture before even opening the
+                        signal for review. */}
+                    {s.immediate_action && (
+                      <div className="text-xs text-muted-foreground mt-0.5"><span className="font-medium">Immediate action:</span> {s.immediate_action}</div>
+                    )}
                   </button>
                 );
               })}
@@ -559,6 +565,13 @@ export function GovernanceDecisions({
           {selectedSignal && (
             <div className="rounded-lg bg-muted/30 p-3 text-xs text-muted-foreground">
               <span className="font-semibold text-foreground">Signal context:</span> {selectedSignal.related_person ? `${selectedSignal.related_person} · ` : ""}{selectedSignal.governance_domain || selectedSignal.signal_type || "Signal"} · {selectedSignal.description || "—"}
+              {/* Bug fix (26 Oct, field report): the team leader's immediate action was recorded
+                  on the signal (governance_pulses.immediate_action, already returned by the API)
+                  but never shown here — the RM reviewed only the observation half of the picture,
+                  never what the TL had already done about it. */}
+              {selectedSignal.immediate_action && (
+                <span className="block mt-1"><span className="font-semibold text-foreground">Immediate action taken:</span> {selectedSignal.immediate_action}</span>
+              )}
               <span className="block mt-1 text-[11px]">Original signal date: {fmtWhen(selectedSignal.entry_date || selectedSignal.created_at) || "—"}</span>
             </div>
           )}

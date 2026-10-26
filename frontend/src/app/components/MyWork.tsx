@@ -6,6 +6,7 @@ import { RoleBasedNavigation } from './RoleBasedNavigation';
 import { useGovernanceRefresh } from '@/hooks/useGovernanceRefresh';
 import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
 import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
+import { setGuidedWorkActive } from '@/lib/guidedWorkSession';
 
 type Priority='URGENT'|'DUE'|'NORMAL';
 type State='NEEDS_YOU'|'WAITING'|'COMPLETE';
@@ -47,7 +48,15 @@ export function MyWork(){
   useGovernanceRefresh(load);
 
   const list=tab==='NEEDS_YOU'?data.needsYou:tab==='WAITING'?data.waiting:data.completedToday;
+  // Opening an item is an ordinary record link — it must never flip guided mode on by itself
+  // (26 Oct, "Guided Work: optional display"). Only the explicit button below does that.
   const open=(item:GuidedWorkItem)=>navigate(item.route);
+  const startGuidedWork=()=>{
+    const first=data.next||data.needsYou[0];
+    if(!first){return;}
+    setGuidedWorkActive(true);
+    navigate(first.route);
+  };
   const nextId=data.next?.id;
   // Simplified Work Model: within "Needs you", separate personally-assigned work ("My Work")
   // from role decisions that are due ("Decisions Due"). Falls back gracefully if the backend
@@ -75,7 +84,10 @@ export function MyWork(){
     <div className="p-5 lg:px-10 pt-24 max-w-5xl mx-auto">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div><div className="text-xs font-semibold uppercase tracking-[0.12em] text-primary">Guided Work</div><h1 className="text-3xl font-bold text-foreground mt-1">{firstName?`${firstName}, `:''}here's what needs you.</h1><p className="text-muted-foreground mt-2">Ordin Core is showing the next work derived from existing governance records. No separate task lifecycle is created here.</p></div>
-        <button onClick={load} className="min-h-10 px-3 rounded-lg border border-border inline-flex items-center gap-2 text-sm font-medium"><RefreshCw size={15}/>Refresh</button>
+        <div className="flex items-center gap-2">
+          {(data.next||data.needsYou.length>0) && <button onClick={startGuidedWork} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground inline-flex items-center gap-2 text-sm font-semibold"><ListChecks size={15}/>Start Guided Work</button>}
+          <button onClick={load} className="min-h-10 px-3 rounded-lg border border-border inline-flex items-center gap-2 text-sm font-medium"><RefreshCw size={15}/>Refresh</button>
+        </div>
       </div>
 
       <div className="mt-6"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
