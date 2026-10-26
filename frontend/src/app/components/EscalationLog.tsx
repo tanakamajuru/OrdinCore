@@ -11,11 +11,10 @@ import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
 
 async function downloadPdf(url: string, fallbackName: string) {
   try {
-    const res: any = await apiClient.get(url, { responseType: "blob" });
-    const blob = res?.data instanceof Blob ? res.data : new Blob([res?.data ?? res], { type: "application/pdf" });
+    const { blob, filename } = await apiClient.getBlob(url);
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
-    a.download = fallbackName;
+    a.download = filename || fallbackName;
     document.body.appendChild(a); a.click(); a.remove();
     URL.revokeObjectURL(a.href);
   } catch {
