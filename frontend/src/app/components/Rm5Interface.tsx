@@ -317,7 +317,16 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
             <p className="text-xs text-muted-foreground mb-2">Recurring signals in a single service that are forming but are <span className="font-semibold">not yet an established pattern</span>. Keep watching, or dismiss with a reason.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
               {withinList.length === 0 && <p className="text-sm text-muted-foreground">No forming concerns.</p>}
-              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
+              {/* Bug fix (26 Oct developer correction, "Promotion review: incorrect destination"):
+                  onReview was wired to /systemic-patterns for EVERY card, including
+                  within-service ones — that screen only ever lists cross-service clusters, so a
+                  single-house "Review" click always landed on "No potential cross-service
+                  patterns were detected" for a candidate that was never cross-service. A
+                  single-house concern must not require a cross-service pattern: Review now opens
+                  the SAME single-house promotion assessment as "Review for promotion" (which
+                  already carries the record's id/scope and, if already promoted, opens the
+                  linked risk via the existing promotedRiskId branch) — not a second screen. */}
+              {pagedWithin.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={promote} />)}
             </div>
             <Pager page={withinSafe} pages={withinPages} total={withinList.length} onPage={setPatWPage} />
             <h2 className="text-lg font-semibold text-foreground mb-1 mt-6 flex items-center gap-2 text-indigo-700"><Network className="w-4 h-4 text-indigo-600" />Across services — systemic</h2>

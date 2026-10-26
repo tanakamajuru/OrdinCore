@@ -50,6 +50,12 @@ export function DailyOversightBoard() {
   const [escActivity, setEscActivity] = useState<any[]>([]);
   const noteRef = useRef<HTMLTextAreaElement>(null);
   const decisionsRef = useRef<HTMLDivElement>(null);
+  // Bug fix (26 Oct, "screen shifting position on its own after ~30s"): the background refresh
+  // (60s poll, or ANY governance.case.updated socket event company-wide) resets `data` to a new
+  // object every time, which re-runs the daily-log effect below, which calls setSignedOff with a
+  // brand-new object even when its content is unchanged — re-triggering this scroll-into-view on
+  // every single refresh while the RM was mid-review, not just once on arrival.
+  const guidedScrolledRef = useRef(false);
 
   const currentUser = (() => { try { return JSON.parse(localStorage.getItem("user") || "{}"); } catch { return {}; } })();
   const currentUserId = currentUser.id || currentUser.user_id;
@@ -68,10 +74,10 @@ export function DailyOversightBoard() {
   // is already signed off: open post-sign-off review automatically so the concern is actionable and
   // visible, instead of a locked, empty-looking panel (PDF 1 §1 + "Review monitored concern" deep-link).
   useEffect(() => {
-    if (guidedPulseId && signedOff && !isHistoricalDate) {
-      setPostSignoffReview(true);
-      setTimeout(() => decisionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
-    }
+    if (guidedScrolledRef.current || !guidedPulseId || !signedOff || isHistoricalDate) return;
+    guidedScrolledRef.current = true;
+    setPostSignoffReview(true);
+    setTimeout(() => decisionsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 80);
   }, [guidedPulseId, signedOff, isHistoricalDate]);
 
   const initHouses = async () => {

@@ -61,13 +61,22 @@ export function LearningRegister() {
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [filter]);
 
   const openAssess = (id: string) => { setAssessing(id); setAssessState("IDENTIFIED"); setAssessWhatLearnt(""); setAssessChange(""); setAssessReason(""); };
-  // Deep-link from the work queue (/learning?focus=<id>) opens that deferred lesson's assessment.
+  // Deep-link from the work queue (/learning?focus=<id>) opens that record's actionable form
+  // directly, instead of just landing on the full list and leaving the reviewer to find it.
+  // Previously this only handled the NOT_YET_ASSESSED case, so the "Record Implementation" /
+  // "Verify Improvement" queue items (added 25 Oct) just dropped the reviewer onto the
+  // unfiltered register with nothing opened or scrolled to — every card looked identical.
   useEffect(() => {
     if (focusedRef.current || loading) return;
     const id = searchParams.get("focus");
     if (!id) return;
     const row = rows.find((r) => String(r.id) === id);
-    if (row && row.state === "NOT_YET_ASSESSED") { focusedRef.current = true; openAssess(id); setTimeout(() => document.getElementById(`learning-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60); }
+    if (!row) return;
+    focusedRef.current = true;
+    if (row.state === "NOT_YET_ASSESSED") openAssess(id);
+    else if (row.progress === "RECORDED") { setImplementing(id); setImplementEvidence(""); }
+    else if (row.progress === "CHANGE_IMPLEMENTED") { setVerifying(id); setVerifyOutcome("Effective"); setVerifyEvidence(""); }
+    setTimeout(() => document.getElementById(`learning-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
   }, [rows, loading, searchParams]);
 
   const submitAssess = async (id: string) => {
