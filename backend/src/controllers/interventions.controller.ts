@@ -25,7 +25,7 @@ export const interventionsController = {
     catch (e) { fail(res, e); }
   },
   linkActions: async (req: Request, res: Response) => {
-    try { res.json({ success: true, data: await interventionLinksService.linkActions(cid(req), req.user!.user_id, req.params.id, req.body?.action_ids || []), meta: {} }); }
+    try { res.json({ success: true, data: await interventionLinksService.linkActions(cid(req), req.user!.user_id, req.params.id, req.body?.action_ids || [], req.body?.relevance_reason), meta: {} }); }
     catch (e) { fail(res, e); }
   },
   unlinkAction: async (req: Request, res: Response) => {

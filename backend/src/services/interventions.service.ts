@@ -80,6 +80,10 @@ function summariseRiskTrajectories(
   };
 }
 
+function isClosedRiskStatus(status?: string | null): boolean {
+  return ['closed', 'resolved'].includes(String(status || '').trim().toLowerCase());
+}
+
 function isPastDate(value: unknown): boolean {
   if (!value) return false;
   const d = new Date(String(value));
@@ -292,11 +296,23 @@ export const interventionsService = {
         blockers: uniqueBlockers,
       });
 
+      // 25 Oct brief ("Navigation"): the card's Action button previously chose the stored
+      // linked risk without checking whether it is actually open, so it could open a risk
+      // explicitly marked Closed and the button never said so. Resolve the real destination
+      // and its status server-side, once, from the same riskRefs the card already has.
+      const actionRiskId = intv?.linked_risk_id || t.primary_risk_id || null;
+      const actionRiskRef = actionRiskId ? riskRefs.find((r: any) => r.id === actionRiskId) : null;
+      const actionRiskStatus = (actionRiskRef as any)?.status || null;
+      const actionTarget = actionRiskId
+        ? { risk_id: actionRiskId, status: actionRiskStatus, is_open: !isClosedRiskStatus(actionRiskStatus) }
+        : { risk_id: null, status: null, is_open: false };
+
       out.push({
         theme: t.theme,
         services: Number(t.services) || 0,
         risks: Number(t.risks) || 0,
         primary_risk_id: t.primary_risk_id || null,
+        action_target: actionTarget,
 
         // Implementation evidence — deliberately separate from effectiveness.
         openActions: Number(t.open_actions) || 0,
@@ -335,7 +351,12 @@ export const interventionsService = {
               expected_outcome: intv.expected_outcome,
               review_date: intv.review_date,
               started_at: intv.started_at,
-              last_reviewed_at: intv.effectiveness_reviewed_at || intv.updated_at,
+              // 25 Oct brief ("Dates"): last_reviewed_at must come from an applicable REVIEW
+              // event only — it previously fell back to updated_at, so an unrelated text edit
+              // (e.g. changing the owner) silently relabelled itself as a review having
+              // happened. last_updated_at is now its own explicit field.
+              last_reviewed_at: intv.effectiveness_reviewed_at || null,
+              last_updated_at: intv.updated_at || null,
               linked_risk_id: intv.linked_risk_id,
               linked_action_id: intv.linked_action_id,
               linked_action_status: intv.linked_action_status,
@@ -373,22 +394,53 @@ export const interventionsService = {
     // services=0 are honest (none are active), never fabricated; the intervention and its
     // linked-action history stay retrievable. Never reopens a risk or relabels a closed one active.
     const coveredThemes = new Set(themeRows.map((t: any) => String(t.theme).toLowerCase()));
-    for (const intv of interventions) {
+    const orphaned = interventions.filter((intv) => !coveredThemes.has(String(intv.theme).toLowerCase()));
+
+    // 25 Oct brief (P1, "Derive historical status from actual records"): a missing active-theme
+    // match only proves no ACTIVE risk remains under this theme — it does not prove the
+    // intervention's own linked risk is closed, or that it was ever linked at all. Look up the
+    // real status of each one in a single batch so the card and its Action button can say which
+    // case this is, instead of a single blanket "No active risk" label for all three.
+    const orphanedRiskIds = Array.from(new Set(orphaned.map((i) => i.linked_risk_id).filter(Boolean)));
+    const orphanedRiskStatus = new Map<string, string>();
+    if (orphanedRiskIds.length) {
+      const rows = (await query(
+        `SELECT id, status::text AS status FROM risks WHERE id = ANY($1::uuid[]) AND company_id = $2`,
+        [orphanedRiskIds, company_id]
+      )).rows;
+      for (const r of rows) orphanedRiskStatus.set(String(r.id), r.status);
+    }
+
+    for (const intv of orphaned) {
       const key = String(intv.theme).toLowerCase();
-      if (coveredThemes.has(key)) continue;
       coveredThemes.add(key); // interventions is already one row per theme (house_id IS NULL)
 
       const effectiveness = normalizeEffectiveness(intv.effectiveness_outcome);
+      const linkedRiskStatus = intv.linked_risk_id ? (orphanedRiskStatus.get(String(intv.linked_risk_id)) || null) : null;
+      const historicalReason = !intv.linked_risk_id
+        ? 'This plan was never linked to a delivery risk — no active risk exists for this theme.'
+        : isClosedRiskStatus(linkedRiskStatus)
+          ? 'The linked risk for this theme is closed — the plan and its history are retained.'
+          : 'No active risk remains for this theme — the plan and its history are retained.';
+      const actionTarget = intv.linked_risk_id
+        ? { risk_id: intv.linked_risk_id, status: linkedRiskStatus, is_open: !isClosedRiskStatus(linkedRiskStatus) }
+        : { risk_id: null, status: null, is_open: false };
       out.push({
         theme: intv.theme,
         services: 0,
         risks: 0,
         primary_risk_id: intv.linked_risk_id || null,
+        action_target: actionTarget,
         historical: true,
-        historical_reason: 'No active risk remains for this theme — the plan and its history are retained.',
+        historical_reason: historicalReason,
         openActions: 0, completedActions: 0, overdueActions: 0,
         implementation: { completed: 0, total: 0, overdue: 0 },
-        trajectory: { direction: 'Insufficient evidence', basis: 'No active risk — theme closed.' },
+        // Full ThemeTrajectorySummary shape (25 Oct developer brief, "Trajectory" fix): the
+        // frontend reads `trajectory.label`, and a historical card previously supplied only
+        // `direction`, so the UI's `|| fallback` silently rendered "Stable" for a theme the
+        // engine explicitly has no evidence for. Supply the real label so that fallback never
+        // fires here.
+        trajectory: { direction: 'Insufficient evidence', label: 'Insufficient evidence', basis: 'No active risk — theme closed.', counts: { improving: 0, stable: 0, deteriorating: 0 } },
         risk_trajectories: [],
         timeline_metric: 'Weighted signal burden', timeline: [],
         needsAttention: false, attentionReasons: [],
@@ -398,7 +450,8 @@ export const interventionsService = {
           id: intv.id, intervention: intv.intervention, status: intv.status,
           owner_id: intv.owner_id, owner_name: intv.owner_name, owner_role: intv.owner_role,
           expected_outcome: intv.expected_outcome, review_date: intv.review_date, started_at: intv.started_at,
-          last_reviewed_at: intv.effectiveness_reviewed_at || intv.updated_at,
+          last_reviewed_at: intv.effectiveness_reviewed_at || null,
+          last_updated_at: intv.updated_at || null,
           linked_risk_id: intv.linked_risk_id, linked_action_id: intv.linked_action_id,
           linked_action_status: intv.linked_action_status, linked_action_due_date: intv.linked_action_due_date,
           linked_action_completed_at: intv.linked_action_completed_at,
