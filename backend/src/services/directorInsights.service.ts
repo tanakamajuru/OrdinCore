@@ -73,6 +73,155 @@ export class DirectorInsightsService {
     return { deteriorating, stable, improving, total: rows.length };
   }
 
+  // 26 Oct developer requirements, "Services Overview — Accuracy and presentation". Replaces the
+  // old client-side High/Medium/Low formula (2+ deteriorating or 5+ open risks = High; 1+/2+ =
+  // Medium; else Low), which measured record counts and deterioration, not overall service risk
+  // -- a service with zero risks or with one serious non-deteriorating risk both read "Low",
+  // implying safety neither state actually supports. This computes complete, server-side totals
+  // using the SAME canonical definitions used elsewhere (no /risks?limit=200 truncation), keeps
+  // risks/decisions/actions/reviews as separate counts (never summed into one risk score), counts
+  // a cross-service risk once per explicitly affected service (the same house-expansion the heat
+  // map uses, not a bare house_id match), and reports organisation-wide risks with no specific
+  // service allocation separately rather than assigning them to every house.
+  async servicesOverview(companyId: string) {
+    const IMPACT_RANK: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+
+    const houses = (await query(`SELECT id, name FROM houses WHERE company_id = $1 ORDER BY name`, [companyId])).rows;
+
+    // Every open risk, expanded to each service it explicitly affects. A risk with no house_id and
+    // no linked signal in any house is organisation-wide with no specific allocation -- it is
+    // never assigned to every house to fill that gap.
+    const riskRows = (await query(
+      `WITH open_risks AS (
+         SELECT r.id AS risk_id, r.source_cluster_id, r.house_id, r.impact_rating
+           FROM risks r
+          WHERE r.company_id = $1 AND LOWER(r.status) <> 'closed'
+       ), expanded AS (
+         SELECT risk_id, source_cluster_id, impact_rating, house_id AS service_id
+           FROM open_risks WHERE house_id IS NOT NULL
+         UNION
+         SELECT o.risk_id, o.source_cluster_id, o.impact_rating, p.house_id AS service_id
+           FROM open_risks o
+           JOIN risk_signal_links rsl
+             ON (rsl.risk_id = o.risk_id OR (o.source_cluster_id IS NOT NULL AND rsl.cluster_id = o.source_cluster_id))
+           JOIN governance_pulses p ON p.id = rsl.pulse_entry_id AND p.house_id IS NOT NULL
+          WHERE o.house_id IS NULL
+       )
+       SELECT DISTINCT risk_id, source_cluster_id, impact_rating, service_id FROM expanded`,
+      [companyId]
+    )).rows;
+
+    // Risks with no house_id and no derivable service via linked signals -- genuinely
+    // organisation-wide, shown in their own bucket rather than guessed into every house.
+    const unallocated = (await query(
+      `SELECT r.id AS risk_id, r.impact_rating
+         FROM risks r
+        WHERE r.company_id = $1 AND LOWER(r.status) <> 'closed' AND r.house_id IS NULL
+          AND NOT EXISTS (
+            SELECT 1 FROM risk_signal_links rsl
+              JOIN governance_pulses p ON p.id = rsl.pulse_entry_id AND p.house_id IS NOT NULL
+             WHERE rsl.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND rsl.cluster_id = r.source_cluster_id)
+          )`,
+      [companyId]
+    )).rows;
+
+    // Trajectory for every distinct open risk, once each (not once per service it's expanded into).
+    const distinctRiskIds = Array.from(new Set([...riskRows.map((r: any) => r.risk_id), ...unallocated.map((r: any) => r.risk_id)]));
+    const clusterByRisk = new Map<string, string | null>();
+    for (const r of riskRows) clusterByRisk.set(r.risk_id, r.source_cluster_id || null);
+    const deteriorating = new Set<string>();
+    for (const riskId of distinctRiskIds) {
+      try {
+        const tr = await trajectoryForRisk(riskId, clusterByRisk.get(riskId) || null);
+        if (tr.direction === 'Deteriorating') deteriorating.add(riskId);
+      } catch { /* a failed trajectory read is never treated as "not deteriorating" with confidence -- omit from the count */ }
+    }
+
+    // Pending promotion decisions: unresolved signal clusters and new risk candidates, by house.
+    // "Overdue" has no existing stored SLA for a promotion decision, so this uses the same 7-day
+    // RM-review expectation the rest of the governance surface treats as a working week -- stated
+    // explicitly here so it is auditable, not implied as some other canonical threshold.
+    const pending = (await query(
+      `SELECT house_id, id, created_at FROM signal_clusters
+        WHERE company_id = $1 AND linked_risk_id IS NULL AND cluster_status NOT IN ('Resolved', 'Dismissed')
+        UNION ALL
+       SELECT house_id, id, created_at FROM risk_candidates
+        WHERE company_id = $1 AND status = 'New'`,
+      [companyId]
+    )).rows;
+
+    // Overdue actions: canonical open actions past their due date, scoped by the risk's house --
+    // deliberately NOT filtered to active risks, so work still owed after a risk closes stays
+    // counted as outstanding rather than disappearing with the risk.
+    const overdueActions = (await query(
+      `SELECT COALESCE(ra.house_id, r.house_id) AS house_id, ra.id
+         FROM canonical_action_state_v ra
+         LEFT JOIN risks r ON r.id = ra.risk_id
+        WHERE ra.company_id = $1 AND ra.is_open AND ra.due_date IS NOT NULL AND ra.due_date < NOW()`,
+      [companyId]
+    )).rows;
+
+    // Overdue reviews: the existing canonical review-obligation view (same SSOT /actions/pending-
+    // effectiveness already reads), scoped by the underlying risk's house.
+    const overdueReviews = (await query(
+      `SELECT r.house_id, gro.id
+         FROM canonical_review_obligation_state_v gro
+         LEFT JOIN risks r ON r.id = gro.source_risk_id
+        WHERE gro.company_id = $1 AND gro.status = 'OPEN' AND gro.is_overdue`,
+      [companyId]
+    )).rows;
+
+    const byService = new Map<string, any>();
+    for (const h of houses) byService.set(h.id, {
+      id: h.id, name: h.name, open_risks: new Set<string>(), highest_rank: 0, highest_rating: null as string | null,
+      deteriorating: 0, pending_decisions: 0, pending_overdue: 0, overdue_actions: 0, overdue_reviews: 0,
+    });
+
+    for (const row of riskRows) {
+      const s = byService.get(row.service_id);
+      if (!s) continue; // a service outside this company's current house list (shouldn't happen; defensive)
+      s.open_risks.add(row.risk_id);
+      const rank = IMPACT_RANK[row.impact_rating] || 0;
+      if (rank > s.highest_rank) { s.highest_rank = rank; s.highest_rating = row.impact_rating || null; }
+      if (deteriorating.has(row.risk_id)) s.deteriorating += 1;
+    }
+    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    for (const p of pending) {
+      const s = p.house_id ? byService.get(p.house_id) : null;
+      if (!s) continue;
+      s.pending_decisions += 1;
+      if (new Date(p.created_at).getTime() < sevenDaysAgo) s.pending_overdue += 1;
+    }
+    for (const a of overdueActions) { const s = a.house_id ? byService.get(a.house_id) : null; if (s) s.overdue_actions += 1; }
+    for (const rv of overdueReviews) { const s = rv.house_id ? byService.get(rv.house_id) : null; if (s) s.overdue_reviews += 1; }
+
+    const services = Array.from(byService.values()).map((s) => ({
+      id: s.id, name: s.name,
+      open_risks: s.open_risks.size,
+      highest_rating: s.highest_rating || 'Unrated',
+      deteriorating: s.deteriorating,
+      pending_decisions: s.pending_decisions,
+      pending_overdue: s.pending_overdue,
+      overdue_actions: s.overdue_actions,
+      overdue_reviews: s.overdue_reviews,
+    }));
+
+    const orgWideRank = unallocated.reduce((max, r) => Math.max(max, IMPACT_RANK[r.impact_rating] || 0), 0);
+    const orgWideRating = unallocated.length
+      ? (Object.entries(IMPACT_RANK).find(([, v]) => v === orgWideRank)?.[0] || 'Unrated')
+      : null;
+
+    return {
+      generated_at: new Date().toISOString(),
+      services,
+      organisation_wide: {
+        open_risks: unallocated.length,
+        highest_rating: unallocated.length ? orgWideRating : null,
+        deteriorating: unallocated.filter((r: any) => deteriorating.has(r.risk_id)).length,
+      },
+    };
+  }
+
   async effectivenessByService(companyId: string) {
     const res = await query(
       `SELECT h.id AS service_id, h.name AS service_name,

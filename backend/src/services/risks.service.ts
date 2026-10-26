@@ -1278,6 +1278,10 @@ export class RisksService {
       effectiveness: r.latest_effectiveness || 'Not yet reviewed',
       owner: r.owner_name?.trim() || r.owner_role || 'Unassigned',
       service: r.service_name || '—',
+      // 26 Oct developer requirements, "Services Overview": the register had no house id on each
+      // row, so a drill-down link like /risk-register?house=<id> had nothing to filter against and
+      // silently showed the whole unfiltered list.
+      house_id: r.house_id || null,
       reviewDate: r.review_due_at || r.next_review_date || r.review_due_date || null,
       nextReview: r.next_action_date || r.next_review_date || r.review_due_date || null,
       lastUpdated: r.updated_at || null,

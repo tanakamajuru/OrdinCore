@@ -88,7 +88,13 @@ export function RiskRegister() {
   useGovernanceRefresh(load);
 
   const banner = data?.banner || { activeOversight: 0, escalating: 0, stable: 0, improving: 0, critical: 0, controlFailures: 0, lastReviewAt: null };
-  const rows: any[] = data?.[tab] || [];
+  // 26 Oct developer requirements, "Services Overview": ?house=<id> previously had nothing to
+  // filter against (the register never exposed house_id) and silently showed the whole
+  // unfiltered list — every "open this count" link from the dashboard/overview was effectively
+  // dead. Now actually scopes the tab's rows to the requested service when the param is present.
+  const houseFilter = searchParams.get("house");
+  const allRows: any[] = data?.[tab] || [];
+  const rows: any[] = houseFilter ? allRows.filter((r: any) => r.house_id === houseFilter) : allRows;
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 5;

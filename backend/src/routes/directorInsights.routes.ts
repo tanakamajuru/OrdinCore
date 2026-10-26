@@ -9,6 +9,7 @@ const OVERSIGHT = ['REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', '
 // Mounted at /api/v1/director
 export const directorInsightsRouter = Router();
 directorInsightsRouter.get('/cross-site-heatmap', requireAuth, requireTenant, requireRole(...OVERSIGHT), directorInsightsController.crossSiteHeatmap.bind(directorInsightsController));
+directorInsightsRouter.get('/services-overview', requireAuth, requireTenant, requireRole(...OVERSIGHT), directorInsightsController.servicesOverview.bind(directorInsightsController));
 directorInsightsRouter.get('/risks-by-trend', requireAuth, requireTenant, requireRole(...OVERSIGHT), directorInsightsController.risksByTrend.bind(directorInsightsController));
 directorInsightsRouter.get('/effectiveness-by-service', requireAuth, requireTenant, requireRole(...OVERSIGHT), directorInsightsController.effectivenessByService.bind(directorInsightsController));
 

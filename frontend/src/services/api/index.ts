@@ -618,6 +618,9 @@ class ApiClient {
   async getRisksByTrend(): Promise<ApiResponse<any>> {
     return this.get<any>('/director/risks-by-trend');
   }
+  async getServicesOverview(): Promise<ApiResponse<any>> {
+    return this.get<any>('/director/services-overview');
+  }
   async getEffectivenessByService(): Promise<ApiResponse<any[]>> {
     return this.get<any[]>('/director/effectiveness-by-service');
   }

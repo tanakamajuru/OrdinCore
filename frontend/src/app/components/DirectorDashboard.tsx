@@ -73,6 +73,104 @@ function HeatCell({ trend, riskCount }: { trend?: string; riskCount?: number }) 
   return <td className="p-2 text-center"><span className={`inline-flex items-center justify-center w-7 h-7 rounded ${cfg.bg}`} title={title}>{cfg.icon}</span></td>;
 }
 
+const IMPACT_TONE: Record<string, string> = {
+  Critical: "bg-red-100 text-red-700", High: "bg-red-100 text-red-700",
+  Medium: "bg-amber-100 text-amber-700", Low: "bg-emerald-100 text-emerald-700",
+  Unrated: "bg-muted text-muted-foreground",
+};
+
+function ServiceMetric({ label, value, tone, onClick, title }: { label: string; value: string | number; tone?: string; onClick?: () => void; title?: string }) {
+  const content = (
+    <>
+      <div className={`text-lg font-semibold ${tone || "text-foreground"}`}>{value}</div>
+      <div className="text-[11px] text-muted-foreground leading-tight">{label}</div>
+    </>
+  );
+  return onClick
+    ? <button onClick={onClick} title={title} className="text-left rounded-lg p-2 hover:bg-muted/60 transition-colors">{content}</button>
+    : <div title={title} className="rounded-lg p-2">{content}</div>;
+}
+
+// 26 Oct developer requirements, "Services Overview — Accuracy and presentation". Server-computed
+// (directorInsightsService.servicesOverview) so the counts cannot be skewed by the dashboard's
+// own /risks?limit=200 cap, and every count stays its own separate figure — never summed into one
+// risk score — so "0 risks" and "2 overdue actions on an otherwise-closed theme" can both be true
+// and both be shown, rather than one implying the other.
+function ServicesOverview({ navigate }: { navigate: (path: string) => void }) {
+  const [state, setState] = useState<"loading" | "unavailable" | "ready">("loading");
+  const [overview, setOverview] = useState<any>(null);
+
+  const load = async () => {
+    setState("loading");
+    try {
+      const res: any = await apiClient.get("/director/services-overview");
+      setOverview(unwrap(res));
+      setState("ready");
+    } catch {
+      setState("unavailable");
+    }
+  };
+  useEffect(() => { load(); }, []);
+
+  return (
+    <div className="bg-card border border-border rounded-xl p-5 shadow-sm mt-6">
+      <div className="flex items-center justify-between mb-1">
+        <h3 className="font-semibold">Services Overview</h3>
+        <div className="flex items-center gap-3">
+          {state === "ready" && overview?.generated_at && (
+            <span className="text-[11px] text-muted-foreground">Updated {new Date(overview.generated_at).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+          )}
+          <button onClick={load} className="text-[11px] text-primary hover:underline">Refresh</button>
+        </div>
+      </div>
+      <p className="text-[11px] text-muted-foreground mb-4">A factual summary per service — not an overall safety rating. Each count opens the records behind it.</p>
+
+      {state === "loading" && <p className="text-sm text-muted-foreground py-8 text-center">Loading services overview…</p>}
+      {state === "unavailable" && (
+        <div className="text-sm text-red-700 bg-red-50 border border-red-200 rounded-lg p-3 flex items-center justify-between">
+          <span>Services Overview unavailable — risk counts, ratings and trajectory could not be loaded. This is not confirmation of zero risk.</span>
+          <button onClick={load} className="text-xs font-semibold underline shrink-0 ml-3">Retry</button>
+        </div>
+      )}
+      {state === "ready" && (
+        <>
+          {overview?.organisation_wide?.open_risks > 0 && (
+            <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3 text-sm">
+              <div>
+                <span className="font-medium text-foreground">Organisation-wide risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} with unspecified service allocation</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5">{overview.organisation_wide.open_risks} active risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} shown separately — not assigned to every service.</p>
+              </div>
+              <button onClick={() => navigate("/risk-register?tab=strategic")} className="text-xs font-semibold text-primary hover:underline shrink-0">View →</button>
+            </div>
+          )}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+            {(overview?.services || []).map((s: any) => (
+              <div key={s.id} className="border border-border rounded-xl p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-medium text-sm">{s.name}</span>
+                  <button onClick={() => navigate(`/risk-register?tab=closed&house=${s.id}`)} className="text-[11px] text-primary hover:underline">View risk history →</button>
+                </div>
+                {s.open_risks === 0 && (
+                  <p className="text-[11px] text-muted-foreground mb-2">No open registered risks{(s.pending_decisions > 0 || s.overdue_actions > 0 || s.overdue_reviews > 0) ? " — outstanding work remains below." : "."}</p>
+                )}
+                <div className="grid grid-cols-3 gap-1">
+                  <ServiceMetric label="Open risks" value={s.open_risks} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title="Distinct active risks affecting this service" />
+                  <ServiceMetric label="Highest rating" value={s.highest_rating} tone={IMPACT_TONE[s.highest_rating] ? "" : undefined} title="Highest recorded risk rating among this service's open risks" onClick={s.open_risks ? () => navigate(`/risk-register?tab=active&house=${s.id}`) : undefined} />
+                  <ServiceMetric label="Deteriorating" value={s.deteriorating} tone={s.deteriorating > 0 ? "text-red-600" : undefined} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title="Authoritative trajectory: risks currently deteriorating" />
+                  <ServiceMetric label="Promotions pending" value={s.pending_overdue > 0 ? `${s.pending_decisions} (${s.pending_overdue} overdue)` : s.pending_decisions} tone={s.pending_overdue > 0 ? "text-red-600" : s.pending_decisions > 0 ? "text-amber-600" : undefined} onClick={() => navigate("/rm5")} title="Concerns awaiting an RM promotion decision for this service" />
+                  <ServiceMetric label="Overdue actions" value={s.overdue_actions} tone={s.overdue_actions > 0 ? "text-red-600" : undefined} onClick={() => navigate("/governance-compliance")} title="Outstanding follow-through past its due date, including work remaining after risk closure" />
+                  <ServiceMetric label="Overdue reviews" value={s.overdue_reviews} tone={s.overdue_reviews > 0 ? "text-red-600" : undefined} onClick={() => navigate("/effectiveness")} title="Effectiveness reviews past their due date" />
+                </div>
+              </div>
+            ))}
+            {(!overview?.services || overview.services.length === 0) && <p className="text-xs text-muted-foreground py-6 text-center col-span-2">No services</p>}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function DirectorDashboard() {
   const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   const navigate = useNavigate();
@@ -324,36 +422,14 @@ export function DirectorDashboard() {
             </div>
           </div>
 
-          <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-4">Services Overview</h3>
-            <div className="space-y-2">
-              {servicesWithRisk.map(s => {
-                const sr = openRisks.filter(r => r.house_id === s.id);
-                const risingN = sr.filter(r => isRising(trendOf(r))).length;
-                // Level reflects both trajectory AND open-risk load, so a service that carries
-                // real risks is never shown as "Low" just because none are currently rising.
-                const level = (risingN >= 2 || sr.length >= 5) ? "High"
-                  : (risingN >= 1 || sr.length >= 2) ? "Medium"
-                  : "Low";
-                // Explain the badge rather than leave it as an unexplained colour: the
-                // tooltip states exactly what was counted, and the visible count makes
-                // the threshold legible without having to ask what "High" means.
-                const basis = `${level}: ${sr.length} open risk${sr.length === 1 ? "" : "s"}, ${risingN} rising/deteriorating. High = 2+ rising or 5+ open risks; Medium = 1+ rising or 2+ open risks; Low = otherwise.`;
-                return (
-                  <button key={s.id} onClick={() => navigate(`/risk-register?house=${s.id}`)} title={basis}
-                    className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
-                    <span className="font-medium">{s.name}</span>
-                    <span className="flex items-center gap-2">
-                      <span className="text-[11px] text-muted-foreground">{sr.length} open{risingN > 0 ? ` · ${risingN} rising` : ""}</span>
-                      <span className={`text-xs rounded px-2 py-0.5 ${level === "High" ? "bg-red-100 text-red-700" : level === "Medium" ? "bg-amber-100 text-amber-700" : "bg-emerald-100 text-emerald-700"}`}>{level}</span>
-                    </span>
-                  </button>
-                );
-              })}
-              {servicesWithRisk.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No services</p>}
-            </div>
-          </div>
         </div>
+
+        {/* 26 Oct developer requirements, "Services Overview — Accuracy and presentation": moved
+            out of the two-column grid into its own full-width section below, replacing the old
+            High/Medium/Low formula (which measured record counts and deterioration, not overall
+            service risk — a service with zero risks and one with a serious non-deteriorating risk
+            could both show "Low") with the server-computed, canonically-defined counts. */}
+        <ServicesOverview navigate={navigate} />
 
         <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
           <h3 className="font-semibold mb-4">Recent Escalations</h3>
