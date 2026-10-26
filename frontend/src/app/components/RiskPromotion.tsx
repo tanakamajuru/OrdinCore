@@ -302,7 +302,14 @@ export function RiskPromotion() {
                     {users
                       .filter(u => {
                         const isExcludedRole = ['DIRECTOR', 'TEAM_LEADER', 'ADMIN', 'SUPER_ADMIN'].includes(u.role);
-                        const isSameHouse = u.assigned_house_id === sourceData?.house_id || u.assigned_house_id === 'all';
+                        // Bug fix (26 Oct): /users/directory returns each user's houses as
+                        // `house_ids` (an array) — this checked a field named `assigned_house_id`,
+                        // which the API has never sent, so isSameHouse was false for every user and
+                        // the dropdown always showed "Unassigned" with nobody else selectable. A
+                        // cross-service/systemic candidate has no single house_id at all, so that
+                        // case is treated as open to anyone eligible, not excluded either.
+                        const houseIds: string[] = Array.isArray(u.house_ids) ? u.house_ids : [];
+                        const isSameHouse = !sourceData?.house_id || houseIds.includes(sourceData.house_id);
                         return !isExcludedRole && isSameHouse;
                       })
                       .map(u => (
