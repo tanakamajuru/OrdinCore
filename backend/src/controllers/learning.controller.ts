@@ -98,7 +98,7 @@ export class LearningController {
   async verifyImprovement(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const record = await learningService.verifyImprovement(req.params.id, company_id, req.user!.user_id!, req.body?.outcome, req.body?.evidence);
+      const record = await learningService.verifyImprovement(req.params.id, company_id, req.user!.user_id!, req.body?.outcome, req.body?.evidence, req.body?.review_due_at);
       return res.json({ success: true, data: record });
     } catch (err: unknown) {
       return res.status(400).json({ success: false, message: err instanceof Error ? err.message : 'Failed to verify improvement' });

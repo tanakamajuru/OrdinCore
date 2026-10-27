@@ -503,12 +503,19 @@ export const guidedWorkService = {
         route:`/learning?focus=${l.id}&gw=learning-implement:${l.id}`,
         actionLabel:'Record Implementation', whyAmISeeingThis:'A lesson was identified here and the change it calls for has not yet been recorded.' });
 
+      // 27 Oct developer review, P1: a non-Effective verification now stays at CHANGE_IMPLEMENTED
+      // (it is genuinely not yet confirmed) with a review_due_at follow-up date rather than falsely
+      // advancing to IMPROVEMENT_VERIFIED. A record with a FUTURE follow-up date must not re-appear
+      // here as an ordinary "needs verifying now" item -- it belongs in Waiting until that date,
+      // per the owner's own instruction (27 Oct): "if outcome is not effective we need a review
+      // date which will go on waiting and then on decision due on the day".
       const pendingVerification = await safeRows(`
         SELECT lr.id, lr.house_id, h.name AS service_name, sa.title AS source_action_title
           FROM learning_records lr
           LEFT JOIN houses h ON h.id=lr.house_id
           LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
          WHERE lr.company_id=$1 AND lr.progress='CHANGE_IMPLEMENTED'
+           AND (lr.verification_review_due_at IS NULL OR lr.verification_review_due_at <= CURRENT_DATE)
            AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL)
          ORDER BY lr.implemented_at`, [companyId, houses]);
       for (const l of pendingVerification) needsYou.push({ id:`learning-verify:${l.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'LEARNING_REVIEW',
@@ -517,6 +524,28 @@ export const guidedWorkService = {
         completionCondition:'Verify whether the implemented change actually improved the position, with evidence.',
         route:`/learning?focus=${l.id}&gw=learning-verify:${l.id}`,
         actionLabel:'Verify Improvement', whyAmISeeingThis:'A change was implemented from this lesson and its effect is due a formal verification.' });
+
+      const followUpVerification = await safeRows(`
+        SELECT lr.id, lr.house_id, h.name AS service_name, sa.title AS source_action_title,
+               lr.verification_review_due_at, lr.verification_outcome
+          FROM learning_records lr
+          LEFT JOIN houses h ON h.id=lr.house_id
+          LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
+         WHERE lr.company_id=$1 AND lr.progress='CHANGE_IMPLEMENTED' AND lr.verification_review_due_at IS NOT NULL
+           AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL)
+         ORDER BY lr.verification_review_due_at`, [companyId, houses]);
+      for (const l of followUpVerification) {
+        const dueNow = !!l.verification_review_due_at && new Date(l.verification_review_due_at).getTime() <= Date.now();
+        const item: GuidedWorkItem = { id:`learning-followup:${l.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:'NORMAL', taskType:'LEARNING_REVIEW',
+          title: dueNow ? 'Re-verify learning improvement' : 'Being managed', summary:l.source_action_title ? `Lesson from: ${l.source_action_title}` : 'A learning follow-up review is scheduled',
+          reason: dueNow ? `Previously rated ${l.verification_outcome} — follow-up review is due.` : `Previously rated ${l.verification_outcome}. Follow-up review due ${new Date(l.verification_review_due_at).toLocaleDateString('en-GB')}.`,
+          dueAt:l.verification_review_due_at, serviceName:l.service_name,
+          canonicalEntityType:'learning', canonicalEntityId:l.id, requiredAction:'VERIFY_LEARNING',
+          completionCondition:'Verify whether the implemented change actually improved the position, with evidence.',
+          route:`/learning?focus=${l.id}&gw=learning-followup:${l.id}`,
+          actionLabel: dueNow ? 'Verify Improvement' : 'View', whyAmISeeingThis:'This lesson\'s earlier verification was not Effective, so a follow-up review date was set.' };
+        (dueNow ? needsYou : waiting).push(item);
+      }
 
       // Weekly Governance is a review of the PREVIOUS completed Monday-Sunday evidence period.
       // It becomes actionable only when the provider-local configured cadence is reached.

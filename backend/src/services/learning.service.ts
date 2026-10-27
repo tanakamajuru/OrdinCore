@@ -39,7 +39,11 @@ export class LearningService {
   async create(company_id: string, author_id: string, input: CreateLearningInput) {
     if (!SOURCES.includes(input.source_type)) throw new Error('Invalid learning source type.');
     const state: LearningState = input.state && STATES.includes(input.state) ? input.state : 'IDENTIFIED';
-    const progress: LearningProgress = input.progress && PROGRESS.includes(input.progress) ? input.progress : 'RECORDED';
+    // 27 Oct developer review, P1 bypass: progress accepted a client-supplied value, so a caller
+    // could create a record already at CHANGE_IMPLEMENTED or IMPROVEMENT_VERIFIED with none of
+    // the evidence recordImplementation()/verifyImprovement() require. Ordinary creation is
+    // always forced to RECORDED; later transitions go through the gated methods only.
+    const progress: LearningProgress = 'RECORDED';
     const isAi = !!input.is_ai_suggested;
 
     // Honest states: do not force staff to invent lessons. Each state has its own required field.
@@ -126,26 +130,47 @@ export class LearningService {
     return res.rows[0];
   }
 
-  // Verify improvement: a formal review of whether the implemented change actually worked, with
-  // one of the four governance effectiveness outcomes (doctrine-consistent with action effectiveness
-  // review) plus "Too Early" and "Insufficient Evidence" for an honest non-verdict.
+  // Verify improvement: a formal review of whether the implemented change actually worked.
+  //
+  // 27 Oct developer review, P1 "Correct false verification": this previously wrote
+  // progress = IMPROVEMENT_VERIFIED for EVERY outcome -- a "Partly Effective"/"Not Effective"/
+  // "Too Early"/"Insufficient Evidence" verdict showed on screen as a fully green "Improvement
+  // verified" pill, and the record left the CHANGE_IMPLEMENTED queue even though nothing was
+  // actually confirmed. Only "Effective" now advances progress; every other outcome keeps the
+  // record at CHANGE_IMPLEMENTED (still awaiting a genuine confirmation) and requires a review
+  // date (owner instruction, 27 Oct) so follow-through surfaces in guided work: Waiting until
+  // that date, then Decisions Due on the day. Each attempt is appended to verification_history
+  // rather than overwriting the last one, so an inconclusive review is never the only trace of
+  // what was actually found.
   async verifyImprovement(
     id: string, company_id: string, actor_id: string,
     outcome: 'Effective' | 'Partly Effective' | 'Not Effective' | 'Too Early' | 'Insufficient Evidence',
     evidence: string,
+    reviewDueAt?: string | null,
   ) {
     const OUTCOMES = ['Effective', 'Partly Effective', 'Not Effective', 'Too Early', 'Insufficient Evidence'];
     if (!OUTCOMES.includes(outcome)) throw new Error('Invalid verification outcome.');
     if (!String(evidence || '').trim()) throw new Error('Give the evidence behind this verification.');
+    if (outcome !== 'Effective' && !reviewDueAt) {
+      throw new Error('This outcome is not Effective — give a review date for the follow-up.');
+    }
     const cur = (await query(`SELECT progress FROM learning_records WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
     if (!cur) throw new Error('Learning record not found.');
-    if (cur.progress !== 'CHANGE_IMPLEMENTED') throw new Error('Record the implementation before verifying its effect.');
+    if (cur.progress !== 'CHANGE_IMPLEMENTED' && cur.progress !== 'IMPROVEMENT_VERIFIED') {
+      throw new Error('Record the implementation before verifying its effect.');
+    }
+    const nextProgress = outcome === 'Effective' ? 'IMPROVEMENT_VERIFIED' : 'CHANGE_IMPLEMENTED';
     const res = await query(
       `UPDATE learning_records
-          SET progress = 'IMPROVEMENT_VERIFIED', verification_outcome = $3, verification_evidence = $4,
-              verified_at = NOW(), verified_by = $5, updated_at = NOW()
+          SET progress = $3, verification_outcome = $4, verification_evidence = $5,
+              verified_at = NOW(), verified_by = $6, updated_at = NOW(),
+              verification_review_due_at = $7,
+              verification_history = verification_history || jsonb_build_object(
+                'outcome', $4::text, 'evidence', $5::text, 'reviewed_by', $6::uuid,
+                'reviewed_at', NOW(), 'review_due_at', $7::date
+              )
         WHERE id = $1 AND company_id = $2 RETURNING *`,
-      [id, company_id, outcome, evidence.trim(), actor_id],
+      [id, company_id, nextProgress, outcome, evidence.trim(), actor_id, outcome === 'Effective' ? null : reviewDueAt],
     );
     return res.rows[0];
   }

@@ -52,6 +52,7 @@ export function LearningRegister() {
   const [verifying, setVerifying] = useState<string | null>(null);
   const [verifyOutcome, setVerifyOutcome] = useState("");
   const [verifyEvidence, setVerifyEvidence] = useState("");
+  const [verifyReviewDue, setVerifyReviewDue] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -101,9 +102,15 @@ export function LearningRegister() {
     catch (e: any) { toast.error(e?.response?.data?.message || "Could not record implementation"); }
     finally { setBusy(null); }
   };
-  const verifyImprovement = async (id: string, outcome: string, evidence: string) => {
+  const verifyImprovement = async (id: string, outcome: string, evidence: string, reviewDueAt?: string) => {
     setBusy(id);
-    try { await apiClient.post(`/learning/${id}/verify`, { outcome, evidence }); toast.success("Improvement verified"); setVerifying(null); load(); }
+    try {
+      await apiClient.post(`/learning/${id}/verify`, { outcome, evidence, review_due_at: reviewDueAt || undefined });
+      // 27 Oct developer review: the toast previously said "Improvement verified" regardless of
+      // the actual saved outcome -- only an Effective rating genuinely verifies the improvement.
+      toast.success(outcome === "Effective" ? "Improvement verified" : `Verification saved: ${outcome} — follow-up due ${reviewDueAt ? fmt(reviewDueAt) : ""}`);
+      setVerifying(null); load();
+    }
     catch (e: any) { toast.error(e?.response?.data?.message || "Could not verify improvement"); }
     finally { setBusy(null); }
   };
@@ -260,8 +267,17 @@ export function LearningRegister() {
                             than an empty string — a pre-25-Oct record genuinely has no stored
                             evidence (verified against production), it is not a display bug. */}
                         <p className="text-xs text-muted-foreground">Implemented: {r.implementation_evidence || "Not recorded"}{r.implemented_by_name ? ` (${r.implemented_by_name}, ${fmt(r.implemented_at)})` : ""}</p>
+                        {/* A non-Effective verification stays at CHANGE_IMPLEMENTED (honestly not
+                            yet confirmed) with its own follow-up due date, rather than the
+                            previous outcome disappearing once a new attempt is due. */}
+                        {r.verification_outcome && (
+                          <p className="mt-1 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-1">
+                            Last verification: {r.verification_outcome}{r.verified_by_name ? ` (${r.verified_by_name}, ${fmt(r.verified_at)})` : ""} — {r.verification_evidence}
+                            {r.verification_review_due_at && <> · Follow-up due {fmt(r.verification_review_due_at)}</>}
+                          </p>
+                        )}
                         {canManage && verifying !== r.id && (
-                          <button onClick={() => { setVerifying(r.id); setVerifyOutcome(""); setVerifyEvidence(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
+                          <button onClick={() => { setVerifying(r.id); setVerifyOutcome(""); setVerifyEvidence(""); setVerifyReviewDue(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
                         )}
                         {canManage && verifying === r.id && (
                           <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
@@ -274,8 +290,23 @@ export function LearningRegister() {
                               ))}
                             </div>
                             <textarea value={verifyEvidence} onChange={(e) => setVerifyEvidence(e.target.value)} rows={2} placeholder="Evidence behind this verification *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                            {/* 27 Oct owner instruction: anything short of Effective is not a
+                                closed matter — it needs a review date so follow-through surfaces
+                                in My Work/Decisions Due (Waiting until that date, then due on the
+                                day), instead of the lesson silently going quiet. */}
+                            {verifyOutcome && verifyOutcome !== "Effective" && (
+                              <div>
+                                <label className="block text-xs text-muted-foreground mb-1">Follow-up review date *</label>
+                                <input type="date" value={verifyReviewDue} onChange={(e) => setVerifyReviewDue(e.target.value)} className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
+                              </div>
+                            )}
                             <div className="flex gap-2">
-                              <button disabled={busy === r.id || !verifyOutcome} onClick={() => { if (!verifyOutcome) { toast.error("Choose an outcome."); return; } if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; } verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>
+                              <button disabled={busy === r.id || !verifyOutcome} onClick={() => {
+                                if (!verifyOutcome) { toast.error("Choose an outcome."); return; }
+                                if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; }
+                                if (verifyOutcome !== "Effective" && !verifyReviewDue) { toast.error("Give a follow-up review date for this outcome."); return; }
+                                verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim(), verifyOutcome !== "Effective" ? verifyReviewDue : undefined);
+                              }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>
                               <button onClick={() => setVerifying(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
                             </div>
                           </div>
