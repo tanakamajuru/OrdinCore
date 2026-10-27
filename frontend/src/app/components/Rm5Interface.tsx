@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useState } from "react";
 import { useCanonicalEvidenceSummary } from '@/hooks/useCanonicalEvidenceSummary';
 import { CanonicalEvidenceStrip } from './canonical/CanonicalEvidenceStrip';
-import { useNavigate } from "react-router";
+import { useNavigate, useSearchParams } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { Ambulance, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers, ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { apiClient } from "@/services/api";
@@ -64,6 +64,11 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   // Deep-link support: /rm5?stage=signals opens the pipeline on the signals tab so
   // "signals awaiting review" links land on signals, not patterns.
   const stageParam = (() => { try { return new URLSearchParams(window.location.search).get("stage"); } catch { return null; } })();
+  // 26 Oct developer requirements, "Services Overview" drill-down: ?house=<id> scopes the
+  // patterns lists to the service the RM opened this from, instead of showing the whole
+  // company-wide decision board with no indication which items belong to that service.
+  const [searchParams] = useSearchParams();
+  const houseFilterParam = searchParams.get("house");
   // Signals live on the "today" screen (there is no pipeline signals tab), so a
   // ?stage=signals deep-link must open "today" — not an empty pipeline pane.
   const [screen, setScreen] = useState<string>(stageParam ? (stageParam === "signals" ? "today" : "pipeline") : initialScreen);
@@ -211,12 +216,14 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const dueSafe = Math.min(duePage, duePages);
   const pagedDue = dueList.slice((dueSafe - 1) * PAGE, dueSafe * PAGE);
 
-  const withinList: any[] = patterns.within || [];
+  const matchesHouseFilter = (p: any) => !houseFilterParam || p.house_id === houseFilterParam || (p.affected_house_ids || []).includes(houseFilterParam);
+  const withinList: any[] = (patterns.within || []).filter(matchesHouseFilter);
   const withinPages = Math.max(1, Math.ceil(withinList.length / PAGE));
   const withinSafe = Math.min(patWPage, withinPages);
   const pagedWithin = withinList.slice((withinSafe - 1) * PAGE, withinSafe * PAGE);
 
-  const acrossList: any[] = patterns.across || [];
+  const acrossListAll: any[] = patterns.across || [];
+  const acrossList: any[] = acrossListAll.filter(matchesHouseFilter);
   const acrossPages = Math.max(1, Math.ceil(acrossList.length / PAGE));
   const acrossSafe = Math.min(patAPage, acrossPages);
   const pagedAcross = acrossList.slice((acrossSafe - 1) * PAGE, acrossSafe * PAGE);
@@ -313,6 +320,12 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
           <div>
             <GovHead q="Which concerns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
             <p className="text-xs text-muted-foreground mb-3">These are recorded recurring concerns the system has grouped — candidates, not conclusions. A concern becomes an <span className="font-semibold">established pattern</span> only once it meets the qualifying threshold, and <span className="font-semibold">systemic</span> only when the same theme recurs across more than one service. The "Patterns" ribbon counts genuine patterns — unpromoted concerns that meet the qualifying threshold, plus established (Confirmed) patterns which remain until leadership closes them — not all unresolved patterns and not single-signal watches. The "forming" concerns below have not yet met the threshold.</p>
+            {houseFilterParam && (
+              <div className="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+                <span>Showing only concerns for the service you opened this from ({withinList.length + acrossList.length} match{withinList.length + acrossList.length === 1 ? "" : "es"}).</span>
+                <button onClick={() => navigate("/rm5")} className="font-semibold text-primary hover:underline shrink-0 ml-3">Show all services</button>
+              </div>
+            )}
             <h2 className="text-lg font-semibold text-foreground mb-0.5 flex items-center gap-2 text-indigo-700"><Layers className="w-4 h-4 text-primary" />Within a service — forming concerns</h2>
             <p className="text-xs text-muted-foreground mb-2">Recurring signals in a single service that are forming but are <span className="font-semibold">not yet an established pattern</span>. Keep watching, or dismiss with a reason.</p>
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">

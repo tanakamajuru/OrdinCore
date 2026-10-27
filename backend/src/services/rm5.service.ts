@@ -243,7 +243,7 @@ export const rm5Service = {
       ? `(c.cluster_status IN ${ACTIVE_CLUSTER} OR (c.linked_risk_id IS NOT NULL AND c.cluster_status NOT IN ('Dismissed','Resolved')))`
       : `c.cluster_status IN ${ACTIVE_CLUSTER} AND c.linked_risk_id IS NULL`;
     const rows = (await query(
-      `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
+      `SELECT c.id, c.house_id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
               c.scope, COALESCE(pf.qualifying_count,c.signal_count) AS "signalCount",
               COALESCE(pf.historical_evidence_count,c.signal_count) AS "historicalSignalCount",
               pf.threshold AS configured_threshold, pf.window_days, pf.formation_basis, pf.subthemes,
@@ -280,6 +280,10 @@ export const rm5Service = {
         id: c.id, domain: c.domain, person: c.person,
         scope: c.scope === 'cross_service' ? 'cross_service' : 'service',
         houses: c.scope === 'cross_service' ? (c.affected_house_names || []) : [c.house_name].filter(Boolean),
+        // Services Overview drill-down (26 Oct developer requirements): lets a "Promotion decisions
+        // pending" link actually scope to the service it was opened from.
+        house_id: c.house_id || null,
+        affected_house_ids: c.affected_house_ids || [],
         signalCount: Number(c.signalCount) || 0,
         historicalSignalCount: Number(c.historicalSignalCount) || 0,
         threshold: Number(c.configured_threshold) || PROMOTION_THRESHOLD, windowDays: Number(c.window_days) || 7,
