@@ -125,16 +125,27 @@ function concernOf(
 // list, which only ever lists CURRENTLY active risks and silently omits an older closed one.
 async function resolveActionTargetFor(company_id: string, risk_id: string | null) {
   if (!risk_id) return { risk_id: null, status: null, is_open: false, available: false };
+  // 27 Oct developer review: this read raw risks.status directly, despite its own comments
+  // describing "canonical risk state" -- a raw status string misses a closure/reopening that
+  // changed canonical state without the column itself reflecting it (the same class of drift
+  // Services Overview was corrected for). canonical_risk_state_v.is_active/is_closed is the
+  // SAME definition every other consumer (themes(), the heat map, Services Overview) uses.
   const row = (await query(
-    `SELECT status::text AS status FROM risks WHERE id = $1 AND company_id = $2`,
+    `SELECT status::text AS status, is_active, is_closed FROM canonical_risk_state_v WHERE id = $1 AND company_id = $2`,
     [risk_id, company_id]
   )).rows[0];
   if (!row) {
     // Missing/unavailable (deleted, cross-tenant id, or a read failure) is its own explicit
     // state -- never silently substituted for another risk or defaulted to "active".
-    return { risk_id, status: null, is_open: false, available: false };
+    return { risk_id, status: null, is_open: false, available: false, status_unknown: false };
   }
-  return { risk_id, status: row.status, is_open: !isClosedRiskStatus(row.status), available: true };
+  // A canonical row that is neither definitively active nor definitively closed (an unmodelled
+  // in-between state) is never defaulted to open -- "null/unknown status must remain unknown,
+  // not become active" -- but the record itself was genuinely found, so `available` stays true;
+  // status_unknown flags the ambiguity separately rather than conflating "not found" with
+  // "found but ambiguous".
+  const statusUnknown = row.is_active !== true && row.is_closed !== true;
+  return { risk_id, status: row.status, is_open: row.is_active === true, available: true, status_unknown: statusUnknown };
 }
 
 export const interventionsService = {
@@ -519,14 +530,15 @@ export const interventionsService = {
     // intervention's own linked risk is closed, or that it was ever linked at all. Look up the
     // real status of each one in a single batch so the card and its Action button can say which
     // case this is, instead of a single blanket "No active risk" label for all three.
-    const orphanedRiskIds = Array.from(new Set(orphaned.map((i) => i.linked_risk_id).filter(Boolean)));
-    const orphanedRiskStatus = new Map<string, string>();
-    if (orphanedRiskIds.length) {
-      const rows = (await query(
-        `SELECT id, status::text AS status FROM risks WHERE id = ANY($1::uuid[]) AND company_id = $2`,
-        [orphanedRiskIds, company_id]
-      )).rows;
-      for (const r of rows) orphanedRiskStatus.set(String(r.id), r.status);
+    // 27 Oct developer review: "Handle historical targets through the same resolver" -- this
+    // used to run its own ad-hoc batch query against raw risks.status; now reuses the SAME
+    // resolveActionTargetFor() the active-theme branch uses, so a historical card's status can
+    // never drift from the canonical definition the rest of the screen relies on.
+    const orphanedTargets = new Map<string, Awaited<ReturnType<typeof resolveActionTargetFor>>>();
+    for (const intv of orphaned) {
+      if (intv.linked_risk_id && !orphanedTargets.has(intv.linked_risk_id)) {
+        orphanedTargets.set(intv.linked_risk_id, await resolveActionTargetFor(company_id, intv.linked_risk_id));
+      }
     }
 
     for (const intv of orphaned) {
@@ -534,18 +546,18 @@ export const interventionsService = {
       coveredThemes.add(key); // interventions is already one row per theme (house_id IS NULL)
 
       const effectiveness = normalizeEffectiveness(intv.effectiveness_outcome);
-      const linkedRiskFound = intv.linked_risk_id ? orphanedRiskStatus.has(String(intv.linked_risk_id)) : false;
-      const linkedRiskStatus = intv.linked_risk_id ? (orphanedRiskStatus.get(String(intv.linked_risk_id)) || null) : null;
+      const actionTarget = intv.linked_risk_id
+        ? (orphanedTargets.get(intv.linked_risk_id) || { risk_id: intv.linked_risk_id, status: null, is_open: false, available: false, status_unknown: false })
+        : { risk_id: null, status: null, is_open: false, available: false, status_unknown: false };
       const historicalReason = !intv.linked_risk_id
         ? 'This plan was never linked to a delivery risk — no active risk exists for this theme.'
-        : !linkedRiskFound
+        : !actionTarget.available
           ? 'The linked risk for this theme could not be found — it may have been removed.'
-          : isClosedRiskStatus(linkedRiskStatus)
-            ? 'The linked risk for this theme is closed — the plan and its history are retained.'
-            : 'No active risk remains for this theme — the plan and its history are retained.';
-      const actionTarget = intv.linked_risk_id
-        ? { risk_id: intv.linked_risk_id, status: linkedRiskStatus, is_open: linkedRiskFound && !isClosedRiskStatus(linkedRiskStatus), available: linkedRiskFound }
-        : { risk_id: null, status: null, is_open: false, available: false };
+          : actionTarget.status_unknown
+            ? 'The linked risk for this theme has an unrecognised status — treat as unresolved and review manually.'
+            : !actionTarget.is_open
+              ? 'The linked risk for this theme is closed — the plan and its history are retained.'
+              : 'No active risk remains for this theme — the plan and its history are retained.';
       out.push({
         theme: intv.theme,
         services: 0,
