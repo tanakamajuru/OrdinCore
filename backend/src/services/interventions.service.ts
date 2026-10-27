@@ -142,6 +142,96 @@ export const interventionsService = {
     return resolveActionTargetFor(company_id, risk_id);
   },
 
+  // 27 Oct developer instructions (P1, "Reconcile historical plans without reopening risks").
+  // READ-ONLY classification inventory -- deliberately does not transfer work, create tasks or
+  // touch any record. "Transfer only unique work into the existing task pathway once... with an
+  // idempotent migration mapping so reruns cannot duplicate tasks" needs its own migration/table
+  // and careful design review before being automated in a safety-critical governance system; this
+  // inventory is the first half (classification) so an RM can see the true position and follow
+  // through via the existing My Work / RM Decisions Due queues, which already derive from the
+  // same canonical action/effectiveness state used here -- never reopens a risk or creates one.
+  async reconciliationInventory(company_id: string) {
+    const interventions = (await query(
+      `SELECT i.id, i.theme, i.status, i.owner_id, i.review_date, i.started_at, i.updated_at,
+              i.linked_risk_id, i.linked_action_id,
+              (u.first_name || ' ' || u.last_name) AS owner_name,
+              r.status::text AS linked_risk_status,
+              ira.status::text AS linked_action_status, ira.completed_at AS linked_action_completed_at,
+              COALESCE(ira.effectiveness_outcome, CASE ira.effectiveness::text
+                WHEN 'Effective' THEN 'Effective' WHEN 'Neutral' THEN 'Partially Effective'
+                WHEN 'Ineffective' THEN 'Not Effective' ELSE NULL END) AS effectiveness_outcome,
+              ira.effectiveness_evidence
+         FROM interventions i
+         LEFT JOIN users u ON u.id = i.owner_id
+         LEFT JOIN risks r ON r.id = i.linked_risk_id
+         LEFT JOIN risk_actions ira ON ira.id = i.linked_action_id AND ira.company_id = i.company_id
+        WHERE i.company_id = $1 AND i.house_id IS NULL
+        ORDER BY i.theme`,
+      [company_id]
+    )).rows;
+
+    const out: any[] = [];
+    for (const intv of interventions) {
+      const explicitLinks = (await query(
+        `SELECT l.action_id, ra.title, ra.status::text AS status, ra.is_completed,
+                COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) AS effectiveness,
+                ra.due_date
+           FROM intervention_action_links l
+           JOIN canonical_action_state_v ra ON ra.id = l.action_id AND ra.company_id = l.company_id
+          WHERE l.company_id = $1 AND l.intervention_id = $2 AND l.removed_at IS NULL`,
+        [company_id, intv.id]
+      )).rows;
+
+      const riskClosed = intv.linked_risk_id ? isClosedRiskStatus(intv.linked_risk_status) : null;
+      const openLinkedActions = explicitLinks.filter((a: any) => !a.is_completed);
+      const awaitingEffectiveness = [
+        ...(intv.linked_action_id && intv.linked_action_completed_at && !intv.effectiveness_outcome ? [{ action_id: intv.linked_action_id, title: 'Primary linked action' }] : []),
+        ...explicitLinks.filter((a: any) => a.is_completed && !a.effectiveness),
+      ];
+      const outstandingWork = openLinkedActions.length > 0 || awaitingEffectiveness.length > 0;
+
+      let classification: string;
+      if (!intv.linked_risk_id && !intv.linked_action_id && explicitLinks.length === 0) {
+        classification = 'unlinked_plan';
+      } else if (riskClosed === false) {
+        // Linked risk still active -- not this inventory's concern (current, not historical).
+        classification = 'current';
+      } else if (riskClosed === null) {
+        classification = 'ambiguous_review_required'; // no linked risk, but has linked action(s)
+      } else if (outstandingWork) {
+        classification = 'historical_outstanding_work';
+      } else if (intv.effectiveness_outcome || intv.status === 'Complete') {
+        classification = 'historical_completed_no_work';
+      } else {
+        classification = 'ambiguous_review_required';
+      }
+
+      out.push({
+        intervention_id: intv.id,
+        theme: intv.theme,
+        plan_status: intv.status,
+        owner_id: intv.owner_id,
+        owner_name: intv.owner_name,
+        review_date: intv.review_date,
+        started_at: intv.started_at,
+        updated_at: intv.updated_at,
+        linked_risk_id: intv.linked_risk_id,
+        linked_risk_status: intv.linked_risk_status,
+        linked_action_id: intv.linked_action_id,
+        linked_action_status: intv.linked_action_status,
+        effectiveness_outcome: intv.effectiveness_outcome,
+        effectiveness_evidence: intv.effectiveness_evidence,
+        explicit_links: explicitLinks,
+        classification,
+        outstanding_work: outstandingWork
+          ? { open_linked_actions: openLinkedActions.map((a: any) => ({ action_id: a.action_id, title: a.title, due_date: a.due_date })),
+              awaiting_effectiveness: awaitingEffectiveness }
+          : null,
+      });
+    }
+    return out.filter((r) => r.classification !== 'current');
+  },
+
   /**
    * Every active governance theme with:
    * - authoritative risk trajectory roll-up;

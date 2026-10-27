@@ -341,6 +341,10 @@ export function InterventionPanel() {
   const [edit, setEdit] = useState<any>(null); // { theme, intervention record or blank }
   const [saving, setSaving] = useState(false);
   const [closeTheme, setCloseTheme] = useState<any>(null); // theme whose risks are being closed/rated
+  // 27 Oct developer instructions (P1, "Reconcile historical plans"): read-only inventory of
+  // historical/unlinked/ambiguous plans, classified server-side. Never mutates anything.
+  const [reconciliation, setReconciliation] = useState<any[]>([]);
+  const [showReconciliation, setShowReconciliation] = useState(false);
 
   const load = async () => {
     setLoading(true);
@@ -349,6 +353,7 @@ export function InterventionPanel() {
     finally { setLoading(false); }
   };
   useEffect(() => { load(); }, []);
+  useEffect(() => { apiClient.get("/interventions/reconciliation").then((r: any) => setReconciliation(unwrap(r) || [])).catch(() => setReconciliation([])); }, []);
   // Keep RM, Director and RI projections aligned. WebSocket gives prompt updates; focus and the
   // 60-second safety poll recover anything missed during disconnection/backgrounding.
   useEffect(() => {
@@ -421,7 +426,7 @@ export function InterventionPanel() {
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <div className="mb-5">
-          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Intervention Action</h1>
+          <h1 className="text-2xl font-semibold text-foreground flex items-center gap-2"><Target className="w-6 h-6 text-primary" /> Management Response Overview</h1>
           <p className="text-sm text-muted-foreground mt-1">Trajectory-based governance — every theme carries a direction of travel, a leadership response and its measured effect. {attention > 0 && <span className="text-red-600 font-medium">{attention} theme{attention === 1 ? "" : "s"} need attention.</span>}</p>
         </div>
 
@@ -715,6 +720,60 @@ export function InterventionPanel() {
                 </div>
               );
             })}
+          </div>
+        )}
+
+        {/* 27 Oct developer instructions (P1, "Reconcile historical plans without reopening
+            risks"): read-only inventory of historical/unlinked/ambiguous plans — classified
+            server-side, never mutates a record. Genuine delivery work surfaces independently in
+            My Work / RM Decisions Due; this view exists so an RM can see the true position
+            across every historical plan in one place before reconciling it manually. */}
+        {reconciliation.length > 0 && (
+          <div className="mt-8 bg-card border border-border rounded-xl">
+            <button onClick={() => setShowReconciliation((s) => !s)} className="w-full flex items-center justify-between px-5 py-4 text-left">
+              <div>
+                <h2 className="font-semibold text-foreground">Historical plan reconciliation</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">{reconciliation.length} plan{reconciliation.length === 1 ? "" : "s"} with no current active risk, classified for review. Read-only — this never reopens a risk or changes a record.</p>
+              </div>
+              <ChevronRight className={`w-5 h-5 text-muted-foreground transition-transform ${showReconciliation ? "rotate-90" : ""}`} />
+            </button>
+            {showReconciliation && (
+              <div className="border-t border-border divide-y divide-border">
+                {reconciliation.map((r: any) => {
+                  const CLASS_LABEL: Record<string, string> = {
+                    historical_completed_no_work: "Completed — no work remaining",
+                    historical_outstanding_work: "Outstanding work remains",
+                    unlinked_plan: "Never linked to a delivery risk",
+                    ambiguous_review_required: "Ambiguous — RM review required",
+                  };
+                  const CLASS_TONE: Record<string, string> = {
+                    historical_completed_no_work: "bg-emerald-100 text-emerald-700",
+                    historical_outstanding_work: "bg-red-100 text-red-700",
+                    unlinked_plan: "bg-muted text-muted-foreground",
+                    ambiguous_review_required: "bg-amber-100 text-amber-700",
+                  };
+                  return (
+                    <div key={r.intervention_id} className="px-5 py-3 flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="font-medium text-sm text-foreground">{r.theme}</div>
+                        <div className="text-xs text-muted-foreground mt-0.5">
+                          {r.owner_name ? `Owner: ${r.owner_name} · ` : ""}Plan status: {r.plan_status}
+                          {r.linked_risk_id && ` · Linked risk: ${r.linked_risk_status || "unknown"}`}
+                          {r.effectiveness_outcome && ` · Effectiveness: ${r.effectiveness_outcome}`}
+                        </div>
+                        {r.outstanding_work && (
+                          <div className="text-xs text-amber-700 mt-1">
+                            {r.outstanding_work.open_linked_actions?.length > 0 && <div>{r.outstanding_work.open_linked_actions.length} open linked action(s) — follow up via Action Tracker/My Work.</div>}
+                            {r.outstanding_work.awaiting_effectiveness?.length > 0 && <div>{r.outstanding_work.awaiting_effectiveness.length} action(s) awaiting an effectiveness verdict.</div>}
+                          </div>
+                        )}
+                      </div>
+                      <span className={`text-[11px] rounded px-2 py-0.5 shrink-0 ${CLASS_TONE[r.classification] || "bg-muted"}`}>{CLASS_LABEL[r.classification] || r.classification}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
       </div>

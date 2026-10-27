@@ -12,6 +12,10 @@ export const interventionsController = {
     try { res.json({ success: true, data: await interventionsService.themes(cid(req)), meta: {} }); }
     catch (e) { fail(res, e); }
   },
+  reconciliation: async (req: Request, res: Response) => {
+    try { res.json({ success: true, data: await interventionsService.reconciliationInventory(cid(req)), meta: {} }); }
+    catch (e) { fail(res, e); }
+  },
   upsert: async (req: Request, res: Response) => {
     try { res.json({ success: true, data: await interventionsService.upsertIntervention(cid(req), req.user!.user_id, req.body), meta: {} }); }
     catch (e) { fail(res, e); }

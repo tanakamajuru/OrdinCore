@@ -13,6 +13,9 @@ const oversight = [requireAuth, requireTenant, requireRole('REGISTERED_MANAGER',
 const operationalWrite = [requireAuth, requireTenant, requireRole('REGISTERED_MANAGER')];
 
 router.get('/themes', ...oversight, interventionsController.themes);
+// 27 Oct developer instructions (P1, "Reconcile historical plans"): read-only classification
+// inventory, declared before '/:id' so 'reconciliation' isn't read as an intervention id.
+router.get('/reconciliation', ...oversight, interventionsController.reconciliation);
 router.get('/governance-health', ...oversight, interventionsController.governanceHealth);
 router.post('/', ...operationalWrite, interventionsController.upsert);
 
