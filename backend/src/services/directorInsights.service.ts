@@ -88,14 +88,20 @@ export class DirectorInsightsService {
 
     const houses = (await query(`SELECT id, name FROM houses WHERE company_id = $1 ORDER BY name`, [companyId])).rows;
 
+    // 27 Oct developer instructions ("Finish validation of the new Services Overview"): this
+    // used raw `status != closed`, which does not account for Resolved status or a closure/
+    // reopening that changed canonical state without the raw status column reflecting it.
+    // canonical_risk_state_v.is_active is the SAME active-state definition every other
+    // consumer (themes(), the heat map, risks-by-trend) already uses.
+    //
     // Every open risk, expanded to each service it explicitly affects. A risk with no house_id and
     // no linked signal in any house is organisation-wide with no specific allocation -- it is
     // never assigned to every house to fill that gap.
     const riskRows = (await query(
       `WITH open_risks AS (
          SELECT r.id AS risk_id, r.source_cluster_id, r.house_id, r.impact_rating
-           FROM risks r
-          WHERE r.company_id = $1 AND LOWER(r.status) <> 'closed'
+           FROM canonical_risk_state_v r
+          WHERE r.company_id = $1 AND r.is_active
        ), expanded AS (
          SELECT risk_id, source_cluster_id, impact_rating, house_id AS service_id
            FROM open_risks WHERE house_id IS NOT NULL
@@ -115,8 +121,8 @@ export class DirectorInsightsService {
     // organisation-wide, shown in their own bucket rather than guessed into every house.
     const unallocated = (await query(
       `SELECT r.id AS risk_id, r.impact_rating
-         FROM risks r
-        WHERE r.company_id = $1 AND LOWER(r.status) <> 'closed' AND r.house_id IS NULL
+         FROM canonical_risk_state_v r
+        WHERE r.company_id = $1 AND r.is_active AND r.house_id IS NULL
           AND NOT EXISTS (
             SELECT 1 FROM risk_signal_links rsl
               JOIN governance_pulses p ON p.id = rsl.pulse_entry_id AND p.house_id IS NOT NULL
@@ -130,25 +136,52 @@ export class DirectorInsightsService {
     const clusterByRisk = new Map<string, string | null>();
     for (const r of riskRows) clusterByRisk.set(r.risk_id, r.source_cluster_id || null);
     const deteriorating = new Set<string>();
+    // 27 Oct: "Failed trajectory calculations must show incomplete/unavailable coverage, not a
+    // confident zero deteriorating count." A failed read used to be silently dropped, which is
+    // indistinguishable from a risk that is genuinely not deteriorating -- track it explicitly.
+    const trajectoryUnavailable = new Set<string>();
     for (const riskId of distinctRiskIds) {
       try {
         const tr = await trajectoryForRisk(riskId, clusterByRisk.get(riskId) || null);
         if (tr.direction === 'Deteriorating') deteriorating.add(riskId);
-      } catch { /* a failed trajectory read is never treated as "not deteriorating" with confidence -- omit from the count */ }
+      } catch { trajectoryUnavailable.add(riskId); }
     }
 
-    // Pending promotion decisions: unresolved signal clusters and new risk candidates, by house.
-    // "Overdue" has no existing stored SLA for a promotion decision, so this uses the same 7-day
-    // RM-review expectation the rest of the governance surface treats as a working week -- stated
-    // explicitly here so it is auditable, not implied as some other canonical threshold.
-    const pending = (await query(
-      `SELECT house_id, id, created_at FROM signal_clusters
-        WHERE company_id = $1 AND linked_risk_id IS NULL AND cluster_status NOT IN ('Resolved', 'Dismissed')
-        UNION ALL
-       SELECT house_id, id, created_at FROM risk_candidates
-        WHERE company_id = $1 AND status = 'New'`,
+    // Pending promotion decisions: unresolved signal clusters (by every service they explicitly
+    // affect -- a cross-service cluster's affected_house_ids, not just its primary house_id) and
+    // new risk candidates, by house.
+    //
+    // 27 Oct: "Do not invent a seven-day overdue rule where no agreed stored due date exists."
+    // signal_clusters.next_review_date IS a genuine stored RM-set review date -- overdue is
+    // derived from that, not an invented threshold. risk_candidates has no due-date column at
+    // all, so a candidate is never counted overdue (it still counts as pending).
+    const pendingClusters = (await query(
+      `SELECT id, house_id, scope, affected_house_ids, next_review_date,
+              (next_review_date IS NOT NULL AND next_review_date < CURRENT_DATE) AS is_overdue
+         FROM signal_clusters
+        WHERE company_id = $1 AND linked_risk_id IS NULL AND cluster_status NOT IN ('Resolved', 'Dismissed')`,
       [companyId]
     )).rows;
+    const pendingCandidates = (await query(
+      `SELECT id, house_id FROM risk_candidates WHERE company_id = $1 AND status = 'New'`,
+      [companyId]
+    )).rows;
+    // Expand each cluster to every service it affects: cross-service clusters go to each
+    // affected house, not just the primary one; a cluster with no house at all (house_id null
+    // and no affected_house_ids) is unallocated, counted separately below rather than dropped.
+    const pending: Array<{ house_id: string | null; is_overdue: boolean }> = [];
+    const unallocatedPending: Array<{ is_overdue: boolean }> = [];
+    for (const c of pendingClusters) {
+      const affected: string[] = Array.isArray(c.affected_house_ids) && c.affected_house_ids.length
+        ? c.affected_house_ids
+        : (c.house_id ? [c.house_id] : []);
+      if (!affected.length) { unallocatedPending.push({ is_overdue: !!c.is_overdue }); continue; }
+      for (const houseId of affected) pending.push({ house_id: houseId, is_overdue: !!c.is_overdue });
+    }
+    for (const cand of pendingCandidates) {
+      if (!cand.house_id) { unallocatedPending.push({ is_overdue: false }); continue; }
+      pending.push({ house_id: cand.house_id, is_overdue: false });
+    }
 
     // Overdue actions: canonical open actions past their due date, scoped by the risk's house --
     // deliberately NOT filtered to active risks, so work still owed after a risk closes stays
@@ -174,7 +207,7 @@ export class DirectorInsightsService {
     const byService = new Map<string, any>();
     for (const h of houses) byService.set(h.id, {
       id: h.id, name: h.name, open_risks: new Set<string>(), highest_rank: 0, highest_rating: null as string | null,
-      deteriorating: 0, pending_decisions: 0, pending_overdue: 0, overdue_actions: 0, overdue_reviews: 0,
+      deteriorating: 0, trajectory_unavailable: 0, pending_decisions: 0, pending_overdue: 0, overdue_actions: 0, overdue_reviews: 0,
     });
 
     for (const row of riskRows) {
@@ -184,13 +217,13 @@ export class DirectorInsightsService {
       const rank = IMPACT_RANK[row.impact_rating] || 0;
       if (rank > s.highest_rank) { s.highest_rank = rank; s.highest_rating = row.impact_rating || null; }
       if (deteriorating.has(row.risk_id)) s.deteriorating += 1;
+      if (trajectoryUnavailable.has(row.risk_id)) s.trajectory_unavailable += 1;
     }
-    const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
     for (const p of pending) {
       const s = p.house_id ? byService.get(p.house_id) : null;
       if (!s) continue;
       s.pending_decisions += 1;
-      if (new Date(p.created_at).getTime() < sevenDaysAgo) s.pending_overdue += 1;
+      if (p.is_overdue) s.pending_overdue += 1;
     }
     for (const a of overdueActions) { const s = a.house_id ? byService.get(a.house_id) : null; if (s) s.overdue_actions += 1; }
     for (const rv of overdueReviews) { const s = rv.house_id ? byService.get(rv.house_id) : null; if (s) s.overdue_reviews += 1; }
@@ -200,6 +233,7 @@ export class DirectorInsightsService {
       open_risks: s.open_risks.size,
       highest_rating: s.highest_rating || 'Unrated',
       deteriorating: s.deteriorating,
+      trajectory_unavailable: s.trajectory_unavailable,
       pending_decisions: s.pending_decisions,
       pending_overdue: s.pending_overdue,
       overdue_actions: s.overdue_actions,
@@ -218,6 +252,11 @@ export class DirectorInsightsService {
         open_risks: unallocated.length,
         highest_rating: unallocated.length ? orgWideRating : null,
         deteriorating: unallocated.filter((r: any) => deteriorating.has(r.risk_id)).length,
+        trajectory_unavailable: unallocated.filter((r: any) => trajectoryUnavailable.has(r.risk_id)).length,
+        // Pending promotion decisions with no service allocation at all (no house_id and, for a
+        // cluster, no affected_house_ids) -- shown separately rather than silently dropped.
+        pending_decisions: unallocatedPending.length,
+        pending_overdue: unallocatedPending.filter((p) => p.is_overdue).length,
       },
     };
   }

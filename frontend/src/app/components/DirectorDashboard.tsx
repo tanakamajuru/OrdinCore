@@ -134,13 +134,27 @@ function ServicesOverview({ navigate }: { navigate: (path: string) => void }) {
       )}
       {state === "ready" && (
         <>
-          {overview?.organisation_wide?.open_risks > 0 && (
-            <div className="mb-4 flex items-center justify-between rounded-lg border border-border bg-muted/30 p-3 text-sm">
-              <div>
-                <span className="font-medium text-foreground">Organisation-wide risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} with unspecified service allocation</span>
-                <p className="text-[11px] text-muted-foreground mt-0.5">{overview.organisation_wide.open_risks} active risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} shown separately — not assigned to every service.</p>
-              </div>
-              <button onClick={() => navigate("/risk-register?tab=strategic")} className="text-xs font-semibold text-primary hover:underline shrink-0">View →</button>
+          {(overview?.organisation_wide?.open_risks > 0 || overview?.organisation_wide?.pending_decisions > 0) && (
+            <div className="mb-4 rounded-lg border border-border bg-muted/30 p-3 text-sm space-y-2">
+              {overview.organisation_wide.open_risks > 0 && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-foreground">Organisation-wide risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} with unspecified service allocation</span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{overview.organisation_wide.open_risks} active risk{overview.organisation_wide.open_risks === 1 ? "" : "s"} shown separately — not assigned to every service.</p>
+                  </div>
+                  <button onClick={() => navigate("/risk-register?tab=strategic")} className="text-xs font-semibold text-primary hover:underline shrink-0">View →</button>
+                </div>
+              )}
+              {/* 27 Oct: unallocated obligations shown separately rather than silently dropped. */}
+              {overview.organisation_wide.pending_decisions > 0 && (
+                <div className="flex items-center justify-between">
+                  <div>
+                    <span className="font-medium text-foreground">Promotion decisions with unspecified service allocation</span>
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{overview.organisation_wide.pending_decisions} pending{overview.organisation_wide.pending_overdue > 0 ? ` (${overview.organisation_wide.pending_overdue} overdue)` : ""}.</p>
+                  </div>
+                  <button onClick={() => navigate("/rm5?stage=patterns")} className="text-xs font-semibold text-primary hover:underline shrink-0">View →</button>
+                </div>
+              )}
             </div>
           )}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -156,7 +170,10 @@ function ServicesOverview({ navigate }: { navigate: (path: string) => void }) {
                 <div className="grid grid-cols-3 gap-1">
                   <ServiceMetric label="Open risks" value={s.open_risks} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title="Distinct active risks affecting this service" />
                   <ServiceMetric label="Highest rating" value={s.highest_rating} tone={IMPACT_TONE[s.highest_rating] ? "" : undefined} title="Highest recorded risk rating among this service's open risks" onClick={s.open_risks ? () => navigate(`/risk-register?tab=active&house=${s.id}`) : undefined} />
-                  <ServiceMetric label="Deteriorating" value={s.deteriorating} tone={s.deteriorating > 0 ? "text-red-600" : undefined} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title="Authoritative trajectory: risks currently deteriorating" />
+                  {/* 27 Oct developer instructions ("Finish validation of the new Services
+                      Overview"): a trajectory read that failed is shown as its own "unavailable"
+                      state rather than silently counting toward a confident "0 deteriorating". */}
+                  <ServiceMetric label="Deteriorating" value={s.trajectory_unavailable > 0 ? `${s.deteriorating} (+${s.trajectory_unavailable} unavailable)` : s.deteriorating} tone={s.deteriorating > 0 ? "text-red-600" : s.trajectory_unavailable > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title={`Authoritative trajectory: risks currently deteriorating${s.trajectory_unavailable ? `. ${s.trajectory_unavailable} risk(s) could not be assessed — not counted as stable.` : ''}`} />
                   <ServiceMetric label="Promotions pending" value={s.pending_overdue > 0 ? `${s.pending_decisions} (${s.pending_overdue} overdue)` : s.pending_decisions} tone={s.pending_overdue > 0 ? "text-red-600" : s.pending_decisions > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`/rm5?stage=patterns&house=${s.id}`)} title="Concerns awaiting an RM promotion decision for this service" />
                   <ServiceMetric label="Overdue actions" value={s.overdue_actions} tone={s.overdue_actions > 0 ? "text-red-600" : undefined} onClick={() => navigate("/governance-compliance")} title="Outstanding follow-through past its due date, including work remaining after risk closure" />
                   <ServiceMetric label="Overdue reviews" value={s.overdue_reviews} tone={s.overdue_reviews > 0 ? "text-red-600" : undefined} onClick={() => navigate("/effectiveness")} title="Effectiveness reviews past their due date" />
@@ -395,10 +412,27 @@ export function DirectorDashboard() {
           </div>
 
           <div className="bg-card border border-border rounded-xl p-5 shadow-sm">
-            <h3 className="font-semibold mb-1">Top Risk Themes <span className="text-xs text-muted-foreground font-normal">(direction of travel)</span></h3>
-            <p className="text-[11px] text-muted-foreground mb-3">Each theme tells a story — is it improving, holding, or getting worse? Open the Intervention Panel to act.</p>
+            {/* 27 Oct developer instructions ("Complete the agreed screen and dashboard
+                change"): renamed from "Top Risk Themes" and now excludes historical plans
+                (t.historical) before ranking/limiting — previously this took the first six
+                returned themes regardless, and /interventions/themes appends closed-theme
+                historical cards after the active ones, so a historical plan could occupy a
+                "top" slot. Ranked by recorded risk rating, then deterioration count, then
+                overdue reviews/actions — a disclosed rule, not an inferred systemic cause. */}
+            <h3 className="font-semibold mb-1">Current Registered Risk Themes <span className="text-xs text-muted-foreground font-normal">(direction of travel)</span></h3>
+            <p className="text-[11px] text-muted-foreground mb-3">Ranked by highest recorded risk rating, then deterioration, then overdue work. Open the Intervention Panel to act.</p>
             <div className="space-y-2">
-              {(themeTrends.length ? themeTrends : []).slice(0, 6).map((t: any) => {
+              {(() => {
+                const RANK: Record<string, number> = { Critical: 4, High: 3, Medium: 2, Low: 1 };
+                const highestRating = (t: any) => (t.risk_refs || []).reduce((max: number, r: any) => Math.max(max, RANK[r.impact_rating] || 0), 0);
+                const active = themeTrends.filter((t: any) => !t.historical);
+                const ranked = [...active].sort((a, b) =>
+                  highestRating(b) - highestRating(a)
+                  || (b.trajectory?.counts?.deteriorating || 0) - (a.trajectory?.counts?.deteriorating || 0)
+                  || ((b.overdueActions || 0)) - ((a.overdueActions || 0))
+                );
+                return ranked.slice(0, 6);
+              })().map((t: any) => {
                 // trajectory.label is the authoritative engine's own vocabulary:
                 // Deteriorating / Improving / Stable (or "Insufficient evidence" for a
                 // closed-theme historical card) — never the Increasing/Reducing labels
@@ -418,7 +452,7 @@ export function DirectorDashboard() {
                   </button>
                 );
               })}
-              {themeTrends.length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No themes</p>}
+              {themeTrends.filter((t: any) => !t.historical).length === 0 && <p className="text-xs text-muted-foreground py-6 text-center">No current registered risk themes</p>}
             </div>
           </div>
 
