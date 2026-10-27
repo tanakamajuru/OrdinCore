@@ -337,7 +337,27 @@ export class IncidentsService {
   async addAttachment(incident_id: string, company_id: string, user_id: string, data: { file_name: string; file_url: string; file_type?: string; file_size?: number }) {
     const incident = await incidentsRepo.findById(incident_id, company_id);
     if (!incident) throw new Error('Incident not found');
-    const attachment = await incidentsRepo.addAttachment(incident_id, company_id, { ...data, uploaded_by: user_id });
+    // VAPT F8 (26 Oct 2026, confirmed by code trace): file_url was accepted with no validation
+    // that it points at this app's own storage. The frontend's download handler attaches the
+    // viewer's live bearer token to whatever URL is stored here (apiClient/axios does this
+    // unconditionally, even for a full external URL) -- so an attacker-controlled file_url is a
+    // session-token exfiltration vector for anyone who opens the attachment. The only
+    // legitimate value is the exact path the app's own /pulses/media upload just returned:
+    // .../api/v1/uploads/<uuid-or-safe-filename>.<ext> -- reusing the same filename-safety
+    // regex already enforced on the authenticated download path (pulse.controller.ts).
+    let pathname: string;
+    try {
+      pathname = new URL(data.file_url, 'http://placeholder.invalid').pathname;
+    } catch {
+      throw new Error('file_url is not a valid URL.');
+    }
+    const match = /^\/api\/v1\/uploads\/([A-Za-z0-9][A-Za-z0-9-]*\.[A-Za-z0-9]+)$/.exec(pathname);
+    if (!match) {
+      throw new Error('file_url must reference a file previously uploaded to this application.');
+    }
+    // Store only the validated path, discarding any attacker-supplied host (an external host
+    // with this exact path would otherwise still pass the regex above).
+    const attachment = await incidentsRepo.addAttachment(incident_id, company_id, { ...data, file_url: pathname, uploaded_by: user_id });
     return attachment;
   }
 

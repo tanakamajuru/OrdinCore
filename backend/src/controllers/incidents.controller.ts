@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { incidentsService } from '../services/incidents.service';
+import { isOutsideHouseScope } from '../utils/houseScope';
 
 export class IncidentsController {
   async create(req: Request, res: Response) {
@@ -58,6 +59,11 @@ export class IncidentsController {
     try {
       const company_id = req.user!.company_id!;
       const incident = await incidentsService.findById(req.params.id, company_id);
+      // VAPT F1 (26 Oct 2026): confirmed by live exploitation -- this previously scoped only by
+      // tenant, so any Team Leader/Support Worker could read any other house's incident by id.
+      if (isOutsideHouseScope(req, incident.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       return res.json({ success: true, data: incident, meta: {} });
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Incident not found';
@@ -79,6 +85,12 @@ export class IncidentsController {
   async update(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      // VAPT F2 (26 Oct 2026): confirmed by live exploitation (real data mutation, reverted) --
+      // a Team Leader could tamper with another house's incident. Check scope BEFORE writing.
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const incident = await incidentsService.update(req.params.id, company_id, req.body);
       return res.json({ success: true, data: incident, meta: {} });
     } catch (err: unknown) {
@@ -101,6 +113,10 @@ export class IncidentsController {
   async getTimeline(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const timeline = await incidentsService.getTimeline(req.params.id, company_id);
       return res.json({ success: true, data: { timeline }, meta: {} });
     } catch (err: unknown) {
@@ -112,6 +128,10 @@ export class IncidentsController {
   async getGovernanceTimeline(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const timeline = await incidentsService.getGovernanceTimeline(req.params.id, company_id);
       return res.json({ success: true, data: { timeline }, meta: {} });
     } catch (err: unknown) {
@@ -145,6 +165,10 @@ export class IncidentsController {
   async getAttachments(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const attachments = await incidentsService.getAttachments(req.params.id, company_id);
       return res.json({ success: true, data: attachments, meta: {} });
     } catch (err: unknown) {
@@ -156,6 +180,10 @@ export class IncidentsController {
   async addAttachment(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const attachment = await incidentsService.addAttachment(req.params.id, company_id, req.user!.user_id, req.body);
       return res.status(201).json({ success: true, data: attachment, meta: {} });
     } catch (err: unknown) {
@@ -167,6 +195,10 @@ export class IncidentsController {
   async removeAttachment(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       await incidentsService.removeAttachment(req.params.id, company_id, req.user!.user_id, req.params.attachmentId);
       return res.json({ success: true, data: { message: 'Attachment removed' }, meta: {} });
     } catch (err: unknown) {
@@ -178,6 +210,10 @@ export class IncidentsController {
   async assignIncident(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const result = await incidentsService.assignIncident(req.params.id, company_id, req.user!.user_id, req.body.assigned_to);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {
@@ -189,6 +225,10 @@ export class IncidentsController {
   async resolveIncident(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const existing = await incidentsService.findById(req.params.id, company_id);
+      if (isOutsideHouseScope(req, existing.house_id)) {
+        return res.status(404).json({ success: false, message: 'Incident not found', errors: [] });
+      }
       const result = await incidentsService.resolveIncident(req.params.id, company_id, req.user!.user_id, req.body.resolution_notes);
       return res.json({ success: true, data: result, meta: {} });
     } catch (err: unknown) {

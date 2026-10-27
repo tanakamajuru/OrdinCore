@@ -5,6 +5,7 @@ import { randomUUID } from 'crypto';
 import { pulseService } from '../services/pulse.service';
 import { query } from '../config/database';
 import logger from '../utils/logger';
+import { isOutsideHouseScope } from '../utils/houseScope';
 
 // Signal evidence (photos, voice notes) is stored OUTSIDE the public web root (C-01) and served
 // only through the authenticated download endpoint below — never as a public static file. It is
@@ -109,6 +110,12 @@ export class PulseController {
             const { id } = req.params;
             const company_id = requireCompany(req);
             const pulse = await pulseService.getPulseById(id, company_id);
+            // VAPT F5 (26 Oct 2026, confirmed by live exploitation): this endpoint scoped only
+            // by company_id, with no house check for any role, even though this same
+            // controller's downloadMedia() already implements the correct check below.
+            if (isOutsideHouseScope(req, (pulse as any).house_id)) {
+                return res.status(404).json({ success: false, message: 'Signal not found' });
+            }
             res.json({ success: true, data: pulse });
         } catch (err: any) {
             res.status(err.statusCode ?? 404).json({ success: false, message: err.message });
@@ -120,6 +127,11 @@ export class PulseController {
             const { id } = req.params;
             const company_id = requireCompany(req);
             const user_id = req.user!.user_id;
+            // VAPT F5 follow-up: same house-scope gap as getPulseById, on the write side.
+            const existing = await pulseService.getPulseById(id, company_id);
+            if (isOutsideHouseScope(req, (existing as any).house_id)) {
+                return res.status(404).json({ success: false, message: 'Signal not found' });
+            }
             const updated = await pulseService.reviewPulse(id, company_id, user_id, req.body);
             res.json({ success: true, data: updated });
         } catch (err: any) {
@@ -132,6 +144,10 @@ export class PulseController {
             const { id } = req.params;
             const company_id = requireCompany(req);
             const user_id = req.user!.user_id;
+            const existing = await pulseService.getPulseById(id, company_id);
+            if (isOutsideHouseScope(req, (existing as any).house_id)) {
+                return res.status(404).json({ success: false, message: 'Signal not found' });
+            }
             const updated = await pulseService.cancelPulse(id, company_id, user_id, req.body?.reason);
             res.json({ success: true, data: updated });
         } catch (err: any) {

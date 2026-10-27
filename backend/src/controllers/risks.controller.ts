@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import { risksService } from '../services/risks.service';
 import { trajectoryForRisk } from '../services/trajectory.service';
 import { riskMetricsService } from '../services/riskMetrics.service';
+import { isOutsideHouseScope } from '../utils/houseScope';
 
 export class RisksController {
   async create(req: Request, res: Response) {
@@ -88,19 +89,19 @@ export class RisksController {
       const company_id = req.user!.company_id!;
       const risk = await risksService.findById(req.params.id, company_id);
       
-      // House-scope restriction applies to TEAM_LEADER only. The Registered Manager is a
-      // company-level, cross-service oversight role in OrdinCore: the RM5 register, pipeline
-      // and weekly review are all company-scoped and surface risks across every service the
-      // RM governs (including strategic / cross-service risks with house_id = null). Since
-      // the register already lists those risks to the RM, blocking the detail view would be
-      // inconsistent and produced spurious 404s — company_id isolation (enforced in findById
-      // above) is the real tenant boundary. Team Leaders remain restricted to their sites.
-      const userRole = req.user!.role?.toUpperCase() || '';
-      if (userRole === 'TEAM_LEADER') {
-        const userHouseIds = req.user!.assigned_house_ids || [];
-        if (risk.house_id && !userHouseIds.includes(risk.house_id)) {
-          return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
-        }
+      // House-scope restriction applies to house-restricted roles only. The Registered Manager
+      // is a company-level, cross-service oversight role in OrdinCore: the RM5 register,
+      // pipeline and weekly review are all company-scoped and surface risks across every
+      // service the RM governs (including strategic / cross-service risks with house_id =
+      // null). Since the register already lists those risks to the RM, blocking the detail
+      // view would be inconsistent and produced spurious 404s — company_id isolation (enforced
+      // in findById above) is the real tenant boundary for the RM and above.
+      //
+      // VAPT F6 (26 Oct 2026, confirmed by live exploitation with a negative control): this
+      // check covered TEAM_LEADER only -- SUPPORT_WORKER fell through and could read any
+      // house's risk. isOutsideHouseScope() covers both house-restricted roles.
+      if (isOutsideHouseScope(req, risk.house_id)) {
+        return res.status(404).json({ success: false, message: 'Risk not found', errors: [] });
       }
 
       // Finding K: attach the single computed, explained trajectory so every consumer

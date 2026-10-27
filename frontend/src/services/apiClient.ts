@@ -9,12 +9,26 @@ export const apiClient = axios.create({
   },
 });
 
+// VAPT F8 (26 Oct 2026): a client-supplied absolute URL (e.g. passed straight through from an
+// attachment's file_url) is still honoured by axios over baseURL, so this interceptor used to
+// attach the live bearer token to ANY request, including one aimed at an attacker-controlled
+// host. The primary fix is server-side (incidents.service.ts now only ever stores a validated
+// same-app path), but the token is only ever meant to leave the browser for this app's own API,
+// so this is defence in depth: never attach it to a request resolving to a different origin.
+const apiOrigin = (() => {
+  try { return new URL(apiClient.defaults.baseURL || '', window.location.origin).origin; }
+  catch { return window.location.origin; }
+})();
+
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
     const token = localStorage.getItem('authToken');
     if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
+      let sameOrigin = true;
+      try { sameOrigin = new URL(config.url || '', apiOrigin).origin === apiOrigin; } catch { sameOrigin = true; }
+      if (sameOrigin) config.headers.Authorization = `Bearer ${token}`;
+      else delete config.headers.Authorization;
     }
     return config;
   },
