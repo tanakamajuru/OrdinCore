@@ -676,17 +676,26 @@ export function InterventionPanel() {
                         closed-risk access is preserved as history, never implying it needs
                         another closure decision. */}
                     {(() => {
-                      const target = t.action_target || { risk_id: null, is_open: false };
+                      // 27 Oct developer instructions ("Correct the closed-risk destination
+                      // defect"): action_target is now resolved by exact ID against canonical
+                      // risk state (never inferred from the active-theme list), so a missing
+                      // `available` flag is its own explicit "unavailable" state rather than
+                      // silently reading as active.
+                      const target = t.action_target || { risk_id: null, is_open: false, available: false };
                       const riskId = target.risk_id;
-                      const label = !riskId ? "Open register" : target.is_open ? "Open active risk" : "View risk history";
+                      const unavailable = !!riskId && target.available === false;
+                      const label = !riskId ? "Open register" : unavailable ? "Risk unavailable" : target.is_open ? "Open active risk" : "View risk history";
                       const title = !riskId
                         ? "No open risk for this theme yet — open the register to add one"
-                        : target.is_open
-                          ? "Open the risk to complete the action and rate its effectiveness"
-                          : "This risk is closed — viewing its history, not an outstanding closure decision";
+                        : unavailable
+                          ? "This linked risk record could not be found — open the register instead"
+                          : target.is_open
+                            ? "Open the risk to complete the action and rate its effectiveness"
+                            : "This risk is closed — viewing its history, not an outstanding closure decision";
+                      const destination = (riskId && !unavailable) ? `/risk-register/${riskId}` : `/risk-register?theme=${encodeURIComponent(t.theme)}`;
                       return (
                         <button
-                          onClick={() => navigate(riskId ? `/risk-register/${riskId}` : `/risk-register?theme=${encodeURIComponent(t.theme)}`)}
+                          onClick={() => navigate(destination)}
                           title={title}
                           className="text-sm font-medium text-primary-foreground bg-primary rounded-lg px-3 py-2 hover:bg-primary/90 flex items-center gap-1 whitespace-nowrap">
                           {label} <ArrowRight className="w-4 h-4" />
@@ -694,6 +703,15 @@ export function InterventionPanel() {
                       );
                     })()}
                   </div>
+                  {/* 27 Oct developer instructions: when the intervention's linked risk differs
+                      from the theme's current primary risk, expose both with their distinct
+                      statuses rather than silently picking one. */}
+                  {t.current_risk_target?.risk_id && (
+                    <button onClick={() => navigate(`/risk-register/${t.current_risk_target.risk_id}`)}
+                      className="mt-1.5 text-xs text-primary hover:underline text-right">
+                      This theme also has a current {t.current_risk_target.is_open ? "active" : "closed"} risk →
+                    </button>
+                  )}
                 </div>
               );
             })}

@@ -119,7 +119,29 @@ function concernOf(
   return 'Monitor';
 }
 
+// 27 Oct developer instructions ("Correct the closed-risk destination defect"): the single
+// place every navigation target (Action button, historical card) resolves its status, by exact
+// ID against canonical risk state -- never inferred from membership in a theme's active-risk
+// list, which only ever lists CURRENTLY active risks and silently omits an older closed one.
+async function resolveActionTargetFor(company_id: string, risk_id: string | null) {
+  if (!risk_id) return { risk_id: null, status: null, is_open: false, available: false };
+  const row = (await query(
+    `SELECT status::text AS status FROM risks WHERE id = $1 AND company_id = $2`,
+    [risk_id, company_id]
+  )).rows[0];
+  if (!row) {
+    // Missing/unavailable (deleted, cross-tenant id, or a read failure) is its own explicit
+    // state -- never silently substituted for another risk or defaulted to "active".
+    return { risk_id, status: null, is_open: false, available: false };
+  }
+  return { risk_id, status: row.status, is_open: !isClosedRiskStatus(row.status), available: true };
+}
+
 export const interventionsService = {
+  async resolveActionTarget(company_id: string, risk_id: string | null) {
+    return resolveActionTargetFor(company_id, risk_id);
+  },
+
   /**
    * Every active governance theme with:
    * - authoritative risk trajectory roll-up;
@@ -296,16 +318,21 @@ export const interventionsService = {
         blockers: uniqueBlockers,
       });
 
-      // 25 Oct brief ("Navigation"): the card's Action button previously chose the stored
-      // linked risk without checking whether it is actually open, so it could open a risk
-      // explicitly marked Closed and the button never said so. Resolve the real destination
-      // and its status server-side, once, from the same riskRefs the card already has.
+      // 27 Oct developer instructions ("Correct the closed-risk destination defect"): the prior
+      // version resolved the Action button's target by looking it up in riskRefs, which lists
+      // ONLY this theme's currently-ACTIVE risks. If the intervention's linked_risk_id is an
+      // OLDER risk that has since closed, it is no longer active for this theme and is simply
+      // absent from riskRefs -- actionRiskStatus fell through to null, and
+      // !isClosedRiskStatus(null) evaluated to true, so a genuinely closed risk read as "Open
+      // active risk". Resolve every target by its exact ID against canonical risk state,
+      // independent of the active theme list, and never infer active from a missing status.
       const actionRiskId = intv?.linked_risk_id || t.primary_risk_id || null;
-      const actionRiskRef = actionRiskId ? riskRefs.find((r: any) => r.id === actionRiskId) : null;
-      const actionRiskStatus = (actionRiskRef as any)?.status || null;
-      const actionTarget = actionRiskId
-        ? { risk_id: actionRiskId, status: actionRiskStatus, is_open: !isClosedRiskStatus(actionRiskStatus) }
-        : { risk_id: null, status: null, is_open: false };
+      const actionTarget = await this.resolveActionTarget(company_id, actionRiskId);
+      // Per brief: if the intervention's own linked risk differs from the theme's current
+      // primary risk, expose both with their distinct statuses rather than silently picking one.
+      const currentRiskTarget = (intv?.linked_risk_id && t.primary_risk_id && intv.linked_risk_id !== t.primary_risk_id)
+        ? await this.resolveActionTarget(company_id, t.primary_risk_id)
+        : null;
 
       out.push({
         theme: t.theme,
@@ -313,6 +340,7 @@ export const interventionsService = {
         risks: Number(t.risks) || 0,
         primary_risk_id: t.primary_risk_id || null,
         action_target: actionTarget,
+        current_risk_target: currentRiskTarget,
 
         // Implementation evidence — deliberately separate from effectiveness.
         openActions: Number(t.open_actions) || 0,
@@ -416,15 +444,18 @@ export const interventionsService = {
       coveredThemes.add(key); // interventions is already one row per theme (house_id IS NULL)
 
       const effectiveness = normalizeEffectiveness(intv.effectiveness_outcome);
+      const linkedRiskFound = intv.linked_risk_id ? orphanedRiskStatus.has(String(intv.linked_risk_id)) : false;
       const linkedRiskStatus = intv.linked_risk_id ? (orphanedRiskStatus.get(String(intv.linked_risk_id)) || null) : null;
       const historicalReason = !intv.linked_risk_id
         ? 'This plan was never linked to a delivery risk — no active risk exists for this theme.'
-        : isClosedRiskStatus(linkedRiskStatus)
-          ? 'The linked risk for this theme is closed — the plan and its history are retained.'
-          : 'No active risk remains for this theme — the plan and its history are retained.';
+        : !linkedRiskFound
+          ? 'The linked risk for this theme could not be found — it may have been removed.'
+          : isClosedRiskStatus(linkedRiskStatus)
+            ? 'The linked risk for this theme is closed — the plan and its history are retained.'
+            : 'No active risk remains for this theme — the plan and its history are retained.';
       const actionTarget = intv.linked_risk_id
-        ? { risk_id: intv.linked_risk_id, status: linkedRiskStatus, is_open: !isClosedRiskStatus(linkedRiskStatus) }
-        : { risk_id: null, status: null, is_open: false };
+        ? { risk_id: intv.linked_risk_id, status: linkedRiskStatus, is_open: linkedRiskFound && !isClosedRiskStatus(linkedRiskStatus), available: linkedRiskFound }
+        : { risk_id: null, status: null, is_open: false, available: false };
       out.push({
         theme: intv.theme,
         services: 0,
