@@ -378,12 +378,40 @@ export const guidedWorkService = {
       }
 
       const escalations = await safeRows(`
-        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,h.name AS service_name
+        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,h.name AS service_name,
+               da.due_date AS delegated_due_date, (au.first_name || ' ' || au.last_name) AS delegated_to_name
           FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
+          LEFT JOIN LATERAL (
+            SELECT ra.due_date, ra.assigned_to
+              FROM canonical_action_state_v ra
+             WHERE ra.company_id=e.company_id AND ra.escalation_id=e.id AND ra.is_open
+             ORDER BY ra.due_date NULLS LAST LIMIT 1
+          ) da ON TRUE
+          LEFT JOIN users au ON au.id = da.assigned_to
          WHERE e.company_id=$1 AND e.house_id=ANY($2::uuid[])
            AND e.is_open
          ORDER BY e.due_by NULLS FIRST`, [companyId, houses]);
       for (const e of escalations) {
+        // 27 Oct field report: an escalation the RM had just reviewed and delegated (a genuinely
+        // open action assigned to a TL, due in the future) still showed as URGENT/Needs You on
+        // the RM side while the TL correctly saw it waiting in their own queue -- nothing told
+        // the escalation item to step aside once a delegated decision existed, the way the
+        // Monitor decision already does below. A delegated action due in the future moves this
+        // to Waiting; it returns to Needs You once that action's own due date is reached (the
+        // action itself then separately appears in the TL's Needs You), or sooner via
+        // rmAttention/an urgent flag -- the same override signals used elsewhere here.
+        const delegatedDueFuture = !!e.delegated_due_date && new Date(e.delegated_due_date).getTime() > Date.now();
+        const rmAttentionFlag = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
+        if (delegatedDueFuture && !rmAttentionFlag) {
+          waiting.push({ id:`escalation:${e.id}`, role, state:'WAITING', priority:'NORMAL', taskType:'ESCALATION_DELEGATED_WAIT',
+            title:'Being managed', summary:e.reason || 'Escalation delegated to a Team Leader',
+            reason:`Delegated to ${e.delegated_to_name || 'a Team Leader'}, due ${new Date(e.delegated_due_date).toLocaleDateString('en-GB')}.`,
+            dueAt:e.delegated_due_date, serviceName:e.service_name,
+            canonicalEntityType:'escalation', canonicalEntityId:e.id,
+            route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
+            actionLabel:'View', whyAmISeeingThis:'You delegated this escalation and the assigned action is not yet due.' });
+          continue;
+        }
         // Escalation Monitoring correction (14 Oct 2026): a valid Continue-monitoring decision (named
         // owner + future next_review_at) is a governance decision, not an unfinished review. Respect it
         // — sit the escalation in Waiting/Being managed — until the review point is reached, an urgent
@@ -413,13 +441,23 @@ export const guidedWorkService = {
         // override signal, just the default. Only a real override (rmAttention, or a next_review_at
         // that has actually arrived -- handled above) now keeps an escalation in Decisions Due
         // ahead of its own due_by; otherwise it waits until its response date.
-        const dueNow = rmAttention || !!e.next_review_at || isDueByToday(e.due_by);
+        // Bug fix (27 Oct, field report): this checked only whether next_review_at was SET, not
+        // whether that review date had actually arrived -- so an escalation the RM had just
+        // reviewed and allocated to a TL with a genuine future review date (e.g. 29 Oct) showed
+        // as URGENT/Needs You immediately, contradicting the comment directly above this line
+        // and the TL's own correctly-waiting view of the same escalation. Only a review point
+        // that has actually been reached pulls it back into Decisions Due early.
+        const nextReviewDue = !!e.next_review_at && new Date(e.next_review_at).getTime() <= Date.now();
+        const dueNow = rmAttention || nextReviewDue || isDueByToday(e.due_by);
         const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
-          : (e.next_review_at ? 'The monitoring review point has been reached.'
+          : (nextReviewDue ? 'The monitoring review point has been reached.'
           : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.'
           : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`));
+        // Once a review decision has set a next_review_at, THAT is the live due/review date to
+        // display — e.due_by is the original SLA and goes stale the moment a later review point
+        // is agreed (the exact staleness the field report caught).
         const item: GuidedWorkItem = { id:`escalation:${e.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority: rmAttention ? 'URGENT' : priorityFor(e.due_by,['Urgent','Critical'].includes(e.priority)), taskType:'ESCALATION_REVIEW',
-          title: rmAttention ? 'Urgent: monitored escalation needs you' : 'Review open escalation', summary:e.reason || 'Open escalation needs review', reason, dueAt:e.due_by, serviceName:e.service_name,
+          title: rmAttention ? 'Urgent: monitored escalation needs you' : 'Review open escalation', summary:e.reason || 'Open escalation needs review', reason, dueAt: e.next_review_at || e.due_by, serviceName:e.service_name,
           canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
           completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
           route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
