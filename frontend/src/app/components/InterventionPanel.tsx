@@ -765,6 +765,7 @@ export function InterventionPanel() {
                           <div className="text-xs text-amber-700 mt-1">
                             {r.outstanding_work.open_linked_actions?.length > 0 && <div>{r.outstanding_work.open_linked_actions.length} open linked action(s) — follow up via Action Tracker/My Work.</div>}
                             {r.outstanding_work.awaiting_effectiveness?.length > 0 && <div>{r.outstanding_work.awaiting_effectiveness.length} action(s) awaiting an effectiveness verdict.</div>}
+                            {r.outstanding_work.needs_effectiveness_follow_up && <div>{r.outstanding_work.needs_effectiveness_follow_up}</div>}
                           </div>
                         )}
                       </div>

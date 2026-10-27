@@ -166,7 +166,7 @@ export const interventionsService = {
       `SELECT i.id, i.theme, i.status, i.owner_id, i.review_date, i.started_at, i.updated_at,
               i.linked_risk_id, i.linked_action_id,
               (u.first_name || ' ' || u.last_name) AS owner_name,
-              r.status::text AS linked_risk_status,
+              r.status::text AS linked_risk_status, r.is_active AS linked_risk_is_active, r.is_closed AS linked_risk_is_closed,
               ira.status::text AS linked_action_status, ira.completed_at AS linked_action_completed_at,
               COALESCE(ira.effectiveness_outcome, CASE ira.effectiveness::text
                 WHEN 'Effective' THEN 'Effective' WHEN 'Neutral' THEN 'Partially Effective'
@@ -174,7 +174,7 @@ export const interventionsService = {
               ira.effectiveness_evidence
          FROM interventions i
          LEFT JOIN users u ON u.id = i.owner_id
-         LEFT JOIN risks r ON r.id = i.linked_risk_id
+         LEFT JOIN canonical_risk_state_v r ON r.id = i.linked_risk_id AND r.company_id = i.company_id
          LEFT JOIN risk_actions ira ON ira.id = i.linked_action_id AND ira.company_id = i.company_id
         WHERE i.company_id = $1 AND i.house_id IS NULL
         ORDER BY i.theme`,
@@ -193,13 +193,27 @@ export const interventionsService = {
         [company_id, intv.id]
       )).rows;
 
-      const riskClosed = intv.linked_risk_id ? isClosedRiskStatus(intv.linked_risk_status) : null;
+      // 27 Oct developer review: the risk-closed check used raw risks.status via
+      // isClosedRiskStatus(); switched to the same canonical is_active/is_closed this whole
+      // function now reads, matching resolveActionTargetFor(). A row found but neither
+      // definitively active nor closed stays unresolved, never silently treated as closed.
+      const riskClosed = !intv.linked_risk_id ? null
+        : intv.linked_risk_is_active === true ? false
+        : intv.linked_risk_is_closed === true ? true
+        : null;
       const openLinkedActions = explicitLinks.filter((a: any) => !a.is_completed);
       const awaitingEffectiveness = [
         ...(intv.linked_action_id && intv.linked_action_completed_at && !intv.effectiveness_outcome ? [{ action_id: intv.linked_action_id, title: 'Primary linked action' }] : []),
         ...explicitLinks.filter((a: any) => a.is_completed && !a.effectiveness),
       ];
       const outstandingWork = openLinkedActions.length > 0 || awaitingEffectiveness.length > 0;
+      // 27 Oct developer review: "It can classify a plan as Completed - no work remaining merely
+      // because an effectiveness outcome exists. Partially/Not Effective may still require
+      // follow-up." Only a genuinely Effective outcome (or a Complete plan status when no
+      // effectiveness verdict exists at all) closes the case; Partially/Not Effective/Too Early/
+      // Insufficient Evidence go to RM review instead of being silently marked done.
+      const effectivenessClosesIt = intv.effectiveness_outcome === 'Effective' || (!intv.effectiveness_outcome && intv.status === 'Complete');
+      const effectivenessNeedsFollowUp = !!intv.effectiveness_outcome && intv.effectiveness_outcome !== 'Effective';
 
       let classification: string;
       if (!intv.linked_risk_id && !intv.linked_action_id && explicitLinks.length === 0) {
@@ -209,9 +223,9 @@ export const interventionsService = {
         classification = 'current';
       } else if (riskClosed === null) {
         classification = 'ambiguous_review_required'; // no linked risk, but has linked action(s)
-      } else if (outstandingWork) {
+      } else if (outstandingWork || effectivenessNeedsFollowUp) {
         classification = 'historical_outstanding_work';
-      } else if (intv.effectiveness_outcome || intv.status === 'Complete') {
+      } else if (effectivenessClosesIt) {
         classification = 'historical_completed_no_work';
       } else {
         classification = 'ambiguous_review_required';
@@ -234,9 +248,12 @@ export const interventionsService = {
         effectiveness_evidence: intv.effectiveness_evidence,
         explicit_links: explicitLinks,
         classification,
-        outstanding_work: outstandingWork
+        outstanding_work: (outstandingWork || effectivenessNeedsFollowUp)
           ? { open_linked_actions: openLinkedActions.map((a: any) => ({ action_id: a.action_id, title: a.title, due_date: a.due_date })),
-              awaiting_effectiveness: awaitingEffectiveness }
+              awaiting_effectiveness: awaitingEffectiveness,
+              needs_effectiveness_follow_up: effectivenessNeedsFollowUp
+                ? `Rated ${intv.effectiveness_outcome} — not a closed matter; RM should confirm whether further work is needed.`
+                : null }
           : null,
       });
     }
