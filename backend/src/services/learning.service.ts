@@ -241,6 +241,8 @@ export class LearningService {
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,
               NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
               NULLIF(TRIM(COALESCE(ap.first_name,'') || ' ' || COALESCE(ap.last_name,'')),'') AS approved_by_name,
+              NULLIF(TRIM(COALESCE(iu.first_name,'') || ' ' || COALESCE(iu.last_name,'')),'') AS implemented_by_name,
+              NULLIF(TRIM(COALESCE(vu.first_name,'') || ' ' || COALESCE(vu.last_name,'')),'') AS verified_by_name,
               h.name AS house_name,
               ra.title AS linked_action_title, ra.status::text AS linked_action_status,
               sa.title AS source_action_title,
@@ -251,6 +253,8 @@ export class LearningService {
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
          LEFT JOIN users ap ON ap.id = lr.approved_by
+         LEFT JOIN users iu ON iu.id = lr.implemented_by
+         LEFT JOIN users vu ON vu.id = lr.verified_by
          LEFT JOIN houses h ON h.id = lr.house_id
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'

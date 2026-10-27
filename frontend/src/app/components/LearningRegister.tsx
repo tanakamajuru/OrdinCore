@@ -50,7 +50,7 @@ export function LearningRegister() {
   const [implementing, setImplementing] = useState<string | null>(null);
   const [implementEvidence, setImplementEvidence] = useState("");
   const [verifying, setVerifying] = useState<string | null>(null);
-  const [verifyOutcome, setVerifyOutcome] = useState("Effective");
+  const [verifyOutcome, setVerifyOutcome] = useState("");
   const [verifyEvidence, setVerifyEvidence] = useState("");
 
   const load = async () => {
@@ -75,7 +75,7 @@ export function LearningRegister() {
     focusedRef.current = true;
     if (row.state === "NOT_YET_ASSESSED") openAssess(id);
     else if (row.progress === "RECORDED") { setImplementing(id); setImplementEvidence(""); }
-    else if (row.progress === "CHANGE_IMPLEMENTED") { setVerifying(id); setVerifyOutcome("Effective"); setVerifyEvidence(""); }
+    else if (row.progress === "CHANGE_IMPLEMENTED") { setVerifying(id); setVerifyOutcome(""); setVerifyEvidence(""); }
     setTimeout(() => document.getElementById(`learning-${id}`)?.scrollIntoView({ behavior: "smooth", block: "center" }), 60);
   }, [rows, loading, searchParams]);
 
@@ -256,12 +256,18 @@ export function LearningRegister() {
                     )}
                     {r.progress === "CHANGE_IMPLEMENTED" && (
                       <div className="mt-2">
-                        <p className="text-xs text-muted-foreground">Implemented: {r.implementation_evidence}{r.implemented_by_name ? ` (${r.implemented_by_name}, ${fmt(r.implemented_at)})` : ""}</p>
+                        {/* 27 Oct developer corrections: render missing content honestly rather
+                            than an empty string — a pre-25-Oct record genuinely has no stored
+                            evidence (verified against production), it is not a display bug. */}
+                        <p className="text-xs text-muted-foreground">Implemented: {r.implementation_evidence || "Not recorded"}{r.implemented_by_name ? ` (${r.implemented_by_name}, ${fmt(r.implemented_at)})` : ""}</p>
                         {canManage && verifying !== r.id && (
-                          <button onClick={() => { setVerifying(r.id); setVerifyOutcome("Effective"); setVerifyEvidence(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
+                          <button onClick={() => { setVerifying(r.id); setVerifyOutcome(""); setVerifyEvidence(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
                         )}
                         {canManage && verifying === r.id && (
                           <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
+                            {/* 27 Oct developer corrections ("Do not preselect Effective"): no
+                                outcome is selected by default — the reviewer must make an
+                                explicit choice before saving is enabled. */}
                             <div className="flex flex-wrap gap-2">
                               {["Effective", "Partly Effective", "Not Effective", "Too Early", "Insufficient Evidence"].map((o) => (
                                 <button key={o} type="button" onClick={() => setVerifyOutcome(o)} className={`text-xs px-2.5 py-1 rounded-full border ${verifyOutcome === o ? "bg-primary text-primary-foreground border-primary" : "border-border text-muted-foreground hover:bg-muted"}`}>{o}</button>
@@ -269,7 +275,7 @@ export function LearningRegister() {
                             </div>
                             <textarea value={verifyEvidence} onChange={(e) => setVerifyEvidence(e.target.value)} rows={2} placeholder="Evidence behind this verification *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
                             <div className="flex gap-2">
-                              <button disabled={busy === r.id} onClick={() => { if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; } verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>
+                              <button disabled={busy === r.id || !verifyOutcome} onClick={() => { if (!verifyOutcome) { toast.error("Choose an outcome."); return; } if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; } verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>
                               <button onClick={() => setVerifying(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
                             </div>
                           </div>
@@ -277,7 +283,11 @@ export function LearningRegister() {
                       </div>
                     )}
                     {r.progress === "IMPROVEMENT_VERIFIED" && (
-                      <p className="mt-2 text-xs text-muted-foreground">Verified {r.verification_outcome}{r.verified_by_name ? ` by ${r.verified_by_name}, ${fmt(r.verified_at)}` : ""}: {r.verification_evidence}</p>
+                      r.verification_outcome && r.verification_evidence ? (
+                        <p className="mt-2 text-xs text-muted-foreground">Verified {r.verification_outcome}{r.verified_by_name ? ` by ${r.verified_by_name}, ${fmt(r.verified_at)}` : ""}: {r.verification_evidence}</p>
+                      ) : (
+                        <p className="mt-2 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-1">Verification evidence missing — record requires review.</p>
+                      )
                     )}
                   </div>
                 )}

@@ -92,6 +92,38 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
+    // 27 Oct developer corrections ("Make the downloaded PDF a complete record"): implementation
+    // and verification were entirely absent from this export -- added as their own sections.
+    // Render missing content as "Not recorded"/"Not yet assessed", and flag a legacy verified
+    // status with no supporting evidence instead of silently showing nothing.
+    if (lr.progress === 'CHANGE_IMPLEMENTED' || lr.progress === 'IMPROVEMENT_VERIFIED') {
+      doc.font('Helvetica-Bold').text('Implementation');
+      doc.font('Helvetica').text(
+        lr.implementation_evidence
+          ? `${lr.implementation_evidence}${lr.implemented_by_name ? ` — ${lr.implemented_by_name}, ${fmtDate(lr.implemented_at)}` : ''}`
+          : 'Not recorded.',
+        { indent: 10 },
+      );
+      doc.moveDown(0.5);
+    }
+    if (lr.progress === 'IMPROVEMENT_VERIFIED') {
+      doc.font('Helvetica-Bold').text('Verification');
+      if (lr.verification_outcome && lr.verification_evidence) {
+        doc.font('Helvetica').text(
+          `${lr.verification_outcome}${lr.verified_by_name ? ` — ${lr.verified_by_name}, ${fmtDate(lr.verified_at)}` : ''}: ${lr.verification_evidence}`,
+          { indent: 10 },
+        );
+      } else {
+        doc.font('Helvetica-Bold').fillColor('#92400e').text('Verification evidence missing — record requires review.', { indent: 10 });
+        doc.fillColor('black').font('Helvetica');
+      }
+      doc.moveDown(0.5);
+    } else if (lr.progress === 'CHANGE_IMPLEMENTED') {
+      doc.font('Helvetica').fillColor('gray').text('Verification: Not yet assessed.', { indent: 10 });
+      doc.fillColor('black');
+      doc.moveDown(0.5);
+    }
+
     if (lr.source_review_outcome) {
       doc.font('Helvetica-Bold').text('Originating effectiveness review');
       doc.font('Helvetica').text(`${lr.source_review_outcome} on ${fmtDate(lr.source_review_at)}${lr.source_review_evidence ? ` — ${lr.source_review_evidence}` : ''}`, { indent: 10 });
