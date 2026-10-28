@@ -141,10 +141,11 @@ export class GovernanceService {
 
   async getRiskCandidates(company_id: string, filters: any, page = 1, limit = 5, userRole?: string) {
     let q = `
-      SELECT rc.*, 
+      SELECT rc.*, h.name AS house_name,
              sc.trajectory as pattern_trajectory,
              COALESCE(sc.signal_count::text, '0') || ' ' || sc.risk_domain || ' signals detected in last period' as reason
       FROM risk_candidates rc
+      LEFT JOIN houses h ON h.id = rc.house_id
       LEFT JOIN canonical_pattern_state_v sc ON rc.cluster_id = sc.id
       WHERE rc.company_id = $1
       -- [DEDUP] An item must appear in exactly one queue. When a person-level

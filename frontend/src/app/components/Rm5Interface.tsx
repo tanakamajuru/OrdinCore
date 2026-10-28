@@ -77,6 +77,11 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [today, setToday] = useState<any>({ todaySignals: [], actionsDue: [] });
   const [patterns, setPatterns] = useState<any>({ within: [], across: [] });
   const [dismissed, setDismissed] = useState<any[]>([]);
+  // 27 Oct developer review finding: risk_candidates (status='New') were counted into Services
+  // Overview's "Promotions pending" but had no screen anywhere that listed them for an RM to
+  // open -- confirmed 41 such records existed company-wide with no queue. Surfaced here, on the
+  // same decision board as patterns, reusing the existing promote/dismiss screens.
+  const [candidates, setCandidates] = useState<any[]>([]);
   const [showDismissed, setShowDismissed] = useState(false);
   const [dismissedSearch, setDismissedSearch] = useState("");
   const [dismissedFrom, setDismissedFrom] = useState("");
@@ -121,6 +126,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
         else if (screen === "pipeline" && stage === "patterns") {
           setPatterns(unwrap(await apiClient.get("/rm/patterns")) || { within: [], across: [] });
           apiClient.get("/rm/dismissed").then((r) => setDismissed(unwrap(r) || [])).catch(() => setDismissed([]));
+          apiClient.get("/governance/risk-candidates?status=New&limit=50").then((r) => setCandidates(unwrap(r) || [])).catch(() => setCandidates([]));
         }
         else if (screen === "pipeline" && stage === "register") setRegisterRows(unwrap(await apiClient.get(`/rm/register?type=${regType}`)) || []);
         else if (screen === "pipeline" && stage === "actions") setLens(unwrap(await apiClient.get("/rm/actions")) || []);
@@ -349,6 +355,32 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
               {pagedAcross.map((p: any) => <PatternCard key={p.id} p={p} onPromote={promote} onDismiss={dismissPattern} onReview={openReview} />)}
             </div>
             <Pager page={acrossSafe} pages={acrossPages} total={acrossList.length} onPage={setPatAPage} />
+
+            {/* 27 Oct developer review finding: these risk_candidates were counted into
+                Services Overview's "Promotions pending" with no screen anywhere that listed
+                them. Reuses the existing /risks/promote?candidate_id= screen (Register/Dismiss
+                already work there) -- only the missing list is new. */}
+            {(() => {
+              const candList = houseFilterParam ? candidates.filter((c: any) => c.house_id === houseFilterParam) : candidates;
+              if (candidates.length === 0) return null;
+              return (
+                <>
+                  <h2 className="text-lg font-semibold text-foreground mb-1 mt-6 flex items-center gap-2 text-rose-700"><ShieldAlert className="w-4 h-4 text-rose-600" />Candidate risks awaiting review ({candList.length})</h2>
+                  <p className="text-xs text-muted-foreground mb-2">Single-signal or critical-exception candidates not yet part of a recurring pattern — each needs its own promote/dismiss decision.</p>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                    {candList.length === 0 && <p className="text-sm text-muted-foreground">No candidate risks for this filter.</p>}
+                    {candList.map((c: any) => (
+                      <div key={c.id} className="rounded-xl border-2 border-border p-4">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">{c.risk_domain}{c.house_name ? ` · ${c.house_name}` : ""}</p>
+                        <p className="text-sm font-medium text-foreground mt-1 truncate">{c.linked_person || "Service-wide"}</p>
+                        <p className="text-xs text-muted-foreground mt-1">{c.reason}</p>
+                        <button onClick={() => navigate(`/risks/promote?candidate_id=${c.id}`)} className="mt-3 w-full text-xs font-medium text-primary-foreground bg-primary rounded px-2.5 py-1.5 hover:bg-primary/90">Review</button>
+                      </div>
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
 
             {/* Chapter 7 — Pattern Review modal (records trajectory/closure of the pattern). */}
             {reviewTarget && (
