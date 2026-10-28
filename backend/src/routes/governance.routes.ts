@@ -303,7 +303,11 @@ router.get('/compliance', requireAuth, requireTenant, async (req, res) => {
     const company_id = req.user!.company_id!;
     const role = String(req.user!.role || '').toUpperCase();
     const scoped = ['TEAM_LEADER', 'SUPPORT_WORKER'].includes(role);
-    const houseIds = scoped ? (req.user!.assigned_house_ids || []) : undefined;
+    // 27 Oct developer review ("Services Overview" drill-down): an RM/Director opening this from
+    // a specific service's "Overdue actions" count previously had no way to scope the explicit
+    // request itself -- only the role-based auto-scope for TL/SW existed.
+    const requestedHouseId = typeof req.query.house_id === 'string' ? req.query.house_id : undefined;
+    const houseIds = scoped ? (req.user!.assigned_house_ids || []) : (requestedHouseId ? [requestedHouseId] : undefined);
     const data = await governanceComplianceService.summary(company_id, houseIds);
     return res.json({ success: true, data, meta: {} });
   } catch (err: any) {

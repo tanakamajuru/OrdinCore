@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { useNavigate, useSearchParams } from "react-router";
 import { ShieldCheck } from "lucide-react";
 import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
@@ -9,19 +10,25 @@ const PAGE = 10;
 
 // Governance Compliance — its own page (moved off the Daily Oversight board), paginated.
 export function GovernanceCompliance() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  // 27 Oct developer review ("Align counted IDs and destination filters"): Services Overview's
+  // "Overdue actions" count linked here with no way to scope to the service it was opened from.
+  const houseFilter = searchParams.get("house");
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
 
   useEffect(() => {
     (async () => {
+      setLoading(true);
       try {
-        const res = await apiClient.get("/governance/compliance");
+        const res = await apiClient.get(`/governance/compliance${houseFilter ? `?house_id=${encodeURIComponent(houseFilter)}` : ""}`);
         setData((res as any)?.data?.data ?? (res as any)?.data ?? null);
       } catch { setData(null); }
       finally { setLoading(false); }
     })();
-  }, []);
+  }, [houseFilter]);
 
   const people: any[] = data?.people ?? [];
   const pages = Math.max(1, Math.ceil(people.length / PAGE));
@@ -39,6 +46,13 @@ export function GovernanceCompliance() {
             <p className="text-sm text-muted-foreground">Are required actions being done on time? Traffic light per person; oldest overdue action ages up the ladder.</p>
           </div>
         </div>
+
+        {houseFilter && (
+          <div className="mt-4 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+            <span>Filtered to staff assigned to this service.</span>
+            <button onClick={() => navigate("/governance-compliance")} className="font-semibold text-primary hover:underline shrink-0 ml-3">Clear filter</button>
+          </div>
+        )}
 
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary" /></div>

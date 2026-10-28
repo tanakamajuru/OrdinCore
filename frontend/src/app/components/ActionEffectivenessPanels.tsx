@@ -228,20 +228,37 @@ export function ActionEffectivenessPanels() {
           </CardContent>
         </Card>
       </div>
-      {(data.pending || []).length > 0 && (
-        <Card className="border-2 border-border shadow-sm">
-          <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Awaiting effectiveness review ({data.pending_count})</CardTitle></CardHeader>
-          <CardContent className="space-y-2">
-            {data.pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">{a.title}</p>
-                <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
-              </div>
-              {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
-            </div>)}
-          </CardContent>
-        </Card>
-      )}
+      {/* 27 Oct developer review ("Align counted IDs and destination filters"): Services
+          Overview's "Overdue reviews" count linked here with no way to scope to the service or
+          to overdue-only reviews it actually counted. */}
+      {(() => {
+        const houseFilter = searchParams.get('house');
+        const overdueOnly = searchParams.get('overdue') === '1';
+        const pendingAll: any[] = data.pending || [];
+        const pending = pendingAll.filter((a: any) => (!houseFilter || a.house_id === houseFilter) && (!overdueOnly || a.review_overdue));
+        if (pendingAll.length === 0) return null;
+        return (
+          <Card className="border-2 border-border shadow-sm">
+            <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Awaiting effectiveness review ({pending.length}{(houseFilter || overdueOnly) ? ` of ${pendingAll.length}` : ''})</CardTitle></CardHeader>
+            <CardContent className="space-y-2">
+              {(houseFilter || overdueOnly) && (
+                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs mb-2">
+                  <span>Filtered{houseFilter ? " to this service" : ""}{overdueOnly ? " · overdue only" : ""}.</span>
+                  <a href="/effectiveness" className="font-semibold text-primary hover:underline shrink-0 ml-3">Clear filter</a>
+                </div>
+              )}
+              {pending.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nothing matches this filter.</p>}
+              {pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
+                <div>
+                  <p className="font-medium">{a.title}</p>
+                  <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
+                </div>
+                {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
+              </div>)}
+            </CardContent>
+          </Card>
+        );
+      })()}
 
       {scheduled.length > 0 && (
         <Card className="border-2 border-border shadow-sm">
