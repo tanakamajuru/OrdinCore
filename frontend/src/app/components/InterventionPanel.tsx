@@ -3,37 +3,23 @@ import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
-import { ArrowUpRight, ArrowDownRight, Minus, Target, X, Loader2, Flag, ArrowRight, CheckCircle2, ShieldAlert, Plus, Link2, AlertTriangle, ChevronRight } from "lucide-react";
+import { ArrowUpRight, ArrowDownRight, Minus, Target, Loader2, Flag, ArrowRight, CheckCircle2, Link2, AlertTriangle, ChevronRight } from "lucide-react";
 import { io, type Socket } from "socket.io-client";
-import { useAuth } from "@/hooks/useAuth";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
 // Multiple linked delivery actions per intervention (brief 2 §1). Shows the existing linked actions
 // with their canonical delivery evidence, lets the RM link more EXISTING actions (suggested from the
 // theme's risks), and unlink — all by stable ID, deduped and audited server-side.
-function LinkedActionsManager({ interventionId, theme, canWrite }: { interventionId: string; theme: any; canWrite: boolean }) {
+// 27 Oct developer instructions (P1, "Complete the read-only conversion"): linking/unlinking is
+// retired server-side (410) — this is now a pure read-only display of what's already linked.
+function LinkedActionsManager({ interventionId }: { interventionId: string }) {
   const [links, setLinks] = useState<any[]>([]);
-  const [picking, setPicking] = useState(false);
-  const [candidates, setCandidates] = useState<any[]>([]);
-  const [selected, setSelected] = useState<Record<string, boolean>>({});
-  const [busy, setBusy] = useState(false);
   // Bug fix (24 Oct developer corrections, "Action retrieval failures appear as empty
-  // results"): both catch handlers below replaced a failed request with an empty array, so
-  // "No delivery actions linked" / "no candidates" looked identical to a genuine zero-result
-  // response when the request had actually failed (network/server error). Track loading and
-  // failure explicitly so a failure shows "couldn't load, retry" instead of a false empty state,
-  // and never discard a previously-loaded list just because a refresh attempt failed.
+  // results"): track loading/failure explicitly so a failed request never looks like a
+  // genuine zero-result response.
   const [linksLoading, setLinksLoading] = useState(true);
   const [linksFailed, setLinksFailed] = useState(false);
-  const [candidatesFailed, setCandidatesFailed] = useState(false);
-  // 25 Oct brief (P1, "Stop the unrestricted action-picker fallback"): when the theme has no
-  // active risk_refs, this used to fall back to EVERY provider action as if all were relevant.
-  // Now it shows no candidates by default and says so; widening to the full organisation list
-  // is an explicit, separate choice that requires a recorded reason (enforced server-side too).
-  const [allActions, setAllActions] = useState<any[]>([]);
-  const [widenSearch, setWidenSearch] = useState(false);
-  const [wideReason, setWideReason] = useState("");
 
   const load = async () => {
     setLinksLoading(true); setLinksFailed(false);
@@ -43,45 +29,10 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [interventionId]);
 
-  const riskIds = new Set((theme?.risk_refs || []).map((r: any) => String(r.id)));
-
-  const openPicker = async () => {
-    setSelected({}); setPicking(true); setCandidatesFailed(false); setWidenSearch(false); setWideReason("");
-    try {
-      const rows = unwrap(await apiClient.get('/actions/oversight')) || [];
-      const linkedIds = new Set(links.map((l: any) => String(l.action_id)));
-      const all = (Array.isArray(rows) ? rows : []).filter((a: any) => !linkedIds.has(String(a.id)) && String(a.status) !== 'Cancelled');
-      setAllActions(all);
-      setCandidates(riskIds.size === 0 ? [] : all.filter((a: any) => riskIds.has(String(a.risk_id))));
-    } catch { setCandidatesFailed(true); setCandidates([]); setAllActions([]); }
-  };
-
-  const linkSelected = async () => {
-    const ids = Object.keys(selected).filter((k) => selected[k]);
-    if (!ids.length) { toast.error('Select at least one existing action to link.'); return; }
-    if (widenSearch && wideReason.trim().length < 3) { toast.error('Give a reason for linking an action outside this theme.'); return; }
-    setBusy(true);
-    try {
-      setLinks(unwrap(await apiClient.post(`/interventions/${interventionId}/actions`, { action_ids: ids, relevance_reason: widenSearch ? wideReason.trim() : undefined })) || []);
-      setPicking(false); toast.success(`Linked ${ids.length} action${ids.length === 1 ? '' : 's'}`);
-    } catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to link actions'); }
-    finally { setBusy(false); }
-  };
-
-  const unlink = async (actionId: string) => {
-    setBusy(true);
-    try { setLinks(unwrap(await apiClient.delete(`/interventions/${interventionId}/actions/${actionId}`)) || []); }
-    catch (e: any) { toast.error(e?.response?.data?.message || 'Failed to unlink'); }
-    finally { setBusy(false); }
-  };
-
   return (
     <div className="mt-3 rounded-lg border border-border p-2.5">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><Link2 className="w-3.5 h-3.5" /> Linked delivery actions ({links.length})</span>
-        {canWrite && !picking && (
-          <button onClick={openPicker} className="text-[11px] text-primary flex items-center gap-1 hover:underline"><Plus className="w-3 h-3" /> Link existing action</button>
-        )}
       </div>
       {linksLoading ? (
         <p className="text-[11px] text-muted-foreground">Loading…</p>
@@ -105,173 +56,8 @@ function LinkedActionsManager({ interventionId, theme, canWrite }: { interventio
                 <p className="text-[10px] text-amber-700" title="Linked outside this theme's own risks">Linked for: {l.relevance_reason}</p>
               )}
             </div>
-            {canWrite && (
-              <button onClick={() => unlink(l.action_id)} disabled={busy} title="Unlink" className="text-muted-foreground hover:text-red-600 shrink-0"><X className="w-3.5 h-3.5" /></button>
-            )}
           </div>
         ))}
-      </div>
-      {picking && (
-        <div className="mt-2 border-t border-border/60 pt-2">
-          <p className="text-[11px] text-muted-foreground mb-1">{riskIds.size ? "Existing actions on this theme's risks" : "This theme has no active risk — no relevant candidates to suggest"} — select to link (no new work is created):</p>
-          <div className="max-h-40 overflow-y-auto space-y-1">
-            {candidatesFailed ? (
-              <p className="text-[11px] text-red-600 flex items-center gap-2">
-                Couldn't load candidate actions. <button onClick={openPicker} className="underline">Retry</button>
-              </p>
-            ) : !widenSearch && candidates.length === 0 && (
-              <p className="text-[11px] text-muted-foreground">No relevant unlinked actions found for this theme.</p>
-            )}
-            {(widenSearch ? allActions : candidates).map((a: any) => (
-              <label key={a.id} className="flex items-center gap-2 text-xs cursor-pointer">
-                <input type="checkbox" checked={!!selected[a.id]} onChange={(e) => setSelected((s) => ({ ...s, [a.id]: e.target.checked }))} />
-                <span className="truncate">{a.title || a.action || 'Action'} <span className="text-[10px] text-muted-foreground">· {a.assigned_to_name || 'Unassigned'} · {a.status}</span></span>
-              </label>
-            ))}
-          </div>
-          {/* 25 Oct brief (P1): widening beyond this theme's own risks is a deliberate, explicit
-              choice with a recorded reason — never a silent fallback. Server enforces the same
-              rule if this is bypassed. */}
-          {!candidatesFailed && !widenSearch && (
-            <button onClick={() => setWidenSearch(true)} className="mt-1.5 text-[11px] text-muted-foreground underline">Search all organisation actions instead</button>
-          )}
-          {widenSearch && (
-            <div className="mt-1.5">
-              <input value={wideReason} onChange={(e) => setWideReason(e.target.value)} placeholder="Why is this action relevant to this theme? *"
-                className="w-full text-xs p-1.5 border border-border rounded bg-background" />
-            </div>
-          )}
-          <div className="flex items-center gap-2 mt-2">
-            <button onClick={linkSelected} disabled={busy} className="text-[11px] px-2.5 py-1 rounded bg-primary text-primary-foreground disabled:opacity-50">{busy ? 'Linking…' : 'Link selected'}</button>
-            <button onClick={() => setPicking(false)} className="text-[11px] px-2.5 py-1 rounded border border-border">Cancel</button>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-const VERDICTS = [
-  "Resolved — controls effective",
-  "Resolved — no longer applicable",
-  "Tolerated — risk accepted",
-];
-const IMPACTS = ["High", "Medium", "Low"];
-const isClosedStatus = (s?: string) => ["closed", "resolved"].includes(String(s || "").toLowerCase());
-
-// Close / rate the risks that make up a theme, without leaving Intervention Action.
-// Impact (High/Medium/Low) is the compulsory judgement of consequence and must be set before a
-// risk can close; closure itself is evidence-gated on the backend (open actions / linked
-// escalations / effectiveness / trajectory) — we surface that verdict rather than bypassing it.
-function CloseRiskManager({ theme, onDone }: { theme: any; onDone: () => void }) {
-  const [risks, setRisks] = useState<any[]>(() =>
-    (theme.risk_refs || []).filter((r: any) => r?.id && !isClosedStatus(r.status)));
-  const [openId, setOpenId] = useState<string | null>(null);
-  const [verdict, setVerdict] = useState("");
-  const [reason, setReason] = useState("");
-  const [busy, setBusy] = useState<string | null>(null);
-
-  const patchLocal = (id: string, patch: any) =>
-    setRisks((rs) => rs.map((r) => (r.id === id ? { ...r, ...patch } : r)));
-
-  const setImpact = async (r: any, impact_rating: string) => {
-    setBusy(r.id);
-    try {
-      await apiClient.patch(`/risks/${r.id}/impact-rating`, { impact_rating });
-      patchLocal(r.id, { impact_rating });
-      toast.success(`Impact set to ${impact_rating}`);
-    } catch (e: any) { toast.error(e?.response?.data?.message || e?.message || "Failed to set impact"); }
-    finally { setBusy(null); }
-  };
-
-  const closeRisk = async (r: any) => {
-    if (!verdict) { toast.error("Choose a resolution verdict."); return; }
-    if (reason.trim().length < 20) { toast.error("Rationale must be at least 20 characters."); return; }
-    setBusy(r.id);
-    try {
-      await apiClient.post(`/risks/${r.id}/close`, { verdict, reason: reason.trim() });
-      toast.success("Risk closed with a resolution verdict. Recurrence monitoring started (60 days).");
-      setRisks((rs) => rs.filter((x) => x.id !== r.id));
-      setOpenId(null); setVerdict(""); setReason("");
-    } catch (e: any) {
-      // The backend closure-review gate returns why it can't close yet (open actions, open linked
-      // escalation, effectiveness unrated, deteriorating trajectory) — show it verbatim.
-      toast.error(e?.response?.data?.message || e?.message || "This risk can't be closed yet.");
-    } finally { setBusy(null); }
-  };
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={onDone}>
-      <div className="bg-card w-full max-w-lg rounded-xl shadow-xl border border-border" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-          <div>
-            <h3 className="font-semibold text-foreground">Close / rate risk — {theme.theme}</h3>
-            <p className="text-xs text-muted-foreground">Set the impact, then close with an evidence-based verdict.</p>
-          </div>
-          <button onClick={onDone} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-        </div>
-        <div className="p-5 space-y-3 max-h-[70vh] overflow-y-auto">
-          {risks.length === 0 ? (
-            <div className="text-center text-sm text-muted-foreground py-8 flex flex-col items-center gap-2">
-              <CheckCircle2 className="w-8 h-8 text-emerald-500" />
-              No open risks left on this theme.
-            </div>
-          ) : risks.map((r) => (
-            <div key={r.id} className="rounded-lg border border-border p-3">
-              <div className="flex items-start justify-between gap-2">
-                <div className="min-w-0">
-                  <div className="text-sm font-medium text-foreground truncate">{r.title || "Risk"}</div>
-                  <div className="text-[11px] text-muted-foreground">{r.house_name || "—"}{r.open_actions ? ` · ${r.open_actions} open action${r.open_actions === 1 ? "" : "s"}` : ""}</div>
-                </div>
-                <span className="text-[10px] rounded px-2 py-0.5 bg-muted shrink-0 uppercase">{r.status || "open"}</span>
-              </div>
-
-              {/* Impact — compulsory before close */}
-              <div className="mt-2.5 flex items-center gap-2 flex-wrap">
-                <span className="text-[11px] text-muted-foreground">Impact:</span>
-                {r.impact_rating ? (
-                  <span className="text-xs font-semibold text-foreground">{r.impact_rating}</span>
-                ) : IMPACTS.map((lvl) => (
-                  <button key={lvl} disabled={busy === r.id} onClick={() => setImpact(r, lvl)}
-                    className="text-xs px-2.5 py-1 rounded-md border border-amber-400 bg-amber-50 text-amber-800 hover:bg-amber-100 disabled:opacity-50">
-                    {lvl}
-                  </button>
-                ))}
-                {!r.impact_rating && <span className="text-[11px] text-amber-600">· required to close</span>}
-              </div>
-
-              {openId === r.id ? (
-                <div className="mt-3 space-y-2 border-t border-border pt-3">
-                  <select value={verdict} onChange={(e) => setVerdict(e.target.value)}
-                    className="w-full border border-border rounded-lg p-2 text-sm bg-background">
-                    <option value="">Choose a verdict…</option>
-                    {VERDICTS.map((v) => <option key={v} value={v}>{v}</option>)}
-                  </select>
-                  <textarea value={reason} onChange={(e) => setReason(e.target.value)} rows={2}
-                    placeholder="Why is this risk being closed, and how do you know it is resolved? (min 20 characters)"
-                    className="w-full border border-border rounded-lg p-2 text-sm bg-background resize-none" />
-                  <div className="flex justify-end gap-2">
-                    <button onClick={() => { setOpenId(null); setVerdict(""); setReason(""); }} className="px-3 py-1.5 text-sm rounded-lg border border-border hover:bg-muted">Cancel</button>
-                    <button onClick={() => closeRisk(r)} disabled={busy === r.id || !verdict || reason.trim().length < 20}
-                      className="px-3 py-1.5 text-sm rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 flex items-center gap-1.5">
-                      {busy === r.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <CheckCircle2 className="w-4 h-4" />} Close risk
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => { if (!r.impact_rating) { toast.error("Set the risk impact first."); return; } setOpenId(r.id); setVerdict(""); setReason(""); }}
-                  title={r.impact_rating ? "Close this risk with a verdict" : "Set the risk impact first"}
-                  className="mt-2.5 text-sm font-medium text-primary hover:underline flex items-center gap-1">
-                  <ShieldAlert className="w-4 h-4" /> Close this risk
-                </button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div className="px-5 py-3 border-t border-border flex justify-end">
-          <button onClick={onDone} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Done</button>
-        </div>
       </div>
     </div>
   );
@@ -333,14 +119,8 @@ function Timeline({ weeks }: { weeks: any[] }) {
 
 export function InterventionPanel() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const canManage = String(user?.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER";
   const [themes, setThemes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [users, setUsers] = useState<any[]>([]);
-  const [edit, setEdit] = useState<any>(null); // { theme, intervention record or blank }
-  const [saving, setSaving] = useState(false);
-  const [closeTheme, setCloseTheme] = useState<any>(null); // theme whose risks are being closed/rated
   // 27 Oct developer instructions (P1, "Reconcile historical plans"): read-only inventory of
   // historical/unlinked/ambiguous plans, classified server-side. Never mutates anything.
   const [reconciliation, setReconciliation] = useState<any[]>([]);
@@ -377,47 +157,6 @@ export function InterventionPanel() {
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  useEffect(() => { apiClient.get("/users/directory").then((r: any) => {
-    const list = Array.isArray(r?.data?.data) ? r.data.data : Array.isArray(r?.data) ? r.data : Array.isArray(r?.data?.users) ? r.data.users : [];
-    setUsers(list);
-  }).catch(() => setUsers([])); }, []);
-
-  const openEdit = (t: any) => setEdit({
-    theme: t.theme,
-    intervention: t.intervention?.intervention || "",
-    status: t.intervention?.status || "Planned",
-    owner_id: t.intervention?.owner_id || "",
-    expected_outcome: t.intervention?.expected_outcome || "",
-    review_date: t.intervention?.review_date ? String(t.intervention.review_date).slice(0, 10) : "",
-  });
-
-  const save = async () => {
-    if (!edit?.intervention?.trim()) { toast.error("Describe the intervention."); return; }
-    setSaving(true);
-    try {
-      const owner = users.find((u) => u.id === edit.owner_id);
-      const res: any = await apiClient.post("/interventions", {
-        theme: edit.theme,
-        intervention: edit.intervention.trim(),
-        status: edit.status,
-        owner_id: edit.owner_id || null,
-        owner_role: owner?.role || null,
-        expected_outcome: edit.expected_outcome?.trim() || null,
-        review_date: edit.review_date || null,
-      });
-      const saved = res?.data ?? res;
-      setEdit(null);
-      // If starting the intervention raised a task on a risk, offer to go action it.
-      if (saved?.linked_risk_id) {
-        toast.success("Intervention saved — a task was raised on its risk.");
-        navigate(`/risk-register/${saved.linked_risk_id}`);
-      } else {
-        toast.success("Intervention saved");
-        load();
-      }
-    } catch (e: any) { toast.error(e?.message || "Failed to save intervention"); }
-    finally { setSaving(false); }
-  };
 
   const attention = useMemo(() => themes.filter((t) => ["Attention", "Review required"].includes(t.concern)).length, [themes]);
 
@@ -539,7 +278,7 @@ export function InterventionPanel() {
                         )}
                         {/* Multiple linked delivery actions (brief 2 §1) — the plan's relevant existing
                             actions, with coverage derived from the canonical action state. */}
-                        {intv.id && <LinkedActionsManager interventionId={intv.id} theme={t} canWrite={canManage} />}
+                        {intv.id && <LinkedActionsManager interventionId={intv.id} />}
 
                         {/* Formal effectiveness — the existing human-reviewed action-effectiveness
                             judgement (Effective / Partially Effective / Not Effective / Too Early).
@@ -654,25 +393,14 @@ export function InterventionPanel() {
                     );
                   })()}
 
-                  {/* Close / rate the risks that make up this theme, in place. Only shown when the
-                      theme still has open risks to act on. */}
-                  {canManage && (t.risk_refs || []).some((r: any) => r?.id && !isClosedStatus(r.status)) && (
-                    <button onClick={() => setCloseTheme(t)}
-                      className={`mt-3 w-full text-sm font-medium rounded-lg px-3 py-2 flex items-center justify-center gap-1.5 ${t.readyToClose ? "text-white bg-emerald-600 hover:bg-emerald-700" : "text-foreground border border-border hover:bg-muted"}`}>
-                      <CheckCircle2 className="w-4 h-4" /> Close / rate risk
-                    </button>
-                  )}
-
+                  {/* 27 Oct developer instructions (P1, "Complete the read-only conversion"):
+                      setting/updating the intervention and closing/rating a risk now happen in
+                      the Risk Register / Action Tracker, not here — Management Response Overview
+                      only displays the resulting trajectory, timeline and evidence. */}
                   <div className="mt-3 flex gap-2">
-                    {canManage ? (
-                      <button onClick={() => openEdit(t)} className="flex-1 text-sm font-medium text-primary bg-primary/10 rounded-lg px-3 py-2 hover:bg-primary/20">
-                        {intv ? "Update intervention" : "Set intervention"}
-                      </button>
-                    ) : (
-                      <div className="flex-1 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
-                        Assurance view — RM owns the operational intervention record.
-                      </div>
-                    )}
+                    <div className="flex-1 text-xs text-muted-foreground bg-muted/50 rounded-lg px-3 py-2">
+                      Read-only view — manage the intervention and risk via the Risk Register.
+                    </div>
                     {/* 25 Oct brief ("Navigation"): this previously chose the stored linked risk
                         without checking whether it was still open, so the button could silently
                         open a risk explicitly marked Closed while still saying "Action" as if
@@ -778,61 +506,6 @@ export function InterventionPanel() {
           </div>
         )}
       </div>
-
-      {closeTheme && (
-        <CloseRiskManager theme={closeTheme} onDone={() => { setCloseTheme(null); load(); }} />
-      )}
-
-      {edit && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4" onClick={() => setEdit(null)}>
-          <div className="bg-card w-full max-w-lg rounded-xl shadow-xl border border-border" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between px-5 py-4 border-b border-border">
-              <div>
-                <h3 className="font-semibold text-foreground">Intervention — {edit.theme}</h3>
-              <p className="text-xs text-muted-foreground">The leadership response to the recorded evidence trajectory. This indicator is not a clinical prediction or confirmation that risk is controlled.</p>
-              </div>
-              <button onClick={() => setEdit(null)} className="text-muted-foreground hover:text-foreground"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 space-y-4 max-h-[70vh] overflow-y-auto">
-              <div>
-                <label className="block text-sm font-medium mb-1">Intervention</label>
-                <input value={edit.intervention} onChange={(e) => setEdit({ ...edit, intervention: e.target.value })} placeholder="Describe the improvement approach for this theme"
-                  className="w-full border border-border rounded-lg p-2.5 text-sm bg-background focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-sm font-medium mb-1">Status</label>
-                  <select value={edit.status} onChange={(e) => setEdit({ ...edit, status: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-sm bg-background">
-                    {["Planned", "In Progress", "Complete", "On Hold"].map((s) => <option key={s} value={s}>{s}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium mb-1">Owner</label>
-                  <select value={edit.owner_id} onChange={(e) => setEdit({ ...edit, owner_id: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-sm bg-background">
-                    <option value="">Unassigned</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
-                  </select>
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Review date</label>
-                <input type="date" value={edit.review_date} onChange={(e) => setEdit({ ...edit, review_date: e.target.value })} className="w-full border border-border rounded-lg p-2.5 text-sm bg-background" />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-1">Expected outcome</label>
-                <textarea value={edit.expected_outcome} onChange={(e) => setEdit({ ...edit, expected_outcome: e.target.value })} rows={2} placeholder="The measurable improvement this plan should achieve"
-                  className="w-full border border-border rounded-lg p-2.5 text-sm bg-background resize-none focus:outline-none focus:ring-2 focus:ring-primary" />
-              </div>
-            </div>
-            <div className="px-5 py-4 border-t border-border flex justify-end gap-3">
-              <button onClick={() => setEdit(null)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
-              <button onClick={save} disabled={saving} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm hover:bg-primary/90 disabled:opacity-50 flex items-center gap-2">
-                {saving && <Loader2 className="w-4 h-4 animate-spin" />} Save intervention
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
