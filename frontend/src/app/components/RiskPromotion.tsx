@@ -22,6 +22,11 @@ export function RiskPromotion() {
   const [sourceData, setSourceData] = useState<any>(null);
   const [categories, setCategories] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
+  // The actual signals behind this candidate/pattern — the statistical description alone
+  // ("7 Environment & Property signals detected") isn't enough to judge a promote/dismiss
+  // decision against; an RM needs to read what was actually recorded.
+  const [signals, setSignals] = useState<any[]>([]);
+  const [signalsLoading, setSignalsLoading] = useState(true);
 
   const [formData, setFormData] = useState({
     title: '',
@@ -75,6 +80,10 @@ export function RiskPromotion() {
       if (candidateId) {
         const cRes = await apiClient.get(`/governance/risk-candidates?id=${candidateId}`);
         const candidate = (cRes as any).data?.[0];
+        apiClient.get(`/governance/risk-candidates/${candidateId}/signals`)
+          .then((r: any) => setSignals(Array.isArray(r?.data) ? r.data : []))
+          .catch(() => setSignals([]))
+          .finally(() => setSignalsLoading(false));
         if (candidate) {
           setSourceData(candidate);
           const candDomain = String(Array.isArray(candidate.risk_domain) ? candidate.risk_domain[0] : candidate.risk_domain || '');
@@ -99,6 +108,10 @@ export function RiskPromotion() {
         // service user's data. The path-param endpoint can't fall back to "first of list".
         const cRes = await apiClient.get(`/clusters/${clusterId}`);
         const cluster = (cRes as any).data;
+        apiClient.get(`/governance/clusters/${clusterId}/signals`)
+          .then((r: any) => setSignals(Array.isArray(r?.data) ? r.data : []))
+          .catch(() => setSignals([]))
+          .finally(() => setSignalsLoading(false));
         if (cluster && cluster.id && cluster.id !== clusterId) {
           toast.error('Loaded the wrong cluster — please reopen from the pattern.');
           setIsLoading(false);
@@ -232,11 +245,42 @@ export function RiskPromotion() {
                 />
 
                 <label className="block text-xs  uppercase text-muted-foreground mb-2">Governance Description</label>
-                <textarea 
+                <textarea
                   value={formData.description}
                   onChange={e => setFormData(p => ({ ...p, description: e.target.value }))}
                   className="w-full h-40 bg-input-background border-b-2 border-primary p-3 text-lg focus:outline-none resize-none"
                 />
+             </div>
+
+             {/* The actual recorded signals behind this candidate/pattern — the description
+                 above is a statistical summary; this is the evidence an RM reviews to decide. */}
+             <div className="bg-card border-2 border-border p-6 shadow-sm">
+                <label className="block text-xs uppercase text-muted-foreground mb-3">
+                  Underlying Signals {!signalsLoading && `(${signals.length})`}
+                </label>
+                {signalsLoading ? (
+                  <p className="text-sm text-muted-foreground">Loading signals…</p>
+                ) : signals.length === 0 ? (
+                  <p className="text-sm text-muted-foreground">No linked signals found for this candidate.</p>
+                ) : (
+                  <div className="space-y-3 max-h-80 overflow-y-auto">
+                    {signals.map((s: any) => (
+                      <div key={s.id} className="border-l-4 border-primary/40 pl-3 py-1">
+                        <div className="flex items-center justify-between gap-2 text-xs text-muted-foreground">
+                          <span>
+                            {s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }) : '—'}
+                            {s.entry_time ? ` ${String(s.entry_time).slice(0, 5)}` : ''}
+                            {s.related_person ? ` · ${s.related_person}` : ''}
+                          </span>
+                          <span className={`uppercase font-semibold ${s.severity === 'Critical' ? 'text-red-600' : s.severity === 'High' ? 'text-amber-600' : ''}`}>{s.severity}</span>
+                        </div>
+                        <p className="text-sm text-foreground mt-1">{s.signal_label || s.signal_type}</p>
+                        {s.description && <p className="text-sm text-muted-foreground mt-0.5 whitespace-pre-wrap break-words">{s.description}</p>}
+                        {s.pattern_concern && <p className="text-xs text-amber-700 mt-1">Concern noted: {s.pattern_concern}</p>}
+                      </div>
+                    ))}
+                  </div>
+                )}
              </div>
 
              {/* Section 2: Ratings */}

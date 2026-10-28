@@ -191,6 +191,19 @@ export class GovernanceController {
     }
   }
 
+  // The signals behind a risk candidate — so "Promote to Risk" can show the actual evidence,
+  // not just the statistical summary in the auto-generated description.
+  async getRiskCandidateSignals(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const signals = await governanceService.getRiskCandidateSignals(company_id, req.params.id);
+      return res.json({ success: true, data: signals });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to fetch candidate signals';
+      return res.status(500).json({ success: false, message });
+    }
+  }
+
   async getRiskCandidates(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

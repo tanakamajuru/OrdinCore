@@ -249,6 +249,7 @@ router.patch('/pulses/:id/status', requireAuth, requireTenant, requireRole('SUPE
 router.get('/clusters', requireAuth, requireTenant, requireScope, governanceController.getClusters.bind(governanceController));
 router.get('/clusters/:id/signals', requireAuth, requireTenant, governanceController.getClusterSignals.bind(governanceController));
 router.get('/risk-candidates', requireAuth, requireTenant, requireScope, governanceController.getRiskCandidates.bind(governanceController));
+router.get('/risk-candidates/:id/signals', requireAuth, requireTenant, governanceController.getRiskCandidateSignals.bind(governanceController));
 
 // Action Effectiveness
 router.get('/action-effectiveness', requireAuth, requireTenant, requireScope, governanceController.getActionEffectiveness.bind(governanceController));
