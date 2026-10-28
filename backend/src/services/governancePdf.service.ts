@@ -74,6 +74,10 @@ export const governancePdfService = {
       if (lr.change_needed) {
         doc.font('Helvetica-Bold').text('Change needed');
         doc.font('Helvetica').text(lr.change_needed, { indent: 10 });
+        // 27 Oct developer review ("Finish the learning PDF" — success criteria, owners/
+        // deadlines): the improvement plan's structured fields, added alongside change_needed.
+        doc.text(`Owner: ${lr.owner_name || '—'} · Review date: ${fmtDate(lr.review_date)}${lr.plan_deadline ? ` · Deadline: ${fmtDate(lr.plan_deadline)}` : ''}`, { indent: 10 });
+        if (lr.success_criteria) doc.text(`Success criteria: ${lr.success_criteria}`, { indent: 10 });
         doc.moveDown(0.5);
       }
     } else if (lr.state === 'NONE_IDENTIFIED') {

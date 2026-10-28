@@ -210,6 +210,9 @@ export function LearningRegister() {
                     {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                     {r.what_learnt && <p className="text-muted-foreground"><span className="text-foreground font-medium">Learnt:</span> {r.what_learnt}</p>}
                     {r.change_needed && <p className="text-muted-foreground"><span className="text-foreground font-medium">Change:</span> {r.change_needed}</p>}
+                    {r.change_needed && (r.success_criteria || r.owner_name || r.review_date) && (
+                      <p className="text-muted-foreground"><span className="text-foreground font-medium">Plan:</span> {r.owner_name ? `${r.owner_name} · ` : ""}{r.review_date ? `review ${fmt(r.review_date)}` : ""}{r.plan_deadline ? ` · deadline ${fmt(r.plan_deadline)}` : ""}{r.success_criteria ? ` — success: ${r.success_criteria}` : ""}</p>
+                    )}
                     {r.linked_action_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Improvement action:</span> {r.linked_action_title} ({r.linked_action_status || "open"})</p>}
                   </div>
                 )}

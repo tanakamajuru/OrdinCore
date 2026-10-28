@@ -30,6 +30,11 @@ export interface CreateLearningInput {
   owner_id?: string | null;
   review_date?: string | null;
   is_ai_suggested?: boolean;
+  // Improvement plan (27 Oct developer review): required once a change is actually needed.
+  // owner_id/review_date double as the plan's review owner/date (same fields the deferred
+  // NOT_YET_ASSESSED state already uses for the same purpose: who is accountable, and when).
+  success_criteria?: string;
+  plan_deadline?: string | null;
 }
 
 export class LearningService {
@@ -57,6 +62,13 @@ export class LearningService {
       // Deferred assessments need accountable ownership AND a review date — both, so a deferred
       // lesson cannot drift without a named owner answerable for it.
       throw new Error('A not-yet-assessed learning review needs an accountable owner and a review date.');
+    }
+    // 27 Oct developer review ("Improvement plan... Require this when change is needed"): a
+    // change_needed that names a real plan is not optional free text — it needs an accountable
+    // owner, a review date and stated success criteria, the same as a deferred assessment does.
+    const hasChangePlan = state === 'IDENTIFIED' && !!String(input.change_needed || '').trim();
+    if (hasChangePlan && (!input.owner_id || !input.review_date || !String(input.success_criteria || '').trim())) {
+      throw new Error('An improvement plan needs an accountable owner, a review date and stated success criteria.');
     }
 
     // When the lesson cites an exact effectiveness review, that review must genuinely belong to the
@@ -87,8 +99,9 @@ export class LearningService {
       `INSERT INTO learning_records
         (id, company_id, house_id, source_type, source_id, state, what_happened, evidence_examined,
          what_learnt, change_needed, no_learning_reason, linked_action_id, progress, owner_id, review_date,
-         is_ai_suggested, approved_by, approved_at, author_id, source_review_id, idempotency_key)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21)
+         is_ai_suggested, approved_by, approved_at, author_id, source_review_id, idempotency_key,
+         success_criteria, plan_deadline)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
        ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL
          DO UPDATE SET idempotency_key = EXCLUDED.idempotency_key
        RETURNING *`,
@@ -97,7 +110,9 @@ export class LearningService {
        input.what_learnt?.trim() || null, input.change_needed?.trim() || null, input.no_learning_reason?.trim() || null,
        input.linked_action_id ?? null, progress, input.owner_id ?? null, input.review_date ?? null,
        isAi, isAi ? null : author_id, isAi ? null : new Date(), author_id, input.source_review_id ?? null,
-       input.idempotency_key ?? null],
+       input.idempotency_key ?? null,
+       hasChangePlan ? (input.success_criteria || '').trim() || null : null,
+       hasChangePlan ? (input.plan_deadline || null) : null],
     );
     return res.rows[0];
   }
