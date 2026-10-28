@@ -123,6 +123,18 @@ export const governancePdfService = {
       doc.fillColor('black');
       doc.moveDown(0.5);
     }
+    // 27 Oct developer review ("Finish the learning PDF" — all verification attempts): append-
+    // only history (migration 202) is preserved but was never included in the export either.
+    const history = Array.isArray(lr.verification_history) ? lr.verification_history : [];
+    if (history.length > 1) {
+      doc.font('Helvetica-Bold').text(`All verification attempts (${history.length})`);
+      doc.font('Helvetica').fontSize(9);
+      [...history].reverse().forEach((h: any) => {
+        doc.text(`${h.outcome}${h.reviewed_at ? ` · ${fmtDate(h.reviewed_at)}` : ''} — ${h.evidence}${h.review_due_at ? ` (follow-up was due ${fmtDate(h.review_due_at)})` : ''}`, { indent: 10 });
+      });
+      doc.fontSize(10);
+      doc.moveDown(0.5);
+    }
 
     if (lr.source_review_outcome) {
       doc.font('Helvetica-Bold').text('Originating effectiveness review');

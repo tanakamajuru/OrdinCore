@@ -53,6 +53,9 @@ export function LearningRegister() {
   const [verifyOutcome, setVerifyOutcome] = useState("");
   const [verifyEvidence, setVerifyEvidence] = useState("");
   const [verifyReviewDue, setVerifyReviewDue] = useState("");
+  // 27 Oct developer review: each verification attempt is stored append-only
+  // (migration 202, verification_history) but was never rendered anywhere.
+  const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
 
   const load = async () => {
     setLoading(true);
@@ -276,6 +279,23 @@ export function LearningRegister() {
                             {r.verification_review_due_at && <> · Follow-up due {fmt(r.verification_review_due_at)}</>}
                           </p>
                         )}
+                        {Array.isArray(r.verification_history) && r.verification_history.length > 1 && (
+                          <div className="mt-1">
+                            <button onClick={() => setExpandedHistory(expandedHistory === r.id ? null : r.id)} className="text-[11px] text-primary hover:underline">
+                              {expandedHistory === r.id ? "Hide" : "Show"} all {r.verification_history.length} verification attempts
+                            </button>
+                            {expandedHistory === r.id && (
+                              <div className="mt-1.5 space-y-1.5 border-l-2 border-border pl-3">
+                                {[...r.verification_history].reverse().map((h: any, i: number) => (
+                                  <p key={i} className="text-[11px] text-muted-foreground">
+                                    <span className="font-medium text-foreground">{h.outcome}</span>{h.reviewed_at ? ` · ${fmt(h.reviewed_at)}` : ""} — {h.evidence}
+                                    {h.review_due_at && <> · follow-up was due {fmt(h.review_due_at)}</>}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
                         {canManage && verifying !== r.id && (
                           <button onClick={() => { setVerifying(r.id); setVerifyOutcome(""); setVerifyEvidence(""); setVerifyReviewDue(""); }} className="mt-1 text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">Verify improvement</button>
                         )}
@@ -314,11 +334,30 @@ export function LearningRegister() {
                       </div>
                     )}
                     {r.progress === "IMPROVEMENT_VERIFIED" && (
-                      r.verification_outcome && r.verification_evidence ? (
-                        <p className="mt-2 text-xs text-muted-foreground">Verified {r.verification_outcome}{r.verified_by_name ? ` by ${r.verified_by_name}, ${fmt(r.verified_at)}` : ""}: {r.verification_evidence}</p>
-                      ) : (
-                        <p className="mt-2 text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-1">Verification evidence missing — record requires review.</p>
-                      )
+                      <div className="mt-2">
+                        {r.verification_outcome && r.verification_evidence ? (
+                          <p className="text-xs text-muted-foreground">Verified {r.verification_outcome}{r.verified_by_name ? ` by ${r.verified_by_name}, ${fmt(r.verified_at)}` : ""}: {r.verification_evidence}</p>
+                        ) : (
+                          <p className="text-xs font-medium text-amber-700 bg-amber-50 rounded px-2 py-1">Verification evidence missing — record requires review.</p>
+                        )}
+                        {Array.isArray(r.verification_history) && r.verification_history.length > 1 && (
+                          <div className="mt-1">
+                            <button onClick={() => setExpandedHistory(expandedHistory === r.id ? null : r.id)} className="text-[11px] text-primary hover:underline">
+                              {expandedHistory === r.id ? "Hide" : "Show"} all {r.verification_history.length} verification attempts
+                            </button>
+                            {expandedHistory === r.id && (
+                              <div className="mt-1.5 space-y-1.5 border-l-2 border-border pl-3">
+                                {[...r.verification_history].reverse().map((h: any, i: number) => (
+                                  <p key={i} className="text-[11px] text-muted-foreground">
+                                    <span className="font-medium text-foreground">{h.outcome}</span>{h.reviewed_at ? ` · ${fmt(h.reviewed_at)}` : ""} — {h.evidence}
+                                    {h.review_due_at && <> · follow-up was due {fmt(h.review_due_at)}</>}
+                                  </p>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     )}
                   </div>
                 )}
