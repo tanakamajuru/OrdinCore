@@ -56,6 +56,9 @@ export function LearningRegister() {
   // 27 Oct developer review: each verification attempt is stored append-only
   // (migration 202, verification_history) but was never rendered anywhere.
   const [expandedHistory, setExpandedHistory] = useState<string | null>(null);
+  const [showExport, setShowExport] = useState(false);
+  const [exportFrom, setExportFrom] = useState("");
+  const [exportTo, setExportTo] = useState("");
 
   const load = async () => {
     setLoading(true);
@@ -134,11 +137,40 @@ export function LearningRegister() {
             <p className="text-sm text-muted-foreground">Lessons recorded across governance, their linked improvement work, and whether the change was implemented and verified.</p>
           </div>
           <button
-            onClick={() => downloadPdf(`/learning/summary/pdf${filter ? `?state=${filter}` : ""}`, `Learning_Summary_${new Date().toISOString().split("T")[0]}.pdf`)}
+            onClick={() => setShowExport((s) => !s)}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted shrink-0">
             <Download className="w-3.5 h-3.5" /> Download summary PDF {filter ? "(current filter)" : "(all)"}
           </button>
         </div>
+
+        {/* 27 Oct developer review ("explicit date-basis/range... complete, not capped"): the
+            export used to be a single click with no way to narrow it; now explicitly selects a
+            date range (date basis = when the lesson was recorded) before downloading. */}
+        {showExport && (
+          <div className="mb-4 rounded-lg border border-border bg-card p-3 flex flex-wrap items-end gap-3 text-xs">
+            <div>
+              <label className="block text-muted-foreground mb-1">From (recorded date)</label>
+              <input type="date" value={exportFrom} onChange={(e) => setExportFrom(e.target.value)} className="text-sm p-1.5 border border-border rounded bg-background" />
+            </div>
+            <div>
+              <label className="block text-muted-foreground mb-1">To (recorded date)</label>
+              <input type="date" value={exportTo} onChange={(e) => setExportTo(e.target.value)} className="text-sm p-1.5 border border-border rounded bg-background" />
+            </div>
+            <button
+              onClick={() => {
+                const params = new URLSearchParams();
+                if (filter) params.set("state", filter);
+                if (exportFrom) params.set("start_date", exportFrom);
+                if (exportTo) params.set("end_date", exportTo);
+                const qs = params.toString();
+                downloadPdf(`/learning/summary/pdf${qs ? `?${qs}` : ""}`, `Learning_Summary_${new Date().toISOString().split("T")[0]}.pdf`);
+              }}
+              className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground">
+              Download
+            </button>
+            <span className="text-[11px] text-muted-foreground">No date range = all dates. Current status filter ({filter ? STATE_LABEL[filter] : "All"}) is included.</span>
+          </div>
+        )}
 
         <div className="flex flex-wrap gap-2 mb-4">
           {[["", "All"], ["IDENTIFIED", "Learning identified"], ["NOT_YET_ASSESSED", "Not yet assessed"], ["NONE_IDENTIFIED", "No learning"]].map(([v, label]) => (

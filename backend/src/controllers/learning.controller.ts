@@ -20,11 +20,17 @@ export class LearningController {
       const company_id = req.user!.company_id!;
       const houseIds = (req.user as any)?.assigned_house_ids as string[] | undefined;
       const role = String(req.user!.role || '').toUpperCase();
-      const scoped = ['DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(role) ? null : (houseIds || null);
+      // 27 Oct developer review ("explicit service/client where authorised"): an oversight role
+      // can now select exactly one service to export, on top of the existing role auto-scope.
+      const requestedHouseId = typeof req.query.house_id === 'string' ? req.query.house_id : undefined;
+      const scoped = requestedHouseId ? [requestedHouseId]
+        : ['DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'].includes(role) ? null : (houseIds || null);
       const { content, filename, contentType } = await governancePdfService.learningSummary(company_id, {
         houseIds: scoped,
         state: req.query.state as string | undefined,
         progress: req.query.progress as string | undefined,
+        startDate: req.query.start_date as string | undefined,
+        endDate: req.query.end_date as string | undefined,
       });
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

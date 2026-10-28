@@ -220,13 +220,20 @@ export class LearningService {
 
   // Learning register: recent records across the company (optionally scoped to houses / filtered by
   // state or progress), with author, linked improvement action and scope — for the follow-through view.
-  async list(company_id: string, opts: { houseIds?: string[] | null; state?: string; progress?: string; limit?: number } = {}) {
+  async list(company_id: string, opts: { houseIds?: string[] | null; state?: string; progress?: string; limit?: number; startDate?: string; endDate?: string } = {}) {
     const params: any[] = [company_id];
     let where = 'lr.company_id = $1';
     if (opts.houseIds && opts.houseIds.length) { params.push(opts.houseIds); where += ` AND (lr.house_id = ANY($${params.length}::uuid[]) OR lr.house_id IS NULL)`; }
     if (opts.state) { params.push(opts.state); where += ` AND lr.state = $${params.length}`; }
     if (opts.progress) { params.push(opts.progress); where += ` AND lr.progress = $${params.length}`; }
-    params.push(Math.min(Math.max(Number(opts.limit) || 100, 1), 300));
+    // 27 Oct developer review ("Finish the learning PDF" — date-basis/range): date basis is
+    // created_at (when the lesson was recorded), stated explicitly by the caller.
+    if (opts.startDate) { params.push(opts.startDate); where += ` AND lr.created_at::date >= $${params.length}`; }
+    if (opts.endDate) { params.push(opts.endDate); where += ` AND lr.created_at::date <= $${params.length}`; }
+    // 27 Oct developer review: the summary export was hard-capped at 300 with no pagination, so a
+    // larger provider's export silently truncated. No cap for an explicit opts.limit of 0 ("all").
+    const rawLimit = opts.limit === 0 ? 100000 : Math.max(Number(opts.limit) || 100, 1);
+    params.push(Math.min(rawLimit, 100000));
     return (await query(
       `SELECT lr.*,
               NULLIF(TRIM(COALESCE(au.first_name,'') || ' ' || COALESCE(au.last_name,'')),'') AS author_name,

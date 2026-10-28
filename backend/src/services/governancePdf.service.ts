@@ -150,8 +150,10 @@ export const governancePdfService = {
     return finish(doc, buffers, `Learning_${lr.id}.pdf`);
   },
 
-  async learningSummary(company_id: string, filters: { houseIds?: string[] | null; state?: string; progress?: string }) {
-    const rows = await learningService.list(company_id, { ...filters, limit: 300 });
+  async learningSummary(company_id: string, filters: { houseIds?: string[] | null; state?: string; progress?: string; startDate?: string; endDate?: string }) {
+    // 27 Oct developer review ("Finish the learning PDF"): the export was silently capped at 300
+    // with no pagination, so a provider with more records never saw the rest. limit:0 = no cap.
+    const rows = await learningService.list(company_id, { ...filters, limit: 0 });
     const doc = new PDFDocument({ margin: 50 });
     const buffers: Buffer[] = [];
     doc.on('data', (c: Buffer) => buffers.push(c));
@@ -161,13 +163,25 @@ export const governancePdfService = {
     const filterParts: string[] = [];
     if (filters.state) filterParts.push(`Status: ${learningStateLabel(filters.state)}`);
     if (filters.progress) filterParts.push(`Progress: ${learningProgressLabel(filters.progress)}`);
+    if (filters.houseIds && filters.houseIds.length === 1) filterParts.push('Service: filtered');
     doc.fontSize(10).text(filterParts.length ? `Filters applied: ${filterParts.join(' · ')}` : 'No filters applied — all records in scope.');
-    doc.text(`${rows.length} record${rows.length === 1 ? '' : 's'} in this export.`);
+    // 27 Oct: "Label the date basis, include selected filters... date-basis/range."
+    doc.text(`Date basis: when the lesson was recorded (created). ${filters.startDate || filters.endDate ? `Range: ${filters.startDate || 'earliest'} to ${filters.endDate || 'latest'}.` : 'No date range applied — all dates in scope.'}`);
+    doc.text(`${rows.length} record${rows.length === 1 ? '' : 's'} in this export — complete, not paginated or truncated.`);
     doc.moveDown();
+
+    // 27 Oct: "identify outstanding carry-over separately."
+    const carryOver = rows.filter((lr: any) => lr.state === 'NOT_YET_ASSESSED' || (lr.state === 'IDENTIFIED' && lr.progress !== 'IMPROVEMENT_VERIFIED'));
+    if (carryOver.length) {
+      doc.fontSize(10).font('Helvetica-Bold').fillColor('#92400e').text(`${carryOver.length} record(s) below are outstanding carry-over (not yet assessed, or identified but not yet verified as improved).`);
+      doc.fillColor('black').font('Helvetica');
+      doc.moveDown(0.5);
+    }
 
     rows.forEach((lr: any, i: number) => {
       if (doc.y > 700) doc.addPage();
-      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`}`);
+      const isCarryOver = lr.state === 'NOT_YET_ASSESSED' || (lr.state === 'IDENTIFIED' && lr.progress !== 'IMPROVEMENT_VERIFIED');
+      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`}${isCarryOver ? '  [CARRY-OVER]' : ''}`);
       doc.font('Helvetica').fontSize(9);
       doc.text(`${lr.house_name || 'Organisation-wide'} · ${fmtDate(lr.created_at)} · ${learningStateLabel(lr.state)} · ${learningProgressLabel(lr.progress)}`);
       if (lr.state === 'IDENTIFIED' && lr.what_learnt) doc.text(`Learnt: ${lr.what_learnt}`, { indent: 10 });
