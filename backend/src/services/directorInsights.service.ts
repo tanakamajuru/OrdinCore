@@ -147,23 +147,27 @@ export class DirectorInsightsService {
       } catch { trajectoryUnavailable.add(riskId); }
     }
 
-    // Pending promotion decisions: unresolved signal clusters (by every service they explicitly
-    // affect -- a cross-service cluster's affected_house_ids, not just its primary house_id) and
-    // new risk candidates, by house.
+    // 27 Oct developer review ("Verify promotion eligibility/deduplication against the actual RM
+    // decision queue"): this originally also counted risk_candidates (status='New'). Verified
+    // against the actual queue the "Promotions pending" link opens (/rm5?stage=patterns, backed
+    // by rm5.service.ts patterns() -- ACTIVE_CLUSTER = ('Emerging','Escalated','Confirmed')): it
+    // reads ONLY signal_clusters. risk_candidates is never referenced anywhere in rm5.service.ts,
+    // and the only frontend consumer of GET /governance/risk-candidates is RiskPromotion.tsx
+    // fetching ONE record by an id nothing currently links to -- confirmed 41 "New" risk_candidate
+    // rows exist in production with no queue that lists them. Counting them here produced a
+    // "pending decisions" figure the RM could never actually open and action -- the exact
+    // eligibility/queue-alignment defect the review flagged. Only signal_clusters are counted now,
+    // using the SAME status set (ACTIVE_CLUSTER) the real queue uses, not a separately-derived
+    // NOT IN list that happened to match today's enum values by coincidence.
     //
-    // 27 Oct: "Do not invent a seven-day overdue rule where no agreed stored due date exists."
+    // "Do not invent a seven-day overdue rule where no agreed stored due date exists."
     // signal_clusters.next_review_date IS a genuine stored RM-set review date -- overdue is
-    // derived from that, not an invented threshold. risk_candidates has no due-date column at
-    // all, so a candidate is never counted overdue (it still counts as pending).
+    // derived from that, not an invented threshold.
     const pendingClusters = (await query(
       `SELECT id, house_id, scope, affected_house_ids, next_review_date,
               (next_review_date IS NOT NULL AND next_review_date < CURRENT_DATE) AS is_overdue
          FROM signal_clusters
-        WHERE company_id = $1 AND linked_risk_id IS NULL AND cluster_status NOT IN ('Resolved', 'Dismissed')`,
-      [companyId]
-    )).rows;
-    const pendingCandidates = (await query(
-      `SELECT id, house_id FROM risk_candidates WHERE company_id = $1 AND status = 'New'`,
+        WHERE company_id = $1 AND linked_risk_id IS NULL AND cluster_status IN ('Emerging','Escalated','Confirmed')`,
       [companyId]
     )).rows;
     // Expand each cluster to every service it affects: cross-service clusters go to each
@@ -177,10 +181,6 @@ export class DirectorInsightsService {
         : (c.house_id ? [c.house_id] : []);
       if (!affected.length) { unallocatedPending.push({ is_overdue: !!c.is_overdue }); continue; }
       for (const houseId of affected) pending.push({ house_id: houseId, is_overdue: !!c.is_overdue });
-    }
-    for (const cand of pendingCandidates) {
-      if (!cand.house_id) { unallocatedPending.push({ is_overdue: false }); continue; }
-      pending.push({ house_id: cand.house_id, is_overdue: false });
     }
 
     // Overdue actions: canonical open actions past their due date, scoped by the risk's house --
