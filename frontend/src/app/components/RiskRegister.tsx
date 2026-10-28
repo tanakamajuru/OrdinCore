@@ -93,8 +93,19 @@ export function RiskRegister() {
   // unfiltered list — every "open this count" link from the dashboard/overview was effectively
   // dead. Now actually scopes the tab's rows to the requested service when the param is present.
   const houseFilter = searchParams.get("house");
-  const allRows: any[] = data?.[tab] || [];
-  const rows: any[] = houseFilter ? allRows.filter((r: any) => r.house_id === houseFilter) : allRows;
+  // 27 Oct developer review ("Align counted IDs and destination filters"): a plain house_id
+  // match misses a cross-service risk Services Overview counted via its linked signals (no
+  // house_id of its own). `ids` carries the EXACT risk IDs that were counted, so the
+  // destination can filter on precisely that set instead of re-deriving a weaker house match.
+  const idsFilter = searchParams.get("ids");
+  const idsSet = idsFilter ? new Set(idsFilter.split(",").filter(Boolean)) : null;
+  const trendFilter = searchParams.get("trend");
+  const isDeteriorating = (t: string) => { const v = (t || "").toLowerCase(); return v.includes("deteriorat") || v.includes("escalat") || v.includes("critical") || v.includes("worsen"); };
+  let allRows: any[] = data?.[tab] || [];
+  if (trendFilter === "Deteriorating") allRows = allRows.filter((r: any) => isDeteriorating(r.trajectory));
+  const rows: any[] = idsSet ? allRows.filter((r: any) => idsSet.has(r.id))
+    : houseFilter ? allRows.filter((r: any) => r.house_id === houseFilter)
+    : allRows;
 
   const [page, setPage] = useState(1);
   const PAGE_SIZE = 5;
@@ -179,6 +190,15 @@ export function RiskRegister() {
             </button>
           ))}
         </div>
+
+        {/* 27 Oct developer review: filters applied via drill-down links were silent — make them
+            visible so the reduced count on screen is never mistaken for the full register. */}
+        {(houseFilter || idsFilter || trendFilter) && (
+          <div className="mb-3 flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+            <span>Filtered{idsFilter ? " to the exact records counted" : houseFilter ? " to this service" : ""}{trendFilter ? ` · ${trendFilter} risks only` : ""} — {rows.length} of {data?.[tab]?.length ?? 0} on this tab.</span>
+            <button onClick={() => navigate("/risk-register?tab=" + tab)} className="font-semibold text-primary hover:underline shrink-0 ml-3">Clear filters</button>
+          </div>
+        )}
 
         {/* Register table */}
         <div className="bg-card border border-border rounded-xl overflow-hidden shadow-sm">

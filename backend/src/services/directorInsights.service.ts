@@ -231,6 +231,12 @@ export class DirectorInsightsService {
     const services = Array.from(byService.values()).map((s) => ({
       id: s.id, name: s.name,
       open_risks: s.open_risks.size,
+      // 27 Oct developer review ("Align counted IDs and destination filters"): the register
+      // filters strictly by risk.house_id, but this count also includes a cross-service risk
+      // with no house_id expanded in via its linked signals -- such a risk would silently
+      // disappear from a plain `?house=` drill-down. Exposing the exact counted IDs lets the
+      // destination filter on them directly instead of re-deriving a weaker house_id match.
+      open_risk_ids: Array.from(s.open_risks),
       highest_rating: s.highest_rating || 'Unrated',
       deteriorating: s.deteriorating,
       trajectory_unavailable: s.trajectory_unavailable,

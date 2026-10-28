@@ -167,17 +167,28 @@ function ServicesOverview({ navigate }: { navigate: (path: string) => void }) {
                 {s.open_risks === 0 && (
                   <p className="text-[11px] text-muted-foreground mb-2">No open registered risks{(s.pending_decisions > 0 || s.overdue_actions > 0 || s.overdue_reviews > 0) ? " — outstanding work remains below." : "."}</p>
                 )}
-                <div className="grid grid-cols-3 gap-1">
-                  <ServiceMetric label="Open risks" value={s.open_risks} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title="Distinct active risks affecting this service" />
-                  <ServiceMetric label="Highest rating" value={s.highest_rating} tone={IMPACT_TONE[s.highest_rating] ? "" : undefined} title="Highest recorded risk rating among this service's open risks" onClick={s.open_risks ? () => navigate(`/risk-register?tab=active&house=${s.id}`) : undefined} />
+                {(() => {
+                  // 27 Oct developer review: the register filters strictly by risk.house_id, but
+                  // this count also includes a cross-service risk with no house_id, expanded in
+                  // via its linked signals -- a plain ?house= drill-down would silently miss it.
+                  // Pass the exact counted risk IDs so the destination opens precisely what was
+                  // counted, falling back to the house filter only if IDs weren't returned.
+                  const ids: string[] = Array.isArray(s.open_risk_ids) ? s.open_risk_ids : [];
+                  const openRiskDest = ids.length ? `/risk-register?tab=active&ids=${ids.join(",")}` : `/risk-register?tab=active&house=${s.id}`;
+                  return (
+                    <div className="grid grid-cols-3 gap-1">
+                      <ServiceMetric label="Open risks" value={s.open_risks} onClick={() => navigate(openRiskDest)} title="Distinct active risks affecting this service" />
+                      <ServiceMetric label="Highest rating" value={s.highest_rating} tone={IMPACT_TONE[s.highest_rating] ? "" : undefined} title="Highest recorded risk rating among this service's open risks" onClick={s.open_risks ? () => navigate(openRiskDest) : undefined} />
                   {/* 27 Oct developer instructions ("Finish validation of the new Services
                       Overview"): a trajectory read that failed is shown as its own "unavailable"
                       state rather than silently counting toward a confident "0 deteriorating". */}
-                  <ServiceMetric label="Deteriorating" value={s.trajectory_unavailable > 0 ? `${s.deteriorating} (+${s.trajectory_unavailable} unavailable)` : s.deteriorating} tone={s.deteriorating > 0 ? "text-red-600" : s.trajectory_unavailable > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`/risk-register?tab=active&house=${s.id}`)} title={`Authoritative trajectory: risks currently deteriorating${s.trajectory_unavailable ? `. ${s.trajectory_unavailable} risk(s) could not be assessed — not counted as stable.` : ''}`} />
-                  <ServiceMetric label="Promotions pending" value={s.pending_overdue > 0 ? `${s.pending_decisions} (${s.pending_overdue} overdue)` : s.pending_decisions} tone={s.pending_overdue > 0 ? "text-red-600" : s.pending_decisions > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`/rm5?stage=patterns&house=${s.id}`)} title="Concerns awaiting an RM promotion decision for this service" />
-                  <ServiceMetric label="Overdue actions" value={s.overdue_actions} tone={s.overdue_actions > 0 ? "text-red-600" : undefined} onClick={() => navigate("/governance-compliance")} title="Outstanding follow-through past its due date, including work remaining after risk closure" />
-                  <ServiceMetric label="Overdue reviews" value={s.overdue_reviews} tone={s.overdue_reviews > 0 ? "text-red-600" : undefined} onClick={() => navigate("/effectiveness")} title="Effectiveness reviews past their due date" />
-                </div>
+                      <ServiceMetric label="Deteriorating" value={s.trajectory_unavailable > 0 ? `${s.deteriorating} (+${s.trajectory_unavailable} unavailable)` : s.deteriorating} tone={s.deteriorating > 0 ? "text-red-600" : s.trajectory_unavailable > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`${openRiskDest}&trend=Deteriorating`)} title={`Authoritative trajectory: risks currently deteriorating${s.trajectory_unavailable ? `. ${s.trajectory_unavailable} risk(s) could not be assessed — not counted as stable.` : ''}`} />
+                      <ServiceMetric label="Promotions pending" value={s.pending_overdue > 0 ? `${s.pending_decisions} (${s.pending_overdue} overdue)` : s.pending_decisions} tone={s.pending_overdue > 0 ? "text-red-600" : s.pending_decisions > 0 ? "text-amber-600" : undefined} onClick={() => navigate(`/rm5?stage=patterns&house=${s.id}`)} title="Concerns awaiting an RM promotion decision for this service" />
+                      <ServiceMetric label="Overdue actions" value={s.overdue_actions} tone={s.overdue_actions > 0 ? "text-red-600" : undefined} onClick={() => navigate("/governance-compliance")} title="Outstanding follow-through past its due date, including work remaining after risk closure" />
+                      <ServiceMetric label="Overdue reviews" value={s.overdue_reviews} tone={s.overdue_reviews > 0 ? "text-red-600" : undefined} onClick={() => navigate("/effectiveness")} title="Effectiveness reviews past their due date" />
+                    </div>
+                  );
+                })()}
               </div>
             ))}
             {(!overview?.services || overview.services.length === 0) && <p className="text-xs text-muted-foreground py-6 text-center col-span-2">No services</p>}
