@@ -207,6 +207,9 @@ export function LearningRegister() {
                         {r.source_review_outcome ? ` · rated ${r.source_review_outcome}` : ""}
                         {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
                     )}
+                    {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
+                    {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
+                    {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
                     {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                     {r.what_learnt && <p className="text-muted-foreground"><span className="text-foreground font-medium">Learnt:</span> {r.what_learnt}</p>}
                     {r.change_needed && <p className="text-muted-foreground"><span className="text-foreground font-medium">Change:</span> {r.change_needed}</p>}
@@ -226,7 +229,7 @@ export function LearningRegister() {
                     </p>
                     {/* Context so the reviewer knows WHAT this learning is about before assessing it —
                         the originating effectiveness review, its outcome/evidence and the concern. */}
-                    {(r.source_action_title || r.source_pattern_label || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
+                    {(r.source_action_title || r.source_pattern_label || r.source_escalation_reason || r.source_risk_title || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
                       <div className="mt-2 space-y-1 text-sm bg-muted/40 rounded-lg p-2.5">
                         {(r.source_action_title || r.source_review_outcome) && (
                           <p className="text-muted-foreground"><span className="text-foreground font-medium">From review:</span> {r.source_action_title || "Reviewed action"}
@@ -234,6 +237,8 @@ export function LearningRegister() {
                             {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
                         )}
                         {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
+                        {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
+                        {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
                         {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                         {r.source_review_evidence && <p className="text-muted-foreground"><span className="text-foreground font-medium">Evidence examined:</span> {r.source_review_evidence}</p>}
                         {r.linked_action_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Improvement action:</span> {r.linked_action_title}{r.linked_action_status ? ` (${r.linked_action_status})` : ""}</p>}

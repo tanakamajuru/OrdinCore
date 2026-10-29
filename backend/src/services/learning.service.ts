@@ -262,7 +262,14 @@ export class LearningService {
               aer.evidence AS source_review_evidence,
               -- Pattern-closure learnings point at a cluster, not an action — surface its label
               -- so the reviewer still has context for what the learning is about.
-              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label
+              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
+              -- 29 Oct 2026 live bug report ("the learning section ... not pulling complete
+              -- correct info"): ESCALATION_CLOSURE and RISK_CLOSURE sources had no join at all, so
+              -- opening a learning record from either source showed no "From review/pattern"
+              -- context whatsoever -- the exact gap already fixed for frozen reporting earlier in
+              -- this revision. Added here for the live review screen.
+              esc.reason AS source_escalation_reason,
+              sr.strategic_theme AS source_risk_title
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -272,6 +279,8 @@ export class LearningService {
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
          LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
+         LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
+         LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE ${where}
         ORDER BY lr.created_at DESC
@@ -295,7 +304,9 @@ export class LearningService {
               sa.title AS source_action_title,
               aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
               aer.evidence AS source_review_evidence,
-              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label
+              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
+              esc.reason AS source_escalation_reason,
+              sr.strategic_theme AS source_risk_title
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -306,6 +317,8 @@ export class LearningService {
          LEFT JOIN risk_actions ra ON ra.id = lr.linked_action_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
          LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
+         LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
+         LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.id = $1 AND lr.company_id = $2`,
       [id, company_id],
@@ -321,11 +334,17 @@ export class LearningService {
               NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')),'') AS owner_name,
               sa.title AS source_action_title,
               aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
-              aer.evidence AS source_review_evidence
+              aer.evidence AS source_review_evidence,
+              COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
+              esc.reason AS source_escalation_reason,
+              sr.strategic_theme AS source_risk_title
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
+         LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
+         LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
+         LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.company_id = $1 AND lr.source_type = $2 AND lr.source_id = $3
         ORDER BY lr.created_at DESC`,
