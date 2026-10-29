@@ -156,6 +156,54 @@ export const scopedReportDataService = {
       open_escalations: sum('open_escalations'), overdue_escalations: sum('overdue_escalations'),
       open_actions: sum('open_actions'), overdue_actions: sum('overdue_actions'),
     };
+
+    // 28 Oct developer instructions (Revision 3, §5 "Organisation-wide reconciliation"): the
+    // headline totals above sum only house-specific metrics (metricsForSite queries house_id =
+    // one site), while the detail evidence lists below additionally include organisation-wide
+    // records (house_id IS NULL) whenever the scope is SERVICE/REGION/ORGANISATION. A SERVICE/
+    // ORGANISATION report could therefore list an org-wide risk in its evidence while the headline
+    // "open risks" count never included it at all. Add org-wide counts once to the headline totals
+    // for those scopes — counted here, not per-site, so a cross-service record is never summed
+    // once per affected site and inflated.
+    const includeOrgWideTotals = ['SERVICE', 'REGION', 'ORGANISATION'].includes(resolved.type);
+    if (includeOrgWideTotals) {
+      const orgRisk = (await query(
+        `SELECT COUNT(*) FILTER (WHERE r.created_at <= $2::timestamptz
+                                  AND ((COALESCE(r.closed_at, r.resolved_at) IS NULL AND LOWER(r.status::text) NOT IN ('closed','resolved')) OR COALESCE(r.closed_at, r.resolved_at) > $2::timestamptz))::int AS open_risks,
+                COUNT(*) FILTER (WHERE r.created_at <= $2::timestamptz
+                                  AND ((COALESCE(r.closed_at, r.resolved_at) IS NULL AND LOWER(r.status::text) NOT IN ('closed','resolved')) OR COALESCE(r.closed_at, r.resolved_at) > $2::timestamptz)
+                                  AND LOWER(r.severity::text)='critical')::int AS critical_risks
+           FROM canonical_risk_state_v r WHERE r.company_id = $1 AND r.house_id IS NULL`,
+        [companyId, end]
+      )).rows[0];
+      const orgEsc = (await query(
+        `SELECT COUNT(*) FILTER (WHERE e.created_at <= $2::timestamptz
+                                  AND ((COALESCE(e.closed_at, e.resolved_at) IS NULL AND COALESCE(e.lifecycle_status::text,e.status::text) NOT IN ('Closed','Resolved','closed','resolved')) OR COALESCE(e.closed_at, e.resolved_at) > $2::timestamptz))::int AS open_escalations,
+                COUNT(*) FILTER (WHERE e.created_at <= $2::timestamptz
+                                  AND ((COALESCE(e.closed_at, e.resolved_at) IS NULL AND COALESCE(e.lifecycle_status::text,e.status::text) NOT IN ('Closed','Resolved','closed','resolved')) OR COALESCE(e.closed_at, e.resolved_at) > $2::timestamptz)
+                                  AND e.due_by < $2::timestamptz)::int AS overdue_escalations
+           FROM canonical_escalation_state_v e WHERE e.company_id = $1 AND e.house_id IS NULL`,
+        [companyId, end]
+      )).rows[0];
+      const orgAct = (await query(
+        `SELECT COUNT(*) FILTER (WHERE ra.created_at <= $2::timestamptz
+                                  AND ((ra.completed_at IS NULL AND ra.status NOT IN ${done}) OR ra.completed_at > $2::timestamptz))::int AS open_actions,
+                COUNT(*) FILTER (WHERE ra.created_at <= $2::timestamptz
+                                  AND ((ra.completed_at IS NULL AND ra.status NOT IN ${done}) OR ra.completed_at > $2::timestamptz)
+                                  AND ra.due_date < $2::timestamptz)::int AS overdue_actions
+           FROM canonical_action_state_v ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
+          WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) IS NULL`,
+        [companyId, end]
+      )).rows[0];
+      totals.open_risks += orgRisk.open_risks; totals.critical_risks += orgRisk.critical_risks;
+      totals.open_escalations += orgEsc.open_escalations; totals.overdue_escalations += orgEsc.overdue_escalations;
+      totals.open_actions += orgAct.open_actions; totals.overdue_actions += orgAct.overdue_actions;
+      Object.assign(totals, {
+        organisation_wide: { open_risks: orgRisk.open_risks, critical_risks: orgRisk.critical_risks,
+          open_escalations: orgEsc.open_escalations, overdue_escalations: orgEsc.overdue_escalations,
+          open_actions: orgAct.open_actions, overdue_actions: orgAct.overdue_actions },
+      });
+    }
     const avgGov = perSite.length ? Math.round(perSite.reduce((t, s) => t + s.governance_confidence, 0) / perSite.length) : 100;
     const avgEvidence = perSite.length ? Math.round(perSite.reduce((t, s) => t + s.evidence_confidence, 0) / perSite.length) : 0;
 
