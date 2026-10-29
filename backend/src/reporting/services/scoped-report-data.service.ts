@@ -9,6 +9,16 @@ import { isDemonstratedEffective, hasWeakEvidence } from '../domain/effectivenes
 
 const done = `('Complete','Completed','Cancelled')`;
 
+// 28 Oct developer instructions (Revision 3, §5 "Resolve the date contract") — decided: entry_date
+// is the real-world date the incident/event actually happened (what staff are recording), never a
+// data-entry timestamp. Every place this service selects or filters governance_pulses by date now
+// uses gp.entry_date (both columns are NOT NULL, so the previous
+// COALESCE(gp.created_at, gp.entry_date::timestamptz) silently preferred the WRONG one whenever
+// created_at happened to differ from entry_date — e.g. a late entry). created_at remains available
+// separately wherever it is selected as its own field, as the system-entry audit timestamp only;
+// it must never again substitute for entry_date in a period filter. This matches
+// weeklyReviews.service.ts, which already filters by entry_date alone.
+
 // 28 Oct developer instructions (Revision 3, "One eligible original-signal population"): the
 // frozen headline metric query and the cross-site themes query had no exclusion at all, and
 // even the detail signals query excluded only the 'Scheduled Governance Pulse' placeholder, not
@@ -29,10 +39,10 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
     `SELECT COUNT(*)::int AS signals,
             COUNT(*) FILTER (WHERE gp.severity IN ('High','Critical'))::int AS high_critical,
             COUNT(*) FILTER (WHERE COALESCE(gp.review_status::text,'New') <> 'New')::int AS reviewed_signals,
-            COUNT(DISTINCT COALESCE(gp.created_at, gp.entry_date::timestamptz)::date)::int AS distinct_days
+            COUNT(DISTINCT gp.entry_date::timestamptz::date)::int AS distinct_days
        FROM governance_pulses gp
       WHERE gp.company_id = $1 AND gp.house_id = $2
-        AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
+        AND gp.entry_date::timestamptz >= $3 AND gp.entry_date::timestamptz < $4
         AND ${ELIGIBLE_PULSE} ${personPulse}`,
     [companyId, siteId, start, end]
   )).rows[0];
@@ -141,7 +151,7 @@ export const scopedReportDataService = {
       `SELECT unnest(gp.risk_domain)::text AS theme, COUNT(*)::int AS n
          FROM governance_pulses gp
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
+          AND gp.entry_date::timestamptz >= $3 AND gp.entry_date::timestamptz < $4
           AND ${ELIGIBLE_PULSE}
           ${personId ? `AND gp.service_user_id = '${personId}'` : ''}
         GROUP BY theme ORDER BY n DESC LIMIT 8`,
@@ -241,7 +251,7 @@ export const scopedReportDataService = {
          JOIN houses h ON h.id = gp.house_id AND h.company_id = gp.company_id
          LEFT JOIN users cu ON cu.id = gp.created_by AND cu.company_id = gp.company_id
         WHERE gp.company_id = $1 AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3 AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4
+          AND gp.entry_date::timestamptz >= $3 AND gp.entry_date::timestamptz < $4
           AND ($5::uuid IS NULL OR gp.service_user_id = $5)
           -- B7 correction (21 Oct 2026): "a reminder belongs under governance activity, with
           -- findings absent if none exist. Scheduled reminder entries are permitted by the query."
@@ -249,7 +259,7 @@ export const scopedReportDataService = {
           -- service -- an auto-generated reminder placeholder could appear in "Recorded concerns"
           -- as if it were an actual observation.
           AND ${ELIGIBLE_PULSE}
-        ORDER BY COALESCE(gp.created_at, gp.entry_date::timestamptz) DESC`, detailParams
+        ORDER BY gp.entry_date::timestamptz DESC`, detailParams
     )).rows;
 
     const riskRows = (await query(
@@ -460,7 +470,7 @@ export const scopedReportDataService = {
          LEFT JOIN houses h2 ON h2.id = gp.house_id AND h2.company_id = sc.company_id
         WHERE sc.company_id = $1
           AND gp.house_id = ANY($2::uuid[])
-          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= $3::timestamptz AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < $4::timestamptz
+          AND gp.entry_date::timestamptz >= $3::timestamptz AND gp.entry_date::timestamptz < $4::timestamptz
           AND ${ELIGIBLE_PULSE}
           AND ($5::uuid IS NULL)
         GROUP BY sc.id, sc.risk_domain, sc.scope, sc.cluster_status, sc.linked_risk_id, sc.review_outcome, sc.next_review_date
