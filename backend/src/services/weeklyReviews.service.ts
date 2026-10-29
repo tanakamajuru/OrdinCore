@@ -4,6 +4,7 @@ import { assertIndependent } from '../utils/separationOfDuties';
 import { v4 as uuidv4 } from 'uuid';
 import { trajectoryForRisk } from './trajectory.service';
 import { aiService } from './ai.service';
+import logger from '../utils/logger';
 
 // Normalise an auto-population field that may arrive as an array OR a summary string.
 const asList = (v: any): string[] => Array.isArray(v)
@@ -398,6 +399,35 @@ export class WeeklyReviewsService {
     };
   }
 
+  // 28 Oct developer instructions (Revision 3, §6 "Validate input facts and every factual
+  // output"): weekly drafting had no post-generation factual gate at all -- narrative.service.ts
+  // (the frozen-report path) already validates its AI draft against supplied canonical facts via
+  // contradictsFacts() and falls back to deterministic wording on a contradiction; weekly drafting
+  // simply returned whatever the model produced. This is the weekly-drafting equivalent, checked
+  // against the exact facts object this draft was grounded on.
+  contradictsWeeklyFacts(text: string, facts: any): boolean {
+    const t = String(text || '').toLowerCase();
+    if (!t) return false;
+    if ((facts.signals_recorded || 0) > 0 && /no signals? (?:were|was|are|is) (?:recorded|identified)/i.test(t)) return true;
+    if ((facts.high_or_critical_signals || 0) > 0 && /no high.{0,10}critical|no high\/critical/i.test(t)) return true;
+    if (Array.isArray(facts.active_risks) && facts.active_risks.length > 0 && /no (?:open |active )?risks? (?:were|was|are|is) (?:open|identified|recorded)/i.test(t)) return true;
+    if (Array.isArray(facts.leadership_interventions) && facts.leadership_interventions.length > 0 && /no (?:leadership )?interventions?/i.test(t)) return true;
+    return false;
+  }
+
+  // Deterministic, fact-only fallback — used when the AI draft fails validation (twice) or AI is
+  // unavailable mid-draft. Never fills the gap with plausible-sounding invented content.
+  deterministicWeeklyNarrative(facts: any): { narrative: string; lessons_learnt: string } {
+    const risks = (facts.active_risks || []).length;
+    const interventions = (facts.leadership_interventions || []).length;
+    const narrative = [
+      `${facts.service || 'This service'} recorded ${facts.signals_recorded || 0} signal(s) for the week ${facts.week || ''}, including ${facts.high_or_critical_signals || 0} High or Critical.`,
+      `${risks} active risk(s) and ${interventions} recorded leadership intervention(s) are shown in the supplied data.`,
+      'This is a deterministic, fact-only summary. The AI-drafted narrative could not be validated against the recorded facts and was not used — the manager must complete this section directly.',
+    ].join(' ');
+    return { narrative, lessons_learnt: '' };
+  }
+
   // AI-drafted narrative for the weekly governance review. Grounded strictly in the same
   // structured data the review auto-populates from — the model phrases it, it never invents facts.
   // Returns a draft the manager edits and signs off; nothing is finalised by AI.
@@ -436,9 +466,38 @@ export class WeeklyReviewsService {
     ].join('\n');
     const user = `Draft the weekly governance review narrative and lessons learnt for this service and week. Data (JSON):\n${JSON.stringify(facts, null, 2)}`;
 
-    const out = await aiService.generateJSON<{ narrative?: string; lessons_learnt?: string; text?: string }>(system, user, 900);
+    let out = await aiService.generateJSON<{ narrative?: string; lessons_learnt?: string; text?: string }>(system, user, 900);
+    let narrative = out.narrative || out.text || '';
+    let failed = this.contradictsWeeklyFacts(narrative, facts);
+
+    // One retry with the specific contradiction named, per doctrine ("retry with precise errors").
+    if (failed) {
+      logger.error('[weekly-narrative] generated draft failed factual validation; retrying once');
+      const retryUser = `${user}\n\nYour previous draft contradicted the supplied facts (it stated zero/none of something the data shows is non-zero). Re-draft using ONLY the figures above; do not state "no signals", "no risks" or similar when the data shows a non-zero count.`;
+      out = await aiService.generateJSON<{ narrative?: string; lessons_learnt?: string; text?: string }>(system, retryUser, 900);
+      narrative = out.narrative || out.text || '';
+      failed = this.contradictsWeeklyFacts(narrative, facts);
+    }
+
+    if (failed) {
+      logger.error('[weekly-narrative] retry still failed factual validation; deterministic fallback used');
+      const fallback = this.deterministicWeeklyNarrative(facts);
+      return {
+        narrative: fallback.narrative,
+        lessons_learnt: fallback.lessons_learnt,
+        grounded_on: facts,
+        provenance: {
+          source: 'deterministic-template' as const,
+          provider: null, model: null,
+          prompt_version: 'weekly-narrative-v1',
+          generated_at: new Date().toISOString(),
+        },
+        label: 'The AI draft could not be validated against the recorded facts and was not used — this is a deterministic, fact-only summary. Review and complete it directly before approval.',
+      };
+    }
+
     return {
-      narrative: out.narrative || out.text || '',
+      narrative,
       lessons_learnt: out.lessons_learnt || '',
       grounded_on: facts,
       // Structural provenance (doctrine §24) — persist this with the review instead of inferring
