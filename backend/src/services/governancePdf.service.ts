@@ -146,6 +146,25 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
+    // 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe give us a
+    // link to the whole escalation history"): when the source action itself resolved a real
+    // escalation, print that escalation's own chronology — this was entirely absent before, so
+    // a record like "Police attended and investigation done, client reassured" showed only the
+    // bare action title with no visibility of what the underlying escalation actually was.
+    if (lr.action_escalation_reason) {
+      doc.font('Helvetica-Bold').text('Escalation history (from the source action)');
+      doc.font('Helvetica').text(`Raised: ${lr.action_escalation_reason}`, { indent: 10 });
+      doc.text(`Status: ${lr.action_escalation_lifecycle_status || lr.action_escalation_status || '—'}${lr.action_escalation_to_name ? ` · Escalated to: ${lr.action_escalation_to_name}` : ''}`, { indent: 10 });
+      doc.text(`Opened: ${fmtDate(lr.action_escalation_created_at)}${lr.action_escalation_due_by ? ` · Due: ${fmtDate(lr.action_escalation_due_by)}` : ''}${lr.action_escalation_closed_at ? ` · Closed: ${fmtDate(lr.action_escalation_closed_at)}` : ''}`, { indent: 10 });
+      if (lr.action_escalation_closure_evidence) doc.text(`Closure evidence: ${lr.action_escalation_closure_evidence}`, { indent: 10 });
+      doc.moveDown(0.5);
+    }
+    if (lr.action_risk_title) {
+      doc.font('Helvetica-Bold').text('Linked risk (from the source action)');
+      doc.font('Helvetica').text(`${lr.action_risk_title} — ${lr.action_risk_status || 'status unknown'}${lr.action_risk_severity ? `, ${lr.action_risk_severity}` : ''}`, { indent: 10 });
+      doc.moveDown(0.5);
+    }
+
     if (lr.linked_action_title) {
       doc.font('Helvetica-Bold').text('Follow-through action');
       doc.font('Helvetica').text(`${lr.linked_action_title} (${lr.linked_action_status || 'status unknown'})`, { indent: 10 });

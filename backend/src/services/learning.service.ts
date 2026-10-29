@@ -269,7 +269,23 @@ export class LearningService {
               -- context whatsoever -- the exact gap already fixed for frozen reporting earlier in
               -- this revision. Added here for the live review screen.
               esc.reason AS source_escalation_reason,
-              sr.strategic_theme AS source_risk_title
+              sr.strategic_theme AS source_risk_title,
+              -- 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe
+              -- give us a link to the whole escalation history"): an EFFECTIVENESS source action
+              -- can itself carry its own escalation_id/risk_id (the governance chain the action
+              -- was actually raised against) — entirely separate from source_escalation_reason
+              -- above (which is only for an ESCALATION_CLOSURE-sourced learning). Neither the
+              -- screen nor the PDF ever followed that chain; a learning whose action resolved a
+              -- real escalation showed only the bare action title, with no visibility of what
+              -- happened in the escalation itself (reason, response, closure evidence).
+              sa_esc.reason AS action_escalation_reason, sa_esc.status AS action_escalation_status,
+              sa_esc.lifecycle_status::text AS action_escalation_lifecycle_status,
+              sa_esc.created_at AS action_escalation_created_at, sa_esc.due_by AS action_escalation_due_by,
+              sa_esc.closed_at AS action_escalation_closed_at,
+              COALESCE(sa_esc.closure_evidence, sa_esc.resolution_notes) AS action_escalation_closure_evidence,
+              NULLIF(TRIM(COALESCE(sa_esc_to.first_name,'') || ' ' || COALESCE(sa_esc_to.last_name,'')),'') AS action_escalation_to_name,
+              sa_risk.strategic_theme AS action_risk_title, sa_risk.status::text AS action_risk_status,
+              sa_risk.severity::text AS action_risk_severity
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -281,6 +297,9 @@ export class LearningService {
          LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
          LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
          LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
+         LEFT JOIN escalations sa_esc ON sa_esc.id = sa.escalation_id
+         LEFT JOIN users sa_esc_to ON sa_esc_to.id = sa_esc.escalated_to
+         LEFT JOIN risks sa_risk ON sa_risk.id = sa.risk_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE ${where}
         ORDER BY lr.created_at DESC
@@ -306,7 +325,17 @@ export class LearningService {
               aer.evidence AS source_review_evidence,
               COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
               esc.reason AS source_escalation_reason,
-              sr.strategic_theme AS source_risk_title
+              sr.strategic_theme AS source_risk_title,
+              -- 29 Oct 2026 live bug report: the full escalation/risk chain behind the
+              -- EFFECTIVENESS source action itself — see list() for the detailed rationale.
+              sa_esc.reason AS action_escalation_reason, sa_esc.status AS action_escalation_status,
+              sa_esc.lifecycle_status::text AS action_escalation_lifecycle_status,
+              sa_esc.created_at AS action_escalation_created_at, sa_esc.due_by AS action_escalation_due_by,
+              sa_esc.closed_at AS action_escalation_closed_at,
+              COALESCE(sa_esc.closure_evidence, sa_esc.resolution_notes) AS action_escalation_closure_evidence,
+              NULLIF(TRIM(COALESCE(sa_esc_to.first_name,'') || ' ' || COALESCE(sa_esc_to.last_name,'')),'') AS action_escalation_to_name,
+              sa_risk.strategic_theme AS action_risk_title, sa_risk.status::text AS action_risk_status,
+              sa_risk.severity::text AS action_risk_severity
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -319,6 +348,9 @@ export class LearningService {
          LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
          LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
          LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
+         LEFT JOIN escalations sa_esc ON sa_esc.id = sa.escalation_id
+         LEFT JOIN users sa_esc_to ON sa_esc_to.id = sa_esc.escalated_to
+         LEFT JOIN risks sa_risk ON sa_risk.id = sa.risk_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.id = $1 AND lr.company_id = $2`,
       [id, company_id],

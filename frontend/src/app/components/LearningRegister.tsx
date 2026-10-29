@@ -210,6 +210,21 @@ export function LearningRegister() {
                     {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
                     {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
                     {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
+                    {/* 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness
+                        maybe give us a link to the whole escalation history"): the source
+                        action's OWN escalation/risk — e.g. an effectiveness review of an action
+                        that itself resolved an escalation ("police attended...") — was entirely
+                        invisible here, not just in the PDF. */}
+                    {r.action_escalation_reason && (
+                      <div className="rounded-lg bg-muted/40 p-2 space-y-0.5">
+                        <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                        <p className="text-muted-foreground">Raised: {r.action_escalation_reason}</p>
+                        <p className="text-muted-foreground">Status: {r.action_escalation_lifecycle_status || r.action_escalation_status || "—"}{r.action_escalation_to_name ? ` · Escalated to: ${r.action_escalation_to_name}` : ""}</p>
+                        <p className="text-muted-foreground">Opened: {fmt(r.action_escalation_created_at)}{r.action_escalation_due_by ? ` · Due: ${fmt(r.action_escalation_due_by)}` : ""}{r.action_escalation_closed_at ? ` · Closed: ${fmt(r.action_escalation_closed_at)}` : ""}</p>
+                        {r.action_escalation_closure_evidence && <p className="text-muted-foreground">Closure evidence: {r.action_escalation_closure_evidence}</p>}
+                      </div>
+                    )}
+                    {r.action_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Linked risk (from the source action):</span> {r.action_risk_title} — {r.action_risk_status || "status unknown"}{r.action_risk_severity ? `, ${r.action_risk_severity}` : ""}</p>}
                     {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                     {r.what_learnt && <p className="text-muted-foreground"><span className="text-foreground font-medium">Learnt:</span> {r.what_learnt}</p>}
                     {r.change_needed && <p className="text-muted-foreground"><span className="text-foreground font-medium">Change:</span> {r.change_needed}</p>}
@@ -229,7 +244,7 @@ export function LearningRegister() {
                     </p>
                     {/* Context so the reviewer knows WHAT this learning is about before assessing it —
                         the originating effectiveness review, its outcome/evidence and the concern. */}
-                    {(r.source_action_title || r.source_pattern_label || r.source_escalation_reason || r.source_risk_title || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
+                    {(r.source_action_title || r.source_pattern_label || r.source_escalation_reason || r.source_risk_title || r.action_escalation_reason || r.action_risk_title || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
                       <div className="mt-2 space-y-1 text-sm bg-muted/40 rounded-lg p-2.5">
                         {(r.source_action_title || r.source_review_outcome) && (
                           <p className="text-muted-foreground"><span className="text-foreground font-medium">From review:</span> {r.source_action_title || "Reviewed action"}
@@ -239,6 +254,16 @@ export function LearningRegister() {
                         {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
                         {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
                         {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
+                        {r.action_escalation_reason && (
+                          <div className="rounded-lg bg-background p-2 space-y-0.5">
+                            <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                            <p className="text-muted-foreground">Raised: {r.action_escalation_reason}</p>
+                            <p className="text-muted-foreground">Status: {r.action_escalation_lifecycle_status || r.action_escalation_status || "—"}{r.action_escalation_to_name ? ` · Escalated to: ${r.action_escalation_to_name}` : ""}</p>
+                            <p className="text-muted-foreground">Opened: {fmt(r.action_escalation_created_at)}{r.action_escalation_due_by ? ` · Due: ${fmt(r.action_escalation_due_by)}` : ""}{r.action_escalation_closed_at ? ` · Closed: ${fmt(r.action_escalation_closed_at)}` : ""}</p>
+                            {r.action_escalation_closure_evidence && <p className="text-muted-foreground">Closure evidence: {r.action_escalation_closure_evidence}</p>}
+                          </div>
+                        )}
+                        {r.action_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Linked risk (from the source action):</span> {r.action_risk_title} — {r.action_risk_status || "status unknown"}{r.action_risk_severity ? `, ${r.action_risk_severity}` : ""}</p>}
                         {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                         {r.source_review_evidence && <p className="text-muted-foreground"><span className="text-foreground font-medium">Evidence examined:</span> {r.source_review_evidence}</p>}
                         {r.linked_action_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Improvement action:</span> {r.linked_action_title}{r.linked_action_status ? ` (${r.linked_action_status})` : ""}</p>}
