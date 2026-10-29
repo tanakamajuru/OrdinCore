@@ -471,6 +471,15 @@ export const scopedReportDataService = {
          JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
         WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])
           AND wr.week_ending >= $3::date AND wr.week_ending < $4::date
+          -- 28 Oct developer instructions (Revision 3, P1 "Complete house/week coverage and
+          -- approval"): this had no approval-state filter at all, despite the Manager Summary
+          -- claiming to reproduce the approved RM account. Confirmed live: 35 draft and 2
+          -- pending_validation rows exist alongside published/LOCKED ones -- an unapproved draft
+          -- could appear in a frozen report as if it were the authorised account. 'published' is
+          -- the live approved account; 'LOCKED' is Director-validated and awaiting publish. Draft
+          -- and pending_validation are excluded here; serviceCoverage (below) still shows every
+          -- state per house so drafts/awaiting-validation/missing remain visible, not hidden.
+          AND wr.status IN ('published', 'LOCKED')
         ORDER BY wr.week_ending DESC, h.name`, [companyId, siteIds, startDate ?? start, endDateExcl ?? end]
     )).rows;
 

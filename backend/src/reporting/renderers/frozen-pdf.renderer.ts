@@ -333,7 +333,6 @@ function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit?: nu
 // after or between these sections.
 function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
-  const latestReview = (e.weekly_reviews || [])[0];
   const openRisks = (e.risks || []).filter((r: any) => isOpen(r.status));
   const openActions = priorityActions(data, e.actions || []).filter((a: any) => isOpen(a.status));
   const openEscalations = (e.escalations || []).filter((x: any) => isOpen(x.status));
@@ -362,8 +361,15 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
   // manufactured from completion text or an effectiveness rating -- a rating is a judgement about
   // an action, not a recorded lesson, and conflating the two let a completed-but-unreflected-on
   // action read as "learning" when none was actually written down.
+  // 28 Oct developer instructions (Revision 3, P1 "Complete house/week coverage and approval"):
+  // this used only latestReview (e.weekly_reviews[0]) -- a multi-house scope silently dropped
+  // every other house's recorded learning. Show every authorised review in scope, source-labelled.
   heading(doc, '3. What did we learn?');
-  bullets(doc, [asText(latestReview?.lessons_learnt)],
+  const allReviews = e.weekly_reviews || [];
+  bullets(doc, allReviews
+      .map((r: any) => ({ service: clean(r.service), text: asText(r.lessons_learnt) }))
+      .filter((r: any) => r.text)
+      .map((r: any) => allReviews.length > 1 ? `${r.service}: ${r.text}` : r.text),
     'No learning was recorded for this period. A completed action or an effectiveness rating is not itself a recorded lesson.', 4);
 
   // B1 correction: next week's priorities must include due monitoring reviews, open escalations
@@ -380,14 +386,25 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Due', key: 'due_date', width: 70, map: (r) => date(r.due_date) },
     { label: 'Evidence expected', key: 'evidence_expected', width: 130 },
   ], 'No open action, due monitoring review, open escalation or pending effectiveness review was identified.', 5);
-  const anticipated = formatAnticipatedRisks(latestReview?.anticipated_risks);
-  if (anticipated) {
+  const anticipatedByService = allReviews
+    .map((r: any) => ({ service: clean(r.service), text: formatAnticipatedRisks(r.anticipated_risks) }))
+    .filter((r: any) => r.text);
+  if (anticipatedByService.length) {
     doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Risks to watch', LEFT, doc.y, { width: WIDTH });
-    paragraph(doc, anticipated);
+    paragraph(doc, anticipatedByService.map((r: any) => allReviews.length > 1 ? `${r.service}: ${r.text}` : r.text).join('\n'));
   }
 
+  // 28 Oct developer instructions: same coverage gap — every authorised review's own conclusion,
+  // source-labelled, not just the first house's.
   heading(doc, 'Manager conclusion');
-  paragraph(doc, asText(latestReview?.content) || `${position(data)} The coming week should focus on completing and verifying the open actions shown above.`);
+  const conclusions = allReviews
+    .map((r: any) => ({ service: clean(r.service), text: asText(r.content) }))
+    .filter((r: any) => r.text);
+  if (conclusions.length) {
+    paragraph(doc, conclusions.map((r: any) => allReviews.length > 1 ? `${r.service}: ${r.text}` : r.text).join('\n'));
+  } else {
+    paragraph(doc, `${position(data)} The coming week should focus on completing and verifying the open actions shown above.`);
+  }
 
   const gaps = [
     ...(e.decisions || []).filter((d: any) => !d.reason).map((d: any) => `The reason for the ${clean(d.decision)} decision about ${short(d.concern, 90)} was not recorded.`),
