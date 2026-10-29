@@ -200,12 +200,19 @@ function paragraph(doc: PDFKit.PDFDocument, text?: any, italic = false) {
 
 function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 6) {
   // PDF is the evidence document, not a dashboard preview: paginate every frozen row.
+  // 29 Oct 2026 live bug report: this capped every bullet at 230 characters via short(value, 230)
+  // — directly contradicting the comment above it. A reconstruction's "Learning and limitations"
+  // (and every other bulleted section: evidence gaps, risks, dismissed concerns, etc.) routinely
+  // cut a full sentence off mid-word with "…" and no way to read the rest, even though
+  // doc.text() with no fixed `height` here already wraps and auto-paginates on its own — there
+  // was no technical reason for the cap. Removed; the full text now prints, wrapping across
+  // pages exactly as the function's own comment always claimed it would.
   const shown = values.filter(Boolean);
   if (!shown.length) return paragraph(doc, empty, true);
   for (const value of shown) {
     ensure(doc, 34);
     doc.x = LEFT;
-    doc.font('Helvetica').fontSize(10).fillColor(INK).text(`• ${short(value, 230)}`, LEFT, doc.y, { width: WIDTH, indent: 12, lineGap: 4 }).moveDown(0.45);
+    doc.font('Helvetica').fontSize(10).fillColor(INK).text(`• ${clean(value)}`, LEFT, doc.y, { width: WIDTH, indent: 12, lineGap: 4 }).moveDown(0.45);
     doc.x = LEFT;
   }
 }
