@@ -278,9 +278,22 @@ export const scopedReportDataService = {
         ORDER BY CASE r.severity::text WHEN 'Critical' THEN 1 WHEN 'High' THEN 2 ELSE 3 END,
                  r.created_at DESC`, broadParams
     )).rows;
+    // 28 Oct developer instructions (Revision 3, §7 "Honest empty and error states"): trajectoryForRisk
+    // never throws for a genuine no-data case (it returns a well-formed "Insufficient evidence"
+    // result) -- a throw here means the lookup itself failed (DB error, bug). Swallowing it with
+    // .catch(() => null) made a retrieval failure fall back to the same "Insufficient evidence" the
+    // SQL default already uses for a risk that truly has no trajectory evidence -- the two are not
+    // the same state and must not render identically. A failure is now marked Unavailable and
+    // surfaced in limitations, distinct from a genuine absence of evidence.
+    const trajectoryFailures: string[] = [];
     const risks = await Promise.all(riskRows.map(async (r: any) => {
-      const tr = await trajectoryForRisk(r.id, r.source_cluster_id).catch(() => null);
-      return { ...r, direction: tr?.direction || r.direction, trajectory_basis: tr?.basis || null };
+      try {
+        const tr = await trajectoryForRisk(r.id, r.source_cluster_id);
+        return { ...r, direction: tr?.direction || r.direction, trajectory_basis: tr?.basis || null };
+      } catch {
+        trajectoryFailures.push(r.risk || r.id);
+        return { ...r, direction: 'Unavailable', trajectory_basis: null, trajectory_unavailable: true };
+      }
     }));
 
     // Tie each Critical Governance Exception to the specific open Critical risk(s) that support
@@ -711,7 +724,9 @@ export const scopedReportDataService = {
       material_exceptions: materialExceptions,
       evidence,
       narrative_facts,
-      limitations: [] as string[],
+      limitations: trajectoryFailures.length
+        ? [`Trajectory could not be retrieved for: ${trajectoryFailures.join(', ')}. Their direction is shown as Unavailable, not as insufficient evidence — this is a retrieval failure, not an absence of recorded data.`]
+        : [] as string[],
     };
   },
 };
