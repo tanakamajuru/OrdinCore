@@ -52,6 +52,23 @@ const short = (v: any, max = 180) => (clean(v).length > max ? `${clean(v).slice(
 // is treated as absent so no database identifier can leak into a narrative field.
 const asText = (v: any) => (typeof v === 'string' || typeof v === 'number' ? clean(v) : '');
 
+// 28 Oct developer instructions (Revision 3, P1 "Weekly learning and forward look"): RM-recorded
+// anticipated_risks is a structured object ({ items: [{theme, reason}], rm_note }), not a string.
+// asText() silently dropped it (returns '' for any non-string/number), so "Risks to watch" never
+// rendered at all even when the RM had recorded items -- a formatter suppressing real content,
+// exactly what the brief warns against. Format items and the RM note deliberately instead.
+const formatAnticipatedRisks = (v: any): string => {
+  if (typeof v === 'string') return clean(v);
+  if (!v || typeof v !== 'object') return '';
+  const items = Array.isArray(v.items) ? v.items : [];
+  const note = typeof v.rm_note === 'string' ? v.rm_note.trim() : '';
+  const list = items
+    .map((a: any) => [clean(a?.theme), clean(a?.reason)].filter(Boolean).join(' — '))
+    .filter(Boolean)
+    .join('\n');
+  return [list, note ? `Manager note: ${note}` : ''].filter(Boolean).join('\n');
+};
+
 const roleLabel = (value?: any) => {
   const raw = String(value || '').trim().toLowerCase();
   const labels: Record<string, string> = {
@@ -303,7 +320,7 @@ function renderWeeklyReviews(doc: PDFKit.PDFDocument, reviews: any[], limit?: nu
     if (content) paragraph(doc, content);
     const lessons = asText(review.lessons_learnt);
     if (lessons) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Learning recorded', LEFT, doc.y, { width: WIDTH }); paragraph(doc, lessons); }
-    const risks = asText(review.anticipated_risks);
+    const risks = formatAnticipatedRisks(review.anticipated_risks);
     if (risks) { doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Next risks to watch', LEFT, doc.y, { width: WIDTH }); paragraph(doc, risks); }
     if (!content && !lessons && !risks) paragraph(doc, 'No manager reflection text was recorded for this review.', true);
   }
@@ -363,7 +380,7 @@ function renderWeekly(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Due', key: 'due_date', width: 70, map: (r) => date(r.due_date) },
     { label: 'Evidence expected', key: 'evidence_expected', width: 130 },
   ], 'No open action, due monitoring review, open escalation or pending effectiveness review was identified.', 5);
-  const anticipated = asText(latestReview?.anticipated_risks);
+  const anticipated = formatAnticipatedRisks(latestReview?.anticipated_risks);
   if (anticipated) {
     doc.x = LEFT; doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text('Risks to watch', LEFT, doc.y, { width: WIDTH });
     paragraph(doc, anticipated);

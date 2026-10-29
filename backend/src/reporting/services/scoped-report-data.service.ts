@@ -455,9 +455,18 @@ export const scopedReportDataService = {
         ORDER BY aer.reviewed_at DESC`, broadParams
     )).rows;
 
+    // 28 Oct developer instructions (Revision 3, P1 "Weekly learning and forward look"):
+    // weeklyReviews.service.ts (save/finalise) writes lessons_learnt and anticipated_risks into
+    // the content JSON blob, never into the same-named legacy columns this query used to select
+    // on their own -- confirmed live, every published/LOCKED review has content->>'lessons_learnt'
+    // populated and the legacy column NULL. Prefer the authoritative saved content, fall back to
+    // the legacy column for any older row that might have used it.
     const weeklyReviews = (await query(
       `SELECT wr.id, h.name AS service, wr.week_ending, wr.status,
-              wr.governance_narrative AS content, wr.lessons_learnt, wr.anticipated_risks, wr.published_at
+              wr.governance_narrative AS content,
+              COALESCE(NULLIF(TRIM(wr.content->>'lessons_learnt'), ''), wr.lessons_learnt) AS lessons_learnt,
+              COALESCE(wr.content->'anticipated_risks', wr.anticipated_risks) AS anticipated_risks,
+              wr.published_at
          FROM weekly_reviews wr
          JOIN houses h ON h.id = wr.house_id AND h.company_id = wr.company_id
         WHERE wr.company_id = $1 AND wr.house_id = ANY($2::uuid[])
