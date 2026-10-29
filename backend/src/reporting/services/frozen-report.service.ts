@@ -31,6 +31,31 @@ export const frozenReportService = {
 
     const data = await scopedReportDataService.build(resolved, start, end, startDate, endDateExcl);
 
+    // 28 Oct developer instructions (Revision 3, P1 "Reconstruction routes"): the individual
+    // locked-reconstruction download (reconstruction.controller.ts downloadLockedPdf) already
+    // supplies data.reconstruction_record, which renderReconstruction prefers over the generated
+    // evidence timeline. General frozen-report generation never set this field at all, so a
+    // "Governance Timeline and Reconstruction" report generated from this path could never surface
+    // an author's completed, locked reconstruction even when one existed for the same site/period —
+    // it always fell back to the generated timeline, unlabelled as such. Connect it for the one
+    // scope that maps unambiguously: SITE (governance_reconstructions scope='service', scope_ref =
+    // the house id). PERSON scope is NOT connected here — its scope_ref is a free-text
+    // related_person string, not the stable service_user_id this report resolves to, so a name
+    // match risks pulling the wrong person's record; left for a future, properly keyed fix.
+    if (reportKey === 'governance-reconstruction' && resolved.type === 'SITE' && resolved.siteIds.length === 1) {
+      const locked = (await query(
+        `SELECT * FROM governance_reconstructions
+          WHERE company_id = $1 AND status = 'Locked' AND scope = 'service' AND scope_ref = $2
+            AND (incident_date IS NULL OR incident_date < $3::date)
+          ORDER BY locked_at DESC NULLS LAST, created_at DESC LIMIT 1`,
+        [user.company_id, resolved.siteIds[0], endDateExcl ?? end]
+      )).rows[0];
+      if (locked) {
+        const timeline = Array.isArray(locked.timeline_events) ? locked.timeline_events : [];
+        (data as any).reconstruction_record = { ...locked, timeline_events: timeline };
+      }
+    }
+
     // Defensibility gate (doctrine §13.2): a Critical Governance Exception must name the specific
     // supporting risk. A frozen report cannot assert CRITICAL it cannot substantiate.
     const unsupportedCritical = ((data as any).material_exceptions || [])

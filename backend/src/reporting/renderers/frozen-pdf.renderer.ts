@@ -673,7 +673,13 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   ]).filter((r: any) => inPeriod(r.date, data))
     .sort((a: any, b: any) => new Date(a.date).getTime() - new Date(b.date).getTime());
   heading(doc, '1. Scope and factual account');
-  paragraph(doc, `This reconstruction covers ${clean(data.scope_label)} and uses only records retained in the frozen snapshot, limited to events within the selected period.`);
+  // 28 Oct developer instructions (Revision 3, P1 "Reconstruction routes"): without a completed,
+  // Locked governance_reconstructions record connected, this is a system-generated evidence
+  // timeline assembled from canonical facts — not the author's own reconstruction findings
+  // (narrative, contributing factors, lessons learned). Say which one this is.
+  paragraph(doc, locked
+    ? `This reconstruction covers ${clean(data.scope_label)} and reproduces the authorised, locked reconstruction record alongside records retained in the frozen snapshot, limited to events within the selected period.`
+    : `This is a generated evidence timeline covering ${clean(data.scope_label)}, assembled from records retained in the frozen snapshot and limited to events within the selected period. No completed, authorised reconstruction record was connected — this timeline does not contain an author's reconstruction findings (narrative, contributing factors or lessons learned).`);
   table(doc, '2. Governance timeline', timeline, [
     { label: 'Date / type', key: 'date', width: 90, map: (r) => `${date(r.date)} / ${r.type}` },
     { label: 'Information available', key: 'information', width: 185 },
