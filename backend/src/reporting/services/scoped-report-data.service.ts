@@ -5,6 +5,7 @@ import { query } from '../../config/database';
 import { ResolvedScope, SiteStatus } from '../domain/reporting.types';
 import { confidenceService, SiteMetrics } from './confidence.service';
 import { trajectoryForRisk } from '../../services/trajectory.service';
+import { isDemonstratedEffective, hasWeakEvidence } from '../domain/effectiveness-evidence';
 
 const done = `('Complete','Completed','Cancelled')`;
 
@@ -560,7 +561,16 @@ export const scopedReportDataService = {
         || (a.source_cluster_id && tClusterIds.has(a.source_cluster_id))
         || (a.escalation_id && tEscalationIds.has(a.escalation_id)));
       const controlsCompleted = tActions.filter((a: any) => /complete/i.test(String(a.status))).length;
-      const eff = tActions.filter((a: any) => String(a.effectiveness).startsWith('Effective')).length;
+      // 28 Oct developer instructions (Revision 3, P1 "Evidence-supported conclusions"): "effective"
+      // here previously meant only that the stored effectiveness string started with "Effective" --
+      // no check that the rating was final (not interim/early), reviewed, or backed by evidence
+      // text, and no check for weak evidence (case closure, future intentions, mere attendance) the
+      // way renderAssurance/renderWeekly already require via isDemonstratedEffective/hasWeakEvidence.
+      // Applying the same shared definition here so facts, summaries, assurance and AI narration
+      // never disagree about what "evidenced improvement" means for the same underlying action.
+      const effActions = tActions.filter((a: any) => isDemonstratedEffective(a));
+      const eff = effActions.length;
+      const weakEff = effActions.filter((a: any) => hasWeakEvidence(a)).length;
       const notEff = tActions.filter((a: any) => String(a.effectiveness) === 'Not Effective').length;
       const unrev = tActions.filter((a: any) => ['Not yet reviewed', 'Too Early To Assess'].includes(String(a.effectiveness))).length;
       const openActions = tActions.filter((a: any) => isOpenSt(a.status)).length;
@@ -569,16 +579,17 @@ export const scopedReportDataService = {
       if (tRisks.length === 0 && tClusterIds.size === 0 && tSignals.length > 0) gaps.push('No registered risk or pattern is linked to this theme yet.');
       if (tActions.length === 0 && (tRisks.length > 0 || tClusterIds.size > 0)) gaps.push("No control action is linked to this theme's risks or patterns.");
       if (unrev > 0) gaps.push(`${unrev} completed control(s) await a final effectiveness judgement.`);
+      if (weakEff > 0) gaps.push(`${weakEff} Effective rating(s) are backed by evidence that does not itself demonstrate control (e.g. case closure, stated intentions) — flagged for review, not counted as evidenced improvement.`);
       return {
         theme: domain,
         period: dates.length ? `${dates[0]} to ${dates[dates.length - 1]}` : 'No dated signals in period',
         scope: services.length > 1 ? `Cross-service (${services.length} services)` : services.length === 1 ? services[0] : 'Not recorded',
         signals: tSignals.length, signals_reviewed: reviewed,
         risks: tRisks.map((r: any) => ({ risk: r.risk, direction: r.direction, status: r.status })),
-        controls: { completed: controlsCompleted, effective: eff, not_effective: notEff, unreviewed: unrev },
+        controls: { completed: controlsCompleted, effective: eff - weakEff, not_effective: notEff, unreviewed: unrev },
         open_items: { actions: openActions, escalations: openEsc },
         outcome: notEff > 0 ? 'Not fully effective — at least one linked control was judged Not Effective.'
-               : (eff > 0 && unrev === 0) ? 'Improvement evidenced by final Effective control(s).'
+               : (eff > weakEff && unrev === 0) ? 'Improvement evidenced by final Effective control(s) with supporting evidence.'
                : 'Outcome not yet evidenced from the linked controls.',
         evidence_gaps: gaps,
       };

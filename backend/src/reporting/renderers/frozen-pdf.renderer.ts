@@ -2,6 +2,7 @@ import PDFDocument from 'pdfkit';
 import fs from 'fs';
 import path from 'path';
 import { findReport } from '../config/report-catalog';
+import { isDemonstratedEffective, hasWeakEvidence } from '../domain/effectiveness-evidence';
 
 // Renders a PDF from the STORED snapshot only — never from live data, and never from a legacy
 // inspection/governance narrative. Each recognised report is produced entirely from its
@@ -265,24 +266,10 @@ function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
 
 // ── evidence-led helpers ───────────────────────────────────────────────────────
 const isOpen = (status: any) => !/complete|completed|cancel|closed|resolved/i.test(clean(status));
-const isDemonstratedEffective = (a: any) => clean(a?.effectiveness) === 'Effective'
-  && clean(a?.effectiveness_review_state) === 'FINAL'
-  && !!a?.effectiveness_reviewed_at
-  && !!String(a?.effectiveness_evidence || '').trim();
-// B9 correction (21 Oct 2026): "Correct unsupported effectiveness examples, including case
-// closure, future intentions and an acknowledged mismatched entry" (doctrine A5: "police case
-// closure, attendance, intentions or a completed review do not automatically demonstrate control
-// effectiveness"). isDemonstratedEffective() checks the rating is final and evidence text exists,
-// but never checked what the evidence text actually SAYS -- an "Effective" rating backed only by
-// "police closed the case" or "staff will continue to monitor" passed through unflagged. This
-// flags, rather than silently rewrites (A5: "flag weak/conflicting source judgements for review
-// without silently rewriting them") -- a match here moves the entry to its own section instead of
-// counting it as solid evidence.
-// Tuned against real production effectiveness_evidence text (21 Oct 2026) -- the initial pattern
-// missed real examples like "closed the case" (reversed word order) and "the client withdrew
-// charges" (case-closure-by-implication, no literal "closed").
-const WEAK_EVIDENCE_PATTERN = /\b(case (was |is |has been )?closed|closed the case|police (closed|have closed|reviewed)|closure of the case|withdrew (the )?charges|no charges|dealt with by the police|will (continue|monitor|ensure|aim)|continue(s|d)? to monitor|going forward|intends? to|plans? to|planned to|attendance (was |is )?(confirmed|recorded)|completed (the |a )?review)\b/i;
-const hasWeakEvidence = (a: any) => WEAK_EVIDENCE_PATTERN.test(String(a?.effectiveness_evidence || ''));
+// 28 Oct developer instructions (Revision 3, P1 "Evidence-supported conclusions"): isDemonstratedEffective
+// and hasWeakEvidence moved to reporting/domain/effectiveness-evidence.ts (imported above) so
+// scoped-report-data.service.ts's theme-evidence projection applies the same definition, not a
+// looser one based on the label alone.
 const inPeriod = (value: any, data: any) => {
   if (!value || !data.period?.start || !data.period?.end) return false;
   const at = new Date(value).getTime();
