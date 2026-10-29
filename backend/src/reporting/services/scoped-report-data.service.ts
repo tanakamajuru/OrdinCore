@@ -598,30 +598,44 @@ export const scopedReportDataService = {
       material_exceptions: materialExceptions,
     };
 
-    // Effectiveness learning recorded in the period — each lesson shown against its source action and
-    // the exact review outcome it came from, plus any separate improvement action. Titles/outcomes
-    // only (no identifiers), so it is defensibility-safe for the frozen report.
-    // B8 correction (21 Oct 2026): "Fix the learning query's missing person filter." Confirmed:
-    // this query took no personId parameter at all, so a PERSON-scoped reconstruction received
-    // learning records for every person at the service, not just the one in scope -- unrelated
-    // person material entering a report (doctrine A1). Joined to the source action's
-    // service_user_id, same as every other person-filtered query here. Also tightened the
-    // house_id IS NULL branch: it previously let every organisation-wide learning record leak into
-    // any site-scoped report unconditionally, instead of only when org-wide inclusion is intended.
+    // Learning recorded in the period, or still outstanding from an earlier period — each lesson
+    // shown against its source (an effectiveness review, escalation closure, risk closure, pattern
+    // closure, weekly review or incident) plus its implementation/verification evidence and any
+    // separate improvement action. Titles/outcomes only (no identifiers), defensibility-safe.
+    // 28 Oct developer instructions (Revision 3, P1 "Learning source coverage"): this previously
+    // selected source_type = 'EFFECTIVENESS' only and a handful of fields. Confirmed live: 8 of 31
+    // learning_records (7 ESCALATION_CLOSURE, 1 PATTERN_CLOSURE) were entirely invisible to every
+    // frozen report regardless of scope or period. learning.service.ts's own broader queries
+    // (list/findById) already scope every source type directly by lr.house_id — the same approach
+    // is used here instead of joining person/house through the EFFECTIVENESS-only source action.
+    // Also widened the period filter: a still-outstanding lesson (not yet IMPROVEMENT_VERIFIED)
+    // created before the period remains due follow-through and must not disappear from view.
+    // B8 correction (21 Oct 2026) preserved: PERSON scope still excludes unrelated people, now
+    // checked via every source type that carries a person link (action/risk, escalation, risk).
     const effectivenessLearning = (await query(
-      `SELECT lr.state, lr.what_learnt, lr.change_needed, lr.no_learning_reason,
+      `SELECT lr.id, lr.source_type, lr.state, lr.what_happened, lr.what_learnt, lr.change_needed, lr.no_learning_reason,
+              lr.progress, lr.owner_id, lr.review_date, lr.success_criteria, lr.plan_deadline,
+              lr.implementation_evidence, lr.implemented_at, lr.verification_outcome, lr.verification_evidence, lr.verified_at,
+              lr.duplicate_of_id, lr.created_at,
+              NULLIF(TRIM(COALESCE(ow.first_name,'') || ' ' || COALESCE(ow.last_name,'')), '') AS owner_name,
               sa.title AS source_action_title,
               aer.outcome::text AS source_review_outcome,
+              esc.reason AS source_escalation_reason,
+              COALESCE(sc.cluster_label, sc.risk_domain::text) AS source_pattern_label,
+              sr.strategic_theme AS source_risk_title,
               la.title AS improvement_action_title
          FROM learning_records lr
+         LEFT JOIN users ow ON ow.id = lr.owner_id AND ow.company_id = lr.company_id
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
-         LEFT JOIN risks sr ON sr.id = sa.risk_id AND sr.company_id = lr.company_id
+         LEFT JOIN risks sr ON sr.id = COALESCE(CASE WHEN lr.source_type = 'RISK_CLOSURE' THEN lr.source_id END, sa.risk_id) AND sr.company_id = lr.company_id
+         LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
+         LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
          LEFT JOIN risk_actions la ON la.id = lr.linked_action_id
-        WHERE lr.company_id = $1 AND lr.source_type = 'EFFECTIVENESS'
+        WHERE lr.company_id = $1
           AND (lr.house_id = ANY($2::uuid[]) OR ($6::boolean AND lr.house_id IS NULL))
-          AND lr.created_at >= $3 AND lr.created_at < $4
-          AND ($5::uuid IS NULL OR sa.service_user_id = $5 OR sr.service_user_id = $5)
+          AND (lr.created_at < $4 AND (lr.created_at >= $3 OR lr.progress <> 'IMPROVEMENT_VERIFIED'))
+          AND ($5::uuid IS NULL OR sa.service_user_id = $5 OR sr.service_user_id = $5 OR esc.service_user_id = $5)
         ORDER BY lr.created_at DESC`,
       broadParams,
     )).rows;
