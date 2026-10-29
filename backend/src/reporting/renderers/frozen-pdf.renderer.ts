@@ -212,6 +212,20 @@ function bullets(doc: PDFKit.PDFDocument, values: any[], empty: string, limit = 
 
 type Col = { label: string; key: string; width: number; map?: (r: any) => string };
 
+// 28 Oct developer instructions (Revision 3, §7 "Full evidence without truncation"): the table
+// renderer previously capped row height at 86 and relied on PDFKit's ellipsis to silently cut
+// off anything longer, with no way to recover the rest — a concise summary became the SOLE
+// retained representation of a management reason, learning text, closure evidence or finding,
+// which the brief explicitly prohibits. Cells that would be truncated are now shortened with a
+// visible, guaranteed-fitting "[full text: appendix N]" marker, and the full text is retained
+// and printed in a dedicated appendix section at the end of the document — never dropped.
+let appendixEntries: { ref: number; title: string; column: string; text: string }[] = [];
+export function resetReportAppendix() { appendixEntries = []; }
+function addAppendixEntry(title: string, column: string, text: string): number {
+  appendixEntries.push({ ref: appendixEntries.length + 1, title, column, text });
+  return appendixEntries[appendixEntries.length - 1].ref;
+}
+
 function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col[], empty: string, limit = 8) {
   heading(doc, title);
   // Do not hide evidence behind "additional records". PDFKit paginates the complete set.
@@ -229,9 +243,27 @@ function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col
   };
   header();
 
+  const ROW_CAP = 86;
   for (const row of shown) {
-    const values = columns.map((c) => (c.map ? clean(c.map(row)) : clean(row[c.key])));
-    const rowHeight = Math.min(86, Math.max(22, ...values.map((v, i) => doc.font('Helvetica').fontSize(8.5).heightOfString(v, { width: columns[i].width - 9, lineGap: 2 }) + 11)));
+    const rawValues = columns.map((c) => (c.map ? clean(c.map(row)) : clean(row[c.key])));
+    const availH = ROW_CAP - 10;
+    // A cell whose full text would not fit in the capped row height is shortened to a length
+    // that DOES fit alongside a guaranteed-visible appendix marker; the full original text is
+    // preserved verbatim in appendixEntries, never discarded.
+    const values = rawValues.map((v, i) => {
+      const colWidth = columns[i].width - 9;
+      const naturalH = doc.font('Helvetica').fontSize(8.5).heightOfString(v, { width: colWidth, lineGap: 2 });
+      if (naturalH <= availH) return v;
+      const ref = addAppendixEntry(title, columns[i].label, v);
+      const marker = ` [full text: appendix ${ref}]`;
+      let text = v;
+      // Shrink until (truncated text + marker) fits the capped height, bounded iteration count.
+      for (let iter = 0; iter < 25 && doc.heightOfString(text + marker, { width: colWidth, lineGap: 2 }) > availH; iter++) {
+        text = text.slice(0, Math.max(0, Math.floor(text.length * 0.85)));
+      }
+      return `${text}…${marker}`;
+    });
+    const rowHeight = Math.min(ROW_CAP, Math.max(22, ...values.map((v, i) => doc.font('Helvetica').fontSize(8.5).heightOfString(v, { width: columns[i].width - 9, lineGap: 2 }) + 11)));
     if (doc.y + rowHeight > PAGE_BOTTOM) { doc.addPage(); doc.x = LEFT; header(); }
     const y = doc.y;
     let x = LEFT + 4;
@@ -241,6 +273,22 @@ function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col
     doc.x = LEFT; doc.y = y + rowHeight;
   }
   doc.x = LEFT; doc.moveDown(0.75);
+}
+
+// Prints every cell's full text that the row-height cap above would otherwise have silently
+// dropped. Rendered once, at the end of the document, after the report body.
+function renderAppendix(doc: PDFKit.PDFDocument) {
+  if (!appendixEntries.length) return;
+  heading(doc, 'Evidence appendix — full text');
+  paragraph(doc, 'Each entry below is the complete, untruncated text for a table cell referenced as "[full text: appendix N]" in the report body.', true);
+  for (const entry of appendixEntries) {
+    ensure(doc, 30);
+    doc.x = LEFT;
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text(`Appendix ${entry.ref} — ${clean(entry.title)} / ${clean(entry.column)}`, LEFT, doc.y, { width: WIDTH });
+    doc.x = LEFT;
+    doc.font('Helvetica').fontSize(9).fillColor(INK).text(entry.text, LEFT, doc.y, { width: WIDTH, lineGap: 3 }).moveDown(0.6);
+    doc.x = LEFT;
+  }
 }
 
 function renderClosingSummary(doc: PDFKit.PDFDocument, row: any, data: any) {
@@ -784,6 +832,10 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
   doc.on('data', (c: Buffer) => chunks.push(c));
   const finished = new Promise<Buffer>((resolve) => doc.on('end', () => resolve(Buffer.concat(chunks))));
 
+  // Each render starts with a clean appendix — module-level state must never leak between
+  // concurrent or sequential PDF generations.
+  resetReportAppendix();
+
   // Shared branded masthead and immutable report provenance.
   reportMasthead(doc, row, data, title);
 
@@ -804,6 +856,9 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
 
   // The screen and PDF use the same stored snapshot and the exact same stored narrative.
   renderClosingSummary(doc, row, data);
+
+  // Full-text appendix for any table cell the row-height cap would otherwise have truncated.
+  renderAppendix(doc);
 
   // Integrity block (content, not footer, so it can never overlap or create a blank page).
   heading(doc, 'Report integrity');
