@@ -460,6 +460,21 @@ export class EscalationsService {
     if (data.evidence_to_observe) eventMeta.evidence_to_observe = String(data.evidence_to_observe).trim();
     if (data.next_review_at) { eventMeta.next_review_at = data.next_review_at; eventMeta.monitoring_set_at = new Date().toISOString(); }
 
+    // 30 Oct 2026 developer correction brief ("Learning assignment and review queue routing"),
+    // §1 "Escalation routing": the metadata merge below (COALESCE(metadata,'{}') || eventMeta)
+    // only ever ADDS/overwrites the keys present in eventMeta -- it never clears rm_attention,
+    // the flag addProgress() sets when someone flags urgent attention. A valid "Continue
+    // monitoring" decision (named owner + future review date) saved here is the manager
+    // EXPLICITLY addressing the escalation, but the urgent flag silently survived the merge,
+    // leaving guidedWork.service.ts's rmAttention check still true -- the escalation stayed in
+    // Decisions Due instead of moving to Waiting even though a real decision was just recorded.
+    // Resolve it in the same saved review, per doctrine: "record that disposition and
+    // clear/resolve that flag in the same saved review."
+    if (data.monitoring_owner_id && data.next_review_at) {
+      eventMeta.rm_attention = false;
+      eventMeta.rm_attention_resolved_at = new Date().toISOString();
+    }
+
     const result = await query(
       `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
        VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb) RETURNING *`,
