@@ -21,6 +21,16 @@ function finish(doc: typeof PDFDocument, buffers: Buffer[], filename: string): P
   });
 }
 
+function shortText(v: unknown, max = 90): string {
+  const s = String(v ?? '').trim();
+  return s.length > max ? `${s.slice(0, max - 1)}…` : s;
+}
+
+function firstDomain(v: unknown): string {
+  if (Array.isArray(v)) return String(v[0] || '').trim();
+  return String(v || '').trim();
+}
+
 function stampSnapshot(doc: typeof PDFDocument) {
   doc.fontSize(8).fillColor('gray')
     .text(`Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`, { align: 'right' });
@@ -53,7 +63,10 @@ export const governancePdfService = {
 
     doc.fontSize(10).fillColor('gray').text(`Record ID: ${lr.id}`);
     doc.fillColor('black');
-    doc.fontSize(14).font('Helvetica-Bold').text(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`);
+    // 30 Oct 2026 live bug report ("uniformity on the font... do this for all forms"): a source
+    // action title can be a full paragraph (seen live: 200+ characters) — same class of defect
+    // as escalationRecord's title below. Shortened so the heading reads as a heading everywhere.
+    doc.fontSize(14).font('Helvetica-Bold').text(shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 110));
     doc.font('Helvetica').fontSize(10);
     doc.moveDown(0.5);
     doc.text(`Service: ${lr.house_name || 'Organisation-wide'}`);
@@ -220,7 +233,7 @@ export const governancePdfService = {
     rows.forEach((lr: any, i: number) => {
       if (doc.y > 700) doc.addPage();
       const isCarryOver = lr.state === 'NOT_YET_ASSESSED' || (lr.state === 'IDENTIFIED' && lr.progress !== 'IMPROVEMENT_VERIFIED');
-      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`}${isCarryOver ? '  [CARRY-OVER]' : ''}`);
+      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 100)}${isCarryOver ? '  [CARRY-OVER]' : ''}`);
       doc.font('Helvetica').fontSize(9);
       doc.text(`${lr.house_name || 'Organisation-wide'} · ${fmtDate(lr.created_at)} · ${learningStateLabel(lr.state)} · ${learningProgressLabel(lr.progress)}`);
       if (lr.state === 'IDENTIFIED' && lr.what_learnt) doc.text(`Learnt: ${lr.what_learnt}`, { indent: 10 });
@@ -242,8 +255,19 @@ export const governancePdfService = {
 
     doc.fontSize(10).fillColor('gray').text(`Escalation ID: ${e.id}`);
     doc.fillColor('black');
-    doc.fontSize(14).font('Helvetica-Bold').text(e.risk_title || e.incident_title || e.reason || 'Escalation');
-    doc.font('Helvetica').fontSize(10);
+    // 30 Oct 2026 live bug report ("the form itself is not aligned properly, the writing font
+    // is different there is no uniformity"): when neither a risk nor an incident is linked —
+    // the common case for a signal-raised escalation like this one — this fell back to the
+    // FULL reason paragraph rendered as a 14pt bold heading, then printed the identical text
+    // again below under "Reason for escalation" in 10pt regular. A short, distinct title (the
+    // concern's domain and person, matching how the live screen and other PDFs label it)
+    // replaces that duplication.
+    const titleDomain = firstDomain(e.signal_risk_domain);
+    const title = e.risk_title || e.incident_title
+      || (titleDomain ? `${titleDomain}${e.signal_related_person ? ` — ${e.signal_related_person}` : ''}` : shortText(e.reason, 90))
+      || 'Escalation';
+    doc.fontSize(14).font('Helvetica-Bold').text(title);
+    doc.font('Helvetica').fontSize(10).fillColor('black');
     doc.moveDown(0.5);
     doc.text(`Service: ${e.service_name || e.house_name || '—'}`);
     doc.text(`Status: ${e.lifecycle_status || e.status || '—'}${e.overdue ? ' (OVERDUE)' : ''}`);
@@ -251,7 +275,7 @@ export const governancePdfService = {
     doc.text(`Due by: ${fmtDate(e.due_by)}`);
     doc.moveDown();
 
-    doc.font('Helvetica-Bold').text('Reason for escalation');
+    doc.font('Helvetica-Bold').fontSize(10).text('Reason for escalation');
     doc.font('Helvetica').text(e.reason || e.description || 'Not recorded.', { indent: 10 });
     doc.moveDown(0.5);
 
@@ -268,9 +292,32 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
+    // 30 Oct 2026 live bug report ("the bottom section the effectiveness did not pull up with
+    // their reviews"): this previously printed only the aggregate count and the single LATEST
+    // effectiveness verdict across all linked actions — never the individual actions, each with
+    // its own outcome and evidence. escalationsService.findById() already returns the full
+    // linked_actions array (same data the live screen's "Linked control position" uses); it was
+    // simply never iterated here.
     doc.font('Helvetica-Bold').text('Linked delivery actions');
     doc.font('Helvetica').text(`${e.actions_completed_count || 0} of ${e.actions_total_count || 0} completed; ${e.actions_effectiveness_reviewed_count || 0} effectiveness-reviewed.`, { indent: 10 });
-    if (e.latest_effectiveness) doc.text(`Latest effectiveness verdict: ${e.latest_effectiveness}`, { indent: 10 });
+    const linkedActions = Array.isArray(e.linked_actions) ? e.linked_actions : [];
+    if (linkedActions.length) {
+      doc.moveDown(0.3);
+      for (const a of linkedActions) {
+        const outcome = a.effectiveness_outcome || (a.effectiveness && a.effectiveness !== 'Neutral' && a.effectiveness !== 'Ineffective' ? a.effectiveness : null)
+          || (a.effectiveness === 'Ineffective' ? 'Not Effective' : a.effectiveness === 'Neutral' ? 'Partially Effective' : null);
+        doc.font('Helvetica-Bold').fontSize(9.5).text(`• ${shortText(a.title || a.action || 'Action', 120)}`, { indent: 10 });
+        doc.font('Helvetica').fontSize(9).text(
+          `${a.is_completed || /complete/i.test(String(a.status || a.canonical_status || '')) ? 'Completed' : 'Open'}${a.completed_at ? ` ${fmtDate(a.completed_at)}` : ''}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : ''}${outcome ? ` · Effectiveness: ${outcome}` : ' · Effectiveness: Not yet reviewed'}`,
+          { indent: 16 },
+        );
+        if (a.effectiveness_evidence) doc.text(`Evidence: ${a.effectiveness_evidence}`, { indent: 16 });
+        doc.moveDown(0.3);
+      }
+      doc.font('Helvetica').fontSize(10);
+    } else if (e.latest_effectiveness) {
+      doc.text(`Latest effectiveness verdict: ${e.latest_effectiveness}`, { indent: 10 });
+    }
 
     return finish(doc, buffers, `Escalation_${e.id}.pdf`);
   },
@@ -292,7 +339,14 @@ export const governancePdfService = {
 
     escalations.forEach((e: any, i: number) => {
       if (doc.y > 700) doc.addPage();
-      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${e.risk_title || e.incident_title || e.reason || 'Escalation'}`);
+      // 30 Oct 2026 live bug report ("do this for all forms, uniformity on the font"): same
+      // long-reason-as-heading defect as escalationRecord — a reason paragraph rendered bold
+      // at list-row scale reads no differently from the detail PDF's bug, just repeated N times.
+      const rowDomain = firstDomain(e.signal_risk_domain);
+      const rowTitle = e.risk_title || e.incident_title
+        || (rowDomain ? `${rowDomain}${e.signal_related_person ? ` — ${e.signal_related_person}` : ''}` : shortText(e.reason, 90))
+        || 'Escalation';
+      doc.fontSize(11).font('Helvetica-Bold').text(`${i + 1}. ${rowTitle}`);
       doc.font('Helvetica').fontSize(9);
       doc.text(`${e.service_name || e.house_name || '—'} · Escalated ${fmtDate(e.created_at)} · ${e.lifecycle_status || e.status || '—'}${e.overdue ? ' (OVERDUE)' : ''} · Due ${fmtDate(e.due_by)}`);
       doc.moveDown(0.5);
