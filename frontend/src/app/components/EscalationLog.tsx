@@ -140,6 +140,11 @@ export function EscalationLog() {
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
     if (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
     if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
+    // 30 Oct 2026 developer correction brief ("Review rationale and tracked action"):
+    // "Review outcome and rationale" is labelled required on screen, but this previously
+    // never validated or submitted resolutionNotes — the manager's typed finding/rationale
+    // was silently dropped from the task request entirely. Now required here too.
+    if (!resolutionNotes.trim()) { toast.error('Explain what your review found and why this action is needed.'); notesRef.current?.focus(); return; }
     setAssigningTask(true);
     try {
       // Works whether or not the escalation has a linked risk — the task carries the
@@ -150,12 +155,16 @@ export function EscalationLog() {
         review_requirement: taskForm.review_requirement,
         assigned_to: taskForm.assigned_to,
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
+        rationale: resolutionNotes.trim(),
       });
-      toast.success('Task allocated — it now appears in their My Actions.');
+      toast.success('Decision saved and task allocated — it now appears in their My Actions.');
       await loadEscalations();
       setTaskForm({ title: "", intended_outcome: "", assigned_to: "", due_date: "", review_requirement: "EFFECTIVENESS_REQUIRED" });
+      setResolutionNotes("");
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || e?.message || 'Could not allocate the task.');
+      // On failure, preserve the entered text (resolutionNotes/taskForm are untouched here)
+      // and create neither record — the backend only commits once both have validated.
+      toast.error(e?.response?.data?.message || e?.message || 'Could not save the decision and allocate the task.');
     } finally { setAssigningTask(false); }
   };
 
@@ -817,7 +826,13 @@ export function EscalationLog() {
                           value={resolutionNotes}
                           onChange={(e) => setResolutionNotes(e.target.value)}
                           spellCheck
-                          placeholder="Document your oversight, progress, or the reason for your decision..."
+                          placeholder={
+                            reviewDecision === 'monitor' ? 'Why is continued monitoring appropriate?'
+                            : reviewDecision === 'action' ? 'Why is this action needed?'
+                            : reviewDecision === 'escalate' ? 'Why is further escalation needed?'
+                            : reviewDecision === 'close' ? 'What evidence supports closure?'
+                            : 'Document your oversight, progress, or the reason for your decision...'
+                          }
                           className={`w-full h-28 bg-input-background border-2 p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary text-foreground resize-none transition-colors ${
                             !resolutionNotes ? 'border-amber-400' : 'border-border'
                           } ${noteFlash ? 'ring-2 ring-amber-400 animate-pulse' : ''}`}
@@ -901,7 +916,7 @@ export function EscalationLog() {
                           <summary className="list-none cursor-pointer flex items-center justify-between gap-2 text-sm font-semibold text-primary">
                             <span>Allocate a tracked action</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" />
                           </summary>
-                          <p className="text-xs text-muted-foreground mt-1 mb-3">Use when another person must complete a specific action by a due date.</p>
+                          <p className="text-xs text-muted-foreground mt-1 mb-3">Briefly explain what your review found and why this action is needed. Enter the task below.</p>
                           <div className="space-y-2">
                             {Array.isArray((selectedEscalation as any).linked_actions) && (selectedEscalation as any).linked_actions.some((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(String(a.status))) && (
                               <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
@@ -955,10 +970,11 @@ export function EscalationLog() {
                             </div>
                             <button
                               onClick={allocateTask}
-                              disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) || !taskForm.assigned_to || !taskForm.due_date}
+                              disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) || !taskForm.assigned_to || !taskForm.due_date || !resolutionNotes.trim()}
+                              title={!resolutionNotes.trim() ? 'Add the rationale above — why is this action needed?' : undefined}
                               className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
                             >
-                              {assigningTask ? 'Allocating…' : 'Allocate task'}
+                              {assigningTask ? 'Saving…' : 'Save decision and allocate action'}
                             </button>
                           </div>
                         </details>}

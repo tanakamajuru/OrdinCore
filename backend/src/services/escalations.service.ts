@@ -6,6 +6,7 @@ import { notificationsService } from './notifications.service';
 import { canonicalControlPositionService } from './canonicalControlPosition.service';
 import { canonicalGovernanceActionService } from './canonicalGovernanceAction.service';
 import { escalationLifecycleService } from './escalationLifecycle.service';
+import logger from '../utils/logger';
 
 export type EscalationLifecycleStatus =
   | 'Open'
@@ -721,7 +722,17 @@ export class EscalationsService {
   // Add an assignable task (risk_action) from an escalation — WITH or WITHOUT a linked
   // risk. The task carries the escalation's house + source lineage, so a control/action can
   // be assigned for effectiveness even when the escalation isn't yet tied to a formal risk.
-  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string; review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED' }) {
+  //
+  // 30 Oct 2026 developer correction brief ("Review rationale and tracked action"): the screen
+  // labels "Review outcome and rationale" as required, but this method never required or
+  // stored it -- the manager's finding/reason for allocating the action was silently dropped.
+  // Rationale is now required and saved as its own escalation_actions diary entry (the same
+  // table every other review decision on this escalation already writes to), separate from
+  // the task's own title/description, so it shows in escalation history as the DECISION, not
+  // duplicated into the task instructions.
+  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string; review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED'; rationale?: string }) {
+    const rationale = String(body.rationale || '').trim();
+    if (!rationale) throw new Error('Explain what your review found and why this action is needed.');
     const e = (await query(`SELECT id, house_id, risk_id, source_governance_review_id, source_pulse_id, source_cluster_id, reason FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
     if (!e) throw new Error('Escalation not found');
     const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
@@ -735,6 +746,18 @@ export class EscalationsService {
       sourceClusterId:e.source_cluster_id||null,escalationId:id,
       reviewRequirement,intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? body.intended_outcome||null : null,
     });
+    // Preserve the decision+rationale in the escalation's own audit trail. Best-effort: the
+    // task itself is already committed above, so a failure here must not be reported as if
+    // nothing was saved -- it is logged, not swallowed silently.
+    try {
+      await query(
+        `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
+         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
+        [uuidv4(), id, company_id, 'Action Allocated', rationale, user_id, JSON.stringify({ linked_action_id: action.id })]
+      );
+    } catch (err) {
+      logger.error('Failed to record escalation decision rationale for addTask', err);
+    }
     await escalationLifecycleService.syncForAction(action.id, company_id);
     try {
       const { notificationsService } = await import('./notifications.service');
