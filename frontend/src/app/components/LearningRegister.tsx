@@ -1,10 +1,10 @@
 import { useEffect, useRef, useState } from "react";
-import { useSearchParams } from "react-router";
+import { useSearchParams, useNavigate } from "react-router";
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { useAuth } from "@/hooks/useAuth";
-import { Download } from "lucide-react";
+import { Download, ExternalLink } from "lucide-react";
 
 async function downloadPdf(url: string, fallbackName: string) {
   try {
@@ -39,6 +39,7 @@ export function LearningRegister() {
   const [filter, setFilter] = useState<string>("");
   const [busy, setBusy] = useState<string | null>(null);
   const [searchParams] = useSearchParams();
+  const navigate = useNavigate();
   // Inline "complete assessment" for a deferred (Not yet assessed) lesson that has become due.
   const [assessing, setAssessing] = useState<string | null>(null);
   const [assessState, setAssessState] = useState<"IDENTIFIED" | "NONE_IDENTIFIED">("IDENTIFIED");
@@ -208,7 +209,17 @@ export function LearningRegister() {
                         {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
                     )}
                     {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
-                    {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
+                    {r.source_escalation_reason && (
+                      <p className="text-muted-foreground flex items-center gap-2">
+                        <span><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</span>
+                        {r.source_escalation_id && (
+                          <button onClick={() => navigate(`/escalation-log?escalationId=${r.source_escalation_id}`)}
+                            className="shrink-0 text-[11px] text-primary flex items-center gap-1 hover:underline">
+                            Open <ExternalLink className="w-3 h-3" />
+                          </button>
+                        )}
+                      </p>
+                    )}
                     {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
                     {/* 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness
                         maybe give us a link to the whole escalation history"): the source
@@ -217,7 +228,15 @@ export function LearningRegister() {
                         invisible here, not just in the PDF. */}
                     {r.action_escalation_reason && (
                       <div className="rounded-lg bg-muted/40 p-2 space-y-0.5">
-                        <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                          {r.action_escalation_id && (
+                            <button onClick={() => navigate(`/escalation-log?escalationId=${r.action_escalation_id}`)}
+                              className="shrink-0 text-[11px] text-primary flex items-center gap-1 hover:underline">
+                              Open escalation <ExternalLink className="w-3 h-3" />
+                            </button>
+                          )}
+                        </div>
                         <p className="text-muted-foreground">Raised: {r.action_escalation_reason}</p>
                         <p className="text-muted-foreground">Status: {r.action_escalation_lifecycle_status || r.action_escalation_status || "—"}{r.action_escalation_to_name ? ` · Escalated to: ${r.action_escalation_to_name}` : ""}</p>
                         <p className="text-muted-foreground">Opened: {fmt(r.action_escalation_created_at)}{r.action_escalation_due_by ? ` · Due: ${fmt(r.action_escalation_due_by)}` : ""}{r.action_escalation_closed_at ? ` · Closed: ${fmt(r.action_escalation_closed_at)}` : ""}</p>
@@ -265,11 +284,29 @@ export function LearningRegister() {
                             {r.source_review_at ? ` · ${new Date(r.source_review_at).toLocaleDateString("en-GB")}` : ""}</p>
                         )}
                         {r.source_pattern_label && <p className="text-muted-foreground"><span className="text-foreground font-medium">From pattern:</span> {r.source_pattern_label}</p>}
-                        {r.source_escalation_reason && <p className="text-muted-foreground"><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</p>}
+                        {r.source_escalation_reason && (
+                          <p className="text-muted-foreground flex items-center gap-2">
+                            <span><span className="text-foreground font-medium">From escalation:</span> {r.source_escalation_reason}</span>
+                            {r.source_escalation_id && (
+                              <button onClick={() => navigate(`/escalation-log?escalationId=${r.source_escalation_id}`)}
+                                className="shrink-0 text-[11px] text-primary flex items-center gap-1 hover:underline">
+                                Open <ExternalLink className="w-3 h-3" />
+                              </button>
+                            )}
+                          </p>
+                        )}
                         {r.source_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">From risk:</span> {r.source_risk_title}</p>}
                         {r.action_escalation_reason && (
                           <div className="rounded-lg bg-background p-2 space-y-0.5">
-                            <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                            <div className="flex items-start justify-between gap-2">
+                              <p className="text-foreground font-medium text-xs">Escalation history (from the source action)</p>
+                              {r.action_escalation_id && (
+                                <button onClick={() => navigate(`/escalation-log?escalationId=${r.action_escalation_id}`)}
+                                  className="shrink-0 text-[11px] text-primary flex items-center gap-1 hover:underline">
+                                  Open escalation <ExternalLink className="w-3 h-3" />
+                                </button>
+                              )}
+                            </div>
                             <p className="text-muted-foreground">Raised: {r.action_escalation_reason}</p>
                             <p className="text-muted-foreground">Status: {r.action_escalation_lifecycle_status || r.action_escalation_status || "—"}{r.action_escalation_to_name ? ` · Escalated to: ${r.action_escalation_to_name}` : ""}</p>
                             <p className="text-muted-foreground">Opened: {fmt(r.action_escalation_created_at)}{r.action_escalation_due_by ? ` · Due: ${fmt(r.action_escalation_due_by)}` : ""}{r.action_escalation_closed_at ? ` · Closed: ${fmt(r.action_escalation_closed_at)}` : ""}</p>

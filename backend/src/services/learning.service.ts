@@ -268,7 +268,7 @@ export class LearningService {
               -- opening a learning record from either source showed no "From review/pattern"
               -- context whatsoever -- the exact gap already fixed for frozen reporting earlier in
               -- this revision. Added here for the live review screen.
-              esc.reason AS source_escalation_reason,
+              esc.reason AS source_escalation_reason, esc.id AS source_escalation_id,
               sr.strategic_theme AS source_risk_title,
               -- 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe
               -- give us a link to the whole escalation history"): an EFFECTIVENESS source action
@@ -278,6 +278,9 @@ export class LearningService {
               -- screen nor the PDF ever followed that chain; a learning whose action resolved a
               -- real escalation showed only the bare action title, with no visibility of what
               -- happened in the escalation itself (reason, response, closure evidence).
+              -- 30 Oct 2026: action_escalation_id added so the screen can link straight to the
+              -- escalation record (Escalation Log's ?escalationId= deep-link), not just show text.
+              sa_esc.id AS action_escalation_id,
               sa_esc.reason AS action_escalation_reason, sa_esc.status AS action_escalation_status,
               sa_esc.lifecycle_status::text AS action_escalation_lifecycle_status,
               sa_esc.created_at AS action_escalation_created_at, sa_esc.due_by AS action_escalation_due_by,
@@ -339,10 +342,11 @@ export class LearningService {
               aer.outcome::text AS source_review_outcome, aer.reviewed_at AS source_review_at,
               aer.evidence AS source_review_evidence,
               COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
-              esc.reason AS source_escalation_reason,
+              esc.reason AS source_escalation_reason, esc.id AS source_escalation_id,
               sr.strategic_theme AS source_risk_title,
               -- 29 Oct 2026 live bug report: the full escalation/risk chain behind the
               -- EFFECTIVENESS source action itself — see list() for the detailed rationale.
+              sa_esc.id AS action_escalation_id,
               sa_esc.reason AS action_escalation_reason, sa_esc.status AS action_escalation_status,
               sa_esc.lifecycle_status::text AS action_escalation_lifecycle_status,
               sa_esc.created_at AS action_escalation_created_at, sa_esc.due_by AS action_escalation_due_by,
