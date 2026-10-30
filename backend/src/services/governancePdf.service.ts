@@ -165,6 +165,22 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
+    // 30 Oct 2026 live bug report ("this history is not pulling on learning"): the common case —
+    // an action created straight from a decision, with no escalation and no registered risk —
+    // still showed nothing until the decision and its originating signal are followed too.
+    if (lr.action_decision) {
+      doc.font('Helvetica-Bold').text('Decision that created the source action');
+      doc.font('Helvetica').text(`${lr.action_decision}${lr.action_decision_by_name ? ` — ${lr.action_decision_by_name}` : ''}${lr.action_decision_date ? `, ${fmtDate(lr.action_decision_date)}` : ''}`, { indent: 10 });
+      if (lr.action_decision_rationale) doc.text(`Rationale: ${lr.action_decision_rationale}`, { indent: 10 });
+      if (lr.action_decision_instruction) doc.text(`Instruction: ${lr.action_decision_instruction}`, { indent: 10 });
+      doc.moveDown(0.5);
+    }
+    if (lr.action_signal_description) {
+      doc.font('Helvetica-Bold').text('Originating signal');
+      doc.font('Helvetica').text(`${fmtDate(lr.action_signal_date)}${lr.action_signal_severity ? ` · ${lr.action_signal_severity}` : ''}: ${lr.action_signal_description}`, { indent: 10 });
+      doc.moveDown(0.5);
+    }
+
     if (lr.linked_action_title) {
       doc.font('Helvetica-Bold').text('Follow-through action');
       doc.font('Helvetica').text(`${lr.linked_action_title} (${lr.linked_action_status || 'status unknown'})`, { indent: 10 });

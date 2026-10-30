@@ -225,6 +225,19 @@ export function LearningRegister() {
                       </div>
                     )}
                     {r.action_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Linked risk (from the source action):</span> {r.action_risk_title} — {r.action_risk_status || "status unknown"}{r.action_risk_severity ? `, ${r.action_risk_severity}` : ""}</p>}
+                    {/* 30 Oct 2026 live bug report ("this history is not pulling on learning"):
+                        the common case — an action created straight from a decision, with no
+                        escalation and no registered risk — still showed nothing until the
+                        decision and its originating signal are followed too. */}
+                    {r.action_decision && (
+                      <div className="rounded-lg bg-muted/40 p-2 space-y-0.5">
+                        <p className="text-foreground font-medium text-xs">Decision that created the source action</p>
+                        <p className="text-muted-foreground">{r.action_decision}{r.action_decision_by_name ? ` — ${r.action_decision_by_name}` : ""}{r.action_decision_date ? `, ${fmt(r.action_decision_date)}` : ""}</p>
+                        {r.action_decision_rationale && <p className="text-muted-foreground">Rationale: {r.action_decision_rationale}</p>}
+                        {r.action_decision_instruction && <p className="text-muted-foreground">Instruction: {r.action_decision_instruction}</p>}
+                      </div>
+                    )}
+                    {r.action_signal_description && <p className="text-muted-foreground"><span className="text-foreground font-medium">Originating signal:</span> {fmt(r.action_signal_date)}{r.action_signal_severity ? ` · ${r.action_signal_severity}` : ""}: {r.action_signal_description}</p>}
                     {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                     {r.what_learnt && <p className="text-muted-foreground"><span className="text-foreground font-medium">Learnt:</span> {r.what_learnt}</p>}
                     {r.change_needed && <p className="text-muted-foreground"><span className="text-foreground font-medium">Change:</span> {r.change_needed}</p>}
@@ -244,7 +257,7 @@ export function LearningRegister() {
                     </p>
                     {/* Context so the reviewer knows WHAT this learning is about before assessing it —
                         the originating effectiveness review, its outcome/evidence and the concern. */}
-                    {(r.source_action_title || r.source_pattern_label || r.source_escalation_reason || r.source_risk_title || r.action_escalation_reason || r.action_risk_title || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
+                    {(r.source_action_title || r.source_pattern_label || r.source_escalation_reason || r.source_risk_title || r.action_escalation_reason || r.action_risk_title || r.action_decision || r.action_signal_description || r.what_happened || r.source_review_outcome || r.source_review_evidence || r.linked_action_title) ? (
                       <div className="mt-2 space-y-1 text-sm bg-muted/40 rounded-lg p-2.5">
                         {(r.source_action_title || r.source_review_outcome) && (
                           <p className="text-muted-foreground"><span className="text-foreground font-medium">From review:</span> {r.source_action_title || "Reviewed action"}
@@ -264,6 +277,15 @@ export function LearningRegister() {
                           </div>
                         )}
                         {r.action_risk_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Linked risk (from the source action):</span> {r.action_risk_title} — {r.action_risk_status || "status unknown"}{r.action_risk_severity ? `, ${r.action_risk_severity}` : ""}</p>}
+                        {r.action_decision && (
+                          <div className="rounded-lg bg-background p-2 space-y-0.5">
+                            <p className="text-foreground font-medium text-xs">Decision that created the source action</p>
+                            <p className="text-muted-foreground">{r.action_decision}{r.action_decision_by_name ? ` — ${r.action_decision_by_name}` : ""}{r.action_decision_date ? `, ${fmt(r.action_decision_date)}` : ""}</p>
+                            {r.action_decision_rationale && <p className="text-muted-foreground">Rationale: {r.action_decision_rationale}</p>}
+                            {r.action_decision_instruction && <p className="text-muted-foreground">Instruction: {r.action_decision_instruction}</p>}
+                          </div>
+                        )}
+                        {r.action_signal_description && <p className="text-muted-foreground"><span className="text-foreground font-medium">Originating signal:</span> {fmt(r.action_signal_date)}{r.action_signal_severity ? ` · ${r.action_signal_severity}` : ""}: {r.action_signal_description}</p>}
                         {r.what_happened && <p className="text-muted-foreground"><span className="text-foreground font-medium">What happened:</span> {r.what_happened}</p>}
                         {r.source_review_evidence && <p className="text-muted-foreground"><span className="text-foreground font-medium">Evidence examined:</span> {r.source_review_evidence}</p>}
                         {r.linked_action_title && <p className="text-muted-foreground"><span className="text-foreground font-medium">Improvement action:</span> {r.linked_action_title}{r.linked_action_status ? ` (${r.linked_action_status})` : ""}</p>}

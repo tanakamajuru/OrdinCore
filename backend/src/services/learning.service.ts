@@ -285,7 +285,19 @@ export class LearningService {
               COALESCE(sa_esc.closure_evidence, sa_esc.resolution_notes) AS action_escalation_closure_evidence,
               NULLIF(TRIM(COALESCE(sa_esc_to.first_name,'') || ' ' || COALESCE(sa_esc_to.last_name,'')),'') AS action_escalation_to_name,
               sa_risk.strategic_theme AS action_risk_title, sa_risk.status::text AS action_risk_status,
-              sa_risk.severity::text AS action_risk_severity
+              sa_risk.severity::text AS action_risk_severity,
+              -- 30 Oct 2026 live bug report ("this history is not pulling on learning"): the
+              -- fix above only followed sa.escalation_id/sa.risk_id. Confirmed live against the
+              -- reported record: its source action has BOTH null, and is instead linked only via
+              -- governance_review_id to a decision ("Create Action", with a rationale) which
+              -- itself traces to the original signal (gr.pulse_entry_id) — none of that chain was
+              -- pulled either, so an action created straight from a decision (no escalation, no
+              -- registered risk — the common case) still showed nothing beyond its bare title.
+              sa_gr.decision AS action_decision, sa_gr.decision_rationale AS action_decision_rationale,
+              sa_gr.what_is_happening AS action_decision_instruction, sa_gr.review_date AS action_decision_date,
+              NULLIF(TRIM(COALESCE(sa_gr_by.first_name,'') || ' ' || COALESCE(sa_gr_by.last_name,'')),'') AS action_decision_by_name,
+              sa_sig.description AS action_signal_description, sa_sig.entry_date AS action_signal_date,
+              sa_sig.severity::text AS action_signal_severity
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -300,6 +312,9 @@ export class LearningService {
          LEFT JOIN escalations sa_esc ON sa_esc.id = sa.escalation_id
          LEFT JOIN users sa_esc_to ON sa_esc_to.id = sa_esc.escalated_to
          LEFT JOIN risks sa_risk ON sa_risk.id = sa.risk_id
+         LEFT JOIN governance_reviews sa_gr ON sa_gr.id = sa.governance_review_id
+         LEFT JOIN users sa_gr_by ON sa_gr_by.id = sa_gr.reviewed_by
+         LEFT JOIN governance_pulses sa_sig ON sa_sig.id = sa_gr.pulse_entry_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE ${where}
         ORDER BY lr.created_at DESC
@@ -335,7 +350,16 @@ export class LearningService {
               COALESCE(sa_esc.closure_evidence, sa_esc.resolution_notes) AS action_escalation_closure_evidence,
               NULLIF(TRIM(COALESCE(sa_esc_to.first_name,'') || ' ' || COALESCE(sa_esc_to.last_name,'')),'') AS action_escalation_to_name,
               sa_risk.strategic_theme AS action_risk_title, sa_risk.status::text AS action_risk_status,
-              sa_risk.severity::text AS action_risk_severity
+              sa_risk.severity::text AS action_risk_severity,
+              -- 30 Oct 2026 live bug report ("this history is not pulling on learning"): see
+              -- list() for the detailed rationale — an action created straight from a decision
+              -- (governance_review_id), with neither an escalation nor a registered risk, still
+              -- showed nothing beyond its bare title without this.
+              sa_gr.decision AS action_decision, sa_gr.decision_rationale AS action_decision_rationale,
+              sa_gr.what_is_happening AS action_decision_instruction, sa_gr.review_date AS action_decision_date,
+              NULLIF(TRIM(COALESCE(sa_gr_by.first_name,'') || ' ' || COALESCE(sa_gr_by.last_name,'')),'') AS action_decision_by_name,
+              sa_sig.description AS action_signal_description, sa_sig.entry_date AS action_signal_date,
+              sa_sig.severity::text AS action_signal_severity
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -351,6 +375,9 @@ export class LearningService {
          LEFT JOIN escalations sa_esc ON sa_esc.id = sa.escalation_id
          LEFT JOIN users sa_esc_to ON sa_esc_to.id = sa_esc.escalated_to
          LEFT JOIN risks sa_risk ON sa_risk.id = sa.risk_id
+         LEFT JOIN governance_reviews sa_gr ON sa_gr.id = sa.governance_review_id
+         LEFT JOIN users sa_gr_by ON sa_gr_by.id = sa_gr.reviewed_by
+         LEFT JOIN governance_pulses sa_sig ON sa_sig.id = sa_gr.pulse_entry_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
         WHERE lr.id = $1 AND lr.company_id = $2`,
       [id, company_id],
