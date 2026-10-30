@@ -19,15 +19,20 @@ export function drawReportHeader(doc: typeof PDFDocument, title: string): number
   const contentWidth = pageWidth - leftMargin - rightMargin;
 
   // Logo dimensions (larger, professional size)
+  // 30 Oct 2026 live bug report ("the text Ordincore is behind or in front of the logo"):
+  // logo.png is a 500x500 SQUARE image, so rendering it at width:80 with no explicit height
+  // makes PDFKit auto-scale it to 80pt TALL, not the 40pt this code assumed when positioning
+  // the company-name text below it — the text was placed halfway up the logo's own height,
+  // landing inside the shield instead of beneath it. Fixed to the image's true aspect ratio.
   const logoWidth = 80;      // more balanced
-  const logoHeight = 40;     // adjust based on aspect ratio; auto if not specified
+  const logoHeight = 80;     // logo.png is square (500x500) — width and height must match
 
   let startY = 30;           // top of the page (after default margin)
 
   // 1. Logo – top‑left corner
   if (fs.existsSync(LOGO_PATH)) {
     try {
-      doc.image(LOGO_PATH, leftMargin, startY, { width: logoWidth });
+      doc.image(LOGO_PATH, leftMargin, startY, { width: logoWidth, height: logoHeight });
     } catch (err) {
       console.error('Failed to render logo in PDF:', err);
     }
