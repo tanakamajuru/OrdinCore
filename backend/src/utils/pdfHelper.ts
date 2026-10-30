@@ -46,8 +46,15 @@ export function drawReportHeader(doc: typeof PDFDocument, title: string): number
      .fillColor('#444444')
      .text(companyName, leftMargin, companyTextY);
 
+  // 2b. Tagline – small caps line directly under the company name.
+  const taglineY = companyTextY + 15;
+  doc.fontSize(7.5)
+     .font('Helvetica')
+     .fillColor('#888888')
+     .text('GOVERNANCE INFRASTRUCTURE FOR CARE PROVIDERS', leftMargin, taglineY);
+
   // 3. Report title – centred horizontally, positioned below the company name
-  const titleY = companyTextY + 20; // space between company name and title
+  const titleY = taglineY + 20; // space between tagline and title
   doc.fontSize(22)
      .font('Helvetica-Bold')
      .fillColor('#000000')
