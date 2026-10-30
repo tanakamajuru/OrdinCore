@@ -641,9 +641,48 @@ export function EscalationLog() {
                       </div>
                     </div>
 
+                    {/* 30 Oct 2026 live bug report: "it only brought why it was escalated and
+                        again no history no information, it will be difficult to work with it
+                        from this angle." This data was always returned by the API — it was just
+                        sitting inside the collapsed "Evidence & linked controls" toggle below,
+                        so a reviewer who didn't think to expand it saw nothing but the bare
+                        escalation reason. The originating signal IS the escalation's history;
+                        moved out so it is visible immediately, not one extra click away. */}
+                    {(selectedEscalation.observation || selectedEscalation.signal_severity) && (
+                      <div className="border-2 border-border rounded-lg p-3 bg-background">
+                        <label className="text-xs uppercase text-muted-foreground mb-2 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> Originating signal</label>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {selectedEscalation.signal_severity && (
+                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
+                              ['High', 'Critical'].includes(selectedEscalation.signal_severity) ? 'bg-destructive/10 text-destructive' : 'bg-muted text-foreground'
+                            }`}>{selectedEscalation.signal_severity}</span>
+                          )}
+                          {firstDomain(selectedEscalation.signal_risk_domain) && (
+                            <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{firstDomain(selectedEscalation.signal_risk_domain)}</span>
+                          )}
+                          {selectedEscalation.signal_related_person && (
+                            <span className="text-[11px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {selectedEscalation.signal_related_person}</span>
+                          )}
+                        </div>
+                        {selectedEscalation.observation && (
+                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{selectedEscalation.observation}</p>
+                        )}
+                        {selectedEscalation.signal_immediate_action && (
+                          <div className="mt-2 text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground">Immediate action taken: </span>{selectedEscalation.signal_immediate_action}
+                          </div>
+                        )}
+                        {selectedEscalation.signal_logged_at && (
+                          <p className="text-[10px] text-muted-foreground mt-2">
+                            Logged{selectedEscalation.signal_logged_by_name ? ` by ${selectedEscalation.signal_logged_by_name}` : ''} · {new Date(selectedEscalation.signal_logged_at).toLocaleString('en-GB')}
+                          </p>
+                        )}
+                      </div>
+                    )}
+
                     {/* Evidence & linked controls — collapsed to keep the decision area prominent and
-                        reduce information overload (improved-original layout). The escalation basis and
-                        "Why is it still open?" stay visible above/below. */}
+                        reduce information overload (improved-original layout). The escalation basis,
+                        originating signal and "Why is it still open?" stay visible above/below. */}
                     <details className="border-t border-border pt-4 group">
                     <summary className="list-none cursor-pointer flex items-center justify-between text-sm font-semibold text-primary mb-2"><span>Evidence &amp; linked controls</span><ChevronDown className="w-4 h-4 transition-transform group-open:rotate-180" /></summary>
                     <div className="space-y-6 mt-3">
@@ -677,40 +716,6 @@ export function EscalationLog() {
                             <div className="text-xs text-muted-foreground">Latest individual effectiveness review: {selectedEscalation.latest_effectiveness}. Historical partial/failed outcomes remain in the audit trail.</div>
                           )}
                         </div>
-                      </div>
-                    )}
-
-                    {/* Originating signal — the decision-making evidence (observation,
-                        severity, person, immediate action already taken). */}
-                    {(selectedEscalation.observation || selectedEscalation.signal_severity) && (
-                      <div className="border-2 border-border rounded-lg p-3 bg-background">
-                        <label className="text-xs uppercase text-muted-foreground mb-2 flex items-center gap-1.5"><Activity className="w-3.5 h-3.5" /> Originating signal</label>
-                        <div className="flex flex-wrap items-center gap-2 mb-2">
-                          {selectedEscalation.signal_severity && (
-                            <span className={`text-[11px] font-semibold px-2 py-0.5 rounded ${
-                              ['High', 'Critical'].includes(selectedEscalation.signal_severity) ? 'bg-destructive/10 text-destructive' : 'bg-muted text-foreground'
-                            }`}>{selectedEscalation.signal_severity}</span>
-                          )}
-                          {firstDomain(selectedEscalation.signal_risk_domain) && (
-                            <span className="text-[11px] px-2 py-0.5 rounded bg-primary/10 text-primary">{firstDomain(selectedEscalation.signal_risk_domain)}</span>
-                          )}
-                          {selectedEscalation.signal_related_person && (
-                            <span className="text-[11px] text-muted-foreground flex items-center gap-1"><User className="w-3 h-3" /> {selectedEscalation.signal_related_person}</span>
-                          )}
-                        </div>
-                        {selectedEscalation.observation && (
-                          <p className="text-sm text-foreground whitespace-pre-wrap break-words">{selectedEscalation.observation}</p>
-                        )}
-                        {selectedEscalation.signal_immediate_action && (
-                          <div className="mt-2 text-xs text-muted-foreground">
-                            <span className="font-semibold text-foreground">Immediate action taken: </span>{selectedEscalation.signal_immediate_action}
-                          </div>
-                        )}
-                        {selectedEscalation.signal_logged_at && (
-                          <p className="text-[10px] text-muted-foreground mt-2">
-                            Logged{selectedEscalation.signal_logged_by_name ? ` by ${selectedEscalation.signal_logged_by_name}` : ''} · {new Date(selectedEscalation.signal_logged_at).toLocaleString('en-GB')}
-                          </p>
-                        )}
                       </div>
                     )}
 
