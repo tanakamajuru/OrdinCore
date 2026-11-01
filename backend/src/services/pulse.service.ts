@@ -198,7 +198,14 @@ export class PulseService {
         });
 
         // Trigger Pattern Detection Job
-        try {
+        // 30 Oct 2026 developer requirements ("Positive signal handling"), §3 "Separate
+        // calculations": a purely positive observation must never feed adverse-pattern
+        // formation, recurrence thresholds or automatic risk-candidate promotion. Confirmed:
+        // every new pulse was queued into this same pipeline regardless of signal_type -- a
+        // Positive signal entry would have contributed to cluster thresholds and could spawn
+        // a risk_candidate exactly like an adverse Concern/Incident. Skip the queue entirely
+        // for this type; the record itself is still saved and fully retrievable above.
+        if (pulse.signal_type !== 'Positive signal') try {
             // Domain/theme-matching fix (17 Oct v3 findings): capture writes BOTH risk_domain (array)
             // and governance_domain (single canonical value), but some signals end up with an empty
             // risk_domain while governance_domain IS populated (same gap reports.service.ts's

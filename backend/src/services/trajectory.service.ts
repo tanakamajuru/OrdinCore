@@ -212,6 +212,11 @@ async function signalEvidenceForCluster(cluster_id?: string | null): Promise<Sig
        FROM risk_signal_links rsl
        JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
       WHERE rsl.cluster_id = $1
+        -- 30 Oct 2026 developer requirements ("Positive signal handling"): a purely positive
+        -- observation is recovery evidence, not adverse burden. Nothing here excluded
+        -- signal_type = 'Positive signal' before -- a severity-weighted trajectory calculation
+        -- would have counted recorded recovery/progress as deterioration evidence.
+        AND COALESCE(gp.signal_type::text, '') <> 'Positive signal'
         AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) >= NOW() - INTERVAL '28 days'
         AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) <= NOW()
       ORDER BY occurred_at ASC`,
@@ -249,6 +254,10 @@ async function signalEvidenceForRisk(
               AND (t.linked_person IS NULL OR BTRIM(t.linked_person)=''
                    OR LOWER(BTRIM(COALESCE(gp.related_person,'')))=LOWER(BTRIM(t.linked_person))))
         )
+        -- 30 Oct 2026 developer requirements ("Positive signal handling"): see
+        -- signalEvidenceForCluster above — same exclusion so a risk's own trajectory never
+        -- counts a positive observation as adverse burden either.
+        AND COALESCE(gp.signal_type::text, '') <> 'Positive signal'
         AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) >= NOW() - INTERVAL '28 days'
         AND COALESCE((gp.entry_date::date + COALESCE(gp.entry_time, TIME '00:00')) AT TIME ZONE 'Europe/London', gp.created_at) <= NOW()
       ORDER BY occurred_at ASC`,
