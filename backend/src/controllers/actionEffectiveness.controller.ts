@@ -56,10 +56,18 @@ export class ActionEffectivenessController {
 
   async getSummary(req: Request, res: Response) {
     try {
+      // Bug fix (1 Nov 2026, "Action Effectiveness screen" — Too-Early=0 date-basis
+      // investigation): this silently defaulted to the last 7 days with no indication in the
+      // UI that any window was applied. Verified against production: 183 reviewed actions
+      // exist in canonical_action_effectiveness_v company-wide, but only 8 fall in the last
+      // 7 days, and the company's one "Too Early To Assess" review was entirely outside that
+      // window — so the Org Summary/Domain/Service/Trend panels showed 0 for it with no
+      // visible scoping. Default is now full history unless the caller explicitly asks for a
+      // range; meta.range is returned so the frontend can state the window it is showing.
       const end = String(req.query.end || new Date().toISOString());
-      const start = String(req.query.start || new Date(Date.now() - 7 * 86400000).toISOString());
+      const start = String(req.query.start || '1970-01-01T00:00:00.000Z');
       const data = await actionEffectivenessService.summary(req.user!.company_id!, start, end);
-      return res.json({ success: true, data, meta: { measure: 'effectiveness_reviewed_at' } });
+      return res.json({ success: true, data, meta: { measure: 'effectiveness_reviewed_at', range: { start, end } } });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch effectiveness summary' });
     }

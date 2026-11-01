@@ -14,6 +14,7 @@ const OUTCOMES = ["Effective", "Partially Effective", "Not Effective", "Too Earl
 
 export function ActionEffectivenessPanels() {
   const [data, setData] = useState<any>(null);
+  const [range, setRange] = useState<{ start: string; end: string } | null>(null);
   const [scheduled, setScheduled] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
@@ -94,6 +95,7 @@ export function ActionEffectivenessPanels() {
     try {
       const response: any = await apiClient.get('/actions/effectiveness-summary');
       setData(response?.data?.data ?? response?.data ?? response);
+      setRange(response?.data?.meta?.range ?? null);
       try {
         const sched: any = await apiClient.get('/actions/scheduled-effectiveness');
         setScheduled(sched?.data?.data ?? sched?.data ?? []);
@@ -146,6 +148,14 @@ export function ActionEffectivenessPanels() {
         <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
           <CardHeader>
             <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes</CardTitle>
+            {/* Bug fix (1 Nov 2026, "Too-Early=0 date-basis investigation"): these counts are
+                now full-history by default, but state the window explicitly so a future
+                date-range filter is never silently applied again. */}
+            {range && (
+              <p className="text-[11px] text-muted-foreground normal-case tracking-normal">
+                {new Date(range.start).getFullYear() <= 1970 ? "All reviews on record" : `From ${new Date(range.start).toLocaleDateString("en-GB")}`} to {new Date(range.end).toLocaleDateString("en-GB")}
+              </p>
+            )}
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
