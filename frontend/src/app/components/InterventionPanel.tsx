@@ -29,10 +29,21 @@ function LinkedActionsManager({ interventionId }: { interventionId: string }) {
   };
   useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, [interventionId]);
 
+  // 30 Oct 2026 developer specification ("Management Response Overview"), Step 7 "Remove
+  // duplication and reconcile counts": replaces the card's old theme-wide "Theme actions:
+  // X/Y done" counter (every action across every active risk in the theme, not just this
+  // plan's own delivery) with a count drawn from this exact displayed list — cancelled
+  // actions are already excluded server-side (interventions.service.ts linkActions), so
+  // nothing here needs to re-exclude them.
+  const completedLinked = links.filter((l: any) => l.is_completed).length;
+
   return (
     <div className="mt-3 rounded-lg border border-border p-2.5">
       <div className="flex items-center justify-between mb-1.5">
         <span className="text-[11px] uppercase tracking-wide text-muted-foreground flex items-center gap-1"><Link2 className="w-3.5 h-3.5" /> Linked delivery actions ({links.length})</span>
+        {!linksLoading && !linksFailed && links.length > 0 && (
+          <span className="text-[11px] text-muted-foreground">Linked actions: {completedLinked} of {links.length} completed</span>
+        )}
       </div>
       {linksLoading ? (
         <p className="text-[11px] text-muted-foreground">Loading…</p>
@@ -220,25 +231,14 @@ export function InterventionPanel() {
                           return (
                             <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-xs text-muted-foreground pt-1">
                               <div><span className="text-foreground font-medium">Owner:</span> {intv.owner_name || intv.owner_role || "—"}</div>
-                              {/* Bug fix (24 Oct developer corrections, "Completion count differs
-                                  from linked delivery work"): this counts EVERY action on every
-                                  active risk in the theme, not just the actions actually linked
-                                  to this intervention (that's the separate "Linked delivery
-                                  actions" list below) -- labelled explicitly as theme-wide rather
-                                  than implying it measures this intervention's own delivery. */}
-                              {/* 25 Oct brief ("Counts"): a historical theme hard-codes
-                                  openActions/completedActions to 0, which read as "0/0 done"
-                                  right beside a genuinely completed linked action below — say
-                                  Not applicable instead of implying zero work happened. */}
-                              {t.historical ? (
-                                <div title="This theme has no active risk, so theme-wide action totals do not apply — see Linked delivery actions below for this plan's own actions.">
-                                  <span className="text-foreground font-medium">Theme actions:</span> Not applicable
-                                </div>
-                              ) : (
-                                <div title="Counts every action across all of this theme's active risks, not only actions linked to this plan">
-                                  <span className="text-foreground font-medium">Theme actions:</span> {t.completedActions}/{t.openActions + t.completedActions} done
-                                </div>
-                              )}
+                              {/* 30 Oct 2026 developer specification ("Management Response
+                                  Overview"), Step 7: the old "Theme actions: X/Y done" counter
+                                  here counted EVERY action across every active risk in the
+                                  theme, not just this plan's own delivery — duplicating and
+                                  disagreeing with the real "Linked delivery actions" list
+                                  below. Removed; LinkedActionsManager now shows "Linked
+                                  actions: X of Y completed" computed from that same displayed
+                                  list instead. */}
                               <div className={overdue ? "text-red-600" : ""}>
                                 <span className="text-foreground font-medium">Due:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}{overdue ? " · overdue" : ""}
                               </div>
