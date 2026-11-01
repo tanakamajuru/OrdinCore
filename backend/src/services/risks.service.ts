@@ -882,15 +882,40 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
     reason?: string; cluster_id?: string;
   }) {
+    // 30 Oct 2026 developer correction brief ("Candidate promotion, classification and
+    // evidence") — code confirmed: this previously selected neither status nor linked_risk_id,
+    // so nothing stopped a repeat/double-click/retry from promoting the same candidate twice.
+    // promoteFromCluster() already guards this way (cluster.linked_risk_id check above); this
+    // candidate path had no equivalent at all.
     const candidateRes = await query(
-      `SELECT id, risk_domain, linked_person, cluster_id FROM risk_candidates
-       WHERE id = $1 AND company_id = $2`,
+      `SELECT id, risk_domain, linked_person, cluster_id, status, linked_risk_id, source_signals
+       FROM risk_candidates WHERE id = $1 AND company_id = $2`,
       [data.candidate_id, company_id]
     );
     if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
 
     const candidate = candidateRes.rows[0];
+    if (candidate.linked_risk_id) {
+      throw new Error('This candidate has already been promoted to a risk — open it from "View existing risk".');
+    }
+    if (candidate.status === 'Promoted') {
+      throw new Error('This candidate is already marked Promoted — reload and reconcile before retrying.');
+    }
     const sourceCluster = data.cluster_id || candidate.cluster_id || undefined;
+
+    // 30 Oct 2026 brief, §3 "Save and display the reviewed classification" — code confirmed:
+    // this forced risk_domain back to the candidate's ORIGINAL auto-detected domain regardless
+    // of the category the RM actually selected on the promotion screen, while category_id saved
+    // the RM's real choice — the two then disagreed (video evidence: category showed "Mental
+    // Health Stability" while the heading/description still read "Physical Health"). Derive the
+    // saved domain from the selected category when one was chosen, consistent with category_id;
+    // the candidate's original risk_domain remains visible as historical source context in the
+    // auto-generated description text (built in RiskPromotion.tsx), never rewritten here.
+    let resolvedDomain = candidate.risk_domain;
+    if (data.category_id) {
+      const cat = await query(`SELECT name FROM risk_categories WHERE id = $1 AND company_id = $2`, [data.category_id, company_id]);
+      if (cat.rows[0]?.name) resolvedDomain = cat.rows[0].name;
+    }
 
     const risk = await this.create(company_id, user_id, {
       ...data,
@@ -905,8 +930,8 @@ export class RisksService {
         : ((data.reason && data.reason.trim().length >= 10)
             ? data.reason
             : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
-      risk_domain: candidate.risk_domain,
-      metadata: { promotion_reason: data.reason },
+      risk_domain: resolvedDomain,
+      metadata: { promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain },
       linked_person: candidate.linked_person
     });
 
@@ -919,6 +944,28 @@ export class RisksService {
     if (sourceCluster) {
       await query('UPDATE signal_clusters SET linked_risk_id = $1, promoted_at = NOW() WHERE id = $2 AND linked_risk_id IS NULL',
         [risk.id, sourceCluster]);
+    }
+
+    // 30 Oct 2026 brief, §4 "Preserve accessible evidence and correct provenance" — code
+    // confirmed: this never carried the candidate's own source_signals into risk_signal_links,
+    // unlike the cluster-promotion route (which links every signal behind the cluster). A
+    // candidate promoted without a cluster (critical-exception path) left its evidence signals
+    // with no link to the new risk at all — individually unreachable from it.
+    if (Array.isArray(candidate.source_signals) && candidate.source_signals.length) {
+      await query(
+        `INSERT INTO risk_signal_links (id, risk_id, cluster_id, pulse_entry_id, linked_by, linked_at)
+         SELECT gen_random_uuid(), $1, $2, s.id, $3, NOW()
+           FROM unnest($4::uuid[]) AS s(id)
+          WHERE NOT EXISTS (
+            SELECT 1 FROM risk_signal_links x WHERE x.risk_id = $1 AND x.pulse_entry_id = s.id
+          )`,
+        [risk.id, sourceCluster || null, user_id, candidate.source_signals]
+      );
+      await query(
+        `UPDATE governance_pulses SET review_status = 'Linked', updated_at = NOW()
+          WHERE id = ANY($1::uuid[]) AND company_id = $2 AND (review_status IS NULL OR review_status <> 'Closed')`,
+        [candidate.source_signals, company_id]
+      );
     }
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
