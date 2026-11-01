@@ -14,6 +14,7 @@ const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 // 27 Oct developer instructions (P1, "Complete the read-only conversion"): linking/unlinking is
 // retired server-side (410) — this is now a pure read-only display of what's already linked.
 function LinkedActionsManager({ interventionId }: { interventionId: string }) {
+  const navigate = useNavigate();
   const [links, setLinks] = useState<any[]>([]);
   // Bug fix (24 Oct developer corrections, "Action retrieval failures appear as empty
   // results"): track loading/failure explicitly so a failed request never looks like a
@@ -67,6 +68,12 @@ function LinkedActionsManager({ interventionId }: { interventionId: string }) {
                 <p className="text-[10px] text-amber-700" title="Linked outside this theme's own risks">Linked for: {l.relevance_reason}</p>
               )}
             </div>
+            {/* 30 Oct 2026 developer specification ("Management Response Overview"), Step 12
+                "Add precise navigation": every displayed record type needs a direct link to its
+                own screen, not just the theme's risk. Uses the same /my-actions?focus=<id>
+                deep-link convention as CanonicalEvidenceStrip/Rm5Interface. */}
+            <button onClick={() => navigate(`/my-actions?focus=${l.action_id}`)}
+              className="shrink-0 text-[10px] text-primary hover:underline whitespace-nowrap">View action</button>
           </div>
         ))}
       </div>
@@ -296,10 +303,16 @@ export function InterventionPanel() {
                           <div className="mt-2 rounded-lg bg-muted/50 p-2.5">
                             <div className="flex items-center justify-between text-xs">
                               <span className="text-muted-foreground">Effectiveness (reviewed)</span>
-                              <span className={`font-semibold ${
-                                intv.effectiveness_review.outcome === "Effective" ? "text-emerald-600"
-                                : intv.effectiveness_review.outcome === "Not Effective" ? "text-red-600"
-                                : "text-foreground"}`}>{intv.effectiveness_review.outcome}</span>
+                              <div className="flex items-center gap-2">
+                                <span className={`font-semibold ${
+                                  intv.effectiveness_review.outcome === "Effective" ? "text-emerald-600"
+                                  : intv.effectiveness_review.outcome === "Not Effective" ? "text-red-600"
+                                  : "text-foreground"}`}>{intv.effectiveness_review.outcome}</span>
+                                {intv.linked_action_id && (
+                                  <button onClick={() => navigate(`/effectiveness?focus=${intv.linked_action_id}`)}
+                                    className="text-[10px] text-primary hover:underline whitespace-nowrap">View review</button>
+                                )}
+                              </div>
                             </div>
                             {intv.effectiveness_review.reviewed_at && (
                               <div className="text-[11px] text-muted-foreground mt-0.5">Reviewed {new Date(intv.effectiveness_review.reviewed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</div>
