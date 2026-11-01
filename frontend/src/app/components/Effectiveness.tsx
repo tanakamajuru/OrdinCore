@@ -21,11 +21,18 @@ export function Effectiveness() {
           <div className="p-2.5 bg-primary/10 rounded-xl text-primary"><TrendingUp size={22} /></div>
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Action Effectiveness</h1>
-            <p className="text-sm text-muted-foreground">Whether completed actions actually reduced risk — ratings feed each risk's trajectory.</p>
+            <p className="text-sm text-muted-foreground">Recorded effectiveness reviews, supporting evidence and scheduled follow-up.</p>
           </div>
         </div>
 
-        {rer && (
+        {/* 30 Oct 2026 developer correction specification ("Action Effectiveness screen"),
+            Step 1: "Hide the Resolution Durability / 100% panel pending the validation in
+            Step 7. Remove 'the Well-Led outcome test' and unsupported 'Evidence base:
+            adequate'." Hidden here, not deleted — rer still fetches above so nothing about
+            the underlying resolution_effectiveness data/history is touched, and this can be
+            restored once Step 7's recurrence-cohort validation is done (see
+            backend/src/services/risks.service.ts resolution-effectiveness metric). */}
+        {false && rer && (
           <div className="mb-5 bg-card border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0"><CheckCircle2 className="w-5 h-5" /></div>

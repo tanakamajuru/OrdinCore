@@ -145,7 +145,7 @@ export function ActionEffectivenessPanels() {
         {/* Org Summary Card */}
         <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Organisational Effectiveness (7D)</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
@@ -283,7 +283,7 @@ export function ActionEffectivenessPanels() {
         {/* Service Comparison */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Service Performance Matrix</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Outcomes by Service</CardTitle>
           </CardHeader>
           <CardContent>
             <Table>
@@ -318,12 +318,12 @@ export function ActionEffectivenessPanels() {
         {/* Daily Trend */}
         <Card className="border-2 border-border shadow-sm">
           <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Organisational Trajectory</CardTitle>
+            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes Over Time</CardTitle>
           </CardHeader>
           <CardContent className="h-[250px]">
             {(!dailyTrendWithNumbers || dailyTrendWithNumbers.length === 0) ? (
               <div className="h-full flex items-center justify-center text-center px-6">
-                <p className="text-sm text-muted-foreground max-w-sm">No effectiveness ratings yet — the trajectory builds as completed actions are reviewed and rated.</p>
+                <p className="text-sm text-muted-foreground max-w-sm">No effectiveness ratings yet — outcomes over time build as completed actions are reviewed and rated.</p>
               </div>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
