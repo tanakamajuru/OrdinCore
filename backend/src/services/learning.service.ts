@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import { emitToCompany } from '../websocket/socket.server';
 
 export type LearningState = 'IDENTIFIED' | 'NONE_IDENTIFIED' | 'NOT_YET_ASSESSED';
 export type LearningProgress = 'RECORDED' | 'CHANGE_IMPLEMENTED' | 'IMPROVEMENT_VERIFIED';
@@ -114,6 +115,13 @@ export class LearningService {
        hasChangePlan ? (input.success_criteria || '').trim() || null : null,
        hasChangePlan ? (input.plan_deadline || null) : null],
     );
+    // 30 Oct 2026 developer specification ("Management Response Overview"), Step 2: "Ensure
+    // decision, action, review and learning changes also refresh the affected projection."
+    // Confirmed: this service emitted no websocket event at all, so a linked learning change
+    // never refreshed InterventionPanel.tsx's open view. Reuses the same event name
+    // governanceDecisions.service.ts already emits on a decision save, which the frontend is
+    // updated to also listen for.
+    try { emitToCompany(company_id, 'governance.case.updated', { reason: 'learning_created', learning_id: res.rows[0].id }); } catch { /* best-effort */ }
     return res.rows[0];
   }
 
@@ -142,6 +150,7 @@ export class LearningService {
         WHERE id = $1 AND company_id = $2 RETURNING *`,
       [id, company_id, evidence.trim(), actor_id],
     );
+    try { emitToCompany(company_id, 'governance.case.updated', { reason: 'learning_implemented', learning_id: id }); } catch { /* best-effort */ }
     return res.rows[0];
   }
 
@@ -187,6 +196,7 @@ export class LearningService {
         WHERE id = $1 AND company_id = $2 RETURNING *`,
       [id, company_id, nextProgress, outcome, evidence.trim(), actor_id, outcome === 'Effective' ? null : reviewDueAt],
     );
+    try { emitToCompany(company_id, 'governance.case.updated', { reason: 'learning_verified', learning_id: id }); } catch { /* best-effort */ }
     return res.rows[0];
   }
 

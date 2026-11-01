@@ -157,13 +157,22 @@ export function InterventionPanel() {
     // Refetch only on a real change event. NOT on socket "connect": behind the proxy the websocket
     // reconnects every ~10-15s, and refetch-on-connect turned that into constant self-reloading.
     // The mount effect loads initially; focus + the 60s poll cover resync after a disconnection.
+    // 30 Oct 2026 developer specification ("Management Response Overview"), Step 2: "Ensure
+    // decision, action, review and learning changes also refresh the affected projection."
+    // governanceDecisions.service.ts (decision save) and learning.service.ts (create/
+    // implement/verify, extended to emit this) both fire 'governance.case.updated' — this
+    // view previously listened only for 'intervention.updated' (action completion and
+    // effectiveness review), so a decision or learning change on a displayed theme never
+    // refreshed it live.
     socket.on("intervention.updated", refresh);
+    socket.on("governance.case.updated", refresh);
     window.addEventListener("focus", refresh);
     const poll = window.setInterval(refresh, 60_000);
     return () => {
       window.clearInterval(poll);
       window.removeEventListener("focus", refresh);
       socket.off("intervention.updated", refresh);
+      socket.off("governance.case.updated", refresh);
       socket.disconnect();
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
