@@ -124,14 +124,21 @@ export function GovernancePulse() {
     return true;
   };
 
+  // 30 Oct 2026 developer brief ("Positive signal handling"), §3 "Required handling": "Do not
+  // require staff to invent a risk severity for a purely positive observation; adapt validation
+  // consistently in the UI and API." A positive observation has no "immediate action taken" to
+  // report either, so that field is optional for this signal type only — every other signal
+  // type keeps the existing mandatory fields unchanged.
+  const isPositive = formData.signal_type === 'Positive signal';
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Validation
     if (!formData.house_id) return toast.error("Please select a service/house");
     if (!patientValid && formData.related_person) return toast.error("Please provide a valid related person name");
-    if (!formData.description.trim()) return toast.error("Description is mandatory (Field 6)");
-    if (!formData.immediate_action.trim()) return toast.error("Immediate Action Taken is mandatory (Field 7)");
+    if (!formData.description.trim()) return toast.error(isPositive ? "Describe the area of progress (Field 6)" : "Description is mandatory (Field 6)");
+    if (!isPositive && !formData.immediate_action.trim()) return toast.error("Immediate Action Taken is mandatory (Field 7)");
     if (formData.risk_domain.length === 0) return toast.error("Select at least one Risk Domain (Field 5)");
 
     validateDescription(formData.description);
@@ -296,12 +303,14 @@ export function GovernancePulse() {
           <div className="space-y-8">
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">
-                <FileText className="w-4 h-4" /> 6. Description (Factual Observation Only)
+                <FileText className="w-4 h-4" /> 6. {isPositive ? "Area of Progress" : "Description (Factual Observation Only)"}
               </label>
               <textarea
                 rows={4}
                 maxLength={200}
-                placeholder="A short governance observation (2–3 lines). Describe what was observed, factually — avoid opinions."
+                placeholder={isPositive
+                  ? "What positive change was observed? Describe it factually (2–3 lines)."
+                  : "A short governance observation (2–3 lines). Describe what was observed, factually — avoid opinions."}
                 value={formData.description}
                 onChange={e => setFormData(prev => ({ ...prev, description: e.target.value }))}
                 className="w-full bg-card border-2 border-border p-4  focus:border-primary outline-none resize-none"
@@ -311,11 +320,13 @@ export function GovernancePulse() {
 
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-primary">
-                <ShieldAlert className="w-4 h-4" /> 7. Immediate Action Taken (Mandatory)
+                <ShieldAlert className="w-4 h-4" /> 7. {isPositive ? "Follow-up or Support Continuing (Optional)" : "Immediate Action Taken (Mandatory)"}
               </label>
-              <textarea 
+              <textarea
                 rows={3}
-                placeholder="What did staff do immediately to ensure safety?"
+                placeholder={isPositive
+                  ? "Any follow-up, support or continued observation relevant to this progress — optional."
+                  : "What did staff do immediately to ensure safety?"}
                 value={formData.immediate_action}
                 onChange={e => setFormData(prev => ({ ...prev, immediate_action: e.target.value }))}
                 className="w-full bg-card border-2 border-primary/30 p-4  focus:border-primary outline-none resize-none"
@@ -324,6 +335,12 @@ export function GovernancePulse() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+            {/* Brief §3: "Do not require staff to invent a risk severity for a purely positive
+                observation." The picker is hidden rather than left defaulted-and-silent, so staff
+                are never asked to choose a severity that doesn't apply; the stored value stays
+                the form's neutral default (Low) and plays no part in any adverse calculation —
+                see pulse.service.ts/trajectory.service.ts Positive signal exclusions. */}
+            {!isPositive && (
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">
                 8. Severity
@@ -341,6 +358,7 @@ export function GovernancePulse() {
                 ))}
               </div>
             </div>
+            )}
 
             <div className="space-y-2">
               <label className="flex items-center gap-2 text-xs  uppercase tracking-widest text-muted-foreground">

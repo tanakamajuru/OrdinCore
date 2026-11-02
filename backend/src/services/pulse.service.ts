@@ -205,6 +205,18 @@ export class PulseService {
         // Positive signal entry would have contributed to cluster thresholds and could spawn
         // a risk_candidate exactly like an adverse Concern/Incident. Skip the queue entirely
         // for this type; the record itself is still saved and fully retrievable above.
+        // Bug fix (2 Nov 2026): skipping the enqueue alone left evaluation_status at its insert
+        // default ('PENDING') forever, since nothing else ever advances it for a signal that was
+        // never queued. pattern.worker.ts's recovery sweep re-queues any pulse still PENDING
+        // after 5 minutes — confirmed by reading sweepStuckEvaluations() — which would have put
+        // every Positive signal back into full pattern/cluster evaluation 5 minutes after
+        // creation, silently undoing the exclusion above. Mark it EVALUATED (a real terminal
+        // state already used elsewhere — migration 191) so the sweep's own WHERE clause leaves
+        // it alone, with an explicit exclusion on the sweep query itself as defence in depth.
+        if (pulse.signal_type === 'Positive signal') {
+            await query(`UPDATE governance_pulses SET evaluation_status = 'EVALUATED', evaluation_completed_at = NOW() WHERE id = $1`, [pulse.id])
+                .catch((err) => logger.error(`Failed to mark Positive signal pulse ${pulse.id} as evaluated`, err));
+        }
         if (pulse.signal_type !== 'Positive signal') try {
             // Domain/theme-matching fix (17 Oct v3 findings): capture writes BOTH risk_domain (array)
             // and governance_domain (single canonical value), but some signals end up with an empty

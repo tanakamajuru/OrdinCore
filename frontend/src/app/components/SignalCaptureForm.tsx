@@ -63,6 +63,15 @@ export function SignalCaptureForm() {
     service_user_id: '',
     immediate_action: '',
   });
+  // 30 Oct 2026 developer brief ("Positive signal handling"): the brief's premise was that
+  // GovernancePulse.tsx (an older component with a signal_type picker including "Positive
+  // signal") is the live capture form. It is not — frontend/src/app/App.tsx routes
+  // /governance-pulse to THIS component, which has no signal_type field at all and never sent
+  // one, so pulses.repo.ts's `dto.signal_type || 'Concern'` fallback meant every live-captured
+  // signal defaulted to 'Concern' and there was in fact no way to create a Positive signal
+  // record through the app at all (confirmed: 0 exist in production). This toggle is the real
+  // fix for that gap, on the actually-routed form.
+  const [isPositive, setIsPositive] = useState(false);
 
   const set = (field: string, value: any) => setForm(prev => ({ ...prev, [field]: value }));
 
@@ -155,13 +164,22 @@ export function SignalCaptureForm() {
   // Immediate action is now compulsory: a signal must record what was done at the time (or an
   // explicit "no action taken, escalated to…"), so the governance record shows a response, never
   // a silent observation.
-  const isValid = !!form.service_id && !!form.governance_domain && !!form.signal_label && !!form.severity
-    && (!isOtherSignal || form.suggested_signal_label.trim().length >= 3)
-    && form.description.trim().length >= 10 && form.immediate_action.trim().length >= 3;
+  // Positive-progress brief §3 "Required handling": "Do not require staff to invent a risk
+  // severity for a purely positive observation." Domain/person/date/author/evidence stay
+  // required (§3 "Record clearly"); signal_label (an adverse-signal library pick) and
+  // immediate action (nothing to act on) are not meaningful for a positive observation and are
+  // not required for it.
+  const isValid = isPositive
+    ? !!form.service_id && !!form.governance_domain && form.description.trim().length >= 10
+    : !!form.service_id && !!form.governance_domain && !!form.signal_label && !!form.severity
+      && (!isOtherSignal || form.suggested_signal_label.trim().length >= 3)
+      && form.description.trim().length >= 10 && form.immediate_action.trim().length >= 3;
 
   const handleSubmit = async () => {
     if (!isValid) {
-      toast.error('Complete the service, theme, signal, severity, factual description and immediate action. Other signals also need a short suggested label.');
+      toast.error(isPositive
+        ? 'Complete the service, theme and a factual description of the progress observed.'
+        : 'Complete the service, theme, signal, severity, factual description and immediate action. Other signals also need a short suggested label.');
       return;
     }
     setIsSubmitting(true);
@@ -173,7 +191,11 @@ export function SignalCaptureForm() {
         suggested_signal_label: isOtherSignal ? form.suggested_signal_label.trim() : undefined,
         // Keep legacy category populated for back-compat dashboards.
         category: form.governance_domain,
-        severity: form.severity,
+        // §3 "Separate calculations" relies on signal_type='Positive signal' being set — see
+        // pulse.service.ts/trajectory.service.ts/pattern.worker.ts exclusions. severity is
+        // omitted for a positive entry; pulses.repo.ts defaults it to 'Unrated' server-side.
+        signal_type: isPositive ? 'Positive signal' : undefined,
+        severity: isPositive ? undefined : form.severity,
         description: form.description.trim(),
         entry_date: form.entry_date,
         entry_time: form.entry_time,
@@ -183,7 +205,7 @@ export function SignalCaptureForm() {
         related_person: form.related_person || undefined,
         immediate_action: form.immediate_action || undefined,
       });
-      toast.success('Signal recorded');
+      toast.success(isPositive ? 'Positive progress recorded' : 'Signal recorded');
       navigate('/dashboard');
     } catch (err: any) {
       toast.error(err?.message || 'Failed to record signal');
@@ -205,6 +227,20 @@ export function SignalCaptureForm() {
         </div>
 
         <div className="bg-card border border-border rounded-xl p-6 shadow-sm space-y-6 mt-6">
+          {/* Positive-progress brief §3: record recovery/positive progress without forcing it
+              through the adverse-signal severity/library model. */}
+          <div className="flex items-center justify-between rounded-lg border border-border p-3 bg-muted/30">
+            <div>
+              <p className="text-sm font-medium text-foreground">Area of progress</p>
+              <p className="text-xs text-muted-foreground">Recording positive progress, not a concern — no severity needed.</p>
+            </div>
+            <button type="button" onClick={() => setIsPositive((p) => !p)}
+              data-active={isPositive}
+              className="w-11 h-6 rounded-full border border-border bg-muted data-[active=true]:bg-emerald-600 relative transition-colors shrink-0">
+              <span className={`absolute top-0.5 left-0.5 w-4.5 h-4.5 rounded-full bg-white transition-transform ${isPositive ? 'translate-x-5' : ''}`} />
+            </button>
+          </div>
+
           {/* Service */}
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><Layers size={16} /> Service</label>
@@ -240,8 +276,9 @@ export function SignalCaptureForm() {
             )}
           </div>
 
-          {/* Specific signal within the chosen theme */}
-          {selectedDomain && selectedDomain.signals.length > 0 && (
+          {/* Specific signal within the chosen theme — not applicable to a positive observation
+              (the library is adverse-signal specific; §3 does not require picking one). */}
+          {!isPositive && selectedDomain && selectedDomain.signals.length > 0 && (
             <div>
               <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Signal</label>
               <select
@@ -286,7 +323,9 @@ export function SignalCaptureForm() {
             </div>
           )}
 
-          {/* Severity */}
+          {/* Severity — not shown for a positive observation (§3: "Do not require staff to
+              invent a risk severity for a purely positive observation"). */}
+          {!isPositive && (
           <div>
             <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><AlertTriangle size={16} /> Severity</label>
             <div className="grid grid-cols-4 gap-2">
@@ -303,16 +342,17 @@ export function SignalCaptureForm() {
               ))}
             </div>
           </div>
+          )}
 
           {/* Description */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> What happened?</label>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> {isPositive ? 'What positive change was observed?' : 'What happened?'}</label>
             <textarea
               value={form.description}
               onChange={e => set('description', e.target.value)}
               spellCheck
               maxLength={200}
-              placeholder="A short governance observation (2–3 lines), factual only…"
+              placeholder={isPositive ? 'A short factual description of the progress observed (2–3 lines)…' : 'A short governance observation (2–3 lines), factual only…'}
               className="w-full h-28 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
             <p className="text-xs text-muted-foreground mt-1">{form.description.length}/200 · minimum 10 — a signal is a short governance observation, not a care note</p>
@@ -351,14 +391,19 @@ export function SignalCaptureForm() {
             </select>
           </div>
 
-          {/* Immediate action (compulsory) */}
+          {/* Immediate action — compulsory for an adverse signal; optional follow-up context for
+              a positive observation, since there is nothing to "act on". */}
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2"><FileText size={16} /> Immediate action taken <span className="text-destructive font-normal">*</span></label>
+            <label className="flex items-center gap-2 text-sm font-medium text-foreground mb-2">
+              <FileText size={16} /> {isPositive ? 'Follow-up or support continuing' : 'Immediate action taken'}
+              {!isPositive && <span className="text-destructive font-normal">*</span>}
+              {isPositive && <span className="text-muted-foreground font-normal">(optional)</span>}
+            </label>
             <textarea
               value={form.immediate_action}
               onChange={e => set('immediate_action', e.target.value)}
               spellCheck
-              placeholder="What was done at the time? If nothing, say so and who it was escalated to."
+              placeholder={isPositive ? 'Any follow-up or continued support relevant to this progress — optional.' : 'What was done at the time? If nothing, say so and who it was escalated to.'}
               className="w-full h-20 bg-input-background border border-border rounded-lg p-3 resize-none focus:outline-none focus:ring-2 focus:ring-primary"
             />
           </div>

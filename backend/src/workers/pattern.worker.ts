@@ -121,6 +121,10 @@ export const startPatternWorker = () => {
                        OR (evaluation_status = 'PENDING' AND created_at < NOW() - INTERVAL '5 minutes')
                         )
                     AND COALESCE(description,'') <> 'Scheduled Governance Pulse'
+                    -- Defence in depth (2 Nov 2026, "Positive signal handling" brief): the
+                    -- creation path marks a Positive signal EVALUATED instead of queueing it,
+                    -- so it should never reach here regardless — excluded explicitly too.
+                    AND signal_type IS DISTINCT FROM 'Positive signal'
                   LIMIT 200`
             );
             for (const row of stuck.rows) {
