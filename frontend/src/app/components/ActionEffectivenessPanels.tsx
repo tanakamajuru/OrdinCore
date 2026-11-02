@@ -15,6 +15,13 @@ const OUTCOMES = ["Effective", "Partially Effective", "Not Effective", "Too Earl
 export function ActionEffectivenessPanels() {
   const [data, setData] = useState<any>(null);
   const [range, setRange] = useState<{ start: string; end: string } | null>(null);
+  // 30 Oct 2026 developer specification ("Action Effectiveness screen"), Step 3: "Reviews
+  // recorded in selected period" — 7/30/90 days or custom dates, default 30. This governs ONLY
+  // the event-based trend section; current-state counts are never restricted by it.
+  const [periodPreset, setPeriodPreset] = useState<"7" | "30" | "90" | "custom">("30");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
+  const [showTrend, setShowTrend] = useState(false);
   const [scheduled, setScheduled] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const { user } = useAuth();
@@ -87,15 +94,32 @@ export function ActionEffectivenessPanels() {
     } finally { setSaving(false); }
   };
 
+  const periodRange = (): { start?: string; end?: string } => {
+    if (periodPreset === "custom") {
+      if (!customStart || !customEnd) return {};
+      return { start: `${customStart}T00:00:00.000Z`, end: `${customEnd}T23:59:59.999Z` };
+    }
+    const days = Number(periodPreset);
+    return { start: new Date(Date.now() - days * 86400000).toISOString(), end: new Date().toISOString() };
+  };
+
   useEffect(() => {
     loadData();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [periodPreset, customStart, customEnd]);
 
   const loadData = async () => {
     try {
-      const response: any = await apiClient.get('/actions/effectiveness-summary');
-      setData(response?.data?.data ?? response?.data ?? response);
-      setRange(response?.data?.meta?.range ?? null);
+      const { start, end } = periodRange();
+      const params: any = {};
+      if (start) params.start = start;
+      if (end) params.end = end;
+      const response: any = await apiClient.get('/actions/effectiveness-summary', { params });
+      // Bug fix (2 Nov 2026): this ApiClient's get() returns the parsed response body directly
+      // ({success, data, meta}), not an axios-style wrapper — `response?.data?.meta` was always
+      // undefined, so the date-range label added 1 Nov never actually rendered.
+      setData(response?.data ?? response);
+      setRange(response?.meta?.history_range ?? null);
       try {
         const sched: any = await apiClient.get('/actions/scheduled-effectiveness');
         setScheduled(sched?.data?.data ?? sched?.data ?? []);
@@ -141,140 +165,101 @@ export function ActionEffectivenessPanels() {
     too_early: Number(item.too_early || 0)
   }));
 
+  // 30 Oct 2026 developer specification ("Action Effectiveness screen"), Step 2: fixed screen
+  // order (filters -> due/overdue -> current counts -> scheduled -> by service -> by domain ->
+  // outcomes over time as optional expandable detail).
+  const houseFilter = searchParams.get('house');
+  const overdueOnly = searchParams.get('overdue') === '1';
+  const pendingAll: any[] = data.pending || [];
+  const pending = pendingAll.filter((a: any) => (!houseFilter || a.house_id === houseFilter) && (!overdueOnly || a.review_overdue));
+
   return (
     <div className="space-y-6 mb-8">
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Org Summary Card */}
-        <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
-          <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes</CardTitle>
-            {/* Bug fix (1 Nov 2026, "Too-Early=0 date-basis investigation"): these counts are
-                now full-history by default, but state the window explicitly so a future
-                date-range filter is never silently applied again. */}
-            {range && (
-              <p className="text-[11px] text-muted-foreground normal-case tracking-normal">
-                {new Date(range.start).getFullYear() <= 1970 ? "All reviews on record" : `From ${new Date(range.start).toLocaleDateString("en-GB")}`} to {new Date(range.end).toLocaleDateString("en-GB")}
-              </p>
-            )}
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
-              <span className=" text-success uppercase text-xs">Effective Actions</span>
-              <span className="text-2xl ">{data.org_summary?.effective || 0}</span>
+      {/* Step 2 item 1: service, domain and reporting-period filters. Service/overdue filtering
+          already exists via ?house=/?overdue= (set by Director Services Overview deep links);
+          no domain filter exists yet in any list here, so it is not offered rather than
+          fabricated. The reporting-period control governs only "Reviews recorded in selected
+          period" below (Step 3) — current-state counts, by-service and by-domain are never
+          date-restricted. */}
+      <Card className="border-2 border-border shadow-sm">
+        <CardContent className="py-3 flex flex-wrap items-center gap-3">
+          <span className="text-[11px] uppercase tracking-wide text-muted-foreground">Review history period</span>
+          <div className="flex items-center gap-1.5">
+            {(["7", "30", "90"] as const).map((d) => (
+              <button key={d} onClick={() => setPeriodPreset(d)}
+                className={`px-2.5 py-1 rounded text-xs font-medium border ${periodPreset === d ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>{d}d</button>
+            ))}
+            <button onClick={() => setPeriodPreset("custom")}
+              className={`px-2.5 py-1 rounded text-xs font-medium border ${periodPreset === "custom" ? "bg-primary text-primary-foreground border-primary" : "border-border hover:bg-muted"}`}>Custom</button>
+          </div>
+          {periodPreset === "custom" && (
+            <div className="flex items-center gap-2 text-xs">
+              <input type="date" value={customStart} onChange={(e) => setCustomStart(e.target.value)} className="rounded border border-border px-2 py-1 bg-background" />
+              <span className="text-muted-foreground">to</span>
+              <input type="date" value={customEnd} onChange={(e) => setCustomEnd(e.target.value)} className="rounded border border-border px-2 py-1 bg-background" />
             </div>
-            <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
-              <span className=" text-warning uppercase text-xs">Partially Effective</span>
-              <span className="text-2xl ">{data.org_summary?.partially_effective || 0}</span>
+          )}
+          {(houseFilter || overdueOnly) && (
+            <div className="flex items-center gap-2 text-xs ml-auto">
+              <span className="text-muted-foreground">Filtered{houseFilter ? " to this service" : ""}{overdueOnly ? " · overdue only" : ""}.</span>
+              <a href="/effectiveness" className="font-semibold text-primary hover:underline">Clear filter</a>
             </div>
-            <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
-              <span className=" text-destructive uppercase text-xs">Not Effective</span>
-              <span className="text-2xl ">{data.org_summary?.not_effective || 0}</span>
-            </div>
-            <div className="flex justify-between items-center p-3 bg-card border-2 border-sky-300/60">
-              <span className="text-sky-700 uppercase text-xs">Too Early to Assess</span>
-              <span className="text-2xl">{data.org_summary?.too_early || 0}</span>
-            </div>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* Step 2 item 2: reviews due and overdue. Step 3 "Current position": one authoritative
+          current review state per distinct action, in scope, never restricted to a reporting
+          window — this list already is, since actionEffectivenessService.summary() calls
+          getPendingEffectiveness() with no date arguments. */}
+      {pendingAll.length > 0 && (
+        <Card className="border-2 border-border shadow-sm">
+          <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Current position — all relevant actions in scope ({pending.length}{(houseFilter || overdueOnly) ? ` of ${pendingAll.length}` : ''})</CardTitle></CardHeader>
+          <CardContent className="space-y-2">
+            {pending.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nothing matches this filter.</p>}
+            {pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
+              <div>
+                <p className="font-medium">{a.title}</p>
+                <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
+              </div>
+              {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
+            </div>)}
           </CardContent>
         </Card>
+      )}
 
-        {/* Domain Analysis */}
-        <Card className="lg:col-span-2 border-2 border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness by Domain</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={domainAnalysisWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis dataKey="domain" fontSize={10} fontWeight="bold" tick={{ fill: 'hsl(var(--foreground))' }} />
-                <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
-                <Tooltip 
-                  cursor={false}
-                  contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
-                />
-                <Legend verticalAlign="top" align="right" iconType="circle" />
-                <Bar dataKey="effective" fill="#10B981" stackId="a" name="Effective" radius={[0, 0, 0, 0]}>
-                  <LabelList dataKey="effective" position="center" content={(props: any) => {
-                    const { x, y, width, height, value } = props;
-                    if (!value || Number(value) === 0) return null;
-                    return (
-                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
-                        {value}
-                      </text>
-                    );
-                  }} />
-                </Bar>
-                <Bar dataKey="partially_effective" fill="#F59E0B" stackId="a" name="Partially Effective">
-                  <LabelList dataKey="partially_effective" position="center" content={(props: any) => {
-                    const { x, y, width, height, value } = props;
-                    if (!value || Number(value) === 0) return null;
-                    return (
-                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
-                        {value}
-                      </text>
-                    );
-                  }} />
-                </Bar>
-                <Bar dataKey="not_effective" fill="#EF4444" stackId="a" name="Not Effective">
-                  <LabelList dataKey="not_effective" position="center" content={(props: any) => {
-                    const { x, y, width, height, value } = props;
-                    if (!value || Number(value) === 0) return null;
-                    return (
-                      <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
-                        {value}
-                      </text>
-                    );
-                  }} />
-                </Bar>
-                <Bar dataKey="too_early" fill="#0EA5E9" stackId="a" name="Too Early to Assess">
-                  <LabelList dataKey="too_early" position="center" content={(props: any) => {
-                    const { x, y, width, height, value } = props;
-                    if (!value || Number(value) === 0) return null;
-                    return <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{value}</text>;
-                  }} />
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          </CardContent>
-        </Card>
-      </div>
-      {/* 27 Oct developer review ("Align counted IDs and destination filters"): Services
-          Overview's "Overdue reviews" count linked here with no way to scope to the service or
-          to overdue-only reviews it actually counted. */}
-      {(() => {
-        const houseFilter = searchParams.get('house');
-        const overdueOnly = searchParams.get('overdue') === '1';
-        const pendingAll: any[] = data.pending || [];
-        const pending = pendingAll.filter((a: any) => (!houseFilter || a.house_id === houseFilter) && (!overdueOnly || a.review_overdue));
-        if (pendingAll.length === 0) return null;
-        return (
-          <Card className="border-2 border-border shadow-sm">
-            <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Awaiting effectiveness review ({pending.length}{(houseFilter || overdueOnly) ? ` of ${pendingAll.length}` : ''})</CardTitle></CardHeader>
-            <CardContent className="space-y-2">
-              {(houseFilter || overdueOnly) && (
-                <div className="flex items-center justify-between rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-xs mb-2">
-                  <span>Filtered{houseFilter ? " to this service" : ""}{overdueOnly ? " · overdue only" : ""}.</span>
-                  <a href="/effectiveness" className="font-semibold text-primary hover:underline shrink-0 ml-3">Clear filter</a>
-                </div>
-              )}
-              {pending.length === 0 && <p className="text-sm text-muted-foreground py-4 text-center">Nothing matches this filter.</p>}
-              {pending.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
-                <div>
-                  <p className="font-medium">{a.title}</p>
-                  <p className="text-muted-foreground">{a.risk_title || a.signal_label || 'Governance action'} · {a.house_name || 'Organisation-wide'}{a.review_overdue ? ' · overdue' : ''}</p>
-                </div>
-                {canRate && <button onClick={() => openRating(a)} className="shrink-0 px-3 py-1.5 rounded-lg bg-primary text-primary-foreground text-xs font-medium hover:bg-primary/90">Review</button>}
-              </div>)}
-            </CardContent>
-          </Card>
-        );
-      })()}
+      {/* Step 2 item 3: current effectiveness outcome counts. */}
+      <Card className="border-2 border-primary/20 shadow-sm bg-primary/5">
+        <CardHeader>
+          <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes</CardTitle>
+          <p className="text-[11px] text-muted-foreground normal-case tracking-normal">Current position — one outcome per distinct action, all time on record.</p>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="flex justify-between items-center p-3 bg-card border-2 border-success/20">
+            <span className=" text-success uppercase text-xs">Effective Actions</span>
+            <span className="text-2xl ">{data.org_summary?.effective || 0}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-card border-2 border-warning/20">
+            <span className=" text-warning uppercase text-xs">Partially Effective</span>
+            <span className="text-2xl ">{data.org_summary?.partially_effective || 0}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-card border-2 border-destructive/20">
+            <span className=" text-destructive uppercase text-xs">Not Effective</span>
+            <span className="text-2xl ">{data.org_summary?.not_effective || 0}</span>
+          </div>
+          <div className="flex justify-between items-center p-3 bg-card border-2 border-sky-300/60">
+            <span className="text-sky-700 uppercase text-xs">Too Early to Assess</span>
+            <span className="text-2xl">{data.org_summary?.too_early || 0}</span>
+          </div>
+        </CardContent>
+      </Card>
 
+      {/* Step 2 item 4: scheduled reassessments. */}
       {scheduled.length > 0 && (
         <Card className="border-2 border-border shadow-sm">
           <CardHeader><CardTitle className="text-lg uppercase tracking-tighter text-foreground">Scheduled reassessments ({scheduled.length})</CardTitle></CardHeader>
           <CardContent className="space-y-2">
-            <p className="text-xs text-muted-foreground -mt-2">Not due yet — these return to "Awaiting effectiveness review" automatically on their date.</p>
+            <p className="text-xs text-muted-foreground -mt-2">Not due yet — these return to "Current position" automatically on their date.</p>
             {scheduled.map((a: any) => <div key={a.id} className="border-b border-border pb-2 text-sm flex items-center justify-between gap-3">
               <div>
                 <p className="font-medium">{a.title}</p>
@@ -289,65 +274,139 @@ export function ActionEffectivenessPanels() {
         </Card>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Service Comparison */}
-        <Card className="border-2 border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Outcomes by Service</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow className="bg-muted/50 border-b-2 border-border">
-                  <TableHead className=" uppercase text-[10px] font-bold">Service Unit</TableHead>
-                  <TableHead className="text-center  uppercase text-[10px] font-bold">Effective</TableHead>
-                  <TableHead className="text-center  uppercase text-[10px] font-bold">Partially Effective</TableHead>
-                  <TableHead className="text-center  uppercase text-[10px] font-bold">Not Effective</TableHead>
-                  <TableHead className="text-center uppercase text-[10px] font-bold">Too Early</TableHead>
+      {/* Step 2 item 5: outcomes by service. */}
+      <Card className="border-2 border-border shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Outcomes by Service</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <Table>
+            <TableHeader>
+              <TableRow className="bg-muted/50 border-b-2 border-border">
+                <TableHead className=" uppercase text-[10px] font-bold">Service Unit</TableHead>
+                <TableHead className="text-center  uppercase text-[10px] font-bold">Effective</TableHead>
+                <TableHead className="text-center  uppercase text-[10px] font-bold">Partially Effective</TableHead>
+                <TableHead className="text-center  uppercase text-[10px] font-bold">Not Effective</TableHead>
+                <TableHead className="text-center uppercase text-[10px] font-bold">Too Early</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {(data.service_comparison || []).length > 0 ? (data.service_comparison || []).map((s: any) => (
+                <TableRow key={s.service_name} className="hover:bg-muted/20 border-b border-border">
+                  <TableCell className=" font-medium">{s.service_name}</TableCell>
+                  <TableCell className="text-center text-success font-bold">{s.effective}</TableCell>
+                  <TableCell className="text-center text-warning font-bold">{s.partially_effective}</TableCell>
+                  <TableCell className="text-center text-destructive font-bold">{s.not_effective}</TableCell>
+                  <TableCell className="text-center text-sky-600 font-bold">{s.too_early || 0}</TableCell>
                 </TableRow>
-              </TableHeader>
-              <TableBody>
-                {(data.service_comparison || []).length > 0 ? (data.service_comparison || []).map((s: any) => (
-                  <TableRow key={s.service_name} className="hover:bg-muted/20 border-b border-border">
-                    <TableCell className=" font-medium">{s.service_name}</TableCell>
-                    <TableCell className="text-center text-success font-bold">{s.effective}</TableCell>
-                    <TableCell className="text-center text-warning font-bold">{s.partially_effective}</TableCell>
-                    <TableCell className="text-center text-destructive font-bold">{s.not_effective}</TableCell>
-                    <TableCell className="text-center text-sky-600 font-bold">{s.too_early || 0}</TableCell>
-                  </TableRow>
-                )) : (
-                  <TableRow>
-                    <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">No data available for the current period</TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </CardContent>
-        </Card>
+              )) : (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center py-8 text-muted-foreground italic">No reviewed actions on record</TableCell>
+                </TableRow>
+              )}
+            </TableBody>
+          </Table>
+        </CardContent>
+      </Card>
 
-        {/* Daily Trend */}
-        <Card className="border-2 border-border shadow-sm">
-          <CardHeader>
-            <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness Review Outcomes Over Time</CardTitle>
-          </CardHeader>
-          <CardContent className="h-[250px]">
+      {/* Step 2 item 6: outcomes by domain. */}
+      <Card className="border-2 border-border shadow-sm">
+        <CardHeader>
+          <CardTitle className="text-lg  uppercase  tracking-tighter text-foreground">Effectiveness by Domain</CardTitle>
+        </CardHeader>
+        <CardContent className="h-[250px]">
+          <ResponsiveContainer width="100%" height="100%">
+            <BarChart data={domainAnalysisWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
+              <XAxis dataKey="domain" fontSize={10} fontWeight="bold" tick={{ fill: 'hsl(var(--foreground))' }} interval={0} angle={-20} textAnchor="end" height={50} />
+              <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
+              <Tooltip
+                cursor={false}
+                contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+              />
+              <Legend verticalAlign="top" align="right" iconType="circle" />
+              <Bar dataKey="effective" fill="#10B981" stackId="a" name="Effective" radius={[0, 0, 0, 0]}>
+                <LabelList dataKey="effective" position="center" content={(props: any) => {
+                  const { x, y, width, height, value } = props;
+                  if (!value || Number(value) === 0) return null;
+                  return (
+                    <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                      {value}
+                    </text>
+                  );
+                }} />
+              </Bar>
+              <Bar dataKey="partially_effective" fill="#F59E0B" stackId="a" name="Partially Effective">
+                <LabelList dataKey="partially_effective" position="center" content={(props: any) => {
+                  const { x, y, width, height, value } = props;
+                  if (!value || Number(value) === 0) return null;
+                  return (
+                    <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                      {value}
+                    </text>
+                  );
+                }} />
+              </Bar>
+              <Bar dataKey="not_effective" fill="#EF4444" stackId="a" name="Not Effective">
+                <LabelList dataKey="not_effective" position="center" content={(props: any) => {
+                  const { x, y, width, height, value } = props;
+                  if (!value || Number(value) === 0) return null;
+                  return (
+                    <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">
+                      {value}
+                    </text>
+                  );
+                }} />
+              </Bar>
+              <Bar dataKey="too_early" fill="#0EA5E9" stackId="a" name="Too Early to Assess">
+                <LabelList dataKey="too_early" position="center" content={(props: any) => {
+                  const { x, y, width, height, value } = props;
+                  if (!value || Number(value) === 0) return null;
+                  return <text x={x + width / 2} y={y + height / 2} fill="#fff" fontSize={10} fontWeight="bold" textAnchor="middle" dominantBaseline="middle">{value}</text>;
+                }} />
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </CardContent>
+      </Card>
+
+      {/* Step 2 item 7: "Outcomes over time as optional expandable detail." Step 3 "Review
+          history": event-based count over the selected period — repeated reviews of one action
+          count as separate events here (data.daily_trend now comes from
+          canonicalReportingService.effectivenessHistory(), reading action_effectiveness_reviews
+          directly, not the one-row-per-action current-state view). */}
+      <Card className="border-2 border-border shadow-sm">
+        <button onClick={() => setShowTrend((s) => !s)} className="w-full flex items-center justify-between px-6 py-4 text-left">
+          <div>
+            <p className="text-lg uppercase tracking-tighter text-foreground font-semibold">Reviews recorded in selected period</p>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              {data.history_total_events ?? 0} review event{(data.history_total_events ?? 0) === 1 ? '' : 's'}
+              {range && ` · ${new Date(range.start).toLocaleDateString('en-GB')} to ${new Date(range.end).toLocaleDateString('en-GB')}`}
+              {' '}— a single action can appear more than once here.
+            </p>
+          </div>
+          <span className="text-xs text-primary font-medium shrink-0 ml-3">{showTrend ? 'Hide' : 'Show'}</span>
+        </button>
+        {showTrend && (
+          <CardContent className="h-[250px] pt-0">
             {(!dailyTrendWithNumbers || dailyTrendWithNumbers.length === 0) ? (
               <div className="h-full flex items-center justify-center text-center px-6">
-                <p className="text-sm text-muted-foreground max-w-sm">No effectiveness ratings yet — outcomes over time build as completed actions are reviewed and rated.</p>
+                <p className="text-sm text-muted-foreground max-w-sm">No review events recorded in this period.</p>
               </div>
             ) : (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={dailyTrendWithNumbers} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="hsl(var(--border))" />
-                <XAxis 
-                  dataKey="day" 
-                  fontSize={10} 
+                <XAxis
+                  dataKey="day"
+                  fontSize={10}
                   tick={{ fill: 'hsl(var(--foreground))' }}
-                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short' })}
+                  tickFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: '2-digit' })}
                 />
                 <YAxis fontSize={10} tick={{ fill: 'hsl(var(--foreground))' }} />
-                <Tooltip 
+                <Tooltip
                   contentStyle={{ backgroundColor: 'hsl(var(--card))', borderColor: 'hsl(var(--border))', color: 'hsl(var(--foreground))' }}
+                  labelFormatter={(val) => new Date(val).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
                 />
                 <Legend verticalAlign="top" align="right" iconType="circle" />
                 <Line type="monotone" dataKey="effective" stroke="#10B981" strokeWidth={3} dot={{ r: 4, fill: '#10B981', strokeWidth: 0 }} activeDot={{ r: 6 }} name="Effective" />
@@ -358,8 +417,8 @@ export function ActionEffectivenessPanels() {
             </ResponsiveContainer>
             )}
           </CardContent>
-        </Card>
-      </div>
+        )}
+      </Card>
 
       {(data.legacy_evidence_gaps || []).length > 0 && (
         <Card className="border-2 border-amber-300">

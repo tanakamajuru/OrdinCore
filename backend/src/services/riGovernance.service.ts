@@ -39,11 +39,9 @@ export class RiGovernanceService {
     );
 
     // 3. Action Effectiveness Summary (Cross-site by domain)
-    const effectivenessRange = {
-      start: new Date(Date.now() - 30 * 86400000).toISOString(),
-      end: new Date().toISOString(),
-    };
-    const effectiveness = await canonicalReportingService.effectivenessSummary(company_id, effectivenessRange);
+    // 2 Nov 2026: current-state aggregate is never date-restricted (see
+    // canonicalReporting.service.ts effectivenessCurrent/effectivenessHistory split).
+    const effectiveness = await canonicalReportingService.effectivenessCurrent(company_id);
 
     // 4. Serious Incidents (Unacknowledged Sign-off feed)
      const incidents = await query(
@@ -75,7 +73,7 @@ export class RiGovernanceService {
         not_effective_count: row.not_effective,
         too_early_count: row.too_early,
       })),
-      effectiveness_period: effectivenessRange,
+      effectiveness_period: null, // current state is unrestricted — no reporting window applies
       serious_incidents: incidents.rows,
       deputy_cover: deputyCover.rows
     };

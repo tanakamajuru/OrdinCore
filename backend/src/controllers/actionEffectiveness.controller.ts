@@ -56,18 +56,18 @@ export class ActionEffectivenessController {
 
   async getSummary(req: Request, res: Response) {
     try {
-      // Bug fix (1 Nov 2026, "Action Effectiveness screen" — Too-Early=0 date-basis
-      // investigation): this silently defaulted to the last 7 days with no indication in the
-      // UI that any window was applied. Verified against production: 183 reviewed actions
-      // exist in canonical_action_effectiveness_v company-wide, but only 8 fall in the last
-      // 7 days, and the company's one "Too Early To Assess" review was entirely outside that
-      // window — so the Org Summary/Domain/Service/Trend panels showed 0 for it with no
-      // visible scoping. Default is now full history unless the caller explicitly asks for a
-      // range; meta.range is returned so the frontend can state the window it is showing.
+      // Bug fix (1-2 Nov 2026, "Action Effectiveness screen"): org_summary/service_comparison/
+      // domain_analysis silently defaulted to the last 7 days with no indication in the UI
+      // (verified against production: 183 reviewed actions exist, only 8 fell in that window,
+      // and the company's one "Too Early To Assess" review was entirely outside it). Since
+      // 2 Nov those three are current-state (actionEffectivenessService.summary ->
+      // canonicalReportingService.effectivenessCurrent), always full history, never
+      // date-restricted. `start`/`end` now govern ONLY the event-based "Reviews recorded in
+      // selected period" trend (Step 3 of the 30 Oct spec), defaulting to the required 30 days.
       const end = String(req.query.end || new Date().toISOString());
-      const start = String(req.query.start || '1970-01-01T00:00:00.000Z');
+      const start = String(req.query.start || new Date(Date.now() - 30 * 86400000).toISOString());
       const data = await actionEffectivenessService.summary(req.user!.company_id!, start, end);
-      return res.json({ success: true, data, meta: { measure: 'effectiveness_reviewed_at', range: { start, end } } });
+      return res.json({ success: true, data, meta: { measure: 'effectiveness_reviewed_at', history_range: { start, end } } });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to fetch effectiveness summary' });
     }

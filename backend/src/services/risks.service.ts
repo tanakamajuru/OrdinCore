@@ -561,6 +561,10 @@ export class RisksService {
     // the numerator, denominator, observation window, pending cases and an evidence-base warning
     // must travel with the number. `resolved` here is the MATURE denominator (60-day window elapsed).
     const MIN_SAMPLE = 5;
+    // 30 Oct 2026 spec, Step 7: "A zero denominator must show Not enough eligible records,
+    // never 100%." resolved===0 already returns rate: null above (never 100%); this is the
+    // exact required label, and recurrence vs no-recurrence vs still-under-observation stay
+    // separated as `stayed`/`resolved-stayed`/`pending_observation` rather than one blended rate.
     return {
       resolved, stayed, pending_observation,
       rate: resolved ? Math.round((stayed / resolved) * 100) : null,
@@ -568,8 +572,8 @@ export class RisksService {
       min_sample: MIN_SAMPLE,
       evidence_base: resolved === 0 ? 'none' : resolved < MIN_SAMPLE ? 'limited' : resolved < 15 ? 'moderate' : 'adequate',
       summary: resolved === 0
-        ? `No resolved risk has yet completed the 60-day observation window${pending_observation ? `; ${pending_observation} closure(s) still under observation` : ''}.`
-        : `${stayed} of ${resolved} mature resolved risk(s) remained closed through the 60-day observation window${pending_observation ? `; ${pending_observation} further closure(s) under observation` : ''}. Evidence base: ${resolved < MIN_SAMPLE ? 'limited' : resolved < 15 ? 'moderate' : 'adequate'}.`,
+        ? `Not enough eligible records${pending_observation ? ` — ${pending_observation} closure(s) still under observation` : ''}.`
+        : `${stayed} of ${resolved} mature resolved risk(s) show no linked recurrence through the 60-day observation window${pending_observation ? `; ${pending_observation} further closure(s) still under observation` : ''}. Evidence base: ${resolved < MIN_SAMPLE ? 'limited' : resolved < 15 ? 'moderate' : 'adequate'}.`,
     };
   }
 

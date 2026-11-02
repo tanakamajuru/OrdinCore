@@ -401,11 +401,23 @@ export class ActionEffectivenessService {
     return result.rows;
   }
 
+  // 30 Oct 2026 developer specification ("Action Effectiveness screen"), Step 3: current state
+  // (org_summary/service_comparison/domain_analysis, one row per action) is never restricted to
+  // `start`/`end` — only the event-based `daily_trend` ("Reviews recorded in selected period")
+  // uses that range, read from the append-only review table so repeated reviews of one action
+  // count as separate events there without inflating the current-state totals.
   async summary(company_id: string, start: string, end: string) {
-    const result = await canonicalReportingService.effectivenessSummary(company_id, { start, end });
+    const current = await canonicalReportingService.effectivenessCurrent(company_id);
+    const history = await canonicalReportingService.effectivenessHistory(company_id, { start, end });
     const pending = await this.getPendingEffectiveness(company_id);
     const legacy_evidence_gaps = await this.getLegacyEvidenceGaps(company_id);
-    return { ...result, pending, pending_count: pending.length, legacy_evidence_gaps, legacy_evidence_gap_count: legacy_evidence_gaps.length };
+    return {
+      ...current,
+      daily_trend: history.daily_trend,
+      history_total_events: history.total_events,
+      pending, pending_count: pending.length,
+      legacy_evidence_gaps, legacy_evidence_gap_count: legacy_evidence_gaps.length,
+    };
   }
 }
 

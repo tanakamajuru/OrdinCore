@@ -10,8 +10,12 @@ export class DirectorGovernanceService {
    * P0: Action effectiveness summary (cross-site)
    * Aggregates from risk_actions for organisational visibility.
    */
-  async getActionEffectivenessSummary(companyId: string, dateRange: { start: string; end: string }) {
-    return canonicalReportingService.effectivenessSummary(companyId, dateRange);
+  async getActionEffectivenessSummary(companyId: string, _dateRange: { start: string; end: string }) {
+    // 2 Nov 2026: effectivenessSummary() was split into current-state (unrestricted) and
+    // event-based history (date-ranged) — see canonicalReporting.service.ts. This caller wants
+    // the org-wide current-state aggregate, same as before; the date range is no longer applied
+    // to it (current state is never restricted to a reporting window).
+    return canonicalReportingService.effectivenessCurrent(companyId);
   }
 
   /**
