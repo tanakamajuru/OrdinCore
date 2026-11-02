@@ -171,7 +171,7 @@ export const interventionsService = {
               COALESCE(ira.effectiveness_outcome, CASE ira.effectiveness::text
                 WHEN 'Effective' THEN 'Effective' WHEN 'Neutral' THEN 'Partially Effective'
                 WHEN 'Ineffective' THEN 'Not Effective' ELSE NULL END) AS effectiveness_outcome,
-              ira.effectiveness_evidence
+              ira.effectiveness_evidence, ira.effectiveness_reviewed_at
          FROM interventions i
          LEFT JOIN users u ON u.id = i.owner_id
          LEFT JOIN canonical_risk_state_v r ON r.id = i.linked_risk_id AND r.company_id = i.company_id
@@ -231,6 +231,14 @@ export const interventionsService = {
         classification = 'ambiguous_review_required';
       }
 
+      // 30 Oct 2026 developer specification ("Management Response Overview"), Step 13: surface
+      // an "unmatched review version" when the effectiveness verdict was recorded before the
+      // plan's own last edit, same staleness test as the applicability check shown on the card
+      // (see effectiveness_review.applicability below) -- the verdict may no longer speak to
+      // the plan's current form.
+      const reviewVersionMismatch = !!(intv.effectiveness_outcome && intv.effectiveness_reviewed_at && intv.updated_at
+        && new Date(intv.updated_at).getTime() > new Date(intv.effectiveness_reviewed_at).getTime());
+
       out.push({
         intervention_id: intv.id,
         theme: intv.theme,
@@ -248,6 +256,7 @@ export const interventionsService = {
         effectiveness_evidence: intv.effectiveness_evidence,
         explicit_links: explicitLinks,
         classification,
+        review_version_mismatch: reviewVersionMismatch,
         outstanding_work: (outstandingWork || effectivenessNeedsFollowUp)
           ? { open_linked_actions: openLinkedActions.map((a: any) => ({ action_id: a.action_id, title: a.title, due_date: a.due_date })),
               awaiting_effectiveness: awaitingEffectiveness,
@@ -257,6 +266,25 @@ export const interventionsService = {
           : null,
       });
     }
+
+    // Step 13 continued: surface "duplicate links" -- the same action linked (explicitly, or as
+    // the primary linked_action_id) under more than one intervention/theme. This never happens
+    // through normal use (linkActions dedupes within a theme) but can arise from historical data
+    // or a theme being split/renamed, and the brief asks it be visible, not silently merged away.
+    const actionToThemes = new Map<string, Set<string>>();
+    for (const r of out) {
+      const ids = new Set<string>([r.linked_action_id, ...r.explicit_links.map((l: any) => l.action_id)].filter(Boolean));
+      for (const id of ids) {
+        if (!actionToThemes.has(id)) actionToThemes.set(id, new Set());
+        actionToThemes.get(id)!.add(r.theme);
+      }
+    }
+    const duplicatedActionIds = new Set([...actionToThemes.entries()].filter(([, themes]) => themes.size > 1).map(([id]) => id));
+    for (const r of out) {
+      const ids = [r.linked_action_id, ...r.explicit_links.map((l: any) => l.action_id)].filter(Boolean);
+      r.duplicate_link = ids.some((id) => duplicatedActionIds.has(id));
+    }
+
     return out.filter((r) => r.classification !== 'current');
   },
 

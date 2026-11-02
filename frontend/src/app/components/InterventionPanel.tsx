@@ -148,14 +148,27 @@ export function InterventionPanel() {
   // historical/unlinked/ambiguous plans, classified server-side. Never mutates anything.
   const [reconciliation, setReconciliation] = useState<any[]>([]);
   const [showReconciliation, setShowReconciliation] = useState(false);
+  // 30 Oct 2026 developer specification ("Management Response Overview"), Step 6:
+  // distinguish "no themes exist" from "the request failed" — a failed fetch must never
+  // render as the empty-state message, and a refresh that fails after themes have already
+  // loaded must keep showing the last good data rather than blanking the screen.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [hasLoadedOnce, setHasLoadedOnce] = useState(false);
 
   const load = async () => {
-    setLoading(true);
-    try { setThemes(unwrap(await apiClient.get("/interventions/themes")) || []); }
-    catch { toast.error("Failed to load governance themes"); }
-    finally { setLoading(false); }
+    setLoading(!hasLoadedOnce);
+    try {
+      setThemes(unwrap(await apiClient.get("/interventions/themes")) || []);
+      setLoadError(null);
+    } catch {
+      setLoadError("Couldn't load governance themes.");
+      toast.error("Failed to load governance themes");
+    } finally {
+      setLoading(false);
+      setHasLoadedOnce(true);
+    }
   };
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); /* eslint-disable-next-line react-hooks/exhaustive-deps */ }, []);
   useEffect(() => { apiClient.get("/interventions/reconciliation").then((r: any) => setReconciliation(unwrap(r) || [])).catch(() => setReconciliation([])); }, []);
   // Keep RM, Director and RI projections aligned. WebSocket gives prompt updates; focus and the
   // 60-second safety poll recover anything missed during disconnection/backgrounding.
@@ -201,8 +214,19 @@ export function InterventionPanel() {
           <p className="text-sm text-muted-foreground mt-1">Trajectory-based governance — every theme carries a direction of travel, a leadership response and its measured effect. {attention > 0 && <span className="text-red-600 font-medium">{attention} theme{attention === 1 ? "" : "s"} need attention.</span>}</p>
         </div>
 
+        {loadError && (hasLoadedOnce && themes.length > 0) && (
+          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 px-4 py-2 text-sm text-red-700 flex items-center justify-between">
+            <span>Showing the last successfully loaded data — {loadError}</span>
+            <button onClick={load} className="underline font-medium">Retry</button>
+          </div>
+        )}
         {loading ? (
           <div className="flex justify-center py-20"><div className="animate-spin rounded-full h-10 w-10 border-b-2 border-primary" /></div>
+        ) : loadError && themes.length === 0 ? (
+          <div className="bg-card border-2 border-dashed border-red-200 rounded-xl p-12 text-center text-red-700">
+            {loadError}
+            <div className="mt-3"><button onClick={load} className="underline font-medium">Retry</button></div>
+          </div>
         ) : themes.length === 0 ? (
           <div className="bg-card border-2 border-dashed border-border rounded-xl p-12 text-center text-muted-foreground">No active governance themes. Themes appear here once risks are on the register.</div>
         ) : (
@@ -544,6 +568,12 @@ export function InterventionPanel() {
                             {r.outstanding_work.awaiting_effectiveness?.length > 0 && <div>{r.outstanding_work.awaiting_effectiveness.length} action(s) awaiting an effectiveness verdict.</div>}
                             {r.outstanding_work.needs_effectiveness_follow_up && <div>{r.outstanding_work.needs_effectiveness_follow_up}</div>}
                           </div>
+                        )}
+                        {r.duplicate_link && (
+                          <div className="text-xs text-red-700 mt-1">Duplicate link — an action here is also linked under another theme.</div>
+                        )}
+                        {r.review_version_mismatch && (
+                          <div className="text-xs text-red-700 mt-1">Unmatched review version — the effectiveness verdict predates this plan's last edit.</div>
                         )}
                       </div>
                       <span className={`text-[11px] rounded px-2 py-0.5 shrink-0 ${CLASS_TONE[r.classification] || "bg-muted"}`}>{CLASS_LABEL[r.classification] || r.classification}</span>
