@@ -1,6 +1,6 @@
 import { risksRepo } from '../repositories/risks.repo';
 import { eventBus, EVENTS } from '../events/eventBus';
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
@@ -698,6 +698,27 @@ export class RisksService {
       throw new Error('This pattern has already been promoted to a risk — open it from "View risk".');
     }
 
+    // 2 Nov 2026 ("Candidate promotion, classification and evidence" §2 "Prevent repeated
+    // promotion", "Coordinate candidate and cluster routes"): the check above is a plain
+    // SELECT-then-later-UPDATE — a concurrent promoteFromCandidate() call for a candidate
+    // sourced from this same cluster (or a second promoteFromCluster retry/double-click) could
+    // pass it before either writes. Atomically claim the cluster with a single conditional
+    // UPDATE (succeeds only if linked_risk_id is still NULL) before doing any further work; a
+    // concurrent claim attempt simply returns 0 rows and is rejected. The sentinel is corrected
+    // to the real risk id once created, and reverted to NULL if anything below fails, so a
+    // failed promotion never leaves the cluster permanently unclaimable.
+    const PROMOTION_CLAIM_SENTINEL = '00000000-0000-0000-0000-000000000001';
+    const claim = await query(
+      `UPDATE signal_clusters SET linked_risk_id = $1
+        WHERE id = $2 AND company_id = $3 AND linked_risk_id IS NULL
+        RETURNING id`,
+      [PROMOTION_CLAIM_SENTINEL, data.cluster_id, company_id]
+    );
+    if (claim.rows.length === 0) {
+      throw new Error('This pattern has already been promoted to a risk — open it from "View risk".');
+    }
+    try {
+
     // [GOVERNANCE] Promotion evidentiary floor (Doctrine §9 / correction.md §2.1):
     // a cluster may only be promoted to a formal risk if it has ≥3 linked signals,
     // OR at least one of its signals is Critical. This keeps every risk anchored to
@@ -810,7 +831,12 @@ export class RisksService {
       source_cluster_id: data.cluster_id,
       status: 'Open',
       risk_domain: cluster.risk_domain,
-      linked_person: cluster.linked_person
+      linked_person: cluster.linked_person,
+      // 30 Oct 2026 brief, §4 "Preserve accessible evidence and correct provenance" — video
+      // confirmed: Risk Details always showed Source "Manual" even for a cluster/candidate
+      // promotion, because create() never stamped metadata.source and the frontend falls back
+      // to 'Manual' whenever it's absent (RiskDetail.tsx). Stamp it explicitly here.
+      metadata: { source: 'Pattern promotion', source_cluster_id: data.cluster_id },
     });
 
     // Stamp the systemic reach so the register/dashboards read it as a Strategic risk
@@ -889,6 +915,16 @@ export class RisksService {
     try { await riskMetricsService.recompute(risk.id, company_id); } catch { /* non-fatal */ }
 
     return risk;
+    } catch (e) {
+      // Release the claim so a genuine failure (not a duplicate) never leaves the cluster
+      // permanently unpromotable — only revert if still holding our own sentinel (the
+      // cluster-status UPDATE above already replaced it with the real risk id on success).
+      await query(
+        `UPDATE signal_clusters SET linked_risk_id = NULL WHERE id = $1 AND company_id = $2 AND linked_risk_id = $3`,
+        [data.cluster_id, company_id, PROMOTION_CLAIM_SENTINEL]
+      ).catch(() => undefined);
+      throw e;
+    }
   }
 
   async promoteFromCandidate(company_id: string, user_id: string, data: {
@@ -896,24 +932,49 @@ export class RisksService {
     description: string; house_id: string; category_id: string; likelihood: number; impact: number;
     reason?: string; cluster_id?: string;
   }) {
-    // 30 Oct 2026 developer correction brief ("Candidate promotion, classification and
-    // evidence") — code confirmed: this previously selected neither status nor linked_risk_id,
-    // so nothing stopped a repeat/double-click/retry from promoting the same candidate twice.
-    // promoteFromCluster() already guards this way (cluster.linked_risk_id check above); this
-    // candidate path had no equivalent at all.
-    const candidateRes = await query(
-      `SELECT id, risk_domain, linked_person, cluster_id, status, linked_risk_id, source_signals
-       FROM risk_candidates WHERE id = $1 AND company_id = $2`,
-      [data.candidate_id, company_id]
-    );
-    if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
-
-    const candidate = candidateRes.rows[0];
-    if (candidate.linked_risk_id) {
-      throw new Error('This candidate has already been promoted to a risk — open it from "View existing risk".');
-    }
-    if (candidate.status === 'Promoted') {
-      throw new Error('This candidate is already marked Promoted — reload and reconcile before retrying.');
+    // 2 Nov 2026 ("Candidate promotion, classification and evidence" §2 "Prevent repeated
+    // promotion"): the 30 Oct fix added the status/linked_risk_id check below, but as a plain
+    // SELECT-then-UPDATE it is still a race — two concurrent requests (double-click, retry
+    // storm) can both read "not yet promoted" before either writes. Lock the candidate row with
+    // FOR UPDATE inside its own transaction so a second concurrent caller blocks here until the
+    // first either commits (and then correctly sees it already promoted) or rolls back (and can
+    // retry). The lock is held for the duration of this method via `lockClient` and released by
+    // COMMIT/ROLLBACK at the end.
+    const lockClient = await getClient();
+    await lockClient.query('BEGIN');
+    let candidate: any;
+    try {
+      const candidateRes = await lockClient.query(
+        `SELECT id, risk_domain, linked_person, cluster_id, status, linked_risk_id, source_signals
+         FROM risk_candidates WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+        [data.candidate_id, company_id]
+      );
+      if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
+      candidate = candidateRes.rows[0];
+      if (candidate.linked_risk_id) {
+        throw new Error('This candidate has already been promoted to a risk — open it from "View existing risk".');
+      }
+      if (candidate.status === 'Promoted') {
+        throw new Error('This candidate is already marked Promoted — reload and reconcile before retrying.');
+      }
+      // §2 "Coordinate candidate and cluster routes so the same source cannot create two risks
+      // through different entry points": also lock and check the cluster this candidate came
+      // from, inside the same transaction — a concurrent promoteFromCluster() call for the same
+      // cluster blocks here until this transaction commits or rolls back.
+      const clusterId = data.cluster_id || candidate.cluster_id;
+      if (clusterId) {
+        const clusterRes = await lockClient.query(
+          `SELECT linked_risk_id FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+          [clusterId, company_id]
+        );
+        if (clusterRes.rows[0]?.linked_risk_id) {
+          throw new Error('This pattern has already been promoted to a risk via another route — open it from "View risk".');
+        }
+      }
+    } catch (e) {
+      await lockClient.query('ROLLBACK').catch(() => undefined);
+      lockClient.release();
+      throw e;
     }
     const sourceCluster = data.cluster_id || candidate.cluster_id || undefined;
 
@@ -931,55 +992,80 @@ export class RisksService {
       if (cat.rows[0]?.name) resolvedDomain = cat.rows[0].name;
     }
 
-    const risk = await this.create(company_id, user_id, {
-      ...data,
-      status: 'Open',
-      // Provenance: the originating cluster is the risk's source. If the candidate
-      // has no cluster (some candidate types), the RM's promotion reason becomes the
-      // documented critical-exception provenance — so promotion never silently fails
-      // the provenance guard. (RM Bug #5.)
-      source_cluster_id: sourceCluster,
-      critical_exception_reason: sourceCluster
-        ? undefined
-        : ((data.reason && data.reason.trim().length >= 10)
-            ? data.reason
-            : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
-      risk_domain: resolvedDomain,
-      metadata: { promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain },
-      linked_person: candidate.linked_person
-    });
+    // §5 "Transaction, recovery and acceptance" asks for risk creation, classification,
+    // evidence links, candidate/cluster linkage and audit events to commit together with a
+    // rollback on failure. this.create() calls into risksRepo/eventBus on the shared pool, not
+    // this locked connection, so true single-transaction atomicity across all of those would
+    // need a wider refactor of create() than this fix attempts — documented here rather than
+    // silently claimed. What IS guaranteed: the candidate row stays locked (FOR UPDATE) for the
+    // whole operation, so no concurrent caller can observe or act on it mid-promotion, and any
+    // failure here rolls back the lock (leaving the candidate exactly as it was, safe to retry)
+    // rather than leaving it stuck in a half-promoted state.
+    let risk: any;
+    try {
+      risk = await this.create(company_id, user_id, {
+        ...data,
+        status: 'Open',
+        // Provenance: the originating cluster is the risk's source. If the candidate
+        // has no cluster (some candidate types), the RM's promotion reason becomes the
+        // documented critical-exception provenance — so promotion never silently fails
+        // the provenance guard. (RM Bug #5.)
+        source_cluster_id: sourceCluster,
+        critical_exception_reason: sourceCluster
+          ? undefined
+          : ((data.reason && data.reason.trim().length >= 10)
+              ? data.reason
+              : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
+        risk_domain: resolvedDomain,
+        // §4: stamp Source explicitly so RiskDetail.tsx never falls back to "Manual" for a
+        // candidate promotion (video-confirmed defect — see promoteFromCluster() above).
+        metadata: {
+          source: sourceCluster ? 'Candidate promotion (pattern-linked)' : 'Candidate promotion (critical exception)',
+          promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain,
+        },
+        linked_person: candidate.linked_person
+      });
 
-    // Update candidate status
-    await query('UPDATE risk_candidates SET status = $1, linked_risk_id = $2 WHERE id = $3',
-      ['Promoted', risk.id, data.candidate_id]);
+      // Candidate status is updated on the SAME locked connection/transaction that holds the
+      // FOR UPDATE lock, so it commits (and releases the lock) together with this decision.
+      await lockClient.query('UPDATE risk_candidates SET status = $1, linked_risk_id = $2 WHERE id = $3',
+        ['Promoted', risk.id, data.candidate_id]);
 
-    // If this candidate came from a cluster, mark that cluster promoted too so the
-    // Patterns view reflects it consistently.
-    if (sourceCluster) {
-      await query('UPDATE signal_clusters SET linked_risk_id = $1, promoted_at = NOW() WHERE id = $2 AND linked_risk_id IS NULL',
-        [risk.id, sourceCluster]);
-    }
+      // If this candidate came from a cluster, mark that cluster promoted too so the
+      // Patterns view reflects it consistently.
+      if (sourceCluster) {
+        await lockClient.query('UPDATE signal_clusters SET linked_risk_id = $1, promoted_at = NOW() WHERE id = $2 AND linked_risk_id IS NULL',
+          [risk.id, sourceCluster]);
+      }
 
-    // 30 Oct 2026 brief, §4 "Preserve accessible evidence and correct provenance" — code
-    // confirmed: this never carried the candidate's own source_signals into risk_signal_links,
-    // unlike the cluster-promotion route (which links every signal behind the cluster). A
-    // candidate promoted without a cluster (critical-exception path) left its evidence signals
-    // with no link to the new risk at all — individually unreachable from it.
-    if (Array.isArray(candidate.source_signals) && candidate.source_signals.length) {
-      await query(
-        `INSERT INTO risk_signal_links (id, risk_id, cluster_id, pulse_entry_id, linked_by, linked_at)
-         SELECT gen_random_uuid(), $1, $2, s.id, $3, NOW()
-           FROM unnest($4::uuid[]) AS s(id)
-          WHERE NOT EXISTS (
-            SELECT 1 FROM risk_signal_links x WHERE x.risk_id = $1 AND x.pulse_entry_id = s.id
-          )`,
-        [risk.id, sourceCluster || null, user_id, candidate.source_signals]
-      );
-      await query(
-        `UPDATE governance_pulses SET review_status = 'Linked', updated_at = NOW()
-          WHERE id = ANY($1::uuid[]) AND company_id = $2 AND (review_status IS NULL OR review_status <> 'Closed')`,
-        [candidate.source_signals, company_id]
-      );
+      // 30 Oct 2026 brief, §4 "Preserve accessible evidence and correct provenance" — code
+      // confirmed: this never carried the candidate's own source_signals into risk_signal_links,
+      // unlike the cluster-promotion route (which links every signal behind the cluster). A
+      // candidate promoted without a cluster (critical-exception path) left its evidence signals
+      // with no link to the new risk at all — individually unreachable from it.
+      if (Array.isArray(candidate.source_signals) && candidate.source_signals.length) {
+        await lockClient.query(
+          `INSERT INTO risk_signal_links (id, risk_id, cluster_id, pulse_entry_id, linked_by, linked_at)
+           SELECT gen_random_uuid(), $1, $2, s.id, $3, NOW()
+             FROM unnest($4::uuid[]) AS s(id)
+            WHERE NOT EXISTS (
+              SELECT 1 FROM risk_signal_links x WHERE x.risk_id = $1 AND x.pulse_entry_id = s.id
+            )`,
+          [risk.id, sourceCluster || null, user_id, candidate.source_signals]
+        );
+        await lockClient.query(
+          `UPDATE governance_pulses SET review_status = 'Linked', updated_at = NOW()
+            WHERE id = ANY($1::uuid[]) AND company_id = $2 AND (review_status IS NULL OR review_status <> 'Closed')`,
+          [candidate.source_signals, company_id]
+        );
+      }
+
+      await lockClient.query('COMMIT');
+    } catch (e) {
+      await lockClient.query('ROLLBACK').catch(() => undefined);
+      throw e;
+    } finally {
+      lockClient.release();
     }
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
