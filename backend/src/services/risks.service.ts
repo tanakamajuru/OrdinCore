@@ -533,11 +533,21 @@ export class RisksService {
   // Resolution Effectiveness Rate — of risks closed as Resolved, how many stayed resolved
   // (no reopen inside the recurrence window). The real Well-Led test: did it hold? (Finding B)
   async resolutionEffectivenessRate(company_id: string) {
+    // Bug fix (2 Nov 2026, "Resolution Durability" Step 7 validation): `risks.reopened_at` is
+    // never written anywhere in the codebase (confirmed by grep and against production — 0
+    // rows have it set out of 47 closures) — a risk is never literally reopened on the same
+    // row. Recurrence is instead modeled by promoteFromCluster() creating a NEW risk row with
+    // `previous_risk_id` pointing back at the closed one (see priorClosedChapter() above).
+    // The old `reopened_at IS NULL` test was therefore structurally guaranteed to report 100%
+    // durability forever. Production has 3 confirmed recurrences via previous_risk_id against
+    // 29 mature closures (~90%, not 100%) — "stayed" now checks for the absence of a recurring
+    // risk instead of a column nothing sets.
     const r = await query(
       `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
                                 AND recurrence_window_until <= NOW())::int AS resolved,
               COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
-                                AND recurrence_window_until <= NOW() AND reopened_at IS NULL)::int AS stayed,
+                                AND recurrence_window_until <= NOW()
+                                AND NOT EXISTS (SELECT 1 FROM risks nr WHERE nr.previous_risk_id = risks.id))::int AS stayed,
               COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
                                 AND (recurrence_window_until IS NULL OR recurrence_window_until > NOW()))::int AS pending_observation
          FROM risks

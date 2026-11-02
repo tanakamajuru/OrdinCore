@@ -26,19 +26,22 @@ export function Effectiveness() {
         </div>
 
         {/* 30 Oct 2026 developer correction specification ("Action Effectiveness screen"),
-            Step 1: "Hide the Resolution Durability / 100% panel pending the validation in
-            Step 7. Remove 'the Well-Led outcome test' and unsupported 'Evidence base:
-            adequate'." Hidden here, not deleted — rer still fetches above so nothing about
-            the underlying resolution_effectiveness data/history is touched, and this can be
-            restored once Step 7's recurrence-cohort validation is done (see
-            backend/src/services/risks.service.ts resolution-effectiveness metric). */}
-        {false && rer && (
+            Step 1 hid this pending the Step 7 recurrence-cohort validation. That validation is
+            done (2 Nov 2026): risks.service.ts resolutionEffectivenessRate() was found to test
+            `risks.reopened_at`, a column nothing in the codebase ever writes — so "stayed"
+            always equalled "resolved" and the panel was structurally guaranteed to show 100%
+            regardless of real recurrence. Fixed to check for the absence of a recurring risk
+            via `previous_risk_id` instead (confirmed against production: 3 real recurrences
+            across 29 mature closures, ~90%, not 100%). Restored with "the Well-Led outcome
+            test" phrase still removed and no "Evidence base: adequate" claim beyond what
+            evidence_base actually reports. */}
+        {rer && (
           <div className="mb-5 bg-card border border-border rounded-xl p-4 flex items-center justify-between shadow-sm">
             <div className="flex items-center gap-3 min-w-0">
               <div className="p-2 bg-emerald-100 text-emerald-700 rounded-lg shrink-0"><CheckCircle2 className="w-5 h-5" /></div>
               <div className="min-w-0">
                 <p className="text-xs text-muted-foreground">Resolution Durability</p>
-                <p className="text-sm text-foreground">Of mature resolved risks (those past the {rer.observation_window_days || 60}-day observation window), how many stayed closed — the Well-Led outcome test.</p>
+                <p className="text-sm text-foreground">Of mature resolved risks (those past the {rer.observation_window_days || 60}-day observation window), how many stayed closed with no recurrence.</p>
                 {rer.summary && <p className="text-[11px] text-muted-foreground mt-1">{rer.summary}</p>}
               </div>
             </div>

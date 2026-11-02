@@ -316,9 +316,13 @@ export class DirectorInsightsService {
 
     // Finding B/N: Resolution Effectiveness Rate — of risks closed as Resolved, how many
     // stayed resolved (no reopen). The RI reads the same closure KPI the RM/Director do.
+    // Bug fix (2 Nov 2026): same dead-column defect as risks.service.ts
+    // resolutionEffectivenessRate() — `reopened_at` is never written on `risks`, so this always
+    // reported 100% "stayed". Recurrence is tracked via `previous_risk_id` instead.
     const rer = await query(
       `SELECT COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%')::int AS resolved,
-              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%' AND reopened_at IS NULL)::int AS stayed
+              COUNT(*) FILTER (WHERE resolution_outcome LIKE 'Resolved%'
+                                AND NOT EXISTS (SELECT 1 FROM risks nr WHERE nr.previous_risk_id = risks.id))::int AS stayed
          FROM risks WHERE company_id = $1 AND resolution_outcome IS NOT NULL`,
       [companyId]
     );
