@@ -652,6 +652,9 @@ export const interventionsService = {
                  WHERE rsl.cluster_id=$4::uuid AND rsl.pulse_entry_id=gp.id))
           AND COALESCE((gp.entry_date::date+COALESCE(gp.entry_time,TIME '00:00')) AT TIME ZONE 'Europe/London',gp.created_at)
               >= date_trunc('week', NOW() AT TIME ZONE 'Europe/London') AT TIME ZONE 'Europe/London' - ($3::int - 1) * INTERVAL '1 week'
+          -- Same Positive-signal exclusion audit as themeEvidenceComparison() above — this is
+          -- also an independent burden calculation that had never had the exclusion applied.
+          AND COALESCE(gp.signal_type::text, '') <> 'Positive signal'
         GROUP BY wk
         ORDER BY wk ASC`,
       [company_id, theme, weeks, source_cluster_id || null]
@@ -736,6 +739,14 @@ export const interventionsService = {
          AND gp.risk_domain && ARRAY[$2]::text[]
          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) >= b.before_start
          AND COALESCE(gp.created_at, gp.entry_date::timestamptz) < b.after_end
+         -- 30 Oct 2026 brief ("Positive signal handling") §3 "Separate calculations", re-audited
+         -- for Step 10 of the Management Response Overview spec ("Apply the positive-signal
+         -- handling correction; positive reporting must not inflate adverse burden"): this
+         -- theme-level before/after comparison is a SEPARATE burden calculation from
+         -- trajectory.service.ts's signalEvidenceForCluster/signalEvidenceForRisk (already fixed
+         -- 1 Nov) — it was never audited and had no exclusion of its own, so a Positive signal
+         -- recorded for this theme/service would have inflated both before and after counts.
+         AND COALESCE(gp.signal_type::text, '') <> 'Positive signal'
        GROUP BY b.started_at, b.after_end`,
       [company_id, theme, started_at]
     )).rows[0];
@@ -746,25 +757,38 @@ export const interventionsService = {
       const started = new Date(started_at);
       const now = new Date();
       const elapsedDays = Math.max(0, Math.min(14, Math.ceil((now.getTime() - started.getTime()) / 86400000)));
+      const beforeStart = new Date(started.getTime() - 14 * 86400000);
       return {
-        before: { days: 14, signal_count: 0, weighted_burden: 0, high_or_critical: 0 },
-        after: { days_observed: elapsedDays, signal_count: 0, weighted_burden: 0, high_or_critical: 0 },
+        scope: `Theme: ${theme}`,
+        intervention_started_at: started.toISOString(),
+        before: { days: 14, signal_count: 0, weighted_burden: 0, high_or_critical: 0, start: beforeStart.toISOString(), end: started.toISOString() },
+        after: { days_observed: elapsedDays, signal_count: 0, weighted_burden: 0, high_or_critical: 0, start: started.toISOString(), end: now.toISOString() },
         after_window_complete: now.getTime() >= started.getTime() + 14 * 86400000,
       };
     }
 
+    // 30 Oct 2026 spec ("Management Response Overview"), Step 10 "Explain numerical evidence":
+    // "Label before/after evidence with intervention start, exact comparison periods and
+    // person/service/theme scope." Added scope + exact start/end for each window so the
+    // frontend never has to label this with only a day-count.
     return {
+      scope: `Theme: ${theme}`,
+      intervention_started_at: new Date(started_at).toISOString(),
       before: {
         days: 14,
         signal_count: Number(result.before_count) || 0,
         weighted_burden: Number(result.before_weight) || 0,
         high_or_critical: Number(result.before_high_critical) || 0,
+        start: new Date(new Date(started_at).getTime() - 14 * 86400000).toISOString(),
+        end: new Date(started_at).toISOString(),
       },
       after: {
         days_observed: Number(result.after_days_observed) || 0,
         signal_count: Number(result.after_count) || 0,
         weighted_burden: Number(result.after_weight) || 0,
         high_or_critical: Number(result.after_high_critical) || 0,
+        start: new Date(started_at).toISOString(),
+        end: result.after_end ? new Date(result.after_end).toISOString() : null,
       },
       after_window_complete: Boolean(result.after_window_complete),
     };

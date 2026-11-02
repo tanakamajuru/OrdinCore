@@ -224,10 +224,18 @@ export function InterventionPanel() {
                     <span className={`text-[11px] rounded px-2 py-0.5 shrink-0 ${CONCERN_TONE[t.concern] || "bg-muted"}`}>{t.concern}</span>
                   </div>
 
-                  <div className="flex items-center gap-2 mt-2" title={t.trajectory?.basis || ""}>
+                  <div className="flex items-center gap-2 mt-2">
                     <d.Icon className="w-5 h-5" style={{ color: d.color }} />
                     <span className="text-sm font-semibold" style={{ color: d.color }}>{t.trajectory?.label || d.label}</span>
                   </div>
+                  {/* 30 Oct 2026 spec ("Management Response Overview"), Step 10 "Label current
+                      trajectory with its scope and calculation dates" — the basis text (which
+                      already states its 28-day comparison window and scope) was hover-only via a
+                      title attribute, invisible on touch devices and easy to miss on desktop.
+                      Shown directly under the badge instead. */}
+                  {t.trajectory?.basis && (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">{t.trajectory.basis}</p>
+                  )}
 
                   <Timeline weeks={t.timeline || []} />
 
@@ -338,24 +346,29 @@ export function InterventionPanel() {
                         )}
 
                         {/* Theme-wide observable 14-day before → after evidence around the intervention start.
-                            Signal counts / weighted burden / high-critical — no percentage claim. */}
+                            Signal counts / weighted burden / high-critical — no percentage claim.
+                            30 Oct 2026 spec, Step 10: "Label before/after evidence with intervention
+                            start, exact comparison periods and person/service/theme scope." */}
                         {intv.evidence_comparison && (
                           <div className="mt-2 rounded-lg border border-border p-2.5">
                             <div className="text-[11px] uppercase tracking-wide text-muted-foreground mb-1.5">Theme-wide observable evidence (14 days before → after)</div>
+                            {intv.evidence_comparison.scope && (
+                              <div className="text-[11px] text-muted-foreground mb-1">{intv.evidence_comparison.scope}{intv.evidence_comparison.intervention_started_at ? ` · intervention started ${fmtDate(intv.evidence_comparison.intervention_started_at)}` : ""}</div>
+                            )}
                             <div className="grid grid-cols-2 gap-2 text-xs">
                               <div>
-                                <div className="text-muted-foreground">Before</div>
+                                <div className="text-muted-foreground">Before{intv.evidence_comparison.before.start && intv.evidence_comparison.before.end ? ` (${fmtDate(intv.evidence_comparison.before.start)} – ${fmtDate(intv.evidence_comparison.before.end)})` : ""}</div>
                                 <div className="font-semibold text-foreground">{intv.evidence_comparison.before.signal_count} signals</div>
                                 <div className="text-[11px] text-muted-foreground">burden {intv.evidence_comparison.before.weighted_burden} · {intv.evidence_comparison.before.high_or_critical} high/critical</div>
                               </div>
                               <div>
-                                <div className="text-muted-foreground">After ({intv.evidence_comparison.after.days_observed}d)</div>
+                                <div className="text-muted-foreground">After ({intv.evidence_comparison.after.days_observed}d{intv.evidence_comparison.after.start && intv.evidence_comparison.after.end ? `, ${fmtDate(intv.evidence_comparison.after.start)} – ${fmtDate(intv.evidence_comparison.after.end)}` : ""})</div>
                                 <div className="font-semibold text-foreground">{intv.evidence_comparison.after.signal_count} signals</div>
                                 <div className="text-[11px] text-muted-foreground">burden {intv.evidence_comparison.after.weighted_burden} · {intv.evidence_comparison.after.high_or_critical} high/critical</div>
                               </div>
                             </div>
                             {!intv.evidence_comparison.after_window_complete && (
-                              <div className="text-[11px] text-amber-600 mt-1.5">Post-intervention window still in progress — evidence is indicative, not conclusive.</div>
+                              <div className="text-[11px] text-amber-600 mt-1.5">Post-intervention window still in progress ({intv.evidence_comparison.after.days_observed} of 14 days observed) — evidence is indicative, not conclusive.</div>
                             )}
                           </div>
                         )}
