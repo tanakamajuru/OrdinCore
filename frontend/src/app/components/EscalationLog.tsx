@@ -265,6 +265,11 @@ export function EscalationLog() {
         monitoring_owner_id: monitorOwner,
         monitoring_trigger: monitorTrigger.trim() || undefined,
         evidence_to_observe: monitorEvidence.trim() || undefined,
+        // 2 Nov 2026 ("Learning assignment and review queue routing" §4): the urgent-attention
+        // flag this form loaded with — the server only clears rm_attention if it still matches
+        // this, so a new urgent update that lands after this form opened is never silently
+        // cleared by an unrelated monitoring decision.
+        rm_attention_seen_at: selectedEscalation?.metadata?.rm_attention_at ?? null,
       });
       toast.success('Oversight continued — monitoring owner and next review set');
       setResolutionNotes("");

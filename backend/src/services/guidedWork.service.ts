@@ -488,6 +488,16 @@ export const guidedWorkService = {
       // A lesson identified but never implemented, and a change implemented but never verified,
       // are the two gaps the 24 Oct Learning Workflow brief found: the register could sit at
       // "Recorded" or "Change implemented" indefinitely with nothing pushing it forward.
+      // 30 Oct 2026 developer correction brief ("Learning assignment and review queue
+      // routing") — code confirmed, but NOT the brief's own stated cause: these queries were
+      // already inside the TEAM_LEADER branch (not an "RM/Admin branch" as the brief claimed —
+      // verified false against this live code in an earlier session). The REAL gap: when an RM
+      // records learning with a change needed, LearningCapture.tsx DOES collect and save an
+      // accountable owner_id (needsOwner = state IDENTIFIED && change_needed set) — but this
+      // query ignored it entirely and surfaced the item to every Team Leader with house access,
+      // not the one named owner. Restrict to the assigned owner when one is set; records with no
+      // owner (legacy, or genuinely unassigned) keep the existing house-wide broadcast so nothing
+      // already-working stops being visible.
       const pendingImplementation = await safeRows(`
         SELECT lr.id, lr.house_id, h.name AS service_name, sa.title AS source_action_title
           FROM learning_records lr
@@ -495,7 +505,8 @@ export const guidedWorkService = {
           LEFT JOIN risk_actions sa ON sa.id=lr.source_id AND lr.source_type='EFFECTIVENESS'
          WHERE lr.company_id=$1 AND lr.state='IDENTIFIED' AND lr.progress='RECORDED'
            AND (lr.house_id=ANY($2::uuid[]) OR lr.house_id IS NULL)
-         ORDER BY lr.created_at`, [companyId, houses]);
+           AND (lr.owner_id IS NULL OR lr.owner_id=$3)
+         ORDER BY lr.created_at`, [companyId, houses, userId]);
       for (const l of pendingImplementation) needsYou.push({ id:`learning-implement:${l.id}`, role, state:'NEEDS_YOU', priority:'NORMAL', taskType:'LEARNING_REVIEW',
         title:'Record learning implementation', summary:l.source_action_title ? `Lesson from: ${l.source_action_title}` : 'A recorded lesson needs its change implemented', reason:'This learning has been identified but no implementation has been recorded.', serviceName:l.service_name,
         canonicalEntityType:'learning', canonicalEntityId:l.id, requiredAction:'IMPLEMENT_LEARNING',

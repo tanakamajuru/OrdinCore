@@ -431,7 +431,7 @@ export class EscalationsService {
     return { message: 'Escalation acknowledged' };
   }
 
-  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string; next_review_at?: string; monitoring_owner_id?: string; monitoring_trigger?: string; evidence_to_observe?: string }) {
+  async addAction(id: string, company_id: string, user_id: string, data: { action_type: string; description: string; next_review_at?: string; monitoring_owner_id?: string; monitoring_trigger?: string; evidence_to_observe?: string; rm_attention_seen_at?: string | null }) {
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
     if (!escalation.rows[0]) throw new Error('Escalation not found');
 
@@ -470,7 +470,16 @@ export class EscalationsService {
     // Decisions Due instead of moving to Waiting even though a real decision was just recorded.
     // Resolve it in the same saved review, per doctrine: "record that disposition and
     // clear/resolve that flag in the same saved review."
-    if (data.monitoring_owner_id && data.next_review_at) {
+    // 2 Nov 2026: the unconditional clear above still did exactly what the brief separately
+    // warns against — "Do not blindly clear a newer urgent update received during saving." If a
+    // NEW addProgress() urgent flag lands between when this review form was opened and when it
+    // is saved, that newer concern is a different thing from whatever the manager is addressing
+    // here and must survive. rm_attention_seen_at is the rm_attention_at the client had loaded
+    // when the form opened (EscalationLog.tsx); only clear the flag if the escalation's current
+    // rm_attention_at still matches what was seen — i.e. nothing newer arrived mid-edit.
+    const currentRmAttentionAt = escalation.rows[0]?.metadata?.rm_attention_at ?? null;
+    const seenMatchesCurrent = (data.rm_attention_seen_at ?? null) === currentRmAttentionAt;
+    if (data.monitoring_owner_id && data.next_review_at && seenMatchesCurrent) {
       eventMeta.rm_attention = false;
       eventMeta.rm_attention_resolved_at = new Date().toISOString();
     }
