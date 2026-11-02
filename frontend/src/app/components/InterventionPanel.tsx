@@ -8,6 +8,11 @@ import { io, type Socket } from "socket.io-client";
 
 const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
+// 30 Oct 2026 developer specification ("Management Response Overview"), Step 9: "Include the
+// year in displayed dates." Every date on this screen previously dropped the year
+// (day/month only), so a date from a prior year read as if it were this year.
+const fmtDate = (d: string | Date) => new Date(d).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+
 // Multiple linked delivery actions per intervention (brief 2 §1). Shows the existing linked actions
 // with their canonical delivery evidence, lets the RM link more EXISTING actions (suggested from the
 // theme's risks), and unlink — all by stable ID, deduped and audited server-side.
@@ -256,13 +261,13 @@ export function InterventionPanel() {
                                   actions: X of Y completed" computed from that same displayed
                                   list instead. */}
                               <div className={overdue ? "text-red-600" : ""}>
-                                <span className="text-foreground font-medium">Due:</span> {intv.review_date ? new Date(intv.review_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}{overdue ? " · overdue" : ""}
+                                <span className="text-foreground font-medium">Due:</span> {intv.review_date ? fmtDate(intv.review_date) : "—"}{overdue ? " · overdue" : ""}
                               </div>
                               {/* 25 Oct brief ("Dates"): Last reviewed is now an applicable REVIEW
                                   event only (never an edit timestamp); Last updated is shown
                                   separately so an ordinary edit is never mistaken for a review. */}
-                              <div><span className="text-foreground font-medium">Last reviewed:</span> {intv.last_reviewed_at ? new Date(intv.last_reviewed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "Not yet reviewed"}</div>
-                              <div><span className="text-foreground font-medium">Last updated:</span> {intv.last_updated_at ? new Date(intv.last_updated_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}</div>
+                              <div><span className="text-foreground font-medium">Last reviewed:</span> {intv.last_reviewed_at ? fmtDate(intv.last_reviewed_at) : "Not yet reviewed"}</div>
+                              <div><span className="text-foreground font-medium">Last updated:</span> {intv.last_updated_at ? fmtDate(intv.last_updated_at) : "—"}</div>
                               <div className="col-span-2"><span className="text-foreground font-medium">Expected:</span> {intv.expected_outcome || "—"}</div>
                             </div>
                           );
@@ -277,7 +282,7 @@ export function InterventionPanel() {
                             <span className="text-muted-foreground">Assigned action:</span>
                             <span className={`font-medium ${intv.linked_action_completed_at ? "text-emerald-700" : "text-amber-700"}`}>{intv.linked_action_stage}</span>
                             {intv.linked_action_completed_at && (
-                              <span className="text-muted-foreground">· {new Date(intv.linked_action_completed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</span>
+                              <span className="text-muted-foreground">· {fmtDate(intv.linked_action_completed_at)}</span>
                             )}
                           </div>
                         ) : (
@@ -315,7 +320,16 @@ export function InterventionPanel() {
                               </div>
                             </div>
                             {intv.effectiveness_review.reviewed_at && (
-                              <div className="text-[11px] text-muted-foreground mt-0.5">Reviewed {new Date(intv.effectiveness_review.reviewed_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}</div>
+                              <div className="text-[11px] text-muted-foreground mt-0.5">Reviewed {fmtDate(intv.effectiveness_review.reviewed_at)}</div>
+                            )}
+                            {/* Step 9 "Verify review applicability and dates": the intervention was
+                                edited after this review was recorded, and there is no diff/version
+                                mechanism to tell a material change from a cosmetic one — flag it for
+                                a human to check rather than silently implying it still applies. */}
+                            {intv.effectiveness_review.applicability === 'requires_checking' && (
+                              <div className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-2 py-1 mt-1">
+                                Previous review — applicability to current response requires checking.
+                              </div>
                             )}
                             {intv.effectiveness_review.evidence && (
                               <p className="text-[11px] text-muted-foreground mt-1 whitespace-pre-wrap break-words">{intv.effectiveness_review.evidence}</p>

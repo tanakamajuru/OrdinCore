@@ -516,11 +516,20 @@ export const interventionsService = {
                   : 'Assigned · in progress',
 
               // Formal effectiveness is reused from existing action-effectiveness governance.
+              // 30 Oct 2026 spec ("Management Response Overview"), Step 9 "Verify review
+              // applicability and dates": no version/diff tracking exists to tell a material
+              // edit from a cosmetic one, so applicability cannot be positively established
+              // either way when the intervention was edited after its review — the honest
+              // answer in that case is "requires checking", never a silent assumption of
+              // either currency or invalidity.
               effectiveness_review: {
                 outcome: effectiveness,
                 evidence: intv.effectiveness_evidence || null,
                 reviewed_at: intv.effectiveness_reviewed_at || null,
                 reviewed_by: intv.effectiveness_reviewed_by || null,
+                applicability: (intv.effectiveness_reviewed_at && intv.updated_at
+                  && new Date(intv.updated_at).getTime() > new Date(intv.effectiveness_reviewed_at).getTime())
+                  ? 'requires_checking' : 'current',
               },
 
               // Observable pre/post evidence; no invented risk percentage.
@@ -612,6 +621,9 @@ export const interventionsService = {
           effectiveness_review: {
             outcome: effectiveness, evidence: intv.effectiveness_evidence || null,
             reviewed_at: intv.effectiveness_reviewed_at || null, reviewed_by: intv.effectiveness_reviewed_by || null,
+            applicability: (intv.effectiveness_reviewed_at && intv.updated_at
+              && new Date(intv.updated_at).getTime() > new Date(intv.effectiveness_reviewed_at).getTime())
+              ? 'requires_checking' : 'current',
           },
           evidence_comparison: null,
           oversight_events: Array.isArray(intv.oversight_events) ? intv.oversight_events : [],
