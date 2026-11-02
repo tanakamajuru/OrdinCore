@@ -24,6 +24,13 @@ export function ActionEffectivenessPanels() {
   const [showTrend, setShowTrend] = useState(false);
   const [scheduled, setScheduled] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // 30 Oct 2026 developer specification ("Action Effectiveness screen"), Step 6 "Make evidence
+  // accessible and failures honest": loading / no-records / failed-retrieval must be distinct
+  // states, with Retry, and a refresh failure must never wipe a previously-successful screen or
+  // its filters. loadError is tracked separately from `data` so a failed background refresh
+  // (useGovernanceRefresh) shows a dismissable failure banner over the last-good data instead of
+  // replacing the whole screen and losing the period/service filters the user had set.
+  const [loadError, setLoadError] = useState<string | null>(null);
   const { user } = useAuth();
   const canRate = String((user as any)?.role || "").toUpperCase().replace(/-/g, "_") === "REGISTERED_MANAGER";
   // Inline effectiveness rating — works for any completed action awaiting a verdict, including
@@ -120,13 +127,16 @@ export function ActionEffectivenessPanels() {
       // undefined, so the date-range label added 1 Nov never actually rendered.
       setData(response?.data ?? response);
       setRange(response?.meta?.history_range ?? null);
+      setLoadError(null);
       try {
         const sched: any = await apiClient.get('/actions/scheduled-effectiveness');
         setScheduled(sched?.data?.data ?? sched?.data ?? []);
       } catch { setScheduled([]); }
     } catch (err) {
       console.error("Failed to load effectiveness summary", err);
-      setData({ error: err instanceof Error ? err.message : 'Effectiveness information could not be loaded.' });
+      // Keep whatever `data` already loaded (and every filter the user has set) on screen — a
+      // failed refresh shows a Retry banner, never a blanked screen or an invented 0/100%.
+      setLoadError(err instanceof Error ? err.message : 'Effectiveness information could not be loaded.');
     } finally {
       setIsLoading(false);
     }
@@ -144,9 +154,17 @@ export function ActionEffectivenessPanels() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, searchParams]);
 
+  // Loading / failed-retrieval-with-nothing-yet / failed-retrieval-with-stale-data are three
+  // distinct states (Step 6) — only the first two replace the whole screen; a refresh failure
+  // with existing data to show falls through to the banner rendered just above the panels below.
   if (isLoading) return <div className="flex justify-center p-12"><Loader2 className="animate-spin" /></div>;
+  if (!data && loadError) return (
+    <Card className="border-destructive/40"><CardContent className="p-5 text-sm text-destructive flex items-center justify-between gap-3">
+      <span>{loadError}</span>
+      <button onClick={() => { setIsLoading(true); loadData(); }} className="shrink-0 px-3 py-1.5 rounded-lg border border-destructive/40 text-destructive hover:bg-destructive/5">Retry</button>
+    </CardContent></Card>
+  );
   if (!data) return null;
-  if (data.error) return <Card className="border-destructive/40"><CardContent className="p-5 text-sm text-destructive">{data.error}</CardContent></Card>;
 
   // Cast PG BigInt count strings to true JavaScript Numbers for Recharts compatibility
   const domainAnalysisWithNumbers = (data.domain_analysis || []).map((item: any) => ({
@@ -175,6 +193,15 @@ export function ActionEffectivenessPanels() {
 
   return (
     <div className="space-y-6 mb-8">
+      {/* Step 6: a background refresh failure keeps showing the last-good data (and every
+          filter above) rather than blanking the screen — this banner is the only visible sign
+          something went wrong, with Retry, never a silent fallback to 0 or 100%. */}
+      {loadError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/5 px-3 py-2 text-xs text-destructive flex items-center justify-between gap-3">
+          <span>Showing the last successfully loaded data — {loadError}</span>
+          <button onClick={() => loadData()} className="shrink-0 font-medium underline">Retry</button>
+        </div>
+      )}
       {/* Step 2 item 1: service, domain and reporting-period filters. Service/overdue filtering
           already exists via ?house=/?overdue= (set by Director Services Overview deep links);
           no domain filter exists yet in any list here, so it is not offered rather than
