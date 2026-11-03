@@ -957,6 +957,12 @@ export class RisksService {
       if (candidate.status === 'Promoted') {
         throw new Error('This candidate is already marked Promoted — reload and reconcile before retrying.');
       }
+      // Stale-form protection (2026-11 brief §8): a form opened before this candidate was
+      // dismissed elsewhere must not be able to promote it on submit. A genuine promotion of a
+      // dismissed candidate requires an explicit reassessment decision first, not a stale click.
+      if (candidate.status === 'Dismissed') {
+        throw new Error('This candidate was dismissed — it needs a recorded reassessment before it can be promoted. Reload to see its current state.');
+      }
       // §2 "Coordinate candidate and cluster routes so the same source cannot create two risks
       // through different entry points": also lock and check the cluster this candidate came
       // from, inside the same transaction — a concurrent promoteFromCluster() call for the same
@@ -1173,35 +1179,53 @@ export class RisksService {
   }
 
   async dismissCandidate(company_id: string, user_id: string, candidate_id: string, reason: string) {
-    const candidateRes = await query(
-      `SELECT id, cluster_id FROM risk_candidates
-       WHERE id = $1 AND company_id = $2`,
-      [candidate_id, company_id]
-    );
-    if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
-
-    await query(
-      `UPDATE risk_candidates
-       SET status = 'Dismissed', dismissal_reason = $1, dismissed_by = $2, dismissed_at = NOW()
-       WHERE id = $3`,
-      [reason, user_id, candidate_id]
-    );
-
-    // Record the decision on the underlying signals: reviewed and deliberately NOT promoted.
-    // They move off the live decision queues (which exclude Reviewed) but are NOT hard-closed —
-    // they remain in history and can still contribute to a future pattern. Only touch signals
-    // still 'New' so we never overwrite a Linked/Closed state. (Signal-flow closure.)
-    const clusterId = candidateRes.rows[0].cluster_id;
-    if (clusterId) {
-      await query(
-        `UPDATE governance_pulses gp
-            SET review_status = 'Reviewed', updated_at = NOW()
-          FROM risk_signal_links rsl
-          WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
-            AND gp.company_id = $2
-            AND (gp.review_status IS NULL OR gp.review_status = 'New')`,
-        [clusterId, company_id]
+    // Locked the same way as promote() (FOR UPDATE on the candidate row, same transaction as the
+    // status write) so a concurrent promote/dismiss pair on the same candidate serializes instead
+    // of racing — neither can silently overwrite the other's outcome.
+    const lockClient = await getClient();
+    await lockClient.query('BEGIN');
+    let clusterId: string | null;
+    try {
+      const candidateRes = await lockClient.query(
+        `SELECT id, cluster_id, status, linked_risk_id FROM risk_candidates
+         WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+        [candidate_id, company_id]
       );
+      if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
+      const candidate = candidateRes.rows[0];
+      if (candidate.linked_risk_id || candidate.status === 'Promoted') {
+        throw new Error('This candidate has already been promoted to a risk and can no longer be dismissed.');
+      }
+      clusterId = candidate.cluster_id;
+
+      await lockClient.query(
+        `UPDATE risk_candidates
+         SET status = 'Dismissed', dismissal_reason = $1, dismissed_by = $2, dismissed_at = NOW()
+         WHERE id = $3`,
+        [reason, user_id, candidate_id]
+      );
+
+      // Record the decision on the underlying signals: reviewed and deliberately NOT promoted.
+      // They move off the live decision queues (which exclude Reviewed) but are NOT hard-closed —
+      // they remain in history and can still contribute to a future pattern. Only touch signals
+      // still 'New' so we never overwrite a Linked/Closed state. (Signal-flow closure.)
+      if (clusterId) {
+        await lockClient.query(
+          `UPDATE governance_pulses gp
+              SET review_status = 'Reviewed', updated_at = NOW()
+            FROM risk_signal_links rsl
+            WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
+              AND gp.company_id = $2
+              AND (gp.review_status IS NULL OR gp.review_status = 'New')`,
+          [clusterId, company_id]
+        );
+      }
+      await lockClient.query('COMMIT');
+    } catch (e) {
+      await lockClient.query('ROLLBACK').catch(() => undefined);
+      throw e;
+    } finally {
+      lockClient.release();
     }
   }
 

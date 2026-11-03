@@ -59,6 +59,27 @@ const LIFECYCLE_TRANSITIONS: Record<EscalationLifecycleStatus, EscalationLifecyc
 
 export class EscalationsService {
   /**
+   * An open escalation already linked to this signal/pattern/risk, by stable source
+   * relationship (never by person name or theme text). Lets the review form prominently offer
+   * "View/update existing escalation" before the RM fills in a new one — the actual submit path
+   * (governanceDecisions.service.ts) already dedupes the same way server-side, so this is a
+   * heads-up for the person filling the form, not the only guard against duplicates.
+   */
+  async openEscalationForSource(company_id: string, source: { pulse_entry_id?: string | null; cluster_id?: string | null; risk_id?: string | null }) {
+    const col = source.cluster_id ? 'source_cluster_id' : source.risk_id ? 'risk_id' : source.pulse_entry_id ? 'source_pulse_id' : null;
+    const val = source.cluster_id || source.risk_id || source.pulse_entry_id;
+    if (!col || !val) return null;
+    const r = await query(
+      `SELECT id, reason, status, lifecycle_status, escalated_to, due_by, created_at
+         FROM canonical_escalation_state_v
+        WHERE company_id = $1 AND ${col} = $2 AND is_open
+        LIMIT 1`,
+      [company_id, val]
+    );
+    return r.rows[0] || null;
+  }
+
+  /**
    * Close the loop back to the front-line worker who raised the originating signal,
    * so they see their concern was picked up and progressed. Best-effort.
    */

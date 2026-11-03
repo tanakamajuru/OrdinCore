@@ -64,6 +64,7 @@ export function SignalDetailScreen() {
   // Use the tenant directory (any authenticated user), NOT /users which is Admin-only — that was why
   // the owner list showed "No colleagues are available to allocate".
   const users = useApi<any>(isRM ? '/users/directory' : null);
+  const openEscalation = useApi<any>(isRM ? `/escalations/open-for-source?pulse_entry_id=${id}` : null);
   const [decision, setDecision] = useState<'Monitor'|'Create Action'|'Escalate'|'Close Signal'>('Monitor');
   const [whatHappening, setWhatHappening] = useState('');
   const [rationale, setRationale] = useState('');
@@ -72,13 +73,12 @@ export function SignalDetailScreen() {
   const [dueAt, setDueAt] = useState('');
   const [showCalendar, setShowCalendar] = useState(false);
   const [intendedOutcome, setIntendedOutcome] = useState('');
-  // "What happened during monitoring?" / evidence supporting closure, plus an optional reference.
+  // Monitoring-return factual update — required for a returning review only.
   const [observation, setObservation] = useState('');
-  const [evidenceRef, setEvidenceRef] = useState('');
   // Returning review: How has the concern changed? Monitor: act-sooner trigger. Escalate: immediate action.
   const [howChanged, setHowChanged] = useState('');
   const [trigger, setTrigger] = useState('');
-  const [immediateAction, setImmediateAction] = useState('');
+  const [effectivenessDueAt, setEffectivenessDueAt] = useState('');
   const CHANGE_OUTCOMES = ['Improved', 'Unchanged', 'Worsened', 'Not enough evidence'];
   const [rmSeverity, setRmSeverity] = useState<'Low'|'Moderate'|'High'|'Critical'|''>('');
   const [decisionBusy, setDecisionBusy] = useState(false);
@@ -93,11 +93,15 @@ export function SignalDetailScreen() {
   const needsOwner = decision === 'Create Action' || decision === 'Escalate' || decision === 'Monitor';
   const showsDue = decision === 'Create Action' || decision === 'Escalate' || decision === 'Monitor';
   const dueRequired = decision === 'Create Action' || decision === 'Monitor';
-  const intendedOutcomeRequired = decision === 'Monitor' || (decision === 'Create Action' && reviewReq === 'EFFECTIVENESS_REQUIRED');
-  // A returning monitoring review (the signal is in Monitoring) must record what happened; a Close
-  // must record the evidence supporting closure. Matches the web Daily Oversight behaviour.
+  // "What should the next review establish?" was removed from Monitor per brief — the
+  // observation question already covers what the review will assess. Only Create Action still
+  // needs an intended outcome (+ its own effectiveness review date, set below).
+  const intendedOutcomeRequired = decision === 'Create Action' && reviewReq === 'EFFECTIVENESS_REQUIRED';
+  // A returning monitoring review (the signal is in Monitoring) must record what changed. An
+  // initial review (including Close) has no prior state to update on — the original signal is
+  // already shown read-only above, so no separate evidence question repeats it (brief).
   const isMonitoringReview = String(s?.review_status) === 'Monitoring';
-  const observationRequired = isMonitoringReview || decision === 'Close Signal';
+  const observationRequired = isMonitoringReview;
   const eligiblePeople = people.filter((u) => {
     if (u.status === 'suspended') return false;
     const r = normalizeRole(u.role || '');
@@ -116,11 +120,11 @@ export function SignalDetailScreen() {
     if (rationale.trim().length < 10) { Alert.alert('Why is this appropriate?', 'Record why this is the right governance decision (at least 10 characters).'); return; }
     if (needsOwner && !ownerId) { Alert.alert('Choose an owner', 'This decision must name one accountable owner.'); return; }
     if (dueRequired && !dueAt.trim()) { Alert.alert(decision === 'Monitor' ? 'Add a review date' : 'Add a due date', 'Pick a date below.'); return; }
-    if (intendedOutcomeRequired && intendedOutcome.trim().length < 10) { Alert.alert('Intended outcome', decision === 'Monitor' ? 'Record what the monitoring review should establish.' : 'Record what should change if the action works.'); return; }
-    if (observationRequired && observation.trim().length < 10) { Alert.alert(isMonitoringReview ? 'What happened during monitoring?' : 'Evidence supporting closure', 'Record this before saving (at least 10 characters).'); return; }
+    if (intendedOutcomeRequired && intendedOutcome.trim().length < 10) { Alert.alert('What should change if the action works?', 'Record the observable change expected if the action works.'); return; }
+    if (intendedOutcomeRequired && !effectivenessDueAt.trim()) { Alert.alert('Effectiveness review date', 'Set when effectiveness will be reviewed.'); return; }
+    if (observationRequired && observation.trim().length < 10) { Alert.alert('What has changed?', 'Record what has changed, including any action already taken (at least 10 characters).'); return; }
     if (isMonitoringReview && !howChanged) { Alert.alert('How has the concern changed?', 'Choose Improved, Unchanged, Worsened or Not enough evidence.'); return; }
-    if (decision === 'Monitor' && trigger.trim().length < 3) { Alert.alert('Act sooner if…', 'Record when action should be taken before the next review.'); return; }
-    if (decision === 'Escalate' && immediateAction.trim().length < 3) { Alert.alert('Immediate action in place', 'Record any immediate action already in place, or state none.'); return; }
+    if (decision === 'Monitor' && trigger.trim().length < 3) { Alert.alert('What change requires earlier action?', 'Describe a change or event requiring an earlier response.'); return; }
     setDecisionBusy(true);
     try {
       await api.post('/governance-decisions', {
@@ -130,15 +134,14 @@ export function SignalDetailScreen() {
         action_description: decision === 'Create Action' ? whatHappening.trim() : undefined,
         review_requirement: decision === 'Create Action' ? reviewReq : undefined,
         intended_outcome: intendedOutcomeRequired ? intendedOutcome.trim() : undefined,
+        effectiveness_due_at: intendedOutcomeRequired ? effectivenessDueAt.trim() : undefined,
         monitoring_observation: observation.trim() || undefined,
-        evidence_reference: evidenceRef.trim() || undefined,
         change_outcome: isMonitoringReview ? (howChanged || undefined) : undefined,
         monitoring_trigger: decision === 'Monitor' ? (trigger.trim() || undefined) : undefined,
-        immediate_action: decision === 'Escalate' ? (immediateAction.trim() || undefined) : undefined,
         idempotency_key: decisionKey,
       });
       Alert.alert('Decision recorded', 'The signal and any linked work now use the same governance record as the web app.');
-      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setObservation(''); setEvidenceRef(''); setHowChanged(''); setTrigger(''); setImmediateAction(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
+      setWhatHappening(''); setRationale(''); setIntendedOutcome(''); setEffectivenessDueAt(''); setObservation(''); setHowChanged(''); setTrigger(''); setRmSeverity(''); setOwnerId(''); setDueAt(''); setShowCalendar(false);
       setDecisionKey(`mobile-${id}-${Date.now()}-${Math.random().toString(36).slice(2)}`); signal.refetch(); activity.refetch();
     } catch (e: any) { Alert.alert("Couldn't record decision", e?.message || 'Please try again.'); }
     finally { setDecisionBusy(false); }
@@ -231,25 +234,17 @@ export function SignalDetailScreen() {
           <Label>Decision</Label>
           <Row gap={6} style={{ flexWrap: 'wrap' }}>
             {(['Monitor','Create Action','Escalate','Close Signal'] as const).map((d) => (
-              <Chip key={d} label={d === 'Close Signal' ? 'Close' : d} active={decision === d} onPress={() => { setDecision(d); setOwnerId(''); setDueAt(''); setShowCalendar(false); setIntendedOutcome(''); }} />
+              <Chip key={d} label={d === 'Close Signal' ? 'Close' : d === 'Monitor' && isMonitoringReview ? 'Continue monitoring' : d} active={decision === d} onPress={() => { setDecision(d); setOwnerId(''); setDueAt(''); setShowCalendar(false); setIntendedOutcome(''); setEffectivenessDueAt(''); setTrigger(''); }} />
             ))}
           </Row>
           {!showsDue && <Text muted size={11.5}>Close records the decision only. Monitor, Create Action and Escalate allocate an owner and a date.</Text>}
 
-          {/* Q1 — what is happening / the decision. */}
-          <Label>1 · What is happening &amp; what is required</Label>
-          <TextArea value={whatHappening} onChangeText={setWhatHappening} placeholder="Record the management decision and what must happen next." minHeight={64} required />
-
-          {/* Q2 — why is this the appropriate governance decision. */}
-          <Label>2 · Why is this the appropriate decision?</Label>
-          <TextArea value={rationale} onChangeText={setRationale} placeholder="The governance rationale for this response…" minHeight={64} required />
-
-          {/* Returning monitoring review / closure — record the findings and an optional reference. */}
+          {/* Monitoring-return factual update — required on a returning review (any decision),
+              not shown on an initial review (the original signal is already shown read-only
+              above, so this would just repeat it). */}
           {observationRequired && <>
-            <Label>{isMonitoringReview ? 'What happened during monitoring?' : 'Evidence supporting closure'}</Label>
-            <TextArea value={observation} onChangeText={setObservation} placeholder="Summarise the evidence checked, what changed and anything still unclear." minHeight={64} required />
-            <Label>Evidence reference · optional</Label>
-            <TextArea value={evidenceRef} onChangeText={setEvidenceRef} placeholder="Record or document reference" minHeight={40} />
+            <Label>What has changed, including any action already taken?</Label>
+            <TextArea value={observation} onChangeText={setObservation} placeholder="Describe what was observed, what changed, and any action already taken." minHeight={64} required />
           </>}
 
           {/* Returning review — how has the concern changed? */}
@@ -260,6 +255,14 @@ export function SignalDetailScreen() {
             </Row>
           </>}
 
+          {/* The branch's primary description — what needs doing / watching / the response needed. */}
+          <Label>{decision === 'Monitor' ? 'What should staff observe and record?' : decision === 'Escalate' ? 'What decision or support do you need from the recipient?' : decision === 'Create Action' ? 'What needs doing?' : 'What is happening'}</Label>
+          <TextArea value={whatHappening} onChangeText={setWhatHappening} placeholder={decision === 'Monitor' ? 'Specify the observations, frequency/context and evidence to collect.' : decision === 'Escalate' ? 'State the decision or support you need — not a repeat of the update or assessment above.' : 'Describe the work clearly.'} minHeight={64} required />
+
+          {/* Combined judgement + rationale — shown once, no duplicate rationale box. */}
+          <Label>What is your assessment, and why is this response appropriate?</Label>
+          <TextArea value={rationale} onChangeText={setRationale} placeholder={isMonitoringReview ? 'Explain what remains uncertain and why this response is appropriate now; do not repeat the selected decision.' : 'Give a short reason based on the evidence reviewed; do not repeat the selected decision.'} minHeight={64} required />
+
           {decision === 'Create Action' && <>
             <Label>Review requirement</Label>
             <Row gap={6} style={{ flexWrap: 'wrap' }}>
@@ -268,26 +271,38 @@ export function SignalDetailScreen() {
             </Row>
           </>}
 
-          {/* Q3 — intended outcome (so effectiveness can later be judged). */}
+          {/* Create Action (effectiveness-required) — intended outcome + its own review date,
+              distinct from the action's own deadline set below. */}
           {intendedOutcomeRequired && <>
-            <Label>3 · {decision === 'Monitor' ? 'What should the review establish?' : 'Intended outcome'}</Label>
-            <TextArea value={intendedOutcome} onChangeText={setIntendedOutcome} placeholder={decision === 'Monitor' ? 'What evidence should be available at the next review?' : 'What should change if this action is effective?'} minHeight={60} required />
+            <Label>What should change if the action works?</Label>
+            <TextArea value={intendedOutcome} onChangeText={setIntendedOutcome} placeholder="The observable change expected if the action works." minHeight={60} required />
+            <Label>When will effectiveness be reviewed?</Label>
+            <Row gap={6} style={{ flexWrap: 'wrap' }}>
+              {DUE_PRESETS.map((p) => { const d = new Date(); d.setDate(d.getDate() + p.days); const iso = d.toISOString().slice(0, 10); return (
+                <Chip key={p.label} label={p.label} active={effectivenessDueAt === iso} onPress={() => setEffectivenessDueAt(iso)} />
+              ); })}
+            </Row>
+            {!!effectivenessDueAt && <Text muted size={11.5}>Effectiveness reviewed {fmtDue(effectivenessDueAt)} — separate from the action's own deadline.</Text>}
           </>}
 
-          {/* Monitor — when should action be taken sooner than the next review? */}
+          {/* Monitor — what change requires earlier action (before the next scheduled review)? */}
           {decision === 'Monitor' && <>
-            <Label>When should action be taken sooner?</Label>
-            <TextArea value={trigger} onChangeText={setTrigger} placeholder="The change that should trigger action or escalation before the next review." minHeight={56} required />
+            <Label>What change requires earlier action?</Label>
+            <TextArea value={trigger} onChangeText={setTrigger} placeholder="Describe a change or event requiring an earlier response, not when routine observations occur." minHeight={56} required />
           </>}
 
-          {/* Escalate — what immediate action is already in place? */}
-          {decision === 'Escalate' && <>
-            <Label>What immediate action is already in place?</Label>
-            <TextArea value={immediateAction} onChangeText={setImmediateAction} placeholder="Record any immediate action, or state that none has been taken." minHeight={56} required />
-          </>}
+          {/* Heads-up before writing a new escalation — the submit itself already dedupes
+              server-side by stable source relationship, this just tells the RM up front. */}
+          {decision === 'Escalate' && openEscalation.data?.data && (
+            <View style={{ backgroundColor: c.sevHigh + '14', borderColor: c.sevHigh + '55', borderWidth: 1, borderRadius: 12, padding: 11 }}>
+              <Text weight="600" size={12.5} color={c.sevHigh}>An open escalation already exists for this signal</Text>
+              <Text muted size={11.5} style={{ marginTop: 3 }}>{openEscalation.data.data.reason ? String(openEscalation.data.data.reason).slice(0, 140) : 'No reason recorded.'}</Text>
+              <Text muted size={10.5} style={{ marginTop: 4 }}>Saving below updates this same escalation rather than creating a new one, unless this is a genuinely distinct additional issue.</Text>
+            </View>
+          )}
 
           {needsOwner && <>
-            <Label>Accountable owner</Label>
+            <Label>{decision === 'Monitor' ? 'Who will monitor it?' : decision === 'Escalate' ? 'Who are you escalating to?' : 'Accountable owner'}</Label>
             {eligiblePeople.length === 0
               ? <Text muted size={12}>{users.loading ? 'Loading colleagues…' : 'No colleagues are available to allocate to yet.'}</Text>
               : <Row gap={6} style={{ flexWrap: 'wrap' }}>
@@ -298,7 +313,7 @@ export function SignalDetailScreen() {
           </>}
 
           {showsDue && <>
-            <Label>{decision === 'Monitor' ? 'Review date' : decision === 'Escalate' ? 'Response due' : 'Due date'}{decision === 'Escalate' ? ' (optional)' : ''}</Label>
+            <Label>{decision === 'Monitor' ? 'When is the next review?' : decision === 'Escalate' ? 'When is their response due?' : 'Due date'}{decision === 'Escalate' ? ' (optional)' : ''}</Label>
             <Row gap={6} style={{ flexWrap: 'wrap' }}>
               {DUE_PRESETS.filter((p) => decision !== 'Monitor' || p.days > 0).map((p) => { const d = new Date(); d.setDate(d.getDate() + p.days); const iso = d.toISOString().slice(0, 10); return (
                 <Chip key={p.label} label={p.label} active={dueAt === iso} onPress={() => { setDueInDays(p.days); setShowCalendar(false); }} />

@@ -36,6 +36,8 @@ router.get('/', requireAuth, requireTenant, requireScope, escalationsController.
  *         description: Success
  */
 router.get('/stats', requireAuth, requireTenant, escalationsController.getStats.bind(escalationsController));
+// Must come before /:id — "is there already an open escalation for this signal/pattern/risk?"
+router.get('/open-for-source', requireAuth, requireTenant, escalationsController.openForSource.bind(escalationsController));
 // Declared before '/:id' so 'summary/pdf' is not swallowed as an escalation id.
 router.get('/summary/pdf', requireAuth, requireTenant, requireScope, escalationsController.downloadSummaryPdf.bind(escalationsController));
 router.get('/:id/pdf', requireAuth, requireTenant, escalationsController.downloadPdf.bind(escalationsController));

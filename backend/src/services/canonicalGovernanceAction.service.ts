@@ -11,6 +11,10 @@ export type GovernanceActionInput={
   governanceReviewId?:string|null; sourcePulseId?:string|null; sourceClusterId?:string|null;
   escalationId?:string|null; incidentId?:string|null; governanceDomain?:string|null;
   reviewRequirement:ActionReviewRequirement; intendedOutcome?:string|null;
+  // When will effectiveness be reviewed? — distinct from dueDate (the action's own deadline).
+  // Optional: if not set at creation, the existing completion-time scheduling flow
+  // (actions.controller.ts 'complete') still lets the RM set it then.
+  effectivenessDueAt?:Date|string|null;
 };
 
 const validate=(i:GovernanceActionInput)=>{
@@ -27,8 +31,8 @@ const validate=(i:GovernanceActionInput)=>{
 const insertSql=`INSERT INTO risk_actions
  (id,risk_id,company_id,house_id,title,description,assigned_to,due_date,created_by,status,
   governance_review_id,source_pulse_id,source_cluster_id,intended_outcome,escalation_id,
-  governance_domain,review_requirement,incident_id,evidence_contract_version)
- VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,$17,'action-evidence-v1')
+  governance_domain,review_requirement,incident_id,evidence_contract_version,effectiveness_due_at)
+ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,$17,'action-evidence-v1',$18)
  RETURNING *`;
 
 export const canonicalGovernanceActionService={
@@ -61,7 +65,8 @@ export const canonicalGovernanceActionService={
     const params=[uuidv4(),input.riskId||null,input.companyId,input.houseId||null,String(input.title).trim().slice(0,255),
       input.description||null,input.assignedTo||null,input.dueDate||null,input.createdBy,input.governanceReviewId||null,
       input.sourcePulseId||null,input.sourceClusterId||null,input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?String(input.intendedOutcome).trim():null,
-      input.escalationId||null,input.governanceDomain||null,input.reviewRequirement,input.incidentId||null];
+      input.escalationId||null,input.governanceDomain||null,input.reviewRequirement,input.incidentId||null,
+      input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?(input.effectivenessDueAt||null):null];
     const runner=client?client.query.bind(client):query;
     return (await runner(insertSql,params)).rows[0];
   },

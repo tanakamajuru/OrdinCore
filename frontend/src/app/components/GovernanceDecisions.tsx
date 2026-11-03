@@ -70,6 +70,7 @@ export function GovernanceDecisions({
     trigger: "",          // Monitor: "When should action be taken sooner?"
     change_outcome: "",   // Returning review: "How has the concern changed?"
     immediate_action: "", // Escalate: "What immediate action is already in place?"
+    effectiveness_due_at: "", // Create Action (effectiveness-required): "When will effectiveness be reviewed?"
   });
   const CHANGE_OUTCOMES = ["Improved", "Unchanged", "Worsened", "Not enough evidence"] as const;
   const [srcOpen, setSrcOpen] = useState(false);
@@ -247,6 +248,22 @@ export function GovernanceDecisions({
     setSrcOpen(false);
   }, [focusPulseId, signals, readOnly]);
 
+  // Existing-escalation check (brief: "find linked open escalations by stable source
+  // relationships... if one exists, prominently offer View/update existing escalation" — the
+  // POST already dedupes the same way server-side, this is the heads-up before the RM fills in
+  // a new form). Checked whenever the selected signal changes, not just when Escalate is chosen,
+  // so it's visible before the RM commits to writing an escalation request from scratch.
+  const [existingEscalation, setExistingEscalation] = useState<any>(null);
+  useEffect(() => {
+    let cancelled = false;
+    setExistingEscalation(null);
+    if (!selectedSignal?.id) return;
+    apiClient.get(`/escalations/open-for-source?pulse_entry_id=${selectedSignal.id}`)
+      .then((r: any) => { if (!cancelled) setExistingEscalation(r?.data?.data ?? null); })
+      .catch(() => { if (!cancelled) setExistingEscalation(null); });
+    return () => { cancelled = true; };
+  }, [selectedSignal?.id]);
+
   const record = async () => {
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
@@ -278,6 +295,10 @@ export function GovernanceDecisions({
       toast.error("Record the result this action should achieve.");
       return;
     }
+    if (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED" && !form.effectiveness_due_at) {
+      toast.error("Set when effectiveness will be reviewed.");
+      return;
+    }
 
     setBusy(true);
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
@@ -300,6 +321,7 @@ export function GovernanceDecisions({
         change_outcome: returningReview ? (form.change_outcome || null) : null,
         immediate_action: form.decision === "Escalate" ? (form.immediate_action.trim() || null) : null,
         review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
+        effectiveness_due_at: (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED") ? (form.effectiveness_due_at || null) : null,
         idempotency_key: idemKey.current,
       });
       if (form.decision === "Create Action") {
@@ -310,7 +332,7 @@ export function GovernanceDecisions({
       } else {
         toast.success("Decision recorded");
       }
-      setForm({ what: "", decision: "", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "", observation: "", evidence_reference: "", trigger: "", change_outcome: "", immediate_action: "" });
+      setForm({ what: "", decision: "", owner_id: "", due_at: "", source: "", severity: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", rationale: "", observation: "", evidence_reference: "", trigger: "", change_outcome: "", immediate_action: "", effectiveness_due_at: "" });
       idemKey.current = null;
       await Promise.all([loadDecisions(), loadSignals()]);
       await onChanged?.();
@@ -658,7 +680,7 @@ export function GovernanceDecisions({
                   const active = form.decision === d;
                   return (
                     <button key={d} type="button"
-                      onClick={() => setForm({ ...form, decision: d, owner_id: "", due_at: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", trigger: "", immediate_action: "" })}
+                      onClick={() => setForm({ ...form, decision: d, owner_id: "", due_at: "", intended_outcome: "", review_requirement: "EFFECTIVENESS_REQUIRED", trigger: "", immediate_action: "", effectiveness_due_at: "" })}
                       className={`rounded-lg border-2 px-2 py-2 text-sm ${active ? "border-primary bg-primary/10 text-primary font-semibold" : "border-border hover:bg-muted"}`}>
                       {label}
                     </button>
@@ -714,8 +736,13 @@ export function GovernanceDecisions({
                   </select>
                 </div>
                 {form.review_requirement === "EFFECTIVENESS_REQUIRED" && <div>
-                  <label className="text-[11px] text-muted-foreground">What result should this action achieve? <span className="text-red-500">*</span></label>
+                  <label className="text-[11px] text-muted-foreground">What should change if the action works? <span className="text-red-500">*</span></label>
                   <textarea value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2} placeholder="The observable change expected if the action works." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                </div>}
+                {form.review_requirement === "EFFECTIVENESS_REQUIRED" && <div>
+                  <label className="text-[11px] text-muted-foreground">When will effectiveness be reviewed? <span className="text-red-500">*</span></label>
+                  <input type="date" value={form.effectiveness_due_at} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, effectiveness_due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                  <p className="text-[10px] text-muted-foreground mt-0.5">Separate from the action's own deadline — when you'll check whether it actually worked.</p>
                 </div>}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
@@ -733,6 +760,14 @@ export function GovernanceDecisions({
               </div>}
 
               {form.decision === "Escalate" && <div className="space-y-2">
+                {existingEscalation && (
+                  <div className="rounded-lg border-2 border-amber-300 bg-amber-50 px-3 py-2.5 text-sm text-amber-900">
+                    <span className="font-semibold">An open escalation already exists for this signal</span>
+                    <span className="block text-xs text-amber-800 mt-0.5">{existingEscalation.reason ? `${String(existingEscalation.reason).slice(0, 120)}${String(existingEscalation.reason).length > 120 ? "…" : ""}` : "No reason recorded."}</span>
+                    <a href={`/escalation-log?focus=${existingEscalation.id}`} target="_blank" rel="noreferrer" className="inline-block mt-1.5 text-xs font-semibold text-amber-900 underline">View/update existing escalation →</a>
+                    <span className="block text-[11px] text-amber-700 mt-1">Saving below updates this same escalation rather than creating a new one, unless this is a genuinely distinct additional issue.</span>
+                  </div>
+                )}
                 <div>
                   <label className="text-[11px] text-muted-foreground">What decision or support do you need from the recipient? <span className="text-red-500">*</span></label>
                   <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="State the decision or support you need — not a repeat of the update or assessment above." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />

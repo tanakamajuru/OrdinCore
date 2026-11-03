@@ -26,6 +26,19 @@ export function escalationCapabilities(roleRaw: string) {
 }
 
 export class EscalationsController {
+  // "Is there already an open escalation for this signal/pattern/risk?" — used by the Review
+  // Signal form to offer View/update existing escalation before the RM fills in a new one.
+  async openForSource(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { pulse_entry_id, cluster_id, risk_id } = req.query as Record<string, string | undefined>;
+      const existing = await escalationsService.openEscalationForSource(company_id, { pulse_entry_id, cluster_id, risk_id });
+      return res.json({ success: true, data: existing });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to check for an existing escalation' });
+    }
+  }
+
   async downloadPdf(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

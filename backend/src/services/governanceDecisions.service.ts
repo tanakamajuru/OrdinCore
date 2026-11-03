@@ -37,6 +37,9 @@ export type DecisionInput = {
   due_at?: string | null;
   intended_outcome?: string | null;
   review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED';
+  /** Create Action, effectiveness-required only — "When will effectiveness be reviewed?",
+   *  distinct from due_at (the action's own deadline). */
+  effectiveness_due_at?: string | null;
   decision_rationale?: string | null;
   action_description?: string | null;
   idempotency_key?: string | null;
@@ -118,6 +121,12 @@ export const governanceDecisionsService = {
       const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
       if (due < startToday.getTime()) throw new Error('A governance action due date cannot be in the past.');
       if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!input.intended_outcome || input.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+      if (reviewRequirement === 'EFFECTIVENESS_REQUIRED') {
+        if (!input.effectiveness_due_at) throw new Error('Set when effectiveness will be reviewed.');
+        const effDue = new Date(input.effectiveness_due_at).getTime();
+        if (!Number.isFinite(effDue)) throw new Error('Set a valid effectiveness review date.');
+        if (effDue < startToday.getTime()) throw new Error('The effectiveness review date cannot be in the past.');
+      }
     }
     if (decision === 'Monitor') {
       if (!input.owner_id) throw new Error('A Monitor decision needs an owner who is watching this concern.');
@@ -214,6 +223,7 @@ export const governanceDecisionsService = {
         riskId:input.risk_id??null, governanceReviewId:decisionId, sourcePulseId:input.pulse_entry_id??null,
         sourceClusterId:input.cluster_id??null, reviewRequirement,
         intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? input.intended_outcome??null : null,
+        effectivenessDueAt:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? input.effectiveness_due_at??null : null,
       }, client);
     } else if (decision === 'Escalate') {
       // Dedup: never open a second live escalation for the same source pattern/risk/signal.
