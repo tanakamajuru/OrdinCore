@@ -1182,9 +1182,9 @@ export class RisksService {
 
     await query(
       `UPDATE risk_candidates
-       SET status = 'Dismissed', dismissal_reason = $1
-       WHERE id = $2`,
-      [reason, candidate_id]
+       SET status = 'Dismissed', dismissal_reason = $1, dismissed_by = $2, dismissed_at = NOW()
+       WHERE id = $3`,
+      [reason, user_id, candidate_id]
     );
 
     // Record the decision on the underlying signals: reviewed and deliberately NOT promoted.

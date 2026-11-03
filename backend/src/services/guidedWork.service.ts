@@ -15,6 +15,10 @@ export type GuidedWorkItem = {
   summary: string;
   reason: string;
   dueAt?: string | null;
+  // Distinct from dueAt so a completed item can render "Completed: <time>" instead of being
+  // mistaken for a still-outstanding due/review date (the two were conflated by reusing dueAt).
+  completedAt?: string | null;
+  completedByName?: string | null;
   ownerName?: string | null;
   serviceName?: string | null;
   canonicalEntityType: EntityType;
@@ -738,8 +742,25 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
     }
 
     // Completed today is informational only; no state is owned by Guided Work.
-    const completedActions = await safeRows(`SELECT id,title,completed_at FROM canonical_action_state_v WHERE company_id=$1 AND assigned_to=$2 AND is_completed AND completed_at::date=CURRENT_DATE ORDER BY completed_at DESC LIMIT 20`,[companyId,userId]);
-    for (const a of completedActions) completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:a.completed_at,canonicalEntityType:'action',canonicalEntityId:a.id,route:`/my-actions?focus=${a.id}`,actionLabel:'View',whyAmISeeingThis:'This action was completed by you today.'});
+    // UK day boundary (Europe/London, not server/UTC date) — a completion at 23:30 UTC in BST
+    // (00:30 local) must count for the new local day, not linger on yesterday's list.
+    // No LIMIT: the tile/list total must be the true count, not truncated to a page size.
+    const completedActions = await safeRows(
+      `SELECT ra.id, ra.title, ra.completed_at, ra.completed_by,
+              u.first_name AS completer_first_name, u.last_name AS completer_last_name
+         FROM canonical_action_state_v ra
+         LEFT JOIN users u ON u.id = ra.completed_by
+        WHERE ra.company_id=$1 AND ra.assigned_to=$2 AND ra.is_completed
+          AND (ra.completed_at AT TIME ZONE 'Europe/London')::date = (NOW() AT TIME ZONE 'Europe/London')::date
+        ORDER BY ra.completed_at DESC`,
+      [companyId, userId]
+    );
+    for (const a of completedActions) {
+      const completerName = a.completer_first_name || a.completer_last_name
+        ? [a.completer_first_name, a.completer_last_name].filter(Boolean).join(' ')
+        : null;
+      completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:null,completedAt:a.completed_at,completedByName:completerName,canonicalEntityType:'action',canonicalEntityId:a.id,route:`/my-actions?focus=${a.id}`,actionLabel:'View',whyAmISeeingThis:'An action assigned to you was recorded as completed today.'});
+    }
 
     // Simplified Work Model — "one concern, one place": collapse items that resolve to the
     // same canonical concern so a subject appears exactly once (a pattern promoted to a risk,

@@ -536,7 +536,7 @@ export function DailyOversightBoard() {
         <div className="bg-card border-2 border-border rounded-xl p-5">
           <h3 className="text-sm font-semibold text-foreground mb-4">What to do today</h3>
           <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            <TodoCard Icon={Search} label="Review Interventions" tone="text-emerald-600" onClick={() => navigate("/interventions")} />
+            <TodoCard Icon={Search} label="Review Risk Register" tone="text-emerald-600" onClick={() => navigate("/risk-register")} />
             <TodoCard Icon={Shield} label="Review Systematic Strategic Oversight" tone="text-violet-600" onClick={() => navigate("/risk-register?tab=strategic")} />
             <TodoCard Icon={AlertTriangle} label="Review Risk Register" tone="text-orange-600" onClick={() => navigate("/risk-register")} />
             <TodoCard Icon={Users} label="Review Escalations" tone="text-blue-600" onClick={() => navigate("/escalation-log")} />

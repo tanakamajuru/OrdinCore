@@ -324,7 +324,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Pattern Emerging', $5, $6)
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
         );
     }
@@ -338,7 +339,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Person-Level Pattern Emerging', $5, $6)
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, qualifyingWindow.map(s => s.id), related_person]
         );
     }
@@ -352,7 +354,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Risk Review Required', $5, $6) 
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, qualifying10d.map(s => s.id), related_person]
         );
     }
@@ -366,7 +369,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Immediate Risk', $5, $6) 
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, signals48h.map(s => s.id), related_person]
         );
     }
@@ -381,7 +385,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Deteriorating Trajectory', $5, $6) 
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, signals7d.map(s => s.id), related_person]
         );
     }
@@ -444,7 +449,8 @@ async function evaluateRules(company_id: string, house_id: string, domain: strin
         await query(
             `INSERT INTO risk_candidates (company_id, house_id, cluster_id, risk_domain, candidate_type, source_signals, linked_person)
              VALUES ($1, $2, $3, $4, 'Control Failure (Recurrence)', $5, $6) 
-             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person`,
+             ON CONFLICT (cluster_id) DO UPDATE SET status = 'New', updated_at = NOW(), candidate_type = EXCLUDED.candidate_type, source_signals = EXCLUDED.source_signals, linked_person = EXCLUDED.linked_person
+             WHERE risk_candidates.status NOT IN ('Dismissed', 'Promoted')`,
             [company_id, house_id, cluster_id, domain, [pulse_id], related_person]
         );
     }

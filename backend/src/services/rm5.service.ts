@@ -314,20 +314,40 @@ export const rm5Service = {
   // updated_at only for legacy rows with no recorded event). Returns the cluster id so the archive
   // can open its full history (linked signals + prior reviews).
   async dismissedPatterns(company_id: string) {
+    // One archive across both dismissal sources — forming concerns (signal_clusters) and
+    // candidate risks (risk_candidates) — so neither kind of dismissal goes missing from the
+    // audit trail. Each row carries its own source type + id as the stable identity key.
+    // dismissedAt/timestampReliable use only the real dismissal columns (never updated_at as a
+    // stand-in — a legacy row with no recorded time shows "Not recorded", not a guessed date).
     return (await query(
-      `SELECT c.id, c.risk_domain AS domain, COALESCE(c.linked_person, '—') AS person,
+      `SELECT 'pattern' AS "sourceType", c.id AS "sourceId", c.id AS id, c.risk_domain AS domain,
+              COALESCE(c.linked_person, '—') AS person,
               c.scope, c.signal_count AS "signalCount", h.name AS house,
               c.dismiss_reason AS reason,
               CASE WHEN c.dismissed_by IS NULL THEN 'System'
                    ELSE COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') END AS "dismissedBy",
               CASE WHEN c.dismissed_by IS NULL THEN 'System lapse' ELSE 'Manual dismissal' END AS "eventType",
-              COALESCE(c.dismissed_at, c.updated_at) AS "dismissedAt",
+              c.dismissed_at AS "dismissedAt",
               (c.dismissed_at IS NOT NULL) AS "timestampReliable"
          FROM signal_clusters c
          LEFT JOIN houses h ON h.id = c.house_id
          LEFT JOIN users u ON u.id = c.dismissed_by
         WHERE c.company_id = $1 AND c.cluster_status = 'Dismissed'
-        ORDER BY COALESCE(c.dismissed_at, c.updated_at) DESC`,
+        UNION ALL
+       SELECT 'candidate' AS "sourceType", rc.id AS "sourceId", rc.id AS id, rc.risk_domain AS domain,
+              COALESCE(rc.linked_person, '—') AS person,
+              NULL AS scope, array_length(rc.source_signals, 1) AS "signalCount", h.name AS house,
+              rc.dismissal_reason AS reason,
+              CASE WHEN rc.dismissed_by IS NULL THEN 'Unknown'
+                   ELSE COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') END AS "dismissedBy",
+              'Manual dismissal' AS "eventType",
+              rc.dismissed_at AS "dismissedAt",
+              (rc.dismissed_at IS NOT NULL) AS "timestampReliable"
+         FROM risk_candidates rc
+         LEFT JOIN houses h ON h.id = rc.house_id
+         LEFT JOIN users u ON u.id = rc.dismissed_by
+        WHERE rc.company_id = $1 AND rc.status = 'Dismissed'
+        ORDER BY "dismissedAt" DESC NULLS LAST, "sourceId"`,
       [company_id]
     )).rows;
   },

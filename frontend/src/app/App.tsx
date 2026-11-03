@@ -23,7 +23,6 @@ import { RiskPromotion } from "./components/RiskPromotion";
 import { RiskDetail } from "./components/RiskDetail";
 import { RiskLinkRedirect } from "./components/RiskLinkRedirect";
 import { Rm5Interface } from "./components/Rm5Interface";
-import { InterventionPanel } from "./components/InterventionPanel";
 import { MyWork } from "./components/MyWork";
 import { GuidedWorkBridge } from "./components/guided-work/GuidedWorkBridge";
 import { SystemicPatterns } from "./components/SystemicPatterns";
@@ -418,11 +417,11 @@ export default function App() {
               <Rm5Interface initialScreen="pipeline" />
             </ProtectedRoute>
           } />
-          <Route path="/interventions" element={
-            <ProtectedRoute>
-              <InterventionPanel />
-            </ProtectedRoute>
-          } />
+          {/* Management Response Overview was retired 2026-11-03 — it duplicated the Risk
+              Register and could misleadingly associate one intervention's effectiveness with
+              several different risks. Historical intervention/decision records remain accessible
+              from the risks they belong to. Old links land on the Risk Register. */}
+          <Route path="/interventions" element={<Navigate to="/risk-register" replace />} />
           <Route path="/engines" element={
             <ProtectedRoute>
               <ComputationalEngines />

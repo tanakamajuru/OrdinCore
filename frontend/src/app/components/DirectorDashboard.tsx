@@ -453,7 +453,7 @@ export function DirectorDashboard() {
                 const dirTone = dir === "Deteriorating" ? "text-red-600" : dir === "Improving" ? "text-emerald-600" : "text-amber-600";
                 const concernTone = ["Attention", "Review required"].includes(t.concern) ? "bg-red-100 text-red-700" : t.concern === "Controlled" ? "bg-emerald-100 text-emerald-700" : "bg-amber-100 text-amber-700";
                 return (
-                  <button key={t.theme} onClick={() => navigate("/interventions")}
+                  <button key={t.theme} onClick={() => navigate("/risk-register")}
                     className="w-full flex items-center justify-between text-sm border-b border-border/50 pb-2 text-left hover:bg-muted/40 rounded px-1 -mx-1 transition-colors">
                     <div className="min-w-0">
                       <div className="font-medium truncate">{t.theme}</div>

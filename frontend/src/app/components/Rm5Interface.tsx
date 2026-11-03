@@ -89,8 +89,15 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [dismissedPage, setDismissedPage] = useState(1);
   // Expanded "View history" rows: cluster id → { loading, detail } (linked signals + prior context).
   const [dismissedDetail, setDismissedDetail] = useState<Record<string, { loading: boolean; detail?: any; error?: string }>>({});
-  const toggleDismissedHistory = async (id: string) => {
+  const toggleDismissedHistory = async (id: string, sourceType?: string) => {
     if (dismissedDetail[id]) { setDismissedDetail((m) => { const n = { ...m }; delete n[id]; return n; }); return; }
+    // Candidate-risk dismissals (as opposed to pattern/cluster dismissals) have no separate
+    // history endpoint yet — the row itself already carries domain/person/reason/signal count,
+    // so show that inline rather than calling an endpoint that only exists for patterns.
+    if (sourceType === "candidate") {
+      setDismissedDetail((m) => ({ ...m, [id]: { loading: false, detail: { candidateOnly: true } } }));
+      return;
+    }
     setDismissedDetail((m) => ({ ...m, [id]: { loading: true } }));
     try {
       const r: any = await apiClient.get(`/clusters/${id}`);
@@ -462,26 +469,34 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                       <div className="bg-card border border-border rounded-xl overflow-x-auto">
                         <table className="w-full text-sm">
                           <thead><tr className="text-left text-xs text-muted-foreground border-b border-border bg-muted/30">
-                            <th className="py-2.5 px-3">Concern</th><th className="px-2">Service</th><th className="px-2">Reason</th><th className="px-2">By / process</th><th className="px-2 whitespace-nowrap">Date &amp; time</th><th className="px-2"></th>
+                            <th className="py-2.5 px-3">Concern</th><th className="px-2">Type</th><th className="px-2">Service</th><th className="px-2">Reason</th><th className="px-2">By / process</th><th className="px-2 whitespace-nowrap">Date &amp; time</th><th className="px-2"></th>
                           </tr></thead>
                           <tbody>
                             {paged.length === 0 ? (
-                              <tr><td colSpan={6} className="py-4 px-3 text-muted-foreground">No dismissed concern matches these filters.</td></tr>
+                              <tr><td colSpan={7} className="py-4 px-3 text-muted-foreground">No dismissed concern matches these filters.</td></tr>
                             ) : paged.map((d: any) => {
-                              const expanded = dismissedDetail[d.id];
+                              const rowKey = `${d.sourceType || "pattern"}:${d.id}`;
+                              const expanded = dismissedDetail[rowKey];
                               return (
-                              <Fragment key={d.id}>
+                              <Fragment key={rowKey}>
                               <tr className="border-b border-border/50">
                                 <td className="py-2.5 px-3 font-medium">{d.domain}{d.person && d.person !== "—" ? ` · ${d.person}` : ""}</td>
+                                <td className="px-2 text-muted-foreground whitespace-nowrap">{d.sourceType === "candidate" ? "Candidate risk" : "Forming concern"}</td>
                                 <td className="px-2 text-muted-foreground">{d.house || (d.scope === "cross_service" ? "Cross-service" : "—")}</td>
                                 <td className="px-2 text-muted-foreground max-w-[260px]">{d.reason || "—"}</td>
                                 <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedBy}{d.eventType ? <span className={`ml-1 text-[10px] px-1.5 py-0.5 rounded ${d.eventType === "System lapse" ? "bg-slate-100 text-slate-600" : "bg-indigo-50 text-indigo-700"}`}>{d.eventType}</span> : null}</td>
                                 <td className="px-2 text-muted-foreground whitespace-nowrap">{d.dismissedAt ? `${new Date(d.dismissedAt).toLocaleString("en-GB", { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" })}${d.timestampReliable === false ? " (legacy)" : ""}` : "Not recorded"}</td>
-                                <td className="px-2 whitespace-nowrap"><button onClick={() => toggleDismissedHistory(d.id)} className="text-xs text-primary hover:underline">{expanded ? "Hide" : "View history"}</button></td>
+                                <td className="px-2 whitespace-nowrap"><button onClick={() => toggleDismissedHistory(rowKey, d.sourceType)} className="text-xs text-primary hover:underline">{expanded ? "Hide" : "View history"}</button></td>
                               </tr>
-                              {expanded && <tr className="border-b border-border/50 bg-muted/20"><td colSpan={6} className="px-3 py-3">
+                              {expanded && <tr className="border-b border-border/50 bg-muted/20"><td colSpan={7} className="px-3 py-3">
                                 {expanded.loading ? <p className="text-xs text-muted-foreground">Loading history…</p>
                                  : expanded.error ? <p className="text-xs text-destructive">{expanded.error}</p>
+                                 : expanded.detail?.candidateOnly ? (
+                                     <div className="text-xs space-y-1">
+                                       <div className="text-muted-foreground"><span className="font-semibold text-foreground">Reason for dismissal:</span> {d.reason || "Not recorded"} · <span className="font-semibold text-foreground">By:</span> {d.dismissedBy}</div>
+                                       <div className="text-muted-foreground">{d.signalCount || 0} signal(s) contributed to this candidate before it was dismissed. Detailed signal-level history for candidate dismissals is not yet available in this archive.</div>
+                                     </div>
+                                   )
                                  : (() => {
                                      const sigs = expanded.detail?.signals || [];
                                      return <div className="text-xs space-y-2">

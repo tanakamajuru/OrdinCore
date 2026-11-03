@@ -15,7 +15,7 @@ const SCREEN_BY_ROLE: Record<string, Array<[RegExp, string]>> = {
   REGISTERED_MANAGER: [
     [/^\/my-work/, 'registered_manager.my_work'], [/^\/governance-dashboard/, 'registered_manager.daily_oversight'],
     [/^\/risk-register\?tab=strategic/, 'registered_manager.strategic_oversight'], [/^\/risk-register/, 'registered_manager.risk_register'],
-    [/^\/interventions/, 'registered_manager.interventions'], [/^\/escalation-log/, 'registered_manager.escalations'],
+    [/^\/escalation-log/, 'registered_manager.escalations'],
     [/^\/governance-compliance/, 'registered_manager.action_tracker'], [/^\/weekly-review/, 'registered_manager.weekly_review'],
     [/^\/incidents/, 'registered_manager.incidents'], [/^\/reports/, 'registered_manager.reports'],
     [/^\/rm5/, 'registered_manager.pipeline'], [/^\/systemic-patterns/, 'registered_manager.patterns'],
@@ -23,7 +23,7 @@ const SCREEN_BY_ROLE: Record<string, Array<[RegExp, string]>> = {
   ],
   DIRECTOR: [
     [/^\/my-work/, 'director.my_work'], [/^\/dashboard$/, 'director.dashboard'], [/^\/systemic-patterns/, 'director.patterns'],
-    [/^\/risk-register/, 'director.risks'], [/^\/effectiveness/, 'director.effectiveness'], [/^\/interventions/, 'director.interventions'],
+    [/^\/risk-register/, 'director.risks'], [/^\/effectiveness/, 'director.effectiveness'],
     [/^\/service-review-rollup/, 'director.rollup'], [/^\/reconstruction/, 'director.reconstruction'],
     [/^\/escalation-log/, 'director.escalations'], [/^\/governance-compliance/, 'director.actions'],
     [/^\/trends/, 'director.trends'], [/^\/incidents/, 'director.incidents'], [/^\/reports/, 'director.reports'],
@@ -31,7 +31,7 @@ const SCREEN_BY_ROLE: Record<string, Array<[RegExp, string]>> = {
   RESPONSIBLE_INDIVIDUAL: [
     [/^\/my-work/, 'responsible_individual.my_work'], [/^\/dashboard$/, 'responsible_individual.assurance'],
     [/^\/systemic-patterns/, 'responsible_individual.patterns'], [/^\/effectiveness/, 'responsible_individual.effectiveness'],
-    [/^\/interventions/, 'responsible_individual.interventions'], [/^\/risk-register/, 'responsible_individual.risks'],
+    [/^\/risk-register/, 'responsible_individual.risks'],
     [/^\/service-review-rollup/, 'responsible_individual.rollup'], [/^\/reconstruction/, 'responsible_individual.reconstruction'],
     [/^\/escalation-log/, 'responsible_individual.escalations'], [/^\/governance-compliance/, 'responsible_individual.actions'],
     [/^\/incidents/, 'responsible_individual.incidents'], [/^\/trends/, 'responsible_individual.trends'],
