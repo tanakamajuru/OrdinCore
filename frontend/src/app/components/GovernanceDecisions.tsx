@@ -251,33 +251,33 @@ export function GovernanceDecisions({
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
     if (!form.source) { toast.error("Choose the signal this decision relates to."); return; }
-    // The review evidence is required on every review; the label changes by branch.
-    if (form.observation.trim().length < 10) {
-      toast.error(form.decision === "Close" ? "Record the evidence supporting closure (at least 10 characters)." : returningReview ? "Record what happened since the last review (at least 10 characters)." : "Record what information you have checked (at least 10 characters).");
+    // The monitoring-return factual update is required on every returning review (any decision
+    // branch) — not shown/required on an initial review, which has no prior state to update on.
+    if (returningReview && form.observation.trim().length < 10) {
+      toast.error("Record what has changed, including any action already taken (at least 10 characters).");
       return;
     }
     if (returningReview && !form.change_outcome) { toast.error("Record how the concern has changed."); return; }
     if (!form.severity) { toast.error("Set the current severity — Registered Manager triage is required."); return; }
     if (!form.decision) { toast.error("Choose what should happen now."); return; }
-    if (form.rationale.trim().length < 10) { toast.error(form.decision === "Close" ? "Record why this signal can be closed." : "Record why you have chosen this."); return; }
+    if (form.rationale.trim().length < 10) { toast.error("Record your assessment, and why this response is appropriate."); return; }
     // The branch's primary description (what is watched / needs doing / response needed) maps to
     // what_is_happening. Close has no such field — use the signal's own description.
     const branchWhat = form.decision === "Close"
       ? (String(selectedSignal?.description || "").trim().slice(0, 255) || "Close signal")
       : form.what.trim();
     if (form.decision !== "Close" && branchWhat.length < 5) {
-      toast.error(form.decision === "Monitor" ? "Describe what needs watching." : form.decision === "Escalate" ? "Describe the response needed." : "Describe what needs doing.");
+      toast.error(form.decision === "Monitor" ? "Describe what staff should observe and record." : form.decision === "Escalate" ? "Describe the decision or support needed from the recipient." : "Describe what needs doing.");
       return;
     }
-    if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) { toast.error(form.decision === "Monitor" ? "Choose a monitoring owner." : "Choose who to assign the action to."); return; }
+    if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) { toast.error(form.decision === "Monitor" ? "Choose who will monitor it." : "Choose who to assign the action to."); return; }
     if ((form.decision === "Monitor" || form.decision === "Create Action") && !form.due_at) { toast.error(form.decision === "Monitor" ? "Set the next review date." : "Set the action deadline."); return; }
     if (form.decision === "Monitor" && form.due_at <= new Date().toISOString().slice(0, 10)) { toast.error("Choose a future monitoring review date."); return; }
-    if (form.decision === "Monitor" && form.trigger.trim().length < 3) { toast.error("Record when action should be taken sooner."); return; }
-    if ((form.decision === "Monitor" || (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED")) && form.intended_outcome.trim().length < 10) {
-      toast.error(form.decision === "Monitor" ? "Record what the next review should establish." : "Record the result this action should achieve.");
+    if (form.decision === "Monitor" && form.trigger.trim().length < 3) { toast.error("Record what change requires earlier action."); return; }
+    if (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED" && form.intended_outcome.trim().length < 10) {
+      toast.error("Record the result this action should achieve.");
       return;
     }
-    if (form.decision === "Escalate" && form.immediate_action.trim().length < 3) { toast.error("Record the immediate action already in place (or state none)."); return; }
 
     setBusy(true);
     if (!idemKey.current) idemKey.current = (crypto?.randomUUID?.() || String(Date.now() + Math.random()));
@@ -612,21 +612,21 @@ export function GovernanceDecisions({
           {selectedSignal && (<>
             <div className="text-xs font-semibold uppercase tracking-wide text-primary">{returningReview ? "Review monitored signal" : "Review new signal"}</div>
 
-            {/* Review evidence — what the RM checked / what happened since the last review / closure evidence. */}
-            <div>
-              <label className="text-[11px] text-muted-foreground">
-                {form.decision === "Close" ? "What evidence supports closing this signal?" : returningReview ? "What happened since the last review?" : "What information have you checked?"} <span className="text-red-500">*</span>
-              </label>
-              <textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} rows={2}
-                placeholder={returningReview ? "Describe what was observed, what changed and anything still unclear." : "Record the information, clarification or feedback used in your review."}
-                className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
-            </div>
-            <div>
-              <label className="text-[11px] text-muted-foreground">Evidence reference · optional</label>
-              <input value={form.evidence_reference} onChange={(e) => setForm({ ...form, evidence_reference: e.target.value })}
-                placeholder="Record or document reference"
-                className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
-            </div>
+            {/* Monitoring-return factual update — required for every decision branch on a
+                returning review. Not shown on an initial review: the original signal and any
+                immediate action are already shown read-only above, so this would just repeat
+                them. Replaces the old "What happened since the last review?" wording and the
+                separate "Evidence reference" field, both removed per brief. */}
+            {returningReview && (
+              <div>
+                <label className="text-[11px] text-muted-foreground">
+                  What has changed, including any action already taken? <span className="text-red-500">*</span>
+                </label>
+                <textarea value={form.observation} onChange={(e) => setForm({ ...form, observation: e.target.value })} rows={2}
+                  placeholder="Describe what was observed, what changed, and any action already taken."
+                  className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+              </div>
+            )}
 
             {returningReview && (
               <div>
@@ -669,37 +669,34 @@ export function GovernanceDecisions({
 
             {form.decision && (<>
               <div>
-                <label className="text-[11px] text-muted-foreground">{form.decision === "Close" ? "Why can this signal be closed?" : "Why have you chosen this?"} <span className="text-red-500">*</span></label>
+                <label className="text-[11px] text-muted-foreground">What is your assessment, and why is this response appropriate? <span className="text-red-500">*</span></label>
                 <textarea value={form.rationale} onChange={(e) => setForm({ ...form, rationale: e.target.value })} rows={2}
-                  placeholder={form.decision === "Close" ? "Explain why this signal no longer needs follow-up." : "Give a short reason based on the evidence reviewed."}
+                  placeholder={form.decision === "Close" ? "Explain why this signal no longer needs follow-up." : returningReview ? "Explain what remains uncertain and why this response is appropriate now; do not repeat the selected decision." : "Give a short reason based on the evidence reviewed; do not repeat the selected decision."}
                   className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
               </div>
 
               {form.decision === "Monitor" && <div className="space-y-2">
                 <div>
-                  <label className="text-[11px] text-muted-foreground">{returningReview ? "What needs watching now?" : "What needs watching?"} <span className="text-red-500">*</span></label>
-                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="Describe exactly what staff should watch." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                  <label className="text-[11px] text-muted-foreground">What should staff observe and record? <span className="text-red-500">*</span></label>
+                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="Specify the observations, frequency/context and evidence to collect." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] text-muted-foreground">Monitoring owner <span className="text-red-500">*</span></label>
+                    <label className="text-[11px] text-muted-foreground">Who will monitor it? <span className="text-red-500">*</span></label>
                     <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
                       <option value="">Choose a person…</option>
                       {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] text-muted-foreground">Next review date <span className="text-red-500">*</span></label>
+                    <label className="text-[11px] text-muted-foreground">When is the next review? <span className="text-red-500">*</span></label>
                     <input type="date" value={form.due_at} min={new Date(Date.now() + 86400000).toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
+                    <p className="text-[10px] text-muted-foreground mt-0.5">The manager's scheduled monitoring review — not an action deadline.</p>
                   </div>
                 </div>
                 <div>
-                  <label className="text-[11px] text-muted-foreground">When should action be taken sooner? <span className="text-red-500">*</span></label>
-                  <input value={form.trigger} onChange={(e) => setForm({ ...form, trigger: e.target.value })} placeholder="The change that should trigger action or escalation before the next review." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-muted-foreground">What should the next review establish? <span className="text-red-500">*</span></label>
-                  <textarea value={form.intended_outcome} onChange={(e) => setForm({ ...form, intended_outcome: e.target.value })} rows={2} placeholder="The information needed at the next review." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                  <label className="text-[11px] text-muted-foreground">What change requires earlier action? <span className="text-red-500">*</span></label>
+                  <input value={form.trigger} onChange={(e) => setForm({ ...form, trigger: e.target.value })} placeholder="Describe a change or event requiring an earlier response, not when routine observations occur." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                 </div>
                 <p className="text-[11px] text-muted-foreground">The signal leaves the live queue now and returns when the review date is due.</p>
               </div>}
@@ -737,23 +734,19 @@ export function GovernanceDecisions({
 
               {form.decision === "Escalate" && <div className="space-y-2">
                 <div>
-                  <label className="text-[11px] text-muted-foreground">What response is needed? <span className="text-red-500">*</span></label>
-                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="State what you need the recipient to do." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-muted-foreground">What immediate action is already in place? <span className="text-red-500">*</span></label>
-                  <textarea value={form.immediate_action} onChange={(e) => setForm({ ...form, immediate_action: e.target.value })} rows={2} placeholder="Record any immediate action, or state that none has been taken." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
+                  <label className="text-[11px] text-muted-foreground">What decision or support do you need from the recipient? <span className="text-red-500">*</span></label>
+                  <textarea value={form.what} onChange={(e) => setForm({ ...form, what: e.target.value })} rows={2} placeholder="State the decision or support you need — not a repeat of the update or assessment above." className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" />
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] text-muted-foreground">Escalate to <span className="text-red-500">*</span></label>
+                    <label className="text-[11px] text-muted-foreground">Who are you escalating to? <span className="text-red-500">*</span></label>
                     <select value={form.owner_id} onChange={(e) => setForm({ ...form, owner_id: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm">
                       <option value="">Choose a recipient…</option>
                       {eligibleOwners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()} ({String(u.role || "").replace(/_/g, " ")})</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="text-[11px] text-muted-foreground">Response due</label>
+                    <label className="text-[11px] text-muted-foreground">When is their response due?</label>
                     <input type="date" value={form.due_at} min={new Date().toISOString().slice(0, 10)} onChange={(e) => setForm({ ...form, due_at: e.target.value })} className="w-full mt-1 p-2.5 border-2 border-border rounded-lg bg-background text-sm" />
                   </div>
                 </div>
