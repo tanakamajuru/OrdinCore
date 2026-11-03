@@ -367,12 +367,15 @@ when actually answering it.
   **[CONFIRM]** with whoever manages the VPS/router-level config, if any networking hardware exists
   beyond the hosted VPS itself (likely minimal/managed-by-Krystal — state that).
 - **9.2.1** [M] (CE+ exempt) Annual penetration test scoped/undertaken (incl. vulnerability scan,
-  default-password check), since 1 Jul 2024. → **Confirmed gap — no penetration test has ever been
-  run** (verified: no mention anywhere in the compliance/ops pack or codebase). This is one of the
-  two biggest gaps in the whole toolkit (with MFA at 4.5.3/4.5.6). **Action:** commission an external
-  penetration test — budget and schedule this explicitly; it's also a customer-procurement staple
-  independent of DSPT.
-- **9.2.3** [M] (CE+ exempt) SIRO reviewed pentest results with an action plan. → Depends on 9.2.1.
+  default-password check), since 1 Jul 2024. → **Done internally.** An internal VAPT exercise has
+  been carried out against the codebase and live production system; findings were triaged and
+  remediated — see [security-testing-record.md](./security-testing-record.md). **[NEEDS INPUT]** the
+  exact date and scope wording for the portal comment field (keep it brief per the tooltip's
+  "redact sensitive elements" instruction); an **externally** commissioned test is still worth
+  budgeting separately since it carries more procurement weight than an internal exercise.
+- **9.2.3** [M] (CE+ exempt) SIRO reviewed pentest results with an action plan. → **Largely
+  satisfied** — findings were triaged and patched; **[NEEDS INPUT]** formal SIRO sign-off record
+  once that role is named (1.1.5/1.3.3).
 - **9.3.1** [M] Web apps protected against OWASP Top 10 (SSDLC in place). → **[CONFIRM]** — the
   codebase shows security-conscious middleware (helmet, CORS allow-list, rate limiting, tenant
   isolation tests) but no documented secure-SDLC process or OWASP-aligned review practice. **Action:**
@@ -485,8 +488,8 @@ when actually answering it.
    all things this pack already has the raw material for.
 6. **Decide on MFA** (4.5.3, 4.5.6) — the one item that's a genuine engineering task, not a
    documentation task. Flag early given lead time.
-7. **Decide on a penetration test** (9.2.1, 9.2.3) — external, needs budget/scheduling; start now
-   given lead time.
+7. ~~Decide on a penetration test~~ **Done** (9.2.1, 9.2.3) — internal VAPT completed, findings
+   patched; consider an external test too for procurement weight.
 8. **Decide on Cyber Essentials Plus** (Standard 9 broadly) — the highest-leverage single certification
    given how many items it exempts; also needs external lead time — start in parallel with the pentest
    decision, not after it.

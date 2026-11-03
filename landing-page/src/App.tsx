@@ -1163,15 +1163,23 @@ export default function App() {
               <div key={section.title} className="space-y-4">
                 <p className="text-sm font-black uppercase tracking-widest text-slate-200">{section.title}</p>
                 <div className="space-y-2">
-                  {section.links.map((link) => (
-                    <a
-                      key={link}
-                      href={link === "Pilot Programme" ? "https://work.ordincore.co.uk" : "#"}
-                      className="block text-sm text-slate-500 transition-colors hover:text-white font-medium"
-                    >
-                      {link}
-                    </a>
-                  ))}
+                  {section.links.map((link) => {
+                    const href =
+                      link === "Pilot Programme" ? "https://work.ordincore.co.uk"
+                      : link === "Privacy Policy" ? "/privacy/"
+                      : link === "Data Security" ? "/data-security.html"
+                      : link === "Terms & Conditions" ? "/terms-of-service.html"
+                      : "#";
+                    return (
+                      <a
+                        key={link}
+                        href={href}
+                        className="block text-sm text-slate-500 transition-colors hover:text-white font-medium"
+                      >
+                        {link}
+                      </a>
+                    );
+                  })}
                 </div>
               </div>
             ))}
@@ -1180,9 +1188,9 @@ export default function App() {
           <div className="border-t border-slate-900 pt-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-sm text-slate-600 font-medium">
             <p>© 2026 Ordin Core Inc. All rights reserved.</p>
             <div className="flex gap-4">
-              <a href="#" className="hover:text-slate-400">Privacy Policy</a>
-              <a href="#" className="hover:text-slate-400">Data Security</a>
-              <a href="#" className="hover:text-slate-400">Terms of Service</a>
+              <a href="/privacy/" className="hover:text-slate-400">Privacy Policy</a>
+              <a href="/data-security.html" className="hover:text-slate-400">Data Security</a>
+              <a href="/terms-of-service.html" className="hover:text-slate-400">Terms of Service</a>
             </div>
           </div>
         </div>

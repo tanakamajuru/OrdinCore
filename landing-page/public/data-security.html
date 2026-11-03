@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en-GB">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Ordin Core — Data Security</title>
+<style>
+  body { font-family: -apple-system, Segoe UI, Roboto, Arial, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; color: #1a2230; line-height: 1.6; }
+  h1 { color: #2F6CB5; } h2 { color: #26406b; margin-top: 1.8em; }
+  .muted { color: #667085; }
+  ul { padding-left: 20px; }
+</style>
+</head>
+<body>
+<h1>Data Security at Ordin Core</h1>
+<p class="muted">Last updated: 3 November 2026</p>
+
+<p>Ordin Core is built to hold sensitive care-governance records for regulated health and social care
+providers. Security is treated as a first-class requirement, not an afterthought — enforced in the
+application layer, the database, and the infrastructure it runs on.</p>
+
+<h2>Tenant isolation</h2>
+<p>Every organisation's data is isolated from every other organisation's at the database layer. Requests
+are authenticated, scoped to the calling organisation, and role-checked before any record is returned.</p>
+
+<h2>Authentication &amp; access control</h2>
+<ul>
+  <li>Passwords are hashed (never stored or logged in plain text) and expire periodically.</li>
+  <li>Access is role-based: staff only see the services and records they are assigned to.</li>
+  <li>Login and other sensitive routes are rate-limited against brute-force attempts.</li>
+</ul>
+
+<h2>Encryption</h2>
+<p>Data in transit is protected with TLS. Backups are encrypted. Evidence media (photos, voice notes)
+is only reachable through authenticated, access-logged requests.</p>
+
+<h2>Audit logging</h2>
+<p>Security-relevant actions — logins, record changes, review sign-offs — are written to an audit log
+with who, what and when, supporting incident investigation and regulatory evidence requests.</p>
+
+<h2>Backups &amp; continuity</h2>
+<p>Data is backed up on a regular automated schedule and restore-tested, with ongoing work to keep an
+independent, off-server copy.</p>
+
+<h2>Secure development</h2>
+<p>Secrets are never committed to source control and are scanned for automatically. Dependencies are
+checked for known vulnerabilities, and changes go through automated build and test checks before
+release.</p>
+
+<h2>Ongoing assurance</h2>
+<p>We run internal security testing against the application and act on findings. Further independent
+certification work is in progress.</p>
+
+<h2>Questions</h2>
+<p>If you are a customer's information-governance team and need more detail (a security controls
+mapping, data-flow documentation, or our Data Processing Agreement), contact
+<a href="mailto:hello@ordincore.co.uk">hello@ordincore.co.uk</a>.</p>
+
+<p class="muted">© 2026 Ordin Core. All rights reserved.</p>
+</body>
+</html>
