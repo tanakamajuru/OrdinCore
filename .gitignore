@@ -14,6 +14,12 @@ backend/public/reports/*.pdf
 !walkthrough.md
 scratch/
 backend/scratch/
+backend/check_*.js
+backend/check_*.ts
+backend/fix_*.js
+backend/fix_*.ts
+backend/tmp_*.js
+backend/tmp_*.ts
 landing-page/dist/
 landing-page/.env
 
