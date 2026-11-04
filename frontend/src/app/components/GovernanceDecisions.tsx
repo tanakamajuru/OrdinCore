@@ -248,21 +248,7 @@ export function GovernanceDecisions({
     setSrcOpen(false);
   }, [focusPulseId, signals, readOnly]);
 
-  // Existing-escalation check (brief: "find linked open escalations by stable source
-  // relationships... if one exists, prominently offer View/update existing escalation" — the
-  // POST already dedupes the same way server-side, this is the heads-up before the RM fills in
-  // a new form). Checked whenever the selected signal changes, not just when Escalate is chosen,
-  // so it's visible before the RM commits to writing an escalation request from scratch.
   const [existingEscalation, setExistingEscalation] = useState<any>(null);
-  useEffect(() => {
-    let cancelled = false;
-    setExistingEscalation(null);
-    if (!selectedSignal?.id) return;
-    apiClient.get(`/escalations/open-for-source?pulse_entry_id=${selectedSignal.id}`)
-      .then((r: any) => { if (!cancelled) setExistingEscalation(r?.data?.data ?? null); })
-      .catch(() => { if (!cancelled) setExistingEscalation(null); });
-    return () => { cancelled = true; };
-  }, [selectedSignal?.id]);
 
   const record = async () => {
     if (readOnly) return;
@@ -428,6 +414,26 @@ export function GovernanceDecisions({
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
   // A returning monitoring review (the selected signal is in the Monitoring state) vs a first review.
   const returningReview = !!selectedSignal && String(selectedSignal.review_status) === "Monitoring";
+
+  // Existing-escalation check (brief: "find linked open escalations by stable source
+  // relationships... if one exists, prominently offer View/update existing escalation" — the
+  // POST already dedupes the same way server-side, this is the heads-up before the RM fills in
+  // a new form). Checked whenever the selected signal changes, not just when Escalate is chosen,
+  // so it's visible before the RM commits to writing an escalation request from scratch.
+  //
+  // BUG FIX (4 Nov 2026, live crash — "Cannot access 'Re' before initialization" on Daily
+  // Oversight): this effect originally sat above `selectedSignal`'s own declaration (a useMemo
+  // further down this component), referencing it in its dependency array before the TDZ let it
+  // exist. Dev mode tolerated it; the production minifier did not. Moved below the declaration.
+  useEffect(() => {
+    let cancelled = false;
+    setExistingEscalation(null);
+    if (!selectedSignal?.id) return;
+    apiClient.get(`/escalations/open-for-source?pulse_entry_id=${selectedSignal.id}`)
+      .then((r: any) => { if (!cancelled) setExistingEscalation(r?.data?.data ?? null); })
+      .catch(() => { if (!cancelled) setExistingEscalation(null); });
+    return () => { cancelled = true; };
+  }, [selectedSignal?.id]);
   // New (undecided) signals vs monitoring reviews that are due/overdue — the two queue tabs.
   const newSignals = useMemo(() => signals.filter((s: any) => { const st = String(s.review_status || "New"); return st === "New" || st === ""; }), [signals]);
   const dueSignals = useMemo(() => signals.filter((s: any) => String(s.review_status) === "Monitoring"), [signals]);
