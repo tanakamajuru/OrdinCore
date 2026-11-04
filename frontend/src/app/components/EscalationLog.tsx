@@ -924,7 +924,7 @@ export function EscalationLog() {
                           <p className="text-xs text-muted-foreground mt-1 mb-3">Briefly explain what your review found and why this action is needed. Enter the task below.</p>
                           <div className="space-y-2">
                             {Array.isArray((selectedEscalation as any).linked_actions) && (selectedEscalation as any).linked_actions.some((a: any) => !['Complete', 'Completed', 'Cancelled'].includes(String(a.status))) && (
-                              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900">
+                              <div className="rounded-lg border border-emerald-300 bg-emerald-50 p-3 text-xs text-emerald-900">
                                 <p className="font-semibold">Existing open corrective actions</p>
                                 <ul className="mt-1 list-disc pl-4">
                                   {(selectedEscalation as any).linked_actions
