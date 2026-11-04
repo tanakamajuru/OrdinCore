@@ -8,9 +8,11 @@ const dailyCheckQueue = new Queue('daily-governance-check', { connection: redisC
 
 export async function scheduleDailyGovernanceCheck() {
   // Add repeatable job to run at 08:00 daily
-  await dailyCheckQueue.add('check-absences', {}, {
-    repeat: { pattern: '0 8 * * *' }
-  });
+  await dailyCheckQueue.upsertJobScheduler(
+    'check-absences',
+    { pattern: '0 8 * * *' },
+    { name: 'check-absences', data: {} }
+  );
   logger.info('Scheduled daily governance check at 08:00');
 }
 

@@ -71,25 +71,27 @@ const signalReconciliationWorker = startSafeWorker('SignalReconciliation', start
 
 
 // Simple schedule triggers for daily jobs
+// bullmq v6: Queue.add's `repeat` option was removed — recurring jobs now go through
+// Queue.upsertJobScheduler(schedulerId, repeatOpts, jobTemplate).
 const riQueue = new Queue('ri-assurance', { connection: redisConnection });
-riQueue.add('osp-delta', {}, { repeat: { pattern: '0 1 * * *' } }); // 1 AM daily
-riQueue.add('deputy-cover', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
-riQueue.add('unacknowledged-reminders', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
-riQueue.add('heatmap-refresh', {}, { repeat: { pattern: '0 * * * *' } }); // Hourly
+riQueue.upsertJobScheduler('osp-delta', { pattern: '0 1 * * *' }, { name: 'osp-delta', data: {} }); // 1 AM daily
+riQueue.upsertJobScheduler('deputy-cover', { pattern: '0 */6 * * *' }, { name: 'deputy-cover', data: {} }); // Every 6h
+riQueue.upsertJobScheduler('unacknowledged-reminders', { pattern: '0 */6 * * *' }, { name: 'unacknowledged-reminders', data: {} }); // Every 6h
+riQueue.upsertJobScheduler('heatmap-refresh', { pattern: '0 * * * *' }, { name: 'heatmap-refresh', data: {} }); // Hourly
 
-new Queue('effectiveness-reminder', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
-new Queue('recurrence-watch', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 1 * * *' } });
-new Queue('no-signal-prompt', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 9 * * *' } });
+new Queue('effectiveness-reminder', { connection: redisConnection }).upsertJobScheduler('run', { pattern: '0 */6 * * *' }, { name: 'run', data: {} });
+new Queue('recurrence-watch', { connection: redisConnection }).upsertJobScheduler('run', { pattern: '0 1 * * *' }, { name: 'run', data: {} });
+new Queue('no-signal-prompt', { connection: redisConnection }).upsertJobScheduler('run', { pattern: '0 9 * * *' }, { name: 'run', data: {} });
 // Simple schedule trigger for the prompt worker
-new Queue('action-effectiveness-prompt', { connection: redisConnection }).add('action-effectiveness-prompt', {}, { repeat: { pattern: '0 * * * *' } });
-new Queue('action-effectiveness', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 */6 * * *' } });
+new Queue('action-effectiveness-prompt', { connection: redisConnection }).upsertJobScheduler('action-effectiveness-prompt', { pattern: '0 * * * *' }, { name: 'action-effectiveness-prompt', data: {} });
+new Queue('action-effectiveness', { connection: redisConnection }).upsertJobScheduler('run', { pattern: '0 */6 * * *' }, { name: 'run', data: {} });
 // Signal durability net — re-enqueue any persisted-but-unevaluated signal for pattern detection.
-new Queue('signal-reconciliation', { connection: redisConnection }).add('run', {}, { repeat: { pattern: '0 * * * *' } }); // hourly
+new Queue('signal-reconciliation', { connection: redisConnection }).upsertJobScheduler('run', { pattern: '0 * * * *' }, { name: 'run', data: {} }); // hourly
 
 // Director Governance Scheduling
 const directorQueue = new Queue('director-governance', { connection: redisConnection });
-directorQueue.add('detect-control-failures', {}, { repeat: { pattern: '0 */6 * * *' } }); // Every 6h
-directorQueue.add('publish-monthly-reports', {}, { repeat: { pattern: '0 2 1 * *' } }); // 2 AM on 1st of month
+directorQueue.upsertJobScheduler('detect-control-failures', { pattern: '0 */6 * * *' }, { name: 'detect-control-failures', data: {} }); // Every 6h
+directorQueue.upsertJobScheduler('publish-monthly-reports', { pattern: '0 2 1 * *' }, { name: 'publish-monthly-reports', data: {} }); // 2 AM on 1st of month
 
 
 // ─── Event Bus: Wire up global listeners ─────────────────────────────────────

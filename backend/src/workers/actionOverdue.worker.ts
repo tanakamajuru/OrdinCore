@@ -51,8 +51,11 @@ export const startActionOverdueWorker = () => {
   const queueName = 'action-overdue';
   const queue = new Queue(queueName, { connection: redisConnection });
 
-  queue.add('sweep', {}, { repeat: { every: 60 * 60 * 1000 }, removeOnComplete: true, removeOnFail: true })
-    .catch((err) => logger.error('Failed to schedule action-overdue sweep', err));
+  queue.upsertJobScheduler(
+    'sweep',
+    { every: 60 * 60 * 1000 },
+    { name: 'sweep', data: {}, opts: { removeOnComplete: true, removeOnFail: true } }
+  ).catch((err) => logger.error('Failed to schedule action-overdue sweep', err));
 
   const worker = new Worker(
     queueName,

@@ -7,8 +7,11 @@ import logger from '../utils/logger';
 export const startTrajectoryRefreshWorker = () => {
   const name = 'trajectory-refresh';
   const queue = new Queue(name, { connection: redisConnection });
-  queue.add('refresh', {}, { repeat: { every: 60 * 60 * 1000 }, removeOnComplete: true, removeOnFail: true })
-    .catch((e) => logger.error('Failed to schedule trajectory refresh', e));
+  queue.upsertJobScheduler(
+    'refresh',
+    { every: 60 * 60 * 1000 },
+    { name: 'refresh', data: {}, opts: { removeOnComplete: true, removeOnFail: true } }
+  ).catch((e) => logger.error('Failed to schedule trajectory refresh', e));
   return new Worker(name, async (_job: Job) => {
     const clusters = (await query(`SELECT id FROM canonical_pattern_state_v WHERE is_active`)).rows;
     for (const c of clusters) {

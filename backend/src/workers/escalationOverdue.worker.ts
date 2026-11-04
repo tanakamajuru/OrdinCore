@@ -36,10 +36,10 @@ export const startEscalationOverdueWorker = () => {
   const queue = new Queue(queueName, { connection: redisConnection });
 
   // Run hourly.
-  queue.add(
+  queue.upsertJobScheduler(
     'sweep',
-    {},
-    { repeat: { every: 60 * 60 * 1000 }, removeOnComplete: true, removeOnFail: true }
+    { every: 60 * 60 * 1000 },
+    { name: 'sweep', data: {}, opts: { removeOnComplete: true, removeOnFail: true } }
   ).catch((err) => logger.error('Failed to schedule escalation-overdue sweep', err));
 
   const worker = new Worker(
