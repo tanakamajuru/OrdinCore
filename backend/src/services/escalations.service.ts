@@ -1,4 +1,4 @@
-import { query } from '../config/database';
+import { query, getClient } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { risksRepo } from '../repositories/risks.repo';
@@ -784,40 +784,54 @@ export class EscalationsService {
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
     const reviewRequirement = body.review_requirement || 'EFFECTIVENESS_REQUIRED';
     if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!body.intended_outcome || body.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
-    // Nov 2026 duplicate-prevention brief: a genuine duplicate CANDIDATE (different attempt,
-    // same title+source) is surfaced to the caller (DuplicateActionCandidateError, 409) rather
-    // than silently returned as if a new allocation succeeded — canonicalGovernanceActionService
-    // propagates it; this method does not catch it here.
-    const action = await canonicalGovernanceActionService.create({
-      companyId:company_id,createdBy:user_id,title,description:title,assignedTo:body.assigned_to,
-      dueDate:body.due_date||null,houseId:e.house_id||null,riskId:e.risk_id||null,
-      governanceReviewId:e.source_governance_review_id||null,sourcePulseId:e.source_pulse_id||null,
-      sourceClusterId:e.source_cluster_id||null,escalationId:id,
-      reviewRequirement,intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? body.intended_outcome||null : null,
-      idempotencyKey: body.idempotency_key || null, force: !!body.force, warnOnDuplicate: true,
-    });
-    // A replay of the SAME attempt (idempotency key matched) already has its audit event and
-    // notification from the original request — recording/notifying again here would duplicate
-    // both, and since the returned action is guaranteed to be the one this request itself
-    // created, there is never a "notified the wrong assignee" risk on a true replay.
-    const replayed = !!(action as any).__replayed;
-    if (!replayed) {
-      // Preserve the decision+rationale in the escalation's own audit trail. Best-effort: the
-      // task itself is already committed above, so a failure here must not be reported as if
-      // nothing was saved -- it is logged, not swallowed silently.
-      try {
-        await query(
+    // Nov 2026 duplicate-prevention brief §5: the action, its escalation_actions audit row and
+    // the idempotency result are committed together in ONE transaction — a failure partway
+    // through (e.g. the audit insert) rolls back the action too, so a failed response never
+    // leaves a hidden action that duplicates on retry. Notification is scheduled only AFTER
+    // commit, never inside the transaction.
+    // A genuine duplicate CANDIDATE (different attempt, same title+source) is surfaced to the
+    // caller (DuplicateActionCandidateError, 409) rather than silently returned as if a new
+    // allocation succeeded — canonicalGovernanceActionService propagates it; this method does not
+    // catch it, so the transaction rolls back and nothing is left half-committed.
+    const client = await getClient();
+    let action: any;
+    let replayed = false;
+    try {
+      await client.query('BEGIN');
+      action = await canonicalGovernanceActionService.create({
+        companyId:company_id,createdBy:user_id,title,description:title,assignedTo:body.assigned_to,
+        dueDate:body.due_date||null,houseId:e.house_id||null,riskId:e.risk_id||null,
+        governanceReviewId:e.source_governance_review_id||null,sourcePulseId:e.source_pulse_id||null,
+        sourceClusterId:e.source_cluster_id||null,escalationId:id,
+        reviewRequirement,intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? body.intended_outcome||null : null,
+        idempotencyKey: body.idempotency_key || null, force: !!body.force, warnOnDuplicate: true,
+      }, client);
+      // A replay of the SAME attempt (idempotency key matched) already has its audit event and
+      // notification from the original request — recording/notifying again here would duplicate
+      // both, and since the returned action is guaranteed to be the one this request itself
+      // created, there is never a "notified the wrong assignee" risk on a true replay.
+      replayed = !!(action as any).__replayed;
+      if (!replayed) {
+        // Preserve the decision+rationale in the escalation's own audit trail, IN the same
+        // transaction as the action — previously best-effort/outside any transaction, so a task
+        // could commit while its allocation rationale silently failed to save.
+        await client.query(
           `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
            VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
           [uuidv4(), id, company_id, 'Action Allocated', rationale, user_id, JSON.stringify({ linked_action_id: action.id })]
         );
-      } catch (err) {
-        logger.error('Failed to record escalation decision rationale for addTask', err);
       }
+      await client.query('COMMIT');
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    if (!replayed) {
       try {
-        const { notificationsService } = await import('./notifications.service');
         await notificationsService.create({ company_id, user_id: action.assigned_to || body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });
-      } catch { /* best-effort */ }
+      } catch (err) { logger.warn('Failed to notify assignee of allocated task', err); }
     }
     await escalationLifecycleService.syncForAction(action.id, company_id);
     return action;
