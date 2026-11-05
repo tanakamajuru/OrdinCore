@@ -60,15 +60,24 @@ export const startActionOverdueWorker = () => {
   const worker = new Worker(
     queueName,
     async (_job: Job) => {
+      // UK day boundary (Nov 2026 brief: "UK time, deadlines and queue transitions"). due_date is
+      // a date-only deadline everywhere it's set (every form captures it via <input type="date">,
+      // confirmed across EscalationLog.tsx/RiskDetail.tsx) — stored as midnight Europe/London, not
+      // an exact-time instant. The previous `a.due_date < NOW()` compared it as if it WERE exact,
+      // so an action due "25 Nov" went overdue (and started climbing the ladder) from UK midnight
+      // on the 25th itself, a full day early. A date-only deadline is only Overdue once the UK
+      // calendar date has moved past the due date — "Overdue at the start of the following UK
+      // date", not the due date's own start.
       const overdue = await query(
         `SELECT a.id, a.company_id, a.title, a.assigned_to, a.escalation_stage,
                 COALESCE(a.house_id, r.house_id, e.house_id) AS house_id,
-                FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400)::int AS days_overdue
+                GREATEST(0, ((NOW() AT TIME ZONE 'Europe/London')::date - (a.due_date AT TIME ZONE 'Europe/London')::date))::int AS days_overdue
            FROM risk_actions a
            LEFT JOIN risks r ON r.id = a.risk_id
            LEFT JOIN escalations e ON e.id = a.escalation_id
           WHERE a.status NOT IN ('Complete','Completed','Cancelled')
-            AND a.due_date IS NOT NULL AND a.due_date < NOW()`
+            AND a.due_date IS NOT NULL
+            AND (a.due_date AT TIME ZONE 'Europe/London')::date < (NOW() AT TIME ZONE 'Europe/London')::date`
       );
 
       let fired = 0;
