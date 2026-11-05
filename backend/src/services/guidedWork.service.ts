@@ -145,19 +145,25 @@ export const guidedWorkService = {
          WHERE ra.company_id=$1 AND ra.assigned_to=$2
            AND ra.is_open
          ORDER BY ra.due_date NULLS LAST, ra.created_at`, [companyId, userId]);
+      // Nov 2026 brief ("Task visibility, advance reminders and monitoring"): an assigned action
+      // is actionable work from the moment it's allocated — a future deadline alone must not move
+      // it into Waiting, which reads as "no work needed until the deadline". Waiting is reserved
+      // for a genuine dependency or future review point where there is nothing to do yet (e.g. the
+      // monitoring/escalation review-point items below, which genuinely do wait). An assigned
+      // action always needs you; only its priority/label distinguishes Upcoming from Due today.
       for (const a of actions) {
         const dueNow = isDueByToday(a.due_date);
         const item: GuidedWorkItem = {
-          id:`action:${a.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
+          id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
           title:a.title || 'Complete assigned action', summary:'Complete the assigned intervention and record factual completion evidence.',
-          reason: dueNow ? 'Management has assigned this action to you.' : `Due ${dueDateLabel(a.due_date)} — not yet due.`,
+          reason: dueNow ? 'Management has assigned this action to you.' : `Upcoming — due ${dueDateLabel(a.due_date)}. You can start now.`,
           dueAt:a.due_date, serviceName:a.service_name,
           canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
           completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
           route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
-          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you but is not due until ${dueDateLabel(a.due_date)}.`
+          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you, due ${dueDateLabel(a.due_date)} — you can begin it any time before then.`
         };
-        (dueNow ? needsYou : waiting).push(item);
+        needsYou.push(item);
       }
 
       const weekly = await safeRows(`
@@ -733,19 +739,21 @@ export const guidedWorkService = {
          WHERE ra.company_id=$1 AND ra.assigned_to=$2
            AND ra.is_open
          ORDER BY ra.due_date NULLS LAST, ra.created_at`, [companyId, userId]);
+      // Same Nov 2026 brief fix as the Team Leader block above: a future deadline alone must not
+      // move actionable assigned work into Waiting.
       for (const a of directorActions) {
         const dueNow = isDueByToday(a.due_date);
         const item: GuidedWorkItem = {
-          id:`action:${a.id}`, role, state: dueNow ? 'NEEDS_YOU' : 'WAITING', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
+          id:`action:${a.id}`, role, state:'NEEDS_YOU', priority:priorityFor(a.due_date), taskType:'ASSIGNED_ACTION',
           title:a.title || 'Complete assigned action', summary:'Complete the assigned governance action and record factual completion evidence.',
-          reason: dueNow ? 'This governance action is personally assigned to you.' : `Due ${dueDateLabel(a.due_date)} — not yet due.`,
+          reason: dueNow ? 'This governance action is personally assigned to you.' : `Upcoming — due ${dueDateLabel(a.due_date)}. You can start now.`,
           dueAt:a.due_date, serviceName:a.service_name,
           canonicalEntityType:'action', canonicalEntityId:a.id, requiredAction:'COMPLETE_ASSIGNED_ACTION',
           completionCondition:'The assigned action is completed through the canonical completion service with factual completion evidence.',
           route:`/my-actions?focus=${a.id}&guided=1&gw=action:${a.id}`,
-          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you but is not due until ${dueDateLabel(a.due_date)}.`
+          actionLabel:'Complete Action', whyAmISeeingThis: dueNow ? 'This action is assigned to you and remains open.' : `This action is assigned to you, due ${dueDateLabel(a.due_date)} — you can begin it any time before then.`
         };
-        (dueNow ? needsYou : waiting).push(item);
+        needsYou.push(item);
       }
 
       const weekly = await safeRows(`SELECT id,week_ending FROM weekly_reviews WHERE company_id=$1 AND status='pending_validation' AND validation_status='Pending' ORDER BY week_ending`,[companyId]);
