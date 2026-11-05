@@ -32,8 +32,9 @@ interface User {
 interface AuthContextType {
   user: User | null;
   token: string | null;
-  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaChallenge?: string; mfaEnrolmentRequired?: boolean }>;
-  verifyMfa: (mfaChallenge: string, code: string) => Promise<{ mfaEnrolmentRequired?: boolean }>;
+  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaChallenge?: string }>;
+  verifyMfa: (mfaChallenge: string, code: string) => Promise<void>;
+  resendMfaCode: (mfaChallenge: string) => Promise<void>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -123,31 +124,34 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     localStorage.setItem('userId', userData.id);
     if (data.passwordExpired) localStorage.setItem('passwordExpired', '1');
     else localStorage.removeItem('passwordExpired');
-    if (data.mfaEnrolmentRequired) localStorage.setItem('mfaEnrolmentRequired', '1');
-    else localStorage.removeItem('mfaEnrolmentRequired');
   };
 
-  const login = async (email: string, password: string): Promise<{ mfaRequired?: boolean; mfaChallenge?: string; mfaEnrolmentRequired?: boolean }> => {
+  const login = async (email: string, password: string): Promise<{ mfaRequired?: boolean; mfaChallenge?: string }> => {
     const response = await apiClient.login({ email, password });
     if (response.success && (response as any).data) {
       const data = (response as any).data;
       // Second factor required — do NOT establish a session yet; hand the challenge back so the UI
-      // can collect the authenticator/recovery code and call verifyMfa.
+      // can collect the emailed code and call verifyMfa.
       if (data.mfaRequired) return { mfaRequired: true, mfaChallenge: data.mfaChallenge };
       storeSession(data);
-      return { mfaEnrolmentRequired: !!data.mfaEnrolmentRequired };
+      return {};
     }
     throw new Error((response as any).message || 'Login failed');
   };
 
-  // Complete the MFA second factor with the authenticator or recovery code.
-  const verifyMfa = async (mfaChallenge: string, code: string): Promise<{ mfaEnrolmentRequired?: boolean }> => {
+  // Complete the MFA second factor with the code emailed to the user.
+  const verifyMfa = async (mfaChallenge: string, code: string): Promise<void> => {
     const response: any = await apiClient.mfaVerify(mfaChallenge, code);
     if (response.success && response.data?.token) {
       storeSession(response.data);
-      return { mfaEnrolmentRequired: !!response.data.mfaEnrolmentRequired };
+      return;
     }
     throw new Error(response?.message || 'MFA verification failed');
+  };
+
+  const resendMfaCode = async (mfaChallenge: string): Promise<void> => {
+    const response: any = await apiClient.mfaResend(mfaChallenge);
+    if (!response.success) throw new Error(response?.message || 'Could not resend code');
   };
 
   const logout = () => {
@@ -184,6 +188,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     token,
     login,
     verifyMfa,
+    resendMfaCode,
     logout,
     isLoading,
     isAuthenticated: !!token && !!user,

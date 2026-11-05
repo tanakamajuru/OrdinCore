@@ -64,13 +64,13 @@ export function Login() {
       if (reason) { setError(reason); sessionStorage.removeItem('logoutReason'); }
     } catch { /* ignore */ }
   }, []);
-  const { login, verifyMfa, isAuthenticated } = useAuth();
+  const { login, verifyMfa, resendMfaCode, isAuthenticated } = useAuth();
+  const [resent, setResent] = useState(false);
 
-  // Where to go once fully authenticated (password + any MFA). Honours password expiry and the
-  // mandatory-MFA-enrolment gate before the normal role home.
+  // Where to go once fully authenticated (password + any MFA). Honours password expiry before the
+  // normal role home.
   const routeAfterAuth = () => {
     if (localStorage.getItem('passwordExpired')) { navigate('/profile?expired=1'); return; }
-    if (localStorage.getItem('mfaEnrolmentRequired')) { navigate('/mfa-setup'); return; }
     const role = (localStorage.getItem('userRole') || '').toUpperCase().replace(/-/g, '_');
     if (role === 'SUPER_ADMIN') navigate('/super-admin');
     else if (role === 'ADMIN') navigate('/admin');
@@ -122,7 +122,7 @@ export function Login() {
   const handleMfaSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!mfaChallenge) return;
-    if (mfaCode.trim().length < 6) { setError("Enter the 6-digit code from your authenticator app (or a recovery code)."); return; }
+    if (mfaCode.trim().length < 6) { setError("Enter the 6-digit code we emailed you."); return; }
     setIsLoading(true);
     setError("");
     try {
@@ -132,6 +132,18 @@ export function Login() {
       setError(err.message || "That code is not valid. Please try again.");
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    if (!mfaChallenge) return;
+    setError("");
+    try {
+      await resendMfaCode(mfaChallenge);
+      setResent(true);
+      setTimeout(() => setResent(false), 8000);
+    } catch (err: any) {
+      setError(err.message || "Could not resend the code.");
     }
   };
 
@@ -150,8 +162,8 @@ export function Login() {
               <form onSubmit={handleMfaSubmit} className="space-y-6" autoComplete="off">
                 {error && <div className="text-destructive text-sm text-center">{error}</div>}
                 <div>
-                  <h2 className="text-foreground font-semibold mb-1">Two-factor authentication</h2>
-                  <p className="text-sm text-muted-foreground mb-3">Enter the 6-digit code from your authenticator app. If you can't access it, enter one of your recovery codes.</p>
+                  <h2 className="text-foreground font-semibold mb-1">Check your email</h2>
+                  <p className="text-sm text-muted-foreground mb-3">We've emailed a 6-digit code to your account's email address. Enter it below — it's valid for 20 minutes.</p>
                   <input
                     id="mfaCode"
                     inputMode="numeric"
@@ -166,7 +178,10 @@ export function Login() {
                 <button type="submit" className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}>
                   {isLoading ? "Verifying..." : "Verify"}
                 </button>
-                <div className="text-center">
+                <div className="text-center space-y-1">
+                  <button type="button" onClick={handleResend} disabled={resent} className="text-primary hover:text-primary/70 transition-colors underline text-sm block w-full disabled:opacity-60">
+                    {resent ? "Code resent — check your email" : "Resend code"}
+                  </button>
                   <button type="button" onClick={() => { setMfaChallenge(null); setMfaCode(""); setError(""); }} className="text-primary hover:text-primary/70 transition-colors underline text-sm">
                     Back to sign in
                   </button>

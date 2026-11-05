@@ -73,11 +73,15 @@ export class AuthService {
       }
     }
 
-    // MFA gate (second factor): if the user has MFA enabled, do NOT issue a session token yet.
-    // Return a short-lived challenge the client exchanges — with a valid TOTP or recovery code — at
-    // /auth/mfa/verify. Users without MFA continue exactly as before.
-    if (user.mfa_enabled) {
-      const mfaChallenge = jwt.sign({ user_id: user.id, company_id: user.company_id ?? null, purpose: 'mfa' }, JWT_SECRET, { expiresIn: '5m' });
+    // MFA gate (second factor): privileged roles, or any role at a company that requires it, must
+    // enter a code emailed to them before a session token is issued. Everyone else continues exactly
+    // as before. Gated behind MFA_ENFORCE so the capability can be turned off instantly if needed.
+    const mfaEnforce = String(process.env.MFA_ENFORCE).toLowerCase() === 'true';
+    const mfaNeeded = mfaEnforce && (mfaService.mandatoryForRole(user.role) || await this.companyMfaRequired(user.company_id));
+    if (mfaNeeded) {
+      await mfaService.sendLoginCode(user.id, user.company_id ?? null, user.email);
+      // 20-minute window to receive and enter the emailed code — longer than a typical inbox check.
+      const mfaChallenge = jwt.sign({ user_id: user.id, company_id: user.company_id ?? null, purpose: 'mfa' }, JWT_SECRET, { expiresIn: '20m' });
       if (user.company_id) {
         await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, 'auth.mfa_challenge', 'auth', $2)`, [user.company_id, user.id]).catch(() => {});
       }
@@ -87,18 +91,32 @@ export class AuthService {
     return this.completeLogin(user);
   }
 
-  // Exchange a valid MFA challenge + code for a full session (completes the second factor).
+  // Resend a fresh email code against an existing (still-valid) challenge.
+  async resendMfaCode(mfaChallenge: string) {
+    let payload: any;
+    try { payload = jwt.verify(mfaChallenge, JWT_SECRET); } catch { throw new Error('Your sign-in session expired — please enter your password again.'); }
+    if (!payload || payload.purpose !== 'mfa' || !payload.user_id) throw new Error('Invalid MFA session.');
+    const user = await usersRepo.findById(payload.user_id);
+    if (!user || user.status !== 'active') throw new Error('Invalid credentials');
+    await mfaService.sendLoginCode(user.id, user.company_id ?? null, user.email);
+  }
+
+  // Exchange a valid MFA challenge + emailed code for a full session (completes the second factor).
   async verifyMfaLogin(mfaChallenge: string, code: string) {
     let payload: any;
     try { payload = jwt.verify(mfaChallenge, JWT_SECRET); } catch { throw new Error('Your sign-in session expired — please enter your password again.'); }
     if (!payload || payload.purpose !== 'mfa' || !payload.user_id) throw new Error('Invalid MFA session.');
     const user = await usersRepo.findById(payload.user_id);
     if (!user || user.status !== 'active') throw new Error('Invalid credentials');
-    const ok = await mfaService.verify(user.id, user.company_id, code);
+    const ok = await mfaService.verifyCode(user.id, code);
     if (user.company_id) {
       await query(`INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id) VALUES (uuid_generate_v4(), $1, $2, $3, 'auth', $2)`, [user.company_id, user.id, ok ? 'auth.mfa_success' : 'auth.mfa_failed']).catch(() => {});
     }
-    if (!ok) throw new Error('That code is not valid. Enter the current code from your authenticator app, or a recovery code.');
+    if (!ok) throw new Error('That code is not valid or has expired. Request a new code and try again.');
+    // Best-effort marker for admin dashboards ("has completed a sign-in code at least once").
+    if (!user.mfa_enabled) {
+      await query(`UPDATE users SET mfa_enabled = true, mfa_enrolled_at = NOW() WHERE id = $1`, [user.id]).catch(() => {});
+    }
     return this.completeLogin(user);
   }
 
@@ -134,21 +152,12 @@ export class AuthService {
     const token = this.generateToken(user);
     const refreshToken = await this.generateRefreshToken(user);
 
-    // DSPT: whether this user MUST enrol in MFA before using the app (privileged role, or company
-    // policy requires it) — the client forces the enrolment screen when true. Gated by MFA_ENFORCE
-    // (the same switch as the server-side middleware) so enforcement is all-or-nothing and can ship
-    // dormant until the org is ready to turn it on.
-    const mfaEnforce = String(process.env.MFA_ENFORCE).toLowerCase() === 'true';
-    const companyMfaRequired = mfaEnforce && await this.companyMfaRequired(user.company_id);
-    const mfaEnrolmentRequired = mfaEnforce && mfaService.enrolmentRequired(user.role, companyMfaRequired, !!user.mfa_enabled);
-
     const { password_hash, ...safeUser } = user;
     void password_hash;
     return {
       token,
       refreshToken,
       passwordExpired,
-      mfaEnrolmentRequired,
       user: {
         ...safeUser,
         profile: profile.rows[0] || null,
