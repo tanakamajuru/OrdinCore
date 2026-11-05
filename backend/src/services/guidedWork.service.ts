@@ -466,7 +466,13 @@ export const guidedWorkService = {
         // never used to manufacture a second routine decision while monitoring is active.
         const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
         const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
-        const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
+        // UK day boundary (Nov 2026 brief follow-up #11): next_review_at is a date-only value
+        // (<input type="date"> in EscalationLog.tsx) and was compared as an exact UTC instant —
+        // `new Date("2026-07-25")` parses as UTC midnight, which is UK 01:00 during BST, so the
+        // review briefly looked "not yet due" for the first hour of its UK due date in summer.
+        // isDueByToday() already compares UK calendar days correctly (used for actions/signals
+        // elsewhere in this file) — reused here for the same date-only semantics.
+        const reviewDue = isDueByToday(e.next_review_at);
         const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
 
         if (validMonitoring) {
@@ -494,7 +500,8 @@ export const guidedWorkService = {
         // as URGENT/Needs You immediately, contradicting the comment directly above this line
         // and the TL's own correctly-waiting view of the same escalation. Only a review point
         // that has actually been reached pulls it back into Decisions Due early.
-        const nextReviewDue = !!e.next_review_at && new Date(e.next_review_at).getTime() <= Date.now();
+        // Same UK day-boundary fix as `reviewDue` above.
+        const nextReviewDue = !!e.next_review_at && isDueByToday(e.next_review_at);
         const dueNow = rmAttention || nextReviewDue || isDueByToday(e.due_by);
         const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
           : (nextReviewDue ? 'The monitoring review point has been reached.'
