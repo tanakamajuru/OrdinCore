@@ -15,7 +15,33 @@ export type GovernanceActionInput={
   // Optional: if not set at creation, the existing completion-time scheduling flow
   // (actions.controller.ts 'complete') still lets the RM set it then.
   effectivenessDueAt?:Date|string|null;
+  // A stable key for THIS allocation attempt (regenerated only after a successful submit, reused
+  // across retries of the same attempt) — a double-click or dropped-connection retry resolves
+  // atomically to the one row already created instead of racing the SELECT-before-INSERT check.
+  idempotencyKey?:string|null;
+  // Explicit override: the caller has already shown the similar-work warning and the user chose
+  // to create a separate task anyway. Skips the duplicate-candidate check below.
+  force?:boolean;
+  // Opt-in (Nov 2026 duplicate-prevention brief): throw DuplicateActionCandidateError instead of
+  // silently returning the existing match. Default stays off so the other call sites (risks,
+  // incidents, governanceDecisions — out of this brief's scope) keep their existing behaviour
+  // unchanged; only escalations.service.ts's addTask opts in.
+  warnOnDuplicate?:boolean;
 };
+
+// Thrown when an open action with the same normalised title and source lineage already exists
+// and this is NOT a replay of the same allocation attempt (no/different idempotencyKey). The
+// caller must show the existing action and let a human choose (view/reassign/create separate),
+// never silently return it as if a new allocation had succeeded.
+export class DuplicateActionCandidateError extends Error {
+  statusCode = 409;
+  code = 'DUPLICATE_CANDIDATE';
+  existing: any;
+  constructor(existing: any) {
+    super('A similar open task already exists for this source.');
+    this.existing = existing;
+  }
+}
 
 const validate=(i:GovernanceActionInput)=>{
   if(!i.companyId||!i.createdBy) throw new Error('Canonical action requires company and creator.');
@@ -31,44 +57,66 @@ const validate=(i:GovernanceActionInput)=>{
 const insertSql=`INSERT INTO risk_actions
  (id,risk_id,company_id,house_id,title,description,assigned_to,due_date,created_by,status,
   governance_review_id,source_pulse_id,source_cluster_id,intended_outcome,escalation_id,
-  governance_domain,review_requirement,incident_id,evidence_contract_version,effectiveness_due_at)
- VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,$17,'action-evidence-v1',$18)
+  governance_domain,review_requirement,incident_id,evidence_contract_version,effectiveness_due_at,idempotency_key)
+ VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,'Open',$10,$11,$12,$13,$14,$15,$16,$17,'action-evidence-v1',$18,$19)
+ ON CONFLICT (company_id, idempotency_key) WHERE idempotency_key IS NOT NULL DO NOTHING
  RETURNING *`;
 
 export const canonicalGovernanceActionService={
   async create(input:GovernanceActionInput, client?:PoolClient){
     validate(input);
-    const runner0=client?client.query.bind(client):query;
-    // Idempotency (doctrine §7.5): tenant + source decision + normalised purpose + active
-    // lifecycle. When the action carries a source lineage, an equivalent still-open action
-    // from the SAME source must not be duplicated (e.g. a decision retried, or the same
-    // signal actioned twice). Ad-hoc actions with no source are not deduped.
+    const runner=client?client.query.bind(client):query;
+    const idemKey=input.idempotencyKey||null;
+
+    // Atomic idempotent replay: the SAME allocation attempt retried (double-click, dropped
+    // connection). Resolves to the one row already created — never a duplicate, never silently
+    // treated as a fresh allocation (no re-notification, no second audit event upstream).
+    if(idemKey){
+      const byKey=(await runner(`SELECT * FROM risk_actions WHERE company_id=$1 AND idempotency_key=$2`,[input.companyId,idemKey])).rows[0];
+      if(byKey) return {...byKey,__replayed:true};
+    }
+
+    // Similar-work warning (doctrine §7.5 / Nov 2026 duplicate-prevention brief): tenant +
+    // source decision + normalised title + active lifecycle. This is now a WARNING, not silent
+    // suppression — a genuinely new allocation attempt (different/no idempotency key) that
+    // matches is surfaced to the caller as a duplicate candidate so a human can view the
+    // existing one, reassign/reschedule it, or explicitly create a separate task (force=true).
+    // Ad-hoc actions with no source lineage are not deduped.
     const idemTitle=String(input.title||'').trim().toLowerCase();
     const hasLineage=!!(input.governanceReviewId||input.sourcePulseId||input.sourceClusterId||input.escalationId||input.incidentId);
-    if(hasLineage){
-      const existing=(await runner0(
-        `SELECT * FROM risk_actions
-          WHERE company_id=$1
-            AND LOWER(BTRIM(title))=$2
-            AND completed_at IS NULL
-            AND COALESCE(status,'') NOT IN ('Completed','Complete','Closed','Resolved','Cancelled')
-            AND ( ($3::uuid IS NOT NULL AND governance_review_id=$3)
-               OR ($4::uuid IS NOT NULL AND source_pulse_id=$4)
-               OR ($5::uuid IS NOT NULL AND source_cluster_id=$5)
-               OR ($6::uuid IS NOT NULL AND escalation_id=$6)
-               OR ($7::uuid IS NOT NULL AND incident_id=$7) )
-          ORDER BY created_at LIMIT 1`,
+    if(hasLineage && !input.force){
+      const existing=(await runner(
+        `SELECT ra.*, COALESCE(NULLIF(TRIM(u.first_name||' '||u.last_name),''),'Unassigned') AS assigned_to_name
+           FROM risk_actions ra LEFT JOIN users u ON u.id=ra.assigned_to
+          WHERE ra.company_id=$1
+            AND LOWER(BTRIM(ra.title))=$2
+            AND ra.completed_at IS NULL
+            AND COALESCE(ra.status,'') NOT IN ('Completed','Complete','Closed','Resolved','Cancelled')
+            AND ( ($3::uuid IS NOT NULL AND ra.governance_review_id=$3)
+               OR ($4::uuid IS NOT NULL AND ra.source_pulse_id=$4)
+               OR ($5::uuid IS NOT NULL AND ra.source_cluster_id=$5)
+               OR ($6::uuid IS NOT NULL AND ra.escalation_id=$6)
+               OR ($7::uuid IS NOT NULL AND ra.incident_id=$7) )
+          ORDER BY ra.created_at LIMIT 1`,
         [input.companyId,idemTitle,input.governanceReviewId||null,input.sourcePulseId||null,input.sourceClusterId||null,input.escalationId||null,input.incidentId||null]
       )).rows[0];
-      if(existing) return existing;
+      if(existing){
+        if(input.warnOnDuplicate) throw new DuplicateActionCandidateError(existing);
+        return existing;
+      }
     }
     const params=[uuidv4(),input.riskId||null,input.companyId,input.houseId||null,String(input.title).trim().slice(0,255),
       input.description||null,input.assignedTo||null,input.dueDate||null,input.createdBy,input.governanceReviewId||null,
       input.sourcePulseId||null,input.sourceClusterId||null,input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?String(input.intendedOutcome).trim():null,
       input.escalationId||null,input.governanceDomain||null,input.reviewRequirement,input.incidentId||null,
-      input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?(input.effectivenessDueAt||null):null];
-    const runner=client?client.query.bind(client):query;
-    return (await runner(insertSql,params)).rows[0];
+      input.reviewRequirement==='EFFECTIVENESS_REQUIRED'?(input.effectivenessDueAt||null):null,idemKey];
+    const inserted=(await runner(insertSql,params)).rows[0];
+    if(!inserted && idemKey){
+      // Lost the race to a concurrent request with the same key — fetch what it created.
+      const raced=(await runner(`SELECT * FROM risk_actions WHERE company_id=$1 AND idempotency_key=$2`,[input.companyId,idemKey])).rows[0];
+      return {...raced,__replayed:true};
+    }
+    return inserted;
   },
 
   async complete(input:{companyId:string;actionId:string;completedBy:string;completionNote?:string|null;completionOutcome:string;completionRationale:string}){

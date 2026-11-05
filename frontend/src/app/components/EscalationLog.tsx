@@ -93,6 +93,13 @@ export function EscalationLog() {
     review_requirement: "EFFECTIVENESS_REQUIRED" as "COMPLETION_ONLY" | "EFFECTIVENESS_REQUIRED",
   });
   const [assigningTask, setAssigningTask] = useState(false);
+  // Nov 2026 duplicate-prevention brief: a stable key for THIS allocation attempt, reused across
+  // retries of the same attempt (double-click, dropped connection) and regenerated only after a
+  // successful submit — lets the backend recognise a replay instead of creating a duplicate task.
+  const taskIdemKey = useRef<string | null>(null);
+  // A similar open task the backend flagged (409 DUPLICATE_CANDIDATE) — shown so the RM can view
+  // it, reassign/reschedule it, or explicitly create a separate task for a distinct purpose.
+  const [duplicateTaskWarning, setDuplicateTaskWarning] = useState<any>(null);
   // Filters (incl. the From/To date range) open by default so the date range is visible, not hidden.
   const [showFilters, setShowFilters] = useState(true);
   const [reviewDecision, setReviewDecision] = useState<"monitor" | "action" | "escalate" | "close" | "">("");
@@ -135,7 +142,7 @@ export function EscalationLog() {
       .catch(() => setAssignees([]));
   }, []);
 
-  const allocateTask = async () => {
+  const allocateTask = async (force = false) => {
     if (!selectedEscalation) return;
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
     if (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
@@ -145,6 +152,8 @@ export function EscalationLog() {
     // never validated or submitted resolutionNotes — the manager's typed finding/rationale
     // was silently dropped from the task request entirely. Now required here too.
     if (!resolutionNotes.trim()) { toast.error('Explain what your review found and why this action is needed.'); notesRef.current?.focus(); return; }
+    if (!taskIdemKey.current) taskIdemKey.current = (crypto?.randomUUID?.() || `task-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+    setDuplicateTaskWarning(null);
     setAssigningTask(true);
     try {
       // Works whether or not the escalation has a linked risk — the task carries the
@@ -156,14 +165,24 @@ export function EscalationLog() {
         assigned_to: taskForm.assigned_to,
         due_date: taskForm.due_date || new Date(Date.now() + 3 * 86400000).toISOString().split('T')[0],
         rationale: resolutionNotes.trim(),
+        idempotency_key: taskIdemKey.current,
+        force,
       });
       toast.success('Decision saved and task allocated — it now appears in their My Actions.');
       await loadEscalations();
       setTaskForm({ title: "", intended_outcome: "", assigned_to: "", due_date: "", review_requirement: "EFFECTIVENESS_REQUIRED" });
       setResolutionNotes("");
+      taskIdemKey.current = null;
     } catch (e: any) {
-      // On failure, preserve the entered text (resolutionNotes/taskForm are untouched here)
-      // and create neither record — the backend only commits once both have validated.
+      if (e?.response?.status === 409 && e?.response?.data?.code === 'DUPLICATE_CANDIDATE') {
+        // A similar open task already exists — show it and let the RM decide, rather than a
+        // generic error toast. taskIdemKey is kept: a plain retry must still resolve to this
+        // same attempt, not mint a second one.
+        setDuplicateTaskWarning(e.response.data.existing);
+        return;
+      }
+      // On any other failure, preserve the entered text (resolutionNotes/taskForm are untouched
+      // here) and create neither record — the backend only commits once both have validated.
       toast.error(e?.response?.data?.message || e?.message || 'Could not save the decision and allocate the task.');
     } finally { setAssigningTask(false); }
   };
@@ -186,6 +205,8 @@ export function EscalationLog() {
     setReviewDecision("");
     setResolutionNotes("");
     setNextReviewAt("");
+    setDuplicateTaskWarning(null);
+    taskIdemKey.current = null;
   }, [selectedEscalation?.id]);
 
   // Show the full-screen loading state only on the FIRST load. Every later call (the 60s safety
@@ -973,8 +994,25 @@ export function EscalationLog() {
                                 className="bg-input-background border-2 border-border rounded-lg p-2.5 text-sm focus:outline-none"
                               />
                             </div>
+                            {/* Duplicate-candidate warning (Nov 2026 brief): a similar open task already
+                                exists. Show it and let the RM choose rather than silently reassigning
+                                or creating an unexplained second task. */}
+                            {duplicateTaskWarning && (
+                              <div className="rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm space-y-2">
+                                <p className="font-semibold text-amber-800">A similar open task already exists</p>
+                                <p className="text-amber-800">"{duplicateTaskWarning.title}" — assigned to {duplicateTaskWarning.assigned_to_name || 'someone'}{duplicateTaskWarning.due_date ? `, due ${new Date(duplicateTaskWarning.due_date).toLocaleDateString('en-GB')}` : ''}, status {duplicateTaskWarning.status || 'Open'}.</p>
+                                <div className="flex flex-wrap gap-2">
+                                  <button type="button" onClick={() => navigate(`/my-actions?action_id=${duplicateTaskWarning.id}`)}
+                                    className="px-3 py-1.5 rounded-lg border border-amber-400 text-amber-800 text-xs font-semibold hover:bg-amber-100">View existing</button>
+                                  <button type="button" onClick={() => setDuplicateTaskWarning(null)}
+                                    className="px-3 py-1.5 rounded-lg border border-border text-xs hover:bg-muted">Cancel</button>
+                                  <button type="button" onClick={() => allocateTask(true)}
+                                    className="px-3 py-1.5 rounded-lg bg-amber-600 text-white text-xs font-semibold hover:bg-amber-700">Create separate task anyway</button>
+                                </div>
+                              </div>
+                            )}
                             <button
-                              onClick={allocateTask}
+                              onClick={() => allocateTask(false)}
                               disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) || !taskForm.assigned_to || !taskForm.due_date || !resolutionNotes.trim()}
                               title={!resolutionNotes.trim() ? 'Add the rationale above — why is this action needed?' : undefined}
                               className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"

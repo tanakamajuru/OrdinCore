@@ -184,9 +184,14 @@ export class EscalationsController {
       const task = await escalationsService.addTask(req.params.id, company_id, req.user!.user_id, req.body);
       emitToCompany(company_id, 'governance.case.updated', { reason: 'escalation_task_added', escalation_id: req.params.id, action_id: task?.id || null });
       return res.status(201).json({ success: true, data: task, meta: {} });
-    } catch (err: unknown) {
+    } catch (err: any) {
+      // Duplicate-candidate (409): a similar open task already exists — carry its details so the
+      // UI can offer View existing / Reassign / Create separate instead of a plain error toast.
+      if (err?.code === 'DUPLICATE_CANDIDATE') {
+        return res.status(409).json({ success: false, message: err.message, code: 'DUPLICATE_CANDIDATE', existing: err.existing, errors: [] });
+      }
       const message = err instanceof Error ? err.message : 'Failed to add task';
-      return res.status(400).json({ success: false, message, errors: [] });
+      return res.status(err?.statusCode ?? 400).json({ success: false, message, errors: [] });
     }
   }
 

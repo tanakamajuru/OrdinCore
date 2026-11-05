@@ -775,7 +775,7 @@ export class EscalationsService {
   // table every other review decision on this escalation already writes to), separate from
   // the task's own title/description, so it shows in escalation history as the DECISION, not
   // duplicated into the task instructions.
-  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string; review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED'; rationale?: string }) {
+  async addTask(id: string, company_id: string, user_id: string, body: { title?: string; assigned_to?: string; due_date?: string; intended_outcome?: string; review_requirement?: 'COMPLETION_ONLY' | 'EFFECTIVENESS_REQUIRED'; rationale?: string; idempotency_key?: string; force?: boolean }) {
     const rationale = String(body.rationale || '').trim();
     if (!rationale) throw new Error('Explain what your review found and why this action is needed.');
     const e = (await query(`SELECT id, house_id, risk_id, source_governance_review_id, source_pulse_id, source_cluster_id, reason FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
@@ -784,30 +784,42 @@ export class EscalationsService {
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
     const reviewRequirement = body.review_requirement || 'EFFECTIVENESS_REQUIRED';
     if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!body.intended_outcome || body.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+    // Nov 2026 duplicate-prevention brief: a genuine duplicate CANDIDATE (different attempt,
+    // same title+source) is surfaced to the caller (DuplicateActionCandidateError, 409) rather
+    // than silently returned as if a new allocation succeeded — canonicalGovernanceActionService
+    // propagates it; this method does not catch it here.
     const action = await canonicalGovernanceActionService.create({
       companyId:company_id,createdBy:user_id,title,description:title,assignedTo:body.assigned_to,
       dueDate:body.due_date||null,houseId:e.house_id||null,riskId:e.risk_id||null,
       governanceReviewId:e.source_governance_review_id||null,sourcePulseId:e.source_pulse_id||null,
       sourceClusterId:e.source_cluster_id||null,escalationId:id,
       reviewRequirement,intendedOutcome:reviewRequirement === 'EFFECTIVENESS_REQUIRED' ? body.intended_outcome||null : null,
+      idempotencyKey: body.idempotency_key || null, force: !!body.force, warnOnDuplicate: true,
     });
-    // Preserve the decision+rationale in the escalation's own audit trail. Best-effort: the
-    // task itself is already committed above, so a failure here must not be reported as if
-    // nothing was saved -- it is logged, not swallowed silently.
-    try {
-      await query(
-        `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
-         VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
-        [uuidv4(), id, company_id, 'Action Allocated', rationale, user_id, JSON.stringify({ linked_action_id: action.id })]
-      );
-    } catch (err) {
-      logger.error('Failed to record escalation decision rationale for addTask', err);
+    // A replay of the SAME attempt (idempotency key matched) already has its audit event and
+    // notification from the original request — recording/notifying again here would duplicate
+    // both, and since the returned action is guaranteed to be the one this request itself
+    // created, there is never a "notified the wrong assignee" risk on a true replay.
+    const replayed = !!(action as any).__replayed;
+    if (!replayed) {
+      // Preserve the decision+rationale in the escalation's own audit trail. Best-effort: the
+      // task itself is already committed above, so a failure here must not be reported as if
+      // nothing was saved -- it is logged, not swallowed silently.
+      try {
+        await query(
+          `INSERT INTO escalation_actions (id, escalation_id, company_id, action_type, description, taken_by, metadata)
+           VALUES ($1,$2,$3,$4,$5,$6,$7::jsonb)`,
+          [uuidv4(), id, company_id, 'Action Allocated', rationale, user_id, JSON.stringify({ linked_action_id: action.id })]
+        );
+      } catch (err) {
+        logger.error('Failed to record escalation decision rationale for addTask', err);
+      }
+      try {
+        const { notificationsService } = await import('./notifications.service');
+        await notificationsService.create({ company_id, user_id: action.assigned_to || body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });
+      } catch { /* best-effort */ }
     }
     await escalationLifecycleService.syncForAction(action.id, company_id);
-    try {
-      const { notificationsService } = await import('./notifications.service');
-      await notificationsService.create({ company_id, user_id: body.assigned_to, type: 'task_assigned', title: 'Task assigned to you', body: title, link: '/my-actions' });
-    } catch { /* best-effort */ }
     return action;
   }
 
