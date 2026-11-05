@@ -259,6 +259,43 @@ export const guidedWorkService = {
         actionLabel:'Review Signal', whyAmISeeingThis:'This signal has not yet received an RM governance decision.'
       });
 
+      // Candidate risks awaiting their first promote/dismiss decision (Nov 2026 brief:
+      // "Governance Overview: prompts in Decisions Due"). Previously these only ever appeared on
+      // the Governance Overview page itself — never in Decisions Due — so an RM who worked
+      // entirely from their queue could be unaware a candidate was waiting; viewing the Governance
+      // Overview page is not proof its concerns were reviewed. Same dedup rule as
+      // governance.service.ts getRiskCandidates (a person-level candidate suppresses the redundant
+      // system-level one for the same house+domain+status) so this never double-counts against
+      // that page's own list.
+      const candidates = await safeRows(`
+        SELECT rc.id, rc.house_id, rc.risk_domain, rc.linked_person, rc.candidate_type, rc.created_at, h.name AS service_name
+          FROM risk_candidates rc JOIN houses h ON h.id=rc.house_id
+         WHERE rc.company_id=$1 AND rc.house_id=ANY($2::uuid[]) AND rc.status='New'
+           AND NOT (
+             rc.linked_person IS NULL AND EXISTS (
+               SELECT 1 FROM risk_candidates rc2
+                WHERE rc2.company_id=rc.company_id AND rc2.house_id=rc.house_id
+                  AND rc2.risk_domain=rc.risk_domain AND rc2.linked_person IS NOT NULL AND rc2.status=rc.status
+             )
+           )
+         ORDER BY rc.created_at`, [companyId, houses]);
+      for (const c of candidates) {
+        const domain = Array.isArray(c.risk_domain) ? c.risk_domain[0] : c.risk_domain;
+        needsYou.push({
+          id:`candidate:${c.id}`, role, state:'NEEDS_YOU', priority:priorityFor(null, c.candidate_type === 'Immediate Risk'), taskType:'CANDIDATE_REVIEW',
+          title:`Review candidate risk — ${domain || 'concern'}${c.linked_person ? ` · ${c.linked_person}` : ''}`,
+          summary:`${c.candidate_type || 'Pattern'} candidate${c.linked_person ? ` for ${c.linked_person}` : ''} has not yet been promoted or dismissed.`,
+          // No response-deadline on a candidate's first decision — show how long it has waited
+          // rather than inventing an overdue date (brief §3: "Awaiting first decision ... age").
+          reason:'This candidate risk has not yet received a promote/dismiss decision.',
+          dueAt:null, serviceName:c.service_name,
+          canonicalEntityType:'risk', canonicalEntityId:c.id, requiredAction:'CANDIDATE_PROMOTE_OR_DISMISS',
+          completionCondition:'The candidate is promoted to a formal risk or dismissed with a recorded reason through the existing candidate-review form.',
+          route:`/risks/promote?candidate_id=${c.id}&guided=1&gw=candidate:${c.id}`,
+          actionLabel:'Review Candidate', whyAmISeeingThis:`Identified ${new Date(c.created_at).toLocaleDateString('en-GB')} — awaiting your first decision.`
+        });
+      }
+
       // Evaluation recovery (17 Oct v3 findings, decision confirmed 21 Oct 2026): a signal whose
       // pattern/immediate-detection evaluation has exhausted its auto-retry budget must never sit
       // silently indistinguishable from "evaluated, no concern found" — surface it to the RM as its
