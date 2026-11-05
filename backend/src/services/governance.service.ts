@@ -143,14 +143,27 @@ export class GovernanceService {
   // without this, the "Governance Description" only carries a statistical summary ("7
   // Environment & Property signals detected"), not the actual evidence an RM needs to judge it.
   async getRiskCandidateSignals(company_id: string, candidateId: string) {
+    // Bug fix (5 Nov 2026): source_signals only ever holds whichever threshold rule's
+    // subset fired LAST for this cluster (e.g. rule 3 "Immediate Risk" writes just the
+    // 48h-window signals), so it can shrink to 1 even though the cluster's real signal
+    // count (shown in the candidate's "reason"/card text) is much higher. Union it with
+    // every signal actually linked to the cluster via risk_signal_links — the same source
+    // the card's own count comes from — so the evidence panel always matches what's claimed.
     const r = await query(
-      `SELECT gp.id, gp.entry_date, gp.entry_time, gp.severity, gp.signal_type, gp.signal_label, gp.risk_domain,
+      `WITH ids AS (
+         SELECT unnest(rc.source_signals) AS pulse_id FROM risk_candidates rc WHERE rc.id = $1 AND rc.company_id = $2
+         UNION
+         SELECT rsl.pulse_entry_id FROM risk_candidates rc
+           JOIN risk_signal_links rsl ON rsl.cluster_id = rc.cluster_id
+          WHERE rc.id = $1 AND rc.company_id = $2 AND rc.cluster_id IS NOT NULL
+       )
+       SELECT gp.id, gp.entry_date, gp.entry_time, gp.severity, gp.signal_type, gp.signal_label, gp.risk_domain,
               gp.related_person, gp.description, gp.pattern_concern, gp.created_at,
               h.name AS house_name
-         FROM risk_candidates rc
-         JOIN governance_pulses gp ON gp.id = ANY(rc.source_signals)
+         FROM ids
+         JOIN governance_pulses gp ON gp.id = ids.pulse_id
          LEFT JOIN houses h ON h.id = gp.house_id
-        WHERE rc.id = $1 AND rc.company_id = $2
+        WHERE gp.company_id = $2
         ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
       [candidateId, company_id]
     );

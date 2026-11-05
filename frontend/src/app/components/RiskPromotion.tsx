@@ -382,17 +382,17 @@ export function RiskPromotion() {
                 />
 
                 <div className="flex gap-4">
-                  <button 
+                  <button
                       onClick={handleSubmit}
                       disabled={isSubmitting || !formData.category_id || !formData.reason}
-                      className="flex-1 bg-primary text-primary-foreground h-16 border-4 border-primary uppercase  tracking-widest hover:scale-105 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
+                      className="flex-1 bg-primary text-primary-foreground h-16 border-4 border-primary text-sm uppercase tracking-widest hover:scale-105 transition-transform disabled:opacity-50 flex items-center justify-center gap-2"
                   >
-                      Register <ShieldAlert size={20} />
+                      Register <ShieldAlert size={18} />
                   </button>
-                  <button 
+                  <button
                       onClick={handleDismiss}
                       disabled={isSubmitting || !formData.reason}
-                      className="flex-1 border-4 border-border h-16 uppercase  tracking-widest hover:bg-muted transition-all disabled:opacity-50"
+                      className="flex-1 border-4 border-border h-16 text-sm uppercase tracking-widest hover:bg-muted transition-all disabled:opacity-50"
                   >
                       Dismiss
                   </button>
