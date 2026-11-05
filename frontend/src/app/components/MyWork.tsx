@@ -63,11 +63,23 @@ export function MyWork(){
   // hasn't tagged an item (treated as a decision).
   const myWork=data.needsYou.filter(i=>i.category==='ASSIGNED');
   const decisions=data.needsYou.filter(i=>i.category!=='ASSIGNED');
-  const card=(item:GuidedWorkItem)=><article key={item.id} className={`rounded-xl border p-4 ${item.state==='NEEDS_YOU'?priorityClass[item.priority]:'border-border bg-card'}`}>
+  // Secondary label (Nov 2026 brief: "Needs you: ... Use secondary labels Upcoming, In progress,
+  // Due today and Overdue"). Cosmetic only — never gates state/priority, which the backend already
+  // computes with UK calendar-day semantics; this is a lightweight same-page hint, not a second
+  // source of truth, so a browser in a non-UK timezone seeing it off by one day near midnight is a
+  // display nuance, not a governance decision.
+  const stageLabel=(item:GuidedWorkItem):string|null=>{
+    if(item.state!=='NEEDS_YOU'||item.completedAt||!item.dueAt) return null;
+    const today=new Date().toISOString().slice(0,10);
+    const due=new Date(item.dueAt).toISOString().slice(0,10);
+    return due<today?'Overdue':due===today?'Due today':'Upcoming';
+  };
+  const stageLabelClass:Record<string,string>={Overdue:'bg-red-100 text-red-700','Due today':'bg-amber-100 text-amber-700',Upcoming:'bg-primary/10 text-primary'};
+  const card=(item:GuidedWorkItem)=>{const stage=stageLabel(item);return <article key={item.id} className={`rounded-xl border p-4 ${item.state==='NEEDS_YOU'?priorityClass[item.priority]:'border-border bg-card'}`}>
         <div className="flex gap-4 items-start">
           <div className={`w-10 h-10 rounded-full flex items-center justify-center shrink-0 ${item.priority==='URGENT'?'bg-red-600 text-white':item.priority==='DUE'?'bg-amber-500 text-white':'bg-primary/10 text-primary'}`}>{item.state==='WAITING'?<Clock3 size={18}/>:item.priority==='URGENT'?<AlertTriangle size={18}/>:<ListChecks size={18}/>}</div>
           <div className="min-w-0 flex-1">
-            <div className="flex flex-wrap items-center gap-2"><span className={`text-xs font-bold ${priorityText[item.priority]}`}>{item.priority}</span>{item.serviceName&&<span className="text-xs text-muted-foreground">• {item.serviceName}</span>}{item.id===nextId&&tab==='NEEDS_YOU'&&<span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">Next</span>}</div>
+            <div className="flex flex-wrap items-center gap-2"><span className={`text-xs font-bold ${priorityText[item.priority]}`}>{item.priority}</span>{stage&&<span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${stageLabelClass[stage]}`}>{stage}</span>}{item.serviceName&&<span className="text-xs text-muted-foreground">• {item.serviceName}</span>}{item.id===nextId&&tab==='NEEDS_YOU'&&<span className="rounded-full bg-primary/10 text-primary px-2 py-0.5 text-xs font-semibold">Next</span>}</div>
             <h2 className="font-semibold text-foreground mt-1">{item.title}</h2><p className="text-sm text-muted-foreground mt-1">{item.summary}</p>
             {item.completedAt?<div className="text-xs text-muted-foreground mt-2">Completed: {fmt(item.completedAt)}{item.completedByName?` · by ${item.completedByName}`:' · Completed by: Not recorded'}</div>
               :item.dueAt&&<div className="text-xs text-muted-foreground mt-2">{item.taskType==='EVALUATION_FAILED'?'Raised':'Due/review'}: {fmt(item.dueAt)}</div>}
@@ -75,7 +87,7 @@ export function MyWork(){
           </div>
           <div className="flex flex-col gap-2 shrink-0"><button onClick={()=>open(item)} className="min-h-10 px-3 rounded-lg bg-primary text-primary-foreground text-sm font-semibold inline-flex items-center gap-1">{item.actionLabel}<ChevronRight size={15}/></button><button onClick={()=>setExpanded(expanded===item.id?null:item.id)} className="text-xs text-primary">Why?</button></div>
         </div>
-      </article>;
+      </article>;};
   const paged=(items:GuidedWorkItem[],page:number)=>{const tp=Math.max(1,Math.ceil(items.length/PAGE_SIZE));const sp=Math.min(page,tp);return items.slice((sp-1)*PAGE_SIZE,sp*PAGE_SIZE);};
   const pager=(page:number,setPage:(n:number)=>void,total:number)=>{const tp=Math.max(1,Math.ceil(total/PAGE_SIZE));const sp=Math.min(page,tp);return total>PAGE_SIZE?<div className="flex items-center justify-between mt-3 text-sm"><button disabled={sp<=1} onClick={()=>setPage(sp-1)} className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40">Prev</button><span className="text-muted-foreground">Page {sp} of {tp} · {total} items</span><button disabled={sp>=tp} onClick={()=>setPage(sp+1)} className="px-3 py-1.5 rounded-lg border border-border disabled:opacity-40">Next</button></div>:null;};
   const section=(label:string,desc:string,items:GuidedWorkItem[],page:number,setPage:(n:number)=>void)=>items.length>0&&<div><div className="flex items-baseline gap-2 mt-6 mb-2"><h2 className="text-sm font-bold uppercase tracking-[0.08em] text-primary">{label}</h2><span className="text-xs text-muted-foreground">{items.length} · {desc}</span></div><div className="space-y-3">{paged(items,page).map(card)}</div>{pager(page,setPage,items.length)}</div>;

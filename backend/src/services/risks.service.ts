@@ -292,8 +292,11 @@ export class RisksService {
       [assigned_to, company_id]
     );
     if (!tl.rows[0]) throw new Error('Assignee must be an active Team Leader');
+    // Reassignment resets the advance-reminder clock (Nov 2026 brief §4: "Cancel obsolete prompts
+    // on ... reassignment ... regenerate only applicable reminders") — a 7-day reminder already
+    // sent to the PREVIOUS assignee must not suppress the new assignee's own 7-day/2-day prompts.
     const upd = await query(
-      `UPDATE risk_actions SET assigned_to = $1 WHERE id = $2 AND risk_id = $3 AND company_id = $4 RETURNING *`,
+      `UPDATE risk_actions SET assigned_to = $1, reminder_7d_sent_at = NULL, reminder_2d_sent_at = NULL WHERE id = $2 AND risk_id = $3 AND company_id = $4 RETURNING *`,
       [assigned_to, action_id, risk_id, company_id]
     );
     if (!upd.rows[0]) throw new Error('Action not found');

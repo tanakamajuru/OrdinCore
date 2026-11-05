@@ -20,6 +20,7 @@ import { startRiAssuranceWorker } from './workers/riAssurance.worker';
 import { startDirectorGovernanceWorker } from './workers/directorGovernance.worker';
 import { startEscalationOverdueWorker } from './workers/escalationOverdue.worker';
 import { startActionOverdueWorker } from './workers/actionOverdue.worker';
+import { startActionAdvanceReminderWorker } from './workers/actionAdvanceReminder.worker';
 import { startActionPatternWorker } from './workers/actionPattern.worker';
 import { startTrajectoryRefreshWorker } from './workers/trajectoryRefresh.worker';
 import { startSignalReconciliationWorker } from './workers/signalReconciliation.worker';
@@ -65,6 +66,7 @@ const directorGovernanceWorker = startSafeWorker('DirectorGov', startDirectorGov
 // started by the separate run_workers.ts entrypoint, so they never ran in production.
 const escalationOverdueWorker = startSafeWorker('EscalationOverdue', startEscalationOverdueWorker);
 const actionOverdueWorker = startSafeWorker('ActionOverdue', startActionOverdueWorker);
+const actionAdvanceReminderWorker = startSafeWorker('ActionAdvanceReminder', startActionAdvanceReminderWorker);
 const actionPatternWorker = startSafeWorker('ActionPattern', startActionPatternWorker);
 const trajectoryRefreshWorker = startSafeWorker('TrajectoryRefresh', startTrajectoryRefreshWorker);
 const signalReconciliationWorker = startSafeWorker('SignalReconciliation', startSignalReconciliationWorker);
@@ -125,6 +127,7 @@ const shutdown = async (signal: string) => {
       await directorGovernanceWorker.close();
       await escalationOverdueWorker.close();
       await actionOverdueWorker.close();
+      await actionAdvanceReminderWorker.close();
       await actionPatternWorker.close();
       await trajectoryRefreshWorker.close();
       await getPool().end();
