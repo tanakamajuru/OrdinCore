@@ -84,6 +84,10 @@ router.patch('/:id/assignee', requireAuth, requireTenant, requireRole('TEAM_LEAD
 // Edit the observation note — appended as a new attributed version (TL who logged it, or RM/admin).
 router.patch('/:id/note', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updateNote.bind(pulseController));
 
+// Typing-error correction (Nov 2026): non-substantive spelling/punctuation/grammar fix with a
+// required reason, kept as its own append-only event. Same permission as editing the note.
+router.post('/:id/correct-typing', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.correctTyping.bind(pulseController));
+
 // Set/change the person the signal concerns (e.g. recorded without a name). Owner or RM/admin/director.
 router.patch('/:id/person', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updatePerson.bind(pulseController));
 

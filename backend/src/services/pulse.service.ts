@@ -367,6 +367,76 @@ export class PulseService {
         return pulsesRepo.findById(pulse_id, company_id);
     }
 
+    // Typing-error correction (Nov 2026 brief: "Monitored signals: history access and typing
+    // corrections") — a lighter, explicitly-reasoned, append-only pathway for non-substantive
+    // text fixes (spelling/punctuation/grammar), distinct from updateNote's free-text rewrite.
+    // The original text, corrected text, reason, actor and timestamp are kept together and never
+    // overwritten; only `description` can be touched here — a field/person/severity/date change
+    // is a substantive amendment and must go through its own existing pathway, not this one.
+    async correctTyping(
+        pulse_id: string, company_id: string, user_id: string, role: string,
+        field: string, corrected_text: string, reason: string,
+        expected_updated_at: string | undefined, client_correction_id: string | undefined
+    ) {
+        const ALLOWED_FIELDS = ['description'];
+        if (!ALLOWED_FIELDS.includes(field)) {
+            throw new Error('This field cannot be corrected through typing-error correction. Material facts (person, date, severity, category) need the separate amendment pathway.');
+        }
+        if (!corrected_text || !corrected_text.trim()) throw new Error('The corrected text cannot be empty.');
+        if (!reason || reason.trim().length < 5) throw new Error('Give a brief reason for this correction (at least a few words).');
+
+        const cur = (await query(
+            `SELECT created_by, assigned_to, description, updated_at FROM governance_pulses WHERE id = $1 AND company_id = $2`,
+            [pulse_id, company_id]
+        )).rows[0];
+        if (!cur) throw new Error('Signal not found');
+        const r = String(role || '').toUpperCase();
+        const isPrivileged = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'].includes(r);
+        const isOwner = cur.created_by === user_id || cur.assigned_to === user_id;
+        if (!isPrivileged && !isOwner) throw new Error('You can only correct a signal you logged, or have oversight permission for.');
+
+        // Optimistic concurrency: reject a correction based on a stale view of the signal rather
+        // than silently overwriting a change another manager made in between.
+        if (expected_updated_at && cur.updated_at && new Date(expected_updated_at).getTime() !== new Date(cur.updated_at).getTime()) {
+            const err: any = new Error('This signal has changed since you opened it — reload and reapply your correction.');
+            err.statusCode = 409;
+            throw err;
+        }
+
+        const originalText = String(cur.description || '');
+        if (originalText.trim() === corrected_text.trim()) {
+            throw new Error('The corrected text is identical to the current text.');
+        }
+
+        // Idempotent replay: the SAME client-generated attempt (e.g. retried after a dropped
+        // connection) must resolve to the one row it already created, not duplicate it.
+        if (client_correction_id) {
+            const existing = (await query(
+                `SELECT id FROM pulse_typing_corrections WHERE pulse_id = $1 AND client_correction_id = $2`,
+                [pulse_id, client_correction_id]
+            )).rows[0];
+            if (existing) return pulsesRepo.findById(pulse_id, company_id);
+        }
+
+        await query(
+            `INSERT INTO pulse_typing_corrections (pulse_id, company_id, field, original_text, corrected_text, reason, corrected_by, client_correction_id)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+            [pulse_id, company_id, field, originalText, corrected_text.trim(), reason.trim(), user_id, client_correction_id || null]
+        );
+        await query(
+            `UPDATE governance_pulses SET description = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+            [corrected_text.trim(), pulse_id, company_id]
+        );
+        await query(
+            `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+             VALUES ($1, $2, $3, 'SIGNAL_TYPING_CORRECTED', 'governance_pulse', $4, $5, $6)`,
+            [uuidv4(), company_id, user_id, pulse_id,
+             JSON.stringify({ field, text: originalText }),
+             JSON.stringify({ field, text: corrected_text.trim(), reason: reason.trim() })]
+        );
+        return pulsesRepo.findById(pulse_id, company_id);
+    }
+
     // Set or change the person a signal concerns — e.g. when it was recorded without a name, or
     // the wrong person was selected. Same permission as editing the note (owner or privileged).
     // The person must be a service user AT the signal's service; passing null clears the person.

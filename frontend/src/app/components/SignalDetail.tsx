@@ -33,6 +33,8 @@ interface SignalDetail {
   cluster_label?: string;
   created_by?: string;
   note_versions?: { id: string; note: string; created_at: string; edited_by_name: string }[];
+  typing_corrections?: { id: string; field: string; original_text: string; corrected_text: string; reason: string; created_at: string; corrected_by_name: string }[];
+  updated_at?: string;
   validity_status?: string;
   validity_reason?: string;
   validity_set_at?: string;
@@ -58,6 +60,14 @@ export function SignalDetail() {
   const [editingNote, setEditingNote] = useState(false);
   const [noteDraft, setNoteDraft] = useState("");
   const [savingNote, setSavingNote] = useState(false);
+  // Typing-error correction (Nov 2026 brief) — a lighter, explicitly-reasoned pathway distinct
+  // from "Edit note": limited to non-substantive spelling/punctuation/grammar fixes.
+  const [correctingTyping, setCorrectingTyping] = useState(false);
+  const [correctionDraft, setCorrectionDraft] = useState("");
+  const [correctionReason, setCorrectionReason] = useState("");
+  const [savingCorrection, setSavingCorrection] = useState(false);
+  const [showPriorWording, setShowPriorWording] = useState(false);
+  const correctionSubmissionId = useRef<string | null>(null);
   const [editingPerson, setEditingPerson] = useState(false);
   const [personDraft, setPersonDraft] = useState("");
   const [savingPerson, setSavingPerson] = useState(false);
@@ -118,6 +128,36 @@ export function SignalDetail() {
       setSavingNote(false);
     }
   };
+  const saveCorrection = async () => {
+    if (!signal) return;
+    if (!correctionDraft.trim()) { toast.error("The corrected text cannot be empty."); return; }
+    if (correctionReason.trim().length < 5) { toast.error("Give a brief reason for this correction."); return; }
+    setSavingCorrection(true);
+    try {
+      if (!correctionSubmissionId.current) correctionSubmissionId.current = `corr-${signal.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await apiClient.post(`/pulses/${signal.id}/correct-typing`, {
+        field: "description",
+        corrected_text: correctionDraft.trim(),
+        reason: correctionReason.trim(),
+        expected_updated_at: (signal as any).updated_at,
+        client_correction_id: correctionSubmissionId.current,
+      });
+      toast.success("Typing correction recorded.");
+      setCorrectingTyping(false);
+      setCorrectionDraft(""); setCorrectionReason("");
+      correctionSubmissionId.current = null;
+      loadSignalDetails(signal.id);
+    } catch (e: any) {
+      if (e?.response?.status === 409) {
+        toast.error("This signal has changed since you opened it — reload and reapply your correction.");
+      } else {
+        toast.error(e?.response?.data?.message || e?.message || "Failed to record correction");
+      }
+    } finally {
+      setSavingCorrection(false);
+    }
+  };
+
   // Eligibility for direct single-signal promotion is deliberately NARROW: only a lone
   // Critical, or a Safeguarding concern (which cannot wait for a pattern), may become a risk on
   // its own. A single HIGH signal must build toward a pattern first — otherwise every High
@@ -428,9 +468,13 @@ export function SignalDetail() {
                         <Shield className="w-5 h-5 text-primary" />
                         Observation Details
                     </h2>
-                    {canEditNote && !editingNote && (
-                        <button onClick={() => { setNoteDraft(signal.description || ""); setEditingNote(true); }}
-                            className="text-sm text-primary font-medium hover:underline">Edit note</button>
+                    {canEditNote && !editingNote && !correctingTyping && (
+                        <div className="flex items-center gap-3">
+                            <button onClick={() => { setCorrectionDraft(signal.description || ""); setCorrectionReason(""); setCorrectingTyping(true); }}
+                                className="text-sm text-amber-700 font-medium hover:underline">Correct typing error</button>
+                            <button onClick={() => { setNoteDraft(signal.description || ""); setEditingNote(true); }}
+                                className="text-sm text-primary font-medium hover:underline">Edit note</button>
+                        </div>
                     )}
                 </div>
 
@@ -444,18 +488,60 @@ export function SignalDetail() {
                         </div>
                         <p className="text-xs text-muted-foreground mt-1">Your update is added on top; the previous note is kept below as history.</p>
                     </div>
+                ) : correctingTyping ? (
+                    <div className="rounded-r border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-4">
+                        <p className="text-xs text-amber-800 dark:text-amber-300 mb-2">
+                            Use this only for spelling, punctuation or grammar that doesn't change the meaning (e.g. "competancy" → "competency").
+                            A material-fact change (person, date, severity, category, or anything that changes what happened) needs a separate amendment, not this.
+                        </p>
+                        <textarea value={correctionDraft} onChange={(e) => setCorrectionDraft(e.target.value)} rows={5}
+                            className="w-full border-2 border-amber-500 bg-background p-3 text-base resize-none focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                        <input value={correctionReason} onChange={(e) => setCorrectionReason(e.target.value)}
+                            placeholder="Brief reason for this correction (required)"
+                            className="w-full mt-2 border-2 border-amber-300 bg-background p-2.5 text-sm focus:outline-none" />
+                        <div className="flex justify-end gap-2 mt-2">
+                            <button onClick={() => setCorrectingTyping(false)} className="px-4 py-2 border-2 border-border text-sm hover:bg-muted">Cancel</button>
+                            <button onClick={saveCorrection} disabled={savingCorrection} className="px-4 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50">{savingCorrection ? "Saving…" : "Save correction"}</button>
+                        </div>
+                    </div>
                 ) : (
                     <>
                         {/* Current observation — the latest version, blue-highlighted. */}
                         <div className="bg-blue-50 dark:bg-blue-950/30 p-4 border-l-4 border-blue-500 rounded-r">
-                            <p className="text-foreground text-lg whitespace-pre-line">{signal.description}</p>
+                            <div className="flex items-center gap-2 flex-wrap">
+                                <p className="text-foreground text-lg whitespace-pre-line flex-1">{signal.description}</p>
+                                {signal.typing_corrections && signal.typing_corrections.length > 0 && (
+                                    <span className="text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full bg-amber-100 text-amber-700 shrink-0">Corrected</span>
+                                )}
+                            </div>
                             {signal.note_versions && signal.note_versions.length > 0 && (
                                 <p className="text-[11px] text-muted-foreground mt-2">
                                     {signal.note_versions[0].edited_by_name} · {new Date(signal.note_versions[0].created_at).toLocaleString('en-GB')}
                                     {signal.note_versions.length > 1 ? ' · current version' : ''}
                                 </p>
                             )}
+                            {signal.typing_corrections && signal.typing_corrections.length > 0 && (
+                                <button onClick={() => setShowPriorWording((o) => !o)} className="text-[11px] text-amber-700 font-medium hover:underline mt-1">
+                                    {showPriorWording ? "Hide prior wording" : "View prior wording / correction history"}
+                                </button>
+                            )}
                         </div>
+
+                        {/* Typing-correction trail — original text, who corrected it, when and why. Never
+                            overwritten; this is additional to (not a replacement for) note_versions above. */}
+                        {showPriorWording && signal.typing_corrections && signal.typing_corrections.length > 0 && (
+                            <div className="mt-3 space-y-2">
+                                <p className="text-xs uppercase tracking-wide text-muted-foreground">Typing corrections</p>
+                                {signal.typing_corrections.map((c) => (
+                                    <div key={c.id} className="bg-amber-50/60 dark:bg-amber-950/10 p-3 border-l-4 border-amber-300 rounded-r text-sm">
+                                        <p className="text-muted-foreground"><span className="font-medium text-foreground">Original: </span><span className="line-through decoration-muted-foreground/40">{c.original_text}</span></p>
+                                        <p className="text-foreground mt-1"><span className="font-medium">Corrected to: </span>{c.corrected_text}</p>
+                                        <p className="text-xs text-muted-foreground mt-1">Reason: {c.reason}</p>
+                                        <p className="text-[10px] text-muted-foreground mt-1">{c.corrected_by_name} · {new Date(c.created_at).toLocaleString('en-GB')}</p>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
 
                         {/* Previous versions — greyed history trail (newest first). */}
                         {signal.note_versions && signal.note_versions.length > 1 && (

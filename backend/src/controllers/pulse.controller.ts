@@ -274,6 +274,23 @@ export class PulseController {
         }
     }
 
+    // Typing-error correction — non-substantive text fix with a required reason, kept as an
+    // append-only event distinct from updateNote's substantive rewrite.
+    async correctTyping(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { field, corrected_text, reason, expected_updated_at, client_correction_id } = req.body || {};
+            const updated = await pulseService.correctTyping(
+                id, company_id, req.user!.user_id, req.user!.role || '',
+                field, corrected_text, reason, expected_updated_at, client_correction_id
+            );
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async updatePerson(req: Request, res: Response) {
         try {
             const { id } = req.params;

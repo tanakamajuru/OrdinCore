@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useNavigate } from "react-router";
 import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
@@ -48,6 +49,7 @@ export function GovernanceDecisions({
   onChanged?: () => void | Promise<void>;
   focusPulseId?: string | null;
 }) {
+  const navigate = useNavigate();
   const [owners, setOwners] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
   const [dayList, setDayList] = useState<any[]>([]);
@@ -535,7 +537,21 @@ export function GovernanceDecisions({
             {previousList.slice(0, 5).map((d: any) => (
               <div key={d.id} className="flex items-center justify-between gap-3 text-sm">
                 <span className="text-foreground truncate">{d.signal_person ? `${d.signal_person} · ` : ""}{d.what_is_happening}{d.owner_name ? <span className="text-muted-foreground"> · {d.owner_name}</span> : null}</span>
-                <StatusPill s={d.rollup_status} />
+                <div className="flex items-center gap-2 shrink-0">
+                  {/* Sign-off protects the decision snapshot, not access to the underlying signal
+                      — open the exact signal/history even on a signed-off day (brief: "Monitored
+                      signals: history access and typing corrections"). */}
+                  {d.pulse_entry_id && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`/signals/${d.pulse_entry_id}`)}
+                      className="text-[11px] font-medium text-primary hover:underline"
+                    >
+                      Open signal
+                    </button>
+                  )}
+                  <StatusPill s={d.rollup_status} />
+                </div>
               </div>
             ))}
           </div>
@@ -928,6 +944,15 @@ export function GovernanceDecisions({
                     <div><span className="font-medium text-foreground">Decision author: </span>{d.recorded_by_name || "—"}</div>
                     <div><span className="font-medium text-foreground">Decision time: </span>{d.created_at ? new Date(d.created_at).toLocaleString("en-GB") : "—"}</div>
                   </dl>
+                  {d.pulse_entry_id && (
+                    <button
+                      type="button"
+                      onClick={(e) => { e.preventDefault(); navigate(`/signals/${d.pulse_entry_id}`); }}
+                      className="mt-2 text-[11px] font-medium text-primary hover:underline"
+                    >
+                      Open signal / view full history
+                    </button>
+                  )}
                 </details>
               ))}
             </div>

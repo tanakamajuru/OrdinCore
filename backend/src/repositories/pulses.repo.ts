@@ -271,6 +271,17 @@ export const pulsesRepo = {
                 [id]
             );
             pulse.note_versions = notes.rows;
+
+            // Typing-error correction trail (newest first) — distinct from the note-edit versions
+            // above: these are reasoned, explicitly-flagged non-substantive fixes (migration 205).
+            const corrections = await query(
+                `SELECT c.id, c.field, c.original_text, c.corrected_text, c.reason, c.created_at,
+                        COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') AS corrected_by_name
+                   FROM pulse_typing_corrections c LEFT JOIN users u ON u.id = c.corrected_by
+                  WHERE c.pulse_id = $1 ORDER BY c.created_at DESC`,
+                [id]
+            );
+            pulse.typing_corrections = corrections.rows;
         }
         return pulse;
     },
