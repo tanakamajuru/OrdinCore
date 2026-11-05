@@ -6,6 +6,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { Ambulance, ChevronRight, ChevronLeft, ChevronDown, Zap, Layers, ShieldAlert, ClipboardList, TrendingUp, Network, ArrowUpRight, ArrowDownRight, Minus } from "lucide-react";
 import { apiClient } from "@/services/api";
 import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
+import { DecisionsDueBanner } from "./DecisionsDueBanner";
 import { toast } from "sonner";
 
 /* Stage 4: the RM 5-screen interface (pipeline spine), wired to the live /api/rm BFF and
@@ -331,6 +332,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
         {!loading && screen === "pipeline" && stage === "patterns" && (
           <div>
+            <DecisionsDueBanner />
             <GovHead q="Which concerns need my decision?" sub="System proposes, you decide — nothing is promoted automatically." />
             <p className="text-xs text-muted-foreground mb-3">These are recorded recurring concerns the system has grouped — candidates, not conclusions. A concern becomes an <span className="font-semibold">established pattern</span> only once it meets the qualifying threshold, and <span className="font-semibold">systemic</span> only when the same theme recurs across more than one service. The "Patterns" ribbon counts genuine patterns — unpromoted concerns that meet the qualifying threshold, plus established (Confirmed) patterns which remain until leadership closes them — not all unresolved patterns and not single-signal watches. The "forming" concerns below have not yet met the threshold.</p>
             {houseFilterParam && (
