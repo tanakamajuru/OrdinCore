@@ -291,6 +291,20 @@ export class PulseController {
         }
     }
 
+    // Substantive amendment — material fact (date/time/severity/category), distinct from
+    // correctTyping's non-substantive text fix. Oversight roles only, reason required.
+    async amendSignal(req: Request, res: Response) {
+        try {
+            const { id } = req.params;
+            const company_id = requireCompany(req);
+            const { field, value, reason } = req.body || {};
+            const updated = await pulseService.amendSignal(id, company_id, req.user!.user_id, req.user!.role || '', field, value, reason);
+            res.json({ success: true, data: updated });
+        } catch (err: any) {
+            res.status(err.statusCode ?? 400).json({ success: false, message: err.message });
+        }
+    }
+
     async updatePerson(req: Request, res: Response) {
         try {
             const { id } = req.params;

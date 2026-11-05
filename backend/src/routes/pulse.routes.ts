@@ -88,6 +88,11 @@ router.patch('/:id/note', requireAuth, requireTenant, requireRole('SUPPORT_WORKE
 // required reason, kept as its own append-only event. Same permission as editing the note.
 router.post('/:id/correct-typing', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.correctTyping.bind(pulseController));
 
+// Substantive amendment (Nov 2026 brief §4): material-fact change (date/time/severity/category),
+// distinct from correct-typing. Oversight roles only — a workflow/delivery role must not be able
+// to retroactively change what happened or how severe it was.
+router.post('/:id/amend', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'), pulseController.amendSignal.bind(pulseController));
+
 // Set/change the person the signal concerns (e.g. recorded without a name). Owner or RM/admin/director.
 router.patch('/:id/person', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'), pulseController.updatePerson.bind(pulseController));
 

@@ -34,6 +34,7 @@ interface SignalDetail {
   created_by?: string;
   note_versions?: { id: string; note: string; created_at: string; edited_by_name: string }[];
   typing_corrections?: { id: string; field: string; original_text: string; corrected_text: string; reason: string; created_at: string; corrected_by_name: string }[];
+  amendments?: { id: string; field: string; original_value: string; new_value: string; reason: string; created_at: string; amended_by_name: string }[];
   updated_at?: string;
   validity_status?: string;
   validity_reason?: string;
@@ -68,6 +69,14 @@ export function SignalDetail() {
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [showPriorWording, setShowPriorWording] = useState(false);
   const correctionSubmissionId = useRef<string | null>(null);
+  // Substantive amendment (Nov 2026 brief §4) — material-fact change (date/time/severity/
+  // category), distinct from both "Edit note" and "Correct typing error". Oversight roles only.
+  const [amending, setAmending] = useState(false);
+  const [amendField, setAmendField] = useState<"entry_date" | "entry_time" | "severity" | "risk_domain">("severity");
+  const [amendValue, setAmendValue] = useState("");
+  const [amendReason, setAmendReason] = useState("");
+  const [savingAmendment, setSavingAmendment] = useState(false);
+  const [showAmendmentHistory, setShowAmendmentHistory] = useState(false);
   const [editingPerson, setEditingPerson] = useState(false);
   const [personDraft, setPersonDraft] = useState("");
   const [savingPerson, setSavingPerson] = useState(false);
@@ -155,6 +164,24 @@ export function SignalDetail() {
       }
     } finally {
       setSavingCorrection(false);
+    }
+  };
+
+  const canAmend = ["REGISTERED_MANAGER", "DIRECTOR", "ADMIN", "SUPER_ADMIN"].includes(String(user?.role || "").toUpperCase());
+  const saveAmendment = async () => {
+    if (!signal) return;
+    if (!amendValue.trim()) { toast.error("Enter the new value."); return; }
+    if (amendReason.trim().length < 10) { toast.error("Give a clear reason for this amendment (a short sentence)."); return; }
+    setSavingAmendment(true);
+    try {
+      await apiClient.post(`/pulses/${signal.id}/amend`, { field: amendField, value: amendValue.trim(), reason: amendReason.trim() });
+      toast.success("Amendment recorded.");
+      setAmending(false); setAmendValue(""); setAmendReason("");
+      loadSignalDetails(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to record amendment");
+    } finally {
+      setSavingAmendment(false);
     }
   };
 
@@ -558,6 +585,84 @@ export function SignalDetail() {
                     </>
                 )}
             </div>
+
+            {/* Substantive amendment (Nov 2026 brief §4) — a material-fact change (incident
+                date/time, severity, category) changes what happened or what it means, so it goes
+                through this separate, reasoned, reassessment-aware pathway — never the typing
+                correction above. Oversight roles only. */}
+            {canAmend && (
+              <div className="bg-card border-2 border-border p-6">
+                <div className="flex items-center justify-between mb-3">
+                  <h2 className="text-xl flex items-center gap-2"><AlertTriangle className="w-5 h-5 text-amber-600" />Material Facts</h2>
+                  {!amending && (
+                    <button onClick={() => { setAmendField("severity"); setAmendValue(""); setAmendReason(""); setAmending(true); }}
+                      className="text-sm text-amber-700 font-medium hover:underline">Amend a material fact</button>
+                  )}
+                </div>
+                <dl className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
+                  <div><dt className="text-xs text-muted-foreground uppercase">Incident date</dt><dd className="text-foreground">{formatDate(signal.entry_date)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground uppercase">Incident time</dt><dd className="text-foreground">{signal.entry_time?.slice(0, 5)}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground uppercase">Severity</dt><dd className="text-foreground">{signal.severity}</dd></div>
+                  <div><dt className="text-xs text-muted-foreground uppercase">Category</dt><dd className="text-foreground">{Array.isArray(signal.risk_domain) ? signal.risk_domain.join(', ') : signal.risk_domain}</dd></div>
+                </dl>
+                {amending && (
+                  <div className="mt-4 rounded-r border-l-4 border-amber-500 bg-amber-50 dark:bg-amber-950/20 p-4">
+                    <p className="text-xs text-amber-800 dark:text-amber-300 mb-3">
+                      This changes what happened or what it means (e.g. "no medication missed" → "medication missed") — not a spelling fix. The earlier value and this reason are kept permanently; the original signed-off decision is not altered.
+                    </p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <select value={amendField} onChange={(e) => { setAmendField(e.target.value as any); setAmendValue(""); }}
+                        className="w-full border-2 border-amber-300 bg-background p-2.5 text-sm focus:outline-none">
+                        <option value="severity">Severity</option>
+                        <option value="risk_domain">Category</option>
+                        <option value="entry_date">Incident date</option>
+                        <option value="entry_time">Incident time</option>
+                      </select>
+                      {amendField === "severity" ? (
+                        <select value={amendValue} onChange={(e) => setAmendValue(e.target.value)} className="w-full border-2 border-amber-500 bg-background p-2.5 text-sm focus:outline-none">
+                          <option value="">Select new severity…</option>
+                          <option value="Low">Low</option>
+                          <option value="Moderate">Moderate</option>
+                          <option value="High">High</option>
+                          <option value="Critical">Critical</option>
+                        </select>
+                      ) : amendField === "entry_date" ? (
+                        <input type="date" value={amendValue} onChange={(e) => setAmendValue(e.target.value)} className="w-full border-2 border-amber-500 bg-background p-2.5 text-sm focus:outline-none" />
+                      ) : amendField === "entry_time" ? (
+                        <input type="time" value={amendValue} onChange={(e) => setAmendValue(e.target.value)} className="w-full border-2 border-amber-500 bg-background p-2.5 text-sm focus:outline-none" />
+                      ) : (
+                        <input type="text" value={amendValue} onChange={(e) => setAmendValue(e.target.value)} placeholder="New category" className="w-full border-2 border-amber-500 bg-background p-2.5 text-sm focus:outline-none" />
+                      )}
+                    </div>
+                    <input value={amendReason} onChange={(e) => setAmendReason(e.target.value)}
+                      placeholder="Reason for this amendment (required)"
+                      className="w-full mt-2 border-2 border-amber-300 bg-background p-2.5 text-sm focus:outline-none" />
+                    <div className="flex justify-end gap-2 mt-2">
+                      <button onClick={() => setAmending(false)} className="px-4 py-2 border-2 border-border text-sm hover:bg-muted">Cancel</button>
+                      <button onClick={saveAmendment} disabled={savingAmendment} className="px-4 py-2 bg-amber-600 text-white text-sm hover:bg-amber-700 disabled:opacity-50">{savingAmendment ? "Saving…" : "Save amendment"}</button>
+                    </div>
+                  </div>
+                )}
+                {signal.amendments && signal.amendments.length > 0 && (
+                  <div className="mt-3">
+                    <button onClick={() => setShowAmendmentHistory((o) => !o)} className="text-[11px] text-amber-700 font-medium hover:underline">
+                      {showAmendmentHistory ? "Hide amendment history" : `View amendment history (${signal.amendments.length})`}
+                    </button>
+                    {showAmendmentHistory && (
+                      <div className="mt-2 space-y-2">
+                        {signal.amendments.map((a) => (
+                          <div key={a.id} className="bg-amber-50/60 dark:bg-amber-950/10 p-3 border-l-4 border-amber-300 rounded-r text-sm">
+                            <p className="text-foreground"><span className="font-medium">{a.field.replace(/_/g, ' ')}: </span><span className="line-through decoration-muted-foreground/40 text-muted-foreground">{a.original_value}</span> → {a.new_value}</p>
+                            <p className="text-xs text-muted-foreground mt-1">Reason: {a.reason}</p>
+                            <p className="text-[10px] text-muted-foreground mt-1">{a.amended_by_name} · {new Date(a.created_at).toLocaleString('en-GB')}</p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             {signal.immediate_action && (
                 <div className="bg-card border-2 border-border p-6">

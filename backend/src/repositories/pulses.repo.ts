@@ -282,6 +282,17 @@ export const pulsesRepo = {
                 [id]
             );
             pulse.typing_corrections = corrections.rows;
+
+            // Substantive-amendment trail (newest first) — material-fact changes (date/time/
+            // severity/category), distinct from both note_versions and typing_corrections above.
+            const amendments = await query(
+                `SELECT a.id, a.field, a.original_value, a.new_value, a.reason, a.created_at,
+                        COALESCE(NULLIF(TRIM(u.first_name || ' ' || u.last_name), ''), 'Unknown') AS amended_by_name
+                   FROM pulse_amendments a LEFT JOIN users u ON u.id = a.amended_by
+                  WHERE a.pulse_id = $1 ORDER BY a.created_at DESC`,
+                [id]
+            );
+            pulse.amendments = amendments.rows;
         }
         return pulse;
     },

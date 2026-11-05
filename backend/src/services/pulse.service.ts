@@ -437,6 +437,112 @@ export class PulseService {
         return pulsesRepo.findById(pulse_id, company_id);
     }
 
+    // Substantive amendment to a material fact — incident date/time, severity or category (risk
+    // domain). Nov 2026 brief §4: these change what happened/what it means, so they must NEVER go
+    // through correctTyping's typing-error pathway. Append-only (pulse_amendments, migration 207):
+    // original value, new value, reason, actor and timestamp are kept together; the earlier
+    // signed-off decision is untouched. Flags the service's RM so evidence affecting an open
+    // decision is seen, and nudges a trajectory recalculation if the signal belongs to an active
+    // pattern/risk whose trajectory depends on severity/domain — without creating a duplicate
+    // incident or assuming a closed risk must reopen.
+    async amendSignal(
+        pulse_id: string, company_id: string, user_id: string, role: string,
+        field: 'entry_date' | 'entry_time' | 'severity' | 'risk_domain', newValue: string, reason: string
+    ) {
+        const r = String(role || '').toUpperCase();
+        if (!['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(r)) {
+            throw new Error('Only oversight roles can amend a material fact on a signal.');
+        }
+        if (!reason || reason.trim().length < 10) throw new Error('Give a clear reason for this amendment (a short sentence) — this is a material-fact change, not a typing fix.');
+
+        const cur = (await query(
+            `SELECT entry_date, entry_time, severity::text AS severity, risk_domain, house_id FROM governance_pulses WHERE id = $1 AND company_id = $2`,
+            [pulse_id, company_id]
+        )).rows[0];
+        if (!cur) throw new Error('Signal not found');
+
+        let originalText: string; let column: string; let param: any;
+        if (field === 'entry_date') {
+            if (!/^\d{4}-\d{2}-\d{2}$/.test(newValue)) throw new Error('Enter a valid date (YYYY-MM-DD).');
+            originalText = new Date(cur.entry_date).toISOString().slice(0, 10);
+            column = 'entry_date'; param = newValue;
+        } else if (field === 'entry_time') {
+            if (!/^\d{2}:\d{2}(:\d{2})?$/.test(newValue)) throw new Error('Enter a valid time (HH:MM).');
+            originalText = String(cur.entry_time).slice(0, 5);
+            column = 'entry_time'; param = newValue;
+        } else if (field === 'severity') {
+            if (!['Low', 'Moderate', 'High', 'Critical'].includes(newValue)) throw new Error('Invalid severity.');
+            originalText = cur.severity;
+            column = `severity`; param = newValue;
+        } else if (field === 'risk_domain') {
+            if (!newValue.trim()) throw new Error('Enter a category.');
+            originalText = Array.isArray(cur.risk_domain) ? cur.risk_domain.join(', ') : String(cur.risk_domain || '');
+            column = 'risk_domain'; param = [newValue.trim()];
+        } else {
+            throw new Error('Unsupported field for amendment.');
+        }
+        if (originalText === (Array.isArray(param) ? param.join(', ') : param)) {
+            throw new Error('The new value is identical to the current value.');
+        }
+
+        const castSuffix = field === 'severity' ? '::severity_level' : field === 'risk_domain' ? '::text[]' : '';
+        await query(
+            `UPDATE governance_pulses SET ${column} = $1${castSuffix}, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+            [param, pulse_id, company_id]
+        );
+        await query(
+            `INSERT INTO pulse_amendments (pulse_id, company_id, field, original_value, new_value, reason, amended_by)
+             VALUES ($1, $2, $3, $4, $5, $6, $7)`,
+            [pulse_id, company_id, field, originalText, Array.isArray(param) ? param.join(', ') : param, reason.trim(), user_id]
+        );
+        await query(
+            `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+             VALUES ($1, $2, $3, 'SIGNAL_AMENDED', 'governance_pulse', $4, $5, $6)`,
+            [uuidv4(), company_id, user_id, pulse_id,
+             JSON.stringify({ field, value: originalText }),
+             JSON.stringify({ field, value: Array.isArray(param) ? param.join(', ') : param, reason: reason.trim() })]
+        );
+
+        // Flag the service's RM — this evidence may affect an open decision they own. Best-effort:
+        // the amendment itself is already committed, so a notification failure must not read as if
+        // nothing was saved.
+        try {
+            const rm = (await query(`SELECT COALESCE(primary_rm_id, manager_id) AS id FROM houses WHERE id = $1`, [cur.house_id])).rows[0];
+            if (rm?.id) {
+                const { notificationsService } = await import('./notifications.service');
+                await notificationsService.create({
+                    company_id, user_id: rm.id, type: 'SIGNAL_AMENDED',
+                    title: 'A signal you reviewed has an amended material fact',
+                    body: `${field.replace(/_/g, ' ')} changed from "${originalText}" to "${Array.isArray(param) ? param.join(', ') : param}" — ${reason.trim()}`,
+                    link: `/signals/${pulse_id}`,
+                });
+            }
+        } catch (err) { logger.warn('Failed to notify RM of signal amendment', err); }
+
+        // Recalculate: if this signal belongs to an active pattern, nudge its trajectory to
+        // recompute against the corrected evidence — reuses the existing trajectory service rather
+        // than inventing a new calculation, and never reopens a closed risk by itself.
+        if (field === 'severity' || field === 'risk_domain') {
+            try {
+                const clusters = (await query(
+                    `SELECT DISTINCT sc.id FROM risk_signal_links rsl
+                       JOIN signal_clusters sc ON sc.id = rsl.cluster_id
+                      WHERE rsl.pulse_entry_id = $1 AND sc.cluster_status NOT IN ('Dismissed','Resolved')`,
+                    [pulse_id]
+                )).rows;
+                if (clusters.length) {
+                    const { trajectoryForCluster } = await import('./trajectory.service');
+                    for (const c of clusters) {
+                        const tr = await trajectoryForCluster(c.id);
+                        await query(`UPDATE signal_clusters SET trajectory = $1, updated_at = NOW() WHERE id = $2`, [tr.direction, c.id]);
+                    }
+                }
+            } catch (err) { logger.warn('Failed to recalculate trajectory after signal amendment', err); }
+        }
+
+        return pulsesRepo.findById(pulse_id, company_id);
+    }
+
     // Set or change the person a signal concerns — e.g. when it was recorded without a name, or
     // the wrong person was selected. Same permission as editing the note (owner or privileged).
     // The person must be a service user AT the signal's service; passing null clears the person.
