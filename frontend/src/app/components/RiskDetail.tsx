@@ -88,6 +88,7 @@ export function RiskDetail() {
   const [actions, setActions] = useState<Action[]>([]);
   const [timeline, setTimeline] = useState<TimelineEntry[]>([]);
   const [linkedEscalations, setLinkedEscalations] = useState<any[]>([]);
+  const [linkedSignals, setLinkedSignals] = useState<any[]>([]);
   // Overdue-action count per staff member — powers the "prevent new work before old work" soft
   // advisory when assigning a new action to someone who already has a backlog.
   const [overdueByUser, setOverdueByUser] = useState<Record<string, number>>({});
@@ -239,6 +240,7 @@ export function RiskDetail() {
       setRisk(null);
       setActions([]);
       setTimeline([]);
+      setLinkedSignals([]);
 
       // Load risk details
       const riskRes = await apiClient.get(`/risks/${riskId}`);
@@ -275,6 +277,17 @@ export function RiskDetail() {
         setLinkedEscalations(escList);
       } catch (err) {
         setLinkedEscalations([]);
+      }
+
+      // The actual signal evidence behind this risk — what was recorded, not just the risk's own
+      // auto-generated one-line summary (user-reported, 6 Nov 2026: "the attached screenshot
+      // should contain related information but its not appearing").
+      try {
+        const sigRes = await apiClient.get(`/risks/${riskId}/signals`);
+        const sigData = (sigRes.data as any).data || (sigRes.data as any) || [];
+        setLinkedSignals(Array.isArray(sigData) ? sigData : []);
+      } catch (err) {
+        setLinkedSignals([]);
       }
 
       // Load per-staff overdue counts for the assignment soft-gate (best-effort; RM/leadership
@@ -841,6 +854,31 @@ export function RiskDetail() {
                 )}
             </div>
           </div>
+
+          {/* The actual recorded signals behind this risk — the auto-generated Governance
+              Description above is a one-line summary; this is what staff actually wrote and
+              observed, so opening a risk shows the real evidence, not just a count of signals. */}
+          {linkedSignals.length > 0 && (
+            <div className="bg-card border-2 border-border p-6">
+              <h2 className="text-xs uppercase text-muted-foreground mb-4 tracking-widest">Linked Signals ({linkedSignals.length})</h2>
+              <div className="space-y-3">
+                {linkedSignals.map((s: any) => (
+                  <div key={s.id} className="p-4 bg-muted border-b-2 border-border cursor-pointer hover:bg-muted/70" onClick={() => navigate(`/signals/${s.id}`)}>
+                    <div className="flex items-center justify-between gap-3 mb-1">
+                      <span className="text-sm font-semibold text-foreground">{s.related_person || s.signal_type || 'Signal'}</span>
+                      <div className="flex items-center gap-2 shrink-0">
+                        {s.severity && <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${s.severity === 'Critical' ? 'bg-red-100 text-red-700' : s.severity === 'High' ? 'bg-orange-100 text-orange-700' : 'bg-muted-foreground/10 text-muted-foreground'}`}>{s.severity}</span>}
+                        <span className="text-[11px] text-muted-foreground">{s.entry_date ? new Date(s.entry_date).toLocaleDateString('en-GB') : ''}</span>
+                      </div>
+                    </div>
+                    <p className="text-sm text-foreground">{s.description}</p>
+                    {s.immediate_action && <p className="text-xs text-muted-foreground mt-1"><span className="font-semibold">Immediate action:</span> {s.immediate_action}</p>}
+                    {s.evidence_url && <p className="text-[11px] text-primary mt-1">Has attached evidence — open the signal to view it.</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* Impact — compulsory human High/Medium/Low, sitting directly above Controls &
               Effectiveness (it is the consequence you're trying to control). Drives S in the

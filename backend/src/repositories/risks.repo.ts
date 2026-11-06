@@ -253,6 +253,22 @@ export const risksRepo = {
     return result.rows[0];
   },
 
+  // The actual signal evidence behind a risk — what the people recorded, not just the
+  // auto-generated one-line summary in the risk's own description (user-reported, 6 Nov 2026:
+  // "the attached screenshot should contain related information but its not appearing").
+  async getLinkedSignals(risk_id: string, company_id: string) {
+    const result = await query(
+      `SELECT gp.id, gp.description, gp.severity, gp.related_person, gp.signal_type,
+              gp.immediate_action, gp.evidence_url, gp.entry_date, gp.entry_time, gp.created_at
+         FROM risk_signal_links rsl
+         JOIN governance_pulses gp ON gp.id = rsl.pulse_entry_id
+        WHERE rsl.risk_id = $1 AND gp.company_id = $2
+        ORDER BY gp.entry_date DESC, gp.entry_time DESC`,
+      [risk_id, company_id]
+    );
+    return result.rows;
+  },
+
   async getTimeline(risk_id: string, company_id: string) {
     const result = await query(
       `SELECT re.*, u.first_name || ' ' || u.last_name AS created_by_name

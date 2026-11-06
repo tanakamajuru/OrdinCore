@@ -347,6 +347,17 @@ export class RisksController {
     }
   }
 
+  async getLinkedSignals(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const signals = await risksService.getLinkedSignals(req.params.id, company_id);
+      return res.json({ success: true, data: signals, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get linked signals';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async getCategories(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
