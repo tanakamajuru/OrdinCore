@@ -206,6 +206,7 @@ export const pulsesRepo = {
             `SELECT gp.*, gp.review_status as status, (gp.entry_date + gp.entry_time) as pulse_date, h.name as house_name,
                     u.first_name || ' ' || u.last_name as created_by_name,
                     au.first_name || ' ' || au.last_name as assigned_to_name,
+                    ru.first_name || ' ' || ru.last_name as reviewed_by_name,
                     -- Return entry_date as a plain calendar-date string (overrides the DATE from
                     -- gp.*, which node-pg hands back as a JS Date at server-local midnight). Serialised
                     -- to JSON that Date becomes a UTC timestamp and, in any positive-offset zone (e.g.
@@ -216,6 +217,7 @@ export const pulsesRepo = {
              JOIN houses h ON h.id = gp.house_id
              JOIN users u ON u.id = gp.created_by
              LEFT JOIN users au ON au.id = gp.assigned_to
+             LEFT JOIN users ru ON ru.id = gp.reviewed_by
              WHERE ${where}
              ORDER BY gp.entry_date DESC, gp.entry_time DESC
              LIMIT ${limit} OFFSET ${offset}`,

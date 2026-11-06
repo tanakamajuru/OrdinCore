@@ -512,10 +512,16 @@ export function GovernanceDecisions({
       {actionedSignals.length > 0 && (
         <div className="mb-4 rounded-lg border border-border bg-muted/20 p-3">
           <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground mb-2">Actioned in this range ({actionedSignals.length})</div>
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             {actionedSignals.slice(0, 8).map((s: any) => (
-              <div key={s.id} className="flex items-center justify-between gap-3 text-sm">
-                <span className="text-foreground truncate">{s.related_person ? `${s.related_person} · ` : ""}{(s.description || s.governance_domain || s.signal_type || "Signal").slice(0, 80)}</span>
+              <div key={s.id} className="flex items-start justify-between gap-3 text-sm border-b border-border/50 last:border-0 pb-2 last:pb-0">
+                <div className="min-w-0">
+                  <div className="text-foreground">{s.related_person ? `${s.related_person} · ` : ""}{s.description || s.governance_domain || s.signal_type || "Signal"}</div>
+                  <div className="text-[11px] text-muted-foreground mt-0.5">
+                    {s.reviewed_by_name ? `Reviewed by ${s.reviewed_by_name}` : "No reviewer recorded"}
+                    {s.reviewed_at ? ` · ${new Date(s.reviewed_at).toLocaleDateString("en-GB")}` : ""}
+                  </div>
+                </div>
                 <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-success/10 text-success shrink-0">ACTIONED</span>
               </div>
             ))}
