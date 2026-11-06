@@ -524,6 +524,20 @@ export class EscalationsService {
         [id, JSON.stringify(eventMeta), data.next_review_at || null]
       );
     }
+
+    // 6 Nov 2026 field report: a POST_ESCALATION_RISK obligation (governancePropagation.service.ts,
+    // opened after a linked action is rated Partially/Not Effective) has no linked risk when the
+    // escalation itself has none — so riskReviewObligationsService.complete() (keyed by risk id) can
+    // never reach it, and governanceReviews.service.ts only completes it via a formal risk review.
+    // The RM recording a genuine monitoring decision HERE (named owner + future review date) is
+    // exactly that obligation's completion condition; close it in the same saved review.
+    if (data.monitoring_owner_id && data.next_review_at) {
+      try {
+        const { reviewObligationsService } = await import('./reviewObligations.service');
+        await reviewObligationsService.complete(company_id, 'POST_ESCALATION_RISK', id, user_id,
+          `Escalation reviewed: monitoring owner and next review date recorded.`);
+      } catch { /* migration-safe — never block the review on this */ }
+    }
     return result.rows[0];
   }
 
