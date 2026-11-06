@@ -92,6 +92,12 @@ export function GovernanceDecisions({
   // opens only on request — Create Action on a signal already assigns that signal's work.
   const [taskOpen, setTaskOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
+  // Decision-history filters (user-requested, 6 Nov 2026) — narrow the full history by decision
+  // type/status and by when the decision was recorded, independent of the signal-picking range above.
+  const [historyType, setHistoryType] = useState<string>("All");
+  const [historyFrom, setHistoryFrom] = useState("");
+  const [historyTo, setHistoryTo] = useState("");
+  const HISTORY_TYPES = ["All", "Monitoring", "Closed", "Open", "In Progress", "Completed", "Superseded"] as const;
   // Queue tab — New signals vs Monitoring due, so monitored signals returning for review are a
   // visible group of their own (Daily Oversight layout), not buried in a single dropdown.
   const [queueTab, setQueueTab] = useState<"new" | "due">("new");
@@ -416,6 +422,25 @@ export function GovernanceDecisions({
     () => [...allDecisions].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()),
     [allDecisions]
   );
+  // Filtered view — by decision status (Monitoring/Closed/etc.) and by the date the decision was
+  // recorded. "Closed" also catches the Close/Close Signal decisions whose status is 'Open' pre-fix
+  // data, so it's matched on decision as well as decision_status for safety.
+  const filteredHistory = useMemo(() => {
+    return closedHistory.filter((d: any) => {
+      if (historyType !== "All") {
+        const status = String(d.decision_status || "");
+        const isClosedDecision = ["Close", "Close Signal"].includes(d.decision);
+        const matches = historyType === "Closed" ? (status === "Closed" || isClosedDecision) : status === historyType;
+        if (!matches) return false;
+      }
+      if (historyFrom || historyTo) {
+        const day = (d.created_at || "").slice(0, 10);
+        if (historyFrom && day < historyFrom) return false;
+        if (historyTo && day > historyTo) return false;
+      }
+      return true;
+    });
+  }, [closedHistory, historyType, historyFrom, historyTo]);
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
   // A returning monitoring review (the selected signal is in the Monitoring state) vs a first review.
   const returningReview = !!selectedSignal && String(selectedSignal.review_status) === "Monitoring";
@@ -935,8 +960,33 @@ export function GovernanceDecisions({
             {historyOpen ? "− Hide decision history" : `+ Decision history (${closedHistory.length})`}
           </button>
           {historyOpen && (
-            <div className="mt-3 space-y-2">
-              {closedHistory.map((d: any) => (
+            <div className="mt-3 space-y-3">
+              <div className="flex flex-wrap items-end gap-2">
+                <div>
+                  <label className="text-[11px] text-muted-foreground block">Status</label>
+                  <select value={historyType} onChange={(e) => setHistoryType(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm">
+                    {HISTORY_TYPES.map((t) => <option key={t} value={t}>{t}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground block">From</label>
+                  <input type="date" value={historyFrom} max={historyTo || undefined} onChange={(e) => setHistoryFrom(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-muted-foreground block">To</label>
+                  <input type="date" value={historyTo} min={historyFrom || undefined} onChange={(e) => setHistoryTo(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
+                </div>
+                {(historyType !== "All" || historyFrom || historyTo) && (
+                  <button type="button" onClick={() => { setHistoryType("All"); setHistoryFrom(""); setHistoryTo(""); }} className="text-xs text-primary hover:underline pb-2">
+                    Clear filters
+                  </button>
+                )}
+                <span className="text-xs text-muted-foreground pb-2">{filteredHistory.length} of {closedHistory.length}</span>
+              </div>
+              {filteredHistory.length === 0 && (
+                <div className="text-sm text-muted-foreground">No decisions match these filters.</div>
+              )}
+              {filteredHistory.map((d: any) => (
                 <details key={d.id} className="rounded-lg border border-border bg-muted/20 p-3">
                   <summary className="text-sm text-foreground cursor-pointer">
                     <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">{d.decision_status || d.decision}</span>
