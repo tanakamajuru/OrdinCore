@@ -1,6 +1,7 @@
 import { risksRepo } from '../repositories/risks.repo';
 import { eventBus, EVENTS } from '../events/eventBus';
 import { query, getClient } from '../config/database';
+import type { PoolClient } from 'pg';
 import { v4 as uuidv4 } from 'uuid';
 import { escalationDueBy } from './escalations.service';
 import { notificationsService } from './notifications.service';
@@ -24,6 +25,10 @@ export function severityToScore(severity?: string): { likelihood: number; impact
 }
 
 export class RisksService {
+  // Bug fix (6 Nov 2026, user-reported duplicate risks): the optional `client` lets a caller
+  // holding its own transaction (promoteFromCluster/promoteFromCandidate's lockClient) run the
+  // risk insert + its 'created' event as part of THAT transaction, so a later failure in the same
+  // promotion rolls back the risk too instead of leaving an orphaned, re-promotable duplicate.
   async create(company_id: string, created_by: string, data: {
     house_id: string; title: string; description?: string; severity?: string; category_id?: string;
     likelihood?: number; impact?: number; assigned_to?: string; review_due_date?: Date;
@@ -32,7 +37,7 @@ export class RisksService {
     metadata?: any;
     linked_person?: string;
     critical_exception_reason?: string;
-  }) {
+  }, client?: PoolClient) {
     // [GOVERNANCE] Risk provenance: risks are never created out of thin air.
     // They must originate from a detected cluster (source_cluster_id) OR be a
     // documented critical exception. (Doctrine: "Risks never auto-created;
@@ -48,12 +53,15 @@ export class RisksService {
       : data.metadata;
     const { critical_exception_reason, ...rest } = data;
 
-    const risk = await risksRepo.create({ company_id, created_by, ...rest, metadata });
+    const risk = await risksRepo.create({ company_id, created_by, ...rest, metadata }, client);
     await risksRepo.addEvent(
       risk.id, company_id, 'created',
       data.source_cluster_id ? 'Risk created from source cluster' : `Risk created (critical exception): ${exceptionReason}`,
-      created_by
+      created_by, client
     );
+    // Post-commit-style side effects (notification/event bus) stay on the shared pool even when a
+    // client is supplied -- same non-atomicity already accepted elsewhere in this file; the part
+    // that matters for the duplication bug (the risk row itself) is now covered above.
     await eventBus.emitEvent(EVENTS.RISK_CREATED,
       { risk_id: risk.id, company_id, created_by, severity: risk.severity },
       { idempotencyKey: `risk-created:${risk.id}` });
@@ -720,6 +728,14 @@ export class RisksService {
     if (claim.rows.length === 0) {
       throw new Error('This pattern has already been promoted to a risk — open it from "View risk".');
     }
+    // Bug fix (6 Nov 2026, user-reported duplicate risks): tracks whether this.create() actually
+    // succeeded before any LATER step in this method throws. The catch block below used to always
+    // revert the cluster's claim to NULL on any failure -- if the risk had already been created by
+    // then, that made the cluster promotable again while the already-created risk stayed behind,
+    // producing a permanent orphan duplicate on every retry (confirmed live: three identical
+    // "Physical Health: Jethro K" risks). A later failure now links the cluster to the risk that
+    // WAS created instead of releasing it, so the risk itself is never silently duplicated.
+    let createdRisk: any = null;
     try {
 
     // [GOVERNANCE] Promotion evidentiary floor (Doctrine §9 / correction.md §2.1):
@@ -841,6 +857,7 @@ export class RisksService {
       // to 'Manual' whenever it's absent (RiskDetail.tsx). Stamp it explicitly here.
       metadata: { source: 'Pattern promotion', source_cluster_id: data.cluster_id },
     });
+    createdRisk = risk;
 
     // Stamp the systemic reach so the register/dashboards read it as a Strategic risk
     // (services_affected_count > 1) themed on its domain, rather than an operational one.
@@ -919,13 +936,23 @@ export class RisksService {
 
     return risk;
     } catch (e) {
-      // Release the claim so a genuine failure (not a duplicate) never leaves the cluster
-      // permanently unpromotable — only revert if still holding our own sentinel (the
-      // cluster-status UPDATE above already replaced it with the real risk id on success).
-      await query(
-        `UPDATE signal_clusters SET linked_risk_id = NULL WHERE id = $1 AND company_id = $2 AND linked_risk_id = $3`,
-        [data.cluster_id, company_id, PROMOTION_CLAIM_SENTINEL]
-      ).catch(() => undefined);
+      if (createdRisk) {
+        // The risk itself was already created before this failure -- link the cluster to IT
+        // rather than releasing the claim, so a retry reopens/continues this same risk instead of
+        // creating a second one for the same pattern.
+        await query(
+          `UPDATE signal_clusters SET linked_risk_id = $1, promoted_at = COALESCE(promoted_at, NOW()) WHERE id = $2 AND company_id = $3 AND linked_risk_id = $4`,
+          [createdRisk.id, data.cluster_id, company_id, PROMOTION_CLAIM_SENTINEL]
+        ).catch(() => undefined);
+      } else {
+        // Release the claim so a genuine failure (not a duplicate) never leaves the cluster
+        // permanently unpromotable — only revert if still holding our own sentinel (the
+        // cluster-status UPDATE above already replaced it with the real risk id on success).
+        await query(
+          `UPDATE signal_clusters SET linked_risk_id = NULL WHERE id = $1 AND company_id = $2 AND linked_risk_id = $3`,
+          [data.cluster_id, company_id, PROMOTION_CLAIM_SENTINEL]
+        ).catch(() => undefined);
+      }
       throw e;
     }
   }
@@ -1064,7 +1091,7 @@ export class RisksService {
             promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain,
           },
           linked_person: candidate.linked_person
-        });
+        }, lockClient);
       }
 
       // Candidate status is updated on the SAME locked connection/transaction that holds the

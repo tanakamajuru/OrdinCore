@@ -1,5 +1,6 @@
 import { query } from '../config/database';
 import { v4 as uuidv4 } from 'uuid';
+import type { PoolClient } from 'pg';
 
 export interface CreateRiskDto {
   company_id: string;
@@ -111,9 +112,18 @@ export const risksRepo = {
     return parseInt(result.rows[0].count);
   },
 
-  async create(dto: CreateRiskDto) {
+  // Bug fix (6 Nov 2026, user-reported: duplicate "Physical Health: Jethro K" risks): create()
+  // and addEvent() always ran on the shared pool, even when called from promoteFromCluster/
+  // promoteFromCandidate, which hold their OWN lockClient transaction. A failure anywhere later
+  // in that transaction rolled back the candidate/cluster updates, but the risk row -- already
+  // committed independently via the shared pool -- stayed behind as a permanent orphan, leaving
+  // the candidate re-promotable and inviting a repeat click to create another. An optional
+  // `client` lets the promotion paths run the risk insert on their OWN transaction instead, so a
+  // later failure rolls back the whole promotion, not just part of it.
+  async create(dto: CreateRiskDto, client?: PoolClient) {
+    const run = client ? client.query.bind(client) : query;
     const id = uuidv4();
-    const result = await query(
+    const result = await run(
       `INSERT INTO risks (
         id, company_id, house_id, category_id, title, description, severity, status, 
         likelihood, impact, assigned_to, created_by, review_due_date, metadata,
@@ -153,9 +163,10 @@ export const risksRepo = {
     await query("UPDATE risks SET status = 'Closed', resolved_at = NOW(), updated_at = NOW() WHERE id = $1 AND company_id = $2", [id, company_id]);
   },
 
-  async addEvent(risk_id: string, company_id: string, event_type: string, description: string, created_by: string) {
+  async addEvent(risk_id: string, company_id: string, event_type: string, description: string, created_by: string, client?: PoolClient) {
+    const run = client ? client.query.bind(client) : query;
     const id = uuidv4();
-    const result = await query(
+    const result = await run(
       `INSERT INTO risk_events (id, risk_id, company_id, event_type, description, created_by)
        VALUES ($1,$2,$3,$4,$5,$6) RETURNING *`,
       [id, risk_id, company_id, event_type, description, created_by]
