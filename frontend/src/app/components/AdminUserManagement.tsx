@@ -13,6 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Users, UserPlus, Edit, Trash2, Key, Search, RefreshCw, Globe } from 'lucide-react';
 import { toast } from 'sonner';
 import { ROLES } from '../../constants/roles';
+import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 
 interface User {
   id: string;
@@ -65,6 +66,7 @@ interface UserStats {
 
 
 const AdminUserManagement: React.FC = () => {
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [users, setUsers] = useState<User[]>([]);
   const [houses, setHouses] = useState<House[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
@@ -550,7 +552,11 @@ const AdminUserManagement: React.FC = () => {
   }
 
   const handleForcePasswordReset = async () => {
-    if (!window.confirm('Require ALL active staff to set a new password at their next login?\n\nEveryone will be prompted to reset when they next sign in. This is reversible and self-heals once each person changes their password.')) return;
+    const ok = await confirm({
+      message: 'Require ALL active staff to set a new password at their next login?\n\nEveryone will be prompted to reset when they next sign in. This is reversible and self-heals once each person changes their password.',
+      confirmLabel: 'Require reset', danger: true,
+    });
+    if (ok === null) return;
     setForcingReset(true);
     try {
       const res = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1'}/users/force-password-reset`, {
@@ -567,6 +573,7 @@ const AdminUserManagement: React.FC = () => {
 
   return (
     <div className="p-6 space-y-6">
+      {ConfirmModal}
       <div className="flex justify-between items-center">
         <div className="flex items-center space-x-4">
           <h1 className="text-3xl  text-foreground">User Management</h1>

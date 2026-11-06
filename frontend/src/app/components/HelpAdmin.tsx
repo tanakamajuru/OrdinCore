@@ -3,6 +3,7 @@ import { ClipboardList, Plus, Trash2, Image as ImageIcon, Film, X, Pencil } from
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 type Media = { type: "image" | "video"; url: string; caption?: string };
 type Article = { id: string; title: string; body?: string; target_roles?: string[]; media?: Media[]; published?: boolean };
@@ -19,6 +20,7 @@ const ROLES: { value: string; label: string }[] = [
 const BLANK: Article = { id: "", title: "", body: "", target_roles: [], media: [], published: true };
 
 export function HelpAdmin() {
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [articles, setArticles] = useState<Article[]>([]);
   const [loading, setLoading] = useState(true);
   const [form, setForm] = useState<Article | null>(null);
@@ -69,7 +71,8 @@ export function HelpAdmin() {
   };
 
   const remove = async (a: Article) => {
-    if (!window.confirm(`Delete "${a.title}"? This cannot be undone.`)) return;
+    const ok = await confirm({ message: `Delete "${a.title}"? This cannot be undone.`, confirmLabel: "Delete", danger: true });
+    if (ok === null) return;
     try { await apiClient.delete(`/help/${a.id}`); toast.success("Deleted"); load(); }
     catch (e: any) { toast.error(e?.response?.data?.message || "Failed to delete"); }
   };
@@ -80,6 +83,7 @@ export function HelpAdmin() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 lg:px-10 pt-20 max-w-3xl mx-auto">
         <div className="flex items-center justify-between gap-3 mb-6">

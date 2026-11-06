@@ -946,6 +946,7 @@ export class RisksService {
     const lockClient = await getClient();
     await lockClient.query('BEGIN');
     let candidate: any;
+    let reopenTargetRisk: any = null;
     try {
       const candidateRes = await lockClient.query(
         `SELECT id, risk_domain, linked_person, cluster_id, status, linked_risk_id, source_signals
@@ -955,7 +956,17 @@ export class RisksService {
       if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
       candidate = candidateRes.rows[0];
       if (candidate.linked_risk_id) {
-        throw new Error('This candidate has already been promoted to a risk — open it from "View existing risk".');
+        // Bug fix (6 Nov 2026, user-reported): a candidate linked to a risk that has SINCE been
+        // CLOSED represents recurrence after closure, not a live double-promotion -- registering
+        // it used to be blocked outright ("already promoted"), and the only alternative was a
+        // brand-new duplicate risk for the same person/domain even though the RM only wanted to
+        // reclassify/reopen the existing one. Reopen and reclassify that same risk instead of
+        // creating a second one. A link to a risk that is still OPEN is unchanged: still blocked.
+        const lr = (await lockClient.query(`SELECT id, status FROM risks WHERE id = $1 AND company_id = $2 FOR UPDATE`, [candidate.linked_risk_id, company_id])).rows[0];
+        if (lr && lr.status !== 'Closed') {
+          throw new Error('This candidate has already been promoted to a risk — open it from "View existing risk".');
+        }
+        reopenTargetRisk = lr || null;
       }
       if (candidate.status === 'Promoted') {
         throw new Error('This candidate is already marked Promoted — reload and reconcile before retrying.');
@@ -973,10 +984,15 @@ export class RisksService {
       const clusterId = data.cluster_id || candidate.cluster_id;
       if (clusterId) {
         const clusterRes = await lockClient.query(
-          `SELECT linked_risk_id FROM signal_clusters WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+          `SELECT sc.linked_risk_id, r.status AS linked_risk_status FROM signal_clusters sc
+             LEFT JOIN risks r ON r.id = sc.linked_risk_id
+            WHERE sc.id = $1 AND sc.company_id = $2 FOR UPDATE`,
           [clusterId, company_id]
         );
-        if (clusterRes.rows[0]?.linked_risk_id) {
+        const cr = clusterRes.rows[0];
+        // Same relaxation as the candidate's own linked_risk_id above: a pattern linked to a risk
+        // that has since closed is recurrence after closure, not a live double-promotion.
+        if (cr?.linked_risk_id && cr.linked_risk_status && cr.linked_risk_status !== 'Closed') {
           throw new Error('This pattern has already been promoted to a risk via another route — open it from "View risk".');
         }
       }
@@ -1011,29 +1027,45 @@ export class RisksService {
     // failure here rolls back the lock (leaving the candidate exactly as it was, safe to retry)
     // rather than leaving it stuck in a half-promoted state.
     let risk: any;
+    let reopened = false;
     try {
-      risk = await this.create(company_id, user_id, {
-        ...data,
-        status: 'Open',
-        // Provenance: the originating cluster is the risk's source. If the candidate
-        // has no cluster (some candidate types), the RM's promotion reason becomes the
-        // documented critical-exception provenance — so promotion never silently fails
-        // the provenance guard. (RM Bug #5.)
-        source_cluster_id: sourceCluster,
-        critical_exception_reason: sourceCluster
-          ? undefined
-          : ((data.reason && data.reason.trim().length >= 10)
-              ? data.reason
-              : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
-        risk_domain: resolvedDomain,
-        // §4: stamp Source explicitly so RiskDetail.tsx never falls back to "Manual" for a
-        // candidate promotion (video-confirmed defect — see promoteFromCluster() above).
-        metadata: {
-          source: sourceCluster ? 'Candidate promotion (pattern-linked)' : 'Candidate promotion (critical exception)',
-          promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain,
-        },
-        linked_person: candidate.linked_person
-      });
+      if (reopenTargetRisk) {
+        // Reopen and reclassify the SAME risk this candidate's recurrence relates to, rather than
+        // creating a duplicate (user-reported 6 Nov 2026: "if I change risk category, its
+        // seemingly opening a new risk, it should just alter the category").
+        const upd = await lockClient.query(
+          `UPDATE risks SET status = 'Open', category_id = COALESCE($1, category_id), risk_domain = $2,
+                  closed_at = NULL, updated_at = NOW()
+            WHERE id = $3 AND company_id = $4 RETURNING *`,
+          [data.category_id || null, resolvedDomain, reopenTargetRisk.id, company_id]
+        );
+        risk = upd.rows[0];
+        if (!risk) throw new Error('The risk this candidate was linked to could not be found to reopen.');
+        reopened = true;
+      } else {
+        risk = await this.create(company_id, user_id, {
+          ...data,
+          status: 'Open',
+          // Provenance: the originating cluster is the risk's source. If the candidate
+          // has no cluster (some candidate types), the RM's promotion reason becomes the
+          // documented critical-exception provenance — so promotion never silently fails
+          // the provenance guard. (RM Bug #5.)
+          source_cluster_id: sourceCluster,
+          critical_exception_reason: sourceCluster
+            ? undefined
+            : ((data.reason && data.reason.trim().length >= 10)
+                ? data.reason
+                : `Promoted from review queue: ${candidate.risk_domain || 'risk candidate'}`),
+          risk_domain: resolvedDomain,
+          // §4: stamp Source explicitly so RiskDetail.tsx never falls back to "Manual" for a
+          // candidate promotion (video-confirmed defect — see promoteFromCluster() above).
+          metadata: {
+            source: sourceCluster ? 'Candidate promotion (pattern-linked)' : 'Candidate promotion (critical exception)',
+            promotion_reason: data.reason, original_candidate_domain: candidate.risk_domain,
+          },
+          linked_person: candidate.linked_person
+        });
+      }
 
       // Candidate status is updated on the SAME locked connection/transaction that holds the
       // FOR UPDATE lock, so it commits (and releases the lock) together with this decision.
@@ -1077,7 +1109,13 @@ export class RisksService {
       lockClient.release();
     }
 
-    await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`, user_id);
+    await risksRepo.addEvent(
+      risk.id, company_id, reopened ? 'Reopened' : 'Promotion',
+      reopened
+        ? `Reopened and reclassified from Risk Candidate ${data.candidate_id} (recurrence after closure). Reason: ${data.reason}`
+        : `Promoted from Risk Candidate ${data.candidate_id}. Reason: ${data.reason}`,
+      user_id
+    );
 
     return risk;
   }
@@ -1190,13 +1228,21 @@ export class RisksService {
     let clusterId: string | null;
     try {
       const candidateRes = await lockClient.query(
-        `SELECT id, cluster_id, status, linked_risk_id FROM risk_candidates
-         WHERE id = $1 AND company_id = $2 FOR UPDATE`,
+        `SELECT rc.id, rc.cluster_id, rc.status, rc.linked_risk_id, r.status AS linked_risk_status
+           FROM risk_candidates rc
+           LEFT JOIN risks r ON r.id = rc.linked_risk_id
+          WHERE rc.id = $1 AND rc.company_id = $2 FOR UPDATE`,
         [candidate_id, company_id]
       );
       if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
       const candidate = candidateRes.rows[0];
-      if (candidate.linked_risk_id || candidate.status === 'Promoted') {
+      // Bug fix (6 Nov 2026, user-reported): a candidate whose linked_risk_id points at a risk
+      // that has SINCE been closed is stale, historical linkage, not a live promotion -- blocking
+      // its dismissal left it permanently stuck (can't Register -- already linked; can't Dismiss
+      // -- "already promoted"). Only an actual Promoted status, or a link to a still-OPEN risk, is
+      // a genuine promotion that must not be dismissed.
+      const linkedRiskStillOpen = candidate.linked_risk_id && candidate.linked_risk_status && candidate.linked_risk_status !== 'Closed';
+      if (linkedRiskStillOpen || candidate.status === 'Promoted') {
         throw new Error('This candidate has already been promoted to a risk and can no longer be dismissed.');
       }
       clusterId = candidate.cluster_id;

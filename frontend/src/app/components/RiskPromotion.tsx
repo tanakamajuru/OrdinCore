@@ -392,7 +392,7 @@ export function RiskPromotion() {
                   <button
                       onClick={handleDismiss}
                       disabled={isSubmitting || !formData.reason}
-                      className="flex-1 border-4 border-border h-16 text-sm uppercase tracking-widest hover:bg-muted transition-all disabled:opacity-50"
+                      className="flex-1 bg-foreground text-background border-4 border-foreground h-16 text-sm uppercase tracking-widest hover:opacity-90 transition-all disabled:opacity-50"
                   >
                       Dismiss
                   </button>

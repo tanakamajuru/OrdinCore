@@ -3,6 +3,7 @@ import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { Settings, Tags, Activity, AlertTriangle, ClipboardList, FileSearch, Plus, Check, X, Lock, Building2, RefreshCw, Trash2 } from "lucide-react";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 const SECTORS = [
   { value: "SUPPORTED_LIVING", label: "Supported Living" },
@@ -22,6 +23,7 @@ const TABS = [
 const CADENCES = ["Daily", "Weekly", "Fortnightly", "Monthly", "Quarterly"];
 
 export function GovernanceConfig() {
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const role = (localStorage.getItem("userRole") || user.role || "").toUpperCase().replace(/-/g, "_");
   const isSuper = role === "SUPER_ADMIN";
@@ -128,7 +130,8 @@ export function GovernanceConfig() {
   };
 
   const del = async (path: string, label: string) => {
-    if (!window.confirm(`Delete this ${label.toLowerCase()}?`)) return;
+    const ok = await confirm({ message: `Delete this ${label.toLowerCase()}?`, confirmLabel: "Delete", danger: true });
+    if (ok === null) return;
     try {
       await apiClient.delete(`/governance-config/${path}`);
       toast.success(`${label} deleted`);
@@ -170,6 +173,7 @@ export function GovernanceConfig() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-7xl mx-auto">
         <div className="flex items-center gap-3 mb-2">

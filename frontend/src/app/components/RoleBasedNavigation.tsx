@@ -6,6 +6,7 @@ import { useAuth } from "@/hooks/useAuth";
 import { apiClient } from "@/services/api";
 import logo from "./images/logo.png";
 import { ControlledScreenAssist } from "./ControlledScreenAssist";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 type NavItem = { path: string; label: string; icon: any; section?: string; badgeKey?: string; action?: "help" | "support" };
 
@@ -13,6 +14,7 @@ export function RoleBasedNavigation() {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout } = useAuth();
+  const { confirm, ConfirmModal } = useConfirmDialog();
 
   const rawRole = user?.role || localStorage.getItem("userRole") || "";
   const userRole = rawRole.toUpperCase().replace(/-/g, "_");
@@ -271,8 +273,9 @@ export function RoleBasedNavigation() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userRole]);
 
-  const handleLogout = () => {
-    if (window.confirm("Are you sure you want to logout? Any unsaved changes may be lost.")) {
+  const handleLogout = async () => {
+    const ok = await confirm({ message: "Are you sure you want to logout? Any unsaved changes may be lost.", confirmLabel: "Logout" });
+    if (ok !== null) {
       logout();
       navigate("/login");
     }
@@ -288,6 +291,7 @@ export function RoleBasedNavigation() {
 
   return (
     <>
+    {ConfirmModal}
     {/* Global Back — returns to the previously opened page/register. Shown on desktop where
         the sidebar is present; sits in the top padding every page leaves above its content. */}
     <button

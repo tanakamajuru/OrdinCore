@@ -3,10 +3,12 @@ import { Home, Activity, FileText, AlertTriangle, TrendingUp, Users, User, FileD
 import { Button } from "./ui/button";
 import logo from "./images/logo.png";
 import { useEffect, useState } from "react";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 export function Navigation() {
   const location = useLocation();
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [userRole, setUserRole] = useState<string>('');
 
   useEffect(() => {
@@ -45,6 +47,7 @@ export function Navigation() {
 
   return (
     <nav className="bg-card border-b-2 border-border fixed top-0 left-0 right-0 z-50">
+      {ConfirmModal}
       <div className="w-full px-6">
         <div className="flex justify-between items-center h-16">
           <div className="flex items-center space-x-8">
@@ -91,11 +94,10 @@ export function Navigation() {
                 </button>
               );
             })}
-            <Button 
-              onClick={() => {
-                if (window.confirm("Are you sure you want to logout?")) {
-                  navigate("/login");
-                }
+            <Button
+              onClick={async () => {
+                const ok = await confirm({ message: "Are you sure you want to logout?", confirmLabel: "Logout" });
+                if (ok !== null) navigate("/login");
               }}
             >
               Logout

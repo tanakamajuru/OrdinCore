@@ -14,10 +14,12 @@ import {
 import { apiClient } from "@/services/api";
 import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 export function EvidencePackViewer() {
   const { house_id } = useParams();
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [isLoading, setIsLoading] = useState(true);
   const [data, setData] = useState<any>(null);
   const [activeTab, setActiveTab] = useState("timeline");
@@ -66,7 +68,7 @@ export function EvidencePackViewer() {
   };
 
   const handleCreateQuery = async (reviewId: string) => {
-    const queryText = window.prompt("Enter your query for the Registered Manager:");
+    const queryText = await confirm({ message: "Enter your query for the Registered Manager:", requireReason: true, confirmLabel: "Send" });
     if (!queryText) return;
 
     try {
@@ -88,6 +90,7 @@ export function EvidencePackViewer() {
 
   return (
     <div className="min-h-screen bg-background text-foreground font-sans">
+      {ConfirmModal}
       <RoleBasedNavigation />
       
       <div className="p-8 w-full pt-24 max-w-[1400px] mx-auto">

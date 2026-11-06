@@ -4,6 +4,7 @@ import { Gavel, Plus, CheckCircle2, Clock, AlertTriangle, Eye, ArrowRight, Chevr
 import { toast } from "sonner";
 import apiClient from "@/services/apiClient";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 const isoDay = (d: any) => { try { return d ? new Date(d).toISOString().slice(0, 10) : ""; } catch { return ""; } };
 const previousDay = (date: string) => {
@@ -50,6 +51,7 @@ export function GovernanceDecisions({
   focusPulseId?: string | null;
 }) {
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [owners, setOwners] = useState<any[]>([]);
   const [signals, setSignals] = useState<any[]>([]);
   const [dayList, setDayList] = useState<any[]>([]);
@@ -375,11 +377,16 @@ export function GovernanceDecisions({
   // signal to today's undecided queue so a fresh, correct decision can be recorded on it.
   const reopenDecision = async (d: any) => {
     if (readOnly || !d.pulse_entry_id) return;
-    const reason = window.prompt(
-      `Reopen "${d.what_is_happening?.slice(0, 80) || "this decision"}"?\n\nThis signal will return to today's undecided queue so you can record the correct decision. The original decision stays as audit history.\n\nBriefly record why (e.g. "Findings were recorded against the wrong signal"):`
-    );
-    if (!reason || reason.trim().length < 10) {
-      if (reason !== null) toast.error("Record a reason of at least 10 characters to reopen.");
+    const reason = await confirm({
+      title: `Reopen "${d.what_is_happening?.slice(0, 80) || "this decision"}"?`,
+      message: `This signal will return to today's undecided queue so you can record the correct decision. The original decision stays as audit history.`,
+      requireReason: true,
+      reasonPlaceholder: 'Briefly record why (e.g. "Findings were recorded against the wrong signal")',
+      confirmLabel: "Reopen",
+    });
+    if (reason === null) return;
+    if (reason.trim().length < 10) {
+      toast.error("Record a reason of at least 10 characters to reopen.");
       return;
     }
     setReopeningId(d.id);
@@ -500,6 +507,7 @@ export function GovernanceDecisions({
 
   return (
     <div className="bg-card border-2 border-border rounded-xl p-5">
+      {ConfirmModal}
       <div className="flex items-center justify-between gap-3 mb-4">
         <div className="flex items-center gap-2">
           <Gavel size={18} className="text-primary" />

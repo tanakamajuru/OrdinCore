@@ -8,6 +8,7 @@ import { apiClient } from "@/services/api";
 import { OutstandingActionsBanner } from "./OutstandingActionsBanner";
 import { DecisionsDueBanner } from "./DecisionsDueBanner";
 import { toast } from "sonner";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 /* Stage 4: the RM 5-screen interface (pipeline spine), wired to the live /api/rm BFF and
    the existing detail/promote/weekly/reports screens for actions. Parallel route (/rm5) —
@@ -61,6 +62,7 @@ function GovHead({ q, sub }: { q: string; sub?: string }) {
 
 export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "today" | "pipeline" }) {
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const {data:evidenceSummary}=useCanonicalEvidenceSummary();
   // Deep-link support: /rm5?stage=signals opens the pipeline on the signals tab so
   // "signals awaiting review" links land on signals, not patterns.
@@ -171,7 +173,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   // Dismiss there was a dead end (the reported mix-up). An established/cross-service pattern is
   // reviewed in that workspace, not dismissed — this handler is only wired to emerging candidates.
   const dismissPattern = async (p: any) => {
-    const reason = window.prompt("Why are you setting this emerging concern aside? A brief reason (min 10 characters) is recorded on the audit trail.");
+    const reason = await confirm({ message: "Why are you setting this emerging concern aside? A brief reason (min 10 characters) is recorded on the audit trail.", requireReason: true, confirmLabel: "Dismiss" });
     if (reason === null) return; // cancelled
     if (reason.trim().length < 10) { toast.error("A dismissal reason of at least 10 characters is required."); return; }
     try {
@@ -248,6 +250,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="px-6 pt-20"><CanonicalEvidenceStrip summary={evidenceSummary} compact /></div>
       <div className="p-6 pt-20 w-full">

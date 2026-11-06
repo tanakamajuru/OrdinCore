@@ -6,6 +6,7 @@ import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { GovernanceReviewModal } from "@/components/GovernanceReviewModal";
 import { isClosedEscalation, isOpenEscalation, isOpenRisk } from "@/lib/governanceStatus";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 // Defensively unwrap the varying { data } / { data: { data } } response shapes.
 const unwrap = (res: any): any => res?.data?.data ?? res?.data ?? [];
@@ -57,6 +58,7 @@ function Panel({ title, count, children }: any) {
 // escalations are NOT restated here — they are one click away on their own screens.
 export function RegisteredManagerDashboard() {
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [loading, setLoading] = useState(true);
   const [house, setHouse] = useState<any>(null);
   const [signals, setSignals] = useState<any[]>([]);
@@ -112,7 +114,7 @@ export function RegisteredManagerDashboard() {
   // Respond to an RI forensic governance query — rehomed verbatim from the Oversight Board
   // so retiring that surface doesn't drop the RM's channel back to the Responsible Individual.
   const respondToQuery = async (queryId: string) => {
-    const response = window.prompt("Enter your formal justification/response to the RI:");
+    const response = await confirm({ message: "Enter your formal justification/response to the RI:", requireReason: true, confirmLabel: "Submit" });
     if (!response) return;
     try {
       await apiClient.post(`/ri-governance/queries/${queryId}/respond`, { response_text: response });
@@ -157,6 +159,7 @@ export function RegisteredManagerDashboard() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 max-w-[1500px]">
         {/* Header */}

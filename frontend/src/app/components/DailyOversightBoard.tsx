@@ -6,6 +6,7 @@ import apiClient from "@/services/apiClient";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { GovernanceDecisions } from "./GovernanceDecisions";
 import { useGovernanceRefresh } from "@/hooks/useGovernanceRefresh";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface DashboardData {
   highPriority: any[]; pattern_signals: any[]; risk_candidates: any[]; actions: any[];
@@ -18,6 +19,7 @@ const prettyDay = (isoStr: string) => { try { return new Date(isoStr).toLocaleDa
 
 export function DailyOversightBoard() {
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const location = useLocation();
   const guidedParams = new URLSearchParams(location.search);
   const guidedPulseId = guidedParams.get("pulseId");
@@ -326,10 +328,12 @@ export function DailyOversightBoard() {
       }
       let acknowledgeExceptions = false;
       if (readiness.requires_exception_acknowledgement) {
-        acknowledgeExceptions = window.confirm(
-          `${Number(readiness.open_escalations||0)} open escalation(s) and ${Number(readiness.effectiveness_due||0)} effectiveness review(s) remain open.\n\n` +
-          'These matters will remain open and be carried forward under governance oversight. Acknowledge and publish the daily brief?'
-        );
+        const ok = await confirm({
+          message: `${Number(readiness.open_escalations||0)} open escalation(s) and ${Number(readiness.effectiveness_due||0)} effectiveness review(s) remain open.\n\n` +
+            'These matters will remain open and be carried forward under governance oversight. Acknowledge and publish the daily brief?',
+          confirmLabel: "Acknowledge & publish",
+        });
+        acknowledgeExceptions = ok !== null;
         if (!acknowledgeExceptions) throw new Error('Daily governance sign-off cancelled: outstanding matters were not acknowledged for carry-forward.');
       }
       await complete(acknowledgeExceptions);
@@ -422,6 +426,7 @@ export function DailyOversightBoard() {
 
   return (
     <div className="min-h-screen bg-background" data-screen-assist-context={isHistoricalDate ? (signedOff ? "historical_read_only" : "historical_unpublished_read_only") : signedOff ? (postSignoffReview ? "post_signoff_review" : "signed_read_only") : "editable"}>
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 lg:px-10 pt-24 max-w-[1400px] mx-auto space-y-6">
 

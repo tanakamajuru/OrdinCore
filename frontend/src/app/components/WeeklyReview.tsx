@@ -7,6 +7,7 @@ import { Shield, Activity, Check, Lock, ArrowLeft, ArrowRight, Send, Clock, User
 import { WeeklyGovernanceTeamReport } from "./weeklyGovernanceTeamReport/WeeklyGovernanceTeamReport";
 import { mapWeeklyReviewToTeamReport } from "./weeklyGovernanceTeamReport/mapWeeklyReviewToTeamReport";
 import { RMWeeklyGovernanceWorkspace } from "./RMWeeklyGovernanceWorkspace";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 // 13-step Weekly Governance Review wizard. Steps unlock in order; steps 2–10
 // auto-populate from the week's data; the RM supplies overall position and
@@ -28,6 +29,7 @@ const POSITIONS = ["Stable", "Watch", "Concern", "Escalating", "Serious Concern"
 
 export function WeeklyReview() {
   const navigate = useNavigate();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const { id } = useParams();
   // Guided Work deep-links carry the EXACT service + week to review (?houseId=&weekEnding=).
   // Honour them so opening "24 Hurst Grove" opens 24 Hurst Grove, not the RM's default house.
@@ -418,7 +420,7 @@ export function WeeklyReview() {
     // Guard against a missing id — without one the URL becomes /weekly-reviews//validate and 404s.
     const rid = (id && id !== "new") ? id : reviewId;
     if (!rid) { toast.error("Open a specific finalised review before validating."); return; }
-    const comment = window.prompt(`Enter ${vStatus.toLowerCase()} comment:`);
+    const comment = await confirm({ message: `Enter ${vStatus.toLowerCase()} comment:`, requireReason: true, confirmLabel: "Submit" });
     if (comment === null) return;
     setIsSaving(true);
     try {
@@ -874,6 +876,7 @@ export function WeeklyReview() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="w-full pt-28 p-6">
         <div className="flex items-center gap-3 mb-3">

@@ -3,6 +3,7 @@ import { RoleBasedNavigation } from "../components/RoleBasedNavigation";
 import apiClient from "@/services/apiClient";
 import { toast } from "sonner";
 import { UserPlus, Shield, Users, UserMinus } from "lucide-react";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface House {
   id: string;
@@ -18,6 +19,7 @@ interface ServiceUser {
 }
 
 export function AdminServiceUsers() {
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [houses, setHouses] = useState<House[]>([]);
   const [selectedHouse, setSelectedHouse] = useState<string>('');
   const [serviceUsers, setServiceUsers] = useState<ServiceUser[]>([]);
@@ -83,7 +85,8 @@ export function AdminServiceUsers() {
   };
 
   const handleDeactivate = async (id: string) => {
-    if (!window.confirm("Are you sure you want to deactivate this user?")) return;
+    const ok = await confirm({ message: "Are you sure you want to deactivate this user?", confirmLabel: "Deactivate", danger: true });
+    if (ok === null) return;
     try {
       await apiClient.patch(`/service-users/${id}`, { is_active: false });
       toast.success("Service user deactivated");
@@ -95,6 +98,7 @@ export function AdminServiceUsers() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 md:px-12 pt-28 max-w-6xl mx-auto">
         <div className="mb-10 flex flex-col md:flex-row justify-between items-start md:items-end border-b-4 border-primary pb-6">

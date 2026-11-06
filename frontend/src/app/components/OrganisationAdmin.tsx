@@ -9,6 +9,7 @@ import {
   CreditCard, Menu, LogOut,
 } from "lucide-react";
 import apiClient from "@/services/apiClient";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 /* ---------- types ---------- */
 type Overview = {
@@ -73,7 +74,8 @@ function Spinner() { return <div className="py-16 flex justify-center"><div clas
 export default function OrganisationAdmin() {
   const navigate = useNavigate();
   const { logout } = useAuth();
-  const handleLogout = () => { if (window.confirm("Log out of OrdinCore?")) { logout(); navigate("/login"); } };
+  const { confirm, ConfirmModal } = useConfirmDialog();
+  const handleLogout = async () => { const ok = await confirm({ message: "Log out of OrdinCore?", confirmLabel: "Logout" }); if (ok !== null) { logout(); navigate("/login"); } };
   const [section, setSection] = useState<Section>("overview");
   const [navOpen, setNavOpen] = useState(false);
   const [data, setData] = useState<Overview | null>(null);
@@ -102,6 +104,7 @@ export default function OrganisationAdmin() {
   const currentLabel = NAV.find(n => n.key === section)?.label || "Overview";
   return (
     <div className="min-h-screen flex bg-background">
+      {ConfirmModal}
       {/* Mobile drawer backdrop */}
       {navOpen && <div className="fixed inset-0 bg-black/40 z-30 lg:hidden" onClick={() => setNavOpen(false)} />}
       <aside className={`w-64 shrink-0 min-h-screen flex flex-col text-[#D9E8F3] fixed lg:static inset-y-0 left-0 z-40 transform transition-transform duration-200 lg:translate-x-0 ${navOpen ? "translate-x-0" : "-translate-x-full"}`} style={{ background: "linear-gradient(180deg,#0D2944,#081B2E)" }}>

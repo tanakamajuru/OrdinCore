@@ -5,6 +5,7 @@ import { ArrowLeft, AlertCircle, Shield, User, AlertTriangle } from "lucide-reac
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
 import { useAuth } from "@/hooks/useAuth";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface SignalDetail {
   id: string;
@@ -51,6 +52,7 @@ export function SignalDetail() {
   const navigate = useNavigate();
   const { id } = useParams();
   const { user } = useAuth();
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [signal, setSignal] = useState<SignalDetail | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [activity, setActivity] = useState<any[]>([]);
@@ -313,8 +315,9 @@ export function SignalDetail() {
   const canMarkAttention = ["TEAM_LEADER", "REGISTERED_MANAGER", "DIRECTOR", "RESPONSIBLE_INDIVIDUAL", "ADMIN", "SUPER_ADMIN"].includes(String(user?.role || "").toUpperCase());
   const markAttention = async () => {
     if (!signal) return;
-    const reason = window.prompt("Why does this signal need leadership attention? (a short sentence)");
-    if (!reason || reason.trim().length < 10) { if (reason !== null) toast.error("Please give a clear reason (at least a short sentence)."); return; }
+    const reason = await confirm({ message: "Why does this signal need leadership attention? (a short sentence)", requireReason: true, confirmLabel: "Flag" });
+    if (reason === null) return;
+    if (reason.trim().length < 10) { toast.error("Please give a clear reason (at least a short sentence)."); return; }
     setMarkingAttention(true);
     try {
       await apiClient.post(`/pulses/${signal.id}/leadership-attention`, { reason: reason.trim() });
@@ -407,6 +410,7 @@ export function SignalDetail() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20">
         <button
