@@ -133,7 +133,9 @@ export const governanceDecisionsService = {
       if (!input.due_at) throw new Error('A Monitor decision needs a review date.');
       const reviewAt = new Date(input.due_at).getTime();
       if (!Number.isFinite(reviewAt) || reviewAt <= Date.now()) throw new Error('A Monitor decision needs a valid future review date.');
-      if (!input.intended_outcome || input.intended_outcome.trim().length < 10) throw new Error('Record what the monitoring review is expected to establish.');
+      // No separate intended_outcome requirement for Monitor (6 Nov correction) — the Monitor form
+      // has no field for it; the four monitoring questions (observe/owner/review date/trigger) plus
+      // the combined assessment/rationale are the record of what the review establishes.
     }
 
     // Returning monitoring review: when an active Monitor cycle already exists for this signal, the
