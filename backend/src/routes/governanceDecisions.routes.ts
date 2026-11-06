@@ -31,4 +31,20 @@ router.get('/', requireAuth, requireTenant, async (req, res) => {
   }
 });
 
+// Typing-error correction — non-substantive text fix (spelling/punctuation) with a required
+// reason, kept as its own append-only event. Same permission model as recording the decision,
+// plus the decision's own author.
+router.post('/:id/correct-typing', requireAuth, requireTenant, async (req, res) => {
+  try {
+    const { field, corrected_text, reason, expected_updated_at, client_correction_id } = req.body || {};
+    const updated = await governanceDecisionsService.correctTyping(
+      req.params.id, req.user!.company_id!, req.user!.user_id, req.user!.role || '',
+      field, corrected_text, reason, expected_updated_at, client_correction_id
+    );
+    return res.json({ success: true, data: updated, meta: {} });
+  } catch (err: any) {
+    return res.status(err?.statusCode ?? 400).json({ success: false, message: err?.message || 'Failed to correct decision', errors: [] });
+  }
+});
+
 export default router;

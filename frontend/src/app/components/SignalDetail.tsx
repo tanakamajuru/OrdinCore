@@ -69,6 +69,14 @@ export function SignalDetail() {
   const [savingCorrection, setSavingCorrection] = useState(false);
   const [showPriorWording, setShowPriorWording] = useState(false);
   const correctionSubmissionId = useRef<string | null>(null);
+  // Same typing-error correction, but for a recorded Governance Decision's own text — inline in
+  // the Direct Governance History table (user-requested, 6 Nov 2026: "recorded items should be
+  // editable for corrections like spellings"). Keyed by decision id so only one row edits at a time.
+  const [editingDecisionId, setEditingDecisionId] = useState<string | null>(null);
+  const [decisionCorrectionDraft, setDecisionCorrectionDraft] = useState("");
+  const [decisionCorrectionReason, setDecisionCorrectionReason] = useState("");
+  const [savingDecisionCorrection, setSavingDecisionCorrection] = useState(false);
+  const decisionCorrectionSubmissionId = useRef<string | null>(null);
   // Substantive amendment (Nov 2026 brief §4) — material-fact change (date/time/severity/
   // category), distinct from both "Edit note" and "Correct typing error". Oversight roles only.
   const [amending, setAmending] = useState(false);
@@ -164,6 +172,30 @@ export function SignalDetail() {
       }
     } finally {
       setSavingCorrection(false);
+    }
+  };
+
+  const saveDecisionCorrection = async (decisionId: string) => {
+    if (!decisionCorrectionDraft.trim()) { toast.error("The corrected text cannot be empty."); return; }
+    if (decisionCorrectionReason.trim().length < 5) { toast.error("Give a brief reason for this correction."); return; }
+    setSavingDecisionCorrection(true);
+    try {
+      if (!decisionCorrectionSubmissionId.current) decisionCorrectionSubmissionId.current = `corr-${decisionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      await apiClient.post(`/governance-decisions/${decisionId}/correct-typing`, {
+        field: "what_is_happening",
+        corrected_text: decisionCorrectionDraft.trim(),
+        reason: decisionCorrectionReason.trim(),
+        client_correction_id: decisionCorrectionSubmissionId.current,
+      });
+      toast.success("Typing correction recorded.");
+      setEditingDecisionId(null);
+      setDecisionCorrectionDraft(""); setDecisionCorrectionReason("");
+      decisionCorrectionSubmissionId.current = null;
+      if (signal) loadSignalDetails(signal.id);
+    } catch (e: any) {
+      toast.error(e?.response?.data?.message || e?.message || "Failed to record correction");
+    } finally {
+      setSavingDecisionCorrection(false);
     }
   };
 
@@ -903,7 +935,7 @@ export function SignalDetail() {
                 <div className="overflow-x-auto">
                   <table className="w-full text-sm">
                     <thead><tr className="text-left text-[11px] uppercase text-muted-foreground border-b border-border">
-                      <th className="py-2 pr-3">Record</th><th className="pr-3">Relationship</th><th className="pr-3">Detail</th><th className="pr-3">Governance Decision</th><th>When</th>
+                      <th className="py-2 pr-3">Record</th><th className="pr-3">Relationship</th><th className="pr-3">Detail</th><th className="pr-3">Governance Decision</th><th>Date recorded</th>
                     </tr></thead>
                     <tbody>
                       {activity.map((a: any, i: number) => {
@@ -913,7 +945,36 @@ export function SignalDetail() {
                         <tr className={`border-b border-border/50 ${a.link ? "cursor-pointer hover:bg-muted/40" : ""}`} onClick={() => a.link && navigate(a.link)}>
                           <td className="py-2.5 pr-3 font-medium text-foreground whitespace-nowrap">{a.record}</td>
                           <td className="pr-3 text-muted-foreground whitespace-nowrap">{a.relationship}</td>
-                          <td className="pr-3 text-foreground">{a.label}</td>
+                          <td className="pr-3 text-foreground align-top">
+                            {a.record === 'Governance Decision' && editingDecisionId === a.id ? (
+                              <div className="space-y-1.5 min-w-[260px]" onClick={(e) => e.stopPropagation()}>
+                                <textarea value={decisionCorrectionDraft} onChange={(e) => setDecisionCorrectionDraft(e.target.value)} rows={3}
+                                  className="w-full text-xs p-2 rounded-lg border border-border bg-background" />
+                                <input value={decisionCorrectionReason} onChange={(e) => setDecisionCorrectionReason(e.target.value)}
+                                  placeholder="Reason for correction (e.g. spelling)" className="w-full text-xs p-2 rounded-lg border border-border bg-background" />
+                                <div className="flex gap-2">
+                                  <button type="button" disabled={savingDecisionCorrection} onClick={() => saveDecisionCorrection(a.id)}
+                                    className="text-[11px] font-semibold px-2.5 py-1 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">
+                                    {savingDecisionCorrection ? "Saving…" : "Save correction"}
+                                  </button>
+                                  <button type="button" onClick={() => { setEditingDecisionId(null); setDecisionCorrectionDraft(""); setDecisionCorrectionReason(""); }}
+                                    className="text-[11px] px-2.5 py-1 rounded-lg border border-border">
+                                    Cancel
+                                  </button>
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="flex items-start gap-2">
+                                <span>{a.label}</span>
+                                {a.record === 'Governance Decision' && canAmend && (
+                                  <button type="button" onClick={(e) => { e.stopPropagation(); setEditingDecisionId(a.id); setDecisionCorrectionDraft(a.label || ""); setDecisionCorrectionReason(""); }}
+                                    className="text-[10px] text-primary hover:underline shrink-0" title="Correct a spelling/typing mistake in this decision's text">
+                                    Edit
+                                  </button>
+                                )}
+                              </div>
+                            )}
+                          </td>
                           <td className="pr-3 whitespace-nowrap">
                             {a.status}
                             {a.workflowState && a.workflowState !== a.status && (

@@ -1217,16 +1217,30 @@ export class RisksService {
         // reviewed_by/reviewed_at left NULL -- the signal showed as "ACTIONED" in the UI with no
         // one attached to the decision and no audit trail of who dismissed it or why. Attribute it
         // to the user dismissing the candidate, same as every other decision path in this file.
-        await lockClient.query(
+        const touched = await lockClient.query(
           `UPDATE governance_pulses gp
               SET review_status = 'Reviewed', reviewed_by = COALESCE(gp.reviewed_by, $3),
                   reviewed_at = COALESCE(gp.reviewed_at, NOW()), updated_at = NOW()
             FROM risk_signal_links rsl
             WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
               AND gp.company_id = $2
-              AND (gp.review_status IS NULL OR gp.review_status = 'New')`,
+              AND (gp.review_status IS NULL OR gp.review_status = 'New')
+            RETURNING gp.id, gp.house_id, gp.description`,
           [clusterId, company_id, user_id]
         );
+        // Bug fix (6 Nov 2026, user-reported: "recent work still not there"): dismissal never
+        // created a governance_reviews row at all, so a dismissed signal could never appear in
+        // Decision History no matter what -- it had the appearance of a decision with none of the
+        // substance. Record one per affected signal, same shape every other decision leaves behind.
+        for (const row of touched.rows) {
+          await lockClient.query(
+            `INSERT INTO governance_reviews (
+               company_id, service_id, pulse_entry_id, cluster_id, review_type, reviewed_by,
+               what_is_happening, decision, decision_rationale, decision_status
+             ) VALUES ($1,$2,$3,$4,'RM_REVIEW',$5,$6,'Close Signal',$7,'Closed')`,
+            [company_id, row.house_id, row.id, clusterId, user_id, row.description || 'Signal reviewed as part of a dismissed risk candidate.', reason]
+          );
+        }
       }
       await lockClient.query('COMMIT');
     } catch (e) {

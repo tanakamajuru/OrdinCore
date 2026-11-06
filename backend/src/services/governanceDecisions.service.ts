@@ -448,6 +448,73 @@ export const governanceDecisionsService = {
     }
   },
 
+  // Typing-error correction for a recorded decision's own text (what_is_happening /
+  // decision_rationale) — mirrors pulse.service.ts's correctTyping for signals (migration 205).
+  // Non-substantive spelling/punctuation fix only, with a required reason, kept as its own
+  // append-only event (governance_review_typing_corrections, migration 210). The decision's type,
+  // status, owner, due date and every downstream record it created are never touched here.
+  async correctTyping(
+    review_id: string, company_id: string, user_id: string, role: string,
+    field: string, corrected_text: string, reason: string,
+    expected_updated_at: string | undefined, client_correction_id: string | undefined
+  ) {
+    const ALLOWED_FIELDS = ['what_is_happening', 'decision_rationale'];
+    if (!ALLOWED_FIELDS.includes(field)) {
+      throw new Error('This field cannot be corrected through typing-error correction.');
+    }
+    if (!corrected_text || !corrected_text.trim()) throw new Error('The corrected text cannot be empty.');
+    if (!reason || reason.trim().length < 5) throw new Error('Give a brief reason for this correction (at least a few words).');
+
+    const cur = (await query(
+      `SELECT reviewed_by, what_is_happening, decision_rationale, updated_at FROM governance_reviews WHERE id = $1 AND company_id = $2`,
+      [review_id, company_id]
+    )).rows[0];
+    if (!cur) throw new Error('Decision not found');
+    const r = String(role || '').toUpperCase();
+    const isPrivileged = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN', 'DIRECTOR'].includes(r);
+    const isAuthor = cur.reviewed_by === user_id;
+    if (!isPrivileged && !isAuthor) throw new Error('You can only correct a decision you recorded, or have oversight permission for.');
+
+    if (expected_updated_at && cur.updated_at && new Date(expected_updated_at).getTime() !== new Date(cur.updated_at).getTime()) {
+      const err: any = new Error('This decision has changed since you opened it — reload and reapply your correction.');
+      err.statusCode = 409;
+      throw err;
+    }
+
+    const originalText = String(cur[field] || '');
+    if (originalText.trim() === corrected_text.trim()) {
+      throw new Error('The corrected text is identical to the current text.');
+    }
+
+    if (client_correction_id) {
+      const existing = (await query(
+        `SELECT id FROM governance_review_typing_corrections WHERE review_id = $1 AND client_correction_id = $2`,
+        [review_id, client_correction_id]
+      )).rows[0];
+      if (existing) {
+        return (await query(`SELECT * FROM governance_reviews WHERE id = $1 AND company_id = $2`, [review_id, company_id])).rows[0];
+      }
+    }
+
+    await query(
+      `INSERT INTO governance_review_typing_corrections (review_id, company_id, field, original_text, corrected_text, reason, corrected_by, client_correction_id)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)`,
+      [review_id, company_id, field, originalText, corrected_text.trim(), reason.trim(), user_id, client_correction_id || null]
+    );
+    await query(
+      `UPDATE governance_reviews SET ${field} = $1, updated_at = NOW() WHERE id = $2 AND company_id = $3`,
+      [corrected_text.trim(), review_id, company_id]
+    );
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, old_values, new_values)
+       VALUES ($1, $2, $3, 'GOVERNANCE_DECISION_TYPING_CORRECTED', 'governance_review', $4, $5, $6)`,
+      [uuidv4(), company_id, user_id, review_id,
+       JSON.stringify({ field, text: originalText }),
+       JSON.stringify({ field, text: corrected_text.trim(), reason: reason.trim() })]
+    );
+    return (await query(`SELECT * FROM governance_reviews WHERE id = $1 AND company_id = $2`, [review_id, company_id])).rows[0];
+  },
+
   // Decisions for a day (default today) with their linked task status.
   async list(company_id: string, opts: { date?: string; house_id?: string } = {}) {
     const params: any[] = [company_id];
