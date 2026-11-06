@@ -479,7 +479,7 @@ export function ActionEffectivenessPanels() {
 
       {learningFor && (
         <div className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4" onClick={() => setLearningFor(null)}>
-          <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg p-5" onClick={(e) => e.stopPropagation()}>
+          <div className="bg-card border-2 border-border rounded-xl w-full max-w-lg max-h-[90vh] overflow-y-auto p-5" onClick={(e) => e.stopPropagation()}>
             <h2 className="text-lg font-semibold text-foreground mb-1">Learning from this review</h2>
             <p className="text-sm text-muted-foreground mb-3">Outcome recorded: <span className="font-medium text-foreground">{learningFor.outcome}</span>. Capture any learning so it reaches the weekly governance report — or record honestly that there is none.</p>
             <LearningCapture sourceType="EFFECTIVENESS" sourceId={learningFor.id} sourceReviewId={learningFor.reviewId} sourceContext={{ label: learningFor.title, outcome: learningFor.outcome, service: learningFor.service }} houseId={learningFor.houseId} onDone={() => setLearningFor(null)} />

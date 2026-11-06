@@ -29,19 +29,14 @@ export function LearningCapture({
   const idemKey = useRef<string>(crypto?.randomUUID?.() || String(Date.now() + Math.random()));
   const [whatHappened, setWhatHappened] = useState("");
   const [whatLearnt, setWhatLearnt] = useState("");
-  const [changeNeeded, setChangeNeeded] = useState("");
   const [noReason, setNoReason] = useState("");
   const [reviewDate, setReviewDate] = useState("");
-  // Improvement plan (27 Oct developer review): required once change_needed names a real plan.
-  const [successCriteria, setSuccessCriteria] = useState("");
-  const [planDeadline, setPlanDeadline] = useState("");
   const [saving, setSaving] = useState(false);
   const [done, setDone] = useState(false);
   const unwrap = (r: any): any => r?.data?.data ?? r?.data ?? r;
 
-  // Owners for a deferred ("Not yet assessed") assessment, or an improvement plan (change_needed) —
-  // both need an accountable person, not just a date, so neither can drift unowned.
-  const needsOwner = state === "NOT_YET_ASSESSED" || (state === "IDENTIFIED" && changeNeeded.trim().length > 0);
+  // Owner is only needed for a deferred ("Not yet assessed") assessment, so it can't drift unowned.
+  const needsOwner = state === "NOT_YET_ASSESSED";
   useEffect(() => {
     if (!needsOwner || owners.length) return;
     let off = false;
@@ -54,10 +49,6 @@ export function LearningCapture({
     if (state === "NONE_IDENTIFIED" && noReason.trim().length < 3) { toast.error("Give a brief reason why no learning was identified."); return; }
     if (state === "NOT_YET_ASSESSED" && !reviewDate) { toast.error("Set a review date for the learning assessment."); return; }
     if (state === "NOT_YET_ASSESSED" && !ownerId) { toast.error("Name the owner accountable for the deferred assessment."); return; }
-    const hasChangePlan = state === "IDENTIFIED" && changeNeeded.trim().length > 0;
-    if (hasChangePlan && !ownerId) { toast.error("Name the owner accountable for this improvement plan."); return; }
-    if (hasChangePlan && !reviewDate) { toast.error("Set a review date for this improvement plan."); return; }
-    if (hasChangePlan && successCriteria.trim().length < 3) { toast.error("State the success criteria for this improvement plan."); return; }
     setSaving(true);
     try {
       await apiClient.post("/learning", {
@@ -66,12 +57,9 @@ export function LearningCapture({
         house_id: houseId || null, state,
         what_happened: whatHappened.trim() || undefined,
         what_learnt: state === "IDENTIFIED" ? whatLearnt.trim() : undefined,
-        change_needed: state === "IDENTIFIED" ? (changeNeeded.trim() || undefined) : undefined,
         no_learning_reason: state === "NONE_IDENTIFIED" ? noReason.trim() : undefined,
-        review_date: (state === "NOT_YET_ASSESSED" || hasChangePlan) ? reviewDate : undefined,
-        owner_id: (state === "NOT_YET_ASSESSED" || hasChangePlan) ? ownerId : undefined,
-        success_criteria: hasChangePlan ? successCriteria.trim() : undefined,
-        plan_deadline: hasChangePlan ? (planDeadline || undefined) : undefined,
+        review_date: state === "NOT_YET_ASSESSED" ? reviewDate : undefined,
+        owner_id: state === "NOT_YET_ASSESSED" ? ownerId : undefined,
       });
       toast.success("Learning recorded");
       setDone(true);
@@ -111,33 +99,6 @@ export function LearningCapture({
         <div className="space-y-2">
           <textarea value={whatHappened} onChange={(e) => setWhatHappened(e.target.value)} rows={2} placeholder="What happened / what was examined (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
           <textarea value={whatLearnt} onChange={(e) => setWhatLearnt(e.target.value)} rows={2} placeholder="What was learnt *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
-          <textarea value={changeNeeded} onChange={(e) => setChangeNeeded(e.target.value)} rows={2} placeholder="Change needed (optional)" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
-          {/* 27 Oct developer review ("Improvement plan... Require this when change is needed"):
-              naming a change is not free text alone — it needs an owner, review date and stated
-              success criteria, same as a deferred assessment already requires. */}
-          {changeNeeded.trim().length > 0 && (
-            <div className="rounded-lg border border-border p-2.5 space-y-2 bg-muted/30">
-              <p className="text-[11px] font-semibold text-foreground uppercase tracking-wide">Improvement plan</p>
-              <textarea value={successCriteria} onChange={(e) => setSuccessCriteria(e.target.value)} rows={2} placeholder="Success criteria — how will we know this worked? *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
-              <div className="flex flex-wrap gap-2">
-                <div>
-                  <label className="block text-[11px] text-muted-foreground mb-1">Owner *</label>
-                  <select value={ownerId} onChange={(e) => setOwnerId(e.target.value)} className="text-sm p-2 border border-border rounded-lg bg-background">
-                    <option value="">Choose who is accountable…</option>
-                    {owners.map((u: any) => <option key={u.id} value={u.id}>{u.name || `${u.first_name || ""} ${u.last_name || ""}`.trim()}{u.role ? ` (${String(u.role).replace(/_/g, " ")})` : ""}</option>)}
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-[11px] text-muted-foreground mb-1">Review date *</label>
-                  <input type="date" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} className="p-2 border border-border rounded-lg bg-background text-sm" />
-                </div>
-                <div>
-                  <label className="block text-[11px] text-muted-foreground mb-1">Deadline (optional)</label>
-                  <input type="date" value={planDeadline} onChange={(e) => setPlanDeadline(e.target.value)} className="p-2 border border-border rounded-lg bg-background text-sm" />
-                </div>
-              </div>
-            </div>
-          )}
         </div>
       )}
       {state === "NONE_IDENTIFIED" && (
