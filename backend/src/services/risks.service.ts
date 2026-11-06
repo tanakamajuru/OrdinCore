@@ -1213,14 +1213,19 @@ export class RisksService {
       // they remain in history and can still contribute to a future pattern. Only touch signals
       // still 'New' so we never overwrite a Linked/Closed state. (Signal-flow closure.)
       if (clusterId) {
+        // Bug fix (6 Nov 2026, user-reported): this marked every linked signal 'Reviewed' with
+        // reviewed_by/reviewed_at left NULL -- the signal showed as "ACTIONED" in the UI with no
+        // one attached to the decision and no audit trail of who dismissed it or why. Attribute it
+        // to the user dismissing the candidate, same as every other decision path in this file.
         await lockClient.query(
           `UPDATE governance_pulses gp
-              SET review_status = 'Reviewed', updated_at = NOW()
+              SET review_status = 'Reviewed', reviewed_by = COALESCE(gp.reviewed_by, $3),
+                  reviewed_at = COALESCE(gp.reviewed_at, NOW()), updated_at = NOW()
             FROM risk_signal_links rsl
             WHERE rsl.cluster_id = $1 AND rsl.pulse_entry_id = gp.id
               AND gp.company_id = $2
               AND (gp.review_status IS NULL OR gp.review_status = 'New')`,
-          [clusterId, company_id]
+          [clusterId, company_id, user_id]
         );
       }
       await lockClient.query('COMMIT');
