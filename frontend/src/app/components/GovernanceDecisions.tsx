@@ -407,10 +407,13 @@ export function GovernanceDecisions({
   };
 
   const previousHasItems = previousList.length > 0;
-  // Closed-signal decision history for this service — preserved and reviewable even after the
-  // signal has left the live queue (brief: "Decision history / Closed signals").
+  // Full decision history for this service — preserved and reviewable even after the signal has
+  // left the live queue (brief: "Decision history / Closed signals"). Bug fix (6 Nov 2026,
+  // user-reported): this used to filter to Close/Close Signal only, so Monitor, Create Action,
+  // Escalate and every other decision type silently never appeared here at all, even though the
+  // section is the user's only way to see what was decided on a past signal.
   const closedHistory = useMemo(
-    () => allDecisions.filter((d: any) => ["Close", "Close Signal"].includes(d.decision)),
+    () => [...allDecisions].sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()),
     [allDecisions]
   );
   const selectedSignal = useMemo(() => signals.find((s: any) => `signal:${s.id}` === form.source), [signals, form.source]);
@@ -922,20 +925,21 @@ export function GovernanceDecisions({
         </div>
       )}
 
-      {/* Decision history / closed signals — full closure evidence preserved after the signal
-          leaves the live queue: concern, person, theme, reason for closing, findings, author, time. */}
+      {/* Decision history — every governance decision recorded for this service (Monitor, Create
+          Action, Escalate, Close, etc.), preserved and reviewable after the signal leaves the live
+          queue: concern, person, theme, decision, rationale, findings, author, time. */}
       {houseId && closedHistory.length > 0 && (
         <div className="mt-5 border-t border-border pt-4">
           <button type="button" onClick={() => setHistoryOpen((o) => !o)} aria-expanded={historyOpen}
             className="text-sm font-semibold text-primary hover:underline">
-            {historyOpen ? "− Hide decision history / closed signals" : `+ Decision history / closed signals (${closedHistory.length})`}
+            {historyOpen ? "− Hide decision history" : `+ Decision history (${closedHistory.length})`}
           </button>
           {historyOpen && (
             <div className="mt-3 space-y-2">
               {closedHistory.map((d: any) => (
                 <details key={d.id} className="rounded-lg border border-border bg-muted/20 p-3">
                   <summary className="text-sm text-foreground cursor-pointer">
-                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">Closed</span>
+                    <span className="text-[10px] uppercase tracking-wide text-muted-foreground mr-2">{d.decision_status || d.decision}</span>
                     {d.signal_person ? `${d.signal_person} · ` : ""}{d.signal_description || d.what_is_happening}
                     {d.created_at ? <span className="text-muted-foreground"> · {new Date(d.created_at).toLocaleDateString("en-GB")}</span> : null}
                   </summary>
@@ -944,8 +948,9 @@ export function GovernanceDecisions({
                     <div><span className="font-medium text-foreground">Theme: </span>{d.signal_domain || "—"}</div>
                     <div><span className="font-medium text-foreground">Service: </span>{d.house_name || "—"}</div>
                     <div><span className="font-medium text-foreground">Original signal date: </span>{d.signal_date ? new Date(d.signal_date).toLocaleDateString("en-GB") : "—"}</div>
-                    <div><span className="font-medium text-foreground">Close decision: </span>{d.what_is_happening || "—"}</div>
-                    <div><span className="font-medium text-foreground">Reason for closing this signal: </span>{d.decision_rationale || "Not recorded"}</div>
+                    <div><span className="font-medium text-foreground">Decision: </span>{d.decision || "—"}{d.decision_status ? ` (${d.decision_status})` : ""}</div>
+                    <div><span className="font-medium text-foreground">Rationale: </span>{d.decision_rationale || "Not recorded"}</div>
+                    {d.decision === 'Monitor' && <div><span className="font-medium text-foreground">Review due: </span>{d.due_at ? new Date(d.due_at).toLocaleDateString("en-GB") : "—"}</div>}
                     <div><span className="font-medium text-foreground">Supporting evidence / findings: </span>{d.findings || "Not recorded"}</div>
                     <div><span className="font-medium text-foreground">Decision author: </span>{d.recorded_by_name || "—"}</div>
                     <div><span className="font-medium text-foreground">Decision time: </span>{d.created_at ? new Date(d.created_at).toLocaleString("en-GB") : "—"}</div>
