@@ -425,7 +425,7 @@ export const guidedWorkService = {
       }
 
       const escalations = await safeRows(`
-        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,h.name AS service_name,
+        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,e.trigger_type,h.name AS service_name,
                da.due_date AS delegated_due_date, (au.first_name || ' ' || au.last_name) AS delegated_to_name
           FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
           LEFT JOIN LATERAL (
@@ -502,11 +502,24 @@ export const guidedWorkService = {
         // that has actually been reached pulls it back into Decisions Due early.
         // Same UK day-boundary fix as `reviewDue` above.
         const nextReviewDue = !!e.next_review_at && isDueByToday(e.next_review_at);
-        const dueNow = rmAttention || nextReviewDue || isDueByToday(e.due_by);
+        // Bug fix (6 Nov 2026, user-reported: "urgent open escalations are sitting on escalations
+        // tab not showing on my work"): the 22/27 Oct fix above correctly stopped every escalation
+        // showing as URGENT/Needs You immediately, because the RM's manual "Escalate" governance
+        // decision ALWAYS hardcodes priority='Urgent' regardless of real severity
+        // (governanceDecisions.service.ts) -- so that badge alone was never a genuine signal there.
+        // But the SAFETY-NET path (pulse.service.ts, trigger_type='SIGNAL_FLAG') sets priority
+        // genuinely from the signal's own severity (Critical/High→Urgent/Normal) -- that IS a real
+        // signal, and a never-yet-reviewed Urgent/Critical safety-net escalation waiting up to 48
+        // hours (its default due_by) for a response is exactly the gap reported (confirmed live: a
+        // High-severity "emergency hospital admission" escalation, priority Urgent, sitting in
+        // Waiting). Only the genuinely-scored path gets this override, not the Escalate default.
+        const genuinelyUrgent = e.trigger_type !== 'GOVERNANCE_DECISION' && ['Urgent', 'Critical'].includes(e.priority);
+        const dueNow = rmAttention || nextReviewDue || genuinelyUrgent || isDueByToday(e.due_by);
         const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
           : (nextReviewDue ? 'The monitoring review point has been reached.'
+          : (genuinelyUrgent ? `This escalation was raised from a ${e.priority}-priority signal and needs immediate review.`
           : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.'
-          : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`));
+          : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`)));
         // Once a review decision has set a next_review_at, THAT is the live due/review date to
         // display — e.due_by is the original SLA and goes stale the moment a later review point
         // is agreed (the exact staleness the field report caught).
