@@ -281,6 +281,25 @@ export const risksRepo = {
     return result.rows;
   },
 
+  // RM/Director/RI governance decisions bearing on this risk — recorded directly against it
+  // (risk_id) or against one of its linked source signals (pulse_entry_id via risk_signal_links).
+  // These were missing from the Leadership Decision Log, which showed only risk_events.
+  async getLinkedDecisions(risk_id: string, company_id: string) {
+    const result = await query(
+      `SELECT gr.id, gr.decision AS event_type, gr.what_is_happening, gr.decision_rationale,
+              COALESCE(gr.review_date, gr.created_at) AS created_at,
+              u.first_name || ' ' || u.last_name AS created_by_name
+         FROM governance_reviews gr
+         JOIN users u ON u.id = gr.reviewed_by
+        WHERE gr.company_id = $2
+          AND (gr.risk_id = $1
+               OR gr.pulse_entry_id IN (SELECT rsl.pulse_entry_id FROM risk_signal_links rsl WHERE rsl.risk_id = $1))
+        ORDER BY COALESCE(gr.review_date, gr.created_at) DESC`,
+      [risk_id, company_id]
+    );
+    return result.rows;
+  },
+
   async getCategories(company_id: string) {
     const result = await query(
       `SELECT * FROM risk_categories WHERE company_id = $1 ORDER BY name`,

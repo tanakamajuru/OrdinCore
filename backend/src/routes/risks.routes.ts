@@ -365,6 +365,7 @@ router.post('/:id/escalate', requireAuth, requireTenant, requireRole('SUPER_ADMI
  */
 router.get('/:id/timeline', requireAuth, requireTenant, risksController.getTimeline.bind(risksController));
 router.get('/:id/signals', requireAuth, requireTenant, risksController.getLinkedSignals.bind(risksController));
+router.get('/:id/decisions', requireAuth, requireTenant, risksController.getLinkedDecisions.bind(risksController));
 
 // Extra utility endpoints
 /**

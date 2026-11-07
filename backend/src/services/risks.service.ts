@@ -400,6 +400,12 @@ export class RisksService {
     return risksRepo.getLinkedSignals(risk_id, company_id);
   }
 
+  async getLinkedDecisions(risk_id: string, company_id: string) {
+    const risk = await risksRepo.findById(risk_id, company_id);
+    if (!risk) throw new Error('Risk not found');
+    return risksRepo.getLinkedDecisions(risk_id, company_id);
+  }
+
   async getCategories(company_id: string) {
     return risksRepo.getCategories(company_id);
   }

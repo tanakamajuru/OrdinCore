@@ -358,6 +358,17 @@ export class RisksController {
     }
   }
 
+  async getLinkedDecisions(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const decisions = await risksService.getLinkedDecisions(req.params.id, company_id);
+      return res.json({ success: true, data: decisions, meta: {} });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to get linked decisions';
+      return res.status(400).json({ success: false, message, errors: [] });
+    }
+  }
+
   async getCategories(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;

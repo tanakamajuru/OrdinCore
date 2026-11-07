@@ -321,7 +321,33 @@ export function RiskDetail() {
           ]);
         }
       }
-      
+
+      // RM/Director/RI governance decisions bearing on this risk (recorded directly against it,
+      // or against one of its linked source signals) — brought forward into the Leadership
+      // Decision Log alongside risk_events, not just the risk's own promotion/status events
+      // (user-reported, 7 Nov 2026: "RM decision ... needs it to be brought forward").
+      try {
+        const decRes = await apiClient.get(`/risks/${riskId}/decisions`);
+        const decData = (decRes.data as any).data || (decRes.data as any) || [];
+        const decisions = Array.isArray(decData) ? decData : [];
+        if (decisions.length > 0) {
+          setTimeline(prev => {
+            const merged = [
+              ...prev,
+              ...decisions.map((d: any) => ({
+                id: `decision-${d.id}`,
+                event_type: d.event_type || 'Governance Decision',
+                description: `${d.event_type || 'Decision'}: ${d.what_is_happening || ''}${d.decision_rationale ? ` — ${d.decision_rationale}` : ''}`.trim(),
+                created_at: d.created_at,
+                created_by_name: d.created_by_name || 'Unknown',
+              })),
+            ];
+            merged.sort((a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime());
+            return merged;
+          });
+        }
+      } catch { /* decisions optional */ }
+
     } catch (error) {
       console.error('Failed to load risk details:', error);
       toast.error('Failed to load risk details');
@@ -1626,6 +1652,7 @@ export function RiskDetail() {
                         ))}
                       </div>
                     ))}
+                    <p className="font-bold text-blue-600">Consider reviewing Controls and Effectiveness on Risk Assessment</p>
                   </div>
                 )}
                 {closureReview.eligible && (
