@@ -185,7 +185,20 @@ export function DailyOversightBoard() {
       // was captured on an earlier date. Surfacing these (tagged to their decision) so backlog
       // review no longer reads as "no signals", without substituting unrelated older signals.
       const dayIds = new Set(daySignals.map((s: any) => String(s.id)));
-      const reviewedSignals = decisions.filter((d: any) => d.pulse_entry_id && !dayIds.has(String(d.pulse_entry_id)) && (d.signal_description || d.signal_person || d.signal_domain));
+      // A single backlog signal can be decided on more than once in a day (e.g. Close Signal,
+      // then Reopen, then Monitor) — each is a real governance_reviews row, but listing every one
+      // repeated the same signal text back-to-back in the brief (user-reported, 7 Nov 2026). Keep
+      // only the latest decision per signal so it appears once, reflecting where it now stands.
+      const reviewedCandidates = decisions.filter((d: any) => d.pulse_entry_id && !dayIds.has(String(d.pulse_entry_id)) && (d.signal_description || d.signal_person || d.signal_domain));
+      const latestByPulse = new Map<string, any>();
+      reviewedCandidates.forEach((d: any) => {
+        const key = String(d.pulse_entry_id);
+        const existing = latestByPulse.get(key);
+        const ts = new Date(d.review_date || d.created_at || 0).getTime();
+        const existingTs = existing ? new Date(existing.review_date || existing.created_at || 0).getTime() : -Infinity;
+        if (!existing || ts >= existingTs) latestByPulse.set(key, d);
+      });
+      const reviewedSignals = Array.from(latestByPulse.values());
 
       // 3. Outstanding actions to remember — fetched scoped to THIS house, the same way signals and
       // decisions above are (by house_id). The dashboard's data.actions is a company-wide roll-up
