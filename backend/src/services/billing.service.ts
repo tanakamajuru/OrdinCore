@@ -135,7 +135,7 @@ export const billingService = {
 
     const customerId = await this.ensureCustomer(companyId);
     const base = appBaseUrl();
-    const session = await stripe.checkout.sessions.create({
+    const sessionParams: any = {
       mode: 'subscription',
       customer: customerId,
       line_items: lineItems,
@@ -144,7 +144,15 @@ export const billingService = {
       subscription_data: { metadata: { company_id: companyId, price_version: String(quote.priceVersion) } },
       metadata: { company_id: companyId, price_version: String(quote.priceVersion) },
       allow_promotion_codes: true,
-    });
+      // Managed Payments is on by default for new Stripe accounts and makes Stripe merchant of
+      // record (it then requires a tax code on every line item). OrdinCore remains the seller and
+      // handles its own UK VAT, so Managed Payments is switched off for this Checkout Session
+      // rather than tagging every inline price_data item with a tax code (business decision,
+      // confirmed 9 Nov 2026). Untyped in this pinned stripe SDK version — passed via an `any`
+      // params object rather than widening the whole call.
+      managed_payments: { enabled: false },
+    };
+    const session = await stripe.checkout.sessions.create(sessionParams);
     return { url: session.url };
   },
 
