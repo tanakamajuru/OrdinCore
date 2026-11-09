@@ -602,6 +602,7 @@ export function WeeklyReview() {
     }
     return (
       <div className="min-h-screen bg-background">
+        {ConfirmModal}
         <RoleBasedNavigation />
         <div className="w-full pt-28 p-6 max-w-3xl mx-auto">
           <button onClick={() => navigate(-1)} className="text-sm text-primary hover:underline mb-4 inline-flex items-center gap-1"><ArrowLeft size={14} /> Back</button>
