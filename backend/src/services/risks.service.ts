@@ -1037,6 +1037,20 @@ export class RisksService {
         // Same relaxation as the candidate's own linked_risk_id above: a pattern linked to a risk
         // that has since closed is recurrence after closure, not a live double-promotion.
         if (cr?.linked_risk_id && cr.linked_risk_status && cr.linked_risk_status !== 'Closed') {
+          // Self-heal, don't just block: this candidate's own status/linked_risk_id is stale
+          // (e.g. the cluster was linked to a risk through a different candidate, or by a manual
+          // data repair) -- left at 'New' it stays stuck on Decisions Due forever, since every
+          // future Register attempt hits this same guard. Bring it into line with the cluster's
+          // real state in the same locked transaction, so it drops off the queue immediately
+          // instead of requiring another fix later. (User-reported, 9 Nov 2026: "jK has
+          // registered ... if I try to register again it says risk has been registered but its
+          // still on decision due" -- traced to exactly this: risk_candidates still said 'New'
+          // for a pattern whose signal_clusters row already pointed at the live risk.)
+          await lockClient.query(`UPDATE risk_candidates SET status = 'Promoted', linked_risk_id = $1 WHERE id = $2`, [cr.linked_risk_id, data.candidate_id]);
+          await lockClient.query('COMMIT');
+          // COMMIT already released the transaction; let the outer catch's ROLLBACK below no-op
+          // (no transaction in progress) and release the client exactly once, rather than
+          // double-releasing it here.
           throw new Error('This pattern has already been promoted to a risk via another route — open it from "View risk".');
         }
       }
