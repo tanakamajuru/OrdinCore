@@ -95,7 +95,17 @@ export async function stripeWebhookHandler(req: Request, res: Response) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated':
       case 'customer.subscription.deleted': {
-        await billingService.syncSubscription(event.data.object);
+        // The webhook endpoint is pinned to the Stripe account's own default API version
+        // (set when the endpoint was created in the Dashboard), which can differ from the
+        // version our own client is pinned to in config/stripe.ts -- Stripe has restructured
+        // subscription fields (e.g. current_period_end) across versions. Re-fetching through
+        // our own pinned client, as the other two cases already do, guarantees syncSubscription
+        // always sees the field shape it was written against, regardless of webhook-endpoint
+        // version drift. (A deleted subscription is still retrievable, with status=canceled.)
+        const raw = event.data.object as any;
+        const sub = await stripe.subscriptions.retrieve(raw.id);
+        (sub as any).metadata = { ...(sub as any).metadata, ...raw.metadata };
+        await billingService.syncSubscription(sub);
         break;
       }
       case 'invoice.paid':
