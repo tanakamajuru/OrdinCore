@@ -254,7 +254,14 @@ export function DailyOversightBoard() {
       if (decisions.length === 0) L.push("- No governance decisions were recorded for this date.");
       else decisions.forEach((d: any) => {
         const sigTag = (d.signal_person || d.signal_domain) ? ` · re: ${clean(d.signal_person || d.signal_domain)}${d.signal_date ? ` (signal ${new Date(d.signal_date).toLocaleDateString("en-GB")})` : ""}` : "";
-        L.push(`- ${clean(d.decision || "Decision")}: ${clean(d.what_is_happening) || "—"}${sigTag}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`);
+        // Close has no "what should happen" field of its own, so what_is_happening is just a copy
+        // of the signal's own description (GovernanceDecisions.tsx's branchWhat) -- showing that
+        // here made a "management decision" read back as nothing but the signal restated. The RM's
+        // actual judgement is decision_rationale (required, min 10 chars, on every decision
+        // branch) -- show that first and only fall back to what_is_happening when no rationale was
+        // captured (user-reported, 9 Nov 2026: "the management decision is the same as the signal").
+        const narrative = clean(d.decision_rationale) || clean(d.what_is_happening) || "—";
+        L.push(`- ${clean(d.decision || "Decision")}: ${narrative}${sigTag}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`);
       });
       L.push("");
 
