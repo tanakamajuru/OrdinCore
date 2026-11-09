@@ -139,8 +139,11 @@ export const billingService = {
       mode: 'subscription',
       customer: customerId,
       line_items: lineItems,
-      success_url: `${base}/company-admin?billing=success`,
-      cancel_url: `${base}/company-admin?billing=cancelled`,
+      // "/company-admin" is not a real route (it falls through to the catch-all redirect, which
+      // drops the query string) -- the actual Organisation Admin workspace is mounted at "/admin"
+      // (user-reported, 9 Nov 2026: landed on Overview with no success confirmation).
+      success_url: `${base}/admin?billing=success`,
+      cancel_url: `${base}/admin?billing=cancelled`,
       subscription_data: { metadata: { company_id: companyId, price_version: String(quote.priceVersion) } },
       metadata: { company_id: companyId, price_version: String(quote.priceVersion) },
       allow_promotion_codes: true,
@@ -198,7 +201,7 @@ export const billingService = {
     if (!c?.stripe_customer_id) throw new Error('No billing account exists yet — subscribe first.');
     const session = await stripe.billingPortal.sessions.create({
       customer: c.stripe_customer_id,
-      return_url: `${appBaseUrl()}/company-admin`,
+      return_url: `${appBaseUrl()}/admin?billing=portal`,
     });
     return { url: session.url };
   },

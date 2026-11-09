@@ -89,6 +89,23 @@ export default function OrganisationAdmin() {
   };
   useEffect(() => { load(); }, []);
 
+  // Stripe Checkout/Billing Portal redirects land here with ?billing=success|cancelled (set as
+  // the success_url/cancel_url in billing.service.ts). The subscription itself is activated by
+  // the webhook, not this redirect, but without this the admin landed on Overview with no
+  // confirmation and had to find the Billing tab themselves (user-reported, 9 Nov 2026).
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const billing = params.get("billing");
+    if (!billing) return;
+    setSection("billing");
+    if (billing === "success") toast.success("Subscription activated.");
+    else if (billing === "cancelled") toast.info("Checkout was cancelled — no charge was made.");
+    // "portal" (return from the self-serve Billing Portal) just lands back on the Billing tab —
+    // no toast, since nothing can be assumed about what the admin did there (viewed an invoice,
+    // updated a card, cancelled) without reloading /billing/status first.
+    window.history.replaceState({}, "", window.location.pathname);
+  }, []);
+
   const NAV: { key: Section; label: string; icon: any }[] = [
     { key: "overview", label: "Overview", icon: Home },
     { key: "people", label: "People & Access", icon: Users },
