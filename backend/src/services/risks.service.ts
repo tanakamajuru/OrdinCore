@@ -1023,9 +1023,14 @@ export class RisksService {
       const clusterId = data.cluster_id || candidate.cluster_id;
       if (clusterId) {
         const clusterRes = await lockClient.query(
+          // FOR UPDATE must name the table to lock when the query includes an outer join —
+          // Postgres refuses "FOR UPDATE" bare across a LEFT JOIN ("cannot be applied to the
+          // nullable side of an outer join"), unconditionally, not just when the joined row is
+          // actually null. Only signal_clusters needs locking here. (User-reported, 9 Nov 2026:
+          // the error text itself was leaking into the Promote to Risk UI.)
           `SELECT sc.linked_risk_id, r.status AS linked_risk_status FROM signal_clusters sc
              LEFT JOIN risks r ON r.id = sc.linked_risk_id
-            WHERE sc.id = $1 AND sc.company_id = $2 FOR UPDATE`,
+            WHERE sc.id = $1 AND sc.company_id = $2 FOR UPDATE OF sc`,
           [clusterId, company_id]
         );
         const cr = clusterRes.rows[0];
@@ -1267,10 +1272,15 @@ export class RisksService {
     let clusterId: string | null;
     try {
       const candidateRes = await lockClient.query(
+        // FOR UPDATE must name the table to lock across an outer join -- bare FOR UPDATE here
+        // threw "cannot be applied to the nullable side of an outer join" on every call,
+        // regardless of whether linked_risk_id was actually set, leaking the Postgres error text
+        // into the Dismiss/Promote UI (user-reported, 9 Nov 2026). Only risk_candidates needs
+        // locking here.
         `SELECT rc.id, rc.cluster_id, rc.status, rc.linked_risk_id, r.status AS linked_risk_status
            FROM risk_candidates rc
            LEFT JOIN risks r ON r.id = rc.linked_risk_id
-          WHERE rc.id = $1 AND rc.company_id = $2 FOR UPDATE`,
+          WHERE rc.id = $1 AND rc.company_id = $2 FOR UPDATE OF rc`,
         [candidate_id, company_id]
       );
       if (candidateRes.rows.length === 0) throw new Error('Risk candidate not found');
