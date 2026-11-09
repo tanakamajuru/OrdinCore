@@ -133,19 +133,38 @@ export const billingService = {
       });
     }
 
+    // TEMPORARY, 9 Nov 2026: stub the charge down to a nominal amount while live mode is being
+    // verified end-to-end, so the real card flow can be exercised without billing the real quote.
+    // Gated on an env var so turning it off needs no code change/redeploy -- just unset
+    // BILLING_STUB_PRICE_PENCE on the server. The real quote total is preserved in metadata so
+    // nothing about the subscription's true pricing is lost once this is removed.
+    const stubPence = Number(process.env.BILLING_STUB_PRICE_PENCE || 0);
+    let effectiveLineItems = lineItems;
+    if (stubPence > 0 && lineItems.length > 0) {
+      effectiveLineItems = [{
+        price_data: {
+          currency: 'gbp',
+          product_data: { name: `OrdinCore subscription (TEST PRICING — real quote £${quote.total.toFixed(2)}/mo)` },
+          unit_amount: stubPence,
+          recurring: { interval: 'month' },
+        },
+        quantity: 1,
+      }];
+    }
+
     const customerId = await this.ensureCustomer(companyId);
     const base = appBaseUrl();
     const sessionParams: any = {
       mode: 'subscription',
       customer: customerId,
-      line_items: lineItems,
+      line_items: effectiveLineItems,
       // "/company-admin" is not a real route (it falls through to the catch-all redirect, which
       // drops the query string) -- the actual Organisation Admin workspace is mounted at "/admin"
       // (user-reported, 9 Nov 2026: landed on Overview with no success confirmation).
       success_url: `${base}/admin?billing=success`,
       cancel_url: `${base}/admin?billing=cancelled`,
-      subscription_data: { metadata: { company_id: companyId, price_version: String(quote.priceVersion) } },
-      metadata: { company_id: companyId, price_version: String(quote.priceVersion) },
+      subscription_data: { metadata: { company_id: companyId, price_version: String(quote.priceVersion), ...(stubPence > 0 ? { stub_pricing: 'true', real_quote_total: String(quote.total) } : {}) } },
+      metadata: { company_id: companyId, price_version: String(quote.priceVersion), ...(stubPence > 0 ? { stub_pricing: 'true', real_quote_total: String(quote.total) } : {}) },
       allow_promotion_codes: true,
       // Managed Payments is on by default for new Stripe accounts and makes Stripe merchant of
       // record (it then requires a tax code on every line item). OrdinCore remains the seller and
