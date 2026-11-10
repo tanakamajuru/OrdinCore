@@ -11,7 +11,23 @@ class ApiClient {
     this.baseURL = baseURL;
   }
 
-  private async request<T>(endpoint: string, options: RequestInit & { params?: Record<string, string> } = {}): Promise<ApiResponse<T>> {
+  // Serialises concurrent silent-refresh attempts so a burst of requests whose access token has
+  // just expired (e.g. several screen fetches firing close together) triggers ONE refresh call,
+  // not several — the refresh token is single-use/rotating, so a second concurrent refresh would
+  // present an already-rotated token and the server's reuse-detection would revoke every session.
+  private refreshInFlight: Promise<string | null> | null = null;
+
+  private async silentRefresh(): Promise<string | null> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshToken()
+        .then((res) => (res.success && res.data?.token) ? res.data.token : null)
+        .catch(() => null)
+        .finally(() => { this.refreshInFlight = null; });
+    }
+    return this.refreshInFlight;
+  }
+
+  private async request<T>(endpoint: string, options: RequestInit & { params?: Record<string, string> } = {}, isRetry = false): Promise<ApiResponse<T>> {
     const { params, ...fetchOptions } = options;
     let url = `${this.baseURL}${endpoint}`;
     if (params) {
@@ -37,8 +53,17 @@ class ApiClient {
       const data = await response.json();
 
       if (!response.ok) {
-        if (response.status === 401 && !endpoint.includes('/auth/login') && !endpoint.includes('/auth/logout')) {
+        const isAuthRoute = endpoint.includes('/auth/login') || endpoint.includes('/auth/logout') || endpoint.includes('/auth/refresh');
+        if (response.status === 401 && !isAuthRoute) {
+          // Try one silent refresh before forcing the user back to login — an access token can
+          // expire mid-session (e.g. a short-lived token, or one close to the end of its life) and
+          // that should be invisible to someone who's actively working, not a surprise logout.
+          if (!isRetry && localStorage.getItem('refreshToken')) {
+            const newToken = await this.silentRefresh();
+            if (newToken) return this.request<T>(endpoint, options, true);
+          }
           localStorage.removeItem('authToken');
+          localStorage.removeItem('refreshToken');
           localStorage.removeItem('user');
           // Surface WHY the session ended so a disabled account / suspended org is
           // not mistaken for a random "logout" bug.

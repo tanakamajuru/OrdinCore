@@ -117,6 +117,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     setUser(userData);
     setToken(userToken);
     localStorage.setItem('authToken', userToken);
+    // The refresh token was being issued by the server but never saved, so the frontend had no way
+    // to silently renew a session — only a hard 401-triggered logout existed (reported as staff being
+    // bounced back to login within seconds of signing in, 10 Nov 2026). Persist it so apiClient's
+    // request() can exchange it for a fresh access token instead of forcing a re-login.
+    if (data.refreshToken) localStorage.setItem('refreshToken', data.refreshToken);
     localStorage.setItem('user', JSON.stringify(userData));
     localStorage.setItem('userRole', userData.role);
     localStorage.setItem('userName', `${userData.first_name || ''} ${userData.last_name || ''}`.trim() || userData.email);
