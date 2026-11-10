@@ -6,6 +6,7 @@ import { Platform } from 'react-native';
 // profile live in the device keychain / keystore via expo-secure-store when available.
 // On web or unsupported environments, we fall back to AsyncStorage so the app still works.
 const TOKEN_KEY = 'ordincore.token';
+const REFRESH_KEY = 'ordincore.refreshToken';
 const USER_KEY = 'ordincore.user';
 
 const readValue = async (key: string): Promise<string | null> => {
@@ -47,20 +48,28 @@ const removeValue = async (key: string): Promise<void> => {
   }
 };
 
-export const saveSession = async (token: string, user: any) => {
+export const saveSession = async (token: string, user: any, refreshToken?: string | null) => {
   await writeValue(TOKEN_KEY, token);
   await writeValue(USER_KEY, JSON.stringify(user ?? null));
+  if (refreshToken) await writeValue(REFRESH_KEY, refreshToken);
 };
 
-export const loadSession = async (): Promise<{ token: string | null; user: any | null }> => {
+export const loadSession = async (): Promise<{ token: string | null; user: any | null; refreshToken: string | null }> => {
   const token = await readValue(TOKEN_KEY);
   const rawUser = await readValue(USER_KEY);
+  const refreshToken = await readValue(REFRESH_KEY);
   let user: any = null;
   try { user = rawUser ? JSON.parse(rawUser) : null; } catch { user = null; }
-  return { token, user };
+  return { token, user, refreshToken };
+};
+
+// Persist a refresh token rotated by the server without touching the cached token/user.
+export const saveRefreshToken = async (refreshToken: string) => {
+  await writeValue(REFRESH_KEY, refreshToken);
 };
 
 export const clearSession = async () => {
   await removeValue(TOKEN_KEY);
   await removeValue(USER_KEY);
+  await removeValue(REFRESH_KEY);
 };

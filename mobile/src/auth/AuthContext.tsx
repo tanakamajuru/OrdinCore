@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
-import { api, setAuthToken } from '@/api/client';
+import { api, setAuthToken, setRefreshToken, setOnRefreshFailed, setOnTokenRefreshed } from '@/api/client';
 import { saveSession, loadSession, clearSession } from './storage';
 
 export type Role =
@@ -43,9 +43,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     (async () => {
-      const { token, user } = await loadSession();
+      const { token, user, refreshToken } = await loadSession();
       if (token) {
         setAuthToken(token);
+        setRefreshToken(refreshToken);
         setToken(token);
         setUser(user);
         // A returning session is locked until the device owner re-authenticates.
@@ -58,14 +59,28 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     })();
   }, []);
 
+  // If a silent refresh fails outright (refresh token itself expired/revoked), the client can't
+  // recover on its own — fall back to the same fail-closed behaviour as any other invalid session.
+  useEffect(() => {
+    setOnRefreshFailed(() => { void logout(); });
+    setOnTokenRefreshed((token, refreshToken) => {
+      setToken(token);
+      void saveSession(token, user, refreshToken);
+    });
+    return () => { setOnRefreshFailed(null); setOnTokenRefreshed(null); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [user]);
+
   const login = useCallback(async (email: string, password: string) => {
-    const data = await api.post<{ token: string; user: User }>('/auth/login', { email, password });
+    const data = await api.post<{ token: string; refreshToken?: string; user: User }>('/auth/login', { email, password });
     const token = (data as any).token;
+    const refreshToken = (data as any).refreshToken as string | undefined;
     const u = (data as any).user as User;
     if (!token) throw new Error('No session token returned.');
     setAuthToken(token);
+    setRefreshToken(refreshToken ?? null);
     setToken(token);
-    await saveSession(token, u);
+    await saveSession(token, u, refreshToken);
     setUser(u);
     setStatus('authed');
   }, []);
@@ -82,6 +97,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = useCallback(async () => {
     await clearSession();
     setAuthToken(null);
+    setRefreshToken(null);
     setToken(null);
     setUser(null);
     setStatus('unauthed');
