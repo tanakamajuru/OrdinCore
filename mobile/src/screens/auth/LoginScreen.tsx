@@ -13,13 +13,17 @@ const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
 export function LoginScreen() {
   const { c, scheme } = useTheme();
-  const { login } = useAuth();
-  const [view, setView] = useState<'login' | 'forgot' | 'sent'>('login');
+  const { login, verifyMfa, resendMfaCode } = useAuth();
+  const [view, setView] = useState<'login' | 'forgot' | 'sent' | 'mfa'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [show, setShow] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [mfaChallenge, setMfaChallenge] = useState<string | null>(null);
+  const [mfaCode, setMfaCode] = useState('');
+  const [resendBusy, setResendBusy] = useState(false);
+  const [resendMsg, setResendMsg] = useState<string | null>(null);
 
   // The comp's login is a light, navy-branded card on a pale-blue field. Keep that in light mode;
   // fall back to the app's dark surfaces in dark mode.
@@ -29,9 +33,32 @@ export function LoginScreen() {
 
   const submit = async () => {
     setBusy(true); setError(null);
-    try { await login(email.trim(), password); }
+    try {
+      const res = await login(email.trim(), password);
+      if (res.mfaRequired && res.mfaChallenge) {
+        setMfaChallenge(res.mfaChallenge);
+        setMfaCode('');
+        setView('mfa');
+      }
+    }
     catch (e: any) { setError(e?.message || 'Could not sign in.'); }
     finally { setBusy(false); }
+  };
+
+  const submitMfa = async () => {
+    if (!mfaChallenge) return;
+    setBusy(true); setError(null);
+    try { await verifyMfa(mfaChallenge, mfaCode.trim()); }
+    catch (e: any) { setError(e?.message || 'That code is not valid or has expired.'); }
+    finally { setBusy(false); }
+  };
+
+  const resendCode = async () => {
+    if (!mfaChallenge) return;
+    setResendBusy(true); setError(null); setResendMsg(null);
+    try { await resendMfaCode(mfaChallenge); setResendMsg('A new code has been sent.'); }
+    catch (e: any) { setError(e?.message || 'Could not resend the code.'); }
+    finally { setResendBusy(false); }
   };
 
   // Mirrors the web ForgottenPassword flow: POST /auth/forgot-password, then a generic
@@ -47,7 +74,7 @@ export function LoginScreen() {
     } finally { setBusy(false); }
   };
 
-  const goLogin = () => { setView('login'); setError(null); setPassword(''); };
+  const goLogin = () => { setView('login'); setError(null); setPassword(''); setMfaChallenge(null); setMfaCode(''); setResendMsg(null); };
 
   const fieldRow = { flexDirection: 'row' as const, alignItems: 'center' as const, backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.md, paddingHorizontal: 14, height: 54, gap: 11 };
   const fieldInput = { flex: 1, fontSize: 15, color: c.ink, height: '100%' as const };
@@ -73,7 +100,45 @@ export function LoginScreen() {
               </Text>
             </View>
 
-            {view === 'sent' ? (
+            {view === 'mfa' ? (
+              <>
+                <View style={{ gap: 4 }}>
+                  <Text size={20} weight="700" color={navy} style={{ textAlign: 'center' }}>Enter your code</Text>
+                  <Text size={13} muted style={{ textAlign: 'center' }}>
+                    We've emailed a sign-in code to {email.trim()}. It expires in 20 minutes.
+                  </Text>
+                </View>
+
+                <View style={{ gap: 8 }}>
+                  <Text size={14} weight="700" color={navy}>Code</Text>
+                  <View style={fieldRow}>
+                    <Feather name="key" size={18} color={c.faint} />
+                    <TextInput
+                      value={mfaCode} onChangeText={setMfaCode} placeholder="Enter the 6-digit code" placeholderTextColor={c.faint}
+                      keyboardType="number-pad" autoCapitalize="none" autoCorrect={false} style={fieldInput} maxLength={8}
+                    />
+                  </View>
+                </View>
+
+                {!!error && <Text color={c.sevCrit} size={12.5}>{error}</Text>}
+                {!!resendMsg && !error && <Text color={c.accent} size={12.5}>{resendMsg}</Text>}
+
+                <Pressable onPress={submitMfa} disabled={busy || !mfaCode.trim()} style={primaryBtn(busy || !mfaCode.trim())}>
+                  <Text size={16} weight="700" color={c.accentInk}>{busy ? 'Verifying…' : 'Verify and sign in'}</Text>
+                </Pressable>
+
+                <Pressable onPress={resendCode} disabled={resendBusy} style={{ alignItems: 'center', paddingVertical: 2 }}>
+                  <Text size={14} weight="600" color={c.accent}>{resendBusy ? 'Sending…' : 'Resend code'}</Text>
+                </Pressable>
+
+                <Pressable onPress={goLogin} style={{ alignItems: 'center', paddingVertical: 2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                    <Feather name="arrow-left" size={15} color={c.accent} />
+                    <Text size={14} weight="600" color={c.accent}>Back to Login</Text>
+                  </View>
+                </Pressable>
+              </>
+            ) : view === 'sent' ? (
               <View style={{ gap: 14, alignItems: 'center' }}>
                 <View style={{ width: 56, height: 56, borderRadius: 28, backgroundColor: c.accentTint, alignItems: 'center', justifyContent: 'center' }}>
                   <Feather name="mail" size={26} color={c.accent} />

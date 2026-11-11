@@ -19,7 +19,12 @@ type Ctx = {
   user: User | null;
   role: Role;
   token: string | null;
-  login: (email: string, password: string) => Promise<void>;
+  // Returns an MFA challenge when the account requires a second factor (privileged roles, or any
+  // company with MFA_ENFORCE on) — the server has already emailed a one-time code at that point.
+  // No session is established until verifyMfa completes it, mirroring the web login flow.
+  login: (email: string, password: string) => Promise<{ mfaRequired?: boolean; mfaChallenge?: string }>;
+  verifyMfa: (mfaChallenge: string, code: string) => Promise<void>;
+  resendMfaCode: (mfaChallenge: string) => Promise<void>;
   unlock: () => Promise<boolean>;
   logout: () => Promise<void>;
 };
@@ -71,11 +76,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const data = await api.post<{ token: string; refreshToken?: string; user: User }>('/auth/login', { email, password });
-    const token = (data as any).token;
-    const refreshToken = (data as any).refreshToken as string | undefined;
-    const u = (data as any).user as User;
+  // Shared by password login and the MFA second factor — both end in a full session.
+  const establishSession = useCallback(async (data: any) => {
+    const token = data?.token as string | undefined;
+    const refreshToken = data?.refreshToken as string | undefined;
+    const u = data?.user as User;
     if (!token) throw new Error('No session token returned.');
     setAuthToken(token);
     setRefreshToken(refreshToken ?? null);
@@ -83,6 +88,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     await saveSession(token, u, refreshToken);
     setUser(u);
     setStatus('authed');
+  }, []);
+
+  const login = useCallback(async (email: string, password: string) => {
+    const data: any = await api.post('/auth/login', { email, password });
+    if (data?.mfaRequired) return { mfaRequired: true, mfaChallenge: data.mfaChallenge as string };
+    await establishSession(data);
+    return {};
+  }, [establishSession]);
+
+  const verifyMfa = useCallback(async (mfaChallenge: string, code: string) => {
+    const data: any = await api.post('/auth/mfa/verify', { mfaChallenge, code });
+    await establishSession(data);
+  }, [establishSession]);
+
+  const resendMfaCode = useCallback(async (mfaChallenge: string) => {
+    await api.post('/auth/mfa/resend', { mfaChallenge });
   }, []);
 
   const unlock = useCallback(async () => {
@@ -104,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ status, user, role: normalizeRole(user?.role), token, login, unlock, logout }}>
+    <AuthContext.Provider value={{ status, user, role: normalizeRole(user?.role), token, login, verifyMfa, resendMfaCode, unlock, logout }}>
       {children}
     </AuthContext.Provider>
   );
