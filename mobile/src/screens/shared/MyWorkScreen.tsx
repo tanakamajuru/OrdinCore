@@ -51,7 +51,10 @@ function routeFor(role: string, it: GWItem): (() => void) | undefined {
       // Navigation correction, 13 Oct 2026).
       return r === 'REGISTERED_MANAGER' ? go('RMMyActions') : r === 'TEAM_LEADER' ? go('TLMyActions') : r === 'SUPPORT_WORKER' ? go('SWActions') : r === 'DIRECTOR' ? go('ActionDetail', { id }) : tab('Actions');
     case 'signal':
-      return r === 'REGISTERED_MANAGER' ? go('RMDailyGovernance') : r === 'SUPPORT_WORKER' ? go('SWSignalDetail', { id }) : go('SignalDetail', { id });
+      // An RM's SIGNAL_DECISION item is this specific signal awaiting a decision — it must open
+      // that signal's own review screen, not the generic Daily Governance readiness/publish screen
+      // (which ignored `id` entirely and always opened the same page for every signal).
+      return r === 'SUPPORT_WORKER' ? go('SWSignalDetail', { id }) : go('SignalDetail', { id });
     case 'risk':
       return go('RiskDetail', { id });
     case 'escalation':
