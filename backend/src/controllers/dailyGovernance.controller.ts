@@ -52,6 +52,7 @@ export class DailyGovernanceController {
         priorities.forEach((p: any) => {
           const due = p.dueLabel ? ' · due ' + new Date(p.dueLabel).toLocaleDateString('en-GB') : '';
           doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f172a').text(`• ${p.decision || 'Decision'}${p.owner ? ' · ' + p.owner : ''}${due}`);
+          if (p.relatedSignal) doc.font('Helvetica-Oblique').fontSize(9.5).fillColor('#475569').text(`   Related signal: ${String(p.relatedSignal).trim()}`);
           if (p.title) doc.font('Helvetica').fontSize(10).fillColor('#333').text(`   ${String(p.title).trim()}`);
           if (p.rationale) doc.font('Helvetica-Oblique').fontSize(9.5).fillColor('#555').text(`   Rationale: ${String(p.rationale).trim()}`);
           doc.moveDown(0.25);

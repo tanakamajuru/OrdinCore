@@ -511,10 +511,13 @@ export class DailyGovernanceService {
                         'instruction', COALESCE(NULLIF(gr.intended_outcome,''), gr.evidence),
                         'rationale', gr.decision_rationale,
                         'owner', NULLIF(TRIM(COALESCE(ou.first_name,'') || ' ' || COALESCE(ou.last_name,'')), ''),
-                        'dueLabel', gr.due_at
+                        'dueLabel', gr.due_at,
+                        'relatedSignal', p.description,
+                        'relatedSignalDate', p.entry_date
                       ) ORDER BY gr.created_at), '[]'::json)
                  FROM governance_reviews gr
                  LEFT JOIN users ou ON ou.id = gr.decision_owner_id
+                 LEFT JOIN pulse_entries p ON p.id = gr.pulse_entry_id
                 WHERE gr.daily_governance_log_id = dgl.id) AS priorities
          FROM daily_governance_log dgl
          JOIN houses h ON h.id = dgl.house_id AND h.company_id = $1
