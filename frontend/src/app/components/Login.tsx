@@ -150,12 +150,17 @@ export function Login() {
   return (
     <FullScreen handle={handle}>
       <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-5xl flex items-center justify-center gap-16">
+          <div className="hidden md:flex flex-col items-start flex-1 max-w-sm">
+            <img src={logo} alt="OrdinCore" className="w-40 h-40 mb-2" />
+            <h1 className="text-3xl font-bold text-primary tracking-tight">Governance infrastructure for care providers.</h1>
+          </div>
+
+          <div className="w-full max-w-md">
           <div className="bg-card border-2 border-border p-8 shadow-md">
-            <div className="text-center mb-4 flex flex-col items-center">
-              <img src={logo} alt="OrdinCore" className="w-55 h-55 mb-1 mx-auto" />
-              {/* Same brand line as the mobile app login. */}
-              <h1 className="text-lg font-bold text-primary text-center tracking-tight">Governance. Oversight. Assurance. Every Day.</h1>
+            <div className="text-center mb-4 flex flex-col items-center md:hidden">
+              <img src={logo} alt="OrdinCore" className="w-40 h-40 mb-1 mx-auto" />
+              <h1 className="text-lg font-bold text-primary text-center tracking-tight">Governance infrastructure for care providers.</h1>
             </div>
 
             {mfaChallenge && (
@@ -228,7 +233,7 @@ export function Login() {
                 className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors  disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
-                {isLoading ? "Logging in..." : "Login"}
+                {isLoading ? "Logging in..." : "Log in"}
               </button>
 
               <div className="text-center">
@@ -237,11 +242,12 @@ export function Login() {
                   onClick={() => navigate("/forgotten-password")}
                   className="text-primary hover:text-primary/70 transition-colors underline"
                 >
-                  Forgotten Password
+                  Forgot password?
                 </button>
               </div>
             </form>
             )}
+          </div>
           </div>
         </div>
       </div>

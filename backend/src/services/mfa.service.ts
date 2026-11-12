@@ -16,6 +16,42 @@ const CODE_TTL_MS = 20 * 60 * 1000; // 20 minutes — matches the login challeng
 
 const sha256 = (s: string) => crypto.createHash('sha256').update(s).digest('hex');
 
+// Matches the OrdinCore login screens' branding (shield mark, navy/blue, same tagline).
+const otpEmailHtml = (code: string) => `
+<div style="background:#eef2f7;padding:32px 16px;font-family:Arial,Helvetica,sans-serif">
+  <div style="max-width:480px;margin:0 auto;background:#ffffff;border-radius:16px;padding:40px 36px;border:1px solid #e2e8f0">
+    <table role="presentation" cellpadding="0" cellspacing="0">
+      <tr>
+        <td style="vertical-align:middle">
+          <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50 88S82 72 82 48V20L50 8 18 20v28c0 24 32 40 32 40z" fill="#2F6CB5"/>
+            <path d="M50 78S74 65 74 48V26L50 16 26 26v22c0 17 24 30 24 30z" fill="#0B1628"/>
+            <polyline points="38 46 46 54 62 38" fill="none" stroke="#5B9FD4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+          </svg>
+        </td>
+        <td style="vertical-align:middle;padding-left:10px">
+          <span style="font-size:22px;font-weight:700;color:#0e2c52">Ordin<span style="color:#2F6CB5">Core</span></span>
+        </td>
+      </tr>
+    </table>
+    <div style="height:1px;background:#2F6CB5;margin:20px 0 28px"></div>
+    <h1 style="font-size:24px;font-weight:800;color:#0e2c52;margin:0 0 10px">Your sign-in code</h1>
+    <p style="font-size:14px;color:#475569;margin:0 0 20px">Enter this code to sign in to Ordin Core.</p>
+    <div style="background:#dbeafe;border-radius:10px;padding:20px 22px;margin:0 0 20px">
+      <p style="font-size:12px;font-weight:700;color:#0e2c52;margin:0 0 8px">Your verification code</p>
+      <p style="font-size:34px;font-weight:800;letter-spacing:8px;color:#0e2c52;margin:0">${code}</p>
+    </div>
+    <p style="font-size:13px;color:#475569;margin:0 0 8px">This code expires in 20 minutes.</p>
+    <p style="font-size:13px;color:#475569;margin:0">Do not share this code with anyone. Ordin Core will never ask you to send us your sign-in code.</p>
+    <div style="height:1px;background:#e2e8f0;margin:24px 0"></div>
+    <h2 style="font-size:15px;font-weight:700;color:#0e2c52;margin:0 0 6px">Didn't request this?</h2>
+    <p style="font-size:13px;color:#475569;margin:0 0 20px">You can ignore this email. Do not share or enter the code.</p>
+    <p style="font-size:14px;font-weight:700;color:#0e2c52;margin:0 0 2px">Ordin Core</p>
+    <p style="font-size:13px;color:#64748b;margin:0 0 14px">Governance infrastructure for care providers.</p>
+    <p style="font-size:11px;color:#94a3b8;margin:0">This is an automated email. Please do not reply.</p>
+  </div>
+</div>`;
+
 export const mfaService = {
   mandatoryForRole(role: string): boolean {
     return MFA_MANDATORY_ROLES.includes(String(role || '').toUpperCase().replace(/-/g, '_'));
@@ -33,12 +69,9 @@ export const mfaService = {
     );
     await sendMail({
       to: email,
-      subject: 'Your OrdinCore sign-in code',
-      text: `Your sign-in verification code is ${code}. It expires in 20 minutes. If you did not try to sign in, you can ignore this email.`,
-      html:
-        `<p>Your sign-in verification code is:</p>` +
-        `<p style="font-size:28px;font-weight:700;letter-spacing:4px">${code}</p>` +
-        `<p>It expires in 20 minutes. If you did not try to sign in, you can ignore this email.</p>`,
+      subject: 'Your sign-in code',
+      text: `Your verification code is ${code}. It expires in 20 minutes. If you did not request this, you can ignore this email.`,
+      html: otpEmailHtml(code),
     });
   },
 

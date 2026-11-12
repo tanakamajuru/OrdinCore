@@ -96,7 +96,7 @@ export function LoginScreen() {
             <View style={{ alignItems: 'center', gap: 14, marginTop: 6 }}>
               <LogoMark size={148} />
               <Text size={19} weight="700" color={navy} style={{ textAlign: 'center', letterSpacing: -0.2 }}>
-                Governance. Oversight. Assurance. Every Day.
+                Governance infrastructure for care providers.
               </Text>
             </View>
 
@@ -214,11 +214,11 @@ export function LoginScreen() {
                 {!!error && <Text color={c.sevCrit} size={12.5}>{error}</Text>}
 
                 <Pressable onPress={submit} disabled={busy || !email || !password} style={primaryBtn(busy || !email || !password)}>
-                  <Text size={16} weight="700" color={c.accentInk}>{busy ? 'Signing in…' : 'Login'}</Text>
+                  <Text size={16} weight="700" color={c.accentInk}>{busy ? 'Signing in…' : 'Log in'}</Text>
                 </Pressable>
 
                 <Pressable onPress={() => { setView('forgot'); setError(null); }} style={{ alignItems: 'center', paddingVertical: 2 }}>
-                  <Text size={14} weight="600" color={c.accent}>Forgotten Password</Text>
+                  <Text size={14} weight="600" color={c.accent}>Forgot password?</Text>
                 </Pressable>
               </>
             )}
