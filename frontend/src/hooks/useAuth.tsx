@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 
 // Security: end an unattended session automatically so an unlocked device can't be used by someone
 // else. Any genuine user activity resets the timer.
-const IDLE_LOGOUT_MS = 5 * 60 * 1000;
+const IDLE_LOGOUT_MS = 15 * 60 * 1000;
 
 interface User {
   id: string;
@@ -164,14 +164,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     clearSession();
   };
 
-  // Idle auto-logout: while signed in, reset a 5-minute timer on any activity; on expiry, end the
+  // Idle auto-logout: while signed in, reset a 15-minute timer on any activity; on expiry, end the
   // session (fail-closed) so an idle screen returns to login. Uses a ref so re-renders don't reset it.
   const idleTimer = useRef<number | undefined>(undefined);
   useEffect(() => {
     if (!token) return;
     const endIdleSession = () => {
       try { sessionStorage.setItem('idleLogout', '1'); } catch { /* ignore */ }
-      toast.message('Signed out after 5 minutes of inactivity.');
+      toast.message('Signed out after 15 minutes of inactivity.');
       logout();
     };
     const reset = () => {

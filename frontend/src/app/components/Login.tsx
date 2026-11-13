@@ -3,7 +3,7 @@ import { FullScreen, useFullScreenHandle } from "react-full-screen";
 import { useNavigate, Navigate } from "react-router";
 
 import { useAuth } from "@/hooks/useAuth";
-import logo from "./images/logo.png";
+import logo from "./images/logo-wordmark.png";
 
 function PasswordInput({ id, value, onChange, disabled }: {
   id: string;
@@ -149,18 +149,32 @@ export function Login() {
 
   return (
     <FullScreen handle={handle}>
-      <div className="min-h-screen flex items-center justify-center p-4 bg-background">
-        <div className="w-full max-w-5xl flex items-center justify-center gap-16">
-          <div className="hidden md:flex flex-col items-start flex-1 max-w-sm">
-            <img src={logo} alt="OrdinCore" className="w-40 h-40 mb-2" />
-            <h1 className="text-3xl font-bold text-primary tracking-tight">Governance infrastructure for care providers.</h1>
+      <div className="h-screen overflow-y-auto flex items-center justify-center px-4 py-6 bg-background">
+        <div className="w-full max-w-4xl flex items-center justify-center gap-12 lg:gap-20">
+          <div className="hidden md:flex flex-col items-start flex-1 max-w-md">
+            <img
+              src={logo}
+              alt="Ordin Core"
+              style={{ width: 400, maxWidth: "100%", height: "auto" }}
+              className="mb-5"
+            />
+            <h1 className="font-semibold leading-[1.25] text-[32px]" style={{ color: "#0e2c52" }}>
+              Governance infrastructure for care providers.
+            </h1>
           </div>
 
           <div className="w-full max-w-md">
-          <div className="bg-card border-2 border-border p-8 shadow-md">
-            <div className="text-center mb-4 flex flex-col items-center md:hidden">
-              <img src={logo} alt="OrdinCore" className="w-40 h-40 mb-1 mx-auto" />
-              <h1 className="text-lg font-bold text-primary text-center tracking-tight">Governance infrastructure for care providers.</h1>
+          <div className="bg-card border border-border rounded-2xl p-8 shadow-md">
+            <div className="text-center mb-5 flex flex-col items-center md:hidden">
+              <img
+                src={logo}
+                alt="Ordin Core"
+                style={{ width: 240, maxWidth: "100%", height: "auto" }}
+                className="mb-3"
+              />
+              <h1 className="font-semibold leading-[1.25] text-[24px] text-center" style={{ color: "#0e2c52" }}>
+                Governance infrastructure for care providers.
+              </h1>
             </div>
 
             {mfaChallenge && (
