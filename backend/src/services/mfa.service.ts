@@ -23,11 +23,7 @@ const otpEmailHtml = (code: string) => `
     <table role="presentation" cellpadding="0" cellspacing="0">
       <tr>
         <td style="vertical-align:middle">
-          <svg width="40" height="40" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
-            <path d="M50 88S82 72 82 48V20L50 8 18 20v28c0 24 32 40 32 40z" fill="#2F6CB5"/>
-            <path d="M50 78S74 65 74 48V26L50 16 26 26v22c0 17 24 30 24 30z" fill="#0B1628"/>
-            <polyline points="38 46 46 54 62 38" fill="none" stroke="#5B9FD4" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-          </svg>
+          <img src="https://ordincore.co.uk/logo.png" width="40" height="40" alt="Ordin Core" style="display:block;border:0" />
         </td>
         <td style="vertical-align:middle;padding-left:10px">
           <span style="font-size:22px;font-weight:700;color:#0e2c52">Ordin<span style="color:#2F6CB5">Core</span></span>
