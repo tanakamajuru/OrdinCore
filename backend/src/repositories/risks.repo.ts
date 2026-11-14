@@ -28,7 +28,16 @@ export interface CreateRiskDto {
 export const risksRepo = {
   async findById(id: string, company_id: string) {
     const params: unknown[] = [id];
-    let sql = `SELECT r.*, 
+    // Correction (14 Nov 2026, "should link escalation, daily oversight reports etc — all should
+    // relate"): the originating signal(s) were only ever pulled through the incident-reconstruction
+    // chain (irp -> irec -> incident_risks), which is EMPTY for the normal case — a risk promoted
+    // directly from a signal or pattern via governanceDecisionsService/risksService. The real link
+    // is risk_signal_links (by risk_id, or by cluster_id when promoted from a pattern this risk's
+    // source_cluster_id points at), so a plain promoted risk showed no originating-signal evidence
+    // at all on its own detail view, breaking the signal -> risk closed loop. Also widened the
+    // escalations aggregate to match escalations linked via this risk's originating signal/pattern,
+    // not only ones with e.risk_id set directly.
+    let sql = `SELECT r.*,
         rc.name AS category_name,
         u1.first_name || ' ' || u1.last_name AS created_by_name,
         u2.first_name || ' ' || u2.last_name AS assigned_to_name,
@@ -48,8 +57,12 @@ export const risksRepo = {
       LEFT JOIN incidents i ON i.id = ir.incident_id
       LEFT JOIN incident_reconstruction irec ON irec.incident_id = i.id
       LEFT JOIN incident_reconstruction_pulses irp ON irp.reconstruction_id = irec.id
-      LEFT JOIN governance_pulses gp ON gp.id = irp.pulse_id
-      LEFT JOIN escalations e ON e.risk_id = r.id
+      LEFT JOIN risk_signal_links rsl ON (rsl.risk_id = r.id OR (r.source_cluster_id IS NOT NULL AND rsl.cluster_id = r.source_cluster_id))
+      LEFT JOIN governance_pulses gp ON gp.id = COALESCE(irp.pulse_id, rsl.pulse_entry_id) AND gp.company_id = r.company_id
+      LEFT JOIN escalations e ON e.company_id = r.company_id
+        AND (e.risk_id = r.id
+          OR (r.source_cluster_id IS NOT NULL AND e.source_cluster_id = r.source_cluster_id)
+          OR (gp.id IS NOT NULL AND e.source_pulse_id = gp.id))
       WHERE r.id = $1`;
     // Tenant isolation is mandatory — always scope to the company.
     sql += ' AND r.company_id = $2'; params.push(company_id);

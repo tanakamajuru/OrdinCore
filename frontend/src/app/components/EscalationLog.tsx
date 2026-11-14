@@ -410,11 +410,18 @@ export function EscalationLog() {
   ).length;
   const lifecycleIndex = (e: Escalation) => {
     const value = String(e.lifecycle_status || e.status || '').toLowerCase();
-    if (value.includes('closed') || value.includes('resolved')) return 4;
-    if (value.includes('monitoring')) return 3;
-    if (value.includes('actions implemented')) return 2;
-    if (value.includes('review') || value.includes('acknowledged') || value.includes('progress') || value.includes('reopened')) return 1;
-    return 0;
+    const hasActions = Number(e.actions_total_count) > 0;
+    const hasEffectivenessEvidence = Number(e.actions_effectiveness_reviewed_count) > 0;
+    // 14 Nov 2026 correction: a closed/resolved status alone used to light every step, including
+    // "Effectiveness checked" — but closing an escalation is not proof effectiveness was ever
+    // assessed. An escalation can be resolved with zero linked actions (a diary note only), which
+    // the "Evidence & linked controls" panel correctly shows as 0/0 "Not yet reviewed" — the
+    // stepper must agree with that, not contradict it.
+    let idx = 0;
+    if (value.includes('review') || value.includes('acknowledged') || value.includes('progress') || value.includes('reopened')) idx = 1;
+    if (value.includes('actions implemented') || value.includes('monitoring') || hasActions) idx = Math.max(idx, 2);
+    if (value.includes('closed') || value.includes('resolved')) idx = Math.max(idx, 1);
+    return hasEffectivenessEvidence ? 4 : idx;
   };
   const deadlineLabel = (e: Escalation) => {
     if (lifecycleState(e) === 'resolved') {
