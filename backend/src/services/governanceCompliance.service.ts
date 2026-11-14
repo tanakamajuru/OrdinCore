@@ -32,7 +32,7 @@ export const governanceComplianceService = {
    * overdue, due-today and on-time-completed counts, the age of their oldest overdue action, and a
    * RAG status. Ordered worst-first so the people who need chasing are at the top.
    */
-  async teamCompliance(company_id: string, house_ids?: string[]) {
+  async teamCompliance(company_id: string, house_ids?: string[], periodDays: number = 28) {
     const scoped = Array.isArray(house_ids) && house_ids.length > 0;
     // Start FROM the active staff who can own actions (RM / TL / SW) and LEFT JOIN their actions,
     // so a newly-added member appears immediately (as "all on time / green") instead of being
@@ -44,8 +44,11 @@ export const governanceComplianceService = {
               COUNT(a.id) FILTER (WHERE ${OPEN} AND a.due_date::date = NOW()::date) AS due_today,
               COUNT(a.id) FILTER (WHERE a.is_completed
                                  AND a.completed_at IS NOT NULL
+                                 AND a.completed_at >= NOW() - ($${scoped ? 3 : 2}::int * INTERVAL '1 day')
                                  AND (a.due_date IS NULL OR a.completed_at <= a.due_date)) AS completed_on_time,
-              COUNT(a.id) FILTER (WHERE a.is_completed) AS completed_total,
+              COUNT(a.id) FILTER (WHERE a.is_completed
+                                 AND a.completed_at IS NOT NULL
+                                 AND a.completed_at >= NOW() - ($${scoped ? 3 : 2}::int * INTERVAL '1 day')) AS completed_total,
               MAX(CASE WHEN ${OPEN} AND a.due_date < NOW()
                        THEN FLOOR(EXTRACT(EPOCH FROM (NOW() - a.due_date)) / 86400) END)::int AS oldest_overdue_days
          FROM users u
@@ -67,7 +70,7 @@ export const governanceComplianceService = {
           ${scoped ? `AND EXISTS (SELECT 1 FROM user_houses uh WHERE uh.user_id = u.id AND uh.house_id = ANY($2::uuid[]))` : ``}
         GROUP BY u.id, name, u.role
         ORDER BY overdue DESC, due_today DESC, name ASC`,
-      scoped ? [company_id, house_ids] : [company_id]
+      scoped ? [company_id, house_ids, periodDays] : [company_id, periodDays]
     )).rows;
 
     return rows.map((r: any) => {
@@ -83,7 +86,12 @@ export const governanceComplianceService = {
         due_today: Number(r.due_today) || 0,
         oldest_overdue_days: r.oldest_overdue_days ?? null,
         // On-time completion rate — the positive story (how much they DID deliver on time).
+        // Scoped to the trailing `periodDays` window (default 28) so the figure has a stated,
+        // measurable period instead of silently covering a person's entire history (flagged on a
+        // printed Action Tracker report: "over what period?" — the number next to "All on time"
+        // had no time window at all).
         on_time_rate: completedTotal > 0 ? Math.round((onTime / completedTotal) * 100) : null,
+        on_time_period_days: periodDays,
         rag: ragFor(overdue),
       };
     });

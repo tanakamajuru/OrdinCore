@@ -54,7 +54,13 @@ export class EscalationsController {
   async downloadSummaryPdf(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const filters = { status: req.query.status as string | undefined, house_id: req.query.house_id as string | string[] | undefined };
+      const filters = {
+        status: req.query.status as string | undefined,
+        house_id: req.query.house_id as string | string[] | undefined,
+        startDate: req.query.startDate as string | undefined,
+        endDate: req.query.endDate as string | undefined,
+        client: req.query.client as string | undefined,
+      };
       const { content, filename, contentType } = await governancePdfService.escalationSummary(company_id, filters);
       res.setHeader('Content-Type', contentType);
       res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);

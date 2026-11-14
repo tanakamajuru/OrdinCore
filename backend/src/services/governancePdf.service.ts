@@ -61,15 +61,26 @@ export const governancePdfService = {
     drawReportHeader(doc as any, 'Learning Record');
     stampSnapshot(doc);
 
-    doc.fontSize(10).fillColor('gray').text(`Record ID: ${lr.id}`);
-    doc.fillColor('black');
+    // Field report (12 Nov 2026): "we don't need codes" -- same as the escalation record, a raw
+    // internal UUID has no reader-facing meaning and is dropped.
     // 30 Oct 2026 live bug report ("uniformity on the font... do this for all forms"): a source
     // action title can be a full paragraph (seen live: 200+ characters) — same class of defect
     // as escalationRecord's title below. Shortened so the heading reads as a heading everywhere.
     doc.fontSize(14).font('Helvetica-Bold').text(shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 110));
     doc.font('Helvetica').fontSize(10);
     doc.moveDown(0.5);
-    doc.text(`Service: ${lr.house_name || 'Organisation-wide'}`);
+    // Field report (12 Nov 2026): "scope -- service is not organisation-wide, the resident is
+    // attached to a house." lr.house_name only ever came from the learning record's OWN house_id
+    // field, which is routinely unset on an ESCALATION_CLOSURE-sourced record even though the
+    // escalation it's about has a real house (source_escalation_house_name, joined above) --
+    // falling back straight to "Organisation-wide" was wrong whenever that was the case.
+    doc.text(`Service: ${lr.house_name || lr.source_escalation_house_name || 'Organisation-wide'}`);
+    // Field report (12 Nov 2026): "we need name of client." Only showed for an ESCALATION_CLOSURE
+    // -sourced record at first; an EFFECTIVENESS-sourced record reaches its signal through the
+    // source action's own escalation chain instead (action_signal_related_person), so both are
+    // checked here.
+    const clientName = lr.source_escalation_related_person || lr.action_signal_related_person;
+    if (clientName) doc.text(`Client: ${clientName}`);
     doc.text(`Source: ${lr.source_type}${lr.linked_action_title ? ` — action "${lr.linked_action_title}"` : ''}`);
     doc.text(`Recorded: ${fmtDate(lr.created_at)} by ${lr.author_name || 'Unknown'}`);
     doc.text(`Status: ${learningStateLabel(lr.state)} · ${learningProgressLabel(lr.progress)}`);
@@ -153,12 +164,28 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
-    if (lr.source_review_outcome) {
-      doc.font('Helvetica-Bold').text('Originating effectiveness review');
-      doc.font('Helvetica').text(`${lr.source_review_outcome} on ${fmtDate(lr.source_review_at)}${lr.source_review_evidence ? ` — ${lr.source_review_evidence}` : ''}`, { indent: 10 });
+    // Field report (12 Nov 2026): "we need information to come in proper sequence, old date
+    // first, newest date last — because old date has original source of information." This whole
+    // block used to print newest-first (effectiveness review, then escalation, then the decision
+    // that created the action, then the originating signal last) — backwards from how the event
+    // actually unfolded. Reordered chronologically: signal -> decision -> escalation -> linked
+    // risk -> (for an escalation-closure-sourced record) its own signal/decision chain ->
+    // effectiveness review, which is always the LAST thing to happen in this chain.
+    if (lr.action_signal_description) {
+      doc.font('Helvetica-Bold').text('Originating signal');
+      doc.font('Helvetica').text(`${fmtDate(lr.action_signal_date)}${lr.action_signal_severity ? ` · ${lr.action_signal_severity}` : ''}: ${lr.action_signal_description}`, { indent: 10 });
       doc.moveDown(0.5);
     }
-
+    // 30 Oct 2026 live bug report ("this history is not pulling on learning"): the common case —
+    // an action created straight from a decision, with no escalation and no registered risk —
+    // still showed nothing until the decision and its originating signal are followed too.
+    if (lr.action_decision) {
+      doc.font('Helvetica-Bold').text('Decision that created the source action');
+      doc.font('Helvetica').text(`${lr.action_decision}${lr.action_decision_by_name ? ` — ${lr.action_decision_by_name}` : ''}${lr.action_decision_date ? `, ${fmtDate(lr.action_decision_date)}` : ''}`, { indent: 10 });
+      if (lr.action_decision_rationale) doc.text(`Rationale: ${lr.action_decision_rationale}`, { indent: 10 });
+      if (lr.action_decision_instruction) doc.text(`Instruction: ${lr.action_decision_instruction}`, { indent: 10 });
+      doc.moveDown(0.5);
+    }
     // 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe give us a
     // link to the whole escalation history"): when the source action itself resolved a real
     // escalation, print that escalation's own chronology — this was entirely absent before, so
@@ -178,19 +205,30 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
-    // 30 Oct 2026 live bug report ("this history is not pulling on learning"): the common case —
-    // an action created straight from a decision, with no escalation and no registered risk —
-    // still showed nothing until the decision and its originating signal are followed too.
-    if (lr.action_decision) {
-      doc.font('Helvetica-Bold').text('Decision that created the source action');
-      doc.font('Helvetica').text(`${lr.action_decision}${lr.action_decision_by_name ? ` — ${lr.action_decision_by_name}` : ''}${lr.action_decision_date ? `, ${fmtDate(lr.action_decision_date)}` : ''}`, { indent: 10 });
-      if (lr.action_decision_rationale) doc.text(`Rationale: ${lr.action_decision_rationale}`, { indent: 10 });
-      if (lr.action_decision_instruction) doc.text(`Instruction: ${lr.action_decision_instruction}`, { indent: 10 });
+    // Field report (12 Nov 2026): "source is from all the information such as escalation -
+    // original signal - decision made - effectiveness - impact, all pulled on this report." When
+    // THIS learning record's own source is the escalation closure (source_type ESCALATION_CLOSURE,
+    // as opposed to being reached indirectly via a source action), print that escalation's full
+    // chronology the same way the action-sourced chain above does — signal first, decisions after.
+    if (lr.source_escalation_id) {
+      doc.font('Helvetica-Bold').text('Escalation (source of this learning)');
+      doc.font('Helvetica');
+      if (lr.source_escalation_signal_description) {
+        doc.text(`Originating signal: [${fmtDate(lr.source_escalation_signal_date)}]${lr.source_escalation_signal_severity ? ` ${lr.source_escalation_signal_severity}` : ''} — ${lr.source_escalation_signal_description}`, { indent: 10 });
+      }
+      doc.text(`Raised: ${lr.source_escalation_reason || 'Not recorded'}`, { indent: 10 });
+      doc.text(`Status: ${lr.source_escalation_lifecycle_status || lr.source_escalation_status || '—'}${lr.source_escalation_to_name ? ` · Escalated to: ${lr.source_escalation_to_name}` : ''}`, { indent: 10 });
+      doc.text(`Opened: ${fmtDate(lr.source_escalation_created_at)}${lr.source_escalation_due_by ? ` · Due: ${fmtDate(lr.source_escalation_due_by)}` : ''}${lr.source_escalation_closed_at ? ` · Closed: ${fmtDate(lr.source_escalation_closed_at)}` : ''}`, { indent: 10 });
+      if (lr.source_escalation_decision_history) doc.text(`Decisions recorded: ${lr.source_escalation_decision_history}`, { indent: 10 });
+      if (lr.source_escalation_closure_evidence) doc.text(`Closure evidence: ${lr.source_escalation_closure_evidence}`, { indent: 10 });
       doc.moveDown(0.5);
     }
-    if (lr.action_signal_description) {
-      doc.font('Helvetica-Bold').text('Originating signal');
-      doc.font('Helvetica').text(`${fmtDate(lr.action_signal_date)}${lr.action_signal_severity ? ` · ${lr.action_signal_severity}` : ''}: ${lr.action_signal_description}`, { indent: 10 });
+
+    // Always last: the effectiveness review is, by definition, the final event in this chain —
+    // it judges the action taken in response to everything printed above it.
+    if (lr.source_review_outcome) {
+      doc.font('Helvetica-Bold').text('Originating effectiveness review');
+      doc.font('Helvetica').text(`${lr.source_review_outcome} on ${fmtDate(lr.source_review_at)}${lr.source_review_evidence ? ` — ${lr.source_review_evidence}` : ''}`, { indent: 10 });
       doc.moveDown(0.5);
     }
 
@@ -253,8 +291,9 @@ export const governancePdfService = {
     drawReportHeader(doc as any, 'Escalation Record');
     stampSnapshot(doc);
 
-    doc.fontSize(10).fillColor('gray').text(`Escalation ID: ${e.id}`);
-    doc.fillColor('black');
+    // Field report (12 Nov 2026): "no codes on reports sir" -- a raw internal UUID has no meaning
+    // to a reader and doesn't belong on a document meant to be read/printed (matches the frozen
+    // reports' own "no UUIDs" rule). Dropped; nothing below identified the record by this id.
     // 30 Oct 2026 live bug report ("the form itself is not aligned properly, the writing font
     // is different there is no uniformity"): when neither a risk nor an incident is linked —
     // the common case for a signal-raised escalation like this one — this fell back to the
@@ -270,6 +309,9 @@ export const governancePdfService = {
     doc.font('Helvetica').fontSize(10).fillColor('black');
     doc.moveDown(0.5);
     doc.text(`Service: ${e.service_name || e.house_name || '—'}`);
+    // Field report (12 Nov 2026): "name of client" -- the person this escalation concerns was
+    // only ever implied inside the title text, never given its own labelled field.
+    if (e.signal_related_person) doc.text(`Client: ${e.signal_related_person}`);
     doc.text(`Status: ${e.lifecycle_status || e.status || '—'}${e.overdue ? ' (OVERDUE)' : ''}`);
     doc.text(`Escalated by: ${e.escalated_by_name || '—'} to ${e.escalated_to_name || '—'} on ${fmtDate(e.created_at)}`);
     doc.text(`Due by: ${fmtDate(e.due_by)}`);
@@ -286,10 +328,38 @@ export const governancePdfService = {
       doc.moveDown(0.5);
     }
 
-    if (e.latest_note) {
-      doc.font('Helvetica-Bold').text('Latest progress note');
-      doc.font('Helvetica').text(e.latest_note, { indent: 10 });
-      doc.moveDown(0.5);
+    // Field report (12 Nov 2026): "we need all information from original signal -> decisions made
+    // from original signal -- monitoring if it was monitored and decisions; any/all recorded
+    // decisions and actions on escalations assigned." This only ever showed the single MOST
+    // RECENT progress note (escalations.service.ts findById's e.latest_note) -- the full history
+    // of what was recorded against this escalation over time was fetched (e.actions) but never
+    // rendered at all.
+    const history = Array.isArray(e.actions) ? e.actions : [];
+    if (history.length) {
+      doc.font('Helvetica-Bold').text('Monitoring and decision history');
+      doc.font('Helvetica').fontSize(9.5);
+      // escalation_actions.created_at DESC from the service -- oldest first reads as a timeline.
+      for (const a of [...history].reverse()) {
+        doc.text(`[${fmtDate(a.created_at)}] ${a.action_type || 'Update'} — ${a.taken_by_name || 'System'}`, { indent: 10 });
+        if (a.description) doc.text(a.description, { indent: 16 });
+        doc.moveDown(0.2);
+      }
+      doc.fontSize(10);
+      doc.moveDown(0.3);
+    }
+
+    const decisions = Array.isArray(e.decisions) ? e.decisions : [];
+    if (decisions.length) {
+      doc.font('Helvetica-Bold').text('Governance decisions recorded against this escalation');
+      doc.font('Helvetica').fontSize(9.5);
+      for (const d of decisions) {
+        doc.text(`[${fmtDate(d.review_date)}] ${d.decision || 'Decision'} — ${d.reviewer_name || 'Not recorded'}`, { indent: 10 });
+        if (d.decision_rationale) doc.text(`Rationale: ${d.decision_rationale}`, { indent: 16 });
+        if (d.due_at) doc.text(`Due/review: ${fmtDate(d.due_at)}`, { indent: 16 });
+        doc.moveDown(0.2);
+      }
+      doc.fontSize(10);
+      doc.moveDown(0.3);
     }
 
     // 30 Oct 2026 live bug report ("the bottom section the effectiveness did not pull up with
@@ -322,7 +392,7 @@ export const governancePdfService = {
     return finish(doc, buffers, `Escalation_${e.id}.pdf`);
   },
 
-  async escalationSummary(company_id: string, filters: { status?: string; house_id?: string | string[] }, page = 1, limit = 300) {
+  async escalationSummary(company_id: string, filters: { status?: string; house_id?: string | string[]; startDate?: string; endDate?: string; client?: string }, page = 1, limit = 300) {
     const { escalations } = await escalationsService.findAll(company_id, filters, page, limit);
     const doc = new PDFDocument({ margin: 50 });
     const buffers: Buffer[] = [];
@@ -333,6 +403,8 @@ export const governancePdfService = {
     const filterParts: string[] = [];
     if (filters.status) filterParts.push(`Status: ${filters.status}`);
     if (filters.house_id) filterParts.push(`Service filtered`);
+    if (filters.startDate || filters.endDate) filterParts.push(`Period: ${filters.startDate ? fmtDate(filters.startDate) : 'earliest'} to ${filters.endDate ? fmtDate(filters.endDate) : 'latest'}`);
+    if (filters.client) filterParts.push(`Client: ${filters.client}`);
     doc.fontSize(10).text(filterParts.length ? `Filters applied: ${filterParts.join(' · ')}` : 'No filters applied — all escalations in scope.');
     doc.text(`${escalations.length} escalation${escalations.length === 1 ? '' : 's'} in this export.`);
     doc.moveDown();

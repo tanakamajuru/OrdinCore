@@ -710,7 +710,17 @@ export class WeeklyReviewsService {
                       ORDER BY gr.created_at DESC LIMIT 1
                    ) gr ON true
                    LEFT JOIN users ru ON ru.id = gr.reviewed_by AND ru.company_id = gp.company_id
-                  WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date)
+                  WHERE gp.company_id=dgl.company_id AND gp.house_id=dgl.house_id AND gp.entry_date=dgl.review_date
+                    -- Field report (12 Nov 2026): "these are scheduled pre-made schedules, can we
+                    -- have only the actuals appearing" -- this subquery had no exclusion at all,
+                    -- unlike the QUALIFYING_WEEKLY_PULSE filter already applied elsewhere in this
+                    -- same file (prepareReview, above). The auto-generated 'Scheduled Governance
+                    -- Pulse' reminder placeholder was printed as a real signal, repeated once per
+                    -- scheduled reminder that day, each with no RM decision because nobody reviews
+                    -- a placeholder -- "HOW EVENTS UNFOLDED" filled up with identical empty rows
+                    -- instead of the real content recorded that day.
+                    AND COALESCE(gp.description,'') <> 'Scheduled Governance Pulse'
+                    AND COALESCE(gp.validity_status::text, 'VALID') NOT IN ('DUPLICATE', 'ENTERED_IN_ERROR', 'DISPROVED'))
               ) AS signals
          FROM daily_governance_log dgl
         WHERE dgl.company_id=$1 AND dgl.house_id=$2 AND dgl.completed=true
@@ -774,23 +784,32 @@ export class WeeklyReviewsService {
     // Escalation monitoring reviews recorded this week — each is a dated, accountable decision to
     // keep an escalation open, with its complete snapshot (owner, evidence watched, trigger, next
     // review). The report must carry this detail, not reduce it to "Monitor" (monitoring brief §4).
+    // Field report (12 Nov 2026): "Evidence to watch" and "Trigger for action/escalation" showed
+    // "Not recorded" almost every time -- confirmed this query was reading escalation_actions.
+    // metadata, a JSONB blob nothing in the live Monitor-decision flow writes to. The real data
+    // (governanceDecisionsService.executeInTx, Daily Governance Review's Monitor decision) is
+    // saved to governance_reviews' own columns instead: monitoring_trigger, evidence (the
+    // monitoring observation/what to watch for), decision_owner_id (the monitoring owner) and
+    // due_at (next review). "Monitoring owner" occasionally showed a real name only because a
+    // handful of older rows happened to carry it in escalation_actions.metadata from a
+    // since-replaced flow -- everything recorded through the current decision flow was invisible.
     const monitoring_reviews = (await query(
-      `SELECT ea.id, ea.created_at AS reviewed_at, e.reason AS concern,
-              ea.description AS note,
-              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')),'') AS reviewed_by,
-              ea.metadata->>'monitoring_owner_name' AS monitoring_owner,
-              ea.metadata->>'evidence_to_observe' AS evidence_to_observe,
-              ea.metadata->>'monitoring_trigger' AS monitoring_trigger,
-              NULLIF(ea.metadata->>'next_review_at','') AS next_review_at
-         FROM escalation_actions ea
-         JOIN escalations e ON e.id = ea.escalation_id AND e.company_id = ea.company_id
-         LEFT JOIN users u ON u.id = ea.taken_by
-        WHERE ea.company_id = $1 AND e.house_id = $2
-          AND ea.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
-          AND (ea.metadata ? 'monitoring_owner_name' OR ea.metadata ? 'monitoring_owner_id'
-               OR ea.metadata ? 'monitoring_trigger' OR ea.metadata ? 'evidence_to_observe'
-               OR ea.metadata ? 'next_review_at')
-        ORDER BY ea.created_at DESC`, p)).rows;
+      `SELECT gr.id, gr.created_at AS reviewed_at,
+              COALESCE(NULLIF(TRIM(e.reason), ''), NULLIF(TRIM(gp.description), ''), gr.what_is_happening) AS concern,
+              gr.what_is_happening AS note,
+              NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),'') AS reviewed_by,
+              NULLIF(TRIM(COALESCE(ou.first_name,'') || ' ' || COALESCE(ou.last_name,'')),'') AS monitoring_owner,
+              gr.evidence AS evidence_to_observe,
+              gr.monitoring_trigger,
+              gr.due_at AS next_review_at
+         FROM governance_reviews gr
+         LEFT JOIN escalations e ON e.id = gr.escalation_id AND e.company_id = gr.company_id
+         LEFT JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id AND gp.company_id = gr.company_id
+         LEFT JOIN users ru ON ru.id = gr.reviewed_by AND ru.company_id = gr.company_id
+         LEFT JOIN users ou ON ou.id = gr.decision_owner_id AND ou.company_id = gr.company_id
+        WHERE gr.company_id = $1 AND gr.service_id = $2 AND gr.decision = 'Monitor'
+          AND gr.created_at::date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
+        ORDER BY gr.created_at DESC`, p)).rows;
 
     // Structured learning recorded this week, for leadership scrutiny (learning brief L6). Shows
     // concern/lesson/change/progress with provenance; AI suggestions are flagged, never presented as

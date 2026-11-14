@@ -122,6 +122,18 @@ export class EscalationsService {
         (SELECT ii.house_id FROM incidents ii WHERE ii.id = e.incident_id)) = ANY($${idx}::uuid[])`);
       params.push(houseIds); idx++;
     }
+    // Field report (12 Nov 2026): "can we also be able to download a summary PDF that contains
+    // period or per client" -- the Escalation Log Summary export had no date-range or
+    // client/person filter at all, unlike the on-screen Escalation Log. Date filters the raised
+    // date; client matches the originating signal's related_person the same way the on-screen
+    // client filter does (EscalationLog.tsx), since escalations.service_user_id is not reliably
+    // populated on every row.
+    if (filters.startDate) { conditions.push(`e.created_at >= $${idx}::timestamptz`); params.push(filters.startDate); idx++; }
+    if (filters.endDate) { conditions.push(`e.created_at < ($${idx}::date + INTERVAL '1 day')`); params.push(filters.endDate); idx++; }
+    if (filters.client) {
+      conditions.push(`EXISTS (SELECT 1 FROM governance_pulses gpf WHERE gpf.id = e.source_pulse_id AND gpf.related_person ILIKE $${idx})`);
+      params.push(`%${filters.client}%`); idx++;
+    }
     const where = conditions.join(' AND ');
 
     const [esc, countResult] = await Promise.all([
@@ -312,12 +324,25 @@ export class EscalationsService {
       const cb = await query(`SELECT first_name || ' ' || last_name AS name FROM users WHERE id = $1`, [result.rows[0].closed_by]);
       closed_by_name = cb.rows[0]?.name || null;
     }
+    // Field report (12 Nov 2026): "decisions made from original signal... any/all recorded
+    // decisions... on escalations assigned" -- the governance decisions recorded specifically
+    // against THIS escalation, for the Escalation Record PDF's monitoring/decision history.
+    const decisions = await query(
+      `SELECT gr.decision::text AS decision, gr.decision_rationale, gr.review_date, gr.due_at,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS reviewer_name
+         FROM governance_reviews gr
+         LEFT JOIN users u ON u.id = gr.reviewed_by AND u.company_id = gr.company_id
+        WHERE gr.escalation_id = $1 AND gr.company_id = $2
+        ORDER BY gr.review_date ASC`,
+      [id, company_id]
+    );
     return {
       ...result.rows[0],
       house_id: result.rows[0].resolved_house_id || result.rows[0].house_id,
       closed_by_name,
       actions: actions.rows,
       linked_actions: linkedActions.rows,
+      decisions: decisions.rows,
     };
   }
 

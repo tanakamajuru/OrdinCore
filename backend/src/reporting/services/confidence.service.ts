@@ -36,7 +36,13 @@ export const confidenceService = {
     const escControl = m.open_escalations ? 1 - m.overdue_escalations / m.open_escalations : 1;
     const overduePenalty = m.open_actions ? m.overdue_actions / m.open_actions : 0;
     const criticalPenalty = m.critical_risks > 0 ? 0.25 : 0;
-    const score = (0.30 * reviewRate + 0.30 * onTimeRate + 0.20 * escControl + 0.20 * (1 - overduePenalty)) - criticalPenalty;
+    // Field report (12 Nov 2026): a site with a high/critical SIGNAL but no open escalations,
+    // overdue actions or promoted critical risk scored a full 100 here while status() (below)
+    // correctly classified it ATTENTION on that same signal — "requiring attention" sitting next
+    // to "governance confidence 100" on the printed report. status() already treats high_critical
+    // as attention-worthy; the score must weigh it too, not only a risk that's been promoted.
+    const highCriticalPenalty = m.high_critical > 0 ? 0.25 : 0;
+    const score = (0.30 * reviewRate + 0.30 * onTimeRate + 0.20 * escControl + 0.20 * (1 - overduePenalty)) - criticalPenalty - highCriticalPenalty;
     return clamp(score * 100);
   },
 

@@ -2,6 +2,7 @@ import { Request, Response } from 'express';
 import PDFDocument from 'pdfkit';
 import { weeklyReviewsService } from '../services/weeklyReviews.service';
 import { query } from '../config/database';
+import { drawReportHeader } from '../utils/pdfHelper';
 
 export class WeeklyReviewsController {
   async save(req: Request, res: Response) {
@@ -281,9 +282,12 @@ export class WeeklyReviewsController {
       const firstLine = (s: any) => String(s || '').split(/\r?\n/).map((x) => x.trim()).find(Boolean) || '';
       const overview = String(c.step15_narrative || c.step14_overall_position || rev.governance_narrative || 'This report is drawn from the governance record for the week; see the sections below.').trim();
 
+      // Field report (12 Nov 2026): "report format need to be uniform with others" -- this was
+      // the only one of the three report-generating systems with its own bespoke header (no
+      // brand mark at all) instead of the shared masthead the other two already use.
+      drawReportHeader(doc as any, 'Weekly Governance Team Report');
       doc.font('Helvetica-Bold').fontSize(10).fillColor('#0f766e').text('PUBLISHED WEEKLY GOVERNANCE REVIEW', { characterSpacing: 1 });
-      doc.moveDown(0.3).fillColor('#0f172a').fontSize(20).text('Weekly Governance Team Report');
-      doc.moveDown(0.2).font('Helvetica').fontSize(10).fillColor('#555');
+      doc.moveDown(0.3).font('Helvetica').fontSize(10).fillColor('#555');
       doc.text(`${houseName} · week ending ${rev.week_ending}`);
       doc.text(`Prepared by ${rev.created_by_name || 'Registered Manager'}${rev.rm_finalised_at ? ' · finalised ' + new Date(rev.rm_finalised_at).toLocaleString('en-GB') : ''}`);
       if (rev.validation_status) doc.text(`Validation: ${rev.validation_status}${rev.validation_at ? ' · ' + new Date(rev.validation_at).toLocaleString('en-GB') : ''}`);

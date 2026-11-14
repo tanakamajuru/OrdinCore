@@ -2,11 +2,15 @@ import PDFDocument from 'pdfkit';
 import path from 'path';
 import fs from 'fs';
 
-export const LOGO_PATH = path.join(__dirname, '../../../frontend/src/app/components/images/logo.png');
+// Wordmark lockup (shield + "Ordin Core" name baked in) — the same brand mark used on the frozen
+// report PDFs, web login and mobile. Field report (12 Nov 2026): this live-export header used the
+// bare icon-only shield plus a separate small "OrdinCore" text line underneath it, and was asked to
+// "follow the same formatting" as the frozen reports, which already carry the name on the logo.
+export const LOGO_PATH = path.join(__dirname, '../reporting/assets/ordin-core-logo-wordmark.png');
 
 /**
- * Draws a professional report header with a larger logo, company name,
- * centred title, and a divider line, respecting A4 margins.
+ * Draws the report header — matches the frozen-report masthead: wordmark top-right, "Governance &
+ * Oversight" top-left, divider line, then the report title.
  * @param doc - PDFKit document instance (assumed to be A4 size, margins: 50pt left/right)
  * @param title - The report title (e.g., "CQC EVIDENCE PACK")
  * @returns The Y-coordinate after the header (for continuation)
@@ -18,43 +22,26 @@ export function drawReportHeader(doc: typeof PDFDocument, title: string): number
   const rightMargin = 50;
   const contentWidth = pageWidth - leftMargin - rightMargin;
 
-  // Logo dimensions (larger, professional size)
-  // 30 Oct 2026 live bug report ("the text Ordincore is behind or in front of the logo"):
-  // logo.png is a 500x500 SQUARE image, so rendering it at width:80 with no explicit height
-  // makes PDFKit auto-scale it to 80pt TALL, not the 40pt this code assumed when positioning
-  // the company-name text below it — the text was placed halfway up the logo's own height,
-  // landing inside the shield instead of beneath it. Fixed to the image's true aspect ratio.
-  const logoWidth = 80;      // more balanced
-  const logoHeight = 80;     // logo.png is square (500x500) — width and height must match
+  const logoW = 130, logoH = 43.3; // 3:1 wordmark aspect ratio (865x288 source)
+  const startY = 30;
 
-  let startY = 30;           // top of the page (after default margin)
+  // Field report (12 Nov 2026): masthead subtitle requested as "Governance, Oversight and
+  // Assurance" instead of "Governance & Oversight", to match the frozen-report masthead.
+  doc.fontSize(12)
+     .font('Helvetica-Bold')
+     .fillColor('#444444')
+     .text('Governance, Oversight and Assurance', leftMargin, startY + 5);
 
-  // 1. Logo – top‑left corner
   if (fs.existsSync(LOGO_PATH)) {
     try {
-      doc.image(LOGO_PATH, leftMargin, startY, { width: logoWidth, height: logoHeight });
+      doc.image(LOGO_PATH, pageWidth - rightMargin - logoW, startY - 6, { width: logoW, height: logoH });
     } catch (err) {
       console.error('Failed to render logo in PDF:', err);
     }
   }
 
-  // 2. Company name – placed just below the logo
-  const companyName = 'OrdinCore';
-  const companyTextY = startY + logoHeight + 5; // 5pt spacing
-  doc.fontSize(12)
-     .font('Helvetica-Bold')
-     .fillColor('#444444')
-     .text(companyName, leftMargin, companyTextY);
-
-  // 2b. Tagline – small caps line directly under the company name.
-  const taglineY = companyTextY + 15;
-  doc.fontSize(7.5)
-     .font('Helvetica')
-     .fillColor('#888888')
-     .text('GOVERNANCE INFRASTRUCTURE FOR CARE PROVIDERS', leftMargin, taglineY);
-
-  // 3. Report title – centred horizontally, positioned below the company name
-  const titleY = taglineY + 20; // space between tagline and title
+  // Report title – centred horizontally, below the masthead row
+  const titleY = startY + logoH + 16;
   doc.fontSize(22)
      .font('Helvetica-Bold')
      .fillColor('#000000')
@@ -63,12 +50,12 @@ export function drawReportHeader(doc: typeof PDFDocument, title: string): number
        align: 'center'
      });
 
-  // 4. Divider line – spans the full content width
+  // Divider line – spans the full content width
   const lineY = titleY + 35; // below the title
   doc.moveTo(leftMargin, lineY)
      .lineTo(pageWidth - rightMargin, lineY)
      .stroke('#cccccc');
 
-  // 5. Return the Y position after the header (for subsequent content)
+  // Return the Y position after the header (for subsequent content)
   return lineY + 15;
 }

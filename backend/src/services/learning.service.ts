@@ -353,6 +353,21 @@ export class LearningService {
               aer.evidence AS source_review_evidence,
               COALESCE(sc.cluster_label, (sc.risk_domain)::text) AS source_pattern_label,
               esc.reason AS source_escalation_reason, esc.id AS source_escalation_id,
+              -- Field report (12 Nov 2026): "source is from all the information such as escalation
+              -- - original signal - decision made - effectiveness - impact, all pulled on this
+              -- report." An ESCALATION_CLOSURE-sourced learning record previously joined only the
+              -- escalation's bare reason text -- none of its status, house, originating signal or
+              -- the decisions recorded against it, unlike the equivalent chain already built below
+              -- for an EFFECTIVENESS-sourced record's own escalation (the sa_esc_* columns).
+              esc.lifecycle_status::text AS source_escalation_lifecycle_status, esc.status::text AS source_escalation_status,
+              esc.created_at AS source_escalation_created_at, esc.due_by AS source_escalation_due_by,
+              esc.closed_at AS source_escalation_closed_at,
+              COALESCE(esc.closure_evidence, esc.resolution_notes) AS source_escalation_closure_evidence,
+              NULLIF(TRIM(COALESCE(esc_to.first_name,'') || ' ' || COALESCE(esc_to.last_name,'')),'') AS source_escalation_to_name,
+              esc_h.name AS source_escalation_house_name,
+              esc_sig.description AS source_escalation_signal_description, esc_sig.entry_date AS source_escalation_signal_date,
+              esc_sig.severity::text AS source_escalation_signal_severity, esc_sig.related_person AS source_escalation_related_person,
+              esc_decisions.history AS source_escalation_decision_history,
               sr.strategic_theme AS source_risk_title,
               -- 29 Oct 2026 live bug report: the full escalation/risk chain behind the
               -- EFFECTIVENESS source action itself — see list() for the detailed rationale.
@@ -373,7 +388,7 @@ export class LearningService {
               sa_gr.what_is_happening AS action_decision_instruction, sa_gr.review_date AS action_decision_date,
               NULLIF(TRIM(COALESCE(sa_gr_by.first_name,'') || ' ' || COALESCE(sa_gr_by.last_name,'')),'') AS action_decision_by_name,
               sa_sig.description AS action_signal_description, sa_sig.entry_date AS action_signal_date,
-              sa_sig.severity::text AS action_signal_severity
+              sa_sig.severity::text AS action_signal_severity, sa_sig.related_person AS action_signal_related_person
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -385,6 +400,19 @@ export class LearningService {
          LEFT JOIN risk_actions sa ON sa.id = lr.source_id AND lr.source_type = 'EFFECTIVENESS'
          LEFT JOIN signal_clusters sc ON sc.id = lr.source_id AND lr.source_type = 'PATTERN_CLOSURE'
          LEFT JOIN escalations esc ON esc.id = lr.source_id AND lr.source_type = 'ESCALATION_CLOSURE'
+         LEFT JOIN users esc_to ON esc_to.id = esc.escalated_to
+         LEFT JOIN risks esc_risk ON esc_risk.id = esc.risk_id
+         LEFT JOIN houses esc_h ON esc_h.id = COALESCE(esc.house_id, esc_risk.house_id)
+         LEFT JOIN governance_pulses esc_sig ON esc_sig.id = esc.source_pulse_id
+         LEFT JOIN LATERAL (
+           SELECT string_agg(
+                    date_trunc('minute', gr.review_date)::text || ': ' || gr.decision::text
+                    || COALESCE(' by ' || NULLIF(TRIM(COALESCE(gru.first_name,'') || ' ' || COALESCE(gru.last_name,'')), ''), '')
+                    || COALESCE(' -- ' || NULLIF(TRIM(gr.decision_rationale), ''), ''),
+                    ' | ' ORDER BY gr.review_date) AS history
+             FROM governance_reviews gr LEFT JOIN users gru ON gru.id = gr.reviewed_by AND gru.company_id = gr.company_id
+            WHERE gr.escalation_id = esc.id AND gr.company_id = lr.company_id
+         ) esc_decisions ON lr.source_type = 'ESCALATION_CLOSURE'
          LEFT JOIN risks sr ON sr.id = lr.source_id AND lr.source_type = 'RISK_CLOSURE'
          LEFT JOIN escalations sa_esc ON sa_esc.id = sa.escalation_id
          LEFT JOIN users sa_esc_to ON sa_esc_to.id = sa_esc.escalated_to

@@ -87,7 +87,7 @@ export function GovernanceCompliance() {
                     {p.overdue > 0 && <span className="text-red-600 font-semibold">{p.overdue} overdue{p.oldest_overdue_days != null ? ` · ${p.oldest_overdue_days}d oldest` : ""}</span>}
                     {p.due_today > 0 && <span className="text-amber-600">{p.due_today} due today</span>}
                     {p.overdue === 0 && p.due_today === 0 && <span className="text-emerald-600">All on time</span>}
-                    {p.on_time_rate != null && <span className="text-muted-foreground">{p.on_time_rate}% on-time</span>}
+                    {p.on_time_rate != null && <span className="text-muted-foreground">{p.on_time_rate}% on-time ({p.on_time_period_days ?? 28}d)</span>}
                   </div>
                 </div>
               ))}

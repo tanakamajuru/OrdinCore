@@ -26,7 +26,14 @@ const SYSTEM_PROMPT =
   'or convert missing evidence into assurance. If a fact is absent, say it is not evidenced. ' +
   'Do not say there are no risks, escalations, actions, high/critical signals or overdue items when the supplied count is above zero. ' +
   'Partially Effective is not the same as Effective. Too Early To Assess is interim, not a final positive outcome. ' +
-  'Keep the wording factual, measured and suitable for management review.';
+  'Keep the wording factual, measured and suitable for management review. ' +
+  'If scope_type is PERSON, every finding (including any material exception) is about that one named ' +
+  'person\'s own record, never the whole site or service population -- phrase it as such (e.g. "for <name> ' +
+  'at <site>", not "the site <site> requires attention"). ' +
+  'A material exception\'s "trigger" field states what actually drove that exception (a signal, an open ' +
+  'escalation, an overdue item, etc.) -- state that trigger explicitly. Only say "no supporting risk is ' +
+  'recorded" when the exception is genuinely not backed by any registered risk AND you have also stated ' +
+  'its trigger; never say "no supporting risks" as if that meant there was no evidence at all for the exception.';
 
 export interface NarrativeRequest {
   reportTitle: string;
@@ -37,6 +44,8 @@ export interface NarrativeRequest {
 
 type Facts = {
   position?: string;
+  scope_type?: string;
+  scope_label?: string;
   governance_confidence?: number;
   evidence_confidence?: number;
   signals?: number;
@@ -80,7 +89,7 @@ function templateFallback(req: NarrativeRequest): string {
   const period = req.periodLabel ? ` covering ${req.periodLabel}` : '';
   const eff = f.effectiveness || {};
   const themes = (f.themes || []).slice(0, 4).map((x) => `${x.theme} (${x.signals})`).join(', ');
-  const exceptions = (f.material_exceptions || []).map((x: any) => `${x.site_name} (${x.status})`).join(', ');
+  const exceptions = (f.material_exceptions || []).map((x: any) => `${x.site_name} (${x.status}${x.trigger ? ` — ${x.trigger}` : ''})`).join(', ');
   return [
     `${req.reportTitle}${scope}${period}.`,
     `The recorded governance position is ${f.position || 'not calculated'}, with governance confidence ${f.governance_confidence ?? 'not recorded'}% and evidence confidence ${f.evidence_confidence ?? 'not recorded'}%.`,

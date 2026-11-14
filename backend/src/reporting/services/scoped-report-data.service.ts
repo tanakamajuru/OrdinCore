@@ -225,8 +225,34 @@ export const scopedReportDataService = {
     // "Critical Governance Exception" (doctrine §13.2): a critical status must be named as an
     // exception and, below, tied to the specific supporting risk(s) — not shown as a bare label.
     const statusLabel = (st: string) => st === 'CRITICAL' ? 'Critical Governance Exception' : st === 'ATTENTION' ? 'Attention Required' : 'Stable';
+    // Field report (12 Nov 2026): on a Person-scoped report, these per-site figures are already
+    // filtered down to that one person's own signals/risks/escalations/actions at the site (see
+    // metricsForSite's personPulse/personRisk/personEsc/personAct filters) -- but labelled with
+    // only the bare site name, the narrative read as a site-wide, whole-population exception
+    // ("the site 24 Hurst Grove... requires attention") when it was in fact entirely about this
+    // one person's record there. Name the person in the label whenever scope is PERSON so neither
+    // the AI narrative nor the template can conflate the two.
+    const exceptionLabel = (siteName: string) => resolved.type === 'PERSON' ? `${resolved.label} at ${siteName}` : siteName;
+    // Field report (12 Nov 2026): "47 Walcourt is mentioned in the report, but there are no risks
+    // about it identified to identify attention is required." supporting_risks below is filled in
+    // ONLY for a CRITICAL exception -- an ATTENTION one (confidenceService.status()) is very often
+    // triggered by something that isn't a registered risk at all (an open escalation, a
+    // high-critical signal, an overdue action, an ineffective control, overdue monitoring, an
+    // unpromoted pattern), so it printed "no supporting risks identified" with no other pointer to
+    // what actually drove the exception. State the real trigger(s) from this site's own metrics.
+    const exceptionTrigger = (m: SiteMetrics): string => {
+      const reasons: string[] = [];
+      if (m.critical_risks > 0) reasons.push(`${m.critical_risks} critical risk(s)`);
+      if (m.high_critical > 0) reasons.push(`${m.high_critical} high/critical signal(s)`);
+      if (m.open_escalations > 0) reasons.push(`${m.open_escalations} open escalation(s)`);
+      if (m.overdue_actions > 0) reasons.push(`${m.overdue_actions} overdue action(s)`);
+      if (m.controls_ineffective > 0) reasons.push(`${m.controls_ineffective} ineffective control(s)`);
+      if (m.overdue_monitoring > 0) reasons.push(`${m.overdue_monitoring} overdue monitoring review(s)`);
+      if (m.urgent_unpromoted > 0) reasons.push(`${m.urgent_unpromoted} unpromoted concern(s) with confirmed/escalated evidence`);
+      return reasons.length ? reasons.join(', ') : 'no specific trigger recorded in this snapshot';
+    };
     let materialExceptions = perSite.filter((s) => s.status !== 'STABLE')
-      .map((s) => ({ site_name: s.site_name, status: s.status, status_label: statusLabel(s.status), governance_confidence: s.governance_confidence, supporting_risks: [] as any[] }));
+      .map((s) => ({ site_name: exceptionLabel(s.site_name), status: s.status, status_label: statusLabel(s.status), governance_confidence: s.governance_confidence, trigger: exceptionTrigger(s.metrics), supporting_risks: [] as any[] }));
 
     // Plain-language templates need the underlying evidence, not only aggregate counts. These rows
     // are frozen inside the immutable snapshot so the PDF never re-queries live data at download
@@ -341,7 +367,19 @@ export const scopedReportDataService = {
 
     const escalations = (await query(
       `SELECT e.id, COALESCE(h.name, 'Organisation-wide') AS service, e.created_at AS date,
-              e.reason, e.priority::text AS priority,
+              -- Field report (12 Nov 2026): "Reason for escalation should be pulled from
+              -- originating signal plus the escalation basis together" -- e.reason alone is the
+              -- escalator's own note for escalating (the "basis"); it was printing without the
+              -- original signal that triggered it at all. Lead with the signal (gp.description),
+              -- then the escalation basis, when both exist and differ; fall back to whichever one
+              -- is actually recorded.
+              CASE
+                WHEN NULLIF(TRIM(gp.description), '') IS NOT NULL AND NULLIF(TRIM(e.reason), '') IS NOT NULL
+                     AND TRIM(gp.description) IS DISTINCT FROM TRIM(e.reason)
+                  THEN 'Signal: ' || TRIM(gp.description) || ' | Escalation basis: ' || TRIM(e.reason)
+                ELSE COALESCE(NULLIF(TRIM(e.reason), ''), NULLIF(TRIM(gp.description), ''))
+              END AS reason,
+              e.priority::text AS priority,
               CASE WHEN COALESCE(e.closed_at,e.resolved_at) IS NOT NULL AND COALESCE(e.closed_at,e.resolved_at) <= $4::timestamptz
                    THEN 'Closed' ELSE COALESCE(e.lifecycle_status::text, e.status::text) END AS status,
               e.due_by, COALESCE(e.closure_evidence, e.resolution_notes) AS outcome,
@@ -350,8 +388,28 @@ export const scopedReportDataService = {
               NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS escalated_to,
               -- B5 correction: "Show ... controls/actions" -- the actions actually raised against
               -- this escalation, not just its own text fields.
+              -- Printed-report correction (12 Nov 2026): a closure citing "EXISTING CONTROL --
+              -- monitored on another escalation" read as self-contradicting against "Controls/
+              -- actions: none recorded", because that control is an action tied to a SIBLING
+              -- escalation on the same risk, not to this escalation_id. Fall back to the risk's
+              -- other actions so the cited control actually shows up here.
               (SELECT string_agg(DISTINCT a.title, '; ' ORDER BY a.title) FROM risk_actions a
-                WHERE a.escalation_id = e.id AND a.company_id = e.company_id AND a.status NOT IN ('Cancelled')) AS linked_actions
+                WHERE a.escalation_id = e.id AND a.company_id = e.company_id AND a.status NOT IN ('Cancelled')) AS linked_actions,
+              (SELECT string_agg(DISTINCT a.title, '; ' ORDER BY a.title) FROM risk_actions a
+                WHERE a.risk_id = e.risk_id AND e.risk_id IS NOT NULL AND a.escalation_id IS DISTINCT FROM e.id
+                  AND a.company_id = e.company_id AND a.status NOT IN ('Cancelled')) AS risk_linked_actions,
+              -- Field report (12 Nov 2026): "escalation decision and communication history to be
+              -- pulled for each escalation" -- the governance decisions recorded directly against
+              -- THIS escalation (gr.escalation_id = e.id), in order, each with who decided, what
+              -- and when. Deliberately scoped to this escalation's own id, not its risk, so a
+              -- sibling escalation's decisions never get attributed here.
+              (SELECT string_agg(
+                 date_trunc('minute', gr.review_date)::text || ': ' || gr.decision::text
+                 || COALESCE(' by ' || NULLIF(TRIM(COALESCE(gu.first_name,'') || ' ' || COALESCE(gu.last_name,'')), ''), '')
+                 || COALESCE(' -- ' || NULLIF(TRIM(gr.decision_rationale), ''), ''),
+                 ' | ' ORDER BY gr.review_date)
+                 FROM governance_reviews gr LEFT JOIN users gu ON gu.id = gr.reviewed_by AND gu.company_id = gr.company_id
+                WHERE gr.escalation_id = e.id AND gr.company_id = e.company_id) AS decision_history
          FROM canonical_escalation_state_v e
          LEFT JOIN risks r ON r.id = e.risk_id AND r.company_id = e.company_id
          LEFT JOIN governance_pulses gp ON gp.id = e.source_pulse_id AND gp.company_id = e.company_id
@@ -384,6 +442,10 @@ export const scopedReportDataService = {
               COALESCE(NULLIF(TRIM(gp.description), ''), COALESCE(r.strategic_theme, r.title), NULLIF(TRIM(e.reason), ''),
                        NULLIF(TRIM(gr.what_is_happening), '')) AS concern,
               NULLIF(TRIM(gr.what_is_happening), '') AS management_instruction,
+              -- Field report (12 Nov 2026): "bring the full signal including what team leader
+              -- about immediate action" -- the signal's own immediate_action was never selected
+              -- into this query at all.
+              gp.immediate_action AS signal_immediate_action,
               gr.decision, COALESCE(NULLIF(TRIM(gr.decision_rationale), ''), NULLIF(TRIM(gr.evidence), '')) AS reason,
               -- Report corrections (21 Oct 2026, B1): decision_status is stored 'Open' on every
               -- decision at creation except Monitor -- passing it straight through produced
@@ -503,6 +565,31 @@ export const scopedReportDataService = {
           -- (uq_active_person_pattern enforces it) -- filter by it properly instead.
           AND ($5::uuid IS NULL OR sc.service_user_id = $5)
         ORDER BY COALESCE(sc.dismissed_at, sc.updated_at) DESC`, broadParams
+    )).rows;
+
+    // Field report (12 Nov 2026): "all dismissed concerns including closed by manager during daily
+    // oversight review." The query above is pattern-level only (signal_clusters) -- an individual
+    // SIGNAL closed via a Daily Oversight decision (governance_reviews.decision IN ('Close',
+    // 'Close Signal'), against the signal itself, not a pattern) never appeared anywhere in this
+    // section even though it is exactly as much a "dismissed concern and reason" as a pattern
+    // dismissal. Union the two so a manager's own Close decision on a concern shows up here too.
+    const closedSignalConcerns = (await query(
+      `SELECT gr.id, COALESCE(h.name, 'Organisation-wide') AS service,
+              COALESCE(NULLIF(TRIM((gp.risk_domain)[1]), ''), 'Uncategorised') AS domain,
+              gp.related_person AS person, gr.decision_rationale AS reason,
+              gr.created_at AS date, true AS date_reliable,
+              'Closed during Daily Oversight review' AS event_type,
+              NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS actor,
+              1 AS signal_count
+         FROM governance_reviews gr
+         JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id AND gp.company_id = gr.company_id
+         LEFT JOIN houses h ON h.id = COALESCE(gr.service_id, gp.house_id) AND h.company_id = gr.company_id
+         LEFT JOIN users u ON u.id = gr.reviewed_by AND u.company_id = gr.company_id
+        WHERE gr.company_id = $1 AND gr.decision IN ('Close', 'Close Signal')
+          AND (COALESCE(gr.service_id, gp.house_id) = ANY($2::uuid[]) OR ($6::boolean AND COALESCE(gr.service_id, gp.house_id) IS NULL))
+          AND gr.created_at >= $3::timestamptz AND gr.created_at < $4::timestamptz
+          AND ($5::uuid IS NULL OR gp.service_user_id = $5)
+        ORDER BY gr.created_at DESC`, broadParams
     )).rows;
 
     // Effectiveness review EVENTS selected by reviewed_at (not the action's completion date), so an
@@ -666,9 +753,17 @@ export const scopedReportDataService = {
       };
     });
 
-    const evidence = { signals, risks, actions, escalations, decisions, due_monitoring: dueMonitoring, patterns, dismissed_concerns: dismissedConcerns, effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, service_coverage: serviceCoverage, audit, theme_evidence: themeEvidence };
+    const evidence = { signals, risks, actions, escalations, decisions, due_monitoring: dueMonitoring, patterns,
+      dismissed_concerns: [...dismissedConcerns, ...closedSignalConcerns].sort((a: any, b: any) => new Date(b.date).getTime() - new Date(a.date).getTime()),
+      effectiveness_reviews: effectivenessReviews, weekly_reviews: weeklyReviews, service_coverage: serviceCoverage, audit, theme_evidence: themeEvidence };
     const narrative_facts = {
       position: organisationStatus,
+      // Field report (12 Nov 2026): tells the narrative generator (AI and the deterministic
+      // fallback template) whether this report is scoped to one named person rather than a whole
+      // site/service, so it describes findings as that person's own record -- never as a
+      // site-wide or population exception.
+      scope_type: resolved.type,
+      scope_label: resolved.label,
       governance_confidence: avgGov, evidence_confidence: avgEvidence,
       signals: totals.signals, high_critical_signals: totals.high_critical,
       open_risks: totals.open_risks, critical_risks: totals.critical_risks,

@@ -13,7 +13,6 @@ const NAVY = '#102A43', BLUE = '#2474C6', AQUA = '#14A0A8';
 const INK = '#172B3A', MUTED = '#475D6E', SOFT = '#667A8B';
 const LINE = '#CFDEE8', PALE = '#F0F6FA', HEADER_PALE = '#E8F2F9';
 const LEFT = 50, WIDTH = 495, PAGE_BOTTOM = 742;
-const LOGO_SIZE = 54;
 
 const MISSING = 'Not recorded - follow-up required';
 const date = (v?: any) => {
@@ -90,10 +89,14 @@ const dateTime = (v?: any) => {
 };
 
 function resolveLogoPath(): string | null {
+  // Wordmark lockup (shield + "Ordin Core" name baked in, 865x288) — matches the brand mark used
+  // everywhere else (web login, mobile). Printed reports previously used the icon-only shield next
+  // to a separate "ORDIN CORE" text label; a field report flagged the bare shield with no name on
+  // it as looking wrong/unbranded on a printed page.
   const candidates = [
-    path.resolve(__dirname, '../assets/ordin-core-logo.png'),
-    path.resolve(process.cwd(), 'src/reporting/assets/ordin-core-logo.png'),
-    path.resolve(process.cwd(), 'backend/src/reporting/assets/ordin-core-logo.png'),
+    path.resolve(__dirname, '../assets/ordin-core-logo-wordmark.png'),
+    path.resolve(process.cwd(), 'src/reporting/assets/ordin-core-logo-wordmark.png'),
+    path.resolve(process.cwd(), 'backend/src/reporting/assets/ordin-core-logo-wordmark.png'),
   ];
   return candidates.find((candidate) => fs.existsSync(candidate)) || null;
 }
@@ -107,20 +110,19 @@ function metadataValue(data: any, row: any, key: string, fallback?: any): string
 function reportMasthead(doc: PDFKit.PDFDocument, row: any, data: any, title: string) {
   const top = 44;
   const logoPath = resolveLogoPath();
+  const LOGO_W = 150, LOGO_H = 50; // 3:1 wordmark aspect ratio (865x288 source)
 
-  // Brand identifier - same on every report.
-  doc.font('Helvetica-Bold').fontSize(9).fillColor(BLUE)
-    .text('ORDIN CORE', LEFT, top, { width: 280, characterSpacing: 1.4 });
+  // Field report (12 Nov 2026): masthead subtitle requested as "Governance, Oversight and
+  // Assurance" instead of "Governance & Oversight".
   doc.font('Helvetica-Bold').fontSize(13).fillColor(NAVY)
-    .text('Governance & Oversight', LEFT, top + 16, { width: 320 });
+    .text('Governance, Oversight and Assurance', LEFT, top + 16, { width: 320 });
 
   if (logoPath) {
-    doc.image(logoPath, LEFT + WIDTH - LOGO_SIZE, top - 7, { fit: [LOGO_SIZE, LOGO_SIZE], align: 'right' });
+    doc.image(logoPath, LEFT + WIDTH - LOGO_W, top - 7, { fit: [LOGO_W, LOGO_H], align: 'right' });
   } else {
     // Visible fallback if packaging omitted the image: retain brand identity without breaking PDF generation.
-    doc.roundedRect(LEFT + WIDTH - 48, top - 3, 44, 44, 9).lineWidth(1.5).strokeColor(BLUE).stroke();
-    doc.font('Helvetica-Bold').fontSize(20).fillColor(BLUE)
-      .text('O', LEFT + WIDTH - 48, top + 7, { width: 44, align: 'center' });
+    doc.font('Helvetica-Bold').fontSize(9).fillColor(BLUE)
+      .text('ORDIN CORE', LEFT + WIDTH - 150, top, { width: 150, align: 'right', characterSpacing: 1.4 });
   }
 
   doc.moveTo(LEFT, top + 58).lineTo(LEFT + WIDTH, top + 58).lineWidth(1.2).strokeColor(BLUE).stroke();
@@ -250,7 +252,12 @@ function table(doc: PDFKit.PDFDocument, title: string, rows: any[], columns: Col
   };
   header();
 
-  const ROW_CAP = 86;
+  // Field report (12 Nov 2026): raised from 86 -- reason/notes cells were falling into the
+  // appendix far more often than the content actually needed, just to stay under a cap tuned for
+  // short fields like dates and names. A row can now run to roughly 2.5x as much text in-table
+  // before being shortened with an appendix pointer, so most escalation reasons now print in full
+  // where they're read, not on a separate page.
+  const ROW_CAP = 220;
   for (const row of shown) {
     const rawValues = columns.map((c) => (c.map ? clean(c.map(row)) : clean(row[c.key])));
     const availH = ROW_CAP - 10;
@@ -478,8 +485,15 @@ function renderOverview(doc: PDFKit.PDFDocument, data: any) {
         r.urgent_unpromoted ? `${r.urgent_unpromoted} unpromoted concern` : null,
       ].filter(Boolean).join(', ') || 'See basis' },
   ], 'No service was rated ATTENTION or CRITICAL in this period.', 12);
+  // Field report (12 Nov 2026): "how is this calculated" -- Evidence coverage and Control
+  // assurance printed as bare percentages with no methodology stated anywhere in the report.
+  paragraph(doc, 'Evidence coverage measures how much was recorded and how often (signal volume and spread over the period) — it is not a measure of evidence quality, safety or correctness. Control assurance is the share of completed, effectiveness-review-required actions carrying a FINAL Effective judgement; a control that merely exists, or is completed but not yet effectiveness-reviewed, is not counted as assured.', true);
   heading(doc, '3. Recorded response');
-  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
+  // Field report (12 Nov 2026): "these recorded responses are related to which concerns -- they
+  // need to tag along with the responses to make sense." d.concern was already queried but never
+  // included here, so a response like "Monitor - Staff will monitor behaviour..." had nothing
+  // saying what it was actually a response TO.
+  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)}: ${clean(d.concern)} — ${clean(d.decision)} - ${clean(d.reason)}`), 'No management response was recorded in this period.', 5);
   heading(doc, '4. Evidenced improvement');
   bullets(doc, (e.actions || []).filter((a: any) => isDemonstratedEffective(a)).map((a: any) => `${clean(a.action)}: Demonstrated Effective - ${clean(a.effectiveness_evidence)}`), 'Improvement is not yet demonstrated by recorded effectiveness evidence.', 5);
   heading(doc, '5. Unresolved work');
@@ -500,7 +514,12 @@ function renderRisks(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Service', key: 'service', width: 70 }, { label: 'Risk', key: 'risk', width: 130 },
     { label: 'Severity / direction', key: 'severity', width: 90, map: (r) => `${clean(r.severity)} / ${clean(r.direction)}` },
     { label: 'Evidence / basis', key: 'trajectory_basis', width: 100, map: (r) => r.trajectory_basis || r.description || 'Not recorded' },
-    { label: 'Linked work', key: 'linked_actions', width: 100, map: (r) => [r.linked_actions, r.linked_escalation_count ? `${r.linked_escalation_count} escalation(s)` : null].filter(Boolean).join('; ') || 'None recorded' },
+    // Field report (12 Nov 2026): a CLOSED risk with a recorded closure reason still showed
+    // "None recorded" here, next to "Closed" in the Status column one row along -- read as
+    // contradicting itself ("at least the reason should have shown up"). Fall back to the
+    // closure reason for a closed risk with no linked action/escalation of its own.
+    { label: 'Linked work', key: 'linked_actions', width: 100, map: (r) => [r.linked_actions, r.linked_escalation_count ? `${r.linked_escalation_count} escalation(s)` : null].filter(Boolean).join('; ')
+      || (/closed|resolved/i.test(clean(r.status)) && r.resolution_reason ? `Closed: ${r.resolution_reason}` : null) || 'None recorded' },
     { label: 'Status', key: 'status', width: 50 },
     { label: 'Review due', key: 'review_due_date', width: 65, map: (r) => date(r.review_due_date) },
   ], 'No risk was recorded in scope for this period.', 12);
@@ -559,10 +578,16 @@ function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
     const closed = /closed/i.test(clean(x.status));
     const parts = [
       `${date(x.date)} ${clean(x.service)} - escalated to ${clean(x.escalated_to)}`,
-      x.linked_actions ? `Controls/actions: ${x.linked_actions}` : 'Controls/actions: none recorded',
+      x.linked_actions ? `Controls/actions: ${x.linked_actions}`
+        : x.risk_linked_actions ? `Controls/actions (on the linked risk): ${x.risk_linked_actions}`
+        : 'Controls/actions: none recorded',
       closed
         ? `Closed ${date(x.closed_at || x.resolved_at)}. Closure evidence: ${clean(x.outcome)}`
         : `Continuing work: ${clean(x.status)}, due ${date(x.due_by)}. Outcome so far: ${x.outcome ? clean(x.outcome) : 'not yet recorded'}`,
+      // Field report (12 Nov 2026): "escalation decision and communication history to be pulled
+      // for each escalation" -- the chain of governance decisions recorded against this specific
+      // escalation, not just its final outcome.
+      `Decision history: ${x.decision_history ? clean(x.decision_history) : 'No decision recorded against this escalation'}`,
     ];
     return parts.join(' — ');
   }), 'No escalation was recorded in this period.', 6);
@@ -602,7 +627,11 @@ function renderManager(doc: PDFKit.PDFDocument, data: any) {
   }
 
   heading(doc, '3. Decisions recorded');
-  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)} · ${short(d.concern, 110)} — ${clean(d.decision)}. Rationale: ${clean(d.reason)}${d.reviewer ? ` · ${clean(d.reviewer)}` : ''}${d.due_at ? ` · review/due ${date(d.due_at)}` : ''}`), 'No management decision was recorded.', 5);
+  // Field report (12 Nov 2026): "decision recorded against what being original signal, bring the
+  // full signal including what team leader about immediate action." short(d.concern, 110) cut the
+  // original signal off mid-word; bullets() already wraps and paginates full text on its own (29
+  // Oct fix), so there was no need to pre-truncate it here. Immediate action was never shown at all.
+  bullets(doc, (e.decisions || []).map((d: any) => `${clean(d.service)} · ${clean(d.concern)}${d.signal_immediate_action ? ` Immediate action taken: ${clean(d.signal_immediate_action)}` : ''} — ${clean(d.decision)}. Rationale: ${clean(d.reason)}${d.reviewer ? ` · ${clean(d.reviewer)}` : ''}${d.due_at ? ` · review/due ${date(d.due_at)}` : ''}`), 'No management decision was recorded.', 5);
 
   heading(doc, '4. Open and unresolved at cut-off');
   const continuedAttention = [
@@ -654,18 +683,29 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
   const e = data.evidence || {};
   heading(doc, '1. Evidence index');
   paragraph(doc, `Recorded pathway for ${clean(data.scope_label)} in this period: ${(e.signals || []).length} concern(s) logged; ${(e.risks || []).length} risk(s) on record; ${(e.actions || []).length} action(s); ${(e.escalations || []).length} escalation(s); ${(e.decisions || []).length} decision(s). The complete records remain available in-system.`);
+  // Field report (12 Nov 2026): "signals are not pulling all what the team leader would have
+  // recorded such as immediate action." gp.immediate_action was already queried into e.signals
+  // (scoped-report-data.service.ts) but this table never had a column for it -- what staff
+  // actually did at the time was recorded and then silently dropped from the evidence pack.
   table(doc, '2. Recorded concerns', e.signals || [], [
-    { label: 'Date', key: 'date', width: 62, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 90 },
-    { label: 'Concern', key: 'concern', width: 215 }, { label: 'Domain', key: 'domain', width: 128 },
+    { label: 'Date', key: 'date', width: 50, map: (r) => date(r.date) }, { label: 'Service', key: 'service', width: 68 },
+    { label: 'Concern', key: 'concern', width: 150 }, { label: 'Domain', key: 'domain', width: 85 },
+    { label: 'Immediate action', key: 'immediate_action', width: 100, map: (r) => r.immediate_action || 'Not recorded' },
   ], 'No concern was recorded in this period.', 6);
   table(doc, '3. Risks on record', e.risks || [], [
     { label: 'Risk', key: 'risk', width: 200 }, { label: 'Service', key: 'service', width: 100 },
     { label: 'Severity', key: 'severity', width: 90 }, { label: 'Status', key: 'status', width: 105 },
   ], 'No risk was recorded in this period.', 6);
+  // Field report (12 Nov 2026): "decisions on record... including allocated actions/monitoring
+  // and their decisions" -- status and the linked action/monitoring follow-up were already
+  // queried (scoped-report-data.service.ts) but this table never had a column for them.
   table(doc, '4. Decisions on record', e.decisions || [], [
-    { label: 'Date', key: 'date', width: 55, map: (r) => date(r.date) }, { label: 'Concern', key: 'concern', width: 155 },
-    { label: 'Decision', key: 'decision', width: 75 }, { label: 'Rationale', key: 'reason', width: 145 },
-    { label: 'Reviewer', key: 'reviewer', width: 65 },
+    { label: 'Date', key: 'date', width: 48, map: (r) => date(r.date) }, { label: 'Concern', key: 'concern', width: 120 },
+    { label: 'Decision', key: 'decision', width: 60 }, { label: 'Rationale', key: 'reason', width: 110 },
+    { label: 'Reviewer', key: 'reviewer', width: 55 },
+    { label: 'Allocated action/monitoring', key: 'status', width: 97, map: (r) =>
+      [r.linked_action_id ? `Action: ${clean(r.linked_action_status) || 'status unknown'}` : null,
+       clean(r.status), r.due_at ? `due ${date(r.due_at)}` : null].filter(Boolean).join(' · ') || 'None recorded' },
   ], 'No decision was recorded in this period.', 8);
   table(doc, '5. Dismissed concerns and reasons', e.dismissed_concerns || [], [
     { label: 'Date', key: 'date', width: 72, map: (r) => `${date(r.date)}${r.date_reliable === false ? ' (legacy)' : ''}` },
@@ -684,11 +724,19 @@ function renderEvidence(doc: PDFKit.PDFDocument, data: any) {
   const decNoReason = (e.decisions || []).filter((d: any) => !d.reason).length;
   const riskNoReview = (e.risks || []).filter((r: any) => !r.review_due_date && isOpen(r.status)).length;
   const actNoEff = (e.actions || []).filter((a: any) => !isOpen(a.status) && /not yet/i.test(clean(a.effectiveness))).length;
+  // Field report (12 Nov 2026): "the evidence submitted on reviewing effectiveness needs to pull
+  // here" -- Section 6 already shows each review's own evidence text, but a review recorded with
+  // NO evidence, or still awaiting it, or rated Partially/Not Effective, is exactly the kind of
+  // open item this section exists to surface -- none of that crossed over from Section 6 before.
+  const effNoEvidence = (e.effectiveness_reviews || []).filter((r: any) => !clean(r.evidence) || r.evidence_still_needed).length;
+  const effWeak = (e.effectiveness_reviews || []).filter((r: any) => /^(partially effective|not effective)$/i.test(clean(r.outcome))).length;
   const gaps: string[] = [
     ...(Array.isArray(data.limitations) ? data.limitations : []),
     decNoReason ? `${decNoReason} decision(s) have no recorded rationale.` : '',
     riskNoReview ? `${riskNoReview} open risk(s) have no review date.` : '',
     actNoEff ? `${actNoEff} completed action(s) have no effectiveness judgement.` : '',
+    effNoEvidence ? `${effNoEvidence} effectiveness review(s) have no recorded evidence, or evidence is still awaited.` : '',
+    effWeak ? `${effWeak} effectiveness review(s) were rated Partially or Not Effective and require follow-up.` : '',
   ].filter(Boolean);
   bullets(doc, gaps, 'No specific evidence gap was identified beyond the records shown.', 6);
 }
@@ -744,6 +792,20 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
       } },
     { label: 'Evidence', key: 'completion_evidence', width: 105, map: (r) => `${clean(r.completion_evidence)}${r.effectiveness_evidence ? ` / Effectiveness: ${clean(r.effectiveness_evidence)}` : ''}` }, { label: 'Effectiveness', key: 'effectiveness', width: 80 },
   ], 'No action is recorded as created in this period, carried forward through it, or completed within it. A Create Action decision in the timeline above with no row here is a missing or outside-window record, not evidence that no action was ever created.', 10);
+  // Field report (12 Nov 2026): "monitoring and dismissed/closed to pull here and reasons/
+  // outcomes" -- Section 3 above only ever covered formal risk_actions. A Monitor decision or a
+  // dismissed concern is just as much a recorded management response as an action, and the only
+  // place either appeared before was buried inside the raw chronological timeline in Section 2,
+  // with no dedicated place stating its reason and outcome the way actions get.
+  const monitorDecisions = (e.decisions || []).filter((d: any) => inPeriod(d.date, data) && /monitor|close/i.test(clean(d.decision)));
+  const dismissed = (e.dismissed_concerns || []).filter((d: any) => inPeriod(d.date, data));
+  heading(doc, '3a. Monitoring decisions and dismissed/closed concerns');
+  bullets(doc, [
+    ...monitorDecisions.map((d: any) =>
+      `${date(d.date)} ${clean(d.service)} — ${clean(d.decision)}: ${clean(d.concern)}. Reason: ${clean(d.reason)}${d.management_instruction ? ` — ${clean(d.management_instruction)}` : ''}${d.status ? ` (${clean(d.status)})` : ''}${d.reviewer ? ` · ${clean(d.reviewer)}` : ''}`),
+    ...dismissed.map((r: any) =>
+      `${date(r.date)} ${clean(r.service)} — Dismissed (${clean(r.domain)}): ${clean(r.reason)} · ${clean(r.actor) || 'System'}${r.event_type ? ` · ${clean(r.event_type)}` : ''}`),
+  ], 'No monitoring decision or dismissed/closed concern was recorded in this period.', 10);
   heading(doc, '4. Learning and limitations');
   // Learning tied to the exact effectiveness review it came from — the source action, the review
   // outcome, the lesson, and any separate improvement action (titles only; no identifiers).
@@ -792,7 +854,11 @@ function renderAssurance(doc: PDFKit.PDFDocument, data: any) {
       const label = x.status_label || (x.status === 'CRITICAL' ? 'Critical Governance Exception' : x.status);
       const support = Array.isArray(x.supporting_risks) && x.supporting_risks.length
         ? ` — supporting risk: ${x.supporting_risks.map((r: any) => clean(r.risk)).join('; ')}`
-        : '';
+        // Field report (12 Nov 2026): "47 Walcourt is mentioned... but there are no risks about it
+        // identified to identify attention is required" -- an ATTENTION exception is routinely
+        // driven by something other than a registered risk (a signal, escalation, overdue item);
+        // state the actual trigger instead of leaving the reader with no evidence pointer at all.
+        : x.trigger ? ` — trigger: ${clean(x.trigger)}` : '';
       return `${clean(x.site_name)} - ${clean(label)} (governance confidence ${x.governance_confidence ?? '—'}%)${support}`;
     }),
     ...(Array.isArray(data.limitations) ? data.limitations : []),
@@ -817,11 +883,19 @@ function renderDecisions(doc: PDFKit.PDFDocument, data: any) {
     { label: 'Decision', key: 'decision', width: 65 }, { label: 'Reason', key: 'reason', width: 125 },
     { label: 'Responsible', key: 'reviewer', width: 70 }, { label: 'Follow-up', key: 'followup', width: 55 },
   ], 'No governance decision was recorded.', 18);
-  heading(doc, 'Related audit activity');
-  table(doc, 'Audit trail', e.audit || [], [
-    { label: 'When', key: 'date', width: 90, map: (r) => date(r.date) }, { label: 'Actor', key: 'actor', width: 105 },
-    { label: 'Action', key: 'action', width: 120 }, { label: 'Reason', key: 'reason', width: 180 },
-  ], 'No audit entry is on record for the items in this report.', 12);
+  // Field report (12 Nov 2026): "what needs to come here if nothing -- remove section." This
+  // printed two stacked headings ("Related audit activity" then the table's own "Audit trail"
+  // heading) with nothing between them whenever the audit log was empty, plus a redundant empty-
+  // state line. The governance decision record above already carries the accountability trail;
+  // an audit log with no entries adds nothing, so the whole section is dropped rather than shown
+  // empty.
+  if (Array.isArray(e.audit) && e.audit.length) {
+    heading(doc, 'Related audit activity');
+    table(doc, 'Audit trail', e.audit, [
+      { label: 'When', key: 'date', width: 90, map: (r) => date(r.date) }, { label: 'Actor', key: 'actor', width: 105 },
+      { label: 'Action', key: 'action', width: 120 }, { label: 'Reason', key: 'reason', width: 180 },
+    ], '', 12);
+  }
 }
 
 function renderSafeFallback(doc: PDFKit.PDFDocument, data: any) {
@@ -870,7 +944,6 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
   // Integrity block (content, not footer, so it can never overlap or create a blank page).
   heading(doc, 'Report integrity');
   paragraph(doc, 'Rendered from an immutable, authorised snapshot. Conclusions are limited to the recorded evidence, scope and period shown.', true);
-  paragraph(doc, `Evidence hash: ${String(row.evidence_hash || '').slice(0, 32) || 'Not recorded'}`, true);
 
   // Page numbers only, drawn below the content frame with lineBreak:false so no blank page is added.
   const range = doc.bufferedPageRange();
@@ -881,7 +954,7 @@ export function renderSnapshotPdf(row: any): Promise<Buffer> {
     const bottomMargin = doc.page.margins.bottom;
     doc.page.margins.bottom = 0;
     doc.font('Helvetica').fontSize(7.8).fillColor(SOFT)
-      .text(`Ordin Core Governance & Oversight   |   Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
+      .text(`Ordin Core Governance, Oversight and Assurance   |   Page ${i - range.start + 1} of ${range.count}`, LEFT, doc.page.height - 30, { width: WIDTH, align: 'right', lineBreak: false });
     doc.page.margins.bottom = bottomMargin;
   }
 

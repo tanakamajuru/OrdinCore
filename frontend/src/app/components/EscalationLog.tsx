@@ -383,13 +383,21 @@ export function EscalationLog() {
   const [page, setPage] = useState(1);
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
+  // Client-name filter (field report, 12 Nov 2026: with 86 closed escalations, there was no way to
+  // jump straight to one client's — had to scroll/page through all of them).
+  const [clientQuery, setClientQuery] = useState("");
   const PAGE_SIZE = 10;
-  useEffect(() => { setPage(1); }, [filter, fromDate, toDate]);
+  useEffect(() => { setPage(1); }, [filter, fromDate, toDate, clientQuery]);
   const inRange = (e: any) => {
     if (fromDate && new Date(e.created_at) < new Date(`${fromDate}T00:00:00`)) return false;
     if (toDate && new Date(e.created_at) > new Date(`${toDate}T23:59:59`)) return false;
     return true;
   };
+  const matchesClient = (e: any) =>
+    !clientQuery.trim() || String(e.signal_related_person || '').toLowerCase().includes(clientQuery.trim().toLowerCase());
+  // Names seen across ALL escalations (not just the visible tab) so the list is stable as you
+  // switch tabs — picked from a <datalist> so it's a select, not blind free-typing.
+  const clientNames = Array.from(new Set(escalations.map(e => e.signal_related_person).filter(Boolean))).sort() as string[];
 
   const counts = {
     needs: escalations.filter(e => lifecycleState(e) === 'needs').length,
@@ -426,7 +434,7 @@ export function EscalationLog() {
     : filter === 'open' ? lifecycleState(e) !== 'resolved'
     : lifecycleState(e) === filter;
   const visibleEscalations = escalations
-    .filter(e => matchesFilter(e) && inRange(e))
+    .filter(e => matchesFilter(e) && inRange(e) && matchesClient(e))
     .sort((a, b) => {
       const w = STATE_META[lifecycleState(a)].weight - STATE_META[lifecycleState(b)].weight;
       if (w !== 0) return w;
@@ -488,7 +496,18 @@ export function EscalationLog() {
           </h1>
           <p className="text-muted-foreground">See what needs a decision, act, and keep a clear record.</p>
           </div>
-          <button onClick={() => downloadPdf(`/escalations/summary/pdf${filter === 'resolved' ? '?status=closed' : ''}`, `Escalations_Summary_${new Date().toISOString().split("T")[0]}.pdf`)}
+          <button onClick={() => {
+            // Field report (12 Nov 2026): "can we also be able to download a summary PDF that
+            // contains period or per client" -- the on-screen Closed/date/client filters now
+            // carry through to the PDF export instead of it always covering everything.
+            const qs = new URLSearchParams();
+            if (filter === 'resolved') qs.set('status', 'closed');
+            if (fromDate) qs.set('startDate', fromDate);
+            if (toDate) qs.set('endDate', toDate);
+            if (clientQuery.trim()) qs.set('client', clientQuery.trim());
+            const query = qs.toString();
+            downloadPdf(`/escalations/summary/pdf${query ? `?${query}` : ''}`, `Escalations_Summary_${new Date().toISOString().split("T")[0]}.pdf`);
+          }}
             className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg border border-border hover:bg-muted shrink-0">
             <Download className="w-3.5 h-3.5" /> Download summary PDF
           </button>
@@ -547,6 +566,20 @@ export function EscalationLog() {
             </div>
             {showFilters && <div className="flex flex-wrap items-end gap-2 mb-4 p-3 border border-border rounded-lg bg-muted/20">
               <div>
+                <label className="text-[11px] text-muted-foreground block">Client</label>
+                <input
+                  list="escalation-client-names"
+                  type="text"
+                  value={clientQuery}
+                  onChange={(e) => setClientQuery(e.target.value)}
+                  placeholder="Any client"
+                  className="p-2 border-2 border-border rounded-lg bg-background text-sm w-44"
+                />
+                <datalist id="escalation-client-names">
+                  {clientNames.map(n => <option key={n} value={n} />)}
+                </datalist>
+              </div>
+              <div>
                 <label className="text-[11px] text-muted-foreground block">From</label>
                 <input type="date" value={fromDate} onChange={(e) => setFromDate(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
               </div>
@@ -554,8 +587,8 @@ export function EscalationLog() {
                 <label className="text-[11px] text-muted-foreground block">To</label>
                 <input type="date" value={toDate} onChange={(e) => setToDate(e.target.value)} className="p-2 border-2 border-border rounded-lg bg-background text-sm" />
               </div>
-              {(fromDate || toDate) && (
-                <button onClick={() => { setFromDate(""); setToDate(""); }} className="px-3 py-2 text-sm text-primary hover:underline">Clear dates</button>
+              {(fromDate || toDate || clientQuery) && (
+                <button onClick={() => { setFromDate(""); setToDate(""); setClientQuery(""); }} className="px-3 py-2 text-sm text-primary hover:underline">Clear filters</button>
               )}
               <span className="text-xs text-muted-foreground ml-auto self-center">{visibleEscalations.length} result{visibleEscalations.length === 1 ? "" : "s"}</span>
             </div>}
