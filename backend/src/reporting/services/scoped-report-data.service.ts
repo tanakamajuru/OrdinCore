@@ -83,19 +83,28 @@ async function metricsForSite(companyId: string, siteId: string, start: string, 
             -- Controls = effectiveness-bearing actions completed by the cut-off. Control Assurance
             -- counts only those with a FINAL Effective judgement; existence/completion alone, and
             -- unreviewed effectiveness, do NOT count as assured (doctrine §7.9).
-            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+            -- Correction (14 Nov 2026): canonical_action_state_v.requires_effectiveness_review means
+            -- "review still OUTSTANDING" (migration 152) -- it flips to FALSE the moment a real
+            -- verdict is recorded. Gating these counts on it meant any action whose effectiveness had
+            -- actually been measured dropped out of "controls" entirely, showing 0 controls on
+            -- reports that plainly had effectiveness/risk-assessment evidence elsewhere. The gate for
+            -- "is this an effectiveness-bearing action at all" is ra.review_requirement, not the
+            -- outstanding-review flag.
+            COUNT(*) FILTER (WHERE ra.review_requirement = 'EFFECTIVENESS_REQUIRED' AND ra.completed_at IS NOT NULL
                               AND ra.completed_at <= $3::timestamptz)::int AS controls_total,
-            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+            COUNT(*) FILTER (WHERE ra.review_requirement = 'EFFECTIVENESS_REQUIRED' AND ra.completed_at IS NOT NULL
                               AND ra.completed_at <= $3::timestamptz
                               AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) ILIKE 'Effective%')::int AS controls_effective,
-            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+            COUNT(*) FILTER (WHERE ra.review_requirement = 'EFFECTIVENESS_REQUIRED' AND ra.completed_at IS NOT NULL
                               AND ra.completed_at <= $3::timestamptz
-                              AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NULL)::int AS controls_unreviewed,
+                              AND (COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NULL
+                                   OR LOWER(BTRIM(COALESCE(ra.effectiveness_outcome, ra.effectiveness::text))) = 'too early to assess'))::int AS controls_unreviewed,
             -- B2 correction: a final Partially Effective / Not Effective judgement is distinct
             -- from "unreviewed" -- it is a KNOWN ineffective control, not an absence of evidence.
-            COUNT(*) FILTER (WHERE ra.requires_effectiveness_review AND ra.completed_at IS NOT NULL
+            COUNT(*) FILTER (WHERE ra.review_requirement = 'EFFECTIVENESS_REQUIRED' AND ra.completed_at IS NOT NULL
                               AND ra.completed_at <= $3::timestamptz
                               AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) IS NOT NULL
+                              AND LOWER(BTRIM(COALESCE(ra.effectiveness_outcome, ra.effectiveness::text))) <> 'too early to assess'
                               AND COALESCE(ra.effectiveness_outcome, ra.effectiveness::text) NOT ILIKE 'Effective%')::int AS controls_ineffective
        FROM canonical_action_state_v ra LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id=ra.company_id
       WHERE ra.company_id = $1 AND COALESCE(ra.house_id,r.house_id) = $2 ${personAct}`,
