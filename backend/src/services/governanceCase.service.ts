@@ -181,14 +181,24 @@ export class GovernanceCaseService {
       WHERE ra.company_id=$2 AND (ra.source_pulse_id=$1 OR ($3::uuid[] <> '{}' AND ra.governance_review_id=ANY($3::uuid[]))) ORDER BY ra.created_at`, [signalId, companyId, decisionIds])).rows;
     const escalations = (await query(`SELECT DISTINCT e.* FROM escalations e
       WHERE e.company_id=$2 AND (e.source_pulse_id=$1 OR ($3::uuid[] <> '{}' AND e.source_governance_review_id=ANY($3::uuid[]))) ORDER BY e.created_at`, [signalId, companyId, decisionIds])).rows;
+    const monitoringUpdates = (await query(`SELECT smu.*, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS author_name
+      FROM signal_monitoring_updates smu LEFT JOIN users u ON u.id=smu.author_id
+      WHERE smu.company_id=$2 AND smu.pulse_entry_id=$1 ORDER BY smu.created_at`, [signalId, companyId])).rows;
     const rows:any[] = [{ record:'Signal', relationship:'Source evidence', id:signal.id, label:signal.description, status:signal.review_status || signal.severity, at:signal.created_at || signal.entry_date, link:`/signals/${signal.id}`, evidence:signal.immediate_action || null }];
-    for (const d of decisions) rows.push({ record:'Governance Decision', relationship:'Direct RM decision', id:d.id, label:d.what_is_happening, status:d.decision_status || d.decision, at:d.created_at, link:null, evidence:d.evidence || d.decision_rationale || null });
+    for (const d of decisions) {
+      const decisionLabel = [
+        d.decision ? `${d.decision}:` : null,
+        d.decision_rationale || d.evidence || d.what_is_happening || null,
+      ].filter(Boolean).join(' ');
+      rows.push({ record:'Governance Decision', relationship:'Direct RM decision', id:d.id, label:decisionLabel || d.what_is_happening, status:d.decision_status || d.decision, at:d.created_at, link:null, evidence:d.evidence || d.decision_rationale || null });
+    }
     for (const a of actions) {
       rows.push({ record:'Action', relationship:'Direct action from this signal', id:a.id, label:a.title || a.action_description || 'Governance action', status:a.status, at:a.created_at, link:`/my-actions?focus=${a.id}`, evidence:a.completion_evidence || null });
       if (a.completed_at) rows.push({ record:'Action Completion', relationship:'Completion evidence', id:a.id, label:a.completion_evidence || a.title || 'Action completed', status:'Completed', at:a.completed_at, link:`/my-actions?focus=${a.id}` });
       if (a.effectiveness_outcome || a.effectiveness) rows.push({ record:'Effectiveness Review', relationship:'Control effectiveness', id:a.id, label:a.effectiveness_evidence || a.effectiveness_notes || a.title || 'Effectiveness reviewed', status:a.effectiveness_outcome || a.effectiveness, at:a.effectiveness_reviewed_at || a.effectiveness_measured_at || a.completed_at, link:`/effectiveness?focus=${a.id}` });
     }
     for (const e of escalations) rows.push({ record:'Escalation', relationship:'Direct escalation from this signal', id:e.id, label:e.reason || 'Escalation', status:e.lifecycle_status || e.status, at:e.created_at, link:`/escalation-log?escalationId=${e.id}` });
+    for (const m of monitoringUpdates) rows.push({ record:'Monitoring Update', relationship: m.urgent ? 'Urgent monitoring note' : 'Monitoring note', id:m.id, label:m.note, status: m.urgent ? 'Flagged urgent' : 'Logged', at:m.created_at, link:null, evidence:m.urgent_reason || null, author:m.author_name || null });
     rows.sort((a,b)=>new Date(a.at||0).getTime()-new Date(b.at||0).getTime());
     const context = await query(`SELECT DISTINCT sc.id AS pattern_id, sc.cluster_label, r.id AS risk_id, r.title AS risk_title
       FROM risk_signal_links rsl LEFT JOIN signal_clusters sc ON sc.id=rsl.cluster_id AND sc.company_id=$2
@@ -205,7 +215,9 @@ export class GovernanceCaseService {
       rows.push({ record, relationship, id: item.id, label, status, at, link, evidence: evidence || null });
     };
     c.signals.forEach((x: any) => push('Signal', 'Source evidence', x, x.description, x.review_status || x.severity, x.created_at || x.entry_date, `/signals/${x.id}`, x.immediate_action));
-    c.decisions.forEach((x: any) => push('Governance Decision', 'Management decision', x, x.what_is_happening, x.decision_status || x.decision, x.created_at, null, x.evidence));
+    c.decisions.forEach((x: any) => push('Governance Decision', 'Management decision', x,
+      [x.decision ? `${x.decision}:` : null, x.decision_rationale || x.evidence || x.what_is_happening || null].filter(Boolean).join(' ') || x.what_is_happening,
+      x.decision_status || x.decision, x.created_at, null, x.evidence));
     c.actions.forEach((x: any) => {
       push('Action', 'Assigned corrective work', x, x.title, x.status, x.created_at, '/my-actions', x.completion_evidence);
       if (x.completed_at) push('Action Completion', 'Completion evidence', { id: `${x.id}:completion` }, x.title, x.status, x.completed_at, '/my-actions', x.completion_evidence);
