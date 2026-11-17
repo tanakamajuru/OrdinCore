@@ -236,7 +236,15 @@ export function DailyOversightBoard() {
           });
           byPerson.forEach((sigs, who) => {
             L.push(`${who}:`);
-            sigs.forEach((s: any) => L.push(`- ${s.severity || "—"} · ${clean(s.governance_domain || s.signal_type || "Signal")}: ${clean(s.description) || "—"}`));
+            // Correction (16 Nov 2026, live report: "its not pulling the immediate action
+            // section from when team leader records signal"): the brief dropped
+            // immediate_action entirely, even though the Team Leader is required to record it
+            // on every signal (Record a Signal form, step 7) — the day's actual first response
+            // was invisible in the one record meant to carry it forward.
+            sigs.forEach((s: any) => {
+              L.push(`- ${s.severity || "—"} · ${clean(s.governance_domain || s.signal_type || "Signal")}: ${clean(s.description) || "—"}`);
+              if (clean(s.immediate_action)) L.push(`  Immediate action taken: ${clean(s.immediate_action)}`);
+            });
           });
         }
         if (reviewedSignals.length > 0) {
@@ -262,16 +270,54 @@ export function DailyOversightBoard() {
         // captured (user-reported, 9 Nov 2026: "the management decision is the same as the signal").
         const narrative = clean(d.decision_rationale) || clean(d.what_is_happening) || "—";
         L.push(`- ${clean(d.decision || "Decision")}: ${narrative}${sigTag}${d.owner_name ? ` · owner ${d.owner_name}` : ""} · ${isDone(d) ? "effected" : "pending"}`);
+        // Correction (16 Nov 2026, live report: "its not pulling all corrective action
+        // sections documented by RM during daily oversight review"): the /governance-decisions
+        // list already returns intended_outcome, immediate_action, monitoring_trigger and the
+        // monitoring findings (evidence, aliased "findings") — this builder only ever read
+        // decision_rationale/what_is_happening and silently dropped the rest, so the RM's actual
+        // corrective instruction (what to do, what to watch for, what was found on a returning
+        // Monitor review) never reached the brief.
+        if (clean(d.intended_outcome)) L.push(`  Intended outcome: ${clean(d.intended_outcome)}`);
+        if (clean(d.immediate_action)) L.push(`  Immediate action: ${clean(d.immediate_action)}`);
+        if (clean(d.monitoring_trigger)) L.push(`  Act sooner if: ${clean(d.monitoring_trigger)}`);
+        if (clean(d.findings)) L.push(`  Findings: ${clean(d.findings)}`);
       });
       L.push("");
 
       // Escalations — from escalation decisions and any open escalations on the service.
+      // Correction (16 Nov 2026, live report: "any open escalation on the escalation actions
+      // for that period be brought forward to the collective daily team briefing"): this used
+      // to print a bare count ("N open escalations still require follow-up"), naming neither
+      // which escalations nor what was actually done on them. Now lists each open escalation
+      // for this house with its reason/owner/due date, plus any escalation_actions entries
+      // (the diary of what was actually done) logged on THIS date.
+      let openEscalations: any[] = [];
+      try {
+        const eres = await apiClient.get(`/escalations?house_id=${selectedHouseId}&status=open&limit=50`);
+        const rawEsc = eres.data?.data?.escalations || eres.data?.data || [];
+        openEscalations = Array.isArray(rawEsc) ? rawEsc : [];
+      } catch { /* no open escalations for this house */ }
+      let todaysEscActions: Map<string, any[]> = new Map();
+      if (openEscalations.length) {
+        await Promise.all(openEscalations.map(async (esc: any) => {
+          try {
+            const dres = await apiClient.get(`/escalations/${esc.id}`);
+            const acts = (dres.data?.data?.actions || []).filter((a: any) => isoDay(a.created_at) === reviewDate);
+            if (acts.length) todaysEscActions.set(String(esc.id), acts);
+          } catch { /* best-effort */ }
+        }));
+      }
       L.push("Escalations");
-      if (escDecisions.length === 0 && openEsc === 0) {
+      if (escDecisions.length === 0 && openEscalations.length === 0) {
         L.push("- None today.");
       } else {
         escDecisions.forEach((d: any) => L.push(`- ${clean(d.what_is_happening) || "Escalation raised"}${d.owner_name ? ` · to ${d.owner_name}` : ""}`));
-        if (openEsc > 0) L.push(`- ${openEsc} open escalation${openEsc === 1 ? "" : "s"} still require follow-up.`);
+        openEscalations.forEach((esc: any) => {
+          const due = esc.due_by ? ` · due ${new Date(esc.due_by).toLocaleDateString("en-GB")}` : "";
+          L.push(`- Open: ${clean(esc.reason) || "Escalation"}${esc.escalated_to_name ? ` · to ${clean(esc.escalated_to_name)}` : ""}${due}`);
+          (todaysEscActions.get(String(esc.id)) || []).forEach((a: any) =>
+            L.push(`  Action taken today: ${clean(a.description) || clean(a.action_type) || "—"}${a.taken_by_name ? ` · ${clean(a.taken_by_name)}` : ""}`));
+        });
       }
       L.push("");
 

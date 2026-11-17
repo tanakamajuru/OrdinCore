@@ -388,7 +388,20 @@ export class LearningService {
               sa_gr.what_is_happening AS action_decision_instruction, sa_gr.review_date AS action_decision_date,
               NULLIF(TRIM(COALESCE(sa_gr_by.first_name,'') || ' ' || COALESCE(sa_gr_by.last_name,'')),'') AS action_decision_by_name,
               sa_sig.description AS action_signal_description, sa_sig.entry_date AS action_signal_date,
-              sa_sig.severity::text AS action_signal_severity, sa_sig.related_person AS action_signal_related_person
+              sa_sig.severity::text AS action_signal_severity, sa_sig.related_person AS action_signal_related_person,
+              -- 16 Nov 2026 live report ("daily oversight decisions and actions, escalation
+              -- decision and action, or any linked risk assessments ... from this signal here"):
+              -- the three chains below previously only followed a DIRECT foreign key off the
+              -- source action (sa.escalation_id / sa.risk_id / sa.governance_review_id). An
+              -- EFFECTIVENESS/RISK_CLOSURE/PATTERN_CLOSURE-sourced learning whose action never
+              -- carried one of those FKs itself -- the common case once a signal has already been
+              -- promoted onward -- showed none of the escalation that followed, the risk's own
+              -- assessment history, or the other decisions made on the same signal, even though
+              -- all three live in governance_reviews/escalations/risk_events keyed off the same
+              -- risk_id / source_pulse_id / source_cluster_id already on the action.
+              related_esc.history AS related_escalations,
+              related_risk_events.history AS linked_risk_assessment_history,
+              signal_decisions.history AS signal_decision_history
          FROM learning_records lr
          LEFT JOIN users au ON au.id = lr.author_id
          LEFT JOIN users ow ON ow.id = lr.owner_id
@@ -421,6 +434,46 @@ export class LearningService {
          LEFT JOIN users sa_gr_by ON sa_gr_by.id = sa_gr.reviewed_by
          LEFT JOIN governance_pulses sa_sig ON sa_sig.id = sa_gr.pulse_entry_id
          LEFT JOIN action_effectiveness_reviews aer ON aer.id = lr.source_review_id
+         -- Any escalation sharing this learning's risk/signal/pattern, not only one tied via
+         -- sa.escalation_id directly -- e.g. the signal was escalated separately from the action
+         -- that was created to address it. Covers all three source types: EFFECTIVENESS keys off
+         -- the source action's own risk/pulse/cluster, RISK_CLOSURE off the risk itself (sr),
+         -- PATTERN_CLOSURE off the pattern (sc).
+         LEFT JOIN LATERAL (
+           SELECT string_agg(
+                    date_trunc('minute', e.created_at)::text || ': ' || COALESCE(e.reason, 'Escalation')
+                    || ' -- ' || COALESCE(e.lifecycle_status::text, e.status::text, 'Open')
+                    || COALESCE(' (closed ' || date_trunc('minute', e.closed_at)::text || ')', ''),
+                    ' | ' ORDER BY e.created_at) AS history
+             FROM escalations e
+            WHERE e.company_id = lr.company_id AND e.id <> COALESCE(sa.escalation_id, '00000000-0000-0000-0000-000000000000'::uuid)
+              AND ((COALESCE(sa.risk_id, sr.id) IS NOT NULL AND e.risk_id = COALESCE(sa.risk_id, sr.id))
+                OR (sa.source_pulse_id IS NOT NULL AND e.source_pulse_id = sa.source_pulse_id)
+                OR (COALESCE(sa.source_cluster_id, sc.id) IS NOT NULL AND e.source_cluster_id = COALESCE(sa.source_cluster_id, sc.id)))
+         ) related_esc ON lr.source_type IN ('EFFECTIVENESS','RISK_CLOSURE','PATTERN_CLOSURE')
+         -- The linked risk's own assessment/trajectory audit trail (risk_events) -- distinct from
+         -- the action-completion/effectiveness chain above, this is risks.repo.ts addEvent()'s
+         -- record of severity changes, impact ratings and other risk-level review activity.
+         LEFT JOIN LATERAL (
+           SELECT string_agg(
+                    date_trunc('minute', ev.created_at)::text || ': ' || ev.event_type
+                    || COALESCE(' -- ' || NULLIF(TRIM(ev.description), ''), ''),
+                    ' | ' ORDER BY ev.created_at) AS history
+             FROM risk_events ev
+            WHERE ev.company_id = lr.company_id
+              AND ev.risk_id = COALESCE(sa.risk_id, sr.id)
+         ) related_risk_events ON COALESCE(sa.risk_id, sr.id) IS NOT NULL
+         -- Every other daily-oversight decision recorded against the same originating signal, not
+         -- only the one (sa_gr) that happened to create this source action.
+         LEFT JOIN LATERAL (
+           SELECT string_agg(
+                    date_trunc('minute', gr.review_date)::text || ': ' || gr.decision::text
+                    || COALESCE(' by ' || NULLIF(TRIM(COALESCE(gru.first_name,'') || ' ' || COALESCE(gru.last_name,'')), ''), '')
+                    || COALESCE(' -- ' || NULLIF(TRIM(gr.decision_rationale), ''), ''),
+                    ' | ' ORDER BY gr.review_date) AS history
+             FROM governance_reviews gr LEFT JOIN users gru ON gru.id = gr.reviewed_by AND gru.company_id = gr.company_id
+            WHERE gr.pulse_entry_id = sa_sig.id AND gr.company_id = lr.company_id AND gr.id <> sa_gr.id
+         ) signal_decisions ON sa_sig.id IS NOT NULL
         WHERE lr.id = $1 AND lr.company_id = $2`,
       [id, company_id],
     );

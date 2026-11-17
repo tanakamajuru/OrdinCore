@@ -327,7 +327,10 @@ export class WeeklyReviewsController {
             const decidedAt = fmtDay(s.decidedAt);
             doc.text(`     RM decision: ${s.decision || 'RM decision not recorded'}${s.reviewer ? ` · ${s.reviewer}` : ''}${decidedAt ? ` · ${decidedAt}` : ''}`);
             doc.text(`     Rationale: ${s.rationale || 'Rationale not recorded'}`);
+            if (s.signalImmediateAction) doc.text(`     Immediate action taken: ${s.signalImmediateAction}`);
             if (s.intendedOutcome) doc.text(`     Intended outcome: ${s.intendedOutcome}`);
+            if (s.immediateAction) doc.text(`     Immediate action (decision): ${s.immediateAction}`);
+            if (s.monitoringTrigger) doc.text(`     Act sooner if: ${s.monitoringTrigger}`);
             if (s.decisionEvidence) doc.text(`     Evidence: ${s.decisionEvidence}`);
             const follow = fmtDay(s.followUpDue);
             if (follow) doc.text(`     Follow-up due: ${follow}`);

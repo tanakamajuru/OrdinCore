@@ -186,6 +186,14 @@ export const governancePdfService = {
       if (lr.action_decision_instruction) doc.text(`Instruction: ${lr.action_decision_instruction}`, { indent: 10 });
       doc.moveDown(0.5);
     }
+    // 16 Nov 2026 live report: the one decision that created the source action was never the
+    // whole story — the same signal is routinely reviewed more than once across daily oversight
+    // (Monitor, then a later Escalate or Close). Print every other decision on it too.
+    if (lr.signal_decision_history) {
+      doc.font('Helvetica-Bold').text('Other daily oversight decisions on this signal');
+      doc.font('Helvetica').text(lr.signal_decision_history, { indent: 10 });
+      doc.moveDown(0.5);
+    }
     // 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe give us a
     // link to the whole escalation history"): when the source action itself resolved a real
     // escalation, print that escalation's own chronology — this was entirely absent before, so
@@ -202,6 +210,21 @@ export const governancePdfService = {
     if (lr.action_risk_title) {
       doc.font('Helvetica-Bold').text('Linked risk (from the source action)');
       doc.font('Helvetica').text(`${lr.action_risk_title} — ${lr.action_risk_status || 'status unknown'}${lr.action_risk_severity ? `, ${lr.action_risk_severity}` : ''}`, { indent: 10 });
+      if (lr.linked_risk_assessment_history) doc.text(`Risk assessment history: ${lr.linked_risk_assessment_history}`, { indent: 10 });
+      doc.moveDown(0.5);
+    } else if (lr.linked_risk_assessment_history) {
+      // A RISK_CLOSURE-sourced learning has no action_risk_title (there is no source action),
+      // but the risk itself is the source — still show its assessment history.
+      doc.font('Helvetica-Bold').text('Risk assessment history');
+      doc.font('Helvetica').text(lr.linked_risk_assessment_history, { indent: 10 });
+      doc.moveDown(0.5);
+    }
+    // 16 Nov 2026 live report ("daily oversight decisions and actions, escalation decision and
+    // action ... from this signal"): an escalation that followed the SAME risk/signal/pattern as
+    // this learning's source, but wasn't the one tied directly via a foreign key, was invisible.
+    if (lr.related_escalations) {
+      doc.font('Helvetica-Bold').text('Other escalations on this risk/signal');
+      doc.font('Helvetica').text(lr.related_escalations, { indent: 10 });
       doc.moveDown(0.5);
     }
 

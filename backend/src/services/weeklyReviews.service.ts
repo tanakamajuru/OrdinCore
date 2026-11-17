@@ -312,7 +312,8 @@ export class WeeklyReviewsService {
                        COALESCE(jsonb_array_length(a.decisions_summary), 0)) AS decision_count,
               (SELECT COALESCE(jsonb_agg(jsonb_build_object(
                   'decision', gr.decision, 'concern', gr.what_is_happening, 'rationale', gr.decision_rationale,
-                  'intendedOutcome', gr.intended_outcome, 'decidedAt', gr.created_at,
+                  'intendedOutcome', gr.intended_outcome, 'immediateAction', gr.immediate_action,
+                  'monitoringTrigger', gr.monitoring_trigger, 'decidedAt', gr.created_at,
                   'reviewer', NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')), '')
                 ) ORDER BY gr.created_at), '[]'::jsonb)
                  FROM governance_reviews gr LEFT JOIN users ru ON ru.id = gr.reviewed_by
@@ -693,11 +694,19 @@ export class WeeklyReviewsService {
                 (SELECT COALESCE(jsonb_agg(jsonb_build_object(
                    'id',gp.id,'person',gp.related_person,'domain',(gp.risk_domain)[1],
                    'description',gp.description,'severity',gp.severity,'reviewStatus',gp.review_status,
+                   -- 16 Nov 2026 closed-loop audit: this independently re-assembled the decision
+                   -- narrative and dropped immediate_action/monitoring_trigger that
+                   -- DailyOversightBoard.tsx's own brief now carries — a weekly review and the
+                   -- daily brief it was built from disagreed on what detail existed for the same
+                   -- decision.
+                   'signalImmediateAction',gp.immediate_action,
                    'decision',gr.decision,
                    'decisionId',gr.id,
                    'concern',gr.what_is_happening,
                    'rationale',gr.decision_rationale,
                    'intendedOutcome',gr.intended_outcome,
+                   'immediateAction',gr.immediate_action,
+                   'monitoringTrigger',gr.monitoring_trigger,
                    'decisionEvidence',gr.evidence,
                    'reviewer',NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),''),
                    'decidedAt',gr.created_at,

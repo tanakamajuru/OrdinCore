@@ -48,6 +48,7 @@ export class ReconstructionService {
               -- Reconstruction reports must explain the decision, not state it (briefs R1–R3):
               gr.decision_rationale AS rationale, gr.intended_outcome AS intended_outcome,
               gr.evidence AS decision_evidence, gr.due_at AS follow_up_due,
+              gr.immediate_action AS immediate_action, gr.monitoring_trigger AS monitoring_trigger,
               NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),'') AS reviewer
        FROM governance_reviews gr
        LEFT JOIN governance_pulses gp ON gp.id=gr.pulse_entry_id AND gp.company_id=gr.company_id
@@ -73,41 +74,34 @@ export class ReconstructionService {
        LEFT JOIN risks er ON er.id = e.risk_id
        WHERE e.company_id = $1
          AND (CASE WHEN $5 = 'service' THEN e.house_id::text = $2
-                   WHEN $5 = 'client'  THEN (ep.related_person::text = $6 OR er.linked_person::text = $6)
+                   -- Correction (16 Nov 2026, closed-loop audit): a client/by-person
+                   -- reconstruction only matched an escalation's DIRECT source_pulse_id/risk_id --
+                   -- an escalation raised against a PATTERN (source_cluster_id) whose linked
+                   -- signals name the person (via risk_signal_links, the same gap class already
+                   -- fixed in risks.repo.ts and escalations.service.ts findAll this session) was
+                   -- invisible in that person's reconstruction.
+                   WHEN $5 = 'client'  THEN (ep.related_person::text = $6 OR er.linked_person::text = $6
+                     OR EXISTS (SELECT 1 FROM risk_signal_links rsl JOIN governance_pulses gp2 ON gp2.id = rsl.pulse_entry_id
+                                 WHERE rsl.cluster_id = e.source_cluster_id AND gp2.related_person::text = $6))
                    ELSE TRUE END)
          AND e.created_at BETWEEN $3 AND $4`,
       [companyId, scope === 'service' ? id : null, startTs, endTs, scope, scope === 'client' ? id : null]
     );
 
-    // Escalation monitoring reviews — each is a dated decision to keep an escalation open, with its
-    // complete snapshot (owner, evidence watched, trigger, next review). Reconstruction must carry
-    // the detail recorded at the time, not just "Monitor" (monitoring brief §4).
-    const monitoringReviews = await query(
-      `SELECT 'monitoring_review' AS item_type, ea.created_at AS event_time,
-              e.reason AS theme, ea.description AS description,
-              'Monitoring review' AS status, ep.related_person, e.house_id,
-              ea.metadata->>'monitoring_owner_name' AS monitoring_owner,
-              ea.metadata->>'evidence_to_observe' AS evidence_to_observe,
-              ea.metadata->>'monitoring_trigger' AS monitoring_trigger,
-              NULLIF(ea.metadata->>'next_review_at','') AS next_review_at,
-              NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')),'') AS reviewer
-       FROM escalation_actions ea
-       JOIN escalations e ON e.id = ea.escalation_id AND e.company_id = ea.company_id
-       LEFT JOIN governance_pulses ep ON ep.id = e.source_pulse_id
-       LEFT JOIN risks er ON er.id = e.risk_id
-       LEFT JOIN users ru ON ru.id = ea.taken_by AND ru.company_id = ea.company_id
-       WHERE ea.company_id = $1
-         AND (ea.metadata ? 'monitoring_owner_name' OR ea.metadata ? 'monitoring_owner_id'
-              OR ea.metadata ? 'monitoring_trigger' OR ea.metadata ? 'evidence_to_observe'
-              OR ea.metadata ? 'next_review_at')
-         AND (CASE WHEN $5 = 'service' THEN e.house_id::text = $2
-                   WHEN $5 = 'client'  THEN (ep.related_person::text = $6 OR er.linked_person::text = $6)
-                   ELSE TRUE END)
-         AND ea.created_at BETWEEN $3 AND $4`,
-      [companyId, scope === 'service' ? id : null, startTs, endTs, scope, scope === 'client' ? id : null]
-    );
-
-    const timeline = [...signals.rows, ...reviews.rows, ...escalations.rows, ...monitoringReviews.rows]
+    // Correction (16 Nov 2026, closed-loop audit): a "monitoring_review" item_type used to be
+    // built here by reading escalation_actions.metadata->>'monitoring_trigger' etc. That is the
+    // same dead path already found and fixed in weeklyReviews.service.ts earlier this session —
+    // the current governanceDecisionsService Monitor-decision flow writes monitoring_trigger,
+    // immediate_action and the review findings straight onto governance_reviews, never into that
+    // metadata JSON, so this always returned empty for anything recorded through the live system.
+    // Worse, it was scoped through escalation_actions -> escalations, so even a working version
+    // would have missed every plain signal-level Monitor decision (no escalation at all — the
+    // ordinary case; see the Daily Oversight "What should happen now?" screen). The `reviews`
+    // query above already carries every governance_reviews decision for this scope, Monitor
+    // included, now with monitoring_trigger/immediate_action added alongside it — no separate
+    // query is needed, and keeping this one would have double-counted the same Monitor decision
+    // under two item_types.
+    const timeline = [...signals.rows, ...reviews.rows, ...escalations.rows]
       .filter((r) => r.event_time)
       .sort((a, b) => new Date(a.event_time).getTime() - new Date(b.event_time).getTime());
 
@@ -120,7 +114,7 @@ export class ReconstructionService {
         signals: signals.rows.length,
         reviews: reviews.rows.length,
         escalations: escalations.rows.length,
-        monitoring_reviews: monitoringReviews.rows.length,
+        monitoring_reviews: reviews.rows.filter((r: any) => r.status === 'Monitor').length,
         total: timeline.length,
       },
       timeline,

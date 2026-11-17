@@ -114,7 +114,21 @@ export class EscalationsService {
     // status (Pending/Acknowledged/Resolved…) so dashboard filters work regardless.
     if (filters.status) { const raw=String(filters.status).toLowerCase(); const canonical=['closed','resolved'].includes(raw)?'CLOSED':raw==='under review'?'UNDER_REVIEW':['acknowledged','in progress'].includes(raw)?'IN_PROGRESS':'OPEN'; conditions.push(`e.canonical_status = $${idx}`); params.push(canonical); idx++; }
     // Finding E: narrow to a single risk server-side (governance-review modal).
-    if (filters.risk_id) { conditions.push(`e.risk_id = $${idx}`); params.push(filters.risk_id); idx++; }
+    // Correction (16 Nov 2026, closed-loop audit): matched ONLY e.risk_id, same gap already found
+    // and fixed in risks.repo.ts findById() — an escalation raised against the risk's originating
+    // signal/pattern (not the risk record itself) never carries e.risk_id, so RiskDetail.tsx's
+    // "GET /escalations?risk_id=..." silently missed it. Also matches via the risk's own
+    // source_cluster_id and via risk_signal_links (the real signal<->risk/pattern link table).
+    if (filters.risk_id) {
+      conditions.push(`(e.risk_id = $${idx}
+        OR e.source_cluster_id = (SELECT rr.source_cluster_id FROM risks rr WHERE rr.id = $${idx} AND rr.company_id = e.company_id)
+        OR e.source_pulse_id IN (
+          SELECT rsl.pulse_entry_id FROM risk_signal_links rsl
+           WHERE rsl.risk_id = $${idx}
+              OR rsl.cluster_id = (SELECT rr.source_cluster_id FROM risks rr WHERE rr.id = $${idx} AND rr.company_id = e.company_id)
+        ))`);
+      params.push(filters.risk_id); idx++;
+    }
     if (filters.house_id) {
       const houseIds = Array.isArray(filters.house_id) ? filters.house_id : String(filters.house_id).split(',').filter(Boolean);
       conditions.push(`COALESCE(e.house_id,
