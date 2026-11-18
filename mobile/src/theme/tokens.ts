@@ -59,6 +59,30 @@ export const withAccent = (p: Palette, scheme: 'light' | 'dark', role: RoleAccen
   ({ ...p, ...accents[scheme][role] });
 
 export const spacing = { xs: 4, sm: 8, md: 12, lg: 16, xl: 24 };
+
+// Semantic spacing, named after the shared spacing standard (screen edges, card padding,
+// group gaps, label-to-field, etc). Built on the base `spacing` scale above so every screen
+// that goes through the shared components in components/ui.tsx stays consistent, rather than
+// repeating magic numbers per screen. Values follow the agreed ranges; where a range is given,
+// the smaller/typical end is picked for compactness on phone-sized screens.
+export const layout = {
+  screenEdge: spacing.lg,       // 16 — left/right screen padding
+  belowHeader: spacing.lg,      // 16 — content below nav header
+  titleToContent: spacing.lg,   // 16 — page title to following content
+  cardPadding: spacing.lg,      // 16 — inside cards/panels
+  groupGap: spacing.lg,         // 16 — between cards / info groups (16-20 range; 16 baseline)
+  sectionHeadingGap: spacing.md,// 12 — section heading to content
+  labelToField: spacing.xs + 4, // 8 — label to its field
+  questionGroupGap: 20,         // 20 — between question groups
+  supportingTextGap: spacing.md,// 12 — supporting text to field (12-12 of the 8-12 range)
+  buttonStackGap: spacing.sm + 2, // 10 — between stacked buttons
+  lastFieldToAction: spacing.lg,  // 16 — last field to main action button
+  chipGap: spacing.sm,           // 8 — between chips/filters/options
+  listRowPadding: spacing.md,    // 12 — list row vertical padding (12-16 range)
+  fieldPadding: spacing.md,      // 12 — inside text fields
+  paragraphGap: spacing.md,      // 12 — between paragraphs
+  bottomScrollPad: 120 + spacing.lg, // clear bottom nav + safe area + 16
+};
 // Web radii: --radius 6px, --radius-card 12px. Tighter, more "enterprise" than the old app.
 export const radius = { sm: 6, md: 8, lg: 12, xl: 14, pill: 999 };
 

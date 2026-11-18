@@ -1,5 +1,20 @@
 import PDFDocument from 'pdfkit';
 import { drawReportHeader } from '../utils/pdfHelper';
+import {
+  createGovernanceRecordDoc,
+  stampGovernanceRecordFooters,
+  govTitle,
+  govSupportLine,
+  govMetaRow,
+  govSectionHeading,
+  govParagraph,
+  govSupportText,
+  govGap,
+  GOV_HEADING_BLOCK_GAP,
+  GOV_HEADING_BLOCK_TO_DETAILS_GAP,
+  GOV_ATTRIBUTION_GAP,
+  GOV_COLORS,
+} from '../utils/pdfHelper';
 import { learningService } from './learning.service';
 import { escalationsService } from './escalations.service';
 
@@ -15,6 +30,17 @@ function fmtDate(v: unknown): string {
 }
 
 function finish(doc: typeof PDFDocument, buffers: Buffer[], filename: string): Promise<{ content: Buffer; filename: string; contentType: string }> {
+  doc.end();
+  return new Promise((resolve) => {
+    doc.on('end', () => resolve({ content: Buffer.concat(buffers), filename, contentType: 'application/pdf' }));
+  });
+}
+
+// learningRecord/escalationRecord use createGovernanceRecordDoc(), which buffers pages so the
+// masthead/footer (with correct "Page X of Y") can be stamped on every page, however many the
+// record's actual content ends up needing — never truncated or shrunk to force one page.
+function finishGovernanceRecord(doc: typeof PDFDocument, buffers: Buffer[], filename: string): Promise<{ content: Buffer; filename: string; contentType: string }> {
+  stampGovernanceRecordFooters(doc);
   doc.end();
   return new Promise((resolve) => {
     doc.on('end', () => resolve({ content: Buffer.concat(buffers), filename, contentType: 'application/pdf' }));
@@ -55,69 +81,63 @@ function learningProgressLabel(progress: string): string {
 export const governancePdfService = {
   async learningRecord(id: string, company_id: string) {
     const lr = await learningService.findById(id, company_id);
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = createGovernanceRecordDoc();
     const buffers: Buffer[] = [];
     doc.on('data', (c: Buffer) => buffers.push(c));
-    drawReportHeader(doc as any, 'Learning Record');
-    stampSnapshot(doc);
 
     // Field report (12 Nov 2026): "we don't need codes" -- same as the escalation record, a raw
-    // internal UUID has no reader-facing meaning and is dropped.
+    // internal UUID has no reader-facing meaning and is dropped. Layout only changed below —
+    // this conditional/data logic is unchanged from before the spec pass.
     // 30 Oct 2026 live bug report ("uniformity on the font... do this for all forms"): a source
     // action title can be a full paragraph (seen live: 200+ characters) — same class of defect
     // as escalationRecord's title below. Shortened so the heading reads as a heading everywhere.
-    doc.fontSize(14).font('Helvetica-Bold').text(shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 110));
-    doc.font('Helvetica').fontSize(10);
-    doc.moveDown(0.5);
+    govTitle(doc, shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 110));
+    govGap(doc, GOV_HEADING_BLOCK_GAP);
+    govSupportLine(doc, `Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`);
+    govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
+
     // Field report (12 Nov 2026): "scope -- service is not organisation-wide, the resident is
     // attached to a house." lr.house_name only ever came from the learning record's OWN house_id
     // field, which is routinely unset on an ESCALATION_CLOSURE-sourced record even though the
     // escalation it's about has a real house (source_escalation_house_name, joined above) --
     // falling back straight to "Organisation-wide" was wrong whenever that was the case.
-    doc.text(`Service: ${lr.house_name || lr.source_escalation_house_name || 'Organisation-wide'}`);
+    govMetaRow(doc, 'Service', lr.house_name || lr.source_escalation_house_name || 'Organisation-wide');
     // Field report (12 Nov 2026): "we need name of client." Only showed for an ESCALATION_CLOSURE
     // -sourced record at first; an EFFECTIVENESS-sourced record reaches its signal through the
     // source action's own escalation chain instead (action_signal_related_person), so both are
     // checked here.
     const clientName = lr.source_escalation_related_person || lr.action_signal_related_person;
-    if (clientName) doc.text(`Client: ${clientName}`);
-    doc.text(`Source: ${lr.source_type}${lr.linked_action_title ? ` — action "${lr.linked_action_title}"` : ''}`);
-    doc.text(`Recorded: ${fmtDate(lr.created_at)} by ${lr.author_name || 'Unknown'}`);
-    doc.text(`Status: ${learningStateLabel(lr.state)} · ${learningProgressLabel(lr.progress)}`);
-    doc.text(`Human-approved: ${lr.is_ai_suggested ? 'No — AI-suggested, unapproved' : `Yes, by ${lr.approved_by_name || lr.author_name || 'Unknown'} on ${fmtDate(lr.approved_at)}`}`);
-    doc.moveDown();
+    if (clientName) govMetaRow(doc, 'Client', String(clientName));
+    govMetaRow(doc, 'Source', `${lr.source_type}${lr.linked_action_title ? ` — action "${lr.linked_action_title}"` : ''}`);
+    govMetaRow(doc, 'Recorded', `${fmtDate(lr.created_at)} by ${lr.author_name || 'Unknown'}`);
+    govMetaRow(doc, 'Status', `${learningStateLabel(lr.state)} · ${learningProgressLabel(lr.progress)}`);
+    govMetaRow(doc, 'Human-approved', lr.is_ai_suggested ? 'No — AI-suggested, unapproved' : `Yes, by ${lr.approved_by_name || lr.author_name || 'Unknown'} on ${fmtDate(lr.approved_at)}`);
 
-    doc.font('Helvetica-Bold').text('What happened');
-    doc.font('Helvetica').text(lr.what_happened || 'Not recorded.', { indent: 10 });
-    doc.moveDown(0.5);
+    govSectionHeading(doc, 'What happened', lr.what_happened || 'Not recorded.');
+    govParagraph(doc, lr.what_happened || 'Not recorded.');
 
     if (lr.state === 'IDENTIFIED') {
-      doc.font('Helvetica-Bold').text('What was learnt');
-      doc.font('Helvetica').text(lr.what_learnt || '—', { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'What was learnt', lr.what_learnt || '—');
+      govParagraph(doc, lr.what_learnt || '—');
       if (lr.change_needed) {
-        doc.font('Helvetica-Bold').text('Change needed');
-        doc.font('Helvetica').text(lr.change_needed, { indent: 10 });
+        govSectionHeading(doc, 'Change needed', lr.change_needed);
+        govParagraph(doc, lr.change_needed);
         // 27 Oct developer review ("Finish the learning PDF" — success criteria, owners/
         // deadlines): the improvement plan's structured fields, added alongside change_needed.
-        doc.text(`Owner: ${lr.owner_name || '—'} · Review date: ${fmtDate(lr.review_date)}${lr.plan_deadline ? ` · Deadline: ${fmtDate(lr.plan_deadline)}` : ''}`, { indent: 10 });
-        if (lr.success_criteria) doc.text(`Success criteria: ${lr.success_criteria}`, { indent: 10 });
-        doc.moveDown(0.5);
+        govParagraph(doc, `Owner: ${lr.owner_name || '—'} · Review date: ${fmtDate(lr.review_date)}${lr.plan_deadline ? ` · Deadline: ${fmtDate(lr.plan_deadline)}` : ''}`);
+        if (lr.success_criteria) govParagraph(doc, `Success criteria: ${lr.success_criteria}`);
       }
     } else if (lr.state === 'NONE_IDENTIFIED') {
-      doc.font('Helvetica-Bold').text('Reason no learning was identified');
-      doc.font('Helvetica').text(lr.no_learning_reason || '—', { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Reason no learning was identified', lr.no_learning_reason || '—');
+      govParagraph(doc, lr.no_learning_reason || '—');
     } else {
-      doc.font('Helvetica-Bold').text('Deferred assessment');
-      doc.font('Helvetica').text(`Owner: ${lr.owner_name || '—'} · Review due: ${fmtDate(lr.review_date)}`, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Deferred assessment', `Owner: ${lr.owner_name || '—'} · Review due: ${fmtDate(lr.review_date)}`);
+      govParagraph(doc, `Owner: ${lr.owner_name || '—'} · Review due: ${fmtDate(lr.review_date)}`);
     }
 
     if (lr.evidence_examined) {
-      doc.font('Helvetica-Bold').text('Evidence examined');
-      doc.font('Helvetica').text(lr.evidence_examined, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Evidence examined', lr.evidence_examined);
+      govParagraph(doc, lr.evidence_examined);
     }
 
     // 27 Oct developer corrections ("Make the downloaded PDF a complete record"): implementation
@@ -125,43 +145,34 @@ export const governancePdfService = {
     // Render missing content as "Not recorded"/"Not yet assessed", and flag a legacy verified
     // status with no supporting evidence instead of silently showing nothing.
     if (lr.progress === 'CHANGE_IMPLEMENTED' || lr.progress === 'IMPROVEMENT_VERIFIED') {
-      doc.font('Helvetica-Bold').text('Implementation');
-      doc.font('Helvetica').text(
-        lr.implementation_evidence
-          ? `${lr.implementation_evidence}${lr.implemented_by_name ? ` — ${lr.implemented_by_name}, ${fmtDate(lr.implemented_at)}` : ''}`
-          : 'Not recorded.',
-        { indent: 10 },
-      );
-      doc.moveDown(0.5);
+      const implText = lr.implementation_evidence
+        ? `${lr.implementation_evidence}${lr.implemented_by_name ? ` — ${lr.implemented_by_name}, ${fmtDate(lr.implemented_at)}` : ''}`
+        : 'Not recorded.';
+      govSectionHeading(doc, 'Implementation', implText);
+      govParagraph(doc, implText);
     }
     if (lr.progress === 'IMPROVEMENT_VERIFIED') {
-      doc.font('Helvetica-Bold').text('Verification');
       if (lr.verification_outcome && lr.verification_evidence) {
-        doc.font('Helvetica').text(
-          `${lr.verification_outcome}${lr.verified_by_name ? ` — ${lr.verified_by_name}, ${fmtDate(lr.verified_at)}` : ''}: ${lr.verification_evidence}`,
-          { indent: 10 },
-        );
+        const verifyText = `${lr.verification_outcome}${lr.verified_by_name ? ` — ${lr.verified_by_name}, ${fmtDate(lr.verified_at)}` : ''}: ${lr.verification_evidence}`;
+        govSectionHeading(doc, 'Verification', verifyText);
+        govParagraph(doc, verifyText);
       } else {
-        doc.font('Helvetica-Bold').fillColor('#92400e').text('Verification evidence missing — record requires review.', { indent: 10 });
-        doc.fillColor('black').font('Helvetica');
+        const missingText = 'Verification evidence missing — record requires review.';
+        govSectionHeading(doc, 'Verification', missingText);
+        govParagraph(doc, missingText, { color: GOV_COLORS.WARNING, bold: true });
       }
-      doc.moveDown(0.5);
     } else if (lr.progress === 'CHANGE_IMPLEMENTED') {
-      doc.font('Helvetica').fillColor('gray').text('Verification: Not yet assessed.', { indent: 10 });
-      doc.fillColor('black');
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Verification', 'Not yet assessed.');
+      govParagraph(doc, 'Not yet assessed.', { color: GOV_COLORS.SUPPORT_TEXT });
     }
     // 27 Oct developer review ("Finish the learning PDF" — all verification attempts): append-
     // only history (migration 202) is preserved but was never included in the export either.
     const history = Array.isArray(lr.verification_history) ? lr.verification_history : [];
     if (history.length > 1) {
-      doc.font('Helvetica-Bold').text(`All verification attempts (${history.length})`);
-      doc.font('Helvetica').fontSize(9);
+      govSectionHeading(doc, `All verification attempts (${history.length})`);
       [...history].reverse().forEach((h: any) => {
-        doc.text(`${h.outcome}${h.reviewed_at ? ` · ${fmtDate(h.reviewed_at)}` : ''} — ${h.evidence}${h.review_due_at ? ` (follow-up was due ${fmtDate(h.review_due_at)})` : ''}`, { indent: 10 });
+        govSupportText(doc, `${h.outcome}${h.reviewed_at ? ` · ${fmtDate(h.reviewed_at)}` : ''} — ${h.evidence}${h.review_due_at ? ` (follow-up was due ${fmtDate(h.review_due_at)})` : ''}`);
       });
-      doc.fontSize(10);
-      doc.moveDown(0.5);
     }
 
     // Field report (12 Nov 2026): "we need information to come in proper sequence, old date
@@ -172,27 +183,26 @@ export const governancePdfService = {
     // risk -> (for an escalation-closure-sourced record) its own signal/decision chain ->
     // effectiveness review, which is always the LAST thing to happen in this chain.
     if (lr.action_signal_description) {
-      doc.font('Helvetica-Bold').text('Originating signal');
-      doc.font('Helvetica').text(`${fmtDate(lr.action_signal_date)}${lr.action_signal_severity ? ` · ${lr.action_signal_severity}` : ''}: ${lr.action_signal_description}`, { indent: 10 });
-      doc.moveDown(0.5);
+      const text = `${fmtDate(lr.action_signal_date)}${lr.action_signal_severity ? ` · ${lr.action_signal_severity}` : ''}: ${lr.action_signal_description}`;
+      govSectionHeading(doc, 'Originating signal', text);
+      govParagraph(doc, text);
     }
     // 30 Oct 2026 live bug report ("this history is not pulling on learning"): the common case —
     // an action created straight from a decision, with no escalation and no registered risk —
     // still showed nothing until the decision and its originating signal are followed too.
     if (lr.action_decision) {
-      doc.font('Helvetica-Bold').text('Decision that created the source action');
-      doc.font('Helvetica').text(`${lr.action_decision}${lr.action_decision_by_name ? ` — ${lr.action_decision_by_name}` : ''}${lr.action_decision_date ? `, ${fmtDate(lr.action_decision_date)}` : ''}`, { indent: 10 });
-      if (lr.action_decision_rationale) doc.text(`Rationale: ${lr.action_decision_rationale}`, { indent: 10 });
-      if (lr.action_decision_instruction) doc.text(`Instruction: ${lr.action_decision_instruction}`, { indent: 10 });
-      doc.moveDown(0.5);
+      const text = `${lr.action_decision}${lr.action_decision_by_name ? ` — ${lr.action_decision_by_name}` : ''}${lr.action_decision_date ? `, ${fmtDate(lr.action_decision_date)}` : ''}`;
+      govSectionHeading(doc, 'Decision that created the source action', text);
+      govParagraph(doc, text);
+      if (lr.action_decision_rationale) govParagraph(doc, `Rationale: ${lr.action_decision_rationale}`);
+      if (lr.action_decision_instruction) govParagraph(doc, `Instruction: ${lr.action_decision_instruction}`);
     }
     // 16 Nov 2026 live report: the one decision that created the source action was never the
     // whole story — the same signal is routinely reviewed more than once across daily oversight
     // (Monitor, then a later Escalate or Close). Print every other decision on it too.
     if (lr.signal_decision_history) {
-      doc.font('Helvetica-Bold').text('Other daily oversight decisions on this signal');
-      doc.font('Helvetica').text(lr.signal_decision_history, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Other daily oversight decisions on this signal', lr.signal_decision_history);
+      govParagraph(doc, lr.signal_decision_history);
     }
     // 29 Oct 2026 live bug report ("we need the whole bundle ... effectiveness maybe give us a
     // link to the whole escalation history"): when the source action itself resolved a real
@@ -200,32 +210,29 @@ export const governancePdfService = {
     // a record like "Police attended and investigation done, client reassured" showed only the
     // bare action title with no visibility of what the underlying escalation actually was.
     if (lr.action_escalation_reason) {
-      doc.font('Helvetica-Bold').text('Escalation history (from the source action)');
-      doc.font('Helvetica').text(`Raised: ${lr.action_escalation_reason}`, { indent: 10 });
-      doc.text(`Status: ${lr.action_escalation_lifecycle_status || lr.action_escalation_status || '—'}${lr.action_escalation_to_name ? ` · Escalated to: ${lr.action_escalation_to_name}` : ''}`, { indent: 10 });
-      doc.text(`Opened: ${fmtDate(lr.action_escalation_created_at)}${lr.action_escalation_due_by ? ` · Due: ${fmtDate(lr.action_escalation_due_by)}` : ''}${lr.action_escalation_closed_at ? ` · Closed: ${fmtDate(lr.action_escalation_closed_at)}` : ''}`, { indent: 10 });
-      if (lr.action_escalation_closure_evidence) doc.text(`Closure evidence: ${lr.action_escalation_closure_evidence}`, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Escalation history (from the source action)', `Raised: ${lr.action_escalation_reason}`);
+      govParagraph(doc, `Raised: ${lr.action_escalation_reason}`);
+      govParagraph(doc, `Status: ${lr.action_escalation_lifecycle_status || lr.action_escalation_status || '—'}${lr.action_escalation_to_name ? ` · Escalated to: ${lr.action_escalation_to_name}` : ''}`);
+      govParagraph(doc, `Opened: ${fmtDate(lr.action_escalation_created_at)}${lr.action_escalation_due_by ? ` · Due: ${fmtDate(lr.action_escalation_due_by)}` : ''}${lr.action_escalation_closed_at ? ` · Closed: ${fmtDate(lr.action_escalation_closed_at)}` : ''}`);
+      if (lr.action_escalation_closure_evidence) govParagraph(doc, `Closure evidence: ${lr.action_escalation_closure_evidence}`);
     }
     if (lr.action_risk_title) {
-      doc.font('Helvetica-Bold').text('Linked risk (from the source action)');
-      doc.font('Helvetica').text(`${lr.action_risk_title} — ${lr.action_risk_status || 'status unknown'}${lr.action_risk_severity ? `, ${lr.action_risk_severity}` : ''}`, { indent: 10 });
-      if (lr.linked_risk_assessment_history) doc.text(`Risk assessment history: ${lr.linked_risk_assessment_history}`, { indent: 10 });
-      doc.moveDown(0.5);
+      const text = `${lr.action_risk_title} — ${lr.action_risk_status || 'status unknown'}${lr.action_risk_severity ? `, ${lr.action_risk_severity}` : ''}`;
+      govSectionHeading(doc, 'Linked risk (from the source action)', text);
+      govParagraph(doc, text);
+      if (lr.linked_risk_assessment_history) govParagraph(doc, `Risk assessment history: ${lr.linked_risk_assessment_history}`);
     } else if (lr.linked_risk_assessment_history) {
       // A RISK_CLOSURE-sourced learning has no action_risk_title (there is no source action),
       // but the risk itself is the source — still show its assessment history.
-      doc.font('Helvetica-Bold').text('Risk assessment history');
-      doc.font('Helvetica').text(lr.linked_risk_assessment_history, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Risk assessment history', lr.linked_risk_assessment_history);
+      govParagraph(doc, lr.linked_risk_assessment_history);
     }
     // 16 Nov 2026 live report ("daily oversight decisions and actions, escalation decision and
     // action ... from this signal"): an escalation that followed the SAME risk/signal/pattern as
     // this learning's source, but wasn't the one tied directly via a foreign key, was invisible.
     if (lr.related_escalations) {
-      doc.font('Helvetica-Bold').text('Other escalations on this risk/signal');
-      doc.font('Helvetica').text(lr.related_escalations, { indent: 10 });
-      doc.moveDown(0.5);
+      govSectionHeading(doc, 'Other escalations on this risk/signal', lr.related_escalations);
+      govParagraph(doc, lr.related_escalations);
     }
 
     // Field report (12 Nov 2026): "source is from all the information such as escalation -
@@ -234,33 +241,35 @@ export const governancePdfService = {
     // as opposed to being reached indirectly via a source action), print that escalation's full
     // chronology the same way the action-sourced chain above does — signal first, decisions after.
     if (lr.source_escalation_id) {
-      doc.font('Helvetica-Bold').text('Escalation (source of this learning)');
-      doc.font('Helvetica');
+      const firstLine = lr.source_escalation_signal_description
+        ? `Originating signal: [${fmtDate(lr.source_escalation_signal_date)}]${lr.source_escalation_signal_severity ? ` ${lr.source_escalation_signal_severity}` : ''} — ${lr.source_escalation_signal_description}`
+        : `Raised: ${lr.source_escalation_reason || 'Not recorded'}`;
+      govSectionHeading(doc, 'Escalation (source of this learning)', firstLine);
       if (lr.source_escalation_signal_description) {
-        doc.text(`Originating signal: [${fmtDate(lr.source_escalation_signal_date)}]${lr.source_escalation_signal_severity ? ` ${lr.source_escalation_signal_severity}` : ''} — ${lr.source_escalation_signal_description}`, { indent: 10 });
+        govParagraph(doc, `Originating signal: [${fmtDate(lr.source_escalation_signal_date)}]${lr.source_escalation_signal_severity ? ` ${lr.source_escalation_signal_severity}` : ''} — ${lr.source_escalation_signal_description}`);
       }
-      doc.text(`Raised: ${lr.source_escalation_reason || 'Not recorded'}`, { indent: 10 });
-      doc.text(`Status: ${lr.source_escalation_lifecycle_status || lr.source_escalation_status || '—'}${lr.source_escalation_to_name ? ` · Escalated to: ${lr.source_escalation_to_name}` : ''}`, { indent: 10 });
-      doc.text(`Opened: ${fmtDate(lr.source_escalation_created_at)}${lr.source_escalation_due_by ? ` · Due: ${fmtDate(lr.source_escalation_due_by)}` : ''}${lr.source_escalation_closed_at ? ` · Closed: ${fmtDate(lr.source_escalation_closed_at)}` : ''}`, { indent: 10 });
-      if (lr.source_escalation_decision_history) doc.text(`Decisions recorded: ${lr.source_escalation_decision_history}`, { indent: 10 });
-      if (lr.source_escalation_closure_evidence) doc.text(`Closure evidence: ${lr.source_escalation_closure_evidence}`, { indent: 10 });
-      doc.moveDown(0.5);
+      govParagraph(doc, `Raised: ${lr.source_escalation_reason || 'Not recorded'}`);
+      govParagraph(doc, `Status: ${lr.source_escalation_lifecycle_status || lr.source_escalation_status || '—'}${lr.source_escalation_to_name ? ` · Escalated to: ${lr.source_escalation_to_name}` : ''}`);
+      govParagraph(doc, `Opened: ${fmtDate(lr.source_escalation_created_at)}${lr.source_escalation_due_by ? ` · Due: ${fmtDate(lr.source_escalation_due_by)}` : ''}${lr.source_escalation_closed_at ? ` · Closed: ${fmtDate(lr.source_escalation_closed_at)}` : ''}`);
+      if (lr.source_escalation_decision_history) govParagraph(doc, `Decisions recorded: ${lr.source_escalation_decision_history}`);
+      if (lr.source_escalation_closure_evidence) govParagraph(doc, `Closure evidence: ${lr.source_escalation_closure_evidence}`);
     }
 
     // Always last: the effectiveness review is, by definition, the final event in this chain —
     // it judges the action taken in response to everything printed above it.
     if (lr.source_review_outcome) {
-      doc.font('Helvetica-Bold').text('Originating effectiveness review');
-      doc.font('Helvetica').text(`${lr.source_review_outcome} on ${fmtDate(lr.source_review_at)}${lr.source_review_evidence ? ` — ${lr.source_review_evidence}` : ''}`, { indent: 10 });
-      doc.moveDown(0.5);
+      const text = `${lr.source_review_outcome} on ${fmtDate(lr.source_review_at)}${lr.source_review_evidence ? ` — ${lr.source_review_evidence}` : ''}`;
+      govSectionHeading(doc, 'Originating effectiveness review', text);
+      govParagraph(doc, text);
     }
 
     if (lr.linked_action_title) {
-      doc.font('Helvetica-Bold').text('Follow-through action');
-      doc.font('Helvetica').text(`${lr.linked_action_title} (${lr.linked_action_status || 'status unknown'})`, { indent: 10 });
+      const text = `${lr.linked_action_title} (${lr.linked_action_status || 'status unknown'})`;
+      govSectionHeading(doc, 'Follow-through action', text);
+      govParagraph(doc, text);
     }
 
-    return finish(doc, buffers, `Learning_${lr.id}.pdf`);
+    return finishGovernanceRecord(doc, buffers, `Learning_${lr.id}.pdf`);
   },
 
   async learningSummary(company_id: string, filters: { houseIds?: string[] | null; state?: string; progress?: string; startDate?: string; endDate?: string }) {
@@ -308,11 +317,9 @@ export const governancePdfService = {
 
   async escalationRecord(id: string, company_id: string) {
     const e = await escalationsService.findById(id, company_id);
-    const doc = new PDFDocument({ margin: 50 });
+    const doc = createGovernanceRecordDoc();
     const buffers: Buffer[] = [];
     doc.on('data', (c: Buffer) => buffers.push(c));
-    drawReportHeader(doc as any, 'Escalation Record');
-    stampSnapshot(doc);
 
     // Field report (12 Nov 2026): "no codes on reports sir" -- a raw internal UUID has no meaning
     // to a reader and doesn't belong on a document meant to be read/printed (matches the frozen
@@ -328,27 +335,31 @@ export const governancePdfService = {
     const title = e.risk_title || e.incident_title
       || (titleDomain ? `${titleDomain}${e.signal_related_person ? ` — ${e.signal_related_person}` : ''}` : shortText(e.reason, 90))
       || 'Escalation';
-    doc.fontSize(14).font('Helvetica-Bold').text(title);
-    doc.font('Helvetica').fontSize(10).fillColor('black');
-    doc.moveDown(0.5);
-    doc.text(`Service: ${e.service_name || e.house_name || '—'}`);
+    govTitle(doc, title);
+    govGap(doc, GOV_HEADING_BLOCK_GAP);
+    govSupportLine(doc, `Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`);
+    govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
+
+    govMetaRow(doc, 'Service', e.service_name || e.house_name || '—');
     // Field report (12 Nov 2026): "name of client" -- the person this escalation concerns was
     // only ever implied inside the title text, never given its own labelled field.
-    if (e.signal_related_person) doc.text(`Client: ${e.signal_related_person}`);
-    doc.text(`Status: ${e.lifecycle_status || e.status || '—'}${e.overdue ? ' (OVERDUE)' : ''}`);
-    doc.text(`Escalated by: ${e.escalated_by_name || '—'} to ${e.escalated_to_name || '—'} on ${fmtDate(e.created_at)}`);
-    doc.text(`Due by: ${fmtDate(e.due_by)}`);
-    doc.moveDown();
+    if (e.signal_related_person) govMetaRow(doc, 'Client', e.signal_related_person);
+    govMetaRow(doc, 'Status', `${e.lifecycle_status || e.status || '—'}${e.overdue ? ' (OVERDUE)' : ''}`);
+    govMetaRow(doc, 'Escalated by', `${e.escalated_by_name || '—'} to ${e.escalated_to_name || '—'} on ${fmtDate(e.created_at)}`);
+    govMetaRow(doc, 'Due by', fmtDate(e.due_by));
 
-    doc.font('Helvetica-Bold').fontSize(10).text('Reason for escalation');
-    doc.font('Helvetica').text(e.reason || e.description || 'Not recorded.', { indent: 10 });
-    doc.moveDown(0.5);
+    const reasonText = e.reason || e.description || 'Not recorded.';
+    govSectionHeading(doc, 'Reason for escalation', reasonText);
+    govParagraph(doc, reasonText);
 
     if (e.observation) {
-      doc.font('Helvetica-Bold').text('Originating signal');
-      doc.font('Helvetica').text(`[${fmtDate(e.signal_logged_at)}] ${e.signal_severity || ''} ${e.signal_type || ''} — ${e.observation}`, { indent: 10 });
-      if (e.signal_immediate_action) doc.text(`Immediate action taken: ${e.signal_immediate_action}`, { indent: 10 });
-      doc.moveDown(0.5);
+      const sigText = `[${fmtDate(e.signal_logged_at)}] ${e.signal_severity || ''} ${e.signal_type || ''} — ${e.observation}`;
+      govSectionHeading(doc, 'Originating signal', sigText);
+      govParagraph(doc, sigText);
+      if (e.signal_immediate_action) {
+        govGap(doc, GOV_ATTRIBUTION_GAP);
+        govParagraph(doc, `Immediate action taken: ${e.signal_immediate_action}`);
+      }
     }
 
     // Field report (12 Nov 2026): "we need all information from original signal -> decisions made
@@ -359,30 +370,33 @@ export const governancePdfService = {
     // rendered at all.
     const history = Array.isArray(e.actions) ? e.actions : [];
     if (history.length) {
-      doc.font('Helvetica-Bold').text('Monitoring and decision history');
-      doc.font('Helvetica').fontSize(9.5);
+      const reversedHistory = [...history].reverse();
+      const firstEntryText = `[${fmtDate(reversedHistory[0].created_at)}] ${reversedHistory[0].action_type || 'Update'} — ${reversedHistory[0].taken_by_name || 'System'}`;
+      govSectionHeading(doc, 'Monitoring and decision history', firstEntryText);
       // escalation_actions.created_at DESC from the service -- oldest first reads as a timeline.
-      for (const a of [...history].reverse()) {
-        doc.text(`[${fmtDate(a.created_at)}] ${a.action_type || 'Update'} — ${a.taken_by_name || 'System'}`, { indent: 10 });
-        if (a.description) doc.text(a.description, { indent: 16 });
-        doc.moveDown(0.2);
-      }
-      doc.fontSize(10);
-      doc.moveDown(0.3);
+      reversedHistory.forEach((a: any, idx: number) => {
+        if (idx > 0 && doc.y + 24 > doc.page.height - (doc.page.margins as any).bottom) {
+          (doc as any).addPage();
+          govSectionHeading(doc, 'Monitoring and decision history (continued)');
+        }
+        govSupportText(doc, `[${fmtDate(a.created_at)}] ${a.action_type || 'Update'} — ${a.taken_by_name || 'System'}`, { bold: true });
+        if (a.description) govSupportText(doc, a.description, { indent: 10 });
+      });
     }
 
     const decisions = Array.isArray(e.decisions) ? e.decisions : [];
     if (decisions.length) {
-      doc.font('Helvetica-Bold').text('Governance decisions recorded against this escalation');
-      doc.font('Helvetica').fontSize(9.5);
-      for (const d of decisions) {
-        doc.text(`[${fmtDate(d.review_date)}] ${d.decision || 'Decision'} — ${d.reviewer_name || 'Not recorded'}`, { indent: 10 });
-        if (d.decision_rationale) doc.text(`Rationale: ${d.decision_rationale}`, { indent: 16 });
-        if (d.due_at) doc.text(`Due/review: ${fmtDate(d.due_at)}`, { indent: 16 });
-        doc.moveDown(0.2);
-      }
-      doc.fontSize(10);
-      doc.moveDown(0.3);
+      const firstDecisionText = `[${fmtDate(decisions[0].review_date)}] ${decisions[0].decision || 'Decision'} — ${decisions[0].reviewer_name || 'Not recorded'}`;
+      govSectionHeading(doc, 'Governance decisions recorded against this escalation', firstDecisionText);
+      decisions.forEach((d: any, idx: number) => {
+        if (idx > 0 && doc.y + 24 > doc.page.height - (doc.page.margins as any).bottom) {
+          (doc as any).addPage();
+          govSectionHeading(doc, 'Governance decisions recorded against this escalation (continued)');
+        }
+        govSupportText(doc, `[${fmtDate(d.review_date)}] ${d.decision || 'Decision'} — ${d.reviewer_name || 'Not recorded'}`, { bold: true });
+        if (d.decision_rationale) govSupportText(doc, `Rationale: ${d.decision_rationale}`, { indent: 10 });
+        if (d.due_at) govSupportText(doc, `Due/review: ${fmtDate(d.due_at)}`, { indent: 10 });
+      });
     }
 
     // 30 Oct 2026 live bug report ("the bottom section the effectiveness did not pull up with
@@ -391,28 +405,29 @@ export const governancePdfService = {
     // its own outcome and evidence. escalationsService.findById() already returns the full
     // linked_actions array (same data the live screen's "Linked control position" uses); it was
     // simply never iterated here.
-    doc.font('Helvetica-Bold').text('Linked delivery actions');
-    doc.font('Helvetica').text(`${e.actions_completed_count || 0} of ${e.actions_total_count || 0} completed; ${e.actions_effectiveness_reviewed_count || 0} effectiveness-reviewed.`, { indent: 10 });
+    const countsText = `${e.actions_completed_count || 0} of ${e.actions_total_count || 0} completed; ${e.actions_effectiveness_reviewed_count || 0} effectiveness-reviewed.`;
+    govSectionHeading(doc, 'Linked delivery actions', countsText);
+    govParagraph(doc, countsText);
     const linkedActions = Array.isArray(e.linked_actions) ? e.linked_actions : [];
     if (linkedActions.length) {
-      doc.moveDown(0.3);
-      for (const a of linkedActions) {
+      linkedActions.forEach((a: any, idx: number) => {
         const outcome = a.effectiveness_outcome || (a.effectiveness && a.effectiveness !== 'Neutral' && a.effectiveness !== 'Ineffective' ? a.effectiveness : null)
           || (a.effectiveness === 'Ineffective' ? 'Not Effective' : a.effectiveness === 'Neutral' ? 'Partially Effective' : null);
-        doc.font('Helvetica-Bold').fontSize(9.5).text(`• ${shortText(a.title || a.action || 'Action', 120)}`, { indent: 10 });
-        doc.font('Helvetica').fontSize(9).text(
-          `${a.is_completed || /complete/i.test(String(a.status || a.canonical_status || '')) ? 'Completed' : 'Open'}${a.completed_at ? ` ${fmtDate(a.completed_at)}` : ''}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : ''}${outcome ? ` · Effectiveness: ${outcome}` : ' · Effectiveness: Not yet reviewed'}`,
-          { indent: 16 },
-        );
-        if (a.effectiveness_evidence) doc.text(`Evidence: ${a.effectiveness_evidence}`, { indent: 16 });
-        doc.moveDown(0.3);
-      }
-      doc.font('Helvetica').fontSize(10);
+        const statusLine = `${a.is_completed || /complete/i.test(String(a.status || a.canonical_status || '')) ? 'Completed' : 'Open'}${a.completed_at ? ` ${fmtDate(a.completed_at)}` : ''}${a.assigned_to_name ? ` · ${a.assigned_to_name}` : ''}${outcome ? ` · Effectiveness: ${outcome}` : ' · Effectiveness: Not yet reviewed'}`;
+        if (doc.y + 28 > doc.page.height - (doc.page.margins as any).bottom) {
+          (doc as any).addPage();
+          govSectionHeading(doc, 'Linked delivery actions (continued)');
+        }
+        govSupportText(doc, `• ${shortText(a.title || a.action || 'Action', 120)}`, { bold: true });
+        govSupportText(doc, statusLine, { indent: 10 });
+        if (a.effectiveness_evidence) govSupportText(doc, `Evidence: ${a.effectiveness_evidence}`, { indent: 10 });
+        if (idx < linkedActions.length - 1) govGap(doc, 4);
+      });
     } else if (e.latest_effectiveness) {
-      doc.text(`Latest effectiveness verdict: ${e.latest_effectiveness}`, { indent: 10 });
+      govParagraph(doc, `Latest effectiveness verdict: ${e.latest_effectiveness}`);
     }
 
-    return finish(doc, buffers, `Escalation_${e.id}.pdf`);
+    return finishGovernanceRecord(doc, buffers, `Escalation_${e.id}.pdf`);
   },
 
   async escalationSummary(company_id: string, filters: { status?: string; house_id?: string | string[]; startDate?: string; endDate?: string; client?: string }, page = 1, limit = 300) {

@@ -425,7 +425,7 @@ export const guidedWorkService = {
       }
 
       const escalations = await safeRows(`
-        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,e.trigger_type,h.name AS service_name,
+        SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,e.trigger_type,e.escalated_by,h.name AS service_name,
                da.due_date AS delegated_due_date, (au.first_name || ' ' || au.last_name) AS delegated_to_name
           FROM canonical_escalation_state_v e LEFT JOIN houses h ON h.id=e.house_id
           LEFT JOIN LATERAL (
@@ -514,12 +514,22 @@ export const guidedWorkService = {
         // High-severity "emergency hospital admission" escalation, priority Urgent, sitting in
         // Waiting). Only the genuinely-scored path gets this override, not the Escalate default.
         const genuinelyUrgent = e.trigger_type !== 'GOVERNANCE_DECISION' && ['Urgent', 'Critical'].includes(e.priority);
-        const dueNow = rmAttention || nextReviewDue || genuinelyUrgent || isDueByToday(e.due_by);
+        // User-reported (17 Nov 2026): "if I work on something from daily oversight it goes
+        // automatically to escalations, which is okay, but I also want to see it here on my work
+        // as well." An RM's own "Escalate" decision (trigger_type='GOVERNANCE_DECISION') creates
+        // the escalation with escalated_by = that RM, but had to wait out its 48h due_by (or a
+        // later-set next_review_at) before resurfacing in Needs You — so the escalation the RM
+        // just acted on vanished from My Work into only the Escalations tab until then. The RM who
+        // raised it, before it has even had its first triage (no next_review_at yet, not
+        // delegated), should keep seeing it as active work, not wait on the SLA clock.
+        const ownUntriagedEscalation = e.trigger_type === 'GOVERNANCE_DECISION' && String(e.escalated_by) === String(userId) && !e.next_review_at;
+        const dueNow = rmAttention || nextReviewDue || genuinelyUrgent || ownUntriagedEscalation || isDueByToday(e.due_by);
         const reason = rmAttention ? 'The monitoring owner flagged this escalation for your immediate attention.'
           : (nextReviewDue ? 'The monitoring review point has been reached.'
           : (genuinelyUrgent ? `This escalation was raised from a ${e.priority}-priority signal and needs immediate review.`
+          : (ownUntriagedEscalation ? 'You escalated this from Daily Oversight and it still needs its first triage.'
           : (e.due_by && new Date(e.due_by).getTime() <= Date.now() ? 'The escalation response date has been reached.'
-          : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`)));
+          : dueNow ? 'An open escalation needs active follow-up.' : `Due ${dueDateLabel(e.due_by)} — not yet due.`))));
         // Once a review decision has set a next_review_at, THAT is the live due/review date to
         // display — e.due_by is the original SLA and goes stale the moment a later review point
         // is agreed (the exact staleness the field report caught).

@@ -8,7 +8,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { HeaderHeightContext } from '@react-navigation/elements';
 import { Feather } from '@expo/vector-icons';
 import { useTheme } from '@/theme/ThemeProvider';
-import { radius, severityColor, trajectoryColor, Palette } from '@/theme/tokens';
+import { radius, layout, spacing, severityColor, trajectoryColor, Palette } from '@/theme/tokens';
 
 type FeatherName = React.ComponentProps<typeof Feather>['name'];
 
@@ -23,7 +23,7 @@ export function Text({ style, muted, faint, size, weight, color, numberOfLines, 
 
 export function Label({ children }: { children: React.ReactNode }) {
   const { c } = useTheme();
-  return <RNText style={{ color: c.faint, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600', marginBottom: 2 }}>{children}</RNText>;
+  return <RNText style={{ color: c.faint, fontSize: 11, letterSpacing: 1, textTransform: 'uppercase', fontWeight: '600', marginBottom: layout.labelToField }}>{children}</RNText>;
 }
 
 /* ---------- layout ---------- */
@@ -38,7 +38,7 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, padded 
   const { c } = useTheme();
   const headerHeight = React.useContext(HeaderHeightContext);
   const applyTop = topInset !== undefined ? topInset : !(headerHeight != null && headerHeight > 0);
-  const inner = <View style={{ padding: padded ? 16 : 0, gap: 12 }}>{children}</View>;
+  const inner = <View style={{ padding: padded ? layout.screenEdge : 0, gap: layout.groupGap }}>{children}</View>;
   return (
     <SafeAreaView edges={applyTop ? ['top'] : []} style={{ flex: 1, backgroundColor: c.paper }}>
       {/* KeyboardAvoidingView + generous bottom padding so a focused input is never hidden behind
@@ -50,7 +50,7 @@ export function Screen({ children, refreshing, onRefresh, scroll = true, padded 
       >
         {scroll ? (
           <ScrollView
-            contentContainerStyle={{ paddingBottom: 320 }}
+            contentContainerStyle={{ paddingBottom: Math.max(320, layout.bottomScrollPad) }}
             keyboardShouldPersistTaps="handled"
             keyboardDismissMode="interactive"
             refreshControl={onRefresh ? <RefreshControl refreshing={!!refreshing} onRefresh={onRefresh} tintColor={c.accent} /> : undefined}
@@ -95,7 +95,7 @@ export function Avatar({ initials, color }: { initials: string; color?: string }
 /* ---------- surfaces ---------- */
 export function Card({ children, style }: { children: React.ReactNode; style?: StyleProp<ViewStyle> }) {
   const { c } = useTheme();
-  return <View style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 13 }, style]}>{children}</View>;
+  return <View style={[{ backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: layout.cardPadding }, style]}>{children}</View>;
 }
 
 export function ListItem({ icon, iconColor, title, meta, right, onPress }: {
@@ -103,7 +103,7 @@ export function ListItem({ icon, iconColor, title, meta, right, onPress }: {
 }) {
   const { c } = useTheme();
   const body = (
-    <Row style={{ alignItems: 'flex-start', backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: 12 }} gap={11}>
+    <Row style={{ alignItems: 'flex-start', backgroundColor: c.card, borderWidth: 1, borderColor: c.line, borderRadius: radius.lg, padding: layout.listRowPadding }} gap={11}>
       {icon && (
         <View style={{ width: 30, height: 30, borderRadius: 9, backgroundColor: (iconColor || c.accent) + '22', alignItems: 'center', justifyContent: 'center' }}>
           <Feather name={icon} size={15} color={iconColor || c.accent} />
@@ -176,7 +176,7 @@ export function Field({ value, onChangeText, placeholder, secureTextEntry, keybo
     <TextInput
       value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={c.faint}
       secureTextEntry={secureTextEntry} keyboardType={keyboardType} autoCapitalize={autoCapitalize}
-      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: 12, fontSize: 14, color: c.ink }}
+      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: layout.fieldPadding, fontSize: 14, color: c.ink }}
     />
   );
 }
@@ -189,7 +189,7 @@ export function TextArea({ value, onChangeText, placeholder, minHeight = 66, req
     <TextInput
       value={value} onChangeText={onChangeText} placeholder={placeholder} placeholderTextColor={c.faint}
       multiline textAlignVertical="top"
-      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: 12, fontSize: 13, color: c.ink, minHeight }}
+      style={{ backgroundColor: c.card, borderWidth: 1, borderColor: required && !value ? c.accent : c.line, borderRadius: radius.md, padding: layout.fieldPadding, fontSize: 13, color: c.ink, minHeight }}
     />
   );
 }
