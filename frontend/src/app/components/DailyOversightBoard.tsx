@@ -418,7 +418,7 @@ export function DailyOversightBoard() {
   // signed addendum is appended here.
   const submitAddendum = async () => {
     if (!signedLogId) return;
-    if (addendumReason.trim().length < 10) { toast.error("Describe what changed in at least 10 characters."); return; }
+    if (!addendumReason.trim()) { toast.error("Describe what changed."); return; }
     setAddendumSaving(true);
     try {
       await apiClient.post(`/daily-governance/${signedLogId}/addenda`, { reason: addendumReason.trim() });

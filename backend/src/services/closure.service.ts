@@ -14,6 +14,18 @@ export interface ClosureReviewInput {
   // Where an escalation carries no linked action, closure may still be justified by a genuine
   // alternative basis. The system never fabricates an action to satisfy the form.
   evidence_basis?: 'LINKED_ACTIONS' | 'EXISTING_CONTROL' | 'IMMEDIATE_MEASURE' | 'EXTERNAL_INTERVENTION' | 'NO_LONGER_APPLICABLE';
+  // Gap #10 fix: basis-specific evidence, required server-side (never trusted from the
+  // frontend alone) when evidence_basis is one of the no-linked-action bases above.
+  // EXISTING_CONTROL: a SPECIFIC risk_actions row elsewhere in the system that already carries
+  // a FINAL effectiveness verdict — never free text, so this basis can't be used as a vague
+  // "something exists somewhere" escape hatch.
+  cited_control_action_id?: string;
+  // IMMEDIATE_MEASURE / EXTERNAL_INTERVENTION: what was done and how the closer knows it
+  // worked, PLUS their explicit confirmation they personally verified the outcome.
+  basis_justification?: string;
+  verification_confirmed?: boolean;
+  // NO_LONGER_APPLICABLE: the specific reason it no longer applies.
+  no_longer_applicable_reason?: string;
 }
 
 /**
@@ -40,7 +52,7 @@ export class ClosureService {
     }
     if (input.further_escalation_required) throw new Error('Closure blocked: further escalation is required.');
     if (!input.pattern_reduced) throw new Error('Closure blocked: confirm that the reason for escalation has been addressed.');
-    if (!input.evidence || input.evidence.trim().length < 20) throw new Error('Closure blocked: record meaningful evidence supporting closure.');
+    if (!input.evidence || !input.evidence.trim()) throw new Error('Closure blocked: record meaningful evidence supporting closure.');
 
     // Never trust UI checkboxes as proof. One canonical control-position contract is the gate.
     // Historical partial/failed controls remain in the audit trail, but a later FINAL outcome in
@@ -59,6 +71,51 @@ export class ClosureService {
       }
     } else if (basis === 'LINKED_ACTIONS') {
       throw new Error('Closure blocked: no linked action exists; select the genuine alternative evidence basis.');
+    }
+
+    // Gap #10 fix: the no-linked-action bases above used to require nothing beyond the generic
+    // 20-char `evidence` field and a self-selected enum value — an escalation could close on
+    // "EXISTING_CONTROL" with no control named, or "IMMEDIATE_MEASURE" with no indication the
+    // outcome was ever actually checked. Each basis now carries its own mandatory, verifiable
+    // evidence, enforced here server-side (never relying on the frontend form alone).
+    let citedControl: any = null;
+    if (controlPosition.total === 0) {
+      if (basis === 'EXISTING_CONTROL') {
+        if (!input.cited_control_action_id) {
+          throw new Error('Closure blocked: cite the specific existing control that already addressed this concern.');
+        }
+        // The cited control must be a real action in THIS company with a FINAL effectiveness
+        // verdict — the same rigor closeRisk() demands of a risk's own controls, applied here to
+        // the one control the closer is pointing to, without requiring a full action lifecycle
+        // on the escalation itself.
+        citedControl = (await query(
+          `SELECT id, title, effectiveness_outcome, effectiveness_reviewed_at
+             FROM risk_actions
+            WHERE id = $1 AND company_id = $2`,
+          [input.cited_control_action_id, companyId]
+        )).rows[0];
+        if (!citedControl) throw new Error('Closure blocked: the cited existing control could not be found.');
+        const finalVerdicts = ['Effective', 'Partially Effective', 'Not Effective'];
+        if (!citedControl.effectiveness_reviewed_at || !finalVerdicts.includes(citedControl.effectiveness_outcome)) {
+          throw new Error('Closure blocked: the cited control has no FINAL effectiveness verdict recorded — "Too Early to Assess" or an unreviewed control cannot be cited. Pick a different basis if there is truly nothing to point to.');
+        }
+        if (citedControl.effectiveness_outcome === 'Not Effective') {
+          throw new Error('Closure blocked: the cited control is rated Not Effective — it cannot be relied on as the basis for closure.');
+        }
+      } else if (basis === 'IMMEDIATE_MEASURE' || basis === 'EXTERNAL_INTERVENTION') {
+        const justification = (input.basis_justification || '').trim();
+        if (!justification) {
+          throw new Error('Closure blocked: describe what was done and how you know it worked.');
+        }
+        if (!input.verification_confirmed) {
+          throw new Error('Closure blocked: confirm that you personally verified the outcome before closing.');
+        }
+      } else if (basis === 'NO_LONGER_APPLICABLE') {
+        const reason = (input.no_longer_applicable_reason || '').trim();
+        if (!reason) {
+          throw new Error('Closure blocked: give the specific reason this concern is no longer applicable.');
+        }
+      }
     }
     const auditedEvidence = `[Evidence basis: ${basis}]\n${input.evidence.trim()}`;
 
@@ -84,6 +141,14 @@ export class ClosureService {
        controlPosition.total ? !!input.effectiveness_reviewed : true, !!input.further_escalation_required, auditedEvidence]
     );
 
+    // Gap #10: persist the basis-specific evidence as its own columns (not just folded into
+    // the closure_evidence text blob) so the escalation's history and PDF export can surface
+    // exactly what was cited/confirmed/justified, not merely that SOME basis was picked.
+    const basisJustification = basis === 'NO_LONGER_APPLICABLE'
+      ? (input.no_longer_applicable_reason || null)
+      : (basis === 'IMMEDIATE_MEASURE' || basis === 'EXTERNAL_INTERVENTION')
+        ? (input.basis_justification || null)
+        : null;
     const result = await query(
       `UPDATE escalations
        SET lifecycle_status = 'Closed',
@@ -93,10 +158,17 @@ export class ClosureService {
              closure_reason = $2,
              closure_evidence = $3,
              post_closure_risk_review_required = $4,
+             closure_evidence_basis = $7,
+             closure_cited_control_action_id = $8,
+             closure_verification_confirmed = $9,
+             closure_basis_justification = $10,
              updated_at = NOW()
        WHERE id = $5 AND company_id = $6
        RETURNING *`,
-      [userId, input.closure_reason || basis, auditedEvidence, requiresPostClosureRiskReview, escalationId, companyId]
+      [userId, input.closure_reason || basis, auditedEvidence, requiresPostClosureRiskReview, escalationId, companyId,
+       basis, citedControl?.id || null,
+       (basis === 'IMMEDIATE_MEASURE' || basis === 'EXTERNAL_INTERVENTION') ? !!input.verification_confirmed : null,
+       basisJustification]
     );
 
     // Close the originating signal's immediate-response chapter only where there is no
@@ -137,7 +209,7 @@ export class ClosureService {
       throw new Error(`Risk cannot be closed yet: ${canonical.closure.blockers.map((item) => `${item.message} [${item.record_type}:${item.record_id}]`).join(' ')}`);
     }
     if (!input.pattern_reduced) throw new Error('Closure blocked: sustained reduction has not been evidenced.');
-    if (!input.evidence || input.evidence.trim().length < 10) throw new Error('Closure blocked: record the evidence supporting closure.');
+    if (!input.evidence || !input.evidence.trim()) throw new Error('Closure blocked: record the evidence supporting closure.');
 
     await query(
       `INSERT INTO closure_reviews

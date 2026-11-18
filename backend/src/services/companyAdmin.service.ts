@@ -175,7 +175,7 @@ export const companyAdminService = {
     if (dow == null || !Number.isInteger(dow) || dow < 0 || dow > 6) throw new Error('Choose a valid review day (0 Sunday – 6 Saturday).');
     const time = String(patch.review_time || '09:00');
     if (!/^\d{2}:\d{2}(:\d{2})?$/.test(time)) throw new Error('Use a valid time (HH:MM).');
-    if (String(patch.reason || '').trim().length < 10) throw new Error('Record a brief reason for the schedule change (at least 10 characters).');
+    if (!String(patch.reason || '').trim()) throw new Error('Record a brief reason for the schedule change.');
     const tz = String(patch.timezone || 'Europe/London');
     // The schedule change and its audit record must succeed or fail TOGETHER. Previously the audit
     // insert was fire-and-forget (.catch(()=>{})), so an auditable change could be reported as fully

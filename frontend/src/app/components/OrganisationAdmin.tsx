@@ -548,7 +548,7 @@ function ServiceUsersSection() {
 
   const proceed = () => {
     if (!dest) { toast.error("Choose a destination service."); return; }
-    if (reason.trim().length < 5) { toast.error("Add a short reason for the transfer."); return; }
+    if (!reason.trim()) { toast.error("Add a short reason for the transfer."); return; }
     setStep("confirm");
   };
 
@@ -604,7 +604,7 @@ function ServiceUsersSection() {
               <Field label="Current service"><input className={inputCls} value={transfer.house_name || houseName(transfer.house_id)} disabled /></Field>
               <Field label="Destination service"><select className={inputCls} value={dest} onChange={e => setDest(e.target.value)}><option value="">Choose…</option>{houses.filter(h => h.id !== transfer.house_id && (h.is_active !== false)).map(h => <option key={h.id} value={h.id}>{h.name}</option>)}</select></Field>
               <Field label="Reason"><textarea className={inputCls} rows={3} value={reason} onChange={e => setReason(e.target.value)} placeholder="Why is this service user moving?" /></Field>
-              <div className="flex justify-end gap-2 pt-1"><button onClick={() => setTransfer(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={proceed} disabled={!dest || reason.trim().length < 5} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">Review transfer</button></div>
+              <div className="flex justify-end gap-2 pt-1"><button onClick={() => setTransfer(null)} className="px-4 py-2 rounded-lg border border-border text-sm">Cancel</button><button onClick={proceed} disabled={!dest || !reason.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">Review transfer</button></div>
             </>
           ) : (
             <>
@@ -724,7 +724,7 @@ function GovernanceSection({ navigate }: { navigate: (p: string) => void }) {
   })(); }, []);
 
   const saveSchedule = async () => {
-    if (schedForm.reason.trim().length < 10) { toast.error("Record a brief reason for the schedule change (at least 10 characters)."); return; }
+    if (!schedForm.reason.trim()) { toast.error("Record a brief reason for the schedule change."); return; }
     setSchedSaving(true);
     try {
       const r: any = await apiClient.patch("/company-admin/governance-schedule", { review_dow: schedForm.review_dow, review_time: schedForm.review_time, reason: schedForm.reason.trim() });

@@ -266,28 +266,28 @@ export function GovernanceDecisions({
     if (!form.source) { toast.error("Choose the signal this decision relates to."); return; }
     // The monitoring-return factual update is required on every returning review (any decision
     // branch) — not shown/required on an initial review, which has no prior state to update on.
-    if (returningReview && form.observation.trim().length < 10) {
-      toast.error("Record what has changed, including any action already taken (at least 10 characters).");
+    if (returningReview && !form.observation.trim()) {
+      toast.error("Record what has changed, including any action already taken.");
       return;
     }
     if (returningReview && !form.change_outcome) { toast.error("Record how the concern has changed."); return; }
     if (!form.severity) { toast.error("Set the current severity — Registered Manager triage is required."); return; }
     if (!form.decision) { toast.error("Choose what should happen now."); return; }
-    if (form.rationale.trim().length < 10) { toast.error("Record your assessment, and why this response is appropriate."); return; }
+    if (!form.rationale.trim()) { toast.error("Record your assessment, and why this response is appropriate."); return; }
     // The branch's primary description (what is watched / needs doing / response needed) maps to
     // what_is_happening. Close has no such field — use the signal's own description.
     const branchWhat = form.decision === "Close"
       ? (String(selectedSignal?.description || "").trim().slice(0, 255) || "Close signal")
       : form.what.trim();
-    if (form.decision !== "Close" && branchWhat.length < 5) {
+    if (form.decision !== "Close" && !branchWhat) {
       toast.error(form.decision === "Monitor" ? "Describe what staff should observe and record." : form.decision === "Escalate" ? "Describe the decision or support needed from the recipient." : "Describe what needs doing.");
       return;
     }
     if ((form.decision === "Create Action" || form.decision === "Monitor") && !form.owner_id) { toast.error(form.decision === "Monitor" ? "Choose who will monitor it." : "Choose who to assign the action to."); return; }
     if ((form.decision === "Monitor" || form.decision === "Create Action") && !form.due_at) { toast.error(form.decision === "Monitor" ? "Set the next review date." : "Set the action deadline."); return; }
     if (form.decision === "Monitor" && form.due_at <= new Date().toISOString().slice(0, 10)) { toast.error("Choose a future monitoring review date."); return; }
-    if (form.decision === "Monitor" && form.trigger.trim().length < 3) { toast.error("Record what change requires earlier action."); return; }
-    if (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED" && form.intended_outcome.trim().length < 10) {
+    if (form.decision === "Monitor" && !form.trigger.trim()) { toast.error("Record what change requires earlier action."); return; }
+    if (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED" && !form.intended_outcome.trim()) {
       toast.error("Record the result this action should achieve.");
       return;
     }
@@ -342,9 +342,9 @@ export function GovernanceDecisions({
   const allocateTask = async () => {
     if (readOnly) return;
     if (!houseId) { toast.error("Choose the service first."); return; }
-    if (taskForm.what.trim().length < 5) { toast.error("Describe the task to allocate."); return; }
-    if (taskForm.rationale.trim().length < 10) { toast.error("Record why this governance task is required."); return; }
-    if (taskForm.review_requirement === "EFFECTIVENESS_REQUIRED" && taskForm.intended_outcome.trim().length < 10) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
+    if (!taskForm.what.trim()) { toast.error("Describe the task to allocate."); return; }
+    if (!taskForm.rationale.trim()) { toast.error("Record why this governance task is required."); return; }
+    if (taskForm.review_requirement === "EFFECTIVENESS_REQUIRED" && !taskForm.intended_outcome.trim()) { toast.error("Record the intended outcome so effectiveness can later be judged."); return; }
     if (!taskForm.owner_id) { toast.error("Choose who to allocate the task to."); return; }
     if (!taskForm.due_at) { toast.error("Set a due date for this governance task."); return; }
     setTaskBusy(true);
@@ -385,8 +385,8 @@ export function GovernanceDecisions({
       confirmLabel: "Reopen",
     });
     if (reason === null) return;
-    if (reason.trim().length < 10) {
-      toast.error("Record a reason of at least 10 characters to reopen.");
+    if (!reason.trim()) {
+      toast.error("Record a reason to reopen.");
       return;
     }
     setReopeningId(d.id);

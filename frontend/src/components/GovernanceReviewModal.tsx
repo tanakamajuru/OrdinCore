@@ -62,7 +62,7 @@ export function GovernanceReviewModal({ open, onClose, onSubmitted, context, rev
   if (!open) return null;
 
   const submit = async () => {
-    if (whatIsHappening.trim().length < 5) { toast.error("Describe what is happening (min 5 characters)."); return; }
+    if (!whatIsHappening.trim()) { toast.error("Describe what is happening."); return; }
     setBusy(true);
     try {
       await apiClient.createGovernanceReview({

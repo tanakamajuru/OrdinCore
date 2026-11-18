@@ -17,8 +17,8 @@ export class ClustersController {
       const company_id = req.user!.company_id!;
       const cluster_id = req.params.id;
       const { reason } = req.body || {};
-      if (!reason || String(reason).trim().length < 10) {
-        return res.status(400).json({ success: false, message: 'A dismissal reason (min 10 characters) is required.', errors: [] });
+      if (!reason || !String(reason).trim()) {
+        return res.status(400).json({ success: false, message: 'A dismissal reason is required.', errors: [] });
       }
       await client.query('BEGIN');
       const cur = (await client.query(

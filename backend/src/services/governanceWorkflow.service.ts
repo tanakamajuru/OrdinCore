@@ -11,7 +11,7 @@ import { governanceDecisionsService } from './governanceDecisions.service';
 export const governanceWorkflowService = {
   // Leadership attention is a governance visibility marker, not a severity change.
   async markLeadershipAttention(company_id: string, pulse_id: string, user_id: string, reason: string) {
-    if (!reason || reason.trim().length < 10) throw new Error('Leadership attention requires a clear reason (at least a short sentence).');
+    if (!reason || !reason.trim()) throw new Error('Leadership attention requires a clear reason.');
     const result = await query(
       `UPDATE governance_pulses gp
           SET leadership_attention = TRUE,
@@ -36,7 +36,7 @@ export const governanceWorkflowService = {
   // scheduled review point (mirrors escalations.metadata.rm_attention).
   async addMonitoringUpdate(company_id: string, pulse_id: string, user_id: string, user_role: string, data: { note?: string; urgent?: boolean; urgent_reason?: string; client_submission_id?: string }) {
     const note = String(data.note || '').trim();
-    if (note.length < 3) throw new Error('A monitoring update needs a brief factual note.');
+    if (!note) throw new Error('A monitoring update needs a brief factual note.');
 
     // Retry/offline-replay protection (17 Oct 2026 findings, P2): a stable client-supplied
     // reference means a double tap or a replayed offline submission returns the existing update
@@ -114,8 +114,8 @@ export const governanceWorkflowService = {
     const status = String(data.status || '').toUpperCase();
     if (!allowed.includes(status)) throw new Error(`Validity status must be one of: ${allowed.join(', ')}.`);
     const reason = String(data.reason || '').trim();
-    if (status !== 'VALID' && status !== 'PENDING_VALIDATION' && reason.length < 10) {
-      throw new Error('Marking a signal DUPLICATE, ENTERED_IN_ERROR or DISPROVED needs a clear reason (at least a short sentence) — this is an auditable exclusion from qualifying counts, not a deletion.');
+    if (status !== 'VALID' && status !== 'PENDING_VALIDATION' && !reason) {
+      throw new Error('Marking a signal DUPLICATE, ENTERED_IN_ERROR or DISPROVED needs a clear reason — this is an auditable exclusion from qualifying counts, not a deletion.');
     }
     let duplicateOfId: string | null = null;
     if (status === 'DUPLICATE') {
@@ -372,7 +372,7 @@ export const governanceWorkflowService = {
     // pattern; the current trajectory is displayed alongside, not selected.
     const OUTCOMES = ['Continue Monitoring', 'Promote to Risk', 'Escalate', 'Close'];
     if (!OUTCOMES.includes(outcome)) throw new Error('Choose a valid pattern review decision.');
-    if (!rationale || rationale.trim().length < 20) throw new Error('Pattern review requires a meaningful rationale (at least a sentence).');
+    if (!rationale || !rationale.trim()) throw new Error('Pattern review requires a meaningful rationale.');
     if (outcome === 'Continue Monitoring' && !nextReviewDate) throw new Error('Continue Monitoring requires a future review date so the pattern returns for review.');
     if (outcome === 'Continue Monitoring') {
       const reviewAt = new Date(`${nextReviewDate}T00:00:00.000Z`);

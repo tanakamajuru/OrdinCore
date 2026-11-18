@@ -427,6 +427,25 @@ export const governancePdfService = {
       govParagraph(doc, `Latest effectiveness verdict: ${e.latest_effectiveness}`);
     }
 
+    // Gap #10 fix: when this escalation closed with no linked action, the chosen evidence
+    // basis and its specific supporting evidence (cited control / verified justification /
+    // no-longer-applicable reason) must be visible here, not just folded into the general
+    // closure_evidence text — otherwise a reviewer can't tell whether the basis was genuinely
+    // substantiated or just an enum pick.
+    if (e.closure_evidence_basis && e.closure_evidence_basis !== 'LINKED_ACTIONS') {
+      govSectionHeading(doc, 'Closure basis (no linked action)', `Basis: ${e.closure_evidence_basis}`);
+      govParagraph(doc, `Basis: ${e.closure_evidence_basis}`);
+      if (e.closure_cited_control_action_id_title) {
+        govSupportText(doc, `Cited existing control: ${e.closure_cited_control_action_id_title}`, { indent: 10 });
+      }
+      if (e.closure_basis_justification) {
+        govSupportText(doc, `Justification: ${e.closure_basis_justification}`, { indent: 10 });
+      }
+      if (e.closure_verification_confirmed) {
+        govSupportText(doc, 'The closer confirmed they personally verified this outcome.', { indent: 10 });
+      }
+    }
+
     return finishGovernanceRecord(doc, buffers, `Escalation_${e.id}.pdf`);
   },
 

@@ -263,7 +263,10 @@ export class EscalationsService {
         action_state.latest_effectiveness,
         COALESCE(action_state.actions_total_count, 0) AS actions_total_count,
         COALESCE(action_state.actions_completed_count, 0) AS actions_completed_count,
-        COALESCE(action_state.actions_effectiveness_reviewed_count, 0) AS actions_effectiveness_reviewed_count
+        COALESCE(action_state.actions_effectiveness_reviewed_count, 0) AS actions_effectiveness_reviewed_count,
+        -- Gap #10: the title of the specific existing control cited on a no-linked-action
+        -- closure, so the escalation record/PDF can name it rather than just an id.
+        cited_control.title AS closure_cited_control_action_id_title
        FROM canonical_escalation_state_v e
        JOIN users u1 ON u1.id = e.escalated_by
        LEFT JOIN users u2 ON u2.id = e.escalated_to
@@ -272,6 +275,7 @@ export class EscalationsService {
        LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
        LEFT JOIN governance_pulses p ON p.id = e.source_pulse_id
        LEFT JOIN users pu ON pu.id = p.created_by
+       LEFT JOIN risk_actions cited_control ON cited_control.id = e.closure_cited_control_action_id
        LEFT JOIN LATERAL (
          SELECT
            (ARRAY_AGG(COALESCE(ra.effectiveness_outcome, ra.effectiveness::text)
@@ -381,7 +385,7 @@ export class EscalationsService {
     const OUTCOMES = ['Keep Open', 'Add Controls', 'Re-escalate', 'Request Risk Closure'];
     if (!OUTCOMES.includes(input.outcome)) throw new Error('Choose a valid post-escalation review outcome.');
     const note = (input.note || '').trim();
-    if (input.outcome !== 'Keep Open' && note.length < 10) throw new Error('This outcome needs a short explanation (at least a sentence).');
+    if (input.outcome !== 'Keep Open' && !note) throw new Error('This outcome needs a short explanation.');
 
     const esc = (await query(`SELECT * FROM escalations WHERE id = $1 AND company_id = $2`, [id, company_id])).rows[0];
     if (!esc) throw new Error('Escalation not found.');
@@ -591,7 +595,7 @@ export class EscalationsService {
       throw new Error('This escalation is closed and cannot take new updates (Governance Integrity Rule 7.2).');
     }
     const text = String(data.note || data.description || '').trim();
-    if (text.length < 3) throw new Error('A progress update needs a brief factual note.');
+    if (!text) throw new Error('A progress update needs a brief factual note.');
     const urgent = !!data.urgent;
     const description = urgent ? `[URGENT — RM attention required] ${data.urgent_reason ? `(${String(data.urgent_reason).trim()}) ` : ''}${text}` : text;
     const result = await query(
@@ -725,7 +729,7 @@ export class EscalationsService {
   }
 
   async reopen(id: string, company_id: string, user_id: string, reopened_reason: string) {
-    if (!reopened_reason || reopened_reason.trim().length < 5) {
+    if (!reopened_reason || !reopened_reason.trim()) {
       throw new Error('A reason is required to reopen an escalation.');
     }
     const escalation = await query('SELECT * FROM escalations WHERE id = $1 AND company_id = $2', [id, company_id]);
@@ -761,7 +765,7 @@ export class EscalationsService {
    */
   async escalateFurther(id: string, company_id: string, user_id: string, reason?: string) {
     // Doctrine: moving accountability upward (RM → Director → RI) requires a meaningful rationale.
-    if (!reason || !reason.trim() || reason.trim().length < 3) {
+    if (!reason || !reason.trim()) {
       throw new Error('A reason is required to escalate further up the accountability ladder.');
     }
     const escRes = await query(
@@ -836,7 +840,7 @@ export class EscalationsService {
     const title = String(body.title || '').trim() || `Action from escalation: ${(e.reason || '').slice(0, 120)}`;
     if (!body.assigned_to) throw new Error('Choose who is responsible for this task.');
     const reviewRequirement = body.review_requirement || 'EFFECTIVENESS_REQUIRED';
-    if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!body.intended_outcome || body.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+    if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!body.intended_outcome || !body.intended_outcome.trim())) throw new Error('Record the intended outcome so effectiveness can later be judged.');
     // Nov 2026 duplicate-prevention brief §5: the action, its escalation_actions audit row and
     // the idempotency result are committed together in ONE transaction — a failure partway
     // through (e.g. the audit insert) rolls back the action too, so a failed response never

@@ -129,7 +129,7 @@ export function ControlledScreenAssist({ pathname, role }: { pathname: string; r
           </div>}
         </div>
         <div className="flex flex-wrap gap-2 mb-3">{['What is this screen?','What is my role here?','How do I use this screen?','Explain the controls','What happens next?'].map(q => <button type="button" key={q} onClick={() => ask(q)} className="text-xs border border-border rounded-md px-2.5 py-1.5 hover:bg-muted">{q}</button>)}</div>
-        <form onSubmit={(e) => { e.preventDefault(); void ask(question); }} className="flex gap-2"><input value={question} onChange={e => setQuestion(e.target.value)} maxLength={500} className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Ask about this screen…" aria-label="Question" /><button type="submit" disabled={loading || question.trim().length < 3} className="rounded-lg bg-primary text-primary-foreground p-2.5 disabled:opacity-50" aria-label="Send"><Send className="w-4 h-4" /></button></form>
+        <form onSubmit={(e) => { e.preventDefault(); void ask(question); }} className="flex gap-2"><input value={question} onChange={e => setQuestion(e.target.value)} maxLength={500} className="flex-1 rounded-lg border border-input bg-background px-3 py-2 text-sm" placeholder="Ask about this screen…" aria-label="Question" /><button type="submit" disabled={loading || !question.trim()} className="rounded-lg bg-primary text-primary-foreground p-2.5 disabled:opacity-50" aria-label="Send"><Send className="w-4 h-4" /></button></form>
       </div>
     </aside>
   </>;

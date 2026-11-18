@@ -118,7 +118,7 @@ export function EscalationLog() {
 
   const addProgress = async () => {
     if (!selectedEscalation) return;
-    if (progressNote.trim().length < 3) { toast.error("Add a brief factual progress note."); return; }
+    if (!progressNote.trim()) { toast.error("Add a brief factual progress note."); return; }
     setProgressBusy(true);
     try {
       await apiClient.post(`/escalations/${selectedEscalation.id}/progress`, {
@@ -145,7 +145,7 @@ export function EscalationLog() {
   const allocateTask = async (force = false) => {
     if (!selectedEscalation) return;
     if (!taskForm.title.trim()) { toast.error('Enter what needs doing.'); return; }
-    if (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
+    if (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && !taskForm.intended_outcome.trim()) { toast.error('Record the intended outcome so effectiveness can later be judged.'); return; }
     if (!taskForm.assigned_to) { toast.error('Choose who is responsible.'); return; }
     // 30 Oct 2026 developer correction brief ("Review rationale and tracked action"):
     // "Review outcome and rationale" is labelled required on screen, but this previously
@@ -860,7 +860,7 @@ export function EscalationLog() {
                           <input type="checkbox" checked={progressUrgent} onChange={(e) => setProgressUrgent(e.target.checked)} />
                           Flag urgent Registered Manager attention
                         </label>
-                        <Button onClick={addProgress} disabled={progressBusy || progressNote.trim().length < 3} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
+                        <Button onClick={addProgress} disabled={progressBusy || !progressNote.trim()} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
                           {progressBusy ? "Adding…" : "Add update"}
                         </Button>
                         <p className="text-[11px] text-muted-foreground">Escalation ownership, monitoring decisions and closure remain the Registered Manager's.</p>
@@ -1053,7 +1053,7 @@ export function EscalationLog() {
                             )}
                             <button
                               onClick={() => allocateTask(false)}
-                              disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && taskForm.intended_outcome.trim().length < 10) || !taskForm.assigned_to || !taskForm.due_date || !resolutionNotes.trim()}
+                              disabled={assigningTask || !taskForm.title.trim() || (taskForm.review_requirement === 'EFFECTIVENESS_REQUIRED' && !taskForm.intended_outcome.trim()) || !taskForm.assigned_to || !taskForm.due_date || !resolutionNotes.trim()}
                               title={!resolutionNotes.trim() ? 'Add the rationale above — why is this action needed?' : undefined}
                               className="w-full px-4 py-2.5 rounded-lg bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 disabled:opacity-50"
                             >

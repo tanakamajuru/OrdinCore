@@ -229,6 +229,20 @@ export class GovernanceCaseService {
     c.interventions.forEach((x: any) => push('Intervention', 'Leadership intervention', x, x.intervention, x.status, x.created_at, '/interventions', x.expected_outcome));
     c.intervention_oversight_events.forEach((x: any) => push('Oversight Event', 'Intervention oversight', x, x.narrative, x.event_type, x.created_at, '/interventions'));
     c.closure_reviews.forEach((x: any) => push('Closure Review', 'Evidence-based closure decision', x, x.evidence, x.closure_decision, x.created_at, null));
+    // Gap #5 fix: the general case timeline previously omitted signal_monitoring_updates
+    // (unlike directSignalTimeline, which already includes them) — so a risk promoted from a
+    // signal/pattern never showed the monitoring notes recorded against its source signal(s).
+    // Scoped by the signal ids already resolved onto this case (c.ids.signals).
+    const monitoringUpdates = c.ids.signals.length ? (await query(
+      `SELECT smu.*, NULLIF(TRIM(COALESCE(u.first_name,'') || ' ' || COALESCE(u.last_name,'')), '') AS author_name
+         FROM signal_monitoring_updates smu LEFT JOIN users u ON u.id=smu.author_id
+        WHERE smu.company_id=$1 AND smu.pulse_entry_id=ANY($2::uuid[]) ORDER BY smu.created_at`,
+      [companyId, c.ids.signals])).rows : [];
+    monitoringUpdates.forEach((m: any) => rows.push({
+      record: 'Monitoring Update', relationship: m.urgent ? 'Urgent monitoring note' : 'Monitoring note',
+      id: m.id, label: m.note, status: m.urgent ? 'Flagged urgent' : 'Logged', at: m.created_at,
+      link: null, evidence: m.urgent_reason || null, author: m.author_name || null,
+    }));
     return rows.sort((a, b) => new Date(a.at || 0).getTime() - new Date(b.at || 0).getTime());
   }
 

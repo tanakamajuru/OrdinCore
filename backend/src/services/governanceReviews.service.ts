@@ -20,7 +20,7 @@ export interface GovernanceReviewInput {
  */
 export class GovernanceReviewsService {
   async create(companyId: string, userId: string, dto: GovernanceReviewInput) {
-    if (!dto.what_is_happening || dto.what_is_happening.trim().length < 5) {
+    if (!dto.what_is_happening || !dto.what_is_happening.trim()) {
       throw new Error('A description of what is happening is required.');
     }
     if (!dto.decision) throw new Error('A decision is required.');

@@ -38,10 +38,6 @@ export const ActionCompletionModal: React.FC<ActionCompletionModalProps> = ({
       return;
     }
 
-    if (rationale.length < 10) {
-      toast.error('Rationale must be at least 10 characters.');
-      return;
-    }
 
     setLoading(true);
     try {
@@ -125,7 +121,7 @@ export const ActionCompletionModal: React.FC<ActionCompletionModalProps> = ({
             <Button
               type="submit"
               className="flex-1"
-              disabled={loading || !outcome || rationale.length < 10}
+              disabled={loading || !outcome || !rationale}
             >
               {loading ? 'Processing...' : 'Complete Action'}
             </Button>

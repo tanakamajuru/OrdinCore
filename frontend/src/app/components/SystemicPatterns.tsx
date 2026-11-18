@@ -57,7 +57,7 @@ export function SystemicPatterns() {
   useGovernanceRefresh(load);
 
   const submitReview = async () => {
-    if (rationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (!rationale.trim()) { toast.error("A review rationale is required."); return; }
     if (outcome === "Continue Monitoring" && (!nextDate || new Date(`${nextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     if (outcome === "Close" && (!closureCheck || !closureCheck.eligible)) { toast.error("Resolve the displayed closure blockers before closing this pattern."); return; }
     setBusy(true);
@@ -212,11 +212,11 @@ export function SystemicPatterns() {
                   )}
                 </div>
               )}
-              <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
+              <label className="block text-sm font-medium mb-1">Rationale</label>
               <textarea value={rationale} onChange={(e) => setRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the cross-service evidence show?" />
               <div className="flex justify-end gap-3 mt-4">
                 <button onClick={() => setReviewTarget(null)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
-                <button onClick={submitReview} disabled={busy || rationale.trim().length < 20 || (outcome === "Close" && (checkingClosure || !closureCheck?.eligible))} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Saving…" : outcome === "Close" ? "Close pattern" : "Record review"}</button>
+                <button onClick={submitReview} disabled={busy || !rationale.trim() || (outcome === "Close" && (checkingClosure || !closureCheck?.eligible))} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{busy ? "Saving…" : outcome === "Close" ? "Close pattern" : "Record review"}</button>
               </div>
             </div>
           </div>

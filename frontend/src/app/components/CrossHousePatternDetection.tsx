@@ -72,7 +72,7 @@ export function CrossHousePatternDetection() {
 
   const submitDismiss = async () => {
     if (!dismissTarget) return;
-    if (dismissReason.trim().length < 10) { toast.error("Please give a reason (at least 10 characters)."); return; }
+    if (!dismissReason.trim()) { toast.error("Please give a reason."); return; }
     setDismissing(true);
     try {
       await apiClient.post(`/clusters/${dismissTarget.id}/dismiss`, { reason: dismissReason.trim() });
@@ -544,7 +544,7 @@ export function CrossHousePatternDetection() {
             </div>
             <div className="p-5 pt-0 flex justify-end gap-3">
               <Button variant="outline" onClick={() => setDismissTarget(null)} disabled={dismissing}>Cancel</Button>
-              <Button onClick={submitDismiss} disabled={dismissing || dismissReason.trim().length < 10}
+              <Button onClick={submitDismiss} disabled={dismissing || !dismissReason.trim()}
                 className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
                 {dismissing ? "Dismissing…" : "Dismiss Pattern"}
               </Button>

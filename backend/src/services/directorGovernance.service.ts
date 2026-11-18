@@ -179,7 +179,7 @@ export class DirectorGovernanceService {
 
   async createIntervention(companyId: string, directorId: string, data: { service_id: string; risk_id: string; intervention_type: string; message: string; target_user_id?: string }) {
     if (!data.risk_id) throw new Error('A source risk is required for a Director intervention.');
-    if (!data.message || data.message.trim().length < 10) throw new Error('A meaningful Director rationale is required.');
+    if (!data.message || !data.message.trim()) throw new Error('A meaningful Director rationale is required.');
 
     // Consolidation: a Director does not create a second operational intervention. Resolve the
     // source risk to the canonical RM-owned theme intervention, then append an immutable oversight

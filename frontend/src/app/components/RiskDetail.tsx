@@ -71,6 +71,14 @@ interface TimelineEntry {
   description: string;
   created_at: string;
   created_by_name: string;
+  // Gap #5: entries merged in from the signal(s)' governance history (decisions, monitoring
+  // updates, escalations) alongside the risk's own risk_events. `record` distinguishes the
+  // kind of entry so it can be labelled/linked appropriately; risk_events rows carry
+  // record: 'Risk Event'.
+  record?: string;
+  status?: string | null;
+  link?: string | null;
+  evidence?: string | null;
 }
 
 export function RiskDetail() {
@@ -359,7 +367,7 @@ export function RiskDetail() {
   const handleCloseRisk = async () => {
     if (!id) return;
     if (!closeVerdict) { toast.error("Choose a resolution verdict."); return; }
-    if (closeReason.trim().length < 20) { toast.error("A closure rationale of at least 20 characters is required."); return; }
+    if (!closeReason.trim()) { toast.error("A closure rationale is required."); return; }
     setIsClosing(true);
     try {
       await apiClient.post(`/risks/${id}/close`, { verdict: closeVerdict, reason: closeReason.trim() });
@@ -376,7 +384,7 @@ export function RiskDetail() {
   // WITHOUT closing the risk. It is allowed even when the closure gate is not yet satisfied.
   const handleMonitorReview = async () => {
     if (!id) return;
-    if (closeReason.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (!closeReason.trim()) { toast.error("A review rationale is required."); return; }
     if (!monitorDate || new Date(`${monitorDate}T00:00:00`).getTime() <= Date.now()) { toast.error("Choose a future next-review date to keep monitoring this risk."); return; }
     setIsClosing(true);
     try {
@@ -468,7 +476,7 @@ export function RiskDetail() {
       toast.error('Choose a leadership owner for this strategic risk action');
       return;
     }
-    if (newAction.review_requirement === 'EFFECTIVENESS_REQUIRED' && newAction.intended_outcome.trim().length < 10) {
+    if (newAction.review_requirement === 'EFFECTIVENESS_REQUIRED' && !newAction.intended_outcome.trim()) {
       toast.error('Record what should change if this action works');
       return;
     }
@@ -548,11 +556,11 @@ export function RiskDetail() {
 
   const handleRateEffectiveness = async () => {
     if (!showEffectivenessAction) return;
-    if (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) {
-      toast.error('Please provide at least 20 characters of evidence.');
+    if (effectivenessRating !== 'Too Early To Assess' && !effectivenessEvidence.trim()) {
+      toast.error('Please provide evidence.');
       return;
     }
-    if (effectivenessIntendedOutcome.trim().length < 10) { toast.error('Record the intended outcome before rating effectiveness.'); return; }
+    if (!effectivenessIntendedOutcome.trim()) { toast.error('Record the intended outcome before rating effectiveness.'); return; }
     // Too Early and Not Effective both require a scheduled re-review so the control returns to the
     // due queue (a negative verdict is not the end of oversight).
     if ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && (!effectivenessNextReviewDate || new Date(`${effectivenessNextReviewDate}T00:00:00`).getTime() <= Date.now())) {
@@ -563,8 +571,8 @@ export function RiskDetail() {
     const ratingAction = actions.find((x) => x.id === showEffectivenessAction);
     const schedAt = ratingAction?.effectiveness_due_at || null;
     const isEarly = !!schedAt && new Date(schedAt).getTime() > Date.now();
-    if (isEarly && effectivenessEarlyReason.trim().length < 10) { toast.error('Record why you are reviewing before the scheduled date (at least 10 characters).'); return; }
-    if (effectivenessRating === 'Too Early To Assess' && effectivenessEvidenceStillNeeded.trim().length < 3) { toast.error('Record what evidence is still needed.'); return; }
+    if (isEarly && !effectivenessEarlyReason.trim()) { toast.error('Record why you are reviewing before the scheduled date.'); return; }
+    if (effectivenessRating === 'Too Early To Assess' && !effectivenessEvidenceStillNeeded.trim()) { toast.error('Record what evidence is still needed.'); return; }
     setIsRating(true);
     try {
       await apiClient.patch(`/actions/${showEffectivenessAction}/effectiveness`, {
@@ -1160,14 +1168,34 @@ export function RiskDetail() {
                       )}
                     </div>
                     <div className="flex-1 pb-6">
-                      <p className="text-sm text-muted-foreground">
-                        {entry.created_at ? new Date(entry.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <p className="text-sm text-muted-foreground">
+                          {entry.created_at ? new Date(entry.created_at).toLocaleString('en-GB', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'N/A'}
+                        </p>
+                        {entry.record && entry.record !== 'Risk Event' && (
+                          <span className="text-xs px-2 py-0.5 border border-border bg-muted text-muted-foreground">
+                            {entry.record}{entry.status ? ` · ${entry.status}` : ''}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-foreground">
+                        {entry.link ? (
+                          <a href={entry.link} className="hover:underline">
+                            {(entry.description || '')
+                              .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
+                              .replace(/signal cluster/i, 'signal pattern')
+                              .replace(/\s{2,}/g, ' ')
+                              .trim()}
+                          </a>
+                        ) : (entry.description || '')
+                          .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
+                          .replace(/signal cluster/i, 'signal pattern')
+                          .replace(/\s{2,}/g, ' ')
+                          .trim()}
                       </p>
-                      <p className="text-foreground">{(entry.description || '')
-                        .replace(/\b[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b/gi, '')
-                        .replace(/signal cluster/i, 'signal pattern')
-                        .replace(/\s{2,}/g, ' ')
-                        .trim()}</p>
+                      {entry.evidence && (
+                        <p className="text-sm text-muted-foreground italic">Evidence: {entry.evidence}</p>
+                      )}
                       <p className="text-sm text-muted-foreground">{entry.created_by_name || 'Unknown'}</p>
                     </div>
                   </div>
@@ -1524,7 +1552,6 @@ export function RiskDetail() {
               placeholder="What evidence shows this control worked (or didn't)? e.g. MAR audit over 7 days, zero recurrences."
               className="w-full border-2 border-border bg-card p-3 text-sm mb-1 focus:outline-none focus:border-primary"
             />
-            {effectivenessRating !== 'Too Early To Assess' && <p className={`text-[11px] mb-4 ${effectivenessEvidence.trim().length < 20 ? 'text-destructive' : 'text-muted-foreground'}`}>{effectivenessEvidence.trim().length}/20 characters minimum</p>}
             {(() => { const ra = actions.find((x) => x.id === showEffectivenessAction); const sched = ra?.effectiveness_due_at; return !!sched && new Date(sched).getTime() > Date.now(); })() && <div className="mb-4">
               <div className="text-[11px] font-semibold text-amber-800 bg-amber-100 border border-amber-200 rounded px-2 py-1 mb-2 inline-block">Reviewing before scheduled date</div>
               <label className="block text-xs uppercase tracking-widest text-muted-foreground mb-2">Why are you reviewing before the scheduled date?</label>
@@ -1551,7 +1578,7 @@ export function RiskDetail() {
               </button>
               <button
                 onClick={handleRateEffectiveness}
-                disabled={isRating || effectivenessIntendedOutcome.trim().length < 10 || (effectivenessRating !== 'Too Early To Assess' && effectivenessEvidence.trim().length < 20) || ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && !effectivenessNextReviewDate)}
+                disabled={isRating || !effectivenessIntendedOutcome.trim() || (effectivenessRating !== 'Too Early To Assess' && !effectivenessEvidence.trim()) || ((effectivenessRating === 'Too Early To Assess' || effectivenessRating === 'Not Effective') && !effectivenessNextReviewDate)}
                 className="px-6 py-2 bg-primary text-primary-foreground  uppercase tracking-widest hover:bg-primary transition-all disabled:opacity-50"
               >
                 {isRating ? 'Saving...' : 'Submit Rating'}
@@ -1691,7 +1718,7 @@ export function RiskDetail() {
                 </div>
               )}
               <div>
-                <label className="block mb-2 text-foreground text-sm">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
+                <label className="block mb-2 text-foreground text-sm">Rationale</label>
                 <textarea
                   value={closeReason}
                   onChange={(e) => setCloseReason(e.target.value)}
@@ -1710,7 +1737,7 @@ export function RiskDetail() {
               {closeVerdict === "__monitor__" ? (
                 <button
                   onClick={handleMonitorReview}
-                  disabled={isClosing || closeReason.trim().length < 20 || !monitorDate}
+                  disabled={isClosing || !closeReason.trim() || !monitorDate}
                   className="px-4 py-2 bg-primary text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
                 >
                   {isClosing ? 'Saving…' : 'Record review · keep monitoring'}
@@ -1718,7 +1745,7 @@ export function RiskDetail() {
               ) : (
                 <button
                   onClick={handleCloseRisk}
-                  disabled={isClosing || !closeVerdict || closeReason.trim().length < 20 || (closureReview && !closureReview.eligible)}
+                  disabled={isClosing || !closeVerdict || !closeReason.trim() || (closureReview && !closureReview.eligible)}
                   title={closureReview && !closureReview.eligible ? closureReview.blockers?.join(" ") : undefined}
                   className="px-4 py-2 bg-success text-primary-foreground hover:opacity-90 transition-colors disabled:opacity-50"
                 >

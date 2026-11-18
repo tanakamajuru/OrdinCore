@@ -173,9 +173,9 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   // Dismiss there was a dead end (the reported mix-up). An established/cross-service pattern is
   // reviewed in that workspace, not dismissed — this handler is only wired to emerging candidates.
   const dismissPattern = async (p: any) => {
-    const reason = await confirm({ message: "Why are you setting this emerging concern aside? A brief reason (min 10 characters) is recorded on the audit trail.", requireReason: true, confirmLabel: "Dismiss" });
+    const reason = await confirm({ message: "Why are you setting this emerging concern aside? A brief reason is recorded on the audit trail.", requireReason: true, confirmLabel: "Dismiss" });
     if (reason === null) return; // cancelled
-    if (reason.trim().length < 10) { toast.error("A dismissal reason of at least 10 characters is required."); return; }
+    if (!reason.trim()) { toast.error("A dismissal reason is required."); return; }
     try {
       await apiClient.post(`/clusters/${p.id}/dismiss`, { reason: reason.trim() });
       toast.success("Emerging concern dismissed and recorded on the audit trail.");
@@ -198,7 +198,7 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
   const [reviewBusy, setReviewBusy] = useState(false);
   const openReview = (p: any) => navigate(`/systemic-patterns?focus=${p.id}`);
   const submitReview = async () => {
-    if (reviewRationale.trim().length < 20) { toast.error("A review rationale of at least 20 characters is required."); return; }
+    if (!reviewRationale.trim()) { toast.error("A review rationale is required."); return; }
     if (reviewOutcome === "Continue Monitoring" && (!reviewNextDate || new Date(`${reviewNextDate}T00:00:00`).getTime() <= Date.now())) { toast.error("Choose a future review date to keep monitoring this pattern."); return; }
     setReviewBusy(true);
     try {
@@ -418,11 +418,11 @@ export function Rm5Interface({ initialScreen = "today" }: { initialScreen?: "tod
                     </div>
                   )}
                   {reviewOutcome === "Close" && <p className="text-[11px] text-amber-600 mb-2">A pattern can only close once its linked risk and escalations are resolved — it is the last thing to close.</p>}
-                  <label className="block text-sm font-medium mb-1">Rationale <span className="text-muted-foreground">(min 20 characters)</span></label>
+                  <label className="block text-sm font-medium mb-1">Rationale</label>
                   <textarea value={reviewRationale} onChange={(e) => setReviewRationale(e.target.value)} rows={3} className="w-full p-2.5 border-2 border-border rounded-lg bg-background text-sm resize-none" placeholder="What does the evidence show since the last review?" />
                   <div className="flex justify-end gap-3 mt-4">
                     <button onClick={() => setReviewTarget(null)} className="px-4 py-2 rounded-lg border border-border text-sm hover:bg-muted">Cancel</button>
-                    <button onClick={submitReview} disabled={reviewBusy || reviewRationale.trim().length < 20} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{reviewBusy ? "Saving…" : "Record review"}</button>
+                    <button onClick={submitReview} disabled={reviewBusy || !reviewRationale.trim()} className="px-4 py-2 rounded-lg bg-primary text-primary-foreground text-sm font-semibold disabled:opacity-50">{reviewBusy ? "Saving…" : "Record review"}</button>
                   </div>
                 </div>
               </div>

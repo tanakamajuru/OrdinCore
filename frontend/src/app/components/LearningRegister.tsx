@@ -88,8 +88,8 @@ export function LearningRegister() {
   }, [rows, loading, searchParams]);
 
   const submitAssess = async (id: string) => {
-    if (assessState === "IDENTIFIED" && assessWhatLearnt.trim().length < 3) { toast.error("Record what was learnt."); return; }
-    if (assessState === "NONE_IDENTIFIED" && assessReason.trim().length < 3) { toast.error("Give a brief reason why no learning was identified."); return; }
+    if (assessState === "IDENTIFIED" && !assessWhatLearnt.trim()) { toast.error("Record what was learnt."); return; }
+    if (assessState === "NONE_IDENTIFIED" && !assessReason.trim()) { toast.error("Give a brief reason why no learning was identified."); return; }
     setBusy(id);
     try {
       await apiClient.post(`/learning/${id}/assess`, {
@@ -381,7 +381,7 @@ export function LearningRegister() {
                           <div className="mt-2 space-y-2 rounded-lg border border-border p-3">
                             <textarea value={implementEvidence} onChange={(e) => setImplementEvidence(e.target.value)} rows={2} placeholder="What change was actually made *" className="w-full text-sm p-2 border border-border rounded-lg bg-background" />
                             <div className="flex gap-2">
-                              <button disabled={busy === r.id} onClick={() => { if (implementEvidence.trim().length < 3) { toast.error("Describe the change that was implemented."); return; } recordImplementation(r.id, implementEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save implementation"}</button>
+                              <button disabled={busy === r.id} onClick={() => { if (!implementEvidence.trim()) { toast.error("Describe the change that was implemented."); return; } recordImplementation(r.id, implementEvidence.trim()); }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save implementation"}</button>
                               <button onClick={() => setImplementing(null)} className="text-xs px-3 py-1.5 rounded-lg border border-border text-muted-foreground">Cancel</button>
                             </div>
                           </div>
@@ -447,7 +447,7 @@ export function LearningRegister() {
                             <div className="flex gap-2">
                               <button disabled={busy === r.id || !verifyOutcome} onClick={() => {
                                 if (!verifyOutcome) { toast.error("Choose an outcome."); return; }
-                                if (verifyEvidence.trim().length < 3) { toast.error("Give the evidence behind this verification."); return; }
+                                if (!verifyEvidence.trim()) { toast.error("Give the evidence behind this verification."); return; }
                                 if (verifyOutcome !== "Effective" && !verifyReviewDue) { toast.error("Give a follow-up review date for this outcome."); return; }
                                 verifyImprovement(r.id, verifyOutcome, verifyEvidence.trim(), verifyOutcome !== "Effective" ? verifyReviewDue : undefined);
                               }} className="text-xs font-semibold px-3 py-1.5 rounded-lg bg-primary text-primary-foreground disabled:opacity-50">{busy === r.id ? "Saving…" : "Save verification"}</button>

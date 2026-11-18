@@ -47,7 +47,7 @@ const validate=(i:GovernanceActionInput)=>{
   if(!i.companyId||!i.createdBy) throw new Error('Canonical action requires company and creator.');
   if(!String(i.title||'').trim()) throw new Error('Canonical action requires a title.');
   if(!i.reviewRequirement) throw new Error('Choose whether this action is completion-only or requires effectiveness review.');
-  if(i.reviewRequirement==='EFFECTIVENESS_REQUIRED' && String(i.intendedOutcome||'').trim().length<10)
+  if(i.reviewRequirement==='EFFECTIVENESS_REQUIRED' && !String(i.intendedOutcome||'').trim())
     throw new Error('Effectiveness-bearing actions require an intended outcome before work starts.');
   const hasSource=!!(i.riskId||i.governanceReviewId||i.sourcePulseId||i.sourceClusterId||i.escalationId);
   if(i.reviewRequirement==='EFFECTIVENESS_REQUIRED'&&!hasSource)
@@ -121,14 +121,14 @@ export const canonicalGovernanceActionService={
 
   async complete(input:{companyId:string;actionId:string;completedBy:string;completionNote?:string|null;completionOutcome:string;completionRationale:string}){
     if(!input.completionOutcome) throw new Error('Outcome is mandatory for action completion.');
-    if(String(input.completionRationale||'').trim().length<10) throw new Error('Completion rationale must be at least 10 characters.');
+    if(!String(input.completionRationale||'').trim()) throw new Error('Completion rationale is required.');
     const action=(await query(`SELECT * FROM risk_actions WHERE id=$1 AND company_id=$2`,[input.actionId,input.companyId])).rows[0];
     if(!action) throw new Error('Action not found.');
     if(/complete|completed|closed|resolved/i.test(String(action.status||''))||action.completed_at) throw new Error('Action is already completed.');
-    if(action.review_requirement==='EFFECTIVENESS_REQUIRED' && String(action.intended_outcome||'').trim().length<10)
+    if(action.review_requirement==='EFFECTIVENESS_REQUIRED' && !String(action.intended_outcome||'').trim())
       throw new Error('Governance Block: this effectiveness-bearing action has no pre-existing intended outcome.');
     const evidence=String(input.completionNote||'').trim()||String(input.completionRationale).trim();
-    if(evidence.length<10) throw new Error('Completion evidence is required.');
+    if(!evidence) throw new Error('Completion evidence is required.');
     const updated=(await query(`UPDATE risk_actions SET status='Completed',completion_note=$1,completion_outcome=$2,
       completion_rationale=$3,completion_evidence=$4,completed_at=NOW(),completed_by=$5
       WHERE id=$6 AND company_id=$7 RETURNING *`,
@@ -148,9 +148,9 @@ export const canonicalGovernanceActionService={
     const action=(await query(`SELECT * FROM risk_actions WHERE id=$1 AND company_id=$2`,[input.actionId,input.companyId])).rows[0];
     if(!action) throw new Error('Action not found.');
     if(action.evidence_contract_version==='action-evidence-v1') throw new Error('This is not a legacy evidence-gap action.');
-    if(String(input.evidence||'').trim().length<10||String(input.reason||'').trim().length<10||String(input.source||'').trim().length<3)
+    if(!String(input.evidence||'').trim()||!String(input.reason||'').trim()||!String(input.source||'').trim())
       throw new Error('Historical remediation requires evidence, source and a clear reason.');
-    if(input.reviewRequirement==='EFFECTIVENESS_REQUIRED'&&String(input.intendedOutcome||action.intended_outcome||'').trim().length<10)
+    if(input.reviewRequirement==='EFFECTIVENESS_REQUIRED'&&!String(input.intendedOutcome||action.intended_outcome||'').trim())
       throw new Error('Historical effectiveness remediation requires a reconstructed intended outcome.');
     const updated=(await query(`UPDATE risk_actions SET
       completion_evidence=COALESCE(NULLIF(completion_evidence,''),$1),

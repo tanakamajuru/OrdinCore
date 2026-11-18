@@ -160,8 +160,8 @@ export function MyActions() {
       return;
     }
 
-    if (rationale.length < 10) {
-      toast.error("Rationale must be at least 10 characters.");
+    if (!rationale) {
+      toast.error("Rationale is required.");
       return;
     }
 

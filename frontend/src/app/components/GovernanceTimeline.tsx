@@ -194,7 +194,7 @@ export function GovernanceTimeline() {
 
   // Persist a Registered Manager / leadership commentary onto the incident record.
   const saveCommentary = async () => {
-    if (commentary.trim().length < 5) { toast.error('Please enter your commentary.'); return; }
+    if (!commentary.trim()) { toast.error('Please enter your commentary.'); return; }
     setSavingCommentary(true);
     try {
       await apiClient.patch(`/incidents/${incidentId}`, { leadership_commentary: commentary.trim() });
@@ -487,7 +487,7 @@ export function GovernanceTimeline() {
             />
             <div className="flex justify-end gap-3">
               <button onClick={() => { setShowCommentary(false); setCommentary(''); }} className="px-5 py-2 border-2 border-border rounded text-foreground hover:bg-muted">Cancel</button>
-              <button onClick={saveCommentary} disabled={savingCommentary || commentary.trim().length < 5} className="px-5 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">{savingCommentary ? 'Saving…' : 'Save Commentary'}</button>
+              <button onClick={saveCommentary} disabled={savingCommentary || !commentary.trim()} className="px-5 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90 disabled:opacity-50">{savingCommentary ? 'Saving…' : 'Save Commentary'}</button>
             </div>
           </div>
         </div>

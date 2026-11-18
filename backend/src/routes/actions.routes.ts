@@ -24,6 +24,8 @@ router.patch('/:id/link', requireAuth, requireTenant, requireRole('TEAM_LEADER',
 router.get('/my', requireAuth, requireTenant, requireRole('SUPPORT_WORKER', 'TEAM_LEADER', 'REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN'), actionsController.getMyActions.bind(actionsController));
 // Service-scoped oversight: all open actions across the caller's house(s), any assignee.
 router.get('/oversight', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), actionsController.getOversightActions.bind(actionsController));
+// Gap #10: picker source for "cite an existing control" on escalation closure.
+router.get('/effective-controls', requireAuth, requireTenant, requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN'), actionsController.getEffectiveControls.bind(actionsController));
 
 /**
  * @openapi

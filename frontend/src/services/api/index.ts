@@ -593,8 +593,20 @@ class ApiClient {
     further_escalation_required: boolean;
     closure_reason?: string;
     evidence: string;
+    evidence_basis?: string;
+    // Gap #10: basis-specific evidence required when there is no linked action.
+    cited_control_action_id?: string;
+    basis_justification?: string;
+    verification_confirmed?: boolean;
+    no_longer_applicable_reason?: string;
   }): Promise<ApiResponse<any>> {
     return this.post<any>(`/closure/escalations/${id}`, data);
+  }
+
+  // Gap #10: the "existing control" picker — company's actions with a FINAL effectiveness
+  // verdict, used to cite a specific control when closing an escalation with no linked action.
+  async getEffectiveControls(): Promise<ApiResponse<any>> {
+    return this.get<any>(`/actions/effective-controls`);
   }
 
   async closeRisk(id: string, data: {

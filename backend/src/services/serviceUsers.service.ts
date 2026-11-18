@@ -13,7 +13,7 @@ export class ServiceUsersService {
   async transfer(input: TransferServiceUserInput) {
     const reason = (input.reason || '').trim();
     if (!input.destination_house_id) throw new Error('Destination service is required.');
-    if (reason.length < 5) throw new Error('Please record a clear reason for the transfer.');
+    if (!reason) throw new Error('Please record a clear reason for the transfer.');
 
     const client = await getClient();
     try {

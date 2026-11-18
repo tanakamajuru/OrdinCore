@@ -32,7 +32,7 @@ export const governanceQueriesService = {
   },
 
   async create(company_id: string, raised_by: string, data: { subject: string; house_id?: string; context_type?: string; context_id?: string; assigned_to?: string }) {
-    if (!data.subject || data.subject.trim().length < 10) throw new Error('Describe the query in at least a short sentence.');
+    if (!data.subject || !data.subject.trim()) throw new Error('Describe the query.');
     // Default the respondent to the house's own RM when not named explicitly, same ownership
     // model used elsewhere (manager_id/primary_rm_id) — a query always has someone accountable.
     let assignedTo = data.assigned_to || null;
@@ -49,7 +49,7 @@ export const governanceQueriesService = {
   },
 
   async respond(id: string, company_id: string, responded_by: string, response_text: string) {
-    if (!response_text || response_text.trim().length < 10) throw new Error('Give an evidenced answer (at least a short sentence).');
+    if (!response_text || !response_text.trim()) throw new Error('Give an evidenced answer.');
     const existing = await query(`SELECT * FROM governance_queries WHERE id = $1 AND company_id = $2`, [id, company_id]);
     if (!existing.rows[0]) throw new Error('Query not found.');
     if (existing.rows[0].status === 'CLOSED') throw new Error('This query is already closed.');
@@ -80,7 +80,7 @@ export const governanceQueriesService = {
   // The RI is not satisfied with the answer — reopens it back to the same respondent with a reason,
   // preserving the original question and the unsatisfactory answer as history (never overwritten).
   async reopen(id: string, company_id: string, reopen_reason: string) {
-    if (!reopen_reason || reopen_reason.trim().length < 10) throw new Error('Explain why the answer does not resolve the query (at least a short sentence).');
+    if (!reopen_reason || !reopen_reason.trim()) throw new Error('Explain why the answer does not resolve the query.');
     const existing = await query(`SELECT * FROM governance_queries WHERE id = $1 AND company_id = $2`, [id, company_id]);
     if (!existing.rows[0]) throw new Error('Query not found.');
     if (existing.rows[0].status !== 'ANSWERED') throw new Error('Only an answered query can be reopened.');

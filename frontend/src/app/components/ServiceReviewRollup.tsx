@@ -51,7 +51,7 @@ export function ServiceReviewRollup() {
   const signProvider = async () => {
     if (!data?.week_ending) return;
     if (!conclusion) { toast.error("Select a provider assurance conclusion."); return; }
-    if (rationale.trim().length < 20) { toast.error("Record an evidence-based rationale (at least 20 characters)."); return; }
+    if (!rationale.trim()) { toast.error("Record an evidence-based rationale."); return; }
     setSigning(true);
     try {
       await apiClient.post(`/weekly-reviews/rollup/sign`, { week_ending: data.week_ending, position: conclusion, statement: rationale.trim() });

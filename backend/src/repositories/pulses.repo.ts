@@ -102,8 +102,8 @@ export const pulsesRepo = {
             signalLabel = canonicalLabel.rows[0].signal_label;
         } else {
             const proposal = String(dto.suggested_signal_label || '').trim();
-            if (proposal.length < 3 || proposal.length > 120)
-                throw new Error('When using Other, suggest a short reusable signal label (3–120 characters).');
+            if (!proposal || proposal.length > 120)
+                throw new Error('When using Other, suggest a short reusable signal label (up to 120 characters).');
         }
         // One canonical primary theme per signal prevents one event being counted into
         // several unrelated patterns. Specific meaning remains in signal_label.

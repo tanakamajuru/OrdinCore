@@ -61,8 +61,8 @@ export const governanceDecisionsService = {
   // Shared executor — runs inside a caller-supplied transaction (PoolClient). Returns the
   // decision plus whichever downstream record it created. Idempotent on idempotency_key.
   async executeInTx(client: PoolClient, input: DecisionInput) {
-    if (!input.what_is_happening || input.what_is_happening.trim().length < 5) {
-      throw new Error('Describe what is happening (at least a short sentence).');
+    if (!input.what_is_happening || !input.what_is_happening.trim()) {
+      throw new Error('Describe what is happening.');
     }
     if (!input.pulse_entry_id && !input.cluster_id && !input.risk_id && !input.escalation_id && !input.house_id) {
       throw new Error('A governance decision must identify its source (a signal, pattern, risk or service).');
@@ -73,8 +73,8 @@ export const governanceDecisionsService = {
     if (!allowed.includes(decision)) throw new Error('Unsupported governance decision.');
     if (input.pulse_entry_id && !input.severity) throw new Error('Registered Manager severity is required when triaging a signal.');
     if (input.severity && !['Low','Moderate','High','Critical'].includes(input.severity)) throw new Error('Invalid governance severity.');
-    if (!input.decision_rationale || input.decision_rationale.trim().length < 10) {
-      throw new Error('Record why this governance decision is appropriate (at least 10 characters).');
+    if (!input.decision_rationale || !input.decision_rationale.trim()) {
+      throw new Error('Record why this governance decision is appropriate.');
     }
 
     // Resolve and tenant-check the source before writing the decision. A status update that affects
@@ -120,7 +120,7 @@ export const governanceDecisionsService = {
       if (!Number.isFinite(due)) throw new Error('A governance action needs a valid due date.');
       const startToday = new Date(); startToday.setHours(0, 0, 0, 0);
       if (due < startToday.getTime()) throw new Error('A governance action due date cannot be in the past.');
-      if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!input.intended_outcome || input.intended_outcome.trim().length < 10)) throw new Error('Record the intended outcome so effectiveness can later be judged.');
+      if (reviewRequirement === 'EFFECTIVENESS_REQUIRED' && (!input.intended_outcome || !input.intended_outcome.trim())) throw new Error('Record the intended outcome so effectiveness can later be judged.');
       if (reviewRequirement === 'EFFECTIVENESS_REQUIRED') {
         if (!input.effectiveness_due_at) throw new Error('Set when effectiveness will be reviewed.');
         const effDue = new Date(input.effectiveness_due_at).getTime();
@@ -151,8 +151,8 @@ export const governanceDecisionsService = {
       priorMonitorActive = !!pm.rows[0];
     }
     const observation = (input.monitoring_observation || '').trim();
-    if (priorMonitorActive && observation.length < 10) {
-      throw new Error('Record what happened during monitoring before the next decision (at least 10 characters).');
+    if (priorMonitorActive && !observation) {
+      throw new Error('Record what happened during monitoring before the next decision.');
     }
     // Compose the review findings: the monitoring/closure observation plus any evidence reference.
     const evidenceText = [
@@ -463,7 +463,7 @@ export const governanceDecisionsService = {
       throw new Error('This field cannot be corrected through typing-error correction.');
     }
     if (!corrected_text || !corrected_text.trim()) throw new Error('The corrected text cannot be empty.');
-    if (!reason || reason.trim().length < 5) throw new Error('Give a brief reason for this correction (at least a few words).');
+    if (!reason || !reason.trim()) throw new Error('Give a brief reason for this correction.');
 
     const cur = (await query(
       `SELECT reviewed_by, what_is_happening, decision_rationale, updated_at FROM governance_reviews WHERE id = $1 AND company_id = $2`,

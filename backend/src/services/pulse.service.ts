@@ -285,7 +285,7 @@ export class PulseService {
         if (p.review_status !== 'New') {
             throw new Error('Only an undecided (New) signal can be cancelled. This signal already has a governance decision and must follow its lifecycle.');
         }
-        if (!reason || String(reason).trim().length < 3) throw new Error('Give a brief reason for cancelling this signal.');
+        if (!reason || !String(reason).trim()) throw new Error('Give a brief reason for cancelling this signal.');
         const updated = (await query(
             `UPDATE governance_pulses SET review_status = 'Cancelled', updated_at = NOW()
               WHERE id = $1 AND company_id = $2 RETURNING *`,
@@ -383,7 +383,7 @@ export class PulseService {
             throw new Error('This field cannot be corrected through typing-error correction. Material facts (person, date, severity, category) need the separate amendment pathway.');
         }
         if (!corrected_text || !corrected_text.trim()) throw new Error('The corrected text cannot be empty.');
-        if (!reason || reason.trim().length < 5) throw new Error('Give a brief reason for this correction (at least a few words).');
+        if (!reason || !reason.trim()) throw new Error('Give a brief reason for this correction.');
 
         const cur = (await query(
             `SELECT created_by, assigned_to, description, updated_at FROM governance_pulses WHERE id = $1 AND company_id = $2`,
@@ -453,7 +453,7 @@ export class PulseService {
         if (!['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(r)) {
             throw new Error('Only oversight roles can amend a material fact on a signal.');
         }
-        if (!reason || reason.trim().length < 10) throw new Error('Give a clear reason for this amendment (a short sentence) — this is a material-fact change, not a typing fix.');
+        if (!reason || !reason.trim()) throw new Error('Give a clear reason for this amendment — this is a material-fact change, not a typing fix.');
 
         const cur = (await query(
             `SELECT entry_date, entry_time, severity::text AS severity, risk_domain, house_id FROM governance_pulses WHERE id = $1 AND company_id = $2`,

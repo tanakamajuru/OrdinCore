@@ -20,10 +20,6 @@ export class ActionsController {
         return res.status(400).json({ success: false, message: 'Outcome and Rationale are mandatory for action completion.' });
       }
 
-      if (completion_rationale.length < 10) {
-        return res.status(400).json({ success: false, message: 'Completion rationale must be at least 10 characters.' });
-      }
-
       const allowedOutcomes = ['No change', 'Partial improvement', 'Risk reduced', 'Risk escalated'];
       if (!allowedOutcomes.includes(completion_outcome)) {
         return res.status(400).json({ success: false, message: 'Invalid completion outcome.' });
@@ -284,6 +280,31 @@ export class ActionsController {
       res.json({ success: true, data: actions.rows });
     } catch (err: any) {
       logger.error('Error fetching oversight actions', err);
+      res.status(500).json({ success: false, message: err.message });
+    }
+  }
+
+  // Gap #10: the "cite an existing control" picker for escalation closure with no linked
+  // action — only actions with a FINAL effectiveness verdict qualify, so the closer can point
+  // at a genuinely verified control rather than typing free text that claims one exists.
+  async getEffectiveControls(req: Request, res: Response) {
+    const u = (req as any).user;
+    try {
+      const result = await query(
+        `SELECT ra.id, ra.title, ra.effectiveness_outcome, ra.effectiveness_reviewed_at,
+                r.title AS risk_title
+           FROM risk_actions ra
+           LEFT JOIN risks r ON r.id = ra.risk_id AND r.company_id = ra.company_id
+          WHERE ra.company_id = $1
+            AND ra.effectiveness_outcome IN ('Effective', 'Partially Effective')
+            AND ra.effectiveness_reviewed_at IS NOT NULL
+          ORDER BY ra.effectiveness_reviewed_at DESC
+          LIMIT 200`,
+        [u.company_id]
+      );
+      res.json({ success: true, data: result.rows });
+    } catch (err: any) {
+      logger.error('Error fetching effective controls', err);
       res.status(500).json({ success: false, message: err.message });
     }
   }

@@ -11,6 +11,7 @@ import { riskReviewObligationsService } from './riskReviewObligations.service';
 import { PROMOTION_THRESHOLD } from '../config/governance.constants';
 import { canonicalGovernanceActionService, ActionReviewRequirement } from './canonicalGovernanceAction.service';
 import { escalationLifecycleService } from './escalationLifecycle.service';
+import { governanceCaseService } from './governanceCase.service';
 
 // Map a severity band to a 5×5-matrix likelihood/impact pair so the derived risk_score
 // (likelihood × impact) always agrees with the severity badge: Critical→25, High→16,
@@ -43,8 +44,8 @@ export class RisksService {
     // documented critical exception. (Doctrine: "Risks never auto-created;
     // formal risks come from source cluster or critical exception.")
     const exceptionReason = (data.critical_exception_reason || data.metadata?.critical_exception_reason || '').trim();
-    if (!data.source_cluster_id && exceptionReason.length < 10) {
-      throw new Error('Risk provenance required: provide a source_cluster_id, or a critical exception reason (min 10 characters) to justify a manually-created risk.');
+    if (!data.source_cluster_id && !exceptionReason) {
+      throw new Error('Risk provenance required: provide a source_cluster_id, or a critical exception reason to justify a manually-created risk.');
     }
 
     // Fold the exception reason into metadata so the provenance is auditable.
@@ -388,10 +389,49 @@ export class RisksService {
     return { escalation_id: id, message: 'Risk escalated successfully' };
   }
 
+  // Gap #5 fix: previously this returned risk_events ONLY — the log of things done directly
+  // on the risk record post-promotion (status changes, assignment, attachments). It never
+  // showed the governance history of the signal(s) that were promoted INTO this risk (RM
+  // decisions, monitoring updates, escalations) — the user's explicit requirement is that "the
+  // promoted Risk should carry all signal history". governanceCaseService.timeline() already
+  // resolves that full case graph (signals → decisions/actions/escalations/monitoring updates)
+  // for a risk anchor — merge its entries with risk_events into one chronological array,
+  // distinguished by `record` so the frontend can render each kind appropriately. risk_events
+  // keeps its own shape (description/created_by_name) for backward compatibility; the merged
+  // case entries are normalised onto the same `created_at`/`description`/`created_by_name`
+  // fields PLUS the richer `record`/`status`/`link`/`evidence` fields for new rendering.
   async getTimeline(risk_id: string, company_id: string) {
     const risk = await risksRepo.findById(risk_id, company_id);
     if (!risk) throw new Error('Risk not found');
-    return risksRepo.getTimeline(risk_id, company_id);
+    const riskEvents = (await risksRepo.getTimeline(risk_id, company_id)).map((e: any) => ({
+      ...e,
+      record: 'Risk Event',
+    }));
+    let caseEntries: any[] = [];
+    try {
+      const rows = await governanceCaseService.timeline(company_id, { riskId: risk_id });
+      // Risk Events (Promotion/Recurrence/etc.) are also addable directly to the risk id itself
+      // via resolve()'s risk-anchored decisions/actions query — de-dupe by (record,id) against
+      // what risk_events already carries isn't needed since governanceCaseService never reads
+      // risk_events; the two sources are disjoint by construction.
+      caseEntries = rows.map((r: any) => ({
+        id: r.id,
+        created_at: r.at,
+        description: r.label,
+        created_by_name: r.author || null,
+        record: r.record,
+        relationship: r.relationship,
+        status: r.status,
+        link: r.link,
+        evidence: r.evidence,
+      }));
+    } catch {
+      // Non-fatal: if the case graph can't be resolved for some reason, the risk's own
+      // risk_events timeline still renders rather than the whole endpoint failing.
+    }
+    return [...riskEvents, ...caseEntries].sort(
+      (a: any, b: any) => new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime()
+    );
   }
 
   async getLinkedSignals(risk_id: string, company_id: string) {
@@ -524,7 +564,7 @@ export class RisksService {
     const verdict = String(opts?.verdict || '');
     if (!VERDICTS.includes(verdict)) throw new Error('A resolution verdict is required.');
     const reason = String(opts?.reason || '').trim();
-    if (reason.length < 20) throw new Error('A closure rationale of at least 20 characters is required.');
+    if (!reason) throw new Error('A closure rationale is required.');
 
     // Chapter 6 — the Risk Review gate. Closure is refused while required actions or a
     // linked escalation are still open, regardless of verdict. Task completion alone can
@@ -900,6 +940,20 @@ export class RisksService {
         WHERE company_id=$3 AND risk_id IS NULL AND source_cluster_id=$2`,
       [risk.id, data.cluster_id, company_id]
     );
+    // Gap #6 fix: an action created off a single signal's governance review (source_pulse_id
+    // set, source_cluster_id NULL) before that signal was swept into this cluster never got
+    // risk_id backfilled by the cluster-scoped UPDATE above, and silently vanished from the
+    // risk's Actions tab post-promotion. Backfill via risk_signal_links (just linked above) so
+    // any action tied to one of THIS risk's now-linked signals is carried across too. Only
+    // touches rows with risk_id IS NULL so an action already attributed to a different risk is
+    // never clobbered.
+    await query(
+      `UPDATE risk_actions ra SET risk_id = $1, updated_at = NOW()
+         FROM risk_signal_links rsl
+        WHERE rsl.risk_id = $1 AND rsl.pulse_entry_id = ra.source_pulse_id
+          AND ra.company_id = $2 AND ra.risk_id IS NULL`,
+      [risk.id, company_id]
+    );
 
     await risksRepo.addEvent(risk.id, company_id, 'Promotion',
       `Promoted from signal pattern${cluster.risk_domain ? ` — ${cluster.risk_domain}` : ''}${cluster.linked_person ? ` (${cluster.linked_person})` : ''}`,
@@ -1159,6 +1213,17 @@ export class RisksService {
         );
       }
 
+      // Gap #6 fix (same as promoteFromCluster): carry risk_id onto any risk_actions created
+      // directly off one of this candidate's source signals (source_pulse_id set) that hasn't
+      // already been attributed to a different risk.
+      await lockClient.query(
+        `UPDATE risk_actions ra SET risk_id = $1, updated_at = NOW()
+           FROM risk_signal_links rsl
+          WHERE rsl.risk_id = $1 AND rsl.pulse_entry_id = ra.source_pulse_id
+            AND ra.company_id = $2 AND ra.risk_id IS NULL`,
+        [risk.id, company_id]
+      );
+
       await lockClient.query('COMMIT');
     } catch (e) {
       await lockClient.query('ROLLBACK').catch(() => undefined);
@@ -1272,6 +1337,13 @@ export class RisksService {
       [uuidv4(), risk.id, sig.id, user_id, 'Originating signal — promoted directly to risk']
     );
     await query(`UPDATE governance_pulses SET review_status = 'Linked', updated_at = NOW() WHERE id = $1`, [sig.id]);
+    // Gap #6 fix: carry risk_id onto any risk_action already created off this signal's own
+    // governance review before this direct promotion (source_pulse_id = sig.id, risk_id NULL).
+    await query(
+      `UPDATE risk_actions SET risk_id = $1, updated_at = NOW()
+        WHERE company_id = $2 AND source_pulse_id = $3 AND risk_id IS NULL`,
+      [risk.id, company_id, sig.id]
+    );
     await risksRepo.addEvent(risk.id, company_id, 'Promotion', `Promoted directly from signal ${sig.id} (${isSafeguarding ? 'safeguarding 1/1' : sig.severity})`, user_id);
 
     return risk;

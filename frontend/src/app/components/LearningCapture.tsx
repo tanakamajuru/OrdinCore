@@ -45,8 +45,8 @@ export function LearningCapture({
   }, [needsOwner, owners.length]);
 
   const save = async () => {
-    if (state === "IDENTIFIED" && whatLearnt.trim().length < 3) { toast.error("Record what was learnt."); return; }
-    if (state === "NONE_IDENTIFIED" && noReason.trim().length < 3) { toast.error("Give a brief reason why no learning was identified."); return; }
+    if (state === "IDENTIFIED" && !whatLearnt.trim()) { toast.error("Record what was learnt."); return; }
+    if (state === "NONE_IDENTIFIED" && !noReason.trim()) { toast.error("Give a brief reason why no learning was identified."); return; }
     if (state === "NOT_YET_ASSESSED" && !reviewDate) { toast.error("Set a review date for the learning assessment."); return; }
     if (state === "NOT_YET_ASSESSED" && !ownerId) { toast.error("Name the owner accountable for the deferred assessment."); return; }
     setSaving(true);

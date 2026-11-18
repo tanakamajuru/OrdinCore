@@ -150,7 +150,7 @@ export function SignalDetail() {
   const saveCorrection = async () => {
     if (!signal) return;
     if (!correctionDraft.trim()) { toast.error("The corrected text cannot be empty."); return; }
-    if (correctionReason.trim().length < 5) { toast.error("Give a brief reason for this correction."); return; }
+    if (!correctionReason.trim()) { toast.error("Give a brief reason for this correction."); return; }
     setSavingCorrection(true);
     try {
       if (!correctionSubmissionId.current) correctionSubmissionId.current = `corr-${signal.id}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -179,7 +179,7 @@ export function SignalDetail() {
 
   const saveDecisionCorrection = async (decisionId: string) => {
     if (!decisionCorrectionDraft.trim()) { toast.error("The corrected text cannot be empty."); return; }
-    if (decisionCorrectionReason.trim().length < 5) { toast.error("Give a brief reason for this correction."); return; }
+    if (!decisionCorrectionReason.trim()) { toast.error("Give a brief reason for this correction."); return; }
     setSavingDecisionCorrection(true);
     try {
       if (!decisionCorrectionSubmissionId.current) decisionCorrectionSubmissionId.current = `corr-${decisionId}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -205,7 +205,7 @@ export function SignalDetail() {
   const saveAmendment = async () => {
     if (!signal) return;
     if (!amendValue.trim()) { toast.error("Enter the new value."); return; }
-    if (amendReason.trim().length < 10) { toast.error("Give a clear reason for this amendment (a short sentence)."); return; }
+    if (!amendReason.trim()) { toast.error("Give a clear reason for this amendment."); return; }
     setSavingAmendment(true);
     try {
       await apiClient.post(`/pulses/${signal.id}/amend`, { field: amendField, value: amendValue.trim(), reason: amendReason.trim() });
@@ -259,8 +259,8 @@ export function SignalDetail() {
   };
 
   const saveMonitoringUpdate = async () => {
-    if (!signal || monitoringNote.trim().length < 3) { toast.error("Record a brief factual update first."); return; }
-    if (monitoringUrgent && monitoringUrgentReason.trim().length < 5) { toast.error("Say briefly why this needs urgent RM attention."); return; }
+    if (!signal || !monitoringNote.trim()) { toast.error("Record a brief factual update first."); return; }
+    if (monitoringUrgent && !monitoringUrgentReason.trim()) { toast.error("Say briefly why this needs urgent RM attention."); return; }
     setSavingMonitoringUpdate(true);
     try {
       // Stable reference, reused across retries of the SAME attempt (cleared only after success
@@ -288,8 +288,8 @@ export function SignalDetail() {
   // counts, never deletion — the row and its full history remain visible.
   const saveValidity = async () => {
     if (!signal) return;
-    if (validityForm.status !== 'VALID' && validityForm.status !== 'PENDING_VALIDATION' && validityForm.reason.trim().length < 10) {
-      toast.error("Give a clear reason (at least a short sentence) — this excludes the entry from qualifying counts."); return;
+    if (validityForm.status !== 'VALID' && validityForm.status !== 'PENDING_VALIDATION' && !validityForm.reason.trim()) {
+      toast.error("Give a clear reason — this excludes the entry from qualifying counts."); return;
     }
     if (validityForm.status === 'DUPLICATE' && !validityForm.duplicate_of_id.trim()) {
       toast.error("Enter the ID of the canonical occurrence this duplicates."); return;
@@ -317,7 +317,7 @@ export function SignalDetail() {
     if (!signal) return;
     const reason = await confirm({ message: "Why does this signal need leadership attention? (a short sentence)", requireReason: true, confirmLabel: "Flag" });
     if (reason === null) return;
-    if (reason.trim().length < 10) { toast.error("Please give a clear reason (at least a short sentence)."); return; }
+    if (!reason.trim()) { toast.error("Please give a clear reason."); return; }
     setMarkingAttention(true);
     try {
       await apiClient.post(`/pulses/${signal.id}/leadership-attention`, { reason: reason.trim() });

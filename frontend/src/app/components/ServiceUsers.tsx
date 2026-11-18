@@ -84,7 +84,7 @@ export function ServiceUsers() {
 
   const transfer = async () => {
     if (!moving || !destinationHouseId) return toast.error("Select the destination service.");
-    if (transferReason.trim().length < 5) return toast.error("Record a clear reason for the transfer.");
+    if (!transferReason.trim()) return toast.error("Record a clear reason for the transfer.");
     setIsTransferring(true);
     try {
       const response: any = await apiClient.post(`/service-users/${moving.id}/transfer`, {
@@ -248,7 +248,7 @@ export function ServiceUsers() {
                   <button
                     type="button"
                     onClick={transfer}
-                    disabled={isTransferring || !destinationHouseId || transferReason.trim().length < 5}
+                    disabled={isTransferring || !destinationHouseId || !transferReason.trim()}
                     className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
                   >
                     {isTransferring ? "Moving…" : "Confirm move"}

@@ -10,7 +10,7 @@ const SEMVER = /^\d+\.\d+\.\d+$/;
 
 function validate(version: string, note: string, effectiveFrom?: string) {
   if (!SEMVER.test(version)) throw new Error('A numeric semantic version such as 1.2.0 is required.');
-  if (note.trim().length < 20 || note.trim().length > 1000) throw new Error('Approval rationale must contain 20–1000 characters.');
+  if (!note.trim() || note.trim().length > 1000) throw new Error('Approval rationale must be non-empty and no more than 1000 characters.');
   const effective = effectiveFrom ? new Date(effectiveFrom) : new Date();
   if (Number.isNaN(effective.getTime())) throw new Error('A valid effective date is required.');
   return effective;

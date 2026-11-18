@@ -99,7 +99,7 @@ export class DailyGovernanceService {
       const leadership = (opts.leadership_narrative || note || '').trim();
       const brief = (opts.team_brief || '').trim();
       material = opts.material_change !== false && brief.length > 0;
-      if (!material && leadership.length < 10) throw new Error('Record a positive no-material-change declaration before publishing an empty brief.');
+      if (!material && !leadership) throw new Error('Record a positive no-material-change declaration before publishing an empty brief.');
 
       // 3–5. Create each governance decision, its linked task/escalation, and update the
       // source status — all inside the same transaction. Any failure rolls the review back.
@@ -270,7 +270,7 @@ export class DailyGovernanceService {
   ) {
     const { company_id, user_id } = opts;
     const reason = String(opts.reason || '').trim();
-    if (reason.length < 10) throw new Error('An addendum requires a reason (at least 10 characters).');
+    if (!reason) throw new Error('An addendum requires a reason.');
     const client = await getClient();
     try {
       await client.query('BEGIN');

@@ -68,7 +68,7 @@ export function ActionEffectivenessPanels() {
   const submitRating = async () => {
     if (!outcome) { toast.error("Choose an effectiveness outcome."); return; }
     if (!rating?.evidence_packet?.review_ready) { toast.error("This action is missing source or completion evidence and cannot yet be rated."); return; }
-    if (outcome !== "Too Early To Assess" && evidence.trim().length < 20) { toast.error("Record the evidence for this outcome (at least 20 characters)."); return; }
+    if (outcome !== "Too Early To Assess" && !evidence.trim()) { toast.error("Record the evidence for this outcome."); return; }
     // A control rated Too Early or Not Effective MUST be re-reviewed — schedule the repeat so it
     // returns to the due queue on that date (a negative verdict is not the end of oversight).
     if ((outcome === "Too Early To Assess" || outcome === "Not Effective") && (!nextReviewDate || new Date(`${nextReviewDate}T00:00:00`).getTime() <= Date.now())) {
@@ -77,8 +77,8 @@ export function ActionEffectivenessPanels() {
     // An early review (before the scheduled date) must say why; Too Early must say what evidence is
     // still needed. "Too early" is an outcome; "early" is the timing — they are independent.
     const isEarly = !!(rating?.is_scheduled || (rating?.scheduled_review_at && new Date(rating.scheduled_review_at).getTime() > Date.now()));
-    if (isEarly && earlyReason.trim().length < 10) { toast.error("Record why you are reviewing before the scheduled date (at least 10 characters)."); return; }
-    if (outcome === "Too Early To Assess" && evidenceStillNeeded.trim().length < 3) { toast.error("Record what evidence is still needed."); return; }
+    if (isEarly && !earlyReason.trim()) { toast.error("Record why you are reviewing before the scheduled date."); return; }
+    if (outcome === "Too Early To Assess" && !evidenceStillNeeded.trim()) { toast.error("Record what evidence is still needed."); return; }
     setSaving(true);
     try {
       const res: any = await apiClient.patch(`/actions/${rating.id}/effectiveness`, {

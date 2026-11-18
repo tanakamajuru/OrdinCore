@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { X, Loader2, ShieldCheck, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
@@ -30,6 +30,21 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
   // After a successful close, capture learning before handing control back (brief 3 L1).
   const [closedResult, setClosedResult] = useState<any>(null);
 
+  // Gap #10: basis-specific evidence for the no-linked-action closure path. The backend
+  // enforces all of this server-side too — these are just the matching form fields.
+  const [citedControlId, setCitedControlId] = useState("");
+  const [effectiveControls, setEffectiveControls] = useState<any[]>([]);
+  const [basisJustification, setBasisJustification] = useState("");
+  const [verificationConfirmed, setVerificationConfirmed] = useState(false);
+  const [noLongerApplicableReason, setNoLongerApplicableReason] = useState("");
+
+  useEffect(() => {
+    if (!open || evidenceBasis !== "EXISTING_CONTROL") return;
+    apiClient.getEffectiveControls().then((res: any) => {
+      setEffectiveControls(res?.data?.data ?? res?.data ?? []);
+    }).catch(() => setEffectiveControls([]));
+  }, [open, evidenceBasis]);
+
   if (!open) return null;
 
   // Learning step shown after the close succeeds. Finishing (save or skip) refreshes the caller.
@@ -56,9 +71,13 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
   const blocked =
     !patternReduced ? "Confirm that the reason for escalation has been addressed." :
     !hasLinkedActions && !evidenceBasis ? "Select the genuine evidence basis for closure." :
+    !hasLinkedActions && evidenceBasis === "EXISTING_CONTROL" && !citedControlId ? "Cite the specific existing control that already addressed this concern." :
+    !hasLinkedActions && (evidenceBasis === "IMMEDIATE_MEASURE" || evidenceBasis === "EXTERNAL_INTERVENTION") && !basisJustification.trim() ? "Describe what was done and how you know it worked." :
+    !hasLinkedActions && (evidenceBasis === "IMMEDIATE_MEASURE" || evidenceBasis === "EXTERNAL_INTERVENTION") && !verificationConfirmed ? "Confirm you personally verified the outcome." :
+    !hasLinkedActions && evidenceBasis === "NO_LONGER_APPLICABLE" && !noLongerApplicableReason.trim() ? "Give the specific reason this concern is no longer applicable." :
     hasLinkedActions && !actionsOk ? "All linked corrective actions must be complete." :
     hasLinkedActions && !effOk ? "Effectiveness must be reviewed before closure." :
-    ((evidence || "").trim().length < 20) ? "Record meaningful closure evidence in Review outcome and rationale." :
+    (!(evidence || "").trim()) ? "Record meaningful closure evidence in Review outcome and rationale." :
     null;
 
   const submit = async () => {
@@ -78,6 +97,10 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
         closure_reason: "Closed after evidence-based review",
         evidence: evidenceText,
         evidence_basis: hasLinkedActions ? "LINKED_ACTIONS" : evidenceBasis,
+        ...(!hasLinkedActions && evidenceBasis === "EXISTING_CONTROL" ? { cited_control_action_id: citedControlId } : {}),
+        ...(!hasLinkedActions && (evidenceBasis === "IMMEDIATE_MEASURE" || evidenceBasis === "EXTERNAL_INTERVENTION")
+          ? { basis_justification: basisJustification.trim(), verification_confirmed: verificationConfirmed } : {}),
+        ...(!hasLinkedActions && evidenceBasis === "NO_LONGER_APPLICABLE" ? { no_longer_applicable_reason: noLongerApplicableReason.trim() } : {}),
       };
       const res: any = target.type === "escalation"
         ? await apiClient.closeEscalation(target.id, payload)
@@ -146,6 +169,48 @@ export function ClosureReviewModal({ open, onClose, onClosed, target, derivedAct
               <option value="EXTERNAL_INTERVENTION">External professional or emergency intervention</option>
               <option value="NO_LONGER_APPLICABLE">Concern confirmed no longer applicable</option>
             </select>
+
+            {evidenceBasis === "EXISTING_CONTROL" && (
+              <div className="mt-3">
+                <label className="text-xs text-muted-foreground block mb-1">
+                  Which existing control already addressed this? (only controls with a final effectiveness verdict are listed)
+                </label>
+                <select value={citedControlId} onChange={(e) => setCitedControlId(e.target.value)} className="w-full rounded-lg border border-border bg-background p-2 text-sm">
+                  <option value="">Select the existing control…</option>
+                  {effectiveControls.map((c: any) => (
+                    <option key={c.id} value={c.id}>
+                      {c.title}{c.risk_title ? ` — ${c.risk_title}` : ""} ({c.effectiveness_outcome})
+                    </option>
+                  ))}
+                </select>
+                {effectiveControls.length === 0 && (
+                  <p className="text-xs text-amber-600 mt-1">No controls with a final effectiveness verdict are available to cite. If there is truly nothing to point to, pick a different basis.</p>
+                )}
+              </div>
+            )}
+
+            {(evidenceBasis === "IMMEDIATE_MEASURE" || evidenceBasis === "EXTERNAL_INTERVENTION") && (
+              <div className="mt-3 space-y-2">
+                <label className="text-xs text-muted-foreground block mb-1">What was done, and how do you know it worked?</label>
+                <textarea value={basisJustification} onChange={(e) => setBasisJustification(e.target.value)} rows={3}
+                  className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+                  placeholder="Describe the measure/intervention taken and the evidence that the outcome was actually checked and confirmed." />
+                <label className="flex items-start gap-2 text-sm">
+                  <input type="checkbox" checked={verificationConfirmed} onChange={(e) => setVerificationConfirmed(e.target.checked)} className="mt-0.5" />
+                  <span>I personally verified this outcome — this is not an assumption.</span>
+                </label>
+              </div>
+            )}
+
+            {evidenceBasis === "NO_LONGER_APPLICABLE" && (
+              <div className="mt-3">
+                <label className="text-xs text-muted-foreground block mb-1">Why is this concern no longer applicable?</label>
+                <textarea value={noLongerApplicableReason} onChange={(e) => setNoLongerApplicableReason(e.target.value)} rows={2}
+                  className="w-full rounded-lg border border-border bg-background p-2 text-sm"
+                  placeholder="State the specific, verifiable reason — e.g. the service user has moved on, the circumstance no longer exists." />
+              </div>
+            )}
+
             {onCreateOrLinkAction && <button type="button" onClick={onCreateOrLinkAction} className="mt-2 text-sm text-primary hover:underline">A new action is genuinely required instead</button>}
           </div>}
           {/* Closure attestation — a human judgement, so it stays a checkbox. Doctrine: an

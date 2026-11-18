@@ -39,8 +39,8 @@ export class ActionEffectivenessService {
     if (!outcome) throw new Error('An effectiveness outcome is required.');
 
     const evidence = data.evidence || data.note;
-    if (outcome !== 'Too Early To Assess' && (!evidence || evidence.trim().length < 20)) {
-      throw new Error('Evidence (at least 20 characters) is required for an effectiveness review.');
+    if (outcome !== 'Too Early To Assess' && !evidence?.trim()) {
+      throw new Error('Evidence is required for an effectiveness review.');
     }
     // A verdict must be rated against what was actually done and what was expected. The server
     // independently refuses a rating where either is missing — the UI cannot bypass this.
@@ -48,7 +48,7 @@ export class ActionEffectivenessService {
       throw new Error('Governance Block: completion evidence is missing. Return the action for completion notes before rating effectiveness.');
     }
     const intendedOutcome = String(action.intended_outcome || '').trim();
-    if (intendedOutcome.length < 10) {
+    if (!intendedOutcome) {
       throw new Error('Governance Block: record the intended outcome before rating effectiveness.');
     }
 
@@ -73,8 +73,8 @@ export class ActionEffectivenessService {
       }
     }
     const earlyReviewReason = isEarlyReview ? (String(data.early_review_reason || '').trim() || null) : null;
-    if (isEarlyReview && (!earlyReviewReason || earlyReviewReason.length < 10)) {
-      throw new Error('This review is before the scheduled date — record why you are reviewing early (at least 10 characters).');
+    if (isEarlyReview && !earlyReviewReason) {
+      throw new Error('This review is before the scheduled date — record why you are reviewing early.');
     }
     const evidenceStillNeeded = outcome === 'Too Early To Assess' ? (String(data.evidence_still_needed || '').trim() || null) : null;
 

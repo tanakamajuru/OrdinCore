@@ -76,7 +76,7 @@ export const screenAssistService = {
       await audit(input, 'INVALID', 'ROLE_OR_SCREEN_NOT_ALLOWED');
       return { classification: 'INVALID', code: 'ROLE_OR_SCREEN_NOT_ALLOWED', answer: 'Screen Assist is not available for this role or screen.', source: null };
     }
-    if (questionText.length < 3 || questionText.length > 500) {
+    if (!questionText || questionText.length > 500) {
       await audit(input, 'INVALID', 'QUESTION_LENGTH');
       return { classification: 'INVALID', code: 'QUESTION_LENGTH', answer: 'Ask a brief question about the current screen or one of its controls.', source: null };
     }

@@ -170,10 +170,10 @@ export function SignalCaptureForm() {
   // immediate action (nothing to act on) are not meaningful for a positive observation and are
   // not required for it.
   const isValid = isPositive
-    ? !!form.service_id && !!form.governance_domain && form.description.trim().length >= 10
+    ? !!form.service_id && !!form.governance_domain && !!form.description.trim()
     : !!form.service_id && !!form.governance_domain && !!form.signal_label && !!form.severity
-      && (!isOtherSignal || form.suggested_signal_label.trim().length >= 3)
-      && form.description.trim().length >= 10 && form.immediate_action.trim().length >= 3;
+      && (!isOtherSignal || !!form.suggested_signal_label.trim())
+      && !!form.description.trim() && !!form.immediate_action.trim();
 
   const handleSubmit = async () => {
     if (!isValid) {

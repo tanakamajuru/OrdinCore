@@ -892,18 +892,18 @@ export class WeeklyReviewsService {
     // (provider/model/prompt-version) and the approving RM are recorded structurally on the review,
     // which is the accountability the doctrine requires — so this no longer hard-blocks on the RM
     // not having reworded the AI draft.
-    if (narrative.length < 40) throw new Error('A Registered Manager narrative in your own words (at least 40 characters) is required before finalising.');
+    if (!narrative) throw new Error('A Registered Manager narrative in your own words is required before finalising.');
     if (draft && narrative === draft) throw new Error('The governance narrative must be your own words, not the machine-generated draft.');
     // Finding L: Lessons Learnt + a week-ahead anticipated-risks decision are required.
-    if (String(content.lessons_learnt || '').trim().length < 20) throw new Error('Lessons Learnt (at least 20 characters) is required before finalising.');
-    if (String(content.collective_daily_brief_summary || '').trim().length < 20) {
-      throw new Error('A collective Daily Team Briefing summary (at least 20 characters) is required before finalising.');
+    if (!String(content.lessons_learnt || '').trim()) throw new Error('Lessons Learnt is required before finalising.');
+    if (!String(content.collective_daily_brief_summary || '').trim()) {
+      throw new Error('A collective Daily Team Briefing summary is required before finalising.');
     }
-    if (String(content.unresolved_concerns_text || '').trim().length < 10) {
+    if (!String(content.unresolved_concerns_text || '').trim()) {
       throw new Error('Record what remains a concern/not rectified, or explicitly state that none remain, before finalising.');
     }
     const ant = content.anticipated_risks || {};
-    if (!(Array.isArray(ant.items) && ant.items.length) && String(ant.rm_note || '').trim().length < 10) {
+    if (!(Array.isArray(ant.items) && ant.items.length) && !String(ant.rm_note || '').trim()) {
       throw new Error('Record the week-ahead anticipated risks (or a note if none are anticipated) before finalising.');
     }
 
