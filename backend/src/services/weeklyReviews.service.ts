@@ -322,6 +322,32 @@ export class WeeklyReviewsService {
         WHERE a.company_id = $1 AND a.house_id = $2 AND a.review_date BETWEEN $3::date AND $4::date
         ORDER BY a.review_date, a.sequence`, [company_id, house_id, startStr, endStr]);
 
+    // Field report (18 Nov 2026): a decision made on a signal AFTER its day was signed off is real
+    // (saved to governance_reviews) but the signed day's evidence_snapshot is frozen at sign-off time
+    // and never reflects it, and the addenda query above only sees decisions an RM explicitly
+    // attested via "Log addendum" — a decision made through the ordinary review flow after sign-off,
+    // with nobody separately opening that dialog, was silently invisible to this report. Surface any
+    // such decision directly (never losing it) and flag it below so the RM is prompted to formally
+    // attest it via a signed addendum.
+    const unattestedLateDecisions = await safeR(
+      `SELECT gr.id, gr.review_date, gr.created_at, gr.decision, gr.what_is_happening,
+              gr.decision_rationale, gr.intended_outcome, gr.immediate_action, gr.monitoring_trigger,
+              NULLIF(TRIM(COALESCE(ru.first_name,'') || ' ' || COALESCE(ru.last_name,'')), '') AS reviewer,
+              dgl.review_date::text AS log_date
+         FROM governance_reviews gr
+         JOIN daily_governance_log dgl
+           ON dgl.company_id = gr.company_id AND dgl.house_id = gr.service_id
+          AND dgl.review_date = gr.review_date::date
+         LEFT JOIN users ru ON ru.id = gr.reviewed_by
+        WHERE gr.company_id = $1 AND gr.service_id = $2
+          AND dgl.completed = true
+          AND dgl.review_date BETWEEN $3::date AND $4::date
+          AND gr.created_at > COALESCE(dgl.published_at, dgl.completed_at, dgl.updated_at)
+          AND NOT EXISTS (
+            SELECT 1 FROM daily_governance_addendum a
+             WHERE a.parent_log_id = dgl.id AND gr.id = ANY(a.decision_ids))
+        ORDER BY gr.created_at`, [company_id, house_id, startStr, endStr]);
+
     // Escalations touching the week: opened, closed, overdue or reopened.
     const escalations = await safeR(
       `SELECT e.id, e.reason, e.priority::text AS priority, e.created_at, e.due_by,
@@ -367,6 +393,9 @@ export class WeeklyReviewsService {
     for (const [name, rows] of [['addenda', addenda], ['escalations', escalations], ['completed actions', completedActions], ['patterns', patterns], ['incidents', incidents]] as const) {
       if (rows === null) evidenceGaps.push(`Weekly ${name} evidence source could not be loaded — this section is incomplete.`);
     }
+    if (unattestedLateDecisions && unattestedLateDecisions.length > 0) {
+      evidenceGaps.push(`${unattestedLateDecisions.length} decision(s) made after the day's sign-off have not yet been formally logged as a same-day addendum.`);
+    }
     if (signals.some((s: any) => ['High','Critical'].includes(String(s.severity))) && activeMeasures.length === 0) evidenceGaps.push('High/critical activity is recorded but no active measure is linked to this service.');
     activeMeasures.filter((m: any) => !m.owner).slice(0, 3).forEach((m: any) => evidenceGaps.push(`No owner recorded for active measure: ${m.measure}.`));
 
@@ -381,6 +410,7 @@ export class WeeklyReviewsService {
         daily_briefs: dailyBriefs, brief_days: dailyBriefs.length, active_measures: activeMeasures,
         addenda: addenda || [], escalations: escalations || [], completed_actions: completedActions || [],
         patterns: patterns || [], serious_incidents: incidents || [],
+        unattested_late_decisions: unattestedLateDecisions || [],
         evidence_gaps: evidenceGaps,
       },
       auto_population: {
@@ -732,9 +762,8 @@ export class WeeklyReviewsService {
                     AND COALESCE(gp.validity_status::text, 'VALID') NOT IN ('DUPLICATE', 'ENTERED_IN_ERROR', 'DISPROVED'))
               ) AS signals
          FROM daily_governance_log dgl
-        WHERE dgl.company_id=$1 AND dgl.house_id=$2 AND dgl.completed=true
+        WHERE dgl.company_id=$1 AND dgl.house_id=$2
           AND dgl.review_date BETWEEN ($3::date - INTERVAL '6 days') AND $3::date
-          AND NULLIF(TRIM(dgl.team_brief),'') IS NOT NULL
         ORDER BY dgl.review_date`, p)).rows
       .map((e:any)=>({ ...e, headline: headlineOf(e.summary) }));
 
@@ -852,7 +881,10 @@ export class WeeklyReviewsService {
       events,
       measures,
       collective_daily_brief_summary: String(row.content?.collective_daily_brief_summary || '').trim() || null,
-      brief_days: events.length,
+      // events now also carries days whose sign-off was missed (so their real signal decisions are
+      // never lost from the report) — brief_days must still count only days with an actual published
+      // brief, not every day with any event row, or an unsigned day would misreport as briefed.
+      brief_days: events.filter((e: any) => String(e.summary || '').trim()).length,
       evidence_gaps: [
         ...(events.length < 7 ? [`${7 - events.length} day(s) have no completed published Daily Team Brief in the selected week.`] : []),
         ...((row.content?.unresolved_concerns_text || '').trim() ? [] : ['The RM has not recorded a separate unresolved-concerns summary.'])
