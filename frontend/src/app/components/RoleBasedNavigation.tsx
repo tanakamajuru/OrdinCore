@@ -317,7 +317,7 @@ export function RoleBasedNavigation() {
         <img src={logo} alt="Ordin Core" className="h-14 w-auto" />
         <div className="leading-tight">
           <p className="text-white font-semibold text-sm tracking-wide">ORDIN CORE</p>
-          <p className="text-[10px] text-slate-400">Governance. Evidence. Assurance.</p>
+          <p className="text-[10px] text-white/80">Governance. Evidence. Assurance.</p>
         </div>
         {/* Attention bell: amber (pulsing) when something needs attention — open escalations or
             actions due; green when all clear. */}
