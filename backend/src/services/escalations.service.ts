@@ -784,10 +784,11 @@ export class EscalationsService {
 
     const roles = nextRole === 'RESPONSIBLE_INDIVIDUAL' ? ['RESPONSIBLE_INDIVIDUAL', 'RI'] : [nextRole];
     const uRes = await query(
-      `SELECT id FROM users WHERE company_id = $1 AND role = ANY($2::text[]) AND status = 'active' LIMIT 1`,
+      `SELECT id, first_name, last_name FROM users WHERE company_id = $1 AND role = ANY($2::text[]) AND status = 'active' LIMIT 1`,
       [company_id, roles]
     );
     const nextUser = uRes.rows[0]?.id;
+    const nextUserName = uRes.rows[0] ? `${uRes.rows[0].first_name || ''} ${uRes.rows[0].last_name || ''}`.trim() : '';
     const niceRole = nextRole.replace(/_/g, ' ').toLowerCase();
     if (!nextUser) throw new Error(`No active ${niceRole} is available to escalate to.`);
 
@@ -815,10 +816,19 @@ export class EscalationsService {
         company_id, user_id: nextUser, type: 'ESCALATION_LADDER',
         title: 'Escalation escalated to you',
         body: `An escalation has been escalated up to you${reason ? `: ${reason}` : ''}.`,
-        link: '/escalation-log',
+        // Link to the exact escalation (not just the list) so the recipient lands on the
+        // record itself, matching the "confirm the destination" requirement.
+        link: `/escalation-log?focus=${id}`,
       });
     } catch { /* best-effort */ }
-    return { message: `Escalated to ${niceRole}.` };
+    // Confirm the destination in the success message: name AND role, not just the role, so the
+    // sender can see exactly who now owns it (brief: "Confirm the destination").
+    return {
+      message: nextUserName ? `Escalated to ${nextUserName} (${niceRole}).` : `Escalated to ${niceRole}.`,
+      escalated_to: nextUser,
+      escalated_to_name: nextUserName || null,
+      escalated_to_role: nextRole,
+    };
   }
 
   // Add an assignable task (risk_action) from an escalation — WITH or WITHOUT a linked

@@ -45,6 +45,8 @@ router.get('/escalations', requireAuth, requireTenant, reportsController.escalat
 router.get('/reconstruction', requireAuth, requireTenant, reportsController.reconstructionReport.bind(reportsController));
 router.get('/cross-service-control', requireAuth, requireTenant, reportsController.crossServiceControl.bind(reportsController));
 router.get('/inspection-evidence', requireAuth, requireTenant, reportsController.inspectionEvidence.bind(reportsController));
+router.get('/provider-assurance', requireAuth, requireTenant, reportsController.providerAssurance.bind(reportsController));
+router.get('/provider-assurance/pdf', requireAuth, requireTenant, reportsController.providerAssurancePdf.bind(reportsController));
 router.post('/narrative', requireAuth, requireTenant, reportsController.narrative.bind(reportsController));
 router.get('/saved-reconstructions', requireAuth, requireTenant, reportsController.savedReconstructions.bind(reportsController));
 // Server-side generated reports (PDF/CSV) retained in-platform — defined before

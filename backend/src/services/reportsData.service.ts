@@ -32,7 +32,24 @@ export class ReportsDataService {
       [companyId, startTs, endTs]
     );
 
-    return { report: 'Weekly Governance Report', period: { start: startTs, end: endTs }, summary: summary.rows[0], themes: byTheme.rows };
+    // Weekly Governance Review / provider roll-up export (brief): the most recent provider-wide
+    // sign-off whose week falls inside the report period, labelled explicitly as a PROVIDER-level
+    // decision wherever the report is service-scoped.
+    const signoffRow = (await query(
+      `SELECT prs.week_ending, prs.position, prs.rationale, prs.statement, prs.acknowledged_by_name,
+              prs.acknowledged_at, prs.evidence_totals_snapshot, prs.snapshot_taken_at
+         FROM provider_review_signoffs prs
+        WHERE prs.company_id = $1 AND prs.week_ending BETWEEN $2::date AND $3::date
+        ORDER BY prs.week_ending DESC LIMIT 1`,
+      [companyId, startTs, endTs]
+    )).rows[0] || null;
+    const provider_signoff = signoffRow ? {
+      ...signoffRow,
+      is_provider_level_decision: true,
+      label: serviceId ? 'Provider-level assurance decision (covers all services, not just this one)' : 'Provider assurance decision',
+    } : null;
+
+    return { report: 'Weekly Governance Report', period: { start: startTs, end: endTs }, summary: summary.rows[0], themes: byTheme.rows, provider_signoff };
   }
 
   async strategicRisks(companyId: string) {
@@ -68,7 +85,12 @@ export class ReportsDataService {
       const tr = await trajectoryForRisk(r.id, r.source_cluster_id).catch(() => null);
       return { ...r, trajectory: tr?.direction || r.trajectory, trajectory_basis: tr?.basis || null };
     }));
-    return { report: 'Strategic Risk Report', risks };
+    const latestSignoff = (await query(
+      `SELECT week_ending, position, acknowledged_by_name, acknowledged_at
+         FROM provider_review_signoffs WHERE company_id = $1 ORDER BY week_ending DESC LIMIT 1`,
+      [companyId]
+    )).rows[0] || null;
+    return { report: 'Strategic Risk Report', risks, linked_provider_signoff: latestSignoff };
   }
 
   async escalations(companyId: string, start?: string, end?: string) {
@@ -103,7 +125,12 @@ export class ReportsDataService {
        ORDER BY e.created_at DESC`,
       [companyId, startTs, endTs]
     );
-    return { report: 'Escalation Report', escalations: rows.rows };
+    const latestSignoff = (await query(
+      `SELECT week_ending, position, acknowledged_by_name, acknowledged_at
+         FROM provider_review_signoffs WHERE company_id = $1 ORDER BY week_ending DESC LIMIT 1`,
+      [companyId]
+    )).rows[0] || null;
+    return { report: 'Escalation Report', escalations: rows.rows, linked_provider_signoff: latestSignoff };
   }
 
   // Cross-Service Control Report (Director view): domains showing a pattern across
@@ -179,7 +206,68 @@ export class ReportsDataService {
       `${evidence.length} risk${evidence.length === 1 ? '' : 's'} are on the register; ${traced} trace directly to a source cluster with a recorded signal count, demonstrating that no risk was created without evidence and none automatically. ` +
       `Each entry carries its governance domain's CQC Key Line of Enquiry so an inspector can follow the chain from observation to action: ` +
       `Safe (S1/S2) for how risks are identified and mitigated, and Well-Led (W2) for how they are understood and governed across the service.`;
-    return { report: 'Inspection Evidence Pack', kloe: ['S1', 'S2', 'W2'], narrative, summary: { risks: evidence.length, evidence_backed: traced }, evidence };
+    // Brief: "Include the signed decision and links or references to the validated service
+    // reviews and evidence used." Pull the most recent provider sign-off's own reference data
+    // (not a live recalculation) so the pack shows exactly what the RI relied on.
+    const recentSignoffs = (await query(
+      `SELECT id, week_ending, position, rationale, statement, acknowledged_by_name, acknowledged_at,
+              included_service_ids, validated_weekly_review_ids, evidence_totals_snapshot, snapshot_taken_at
+         FROM provider_review_signoffs
+        WHERE company_id = $1
+        ORDER BY week_ending DESC LIMIT 5`,
+      [companyId]
+    )).rows;
+
+    return { report: 'Inspection Evidence Pack', kloe: ['S1', 'S2', 'W2'], narrative, summary: { risks: evidence.length, evidence_backed: traced }, evidence, provider_signoffs: recentSignoffs };
+  }
+
+  // RI / Board Assurance Report (brief): the primary report for the signed provider position.
+  // Reads the saved sign-off directly — it does NOT recompute evidence totals, so the figures
+  // shown always match what the RI actually saw when they signed, even if risks/escalations
+  // have since changed.
+  async providerAssurance(companyId: string, weekEnding?: string) {
+    const row = (await query(
+      weekEnding
+        ? `SELECT * FROM provider_review_signoffs WHERE company_id = $1 AND week_ending = $2`
+        : `SELECT * FROM provider_review_signoffs WHERE company_id = $1 ORDER BY week_ending DESC LIMIT 1`,
+      weekEnding ? [companyId, weekEnding] : [companyId]
+    )).rows[0] || null;
+
+    if (!row) {
+      return { report: 'RI / Board Assurance Report', week_ending: weekEnding || null, signed: false, narrative: 'No provider assurance sign-off has been recorded for this week.' };
+    }
+
+    const serviceNames = row.included_service_ids?.length
+      ? (await query(`SELECT id, name FROM houses WHERE id = ANY($1::uuid[])`, [row.included_service_ids])).rows
+      : [];
+
+    // Follow-up references the RI cited at sign-off (point 2) — resolved live, since these are
+    // references TO follow-up work, not evidence totals, so they stay outside the frozen snapshot.
+    const followups = Array.isArray(row.linked_followup_refs) ? row.linked_followup_refs : [];
+
+    const hasSnapshot = !!row.snapshot_taken_at;
+    const narrative =
+      `Provider assurance conclusion for the week ending ${row.week_ending}: ${row.position}. ` +
+      `Signed by ${row.acknowledged_by_name} on ${new Date(row.acknowledged_at).toLocaleDateString('en-GB')}. ` +
+      (hasSnapshot
+        ? `Covered ${serviceNames.length} validated service review(s); the evidence totals below are exactly as recorded at sign-off.`
+        : `This sign-off predates evidence snapshotting (migration 213) — service coverage and evidence totals are not available for this historical record.`);
+
+    return {
+      report: 'RI / Board Assurance Report',
+      week_ending: row.week_ending,
+      signed: true,
+      conclusion: row.position,
+      rationale: row.rationale || row.statement,
+      signer: row.acknowledged_by_name,
+      signed_at: row.acknowledged_at,
+      validated_service_coverage: serviceNames,
+      validated_weekly_review_ids: row.validated_weekly_review_ids || [],
+      evidence_totals_snapshot: hasSnapshot ? row.evidence_totals_snapshot : null,
+      evidence_unavailable: !hasSnapshot,
+      linked_followups: followups,
+      narrative,
+    };
   }
 }
 

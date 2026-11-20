@@ -54,7 +54,7 @@ export function ServiceReviewRollup() {
     if (!rationale.trim()) { toast.error("Record an evidence-based rationale."); return; }
     setSigning(true);
     try {
-      await apiClient.post(`/weekly-reviews/rollup/sign`, { week_ending: data.week_ending, position: conclusion, statement: rationale.trim() });
+      await apiClient.post(`/weekly-reviews/rollup/sign`, { week_ending: data.week_ending, position: conclusion, statement: rationale.trim(), rationale: rationale.trim() });
       toast.success("Provider assurance decision recorded.");
       setConclusion(""); setRationale("");
       const r: any = await apiClient.get(`/weekly-reviews/rollup?week_ending=${data.week_ending}`);
@@ -123,7 +123,7 @@ export function ServiceReviewRollup() {
                     <p className="text-xs text-muted-foreground">{rollup.director_validated_count ?? 0} of {rollup.included_service_count ?? rollup.sites_total ?? 0} service reviews Director validated{typeof rollup.rm_finalised_count === "number" ? ` · ${rollup.rm_finalised_count} RM finalised` : ""}</p>
                   </div>
                   {rollup.signoff ? (
-                    <span className="text-sm text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> {rollup.signoff.position ? `${rollup.signoff.position} — ` : ""}signed by {rollup.signoff.acknowledged_by_name}</span>
+                    <span className="text-sm text-emerald-700 flex items-center gap-1"><CheckCircle2 className="w-4 h-4" /> {rollup.signoff.position ? `${rollup.signoff.position} — ` : ""}signed by {rollup.signoff.acknowledged_by_name}{rollup.signoff.acknowledged_at ? ` on ${new Date(rollup.signoff.acknowledged_at).toLocaleString("en-GB", { day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}` : ""}</span>
                   ) : null}
                 </div>
 
@@ -164,7 +164,24 @@ export function ServiceReviewRollup() {
                   </div>
                 )}
 
-                {rollup.signoff && <p className="text-xs text-muted-foreground italic mt-2 border-l-2 border-border pl-3">{rollup.signoff.statement}</p>}
+                {rollup.signoff && (
+                  <div className="mt-2 border-l-2 border-border pl-3 space-y-1">
+                    <p className="text-xs text-muted-foreground italic">{rollup.signoff.rationale || rollup.signoff.statement}</p>
+                    {rollup.historical_evidence_unavailable ? (
+                      <p className="text-[11px] text-amber-700">Signed evidence snapshot unavailable for this older sign-off — figures below are today's live totals, not what the RI saw at sign-off.</p>
+                    ) : rollup.evidence_is_historical ? (
+                      <p className="text-[11px] text-muted-foreground">
+                        Signed evidence (as reviewed at sign-off): {rollup.evidence_totals?.open_risks ?? 0} open risks ·
+                        {" "}{rollup.evidence_totals?.open_escalations ?? 0} open escalations ·
+                        {" "}{rollup.evidence_totals?.signals ?? 0} signals ·
+                        {" "}{rollup.evidence_totals?.overdue_actions ?? 0} overdue actions.
+                        {rollup.live_evidence_totals && (rollup.live_evidence_totals.open_risks !== rollup.evidence_totals?.open_risks || rollup.live_evidence_totals.open_escalations !== rollup.evidence_totals?.open_escalations) && (
+                          <> Current live totals: {rollup.live_evidence_totals.open_risks} open risks, {rollup.live_evidence_totals.open_escalations} open escalations (may have changed since sign-off).</>
+                        )}
+                      </p>
+                    ) : null}
+                  </div>
+                )}
                 {rollup.sites?.some((s: any) => s.published) && (
                   <div className="mt-3 pt-3 border-t border-border/50">
                     <p className="text-[11px] text-muted-foreground mb-1">Chase unread on published sites:</p>

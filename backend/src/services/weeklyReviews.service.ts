@@ -1194,7 +1194,9 @@ export class WeeklyReviewsService {
     const assurance_ready = included_service_count > 0 && blockers.length === 0;
 
     const signoff = (await query(
-      `SELECT position, acknowledged_by_name, acknowledged_at, statement
+      `SELECT id, position, acknowledged_by_name, acknowledged_at, statement, rationale,
+              included_service_ids, validated_weekly_review_ids, evidence_totals_snapshot,
+              snapshot_taken_at, linked_followup_refs
          FROM provider_review_signoffs WHERE company_id = $1 AND week_ending = $2`,
       [company_id, week_ending]
     )).rows[0] || null;
@@ -1219,16 +1221,28 @@ export class WeeklyReviewsService {
          (SELECT COUNT(*) FROM canonical_action_state_v a WHERE a.company_id=$1 AND a.effectiveness_outcome='Too Early To Assess')::int AS eff_too_early`,
       [company_id, week_ending]
     )).rows[0] || {};
-    const evidence_totals = {
+    const live_evidence_totals = {
       signals: ev.signals || 0, patterns: ev.patterns || 0, open_risks: ev.open_risks || 0,
       open_escalations: ev.open_escalations || 0, overdue_actions: ev.overdue_actions || 0,
       effectiveness: { effective: ev.eff_effective || 0, partially_effective: ev.eff_partial || 0, not_effective: ev.eff_not_effective || 0, too_early: ev.eff_too_early || 0 },
     };
 
+    // Point 3 — retrieval must show what the RI actually saw, not today's recalculation. A signed
+    // week with a real snapshot (snapshot_taken_at set — signed after migration 213) returns the
+    // FROZEN totals as `evidence_totals` / `evidence_is_historical: true`; the live numbers are
+    // still available separately as `live_evidence_totals`. An older sign-off that predates the
+    // snapshot column (snapshot_taken_at NULL) is labelled explicitly as unavailable rather than
+    // silently substituting live numbers for it (brief point 3).
+    const hasSnapshot = !!(signoff && signoff.snapshot_taken_at);
+    const evidence_totals = hasSnapshot ? signoff.evidence_totals_snapshot : live_evidence_totals;
+    const evidence_is_historical = hasSnapshot;
+    const historical_evidence_unavailable = !!signoff && !hasSnapshot;
+
     return {
       week_ending, week_ending_label: formatWeekEndingUK(week_ending),
       included_service_count, rm_finalised_count, director_validated_count,
-      assurance_ready, blockers, service_positions, evidence_totals,
+      assurance_ready, blockers, service_positions,
+      evidence_totals, live_evidence_totals, evidence_is_historical, historical_evidence_unavailable,
       ri_signoff: signoff, permitted_signoff_role: 'RESPONSIBLE_INDIVIDUAL',
       // Backward-compatible fields still consumed by the current UI and the sign-off path:
       sites: sitesData, sites_total: included_service_count, sites_finalised: rm_finalised_count,
@@ -1236,38 +1250,81 @@ export class WeeklyReviewsService {
     };
   }
 
+  // The four conclusions the RI may record.
+  static readonly ALLOWED_PROVIDER_CONCLUSIONS = ['Assured', 'Assured with actions', 'Further evidence required', 'Not assured'];
+
   // Finding O: sign the provider-wide position — gated on every site being finalised,
   // by a Director/RI (separation of duties from the RM per-site sign-offs).
-  async signProviderRollup(company_id: string, week_ending_in: string, user_id: string, dto: { position?: string; statement?: string }) {
+  //
+  // Point 1 (readiness alignment): this method, providerRollup() above (Review Roll-up's
+  // retrieval) and guidedWork.service.ts's RI "ready to sign" check all derive readiness from
+  // THIS SAME providerRollup() call — no second, independently written readiness query is left
+  // anywhere in the codebase.
+  //
+  // Point 2 (save decision + evidence together): included_service_ids, validated_weekly_review_ids,
+  // evidence_totals_snapshot and snapshot_taken_at are captured from the SAME rollup read used to
+  // pass the readiness gate, and inserted in the same statement as the decision.
+  async signProviderRollup(company_id: string, week_ending_in: string, user_id: string, dto: { position?: string; statement?: string; rationale?: string; linked_followup_refs?: unknown[] }) {
     const week_ending = normalizeWeekEnding(week_ending_in);
     const rollup = await this.providerRollup(company_id, week_ending);
     const me = (await query(`SELECT first_name || ' ' || last_name AS name, role FROM users WHERE id = $1`, [user_id])).rows[0] || {};
     const company = (await query(`SELECT name FROM companies WHERE id = $1`, [company_id])).rows[0] || {};
-    // RI assurance conclusion is chosen by the RI; default only as a safe fallback (a full rationale
-    // requirement is enforced in the RI-interface change). It is NOT derived from service positions.
-    const position = dto.position || 'Assured';
+
+    // Server-side enforcement of an allowed conclusion (brief point 1) — no silent default to
+    // 'Assured' any more; a missing or mistyped conclusion is rejected, not quietly upgraded.
+    const position = String(dto.position || '').trim();
+    if (!WeeklyReviewsService.ALLOWED_PROVIDER_CONCLUSIONS.includes(position)) {
+      throw new Error(`Provider sign-off rejected: conclusion must be one of ${WeeklyReviewsService.ALLOWED_PROVIDER_CONCLUSIONS.join(', ')}.`);
+    }
+    const rationale = String(dto.rationale || dto.statement || '').trim();
+    if (!rationale) {
+      throw new Error('Provider sign-off rejected: a written rationale is required.');
+    }
+
     if (!rollup.sites_total) throw new Error('Provider sign-off blocked: no active services were found.');
     if (rollup.outstanding.length > 0) {
       throw new Error(`Provider sign-off blocked: weekly governance is outstanding for ${rollup.outstanding.join(', ')}.`);
     }
-    const notValidated = rollup.sites.filter((s: any) => !['Approved'].includes(s.validation_status));
-    if (notValidated.length) {
-      throw new Error(`Provider sign-off blocked: Director validation is outstanding for ${notValidated.map((s: any) => s.house).join(', ')}.`);
+    // Uses the SAME scope/validation rule as providerRollup's `blockers` (director_validated on
+    // every included service) rather than a locally re-derived condition.
+    if (rollup.blockers.length) {
+      throw new Error(`Provider sign-off blocked: Director validation is outstanding for ${rollup.blockers.map((b: any) => b.name).join(', ')}.`);
     }
     if (rollup.signoff) throw new Error('The provider position for this week is already signed and immutable.');
+
     const coverage = `all ${rollup.sites_total} services finalised and Director validated`;
     const statement = dto.statement ||
       `I, ${me.name} (${me.role}), have reviewed the weekly governance of ${company.name} for the week ending ` +
       `${week_ending} — ${coverage} — and acknowledge the provider-level position: ${position}.`;
+
+    const includedServiceIds = rollup.sites.map((s: any) => s.house_id);
+    const validatedReviewIds = rollup.sites.map((s: any) => s.review_id).filter(Boolean);
+    const linkedFollowupRefs = JSON.stringify(Array.isArray(dto.linked_followup_refs) ? dto.linked_followup_refs : []);
+
     const res = await query(
       `INSERT INTO provider_review_signoffs
-         (company_id, week_ending, position, acknowledged_by, acknowledged_by_name, acknowledged_at, statement)
-       VALUES ($1, $2, $3, $4, $5, NOW(), $6)
+         (company_id, week_ending, position, acknowledged_by, acknowledged_by_name, acknowledged_at, statement,
+          rationale, included_service_ids, validated_weekly_review_ids, evidence_totals_snapshot,
+          snapshot_taken_at, linked_followup_refs)
+       VALUES ($1, $2, $3, $4, $5, NOW(), $6, $7, $8, $9, $10, NOW(), $11)
        ON CONFLICT (company_id, week_ending) DO NOTHING
        RETURNING *`,
-      [company_id, week_ending, position, user_id, me.name, statement]
+      [
+        company_id, week_ending, position, user_id, me.name, statement,
+        rationale, includedServiceIds, validatedReviewIds, JSON.stringify(rollup.live_evidence_totals),
+        linkedFollowupRefs,
+      ]
     );
     if (!res.rows[0]) throw new Error('The provider position for this week is already signed and immutable.');
+
+    // Governance Audit Log: record the sign-off event (provider, week, signer, timestamp,
+    // conclusion, record reference). Best-effort — must never unwind the committed sign-off.
+    await query(
+      `INSERT INTO audit_logs (id, company_id, user_id, action, resource, resource_id, new_values)
+       VALUES (uuid_generate_v4(), $1, $2, 'provider_assurance.signed', 'provider_review_signoff', $3, $4)`,
+      [company_id, user_id, res.rows[0].id, JSON.stringify({ week_ending, position, signed_by: me.name, signed_at: res.rows[0].acknowledged_at })]
+    ).catch((e) => logger.warn('Failed to write audit log for provider assurance sign-off', e));
+
     return res.rows[0];
   }
 

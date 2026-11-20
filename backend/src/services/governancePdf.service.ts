@@ -17,6 +17,7 @@ import {
 } from '../utils/pdfHelper';
 import { learningService } from './learning.service';
 import { escalationsService } from './escalations.service';
+import { reportsDataService } from './reportsData.service';
 
 // 24 Oct developer brief: "Learning and Escalation PDF download requirements".
 // These are live-data snapshots, not the frozen/published reports under reports.service
@@ -483,5 +484,87 @@ export const governancePdfService = {
     if (!escalations.length) doc.fontSize(10).text('No escalations match this filter.');
 
     return finish(doc, buffers, `Escalations_Summary_${new Date().toISOString().split('T')[0]}.pdf`);
+  },
+
+  // RI / Board Assurance Report PDF — same live-record spec/helpers as learningRecord/
+  // escalationRecord above. Reads reportsData.service's providerAssurance(), which itself
+  // reads the signed sign-off row directly (never recomputes), so this never shows a figure
+  // the RI didn't actually see at sign-off. No raw UUIDs are rendered (validated_weekly_review_ids
+  // is shown only as a count, per the frozen-report "no UUIDs" convention also followed by
+  // learningRecord/escalationRecord above).
+  async providerAssuranceRecord(company_id: string, weekEnding?: string) {
+    const data = await reportsDataService.providerAssurance(company_id, weekEnding);
+    const doc = createGovernanceRecordDoc();
+    const buffers: Buffer[] = [];
+    doc.on('data', (c: Buffer) => buffers.push(c));
+
+    const weekLabel = data.week_ending ? fmtDate(data.week_ending) : (weekEnding ? fmtDate(weekEnding) : 'Not recorded');
+    govTitle(doc, `Provider Assurance — week ending ${weekLabel}`);
+    govGap(doc, GOV_HEADING_BLOCK_GAP);
+    govSupportLine(doc, `Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`);
+    govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
+
+    if (!data.signed) {
+      const text = data.narrative || 'No provider assurance sign-off has been recorded for this week.';
+      govSectionHeading(doc, 'No sign-off recorded', text);
+      govParagraph(doc, text);
+      return finishGovernanceRecord(doc, buffers, `Provider_Assurance_${weekEnding || 'latest'}.pdf`);
+    }
+
+    govMetaRow(doc, 'Week ending', weekLabel);
+    govMetaRow(doc, 'Conclusion', data.conclusion || '—');
+    govMetaRow(doc, 'Signed by', `${data.signer || '—'} on ${fmtDate(data.signed_at)}`);
+
+    const rationaleText = data.rationale || 'Not recorded.';
+    govSectionHeading(doc, 'Rationale', rationaleText);
+    govParagraph(doc, rationaleText);
+
+    const coverage = Array.isArray(data.validated_service_coverage) ? data.validated_service_coverage : [];
+    const coverageText = coverage.length ? coverage.map((s: any) => s.name).filter(Boolean).join(', ') : 'Not recorded.';
+    govSectionHeading(doc, `Validated service coverage (${coverage.length})`, coverageText);
+    govParagraph(doc, coverageText);
+    const reviewCount = Array.isArray(data.validated_weekly_review_ids) ? data.validated_weekly_review_ids.length : 0;
+    if (reviewCount) {
+      govParagraph(doc, `${reviewCount} Director-validated weekly review${reviewCount === 1 ? '' : 's'} were examined for this sign-off.`);
+    }
+
+    if (data.evidence_unavailable) {
+      const unavailableText = 'Evidence snapshot unavailable — this sign-off predates evidence snapshotting (migration 213). The RI relied on the figures visible at the time; they are no longer recoverable and are not substituted with today\'s live totals.';
+      govSectionHeading(doc, 'Evidence snapshot', unavailableText);
+      govParagraph(doc, unavailableText, { color: GOV_COLORS.WARNING, bold: true });
+    } else {
+      const snap = data.evidence_totals_snapshot || {};
+      const eff = snap.effectiveness || {};
+      const firstLine = `Signals (7-day inflow): ${snap.signals ?? '—'}`;
+      govSectionHeading(doc, 'Evidence snapshot (as recorded at sign-off)', firstLine);
+      govParagraph(doc, firstLine);
+      govParagraph(doc, `Unlinked patterns: ${snap.patterns ?? '—'}`);
+      govParagraph(doc, `Open risks: ${snap.open_risks ?? '—'}`);
+      govParagraph(doc, `Open escalations: ${snap.open_escalations ?? '—'}`);
+      govParagraph(doc, `Overdue actions: ${snap.overdue_actions ?? '—'}`);
+      govParagraph(doc, `Effectiveness — Effective: ${eff.effective ?? '—'} · Partially effective: ${eff.partially_effective ?? '—'} · Not effective: ${eff.not_effective ?? '—'} · Too early to assess: ${eff.too_early ?? '—'}`);
+    }
+
+    const followups = Array.isArray(data.linked_followups) ? data.linked_followups : [];
+    if (followups.length) {
+      govSectionHeading(doc, `Linked follow-ups (${followups.length})`);
+      followups.forEach((f: any, idx: number) => {
+        if (idx > 0 && doc.y + 28 > doc.page.height - (doc.page.margins as any).bottom) {
+          (doc as any).addPage();
+          govSectionHeading(doc, 'Linked follow-ups (continued)');
+        }
+        const title = shortText(f?.title || f?.description || f?.label || f?.name || 'Follow-up', 120);
+        const owner = f?.owner_name || f?.owner || '—';
+        const due = f?.due_date || f?.due_by || f?.due;
+        govSupportText(doc, `• ${title}`, { bold: true });
+        govSupportText(doc, `Owner: ${owner}${due ? ` · Due: ${fmtDate(due)}` : ''}`, { indent: 10 });
+        if (idx < followups.length - 1) govGap(doc, 4);
+      });
+    } else {
+      govSectionHeading(doc, 'Linked follow-ups', 'None recorded.');
+      govParagraph(doc, 'None recorded.');
+    }
+
+    return finishGovernanceRecord(doc, buffers, `Provider_Assurance_${data.week_ending || weekEnding || 'latest'}.pdf`);
   },
 };

@@ -1,4 +1,5 @@
 import { query } from '../config/database';
+import { weeklyReviewsService } from './weeklyReviews.service';
 
 type GuidedRole = 'TEAM_LEADER'|'REGISTERED_MANAGER'|'DIRECTOR'|'RESPONSIBLE_INDIVIDUAL'|'ADMIN'|'SUPER_ADMIN';
 type GuidedPriority = 'URGENT'|'DUE'|'NORMAL';
@@ -435,8 +436,15 @@ export const guidedWorkService = {
              ORDER BY ra.due_date NULLS LAST LIMIT 1
           ) da ON TRUE
           LEFT JOIN users au ON au.id = da.assigned_to
+          -- Current owner's role (Escalation handover brief, Nov 2026): once "Escalate further"
+          -- moves an escalation up to a Director/RI, it stays e.is_open=true (not closed) for the
+          -- rest of its life, so without this filter it kept showing in the RM's own Decisions Due
+          -- forever -- it never left the RM's queue the way the acceptance test requires. Only show
+          -- it here while the current owner is still at RM tier (or legacy records with no owner set).
+          LEFT JOIN users eo ON eo.id = e.escalated_to
          WHERE e.company_id=$1 AND e.house_id=ANY($2::uuid[])
            AND e.is_open
+           AND (eo.id IS NULL OR eo.role IN ('REGISTERED_MANAGER','RM','ADMIN','SUPER_ADMIN'))
          ORDER BY e.due_by NULLS FIRST`, [companyId, houses]);
       for (const e of escalations) {
         // 27 Oct field report: an escalation the RM had just reviewed and delegated (a genuinely
@@ -755,8 +763,62 @@ export const guidedWorkService = {
       });
     }
 
+    // Escalation handover (Developer brief, Nov 2026 — "Escalation handover in My Work"):
+    // escalations.service.ts's escalateFurther() (RM -> Director -> RI) moves e.escalated_to to the
+    // next role, resets the SLA, records history and notifies — but this file had NO Director or RI
+    // branch that ever read the escalations table at all, confirmed against live code, so a
+    // successfully-transferred escalation never appeared under Needs Your Decision for the named
+    // recipient. No new schema is needed: a pending handover is just the open escalation whose
+    // CURRENT owner (escalated_to) is this exact user and who has not yet recorded a valid next
+    // step. "Continue monitoring" (a named monitoring owner + a future next_review_at, the same
+    // validMonitoring test used by the RM queue above and by EscalationLog.tsx) is the one next
+    // step modelled here as clearing the item to Waiting; recording any other decision (acknowledge,
+    // escalate further again, assign an action, or close it) removes it from is_open or moves
+    // escalated_to off this user entirely, which naturally drops it out of this query.
+    const loadEscalationHandover = async () => {
+      const rows = await safeRows(`
+        SELECT e.id, e.reason, e.priority, e.due_by, e.next_review_at, e.metadata,
+               h.name AS service_name, (eb.first_name || ' ' || eb.last_name) AS escalated_by_name
+          FROM canonical_escalation_state_v e
+          LEFT JOIN houses h ON h.id = e.house_id
+          LEFT JOIN users eb ON eb.id = e.escalated_by
+         WHERE e.company_id=$1 AND e.escalated_to=$2 AND e.is_open
+         ORDER BY e.due_by NULLS FIRST`, [companyId, userId]);
+      for (const e of rows) {
+        const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
+        const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
+        const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
+        const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
+        if (validMonitoring) {
+          waiting.push({ id:`escalation:${e.id}`, role, state:'WAITING', priority:'NORMAL', taskType:'ESCALATION_MONITORING_WAIT',
+            title:'Being managed', summary:e.reason || 'Escalation under active monitoring',
+            reason:`Monitoring continues until ${new Date(e.next_review_at as string).toLocaleDateString('en-GB')} or an urgent update.`,
+            dueAt:e.next_review_at, serviceName:e.service_name,
+            canonicalEntityType:'escalation', canonicalEntityId:e.id,
+            route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
+            actionLabel:'View', whyAmISeeingThis:'You decided to continue monitoring this escalation; it returns to you at the scheduled review or sooner if flagged urgent.' });
+          continue;
+        }
+        const senderLabel = (e.escalated_by_name || '').trim() || 'a colleague';
+        needsYou.push({
+          id:`escalation:${e.id}`, role, state:'NEEDS_YOU',
+          priority: rmAttention ? 'URGENT' : priorityFor(e.due_by, ['Urgent','Critical'].includes(e.priority)),
+          taskType:'ESCALATION_REVIEW',
+          title:'Escalation handed to you', summary:e.reason || 'Open escalation needs your decision',
+          reason:`Escalated to you by ${senderLabel}${e.reason ? `: ${e.reason}` : ''}.`,
+          dueAt:e.due_by, serviceName:e.service_name,
+          canonicalEntityType:'escalation', canonicalEntityId:e.id, requiredAction:'ESCALATION_REVIEW',
+          completionCondition:'Review the escalation and record its canonical next step, or close it through the existing escalation workflow.',
+          route:`/escalation-log?focus=${e.id}&guided=1&gw=escalation:${e.id}`,
+          actionLabel:'Review Escalation',
+          whyAmISeeingThis:`This escalation was passed up to you by ${senderLabel} and needs your decision as the current owner.`
+        });
+      }
+    };
+
     // DIRECTOR: weekly validations, cross-service patterns, strategic/critical risks and incomplete effectiveness.
     if (role === 'DIRECTOR') {
+      await loadEscalationHandover();
       // Director Mobile My Work Navigation correction (13 Oct 2026): the Director's own personal
       // "overdue actions"/"assigned actions requiring attention" counts must come from the SAME
       // canonical action population this queue returns — not a separately-computed card total that
@@ -809,11 +871,22 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
 
     // RI: material assurance exceptions and provider sign-off.
     if (role === 'RESPONSIBLE_INDIVIDUAL') {
+      await loadEscalationHandover();
       const risks = await safeRows(`SELECT id,title,severity::text,trajectory::text,review_due_at AS due_at FROM canonical_risk_state_v WHERE company_id=$1 AND is_active AND severity::text='Critical' ORDER BY updated_at DESC LIMIT 20`,[companyId]);
       for (const r of risks) needsYou.push({id:`ri_risk:${r.id}`,role,state:'NEEDS_YOU',priority:'URGENT',taskType:'ASSURANCE_EXCEPTION',title:r.title||'Critical strategic risk',summary:`Trajectory: ${r.trajectory}`,reason:'This critical risk limits positive provider assurance.',dueAt:r.due_at,canonicalEntityType:'risk',canonicalEntityId:r.id,concernRiskId:r.id,requiredAction:'RI_ASSURANCE_RISK_REVIEW',completionCondition:'The required RI assurance review of this exact critical risk is persisted.',route:`/risk-register/${r.id}?guided=1&gw=ri_risk:${r.id}`,actionLabel:'Review Assurance Gap',whyAmISeeingThis:'This open critical risk materially limits provider assurance.'});
 
-      const ready = await safeRows(`SELECT DISTINCT wr.week_ending FROM weekly_reviews wr WHERE wr.company_id=$1 AND wr.week_ending=(SELECT MAX(week_ending) FROM weekly_reviews WHERE company_id=$1) AND wr.validation_status='Approved' AND NOT EXISTS (SELECT 1 FROM provider_review_signoffs prs WHERE prs.company_id=$1 AND prs.week_ending=wr.week_ending)`,[companyId]);
-      if (ready[0]) needsYou.push({id:`ri_signoff:${ready[0].week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${fmtWeek(ready[0].week_ending)}`,reason:'Approved service reviews are ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(ready[0].week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${ready[0].week_ending}&guided=1&gw=ri_signoff:${ready[0].week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'The latest approved provider position is awaiting your assurance decision.'});
+      // Readiness alignment (brief point 1): use the EXACT SAME included-service scope and
+      // all-services-validated rule as Review Roll-up and the save endpoint, via providerRollup()
+      // itself, instead of a separately written query that could (and previously did — it only
+      // checked ONE weekly_reviews row, not every active service) disagree with them.
+      const latestWeekRows = await safeRows(`SELECT MAX(week_ending) AS week_ending FROM weekly_reviews WHERE company_id=$1`,[companyId]);
+      const latestWeekEnding = latestWeekRows[0]?.week_ending;
+      if (latestWeekEnding) {
+        const providerRollup = await weeklyReviewsService.providerRollup(companyId, latestWeekEnding);
+        if (providerRollup.assurance_ready && !providerRollup.signoff) {
+          needsYou.push({id:`ri_signoff:${providerRollup.week_ending}`,role,state:'NEEDS_YOU',priority:'DUE',taskType:'PROVIDER_ASSURANCE_SIGNOFF',title:'Provider position awaiting RI sign-off',summary:`Week ending ${fmtWeek(providerRollup.week_ending)}`,reason:'All included services are finalised and Director validated — ready for RI assurance sign-off.',canonicalEntityType:'provider_assurance',canonicalEntityId:String(providerRollup.week_ending),requiredAction:'RI_PROVIDER_ASSURANCE_SIGNOFF',completionCondition:'The RI assurance decision for this exact provider week is persisted.',route:`/service-review-rollup?weekEnding=${providerRollup.week_ending}&guided=1&gw=ri_signoff:${providerRollup.week_ending}`,actionLabel:'Record Assurance Decision',whyAmISeeingThis:'All included services are finalised and Director validated, and the provider-wide position is awaiting your assurance decision.'});
+        }
+      }
     }
 
     // Completed today is informational only; no state is owned by Guided Work.

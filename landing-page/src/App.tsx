@@ -2,7 +2,7 @@ import { useEffect, useState } from "react";
 import { Button } from "./components/ui/button";
 import { Card } from "./components/ui/card";
 import { cn } from "./lib/utils";
-import logoImg from "./assets/logo.png";
+import logoImg from "./assets/logo-wordmark.png";
 import heroSeeWorseImg from "./assets/See what is getting worse eralier.png";
 import heroTrackConcernsImg from "./assets/track concerns.png";
 import heroMaintainStrongerImg from "./assets/Maintain stronger.png";
@@ -398,11 +398,7 @@ export default function App() {
       <header className="sticky top-0 z-40 border-b border-[#C6D5E1] dark:border-slate-800 bg-[#DDE7EF]/90 dark:bg-slate-900/90 backdrop-blur-md">
         <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-3.5 lg:px-8">
           <div className="flex items-center gap-3">
-            <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-2 ring-[#C6D5E1]/50" />
-            <div className="leading-none">
-              <p className="text-sm font-black uppercase tracking-widest text-[#172B3B] dark:text-white">ordin</p>
-              <p className="text-xs font-bold uppercase tracking-widest text-[#28536F] dark:text-emerald-400">core</p>
-            </div>
+            <img src={logoImg} alt="Ordin Core" className="h-9 w-auto object-contain" />
           </div>
 
           <nav className="hidden items-center gap-8 text-sm font-semibold text-slate-600 dark:text-slate-300 lg:flex">
@@ -1140,11 +1136,7 @@ export default function App() {
             {/* Brand */}
             <div className="col-span-2 md:col-span-3 lg:col-span-2 space-y-4">
               <div className="flex items-center gap-3">
-                <img src={logoImg} alt="Ordin Core" className="h-9 w-9 rounded-xl object-cover ring-1 ring-slate-800" />
-                <div className="leading-none">
-                  <p className="text-sm font-black uppercase tracking-widest text-white">ordin</p>
-                  <p className="text-sm font-bold uppercase tracking-widest text-emerald-400">core</p>
-                </div>
+                <img src={logoImg} alt="Ordin Core" className="h-9 w-auto object-contain rounded-md bg-white/90 px-2 py-1" />
               </div>
               <p className="text-sm leading-relaxed max-w-xs text-slate-500">
                 Structured operational governance and assurance loops for supported living, community, and care services.

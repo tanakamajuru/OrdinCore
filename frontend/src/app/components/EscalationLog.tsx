@@ -341,19 +341,22 @@ export function EscalationLog() {
     // status is used only when a pre-migration record has no lifecycle value.
     if (ls) {
       if (ls === 'closed' || ls === 'resolved') return 'resolved';
-      if (ls === 'open' || ls === 'reopened') {
-        // Cross-screen consistency fix (21 Oct 2026): lifecycle_status stays 'open' for the
-        // whole life of a Continue-monitoring decision, so this previously always read as
-        // "Needs review" even while guidedWork.service.ts correctly sat the exact same
-        // escalation in Waiting/Being managed. Port the identical validMonitoring check (same
-        // name, same three conditions) so this list and Guided Work can never disagree.
-        const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
-        const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
-        const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
-        const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
-        return validMonitoring ? 'progress' : 'needs';
-      }
-      return 'progress';
+      // Cross-screen consistency fix (21 Oct 2026, widened Nov 2026 for escalation handover):
+      // lifecycle_status stays 'open' for the whole life of a Continue-monitoring decision, so
+      // this previously always read as "Needs review" even while guidedWork.service.ts correctly
+      // sat the exact same escalation in Waiting/Being managed. Port the identical validMonitoring
+      // check (same name, same three conditions) so this list and Guided Work can never disagree.
+      // Bug fix (handover brief): this check only ran for ls 'open'/'reopened' — any OTHER
+      // non-closed lifecycle value (e.g. 'Under Review', which "Escalate further" sets the moment
+      // it hands the record to the next role) fell through to an unconditional 'progress' ("Being
+      // managed"), so a freshly-transferred escalation looked already actioned before the named
+      // recipient had reviewed it at all. Apply the same validMonitoring test to every open
+      // (non-closed) lifecycle state, not just 'open'/'reopened'.
+      const monitoringOwnerId = e.metadata?.monitoring_owner_id || null;
+      const rmAttention = e.metadata?.rm_attention === true || e.metadata?.rm_attention === 'true';
+      const reviewDue = !e.next_review_at || new Date(e.next_review_at).getTime() <= Date.now();
+      const validMonitoring = !!monitoringOwnerId && !reviewDue && !rmAttention;
+      return validMonitoring ? 'progress' : 'needs';
     }
     if (s === 'resolved' || s === 'closed') return 'resolved';
     if (s === 'pending' || !s) return 'needs';

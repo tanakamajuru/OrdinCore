@@ -4,6 +4,7 @@ import { reportsDataService } from '../services/reportsData.service';
 import { reconstructionService, ReconstructionScope } from '../services/reconstruction.service';
 import { narrativeService } from '../services/narrative.service';
 import { generatedReportsService } from '../services/generatedReports.service';
+import { governancePdfService } from '../services/governancePdf.service';
 import { query } from '../config/database';
 
 export class ReportsController {
@@ -67,6 +68,31 @@ export class ReportsController {
       return res.json({ success: true, data, meta: {} });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build inspection evidence pack', errors: [] });
+    }
+  }
+
+  // RI / Board Assurance Report (brief): the primary report for the signed provider position.
+  async providerAssurance(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const data = await reportsDataService.providerAssurance(company_id, req.query.week_ending as string);
+      return res.json({ success: true, data, meta: {} });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build RI / Board Assurance report', errors: [] });
+    }
+  }
+
+  // RI / Board Assurance Report — PDF download, same convention as learning/escalation record
+  // PDFs (governancePdfService + a dedicated 'pdf' route alongside the JSON endpoint).
+  async providerAssurancePdf(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const { content, filename, contentType } = await governancePdfService.providerAssuranceRecord(company_id, req.query.week_ending as string);
+      res.setHeader('Content-Type', contentType);
+      res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+      return res.send(content);
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to build RI / Board Assurance report PDF', errors: [] });
     }
   }
 

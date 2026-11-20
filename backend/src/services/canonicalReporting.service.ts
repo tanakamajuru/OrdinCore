@@ -45,10 +45,21 @@ export class CanonicalReportingService {
          ) x) AS domain_analysis`,
       [companyId]
     );
-    return result.rows[0] || {
-      org_summary: { effective: 0, partially_effective: 0, not_effective: 0, too_early: 0, finalised: 0, interim: 0, total_reviewed: 0 },
-      service_comparison: [], domain_analysis: [],
-    };
+    // Oversight reference only (brief: "Action Effectiveness reports weren't linked to provider
+    // sign-off") — a lightweight pointer to the latest signed provider position, matching the
+    // same reference strategicRisks()/escalations() already carry in reportsData.service.ts.
+    // Ratings themselves stay live from source records; this does not touch how they're computed.
+    const latestSignoff = (await query(
+      `SELECT id, week_ending, position AS conclusion, acknowledged_at AS signed_at
+         FROM provider_review_signoffs WHERE company_id = $1 ORDER BY week_ending DESC LIMIT 1`,
+      [companyId]
+    )).rows[0] || null;
+    return result.rows[0]
+      ? { ...result.rows[0], linked_provider_signoff: latestSignoff }
+      : {
+          org_summary: { effective: 0, partially_effective: 0, not_effective: 0, too_early: 0, finalised: 0, interim: 0, total_reviewed: 0 },
+          service_comparison: [], domain_analysis: [], linked_provider_signoff: latestSignoff,
+        };
   }
 
   // Step 3 "Review history": apply the selected period to actual REVIEW-EVENT timestamps, not
@@ -82,7 +93,14 @@ export class CanonicalReportingService {
          ) x) AS daily_trend`,
       [companyId, range.start, range.end]
     );
-    return result.rows[0] || { total_events: 0, daily_trend: [] };
+    const latestSignoff = (await query(
+      `SELECT id, week_ending, position AS conclusion, acknowledged_at AS signed_at
+         FROM provider_review_signoffs WHERE company_id = $1 ORDER BY week_ending DESC LIMIT 1`,
+      [companyId]
+    )).rows[0] || null;
+    return result.rows[0]
+      ? { ...result.rows[0], linked_provider_signoff: latestSignoff }
+      : { total_events: 0, daily_trend: [], linked_provider_signoff: latestSignoff };
   }
 }
 
