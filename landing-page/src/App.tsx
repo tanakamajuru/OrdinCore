@@ -455,11 +455,11 @@ export default function App() {
               </div>
 
               <h1 className="text-4xl font-extrabold leading-[1.12] tracking-tight text-[#172B3B] dark:text-white sm:text-5xl">
-                Structured Governance Oversight for Supported Living & Care
+                Governance oversight for care providers
               </h1>
 
               <p className="text-base sm:text-lg leading-relaxed text-slate-600 dark:text-slate-300">
-                Ordin Core gives Directors, Responsible Individuals, and Registered Managers structured operational oversight of worsening trends, risks, active escalations, and audit-ready leadership decisions.
+                Built for supported living, home care and community mental health services.
               </p>
 
               <div className="flex flex-col gap-3.5">

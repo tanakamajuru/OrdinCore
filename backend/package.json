@@ -5,7 +5,8 @@
   "main": "dist/server.js",
   "scripts": {
     "dev": "ts-node-dev --respawn --transpile-only src/server.ts",
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && npm run copy-assets",
+    "copy-assets": "node -e \"const fs=require('fs');fs.mkdirSync('dist/reporting/assets',{recursive:true});for(const f of fs.readdirSync('src/reporting/assets'))fs.copyFileSync('src/reporting/assets/'+f,'dist/reporting/assets/'+f);\"",
     "start": "node dist/server.js",
     "migrate": "ts-node src/scripts/migrate.ts",
     "seed": "ts-node seeds/seedRealisticData.ts",

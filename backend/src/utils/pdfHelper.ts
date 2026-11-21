@@ -6,7 +6,26 @@ import fs from 'fs';
 // report PDFs, web login and mobile. Field report (12 Nov 2026): this live-export header used the
 // bare icon-only shield plus a separate small "OrdinCore" text line underneath it, and was asked to
 // "follow the same formatting" as the frozen reports, which already carry the name on the logo.
-export const LOGO_PATH = path.join(__dirname, '../reporting/assets/ordin-core-logo-wordmark.png');
+//
+// 21 Nov 2026 live bug report ("the reports are still not carrying the logo"): confirmed on
+// production — `backend/package.json`'s build script is plain `tsc`, which never copies .png
+// assets into dist/. A single __dirname-relative path (dist/utils -> dist/reporting/assets/...)
+// pointed at a file that only ever exists under src/, so fs.existsSync() here was silently false
+// in production and every caller's `if (fs.existsSync(LOGO_PATH))` guard skipped the logo
+// entirely — this has been broken since before this session, not a regression from today's work.
+// Resolved the same defensive way frozen-pdf.renderer.ts's resolveLogoPath() already does: try
+// the dist-relative path first, then fall back to the source tree, which is still on disk in
+// production (the repo isn't pruned post-build).
+function resolvePdfHelperLogoPath(): string {
+  const candidates = [
+    path.join(__dirname, '../reporting/assets/ordin-core-logo-wordmark.png'),
+    path.resolve(process.cwd(), 'src/reporting/assets/ordin-core-logo-wordmark.png'),
+    path.resolve(process.cwd(), 'backend/src/reporting/assets/ordin-core-logo-wordmark.png'),
+    path.resolve(__dirname, '../../src/reporting/assets/ordin-core-logo-wordmark.png'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || candidates[0];
+}
+export const LOGO_PATH = resolvePdfHelperLogoPath();
 
 /**
  * Draws the report header — matches the frozen-report masthead: wordmark top-right, "Governance &

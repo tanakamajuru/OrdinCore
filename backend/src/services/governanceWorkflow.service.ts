@@ -53,7 +53,7 @@ export const governanceWorkflowService = {
     // or a superseded cycle must never accept a monitoring update even if a stale form is submitted
     // directly (bypassing the queue display).
     const review = await query(
-      `SELECT gr.id, gr.decision_owner_id
+      `SELECT gr.id, gr.decision_owner_id, gp.house_id
          FROM governance_reviews gr
          JOIN governance_pulses gp ON gp.id = gr.pulse_entry_id
         WHERE gr.company_id = $1 AND gr.pulse_entry_id = $2
@@ -65,10 +65,24 @@ export const governanceWorkflowService = {
     const active = review.rows[0];
     if (!active) throw new Error('This signal is not currently under an active monitoring decision — it may already be closed or have moved to a new decision.');
 
+    // 21 Nov 2026 developer brief ("Signal monitoring and urgent RM review"): "Allow the named
+    // owner OR A COLLEAGUE AUTHORISED FOR THE SERVICE" — this previously only allowed the exact
+    // named owner or RM/Admin oversight, so a covering colleague (e.g. another Team Leader at the
+    // same service, standing in while the named owner is off) got a route-level 403 the frontend
+    // showed as the generic "Failed to record the update". A colleague is authorised for the
+    // service when they're assigned to the signal's house via user_houses.
     const role = String(user_role || '').toUpperCase();
     const isOwner = active.decision_owner_id === user_id;
     const isOversight = ['REGISTERED_MANAGER', 'ADMIN', 'SUPER_ADMIN'].includes(role);
-    if (!isOwner && !isOversight) throw new Error('Only the named monitoring owner can record this update.');
+    let isAuthorisedColleague = false;
+    if (!isOwner && !isOversight && role === 'TEAM_LEADER' && active.house_id) {
+      const assigned = await query(
+        `SELECT 1 FROM user_houses WHERE user_id = $1 AND house_id = $2 LIMIT 1`,
+        [user_id, active.house_id]
+      );
+      isAuthorisedColleague = !!assigned.rows[0];
+    }
+    if (!isOwner && !isOversight && !isAuthorisedColleague) throw new Error('Only the named monitoring owner or a colleague assigned to this service can record this update.');
 
     const urgent = !!data.urgent;
     const result = await query(

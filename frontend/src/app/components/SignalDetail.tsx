@@ -277,7 +277,13 @@ export function SignalDetail() {
       monitoringSubmissionId.current = null;
       loadMonitoringHistory(signal.id);
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || "Failed to record the update");
+      // 21 Nov 2026 live bug report ("Failed to record the update", no further detail): this used
+      // to fall back straight to that generic string whenever the request failed without a server
+      // response (a timeout, a dropped connection) — the brief's "handle a failed save: explain
+      // the error" requires surfacing what actually happened. The draft note is deliberately left
+      // in place either way (not cleared) so a retry doesn't lose it.
+      const detail = e?.response?.data?.message || e?.message;
+      toast.error(detail ? `Failed to record the update: ${detail}` : "Failed to record the update");
     } finally {
       setSavingMonitoringUpdate(false);
     }
