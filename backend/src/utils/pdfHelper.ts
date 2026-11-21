@@ -146,12 +146,15 @@ function govFromBottom(yFromBottom: number): number {
  * lockup in the original spec. Call once per page (wire via doc.on('pageAdded', ...)).
  */
 export function drawGovernanceRecordHeader(doc: typeof PDFDocument): void {
-  const logoW = 97.5, logoH = 32.5; // same 3:1 wordmark aspect ratio as drawReportHeader, scaled down
+  // 20 Nov 2026 developer brief ("Escalation and Learning PDFs — header and typography
+  // recommendations"): logo moved from top-right to top-left, aligned with the body content
+  // margin, 85-105pt wide (same 3:1 wordmark aspect ratio, just larger to sit within that range).
+  const logoW = 97.5, logoH = 32.5;
   const logoTopY = govFromBottom(782 + 40); // align with the spec's original masthead band
 
   if (fs.existsSync(LOGO_PATH)) {
     try {
-      doc.image(LOGO_PATH, GOV_PAGE.WIDTH - GOV_MARGIN - logoW, logoTopY, { width: logoW, height: logoH });
+      doc.image(LOGO_PATH, GOV_MARGIN, logoTopY, { width: logoW, height: logoH });
     } catch (err) {
       console.error('Failed to render logo in governance record PDF:', err);
     }
@@ -159,7 +162,7 @@ export function drawGovernanceRecordHeader(doc: typeof PDFDocument): void {
 
   const taglineBaselineTop = govFromBottom(787);
   doc.font(GOV_FONT_REGULAR).fontSize(7).fillColor(GOV_COLORS.SUPPORT_TEXT)
-    .text('Governance, Oversight and Assurance', GOV_MARGIN, taglineBaselineTop - 7 * 0.75, { lineBreak: false });
+    .text('Governance, Oversight and Assurance', GOV_MARGIN + logoW + 10, taglineBaselineTop - 7 * 0.75, { lineBreak: false });
 
   const dividerY = govFromBottom(774);
   doc.moveTo(GOV_MARGIN, dividerY)
@@ -235,6 +238,31 @@ export function createGovernanceRecordDoc(): typeof PDFDocument {
 export function govTitle(doc: typeof PDFDocument, text: string): void {
   doc.font(GOV_FONT_BOLD).fontSize(GOV_TYPE.TITLE.size).fillColor(GOV_COLORS.NAVY)
     .text(text, GOV_MARGIN, doc.y, { width: GOV_CONTENT_WIDTH, lineGap: govLineGap(GOV_TYPE.TITLE) });
+  doc.fillColor(GOV_COLORS.INK).font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
+}
+
+// 20 Nov 2026 developer brief: both exports led with the record subject as the 21pt title, which
+// for a long subject wrapped over three lines and ended in an ellipsis, with no indication of
+// what kind of document this even was. A fixed report-type title (16-17pt bold navy) now goes
+// first, with the record subject demoted to normal body-weight text underneath it (11-12pt,
+// allowed to wrap in full — never truncated).
+export const GOV_REPORT_TITLE_SIZE = { size: 17, lineHeight: 22 };
+
+/** Fixed report-type title ("Escalation Report" / "Learning Report") — 16-17pt bold navy, always
+ * the first thing on the page. Also sets the PDF's own document-metadata title to match. */
+export function govReportTitle(doc: typeof PDFDocument, text: string): void {
+  (doc as any).info.Title = text;
+  doc.font(GOV_FONT_BOLD).fontSize(GOV_REPORT_TITLE_SIZE.size).fillColor(GOV_COLORS.NAVY)
+    .text(text, GOV_MARGIN, doc.y, { width: GOV_CONTENT_WIDTH, lineGap: govLineGap(GOV_REPORT_TITLE_SIZE) });
+  doc.fillColor(GOV_COLORS.INK).font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
+}
+
+/** The record subject, demoted from the old 21pt title treatment to normal body weight (11-12pt
+ * regular), placed under the fixed report-type title. Long subjects wrap in full — never
+ * truncated or ellipsised. */
+export function govRecordSubject(doc: typeof PDFDocument, text: string): void {
+  doc.font(GOV_FONT_REGULAR).fontSize(12).fillColor(GOV_COLORS.INK)
+    .text(text, GOV_MARGIN, doc.y, { width: GOV_CONTENT_WIDTH, lineGap: govLineGap({ size: 12, lineHeight: 16 }) });
   doc.fillColor(GOV_COLORS.INK).font(GOV_FONT_REGULAR).fontSize(GOV_TYPE.BODY.size);
 }
 

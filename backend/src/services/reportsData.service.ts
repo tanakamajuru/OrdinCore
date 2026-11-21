@@ -115,13 +115,34 @@ export class ReportsDataService {
                   OR (e.risk_id IS NOT NULL AND ra.risk_id=e.risk_id)
                   OR (e.source_pulse_id IS NOT NULL AND ra.source_pulse_id=e.source_pulse_id)
                   OR (e.source_cluster_id IS NOT NULL AND ra.source_cluster_id=e.source_cluster_id)) AS action_history,
-              h.name AS service_name
+              h.name AS service_name,
+              -- 20 Nov 2026 developer brief ("Weekly assurance and escalation reporting"): "Show
+              -- who raised or handed up the concern ... Include who acted, their role, the
+              -- recipient, reason, and UK date and time where recorded." escalateFurther() writes
+              -- one escalation_actions row per handover (action_type='escalate_further'); surface
+              -- the full dated sequence rather than just the current escalated_to name.
+              (SELECT json_agg(json_build_object(
+                 'handed_over_at', ea.created_at,
+                 'by', NULLIF(TRIM(COALESCE(tb.first_name,'') || ' ' || COALESCE(tb.last_name,'')),''),
+                 'by_role', tb.role,
+                 'description', ea.description
+               ) ORDER BY ea.created_at)
+               FROM escalation_actions ea LEFT JOIN users tb ON tb.id = ea.taken_by
+               WHERE ea.escalation_id = e.id AND ea.action_type = 'escalate_further') AS handover_history
        FROM canonical_escalation_state_v e
        LEFT JOIN users u ON u.id = e.escalated_to
        LEFT JOIN risks r ON r.id = e.risk_id
        LEFT JOIN incidents i ON i.id = e.incident_id
        LEFT JOIN houses h ON h.id = COALESCE(e.house_id, r.house_id, i.house_id)
-       WHERE e.company_id = $1 AND e.created_at BETWEEN $2 AND $3
+       WHERE e.company_id = $1
+         -- Include an escalation whose OWN creation falls in the period, OR one opened earlier
+         -- that had a handover event (escalate_further) during the period — the brief's "filter
+         -- by the event date ... even if the escalation started earlier".
+         AND (e.created_at BETWEEN $2 AND $3
+              OR EXISTS (
+                SELECT 1 FROM escalation_actions ea
+                 WHERE ea.escalation_id = e.id AND ea.action_type = 'escalate_further'
+                   AND ea.created_at BETWEEN $2 AND $3))
        ORDER BY e.created_at DESC`,
       [companyId, startTs, endTs]
     );

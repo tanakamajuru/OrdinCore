@@ -172,8 +172,10 @@ export function ResponsibleIndividualDashboard() {
             footer={<><span className="text-emerald-600">{effEffective} Effective</span><span className="text-amber-600">{effPartial} Partial</span><span className="text-red-600">{effNot} Not effective</span><span className="text-sky-600">{effTooEarly} Too early</span></>} />
           <StatCard icon={RefreshCw} tone="bg-rose-100 text-rose-600" label="Reopened / Recurring Concerns" value={reopened}
             footer={<span className="text-muted-foreground">risks & escalations</span>} />
-          <StatCard icon={ShieldCheck} tone={assuranceTone[overallAssurance.state] || "bg-slate-100 text-slate-600"} label="Overall Assurance" value={overallAssurance.state}
-            footer={<span className="text-muted-foreground">{overallAssurance.basis}</span>} />
+          {/* 20 Nov 2026 developer brief ("RI Assurance screen"): renamed from "Overall Assurance"
+              and scope/period made explicit, so the RI knows what drives the displayed status. */}
+          <StatCard icon={ShieldCheck} tone={assuranceTone[overallAssurance.state] || "bg-slate-100 text-slate-600"} label="Live assurance indicators" value={overallAssurance.state}
+            footer={<span className="text-muted-foreground">Company-wide · all records to date — {overallAssurance.basis}</span>} />
         </div>
 
         {assuranceSummary && (() => {

@@ -55,6 +55,11 @@ export type DecisionInput = {
   change_outcome?: string | null;
   /** Escalate — "What immediate action is already in place?" */
   immediate_action?: string | null;
+  /** 20 Nov 2026 developer brief ("Signal monitoring and urgent RM review"): the active monitor
+   *  row's rm_attention_at the RM had loaded when they opened this review (SignalDetail.tsx).
+   *  Guards against silently dropping a newer urgent update that arrives mid-review — mirrors
+   *  escalations.service.ts's rm_attention_seen_at pattern. */
+  rm_attention_seen_at?: string | null;
 };
 
 export const governanceDecisionsService = {
@@ -144,11 +149,26 @@ export const governanceDecisionsService = {
     let priorMonitorActive = false;
     if (input.pulse_entry_id) {
       const pm = await client.query(
-        `SELECT 1 FROM governance_reviews
+        `SELECT id, rm_attention, rm_attention_at FROM governance_reviews
           WHERE company_id=$1 AND pulse_entry_id=$2 AND decision='Monitor' AND decision_status='Monitoring' LIMIT 1`,
         [c, input.pulse_entry_id]
       );
       priorMonitorActive = !!pm.rows[0];
+
+      // 20 Nov 2026 developer brief: "If an urgent observation arrives after the RM opened the
+      // review, keep it pending for a fresh review." Without this check, completing the prior
+      // Monitor row below (whatever decision is being recorded) removes it from Decisions Due/
+      // Daily Oversight unconditionally — silently dropping a newer urgent update the RM never
+      // saw. Block the save instead, rather than lose the flag.
+      if (priorMonitorActive && pm.rows[0].rm_attention) {
+        const currentRmAttentionAt = pm.rows[0].rm_attention_at
+          ? new Date(pm.rows[0].rm_attention_at).toISOString() : null;
+        const seenRmAttentionAt = input.rm_attention_seen_at
+          ? new Date(input.rm_attention_seen_at).toISOString() : null;
+        if (currentRmAttentionAt !== seenRmAttentionAt) {
+          throw new Error('A newer urgent update was added to this signal after you opened this review. Reload the signal to see it before recording your decision.');
+        }
+      }
     }
     const observation = (input.monitoring_observation || '').trim();
     if (priorMonitorActive && !observation) {
@@ -527,6 +547,7 @@ export const governanceDecisionsService = {
               gr.intended_outcome, gr.created_at, gr.review_date, gr.service_id, gr.pulse_entry_id,
               gr.decision_rationale, gr.evidence AS findings,
               gr.monitoring_trigger, gr.change_outcome, gr.immediate_action,
+              gr.rm_attention, gr.rm_attention_at,
               h.name AS house_name,
               ow.first_name || ' ' || ow.last_name AS owner_name,
               rb.first_name || ' ' || rb.last_name AS recorded_by_name,

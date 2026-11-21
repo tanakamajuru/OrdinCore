@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell, LabelList } from "recharts";
 import { Inbox } from "lucide-react";
@@ -30,6 +31,7 @@ function EmptyChart({ height, message }: { height: number; message: string }) {
 }
 
 export function Trends() {
+  const navigate = useNavigate();
   const [highRiskData, setHighRiskData] = useState<any[]>([]);
   const [riskHouseNames, setRiskHouseNames] = useState<string[]>([]);
   const [incidentTrajectoryData, setIncidentTrajectoryData] = useState<any[]>([]);
@@ -37,7 +39,6 @@ export function Trends() {
   const [safeguardingData, setSafeguardingData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
   const [escalationData, setEscalationData] = useState<any>({ trends: [], currentWeek: 0, total: 0, average: 0 });
   const [dailyRisk, setDailyRisk] = useState<any[]>([]);
-  const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -66,18 +67,6 @@ export function Trends() {
     }
   };
   useGovernanceRefresh(loadTrendsData);
-
-  const handleGenerateReport = async () => {
-    setIsGeneratingReport(true);
-    try {
-      await dashboardApi.getComputationalEnginesStatus(); // Just to check connectivity
-      toast.success("Monthly board report generation started");
-    } catch (error) {
-      toast.error("Failed to start report generation");
-    } finally {
-      setIsGeneratingReport(false);
-    }
-  };
 
   if (isLoading) {
     return (
@@ -126,11 +115,10 @@ export function Trends() {
             <p className="text-muted-foreground mt-1">6-Week Rolling Analysis across the organization</p>
           </div>
           <button
-            onClick={handleGenerateReport}
-            disabled={isGeneratingReport}
-            className="px-6 py-3 bg-primary text-primary-foreground  uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg rounded-md disabled:opacity-50 active:scale-95"
+            onClick={() => navigate("/reports")}
+            className="px-6 py-3 bg-primary text-primary-foreground  uppercase tracking-wider hover:bg-primary/90 transition-all shadow-lg rounded-md active:scale-95"
           >
-            {isGeneratingReport ? "Generating..." : "Generate Monthly Board Report"}
+            Open Reports
           </button>
         </div>
 
@@ -294,7 +282,7 @@ export function Trends() {
           <div className="bg-card border-2 border-border shadow-sm rounded-lg p-6">
             <h2 className="text-xl  mb-6 text-foreground flex items-center gap-2">
               <span className="w-3 h-3 bg-secondary rounded-full"></span>
-              Weekly Escalation Volume
+              New escalations raised
             </h2>
             {escalationHasData ? (
               <ResponsiveContainer width="100%" height={250}>

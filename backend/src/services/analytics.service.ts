@@ -224,8 +224,15 @@ export class AnalyticsService {
            SELECT id,name FROM canonical_house_state_v WHERE company_id=$1 AND is_active
          )
          SELECT w.week_start::date AS date,h.name AS house_name,
+                -- 20 Nov 2026 developer brief ("Trends screen recommendations"): an incident whose
+                -- severity doesn't match one of the three named buckets used to fall through to a
+                -- default weight of 1 via the ELSE branch, silently inflating the burden total for
+                -- an "unmatched" incident. Only a matched severity now contributes weight; an
+                -- unmatched incident still counts toward the actual incident count below, but
+                -- contributes 0 to the weighted burden rather than a fabricated score.
                 COALESCE(SUM(CASE LOWER(i.severity::text)
-                  WHEN 'critical' THEN 4 WHEN 'serious' THEN 3 WHEN 'moderate' THEN 2 ELSE 1 END),0)::int AS burden
+                  WHEN 'critical' THEN 4 WHEN 'serious' THEN 3 WHEN 'moderate' THEN 2 WHEN 'minor' THEN 1 ELSE 0 END),0)::int AS burden,
+                COUNT(i.id)::int AS incident_count
            FROM weeks w CROSS JOIN services h
            LEFT JOIN incidents i ON i.company_id=$1 AND i.house_id=h.id
             AND i.occurred_at >= w.week_start AT TIME ZONE 'Europe/London'
@@ -245,6 +252,9 @@ export class AnalyticsService {
         }
         const dateObj = dateMap.get(dateStr);
         dateObj[row.house_name] = Number(row.burden) || 0;
+        // Actual matched-incident count alongside the weighted total, per the brief — a separate
+        // key per house so the existing `dateObj[house_name]` burden shape is unchanged.
+        dateObj[`${row.house_name}__count`] = Number(row.incident_count) || 0;
       });
 
       const houseNames = Array.from(new Set(result.rows.map((row: any) => row.house_name)));

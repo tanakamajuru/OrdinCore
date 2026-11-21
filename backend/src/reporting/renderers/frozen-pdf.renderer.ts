@@ -588,6 +588,16 @@ function renderEscalations(doc: PDFKit.PDFDocument, data: any) {
       // for each escalation" -- the chain of governance decisions recorded against this specific
       // escalation, not just its final outcome.
       `Decision history: ${x.decision_history ? clean(x.decision_history) : 'No decision recorded against this escalation'}`,
+      // 20 Nov 2026 developer brief ("Weekly assurance and escalation reporting"): "Show who
+      // raised or handed up the concern ... who acted, their role, the recipient, reason, and UK
+      // date and time." A handover (RM->Director->RI) is a dated event in its own right, distinct
+      // from the governance decision history above, and can fall inside the report period even
+      // when the escalation itself was raised earlier.
+      ...(Array.isArray(x.handover_history) && x.handover_history.length
+        ? [`Handed up: ${x.handover_history.map((h: any) =>
+            `${date(h.handed_over_at)} by ${clean(h.by || 'Unknown')}${h.by_role ? ` (${clean(h.by_role)})` : ''}${h.description ? ` — ${clean(h.description)}` : ''}`
+          ).join('; ')}`]
+        : []),
     ];
     return parts.join(' — ');
   }), 'No escalation was recorded in this period.', 6);

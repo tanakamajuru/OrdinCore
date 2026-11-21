@@ -423,6 +423,10 @@ export function RiskDetail() {
   // scroll made the page jump to the section while the user was working. The ref pins it to a
   // single scroll per section value.
   const scrolledSectionRef = useRef<string | null>(null);
+  // 20 Nov 2026 developer brief ("Risk Review guided steps"): pointer 3 ("Review the resolution
+  // verdict") focuses/scrolls to this field rather than linking to a page anchor, since the verdict
+  // lives inside this same modal.
+  const verdictSelectRef = useRef<HTMLSelectElement | null>(null);
   useEffect(() => {
     const section = searchParams.get("section");
     if (!risk || !section) return;
@@ -1661,46 +1665,73 @@ export function RiskDetail() {
                 <p className="text-[11px] text-muted-foreground mt-2">
                   Evidence scope: signals linked to this risk/source pattern · canonical trajectory {closureReview.detail?.trajectory_calculation_version || "trajectory-v3"}
                 </p>
-                {closureReview.blockers?.length > 0 && (
-                  <div className="text-xs text-red-600 mt-2 border-t border-border pt-2 space-y-2">
-                    <p>{closureReview.blockers.join(" ")}</p>
-                    {[
-                      ["Open actions", closureReview.blocking_records?.actions],
-                      ["Open escalations", closureReview.blocking_records?.escalations],
-                      ["Effectiveness reviews required", closureReview.blocking_records?.effectiveness_reviews],
-                    ].map(([label, records]: any) => records?.length > 0 && (
-                      <div key={label}>
-                        <p className="font-semibold">{label}</p>
-                        {records.map((record: any) => (
-                          <button key={`${label}-${record.id}`} type="button" onClick={() => navigate(record.href)}
-                            className="block text-left underline underline-offset-2 hover:text-red-800">
-                            {record.title} · {record.status || record.current_rating}
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                    <p className="font-bold text-blue-600">Consider reviewing Controls and Effectiveness on Risk Assessment</p>
-                  </div>
-                )}
                 {closureReview.eligible && (
                   <p className="text-xs text-emerald-600 mt-2 border-t border-border pt-2">Canonical linked-risk evidence passed the closure gate. The RM may now record a verdict and rationale.</p>
                 )}
               </div>
             )}
 
+            {/* 20 Nov 2026 developer brief ("Risk Review guided steps"): "What to check before
+                closing the risk" — up to 3 numbered pointers, each shown only while its own check
+                still needs attention, hidden entirely once every closure check has passed. Replaces
+                the old flat list of blocking records with the brief's guided-steps panel. */}
+            {closureReview && !closureReview.eligible && (() => {
+              const openActions: any[] = closureReview.blocking_records?.actions || [];
+              const openEffectiveness: any[] = closureReview.blocking_records?.effectiveness_reviews || [];
+              const openEscalations: any[] = closureReview.blocking_records?.escalations || [];
+              const controlsNeedWork = !closureReview.questions?.interventions_effective;
+              const steps: Array<{ text: string; onClick?: () => void; records?: any[] }> = [];
+              if (openActions.length > 0) {
+                steps.push({ text: "Check the open action on the Risk Assessment.", records: openActions });
+              }
+              if (controlsNeedWork || openEffectiveness.length > 0) {
+                steps.push({ text: "Review whether the controls are working.", records: openEffectiveness });
+              }
+              if (openEscalations.length > 0) {
+                steps.push({ text: "Check what is outstanding on the linked escalation.", records: openEscalations });
+              }
+              steps.push({ text: "Review the resolution verdict.", onClick: () => verdictSelectRef.current?.focus() });
+              return (
+                <div className="mb-4 rounded-lg border bg-teal-50 border-teal-200 p-3">
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-teal-800 mb-2">What to check before closing the risk</div>
+                  <ol className="list-decimal list-inside space-y-1.5 text-sm text-foreground">
+                    {steps.map((step, i) => (
+                      <li key={i}>
+                        {step.onClick ? (
+                          <button type="button" onClick={step.onClick} className="font-semibold text-left underline underline-offset-2 hover:text-teal-800">{step.text}</button>
+                        ) : (
+                          <span className="font-semibold">{step.text}</span>
+                        )}
+                        {step.records?.map((record: any) => (
+                          <button key={record.id} type="button" onClick={() => navigate(record.href)}
+                            className="block mt-0.5 ml-0.5 text-left text-xs underline underline-offset-2 text-teal-700 hover:text-teal-900">
+                            {record.title} · {record.status || record.current_rating}
+                          </button>
+                        ))}
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              );
+            })()}
+
             <div className="space-y-4">
               <div>
                 <label className="block mb-2 text-foreground text-sm">Resolution verdict</label>
                 <select
+                  ref={verdictSelectRef}
                   value={closeVerdict}
                   onChange={(e) => setCloseVerdict(e.target.value)}
                   className="w-full px-3 py-2 bg-card border-2 border-border focus:outline-none focus:ring-2 focus:ring-ring text-foreground"
                 >
                   <option value="">Choose a verdict…</option>
                   <option value="__monitor__">Continue monitoring — keep risk open</option>
-                  <option value="Resolved — controls effective">Resolved — controls effective</option>
-                  <option value="Resolved — no longer applicable">Resolved — no longer applicable</option>
-                  <option value="Tolerated — risk accepted">Tolerated — risk accepted</option>
+                  {/* 20 Nov 2026 developer brief ("Risk Review guided steps"): these three verdicts
+                      should be blocked, not just the submit button, while closure checks are
+                      outstanding — the picker itself should show what's actually available. */}
+                  <option value="Resolved — controls effective" disabled={closureReview && !closureReview.eligible}>Resolved — controls effective</option>
+                  <option value="Resolved — no longer applicable" disabled={closureReview && !closureReview.eligible}>Resolved — no longer applicable</option>
+                  <option value="Tolerated — risk accepted" disabled={closureReview && !closureReview.eligible}>Tolerated — risk accepted</option>
                 </select>
                 {closeVerdict === "__monitor__" && (
                   <p className="text-[11px] text-muted-foreground mt-1">Records your review and keeps the risk open — use this when it is not yet ready to close (e.g. signals still within the recurrence window). It completes the risk-review obligation so weekly governance can proceed.</p>

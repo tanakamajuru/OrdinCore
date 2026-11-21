@@ -319,6 +319,10 @@ export function GovernanceDecisions({
         review_requirement: form.decision === "Create Action" ? form.review_requirement : undefined,
         effectiveness_due_at: (form.decision === "Create Action" && form.review_requirement === "EFFECTIVENESS_REQUIRED") ? (form.effectiveness_due_at || null) : null,
         idempotency_key: idemKey.current,
+        // 20 Nov 2026 developer brief ("Signal monitoring and urgent RM review"): the rm_attention_at
+        // this form had loaded for the prior active Monitor row — lets the backend detect a newer
+        // urgent update that arrived after this review was opened, rather than silently dropping it.
+        rm_attention_seen_at: returningReview ? (latestByPulse[selectedSignal.id]?.rm_attention_at || null) : undefined,
       });
       if (form.decision === "Create Action") {
         const ownerObj = owners.find((u: any) => u.id === form.owner_id);

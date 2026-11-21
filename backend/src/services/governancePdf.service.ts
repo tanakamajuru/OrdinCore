@@ -4,6 +4,8 @@ import {
   createGovernanceRecordDoc,
   stampGovernanceRecordFooters,
   govTitle,
+  govReportTitle,
+  govRecordSubject,
   govSupportLine,
   govMetaRow,
   govSectionHeading,
@@ -86,13 +88,13 @@ export const governancePdfService = {
     const buffers: Buffer[] = [];
     doc.on('data', (c: Buffer) => buffers.push(c));
 
-    // Field report (12 Nov 2026): "we don't need codes" -- same as the escalation record, a raw
-    // internal UUID has no reader-facing meaning and is dropped. Layout only changed below —
-    // this conditional/data logic is unchanged from before the spec pass.
-    // 30 Oct 2026 live bug report ("uniformity on the font... do this for all forms"): a source
-    // action title can be a full paragraph (seen live: 200+ characters) — same class of defect
-    // as escalationRecord's title below. Shortened so the heading reads as a heading everywhere.
-    govTitle(doc, shortText(lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`, 110));
+    // 20 Nov 2026 developer brief ("Escalation and Learning PDFs"): a fixed "Learning Report"
+    // title now leads the page (and sets the PDF's own document-metadata title) — the record
+    // subject, which used to BE the 21pt title and would wrap over three lines and ellipsis for
+    // a long source action title, is demoted to normal body-weight text underneath it and
+    // allowed to wrap in full, never truncated.
+    govReportTitle(doc, 'Learning Report');
+    govRecordSubject(doc, lr.source_action_title || lr.source_pattern_label || `${lr.source_type} learning`);
     govGap(doc, GOV_HEADING_BLOCK_GAP);
     govSupportLine(doc, `Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`);
     govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
@@ -334,9 +336,13 @@ export const governancePdfService = {
     // replaces that duplication.
     const titleDomain = firstDomain(e.signal_risk_domain);
     const title = e.risk_title || e.incident_title
-      || (titleDomain ? `${titleDomain}${e.signal_related_person ? ` — ${e.signal_related_person}` : ''}` : shortText(e.reason, 90))
+      || (titleDomain ? `${titleDomain}${e.signal_related_person ? ` — ${e.signal_related_person}` : ''}` : e.reason)
       || 'Escalation';
-    govTitle(doc, title);
+    // 20 Nov 2026 developer brief: fixed "Escalation Report" title leads the page (and sets the
+    // PDF metadata title); the record subject is demoted to body-weight text and allowed to wrap
+    // in full rather than being truncated to fit as a 21pt heading.
+    govReportTitle(doc, 'Escalation Report');
+    govRecordSubject(doc, title);
     govGap(doc, GOV_HEADING_BLOCK_GAP);
     govSupportLine(doc, `Live data snapshot generated ${new Date().toLocaleString('en-GB')}. Not a frozen or published report — figures reflect the current state of the record and may change.`);
     govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
