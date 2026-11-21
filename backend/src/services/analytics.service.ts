@@ -296,15 +296,38 @@ export class AnalyticsService {
       // Daily signal burden (volume × severity) using the recorded occurrence date.
       // A zero is shown only where a completed governance log confirms oversight; otherwise
       // a missing day remains null rather than being presented as evidence of improvement.
+      // 20 Nov 2026 developer brief ("Trends screen recommendations"): "Exclude scheduled
+      // governance reminder placeholders." auditChecklist.service.ts creates these rows with a
+      // literal description of 'Scheduled Governance Pulse' / 'Systematic Governance Pulse'; when
+      // staff actually answer one, pulse.service.ts overwrites that description with their real
+      // note (confirmed against live code). A row whose description still exactly matches one of
+      // those two literals was never answered, so it isn't a real signal and must not contribute
+      // to burden or count.
       const dailyRows = (await query(
         `SELECT gp.entry_date::date AS d,
                 SUM(CASE LOWER(gp.severity::text) WHEN 'critical' THEN 4 WHEN 'high' THEN 3 WHEN 'medium' THEN 2 WHEN 'moderate' THEN 2 ELSE 1 END)::float AS burden,
                 COUNT(*)::int AS signal_count
            FROM governance_pulses gp
           WHERE gp.company_id = $1 AND gp.entry_date >= (NOW() AT TIME ZONE 'Europe/London')::date - 29
+            AND gp.description NOT IN ('Scheduled Governance Pulse', 'Systematic Governance Pulse')
           GROUP BY d ORDER BY d ASC`,
         [company_id]
       )).rows;
+      // "Show how many services submitted" + partial-coverage marker: per day, how many of the
+      // company's active services actually recorded a real (non-placeholder) entry, against the
+      // total active service count — "one completed service review is insufficient to confirm a
+      // company-wide zero."
+      const totalServicesRow = (await query(
+        `SELECT COUNT(*)::int AS n FROM canonical_house_state_v WHERE company_id = $1 AND is_active`, [company_id]
+      )).rows[0];
+      const totalServices = Number(totalServicesRow?.n) || 0;
+      const submittedByDay = new Map<string, number>((await query(
+        `SELECT gp.entry_date::date::text AS d, COUNT(DISTINCT gp.house_id)::int AS n
+           FROM governance_pulses gp
+          WHERE gp.company_id = $1 AND gp.entry_date >= (NOW() AT TIME ZONE 'Europe/London')::date - 29
+            AND gp.description NOT IN ('Scheduled Governance Pulse', 'Systematic Governance Pulse')
+          GROUP BY d`, [company_id]
+      )).rows.map((r:any)=>[String(r.d).slice(0,10), Number(r.n)||0]));
       const reviewedDays = new Set<string>((await query(
         `SELECT DISTINCT dgl.review_date::text AS d FROM daily_governance_log dgl
           JOIN houses h ON h.id=dgl.house_id
@@ -324,8 +347,15 @@ export class AnalyticsService {
         series.push(val);
         const window = series.slice(Math.max(0, series.length - 7)).filter((v):v is number=>v!==null);
         const movingAvg = window.length ? Math.round((window.reduce((a,b)=>a+b,0)/window.length)*10)/10 : null;
+        const servicesSubmitted = submittedByDay.get(key) || 0;
+        const fullCoverage = totalServices > 0 && servicesSubmitted >= totalServices;
+        const recordingState = recorded
+          ? 'signals_recorded'
+          : reviewedDays.has(key)
+            ? (fullCoverage ? 'confirmed_zero' : 'partial_coverage')
+            : 'no_submission';
         dailyRisk.push({ date: key.slice(5), dateISO:key, dailyBurden:val, movingAvg,
-          signalCount:recorded?.count||0, recordingState:recorded?'signals_recorded':reviewedDays.has(key)?'confirmed_zero':'no_submission' });
+          signalCount:recorded?.count||0, recordingState, servicesSubmitted, totalServices });
       }
 
       return {

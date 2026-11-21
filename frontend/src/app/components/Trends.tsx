@@ -104,6 +104,10 @@ export function Trends() {
   const escalationHasData = barHasData(escalationData?.trends, 'count', escalationData?.total);
   const dailyHasData = dailyRisk.some((d:any) => d.dailyBurden !== null && d.dailyBurden !== undefined);
   const missingDailySubmissions = dailyRisk.filter((d:any) => d.recordingState === 'no_submission').length;
+  // 20 Nov 2026 developer brief: "One completed service review is insufficient to confirm a
+  // company-wide zero" — a day where some but not all active services submitted is marked
+  // 'partial_coverage' rather than silently folded into a confirmed zero.
+  const partialCoverageDays = dailyRisk.filter((d:any) => d.recordingState === 'partial_coverage').length;
 
   return (
     <div className="min-h-screen bg-background">
@@ -145,6 +149,7 @@ export function Trends() {
             <EmptyChart height={260} message="No confirmed signal or completed governance-day evidence is available for this 30-day period." />
           )}
           {missingDailySubmissions > 0 && <p className="text-[11px] text-amber-700 mt-2">For {missingDailySubmissions} day{missingDailySubmissions===1?'':'s'}, no signals or completed daily governance review were found; these appear as gaps.</p>}
+          {partialCoverageDays > 0 && <p className="text-[11px] text-amber-700 mt-2">For {partialCoverageDays} day{partialCoverageDays===1?'':'s'}, only some services submitted a daily governance review — shown as a zero, but coverage was incomplete, not a confirmed company-wide zero.</p>}
         </div>
 
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 [&>*]:min-w-0">
