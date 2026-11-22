@@ -37,6 +37,7 @@ import { MonthlyReport } from "./components/MonthlyReport";
 import { FrozenReports } from "./components/FrozenReports";
 import { IncidentCaseHub } from "./components/IncidentCaseHub";
 import { IncidentDetail } from "./components/IncidentDetail";
+import { IncidentReview } from "./components/IncidentReview";
 import { PulseDetail } from "./components/PulseDetail";
 import { GovernanceTimeline } from "./components/GovernanceTimeline";
 import { ReconstructionReport } from "./components/ReconstructionReport";
@@ -400,6 +401,11 @@ export default function App() {
           <Route path="/incidents/:id/report" element={
             <ProtectedRoute>
               <ReconstructionReport />
+            </ProtectedRoute>
+          } />
+          <Route path="/incidents/:id/review" element={
+            <ProtectedRoute>
+              <IncidentReview />
             </ProtectedRoute>
           } />
           {/* The standalone Patterns screen was retired — patterns now live inside the RM

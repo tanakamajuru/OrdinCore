@@ -19,7 +19,10 @@ export function LearningCapture({
   sourceContext?: { label?: string | null; outcome?: string | null; service?: string | null; reviewedAt?: string | null } | null;
   houseId?: string | null;
   title?: string;
-  onDone?: () => void;
+  // 22 Nov 2026 brief (Serious Incident workflow, Step 3 "Create linked learning"): callers that
+  // need to link the created record elsewhere (incident_reviews.learning_record_id) can now read
+  // its id — optional and additive, so every existing caller that takes no argument is unaffected.
+  onDone?: (learningId?: string) => void;
 }) {
   const [state, setState] = useState<"IDENTIFIED" | "NONE_IDENTIFIED" | "NOT_YET_ASSESSED">("IDENTIFIED");
   const [ownerId, setOwnerId] = useState("");
@@ -51,7 +54,7 @@ export function LearningCapture({
     if (state === "NOT_YET_ASSESSED" && !ownerId) { toast.error("Name the owner accountable for the deferred assessment."); return; }
     setSaving(true);
     try {
-      await apiClient.post("/learning", {
+      const res = await apiClient.post("/learning", {
         source_type: sourceType, source_id: sourceId || null, source_review_id: sourceReviewId || undefined,
         idempotency_key: idemKey.current,
         house_id: houseId || null, state,
@@ -61,9 +64,10 @@ export function LearningCapture({
         review_date: state === "NOT_YET_ASSESSED" ? reviewDate : undefined,
         owner_id: state === "NOT_YET_ASSESSED" ? ownerId : undefined,
       });
+      const created = unwrap(res);
       toast.success("Learning recorded");
       setDone(true);
-      onDone?.();
+      onDone?.(created?.id);
     } catch (e: any) {
       toast.error(e?.response?.data?.message || "Could not record learning");
     } finally { setSaving(false); }

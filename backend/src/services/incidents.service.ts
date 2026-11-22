@@ -38,33 +38,79 @@ export class IncidentsService {
   // Pattern detection: surface prior related incidents (same service and/or the same
   // people) and recent signals for the people involved, so the recorder sees at a
   // glance whether "this has happened before".
-  async detectPatterns(company_id: string, params: { house_id?: string; persons_involved?: string[]; type?: string; severity?: string }) {
-    const persons = (params.persons_involved || []).map(p => String(p).trim()).filter(Boolean);
+  //
+  // 22 Nov 2026 brief (Serious Incident workflow, Step 1 "fix 0 Items"): root-caused against the
+  // live code. Two separate defects both returned nothing even when matching records existed:
+  //  1. Person matching was NAME-TEXT ONLY (`persons_involved: string[]`, lower-cased string
+  //     equality). A service user selected from the directory now carries a stable id
+  //     (service_user_id on governance_pulses/risks) -- matching on that id first means a
+  //     renamed/retyped/differently-cased name no longer silently drops the match. Legacy
+  //     pulses/incidents that predate id-based linking (service_user_id IS NULL, or a plain
+  //     string in a legacy incidents.persons_involved array) still fall back to name matching
+  //     instead of being excluded.
+  //  2. Both windows were anchored on NOW() ("the last 365/180 days from today"), not on the
+  //     incident actually being reported. A backdated report -- or any report completed a day or
+  //     more after the event -- would (a) miss genuinely-prior evidence that had aged out of the
+  //     NOW()-anchored window, and (b) could surface evidence recorded AFTER the incident's own
+  //     occurred_at as if it were a prior warning sign. Anchoring on the incident's own
+  //     occurred_at (falling back to NOW() only when none was supplied yet) fixes both.
+  async detectPatterns(company_id: string, params: {
+    house_id?: string;
+    persons_involved?: Array<{ id?: string; name: string; type?: string }>;
+    occurred_at?: string;
+    type?: string;
+    severity?: string;
+  }) {
+    const persons = (params.persons_involved || []).filter(p => p && p.name);
+    const names = persons.map(p => String(p.name).trim()).filter(Boolean);
+    const lowerNames = new Set(names.map(n => n.toLowerCase()));
+    // Only service users carry a stable id on governance_pulses/risks today -- a 'staff' or
+    // 'external'/'unknown' person has no equivalent column to match on yet, so those still rely
+    // on name matching (documented limitation, not silently dropped).
+    const serviceUserIds = persons.filter(p => p.id && p.type === 'client').map(p => p.id as string);
+
+    const cutoffDate = params.occurred_at ? new Date(params.occurred_at) : new Date();
+    const cutoff = isNaN(cutoffDate.getTime()) ? new Date() : cutoffDate;
+
     const incRes = await query(
       `SELECT id, reference, title, severity, occurred_at, house_id, persons_involved
          FROM incidents
         WHERE company_id = $1
           AND ($2::uuid IS NULL OR house_id = $2)
-          AND occurred_at >= NOW() - INTERVAL '365 days'
+          AND occurred_at < $3::timestamptz
+          AND occurred_at >= $3::timestamptz - INTERVAL '365 days'
         ORDER BY occurred_at DESC LIMIT 25`,
-      [company_id, params.house_id || null]
+      [company_id, params.house_id || null, cutoff.toISOString()]
     );
-    const lowerPeople = new Set(persons.map(p => p.toLowerCase()));
     const similar_incidents = incRes.rows.map((r: any) => {
-      let ppl: string[] = [];
+      let ppl: any[] = [];
       try { ppl = Array.isArray(r.persons_involved) ? r.persons_involved : JSON.parse(r.persons_involved || '[]'); } catch { ppl = []; }
-      return { ...r, person_match: ppl.some((n: string) => lowerPeople.has(String(n).toLowerCase())) };
+      // Handle both the current structured shape ({name,type,roles,id?}) and legacy plain-name
+      // strings from before id-based linking existed -- neither crashes nor is silently excluded.
+      const person_match = ppl.some((entry: any) => {
+        if (entry && typeof entry === 'object') {
+          if (entry.id && serviceUserIds.includes(entry.id)) return true;
+          return !!entry.name && lowerNames.has(String(entry.name).trim().toLowerCase());
+        }
+        return typeof entry === 'string' && lowerNames.has(entry.trim().toLowerCase());
+      });
+      return { ...r, person_match };
     });
 
     let related_signals: any[] = [];
-    if (persons.length) {
+    if (names.length || serviceUserIds.length) {
       const sigRes = await query(
-        `SELECT id, governance_domain, signal_label, severity, entry_date, related_person
+        `SELECT id, governance_domain, signal_label, severity, entry_date, related_person, service_user_id
            FROM governance_pulses
-          WHERE company_id = $1 AND related_person = ANY($2::text[])
-            AND entry_date >= (NOW() - INTERVAL '180 days')::date
+          WHERE company_id = $1
+            AND entry_date <= $4::date
+            AND entry_date >= ($4::date - INTERVAL '180 days')
+            AND (
+              service_user_id = ANY($2::uuid[])
+              OR (service_user_id IS NULL AND related_person = ANY($3::text[]))
+            )
           ORDER BY entry_date DESC LIMIT 30`,
-        [company_id, persons]
+        [company_id, serviceUserIds, names, cutoff.toISOString()]
       );
       related_signals = sigRes.rows;
     }

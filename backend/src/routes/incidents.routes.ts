@@ -1,11 +1,23 @@
 import { Router } from 'express';
 import { incidentsController } from '../controllers/incidents.controller';
+import { incidentReviewsController } from '../controllers/incidentReviews.controller';
 import { requireAuth } from '../middleware/auth.middleware';
 import { requireTenant } from '../middleware/tenant.middleware';
 import { requireRole } from '../middleware/role.middleware';
 import { requireScope } from '../middleware/scope.middleware';
 
 const router = Router();
+
+// 22 Nov 2026 brief -> Serious Incident workflow, Steps 3-4: incident-scoped review endpoints.
+// Review-id-scoped endpoints (draft/waiting/actions/link-learning/complete/pdf) live under
+// incidentReviews.routes.ts (mounted at /incident-reviews); these stay here alongside the other
+// incident sub-resources (attachments/timeline/assign) for the same discoverability.
+const reviewWriters = requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN');
+const reviewReaders = requireRole('REGISTERED_MANAGER', 'DIRECTOR', 'RESPONSIBLE_INDIVIDUAL', 'ADMIN', 'SUPER_ADMIN');
+router.get('/:id/review', requireAuth, requireTenant, reviewReaders, incidentReviewsController.getActive.bind(incidentReviewsController));
+router.get('/:id/review/case-summary', requireAuth, requireTenant, reviewReaders, incidentReviewsController.getCaseSummary.bind(incidentReviewsController));
+router.get('/:id/review/eligible-reviewers', requireAuth, requireTenant, reviewWriters, incidentReviewsController.listEligibleReviewers.bind(incidentReviewsController));
+router.post('/:id/review/assign', requireAuth, requireTenant, reviewWriters, incidentReviewsController.assign.bind(incidentReviewsController));
 
 /**
  * @openapi

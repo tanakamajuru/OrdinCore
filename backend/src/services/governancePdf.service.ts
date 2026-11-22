@@ -20,6 +20,7 @@ import {
 import { learningService } from './learning.service';
 import { escalationsService } from './escalations.service';
 import { reportsDataService } from './reportsData.service';
+import { incidentReviewsService } from './incidentReviews.service';
 
 // 24 Oct developer brief: "Learning and Escalation PDF download requirements".
 // These are live-data snapshots, not the frozen/published reports under reports.service
@@ -595,5 +596,92 @@ export const governancePdfService = {
     }
 
     return finishGovernanceRecord(doc, buffers, `Provider_Assurance_${data.week_ending || weekEnding || 'latest'}.pdf`);
+  },
+
+  // 22 Nov 2026 brief -> Serious Incident workflow, Step 4. Unlike learningRecord/escalationRecord
+  // above (deliberate LIVE snapshots of a record that keeps changing), this is generated strictly
+  // from the SAVED, VERSIONED incident_reviews row -- never a live recompute of current incident
+  // state. The row must already be status='Completed' (immutable from that point on, same
+  // doctrine as governance_reconstructions' status='Locked'); actions are read from
+  // actions_snapshot (frozen at completion), never a live risk_actions query, so a later
+  // reassignment or due-date change on the action can never change what this PDF says was true
+  // when the review completed.
+  async seriousIncidentReviewRecord(reviewId: string, company_id: string) {
+    const r = await incidentReviewsService.getById(reviewId, company_id);
+    if (r.status !== 'Completed') {
+      throw new Error('This review is not yet completed — a PDF is only available for a completed review.');
+    }
+    const doc = createGovernanceRecordDoc();
+    const buffers: Buffer[] = [];
+    doc.on('data', (c: Buffer) => buffers.push(c));
+
+    govReportTitle(doc, 'Serious Incident Review');
+    govRecordSubject(doc, `${r.incident_reference || r.incident_title || 'Incident'} — version ${r.version}`);
+    govGap(doc, GOV_HEADING_BLOCK_GAP);
+    govSupportLine(doc, `Completed review, version ${r.version} of record — this document reflects exactly what was true when the review was completed and is not recomputed from current incident state.`);
+    govGap(doc, GOV_HEADING_BLOCK_TO_DETAILS_GAP);
+
+    govMetaRow(doc, 'Incident', `${r.incident_reference || '—'} — ${r.incident_title || 'Untitled incident'}`);
+    govMetaRow(doc, 'Service', r.service_name || 'Organisation-wide');
+    govMetaRow(doc, 'Incident occurred', fmtDate(r.incident_occurred_at));
+    govMetaRow(doc, 'Reviewer', `${r.assigned_to_name || 'Unassigned'}${r.assigned_to_role ? ` (${String(r.assigned_to_role).replace(/_/g, ' ')})` : ''}`);
+    govMetaRow(doc, 'Completed', `${fmtDate(r.completed_at)} by ${r.completed_by_name || r.assigned_to_name || 'Unknown'}${r.completed_by_role ? ` (${String(r.completed_by_role).replace(/_/g, ' ')})` : ''}`);
+    govMetaRow(doc, 'Decision', r.decision_outcome || 'Not recorded');
+
+    const rationaleText = r.decision_rationale || 'Not recorded.';
+    govSectionHeading(doc, 'Rationale', rationaleText);
+    govParagraph(doc, rationaleText);
+
+    const findingSections: Array<[string, string | null]> = [
+      ['Facts', r.facts],
+      ['Impact', r.impact],
+      ['Warning signs', r.warning_signs],
+      ['Contributing factors', r.contributing_factors],
+      ['Timeliness', r.timeliness_notes],
+      ['Response', r.response_evaluation],
+      ['Effectiveness', r.effectiveness_notes],
+    ];
+    for (const [label, text] of findingSections) {
+      if (text && String(text).trim()) {
+        govSectionHeading(doc, label, text);
+        govParagraph(doc, text);
+      }
+    }
+
+    const evidenceGapsText = r.evidence_gaps && String(r.evidence_gaps).trim() ? r.evidence_gaps : 'None recorded.';
+    govSectionHeading(doc, 'Evidence gaps', evidenceGapsText);
+    govParagraph(doc, evidenceGapsText);
+
+    if (r.effectiveness_evidence_needed && String(r.effectiveness_evidence_needed).trim()) {
+      const text = `${r.effectiveness_evidence_needed}${r.effectiveness_recheck_at ? ` (check by ${fmtDate(r.effectiveness_recheck_at)})` : ''}`;
+      govSectionHeading(doc, 'Effectiveness evidence still needed', text);
+      govParagraph(doc, text);
+    }
+
+    if (r.external_reference_notes && String(r.external_reference_notes).trim()) {
+      govSectionHeading(doc, 'External reference follow-up', r.external_reference_notes);
+      govParagraph(doc, r.external_reference_notes);
+    }
+
+    const actions = Array.isArray(r.actions_snapshot) ? r.actions_snapshot : [];
+    govSectionHeading(doc, `Actions at completion (${actions.length})`);
+    if (actions.length) {
+      actions.forEach((a: any, idx: number) => {
+        if (idx > 0 && doc.y + 28 > doc.page.height - (doc.page.margins as any).bottom) {
+          (doc as any).addPage();
+          govSectionHeading(doc, 'Actions at completion (continued)');
+        }
+        const statusLine = `${a.completed_at ? `Completed ${fmtDate(a.completed_at)}` : (a.status || 'Open')} · Owner: ${a.assigned_to_name || 'Unassigned'}${a.due_date ? ` · Due: ${fmtDate(a.due_date)}` : ''}${a.effectiveness_outcome ? ` · Effectiveness: ${a.effectiveness_outcome}` : ''}`;
+        govSupportText(doc, `• ${shortText(a.title || 'Action', 120)}`, { bold: true });
+        govSupportText(doc, statusLine, { indent: 10 });
+      });
+    } else {
+      govParagraph(doc, 'No actions were linked to this incident at the time of completion.');
+    }
+
+    govSectionHeading(doc, 'Next review', r.next_review_at ? `Due ${fmtDate(r.next_review_at)}` : 'No further review round required.');
+    govParagraph(doc, r.next_review_at ? `Due ${fmtDate(r.next_review_at)}` : 'No further review round required.');
+
+    return finishGovernanceRecord(doc, buffers, `Serious_Incident_Review_${r.incident_reference || r.incident_id}_v${r.version}.pdf`);
   },
 };

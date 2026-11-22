@@ -136,6 +136,43 @@ export const guidedWorkService = {
       }
     };
 
+    // 22 Nov 2026 brief -> Serious Incident workflow, Step 3: a genuinely assignable serious
+    // incident review (incident_reviews, migration 216), replacing the purely status-derived
+    // "Review Incident" item this used to be (migration 215's investigation_started_at anchor
+    // is now only used as the DEFAULT due date suggested on the assign screen, not to derive
+    // this item). Filtered by assigned_to = userId directly -- a named owner, not a role/house
+    // scope -- so reassigning moves the item to the new owner and away from the old one in the
+    // same request. A reviewer-declared Waiting review surfaces in WAITING, never NEEDS_YOU,
+    // until the reviewer themself clears it.
+    if (['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(role)) {
+      const myReviews = await safeRows(`
+        SELECT ir.id, ir.incident_id, ir.due_at, ir.is_waiting, ir.waiting_reason, ir.version,
+               i.title, i.severity, i.reference, h.name AS service_name
+          FROM incident_reviews ir
+          JOIN incidents i ON i.id = ir.incident_id
+          LEFT JOIN houses h ON h.id = i.house_id
+         WHERE ir.company_id=$1 AND ir.assigned_to=$2 AND ir.status <> 'Completed'
+         ORDER BY ir.due_at NULLS LAST`, [companyId, userId]);
+      for (const rv of myReviews) {
+        const dueNow = isDueByToday(rv.due_at);
+        const item: GuidedWorkItem = {
+          id:`incident_review:${rv.id}`, role, state: rv.is_waiting ? 'WAITING' : 'NEEDS_YOU',
+          priority:priorityFor(rv.due_at, rv.severity === 'Critical'), taskType:'INCIDENT_REVIEW',
+          title:`Review Incident — ${rv.reference ? `${rv.reference} · ` : ''}${rv.title}${rv.version > 1 ? ` (round ${rv.version})` : ''}`,
+          summary: rv.is_waiting ? `Waiting on: ${rv.waiting_reason || 'evidence'}` : `Serious incident review assigned to you for a ${rv.severity} incident.`,
+          reason: rv.is_waiting ? `This review is waiting on evidence: ${rv.waiting_reason || 'not specified'}.`
+            : (dueNow ? 'This serious incident review is assigned to you and needs your findings and decision.' : `Upcoming — review due ${rv.due_at ? dueDateLabel(rv.due_at) : 'soon'}. You can start now.`),
+          dueAt: rv.due_at, serviceName: rv.service_name,
+          canonicalEntityType:'incident', canonicalEntityId: rv.incident_id, requiredAction:'COMPLETE_INCIDENT_REVIEW',
+          completionCondition:'The serious incident review is completed with a recorded outcome and rationale.',
+          route:`/incidents/${rv.incident_id}/review?guided=1&gw=incident_review:${rv.id}`,
+          actionLabel: rv.is_waiting ? 'View Review' : 'Review Incident',
+          whyAmISeeingThis: rv.is_waiting ? 'You marked this review as waiting on evidence.' : 'A manager assigned this serious incident review to you.',
+        };
+        (rv.is_waiting ? waiting : needsYou).push(item);
+      }
+    }
+
     // TEAM LEADER: assigned actions + published weekly review acknowledgement.
     if (role === 'TEAM_LEADER') {
       const actions = await safeRows(`
@@ -425,39 +462,6 @@ export const guidedWorkService = {
           route:deepRoute, actionLabel:label, whyAmISeeingThis:o.reason || 'This governance review obligation is due.' });
       }
 
-      // 22 Nov 2026 brief -> Serious Incident workflow: "Start Investigation" moved an incident
-      // Open -> In Progress but created no review item in My Work. Derived directly from the
-      // incident's own status, following the same pattern already used above for signals/
-      // candidates/failed evaluations, rather than inventing a new obligation table -- an
-      // incident genuinely under investigation always needs the RM's review (always NEEDS_YOU,
-      // same as an assigned action above; only the priority/reason differ before vs after the
-      // default due date), and it leaves this query the moment the incident is resolved or
-      // closed, which is exactly "one active review per incident" with no extra enforcement
-      // needed. investigation_started_at (migration 215) anchors the due date so it does not
-      // drift on a later, unrelated edit.
-      const investigations = await safeRows(`
-        SELECT i.id, i.title, i.severity, i.house_id, h.name AS service_name,
-               COALESCE(i.investigation_started_at, i.updated_at) AS started_at
-          FROM incidents i JOIN houses h ON h.id = i.house_id
-         WHERE i.company_id=$1 AND i.house_id=ANY($2::uuid[]) AND i.status='In Progress'
-         ORDER BY started_at`, [companyId, houses]);
-      for (const inv of investigations) {
-        // Sane default review window -- the earlier check-in point ahead of the existing 14-day
-        // "Complete Incident Reconstruction" task's own deadline (incidents.service.ts
-        // createFollowUpWork), not a second copy of that final deliverable's due date.
-        const dueAt = new Date(new Date(inv.started_at).getTime() + 7 * 24 * 60 * 60 * 1000);
-        const dueNow = isDueByToday(dueAt);
-        needsYou.push({
-          id:`incident_review:${inv.id}`, role, state:'NEEDS_YOU', priority:priorityFor(dueAt, inv.severity === 'Critical'), taskType:'INCIDENT_REVIEW',
-          title:`Review Incident — ${inv.title}`, summary:`Investigation in progress for a ${inv.severity} incident.`,
-          reason: dueNow ? 'This incident is under investigation and needs your review.' : `Upcoming — review due ${dueDateLabel(dueAt)}. You can review progress any time before then.`,
-          dueAt: dueAt.toISOString(), serviceName:inv.service_name,
-          canonicalEntityType:'incident', canonicalEntityId:inv.id, requiredAction:'REVIEW_INCIDENT',
-          completionCondition:'The incident investigation is reviewed and the incident is moved to Resolved or Closed.',
-          route:`/incidents/${inv.id}?guided=1&gw=incident_review:${inv.id}`,
-          actionLabel:'Review Incident', whyAmISeeingThis: dueNow ? 'This incident moved to In Progress when investigation started and has not yet been resolved.' : `Investigation started ${new Date(inv.started_at).toLocaleDateString('en-GB')} — due for review ${dueDateLabel(dueAt)}.`
-        });
-      }
 
       const escalations = await safeRows(`
         SELECT e.id,e.reason,e.priority,e.due_by,e.next_review_at,e.metadata,e.trigger_type,e.escalated_by,h.name AS service_name,
@@ -942,6 +946,25 @@ route:`/weekly-review/${w.id}?guided=1&gw=director_weekly:${w.id}`,actionLabel:'
         ? [a.completer_first_name, a.completer_last_name].filter(Boolean).join(' ')
         : null;
       completedToday.push({id:`completed_action:${a.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_ACTION',title:a.title||'Action completed',summary:'Completion recorded today.',reason:'Completed canonical action.',dueAt:null,completedAt:a.completed_at,completedByName:completerName,canonicalEntityType:'action',canonicalEntityId:a.id,route:`/my-actions?focus=${a.id}`,actionLabel:'View',whyAmISeeingThis:'An action assigned to you was recorded as completed today.'});
+    }
+
+    // 22 Nov 2026 brief -> Serious Incident workflow, Step 4: "Clear the completed assignment
+    // from the owner's My Work" is satisfied by the active-review query above (status<>'Completed'
+    // excludes it); this surfaces it as today's completion, same as completedActions above.
+    const completedReviews = await safeRows(
+      `SELECT ir.id, ir.incident_id, ir.completed_at, ir.completed_by, ir.decision_outcome, i.title
+         FROM incident_reviews ir JOIN incidents i ON i.id = ir.incident_id
+        WHERE ir.company_id=$1 AND ir.completed_by=$2 AND ir.status='Completed'
+          AND (ir.completed_at AT TIME ZONE 'Europe/London')::date = (NOW() AT TIME ZONE 'Europe/London')::date
+        ORDER BY ir.completed_at DESC`,
+      [companyId, userId]
+    );
+    for (const rv of completedReviews) {
+      completedToday.push({id:`completed_incident_review:${rv.id}`,role,state:'COMPLETE',priority:'NORMAL',taskType:'COMPLETED_INCIDENT_REVIEW',
+        title:`Review Incident — ${rv.title}`,summary:`Completed: ${rv.decision_outcome || 'Decision recorded.'}`,
+        reason:'Completed serious incident review.',dueAt:null,completedAt:rv.completed_at,completedByName:null,
+        canonicalEntityType:'incident',canonicalEntityId:rv.incident_id,route:`/incidents/${rv.incident_id}/review?focus=${rv.id}`,
+        actionLabel:'View',whyAmISeeingThis:'A serious incident review assigned to you was completed today.'});
     }
 
     // Simplified Work Model — "one concern, one place": collapse items that resolve to the

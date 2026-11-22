@@ -302,6 +302,25 @@ export function IncidentDetail() {
           </div>
         )}
 
+        {/* 22 Nov 2026 brief -> Serious Incident workflow: assign/track/complete a proper
+            serious incident review (replaces the purely status-derived My Work item). Shown for
+            the same authorised roles named in that brief (RM/Director/Admin/Super Admin), on
+            incidents still Open or In Progress -- same window the review itself can be assigned in. */}
+        {['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && ['Open', 'In Progress'].includes(incident.status) && (
+          <div className="bg-card border-2 border-border p-4 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
+            <div>
+              <h3 className="text-base text-foreground flex items-center gap-2">
+                <Shield className="w-5 h-5" />
+                Serious Incident Review
+              </h3>
+              <p className="text-sm text-muted-foreground">Assign a reviewer, capture findings and record a decision.</p>
+            </div>
+            <Button onClick={() => navigate(`/incidents/${id}/review`)} variant="outline">
+              Open Review
+            </Button>
+          </div>
+        )}
+
         {/* Governance Moderation Actions */}
         {['REGISTERED_MANAGER', 'RI', 'DIRECTOR', 'ADMIN'].includes(userRole) && incident.status !== 'closed' && (
           <div className="bg-primary/5 border-2 border-primary/20 p-6 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">

@@ -189,6 +189,8 @@ export const incidentsRepo = {
     linked_signals?: string[];
     linked_patterns?: string[];
     warning_signals?: string;
+    // 22 Nov 2026 brief: free-text reason for the "Not known yet" warning_signals answer.
+    warning_signals_reason?: string;
     client_submission_id?: string;
   }) {
     const id = uuidv4();
@@ -210,9 +212,9 @@ export const incidentsRepo = {
         immediate_action, created_by, assigned_to, persons_involved, follow_up_required,
         la_referral, cqc_notification, police_reference, other_references, is_foreseeable,
         risk_factors, preventive_measures, leadership_commentary, reference, lessons_learned, learning_shared, warning_signals,
-        client_submission_id
+        warning_signals_reason, client_submission_id
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23,$24,$25,$26,$27,$28,$29,$30)
       ON CONFLICT (company_id, client_submission_id) WHERE client_submission_id IS NOT NULL DO NOTHING
       RETURNING *`,
       [
@@ -223,7 +225,7 @@ export const incidentsRepo = {
         dto.la_referral || null, dto.cqc_notification || null, dto.police_reference || null, dto.other_references || null,
         dto.is_foreseeable || null, dto.risk_factors || null, dto.preventive_measures || null, dto.leadership_commentary || null,
         reference, dto.lessons_learned || null, dto.learning_shared || false,
-        dto.warning_signals || null, dto.client_submission_id || null
+        dto.warning_signals || null, dto.warning_signals_reason || null, dto.client_submission_id || null
       ]
     );
     if (!result.rows[0] && dto.client_submission_id) {

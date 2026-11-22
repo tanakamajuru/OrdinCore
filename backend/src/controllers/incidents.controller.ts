@@ -17,11 +17,20 @@ export class IncidentsController {
   async detectPatterns(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
-      const { house_id, persons_involved, type, severity } = req.body || {};
+      const { house_id, persons_involved, type, severity, occurred_at } = req.body || {};
+      // 22 Nov 2026 brief: persons_involved now arrives as the form's structured
+      // {id?,name,type,roles}[] so a service user's stable id survives to the matching logic --
+      // still accepts a legacy comma-string or plain string[] so older callers don't break.
+      let persons: Array<{ id?: string; name: string; type?: string }> = [];
+      if (Array.isArray(persons_involved)) {
+        persons = persons_involved
+          .map((p: any) => (p && typeof p === 'object') ? { id: p.id, name: p.name, type: p.type } : { name: String(p) })
+          .filter((p: any) => p.name);
+      } else if (typeof persons_involved === 'string') {
+        persons = persons_involved.split(',').map((s: string) => ({ name: s.trim() })).filter((p) => p.name);
+      }
       const data = await incidentsService.detectPatterns(company_id, {
-        house_id, type, severity,
-        persons_involved: Array.isArray(persons_involved) ? persons_involved
-          : (typeof persons_involved === 'string' ? persons_involved.split(',').map((s: string) => s.trim()).filter(Boolean) : []),
+        house_id, type, severity, occurred_at, persons_involved: persons,
       });
       return res.json({ success: true, data, meta: {} });
     } catch (err: unknown) {
