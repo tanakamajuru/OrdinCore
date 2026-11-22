@@ -756,11 +756,15 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
   const locked = data.reconstruction_record;
   // B8 correction: a genuinely unrecorded author/reference is now shown as "Not recorded", never
   // the vague "Recorded source" that implied something was sourced when nothing was.
+  // B8 correction, 21 Nov 2026 revision: the stored wizard timeline (reconstruction.service.ts
+  // reconstruct()) carries `event_time`, never `date`/`created_at` -- reading the latter here
+  // always produced an undefined date, which then failed the inPeriod() filter below and made
+  // the entire locked timeline appear empty even when real events were saved.
   const storedTimeline = Array.isArray(locked?.timeline_events) ? locked.timeline_events.map((r: any) => ({
-    date: r.date || r.created_at, type: r.type || r.event_type || 'Event',
-    information: r.information || r.description || r.event || r.title,
+    date: r.date || r.event_time || r.created_at, type: r.type || r.item_type || r.event_type || 'Event',
+    information: r.information || r.description || r.event || r.title || r.theme,
     response: r.response || r.outcome || r.action || r.status,
-    person: r.person || r.actor || r.source || 'Not recorded',
+    person: r.person || r.actor || r.source || r.reviewer || r.related_person || 'Not recorded',
   })) : [];
   const timeline = (storedTimeline.length ? storedTimeline : [
     // Signal entries now carry the actual reporter and the precise recorded time, not a filler string.
@@ -825,8 +829,24 @@ function renderReconstruction(doc: PDFKit.PDFDocument, data: any) {
       ? `${clean(l.source_action_title) || 'Reviewed action'}${l.source_review_outcome ? ` (rated ${clean(l.source_review_outcome)})` : ''}: no learning identified — ${clean(l.no_learning_reason)}`
       : `${clean(l.source_action_title) || 'Reviewed action'}${l.source_review_outcome ? ` (rated ${clean(l.source_review_outcome)})` : ''}: ${clean(l.what_learnt)}${l.improvement_action_title ? ` — improvement action: ${clean(l.improvement_action_title)}` : ''}`);
   bullets(doc, [locked?.lessons_learned, ...(e.weekly_reviews || []).map((r: any) => r.lessons_learnt), ...effLearning].filter(Boolean), 'No learning or missed opportunity was recorded. The report must not invent causation, blame or information that was unavailable at the time.', 4);
-  if (locked?.contributing_factors) { heading(doc, '5. Contributing factors recorded'); paragraph(doc, locked.contributing_factors); }
-  if (locked?.control_failure) { heading(doc, '6. Control issue recorded'); paragraph(doc, locked.control_failure); }
+
+  // Issue 02 (21 Nov 2026 brief): the recorded assessment must appear as distinct, separately-
+  // labelled fields -- not folded into the narrative above -- and a genuinely unrecorded field
+  // must say so explicitly rather than being silently omitted.
+  heading(doc, '5. Recorded assessment');
+  const assessmentRows: [string, any][] = [
+    ['Trajectory', locked?.trajectory],
+    ['Contributing factors', locked?.contributing_factors],
+    ['Control-failure analysis', locked?.control_failure],
+    ['Linked risks', Array.isArray(locked?.linked_risk_ids) ? locked.linked_risk_ids : []],
+    ['Recommendations', Array.isArray(locked?.recommendations) ? locked.recommendations : []],
+    ['Lessons learned', locked?.lessons_learned],
+  ];
+  for (const [fieldLabel, value] of assessmentRows) {
+    doc.x = LEFT; ensure(doc, 30);
+    doc.font('Helvetica-Bold').fontSize(8.5).fillColor(NAVY).text(fieldLabel, LEFT, doc.y, { width: WIDTH });
+    paragraph(doc, value);
+  }
 }
 
 function renderAssurance(doc: PDFKit.PDFDocument, data: any) {

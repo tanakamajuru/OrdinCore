@@ -74,6 +74,24 @@ function learningStateLabel(state: string): string {
   return state || '—';
 }
 
+// 22 Nov 2026 developer brief ("Escalation and Learning report formatting"): escalation_actions'
+// internal action_type values (escalations.service.ts) leaked straight into the PDF as technical
+// labels — e.g. the raw 'escalate_further' enum instead of a reader-facing "Escalated to next
+// level". Maps every literal value this table is actually written with to a readable label.
+const ESCALATION_EVENT_LABEL: Record<string, string> = {
+  progress: 'Progress',
+  escalate_further: 'Escalated to next level',
+  assigned: 'Reassigned',
+  priority_updated: 'Priority updated',
+  lifecycle_transition: 'Status updated',
+  update: 'Update',
+  acknowledged: 'Acknowledged',
+};
+function escalationEventLabel(actionType: string | undefined): string {
+  if (!actionType) return 'Update';
+  return ESCALATION_EVENT_LABEL[actionType.toLowerCase()] || actionType;
+}
+
 function learningProgressLabel(progress: string): string {
   if (progress === 'RECORDED') return 'Recorded';
   if (progress === 'CHANGE_IMPLEMENTED') return 'Change implemented';
@@ -173,8 +191,13 @@ export const governancePdfService = {
     const history = Array.isArray(lr.verification_history) ? lr.verification_history : [];
     if (history.length > 1) {
       govSectionHeading(doc, `All verification attempts (${history.length})`);
+      // 22 Nov 2026 developer brief ("Escalation and Learning report formatting"): this printed
+      // each dated entry as one flat regular-weight line — unlike escalationRecord's history,
+      // which bolds the dated label and indents the note underneath it. Same two-line, bold-label/
+      // indented-note shape as escalationRecord, so the two reports share one alignment rule.
       [...history].reverse().forEach((h: any) => {
-        govSupportText(doc, `${h.outcome}${h.reviewed_at ? ` · ${fmtDate(h.reviewed_at)}` : ''} — ${h.evidence}${h.review_due_at ? ` (follow-up was due ${fmtDate(h.review_due_at)})` : ''}`);
+        govSupportText(doc, `[${fmtDate(h.reviewed_at)}] ${h.outcome}`, { bold: true });
+        govSupportText(doc, `${h.evidence}${h.review_due_at ? ` (follow-up was due ${fmtDate(h.review_due_at)})` : ''}`, { indent: 10 });
       });
     }
 
@@ -378,7 +401,7 @@ export const governancePdfService = {
     const history = Array.isArray(e.actions) ? e.actions : [];
     if (history.length) {
       const reversedHistory = [...history].reverse();
-      const firstEntryText = `[${fmtDate(reversedHistory[0].created_at)}] ${reversedHistory[0].action_type || 'Update'} — ${reversedHistory[0].taken_by_name || 'System'}`;
+      const firstEntryText = `[${fmtDate(reversedHistory[0].created_at)}] ${escalationEventLabel(reversedHistory[0].action_type)} — ${reversedHistory[0].taken_by_name || 'System'}`;
       govSectionHeading(doc, 'Monitoring and decision history', firstEntryText);
       // escalation_actions.created_at DESC from the service -- oldest first reads as a timeline.
       reversedHistory.forEach((a: any, idx: number) => {
@@ -386,7 +409,7 @@ export const governancePdfService = {
           (doc as any).addPage();
           govSectionHeading(doc, 'Monitoring and decision history (continued)');
         }
-        govSupportText(doc, `[${fmtDate(a.created_at)}] ${a.action_type || 'Update'} — ${a.taken_by_name || 'System'}`, { bold: true });
+        govSupportText(doc, `[${fmtDate(a.created_at)}] ${escalationEventLabel(a.action_type)} — ${a.taken_by_name || 'System'}`, { bold: true });
         if (a.description) govSupportText(doc, a.description, { indent: 10 });
       });
     }

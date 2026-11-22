@@ -66,6 +66,10 @@ export function ReconstructionReport() {
   const [recommendations, setRecommendations] = useState<string[]>([]);
   const [limitations, setLimitations] = useState<string[]>([]);
   const [frozenAt, setFrozenAt] = useState<string|null>(null);
+  // 22 Nov 2026 brief -> Serious Incident workflow: when the governance-timeline evidence
+  // fails to load, the report must say so everywhere a positive assurance claim or a
+  // fabricated metric would otherwise appear — never default to "Oversight Present".
+  const [evidenceUnavailable, setEvidenceUnavailable] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const [existingReport, setExistingReport] = useState<any>(null);
 
@@ -122,6 +126,7 @@ export function ReconstructionReport() {
         setFindings(reportData.findings || ['No findings could be derived from the records available.']);
         setRecommendations(reportData.recommendations || []);
         setLimitations(reportData.limitations || []);
+        setEvidenceUnavailable(false);
       } catch (err) {
         console.error("Failed to load timeline data", err);
         setTimelineEvents([]);
@@ -129,6 +134,10 @@ export function ReconstructionReport() {
         setFindings([]);
         setRecommendations([]);
         setLimitations(['Reconstruction evidence could not be loaded — this is not confirmation that no gap exists.']);
+        // 22 Nov 2026 brief -> Serious Incident workflow: evidence failed to load, so the
+        // report must not assert "Oversight Present" or display the zeroed-out defaultMetrics
+        // as real escalation/response-time figures below.
+        setEvidenceUnavailable(true);
       }
       
       
@@ -332,7 +341,7 @@ export function ReconstructionReport() {
                 <div className="text-sm text-muted-foreground">Leadership Reviews</div>
               </div>
               <div className="text-center p-4 bg-muted rounded border">
-                <div className="text-2xl  text-foreground">{metrics.lastOversightReviewDays} days</div>
+                <div className="text-2xl  text-foreground">{evidenceUnavailable ? "Unavailable" : `${metrics.lastOversightReviewDays} days`}</div>
                 <div className="text-sm text-muted-foreground">Last Oversight Before Incident</div>
               </div>
             </div>
@@ -428,15 +437,11 @@ export function ReconstructionReport() {
                   <div className="text-sm text-muted-foreground">Time between escalation trigger and leadership review</div>
                 </div>
                 <div className="text-right">
-                  <div className={` ${
-                    getComplianceStatus("escalationResponse") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {metrics.escalationResponseHours} hours
+                  <div className=" text-foreground">
+                    {evidenceUnavailable ? "Unavailable" : `${metrics.escalationResponseHours} hours`}
                   </div>
-                  <div className={`text-sm ${
-                    getComplianceStatus("escalationResponse") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {getComplianceStatus("escalationResponse") === "compliant" ? "✓ Compliant" : "✗ Non-compliant"}
+                  <div className="text-sm text-foreground">
+                    {evidenceUnavailable ? "Not assessable — evidence unavailable" : (getComplianceStatus("escalationResponse") === "compliant" ? "✓ Compliant" : "✗ Non-compliant")}
                   </div>
                 </div>
               </div>
@@ -447,15 +452,11 @@ export function ReconstructionReport() {
                   <div className="text-sm text-muted-foreground">Days between last governance review and incident</div>
                 </div>
                 <div className="text-right">
-                  <div className={` ${
-                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {metrics.lastOversightReviewDays} days
+                  <div className=" text-foreground">
+                    {evidenceUnavailable ? "Unavailable" : `${metrics.lastOversightReviewDays} days`}
                   </div>
-                  <div className={`text-sm ${
-                    getComplianceStatus("oversightFrequency") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {getComplianceStatus("oversightFrequency") === "compliant" ? "✓ Compliant" : "✗ Non-compliant"}
+                  <div className="text-sm text-foreground">
+                    {evidenceUnavailable ? "Not assessable — evidence unavailable" : (getComplianceStatus("oversightFrequency") === "compliant" ? "✓ Compliant" : "✗ Non-compliant")}
                   </div>
                 </div>
               </div>
@@ -466,15 +467,11 @@ export function ReconstructionReport() {
                   <div className="text-sm text-muted-foreground">Days from first signal to incident</div>
                 </div>
                 <div className="text-right">
-                  <div className={` ${
-                    getComplianceStatus("riskRecognition") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {metrics.firstSignalToIncidentDays} days
+                  <div className=" text-foreground">
+                    {evidenceUnavailable ? "Unavailable" : `${metrics.firstSignalToIncidentDays} days`}
                   </div>
-                  <div className={`text-sm ${
-                    getComplianceStatus("riskRecognition") === "compliant" ? "text-foreground" : "text-foreground"
-                  }`}>
-                    {getComplianceStatus("riskRecognition") === "compliant" ? "✓ Early recognition" : "✗ Delayed recognition"}
+                  <div className="text-sm text-foreground">
+                    {evidenceUnavailable ? "Not assessable — evidence unavailable" : (getComplianceStatus("riskRecognition") === "compliant" ? "✓ Early recognition" : "✗ Delayed recognition")}
                   </div>
                 </div>
               </div>
@@ -535,17 +532,32 @@ export function ReconstructionReport() {
             <div className="space-y-6">
               <div>
                 <div className=" text-foreground mb-3">Governance Effectiveness Assessment</div>
-                <div className="bg-muted border border-border rounded p-4">
-                  <div className="text-foreground">
-                    <div className=" mb-2">✓ OVERSIGHT PRESENT</div>
-                    <div className="text-sm space-y-1">
-                      <div>• Risk signals were identified and documented prior to incident</div>
-                      <div>• Escalation protocols were followed appropriately</div>
-                      <div>• Leadership reviews occurred with regular frequency</div>
-                      <div>• Response times were within acceptable parameters</div>
+                {/* 22 Nov 2026 brief -> Serious Incident workflow: this block must never assert
+                    "Oversight Present" (or any other positive assurance claim, including
+                    escalation/response-time compliance) when the reconstruction evidence failed
+                    to load — evidenceUnavailable gates it to an honest "cannot assess" statement. */}
+                {evidenceUnavailable ? (
+                  <div className="bg-amber-50 border border-amber-200 rounded p-4">
+                    <div className="text-amber-900 font-medium mb-2">UNABLE TO ASSESS</div>
+                    <div className="text-sm text-amber-900">
+                      Unable to assess oversight from the available evidence. Reconstruction evidence
+                      could not be loaded, so no conclusion — positive or negative — can be drawn
+                      about escalation handling, review frequency or response times for this incident.
                     </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-muted border border-border rounded p-4">
+                    <div className="text-foreground">
+                      <div className=" mb-2">✓ OVERSIGHT PRESENT</div>
+                      <div className="text-sm space-y-1">
+                        <div>• Risk signals were identified and documented prior to incident</div>
+                        <div>• Escalation protocols were followed appropriately</div>
+                        <div>• Leadership reviews occurred with regular frequency</div>
+                        <div>• Response times were within acceptable parameters</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div>

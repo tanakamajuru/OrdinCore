@@ -26,6 +26,10 @@ export function FrozenReports() {
   const [serviceId, setServiceId] = useState("");
   const [regionId, setRegionId] = useState("");
   const [personId, setPersonId] = useState("");
+  // 21 Nov 2026 developer note ("Client deactivation and reporting"): off by default so a
+  // deactivated client doesn't silently reappear in the picker — toggling this re-fetches the
+  // scope options including inactive clients, purely for generating a historical report.
+  const [includeInactive, setIncludeInactive] = useState(false);
   const [start, setStart] = useState(new Date(Date.now() - 30 * 86400000).toISOString().slice(0, 10));
   const [end, setEnd] = useState(new Date().toISOString().slice(0, 10));
   const [generating, setGenerating] = useState(false);
@@ -37,27 +41,35 @@ export function FrozenReports() {
   // from the full history, and from /reconstruction/record/:id/pdf directly -- this only
   // declutters the quick-access list in this browser once an item has been opened. Recoverable
   // via "Show viewed" rather than a one-way dismiss.
-  const [viewedIds, setViewedIds] = useState<Set<string>>(() => {
-    try { return new Set(JSON.parse(localStorage.getItem("viewedReconstructions") || "[]")); } catch { return new Set(); }
-  });
+  // 21 Nov 2026 brief (Issue 04): viewed status is now a real per-user DB flag (served as
+  // `viewed` on each row from /reports/saved-reconstructions), not localStorage -- it survives
+  // refresh and re-sign-in and is independent between users on the same locked record.
+  const [viewedIds, setViewedIds] = useState<Set<string>>(new Set());
   const [showViewedReconstructions, setShowViewedReconstructions] = useState(false);
   const markReconstructionViewed = (id: string) => {
-    setViewedIds((prev) => {
-      const next = new Set(prev); next.add(id);
-      try { localStorage.setItem("viewedReconstructions", JSON.stringify([...next])); } catch { /* best-effort */ }
-      return next;
-    });
+    setViewedIds((prev) => new Set(prev).add(id));
+    apiClient.post(`/reports/saved-reconstructions/${id}/viewed`, {}).catch(() => { /* best-effort */ });
   };
 
   useEffect(() => {
     apiClient.get("/frozen-reports/catalog").then((r) => setCatalog(unwrap(r) || [])).catch(() => setCatalog([]));
-    apiClient.get("/frozen-reports/scope-options").then((r) => setOptions(unwrap(r))).catch(() => setOptions(null));
     loadHistory();
-    apiClient.get('/reports/saved-reconstructions').then((r) => setLockedReconstructions(unwrap(r) || [])).catch(() => setLockedReconstructions([]));
+    apiClient.get('/reports/saved-reconstructions').then((r) => {
+      const rows = unwrap(r) || [];
+      setLockedReconstructions(rows);
+      setViewedIds(new Set(rows.filter((x: any) => x.viewed).map((x: any) => x.id)));
+    }).catch(() => setLockedReconstructions([]));
   }, []);
 
   const loadHistory = () =>
     apiClient.get("/frozen-reports").then((r) => setHistory(unwrap(r) || [])).catch(() => setHistory([]));
+
+  // Separated from the catalog/history load above so toggling "Include inactive clients" just
+  // re-fetches this one list, rather than re-running the whole initial load.
+  useEffect(() => {
+    apiClient.get(`/frozen-reports/scope-options${includeInactive ? "?includeInactive=true" : ""}`)
+      .then((r) => setOptions(unwrap(r))).catch(() => setOptions(null));
+  }, [includeInactive]);
 
   // Which scopes this user may actually pick: the report's scopes ∩ role permissions.
   const role = (options?.role || "").toUpperCase();
@@ -191,7 +203,13 @@ export function FrozenReports() {
                     <SelectRow label="Region" value={regionId} onChange={setRegionId} options={options?.regions || []} />
                   )}
                   {scope === "PERSON" && (
-                    <SelectRow label="Person" value={personId} onChange={setPersonId} options={(options?.persons || []).map((p) => ({ id: p.id, name: p.name }))} />
+                    <>
+                      <label className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+                        <input type="checkbox" checked={includeInactive} onChange={(e) => { setIncludeInactive(e.target.checked); setPersonId(""); }} />
+                        Include inactive clients
+                      </label>
+                      <SelectRow label="Person" value={personId} onChange={setPersonId} options={(options?.persons || []).map((p) => ({ id: p.id, name: `${p.name}${p.is_active === false ? " (inactive)" : ""}` }))} />
+                    </>
                   )}
 
                   <div className="grid grid-cols-2 gap-3 mb-4">

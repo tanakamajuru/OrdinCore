@@ -289,6 +289,15 @@ export class IncidentsService {
       throw new Error('This incident is resolved/closed and cannot be modified (Governance Integrity Rule Section 7.2)');
     }
 
+    // 22 Nov 2026 brief -> Serious Incident workflow: "Start Investigation" (Open -> In Progress)
+    // previously only updated status/logged a generic timeline event -- no Review Incident item
+    // ever appeared in the Registered Manager's My Work. Stamped once, on the first transition
+    // into In Progress, so guidedWork.service.ts has a stable anchor for the review's default due
+    // date (it must not drift on a later, unrelated edit the way incidents.updated_at would).
+    if (data.status === 'In Progress' && !incident.investigation_started_at) {
+      data = { ...data, investigation_started_at: new Date() };
+    }
+
     const updated = await incidentsRepo.update(id, company_id, data);
 
     // Add update event to timeline

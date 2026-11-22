@@ -41,7 +41,12 @@ async function authorisedSites(user: AuthUser): Promise<string[]> {
 
 export const reportScopeService = {
   // The pick-lists for the scope selector, limited to what this user is authorised to report on.
-  async options(user: AuthUser) {
+  // 21 Nov 2026 developer note ("Client deactivation and reporting"): the Person dropdown only
+  // ever listed active clients, so a deactivated person could never be selected for a historical
+  // report — even though their governance history is deliberately preserved, not deleted, on
+  // deactivation. includeInactive is off by default (no accidental exposure of former clients);
+  // selecting one for a report does not reactivate them.
+  async options(user: AuthUser, includeInactive = false) {
     const role = String(user.role || '').toUpperCase();
     const company = user.company_id!;
     const allowed = await authorisedSites(user);
@@ -52,8 +57,8 @@ export const reportScopeService = {
     const regions = (await query(`SELECT id, name FROM regions WHERE company_id = $1 ORDER BY name`, [company])).rows;
     const persons = allowed.length
       ? (await query(
-          `SELECT su.id, su.display_name AS name, su.house_id FROM service_users su
-            WHERE su.house_id = ANY($1::uuid[]) AND su.is_active = true ORDER BY su.display_name`,
+          `SELECT su.id, su.display_name AS name, su.house_id, su.is_active FROM service_users su
+            WHERE su.house_id = ANY($1::uuid[]) ${includeInactive ? '' : 'AND su.is_active = true'} ORDER BY su.display_name`,
           [allowed]
         )).rows
       : [];

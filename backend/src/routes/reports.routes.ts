@@ -49,6 +49,7 @@ router.get('/provider-assurance', requireAuth, requireTenant, reportsController.
 router.get('/provider-assurance/pdf', requireAuth, requireTenant, reportsController.providerAssurancePdf.bind(reportsController));
 router.post('/narrative', requireAuth, requireTenant, reportsController.narrative.bind(reportsController));
 router.get('/saved-reconstructions', requireAuth, requireTenant, reportsController.savedReconstructions.bind(reportsController));
+router.post('/saved-reconstructions/:id/viewed', requireAuth, requireTenant, reportsController.markReconstructionViewed.bind(reportsController));
 // Server-side generated reports (PDF/CSV) retained in-platform — defined before
 // the '/:id' wildcard so '/saved' isn't swallowed as an id.
 router.post('/save', requireAuth, requireTenant, reportsController.saveGenerated.bind(reportsController));

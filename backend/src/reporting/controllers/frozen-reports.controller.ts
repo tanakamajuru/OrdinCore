@@ -22,7 +22,7 @@ export const frozenReportsController = {
 
   async scopeOptions(req: Request, res: Response) {
     try {
-      const data = await reportScopeService.options(authUser(req));
+      const data = await reportScopeService.options(authUser(req), req.query.includeInactive === 'true');
       return res.json({ success: true, data, meta: {} });
     } catch (err: any) {
       return res.status(500).json({ success: false, message: err.message });

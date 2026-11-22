@@ -47,6 +47,31 @@ export function IncidentReconstruction() {
       setHouses(Array.isArray(d) ? d : d.items || []);
     }).catch(() => {});
     apiClient.get("/reconstruction/persons").then((r) => setPersons(r.data?.data || [])).catch(() => {});
+
+    // Issue 03 (21 Nov 2026 brief): the "Lock reconstruction" button was reappearing after a
+    // refresh because `locked`/`stage` were local-only React state with nothing restoring them
+    // from the persisted record. If this browser tab was mid-build (or just locked) a record,
+    // rehydrate from the server's actual status rather than trusting the stale in-memory flag.
+    const savedId = sessionStorage.getItem("reconstructionRecordId");
+    if (savedId) {
+      apiClient.get(`/reconstruction/record/${savedId}`).then((r) => {
+        const rec = r.data?.data;
+        if (!rec) return;
+        setRecordId(rec.id);
+        setMode(rec.scope);
+        if (rec.scope === "house") setHouseId(rec.scope_ref); else setPerson(rec.scope_ref);
+        setIncidentDate(rec.incident_date ? String(rec.incident_date).slice(0, 10) : incidentDate);
+        if (rec.from_date) setFromDate(String(rec.from_date).slice(0, 10));
+        setTimeline(Array.isArray(rec.timeline_events) ? rec.timeline_events : []);
+        setCounts(rec.summary || {});
+        setTrajectory(rec.trajectory || "Deteriorating");
+        setFactors(rec.contributing_factors || "");
+        setControlFailure(rec.control_failure || "");
+        setLearning(rec.lessons_learned || "");
+        setLocked(rec.status === "Locked");
+        setStage("build"); setStep(3);
+      }).catch(() => { sessionStorage.removeItem("reconstructionRecordId"); });
+    }
   }, []);
 
   const scope = mode === "house" ? "service" : "client";
@@ -102,8 +127,10 @@ export function IncidentReconstruction() {
   const saveDraft = async () => {
     const body = {
       scope: mode, scope_ref: scopeRef, scope_label: scopeLabel, incident_date: incidentDate,
+      from_date: fromDate,
       trajectory, contributing_factors: factors, control_failure: controlFailure, narrative,
       lessons_learned: learning,
+      recommendations: outputs?.recommendations || [],
       governance_outputs: outputs,
       timeline_events: timeline, summary: { ...counts, high_critical: hiCount, domains: domainCount },
       linked_risk_ids: linkedRisks.map((r) => r.id),
@@ -112,15 +139,20 @@ export function IncidentReconstruction() {
     const r = await apiClient.post("/reconstruction/record", body);
     const id = r.data?.data?.id;
     setRecordId(id);
+    try { sessionStorage.setItem("reconstructionRecordId", id); } catch { /* best-effort */ }
     return id;
   };
+
+  const [lockedBy, setLockedBy] = useState<{ name: string; at: string } | null>(null);
 
   const lock = async () => {
     setBusy(true);
     try {
       const id = await saveDraft();
-      await apiClient.post(`/reconstruction/record/${id}/lock`, { narrative });
+      const r = await apiClient.post(`/reconstruction/record/${id}/lock`, { narrative });
+      const rec = r.data?.data;
       setLocked(true);
+      if (rec) setLockedBy({ name: rec.locked_by_name || "you", at: rec.locked_at });
       toast.success("Reconstruction locked — immutable & CQC-exportable");
     } catch (e: any) { toast.error(e?.response?.data?.message || "Failed to lock"); }
     finally { setBusy(false); }
@@ -215,7 +247,7 @@ export function IncidentReconstruction() {
       <div className="p-6 w-full pt-20">
         <Header sub={`${mode === "house" ? "House" : "Person"} reconstruction · ${scopeLabel} · up to ${incidentDate}`} />
         <div className="flex justify-end mb-3">
-          <button onClick={() => { setStage("setup"); setLocked(false); setStep(1); setRecordId(null); }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/40 text-sm"><ArrowLeft size={14} /> New reconstruction</button>
+          <button onClick={() => { setStage("setup"); setLocked(false); setStep(1); setRecordId(null); setLockedBy(null); try { sessionStorage.removeItem("reconstructionRecordId"); } catch { /* best-effort */ } }} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border hover:bg-muted/40 text-sm"><ArrowLeft size={14} /> New reconstruction</button>
         </div>
         <StepRail />
 
@@ -320,7 +352,9 @@ export function IncidentReconstruction() {
             <div className="mt-4 flex justify-between items-center">
               <button onClick={() => setStep(2)} disabled={locked} className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg border border-border hover:bg-muted/40 text-sm disabled:opacity-50"><ArrowLeft size={14} /> Back</button>
               {locked ? (
-                <span className="inline-flex items-center gap-2 text-emerald-700 font-medium text-sm"><Check size={16} /> Locked & ready for CQC export</span>
+                <span className="inline-flex items-center gap-2 text-emerald-700 font-medium text-sm">
+                  <Check size={16} /> Locked{lockedBy?.name ? ` by ${lockedBy.name}` : ""}{lockedBy?.at ? ` on ${new Date(lockedBy.at).toLocaleString("en-GB")}` : ""} & ready for CQC export
+                </span>
               ) : (
                 <button onClick={lock} disabled={busy} className="inline-flex items-center gap-1.5 px-5 py-2 rounded-lg bg-primary text-primary-foreground hover:bg-primary/90 text-sm">{busy ? "Locking…" : <>Lock reconstruction <Lock size={14} /></>}</button>
               )}

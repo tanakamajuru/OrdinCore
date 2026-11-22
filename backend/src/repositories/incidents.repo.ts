@@ -131,15 +131,30 @@ export const incidentsRepo = {
     }
 
     const where = conditions.join(' AND ');
+    // 23 Nov 2026 brief -> Serious Incident workflow #3: the list card previously never
+    // fetched linked risks/escalations at all (always rendered "0 items" even against real
+    // records), while Incident Detail's findById() joined incident_risks/incident_escalations
+    // unconditionally. Mirror that same unconditional join here (no status filter, so closed
+    // links still count) so the card and Detail agree on the same canonical linkage.
     const result = await query(
       `SELECT i.*, ic.name AS category_name, h.name AS house_name,
               u.first_name || ' ' || u.last_name AS created_by_name,
-              (ra.id IS NOT NULL) AS ri_acknowledged
+              (ra.id IS NOT NULL) AS ri_acknowledged,
+              COALESCE(lr.linked_risks, '[]'::json) AS linked_risks,
+              COALESCE(le.linked_escalations, '[]'::json) AS linked_escalations
        FROM incidents i
        LEFT JOIN incident_categories ic ON ic.id = i.category_id
        LEFT JOIN houses h ON h.id = i.house_id
        LEFT JOIN users u ON u.id = i.created_by
        LEFT JOIN ri_acknowledgements ra ON ra.incident_id = i.id
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object('id', r.id, 'title', r.title, 'severity', r.severity, 'status', r.status, 'risk_domain', r.risk_domain)) AS linked_risks
+         FROM incident_risks ir JOIN risks r ON r.id = ir.risk_id WHERE ir.incident_id = i.id
+       ) lr ON true
+       LEFT JOIN LATERAL (
+         SELECT json_agg(json_build_object('id', e.id, 'reason', e.reason, 'status', e.status, 'priority', e.priority)) AS linked_escalations
+         FROM incident_escalations ie JOIN escalations e ON e.id = ie.escalation_id WHERE ie.incident_id = i.id
+       ) le ON true
        WHERE ${where}
        ORDER BY i.occurred_at DESC
        LIMIT ${limit} OFFSET ${offset}`,
@@ -269,7 +284,11 @@ export const incidentsRepo = {
       'assigned_to', 'resolved_at', 'follow_up_required',
       'la_referral', 'cqc_notification', 'police_reference', 'other_references',
       'is_foreseeable', 'risk_factors', 'preventive_measures', 'leadership_commentary',
-      'lessons_learned', 'learning_shared'
+      'lessons_learned', 'learning_shared',
+      // 22 Nov 2026 brief -> Serious Incident workflow: stamped once by incidents.service.ts
+      // update() on the first Open -> In Progress transition; anchors the Review Incident
+      // guided-work item's default due date (guidedWork.service.ts).
+      'investigation_started_at'
     ];
     const filteredData: Record<string, unknown> = {};
     for (const key of allowed) {

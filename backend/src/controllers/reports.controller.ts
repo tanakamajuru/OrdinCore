@@ -101,17 +101,43 @@ export class ReportsController {
   async savedReconstructions(req: Request, res: Response) {
     try {
       const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      // Issue 04 (21 Nov 2026 brief): "viewed" is now a real per-user DB flag (governance_
+      // reconstruction_views), not client-side localStorage -- it survives refresh and
+      // re-sign-in and is independent between users looking at the same locked record.
       const r = await query(
-        `SELECT id, scope, scope_label, incident_date, trajectory, narrative,
-                summary, timeline_events, status, locked_at, created_at
-           FROM governance_reconstructions
-          WHERE company_id = $1 AND status = 'Locked'
-          ORDER BY locked_at DESC NULLS LAST, created_at DESC`,
-        [company_id]
+        `SELECT gr.id, gr.scope, gr.scope_label, gr.incident_date, gr.trajectory, gr.narrative,
+                gr.summary, gr.timeline_events, gr.status, gr.locked_at, gr.created_at,
+                (v.user_id IS NOT NULL) AS viewed
+           FROM governance_reconstructions gr
+           LEFT JOIN governance_reconstruction_views v
+             ON v.reconstruction_id = gr.id AND v.user_id = $2
+          WHERE gr.company_id = $1 AND gr.status = 'Locked'
+          ORDER BY gr.locked_at DESC NULLS LAST, gr.created_at DESC`,
+        [company_id, user_id]
       );
       return res.json({ success: true, data: r.rows, meta: {} });
     } catch (err: unknown) {
       return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to load saved reconstructions', errors: [] });
+    }
+  }
+
+  // Issue 04: opening/downloading a locked reconstruction's PDF changes only its viewed status
+  // for THIS user -- it never creates a duplicate record and the locked row stays retrievable.
+  async markReconstructionViewed(req: Request, res: Response) {
+    try {
+      const company_id = req.user!.company_id!;
+      const user_id = req.user!.user_id;
+      const existing = await query(`SELECT id FROM governance_reconstructions WHERE id = $1 AND company_id = $2`, [req.params.id, company_id]);
+      if (!existing.rows[0]) return res.status(404).json({ success: false, message: 'Reconstruction not found' });
+      await query(
+        `INSERT INTO governance_reconstruction_views (reconstruction_id, user_id)
+         VALUES ($1, $2) ON CONFLICT (reconstruction_id, user_id) DO UPDATE SET viewed_at = NOW()`,
+        [req.params.id, user_id]
+      );
+      return res.json({ success: true });
+    } catch (err: unknown) {
+      return res.status(500).json({ success: false, message: err instanceof Error ? err.message : 'Failed to mark reconstruction as viewed', errors: [] });
     }
   }
 

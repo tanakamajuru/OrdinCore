@@ -4,7 +4,7 @@ import { weeklyReviewsService } from './weeklyReviews.service';
 type GuidedRole = 'TEAM_LEADER'|'REGISTERED_MANAGER'|'DIRECTOR'|'RESPONSIBLE_INDIVIDUAL'|'ADMIN'|'SUPER_ADMIN';
 type GuidedPriority = 'URGENT'|'DUE'|'NORMAL';
 type GuidedState = 'NEEDS_YOU'|'WAITING'|'COMPLETE';
-type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance'|'learning'|'query';
+type EntityType = 'signal'|'action'|'escalation'|'pattern'|'risk'|'effectiveness_review'|'weekly_governance'|'provider_assurance'|'learning'|'query'|'incident';
 
 export type GuidedWorkItem = {
   id: string;
@@ -423,6 +423,40 @@ export const guidedWorkService = {
             : kind==='PATTERN_REVIEW' ? 'A canonical pattern governance review is persisted and the review obligation is completed.'
             : 'An RM risk-review decision is persisted and all due obligations for this risk are completed.',
           route:deepRoute, actionLabel:label, whyAmISeeingThis:o.reason || 'This governance review obligation is due.' });
+      }
+
+      // 22 Nov 2026 brief -> Serious Incident workflow: "Start Investigation" moved an incident
+      // Open -> In Progress but created no review item in My Work. Derived directly from the
+      // incident's own status, following the same pattern already used above for signals/
+      // candidates/failed evaluations, rather than inventing a new obligation table -- an
+      // incident genuinely under investigation always needs the RM's review (always NEEDS_YOU,
+      // same as an assigned action above; only the priority/reason differ before vs after the
+      // default due date), and it leaves this query the moment the incident is resolved or
+      // closed, which is exactly "one active review per incident" with no extra enforcement
+      // needed. investigation_started_at (migration 215) anchors the due date so it does not
+      // drift on a later, unrelated edit.
+      const investigations = await safeRows(`
+        SELECT i.id, i.title, i.severity, i.house_id, h.name AS service_name,
+               COALESCE(i.investigation_started_at, i.updated_at) AS started_at
+          FROM incidents i JOIN houses h ON h.id = i.house_id
+         WHERE i.company_id=$1 AND i.house_id=ANY($2::uuid[]) AND i.status='In Progress'
+         ORDER BY started_at`, [companyId, houses]);
+      for (const inv of investigations) {
+        // Sane default review window -- the earlier check-in point ahead of the existing 14-day
+        // "Complete Incident Reconstruction" task's own deadline (incidents.service.ts
+        // createFollowUpWork), not a second copy of that final deliverable's due date.
+        const dueAt = new Date(new Date(inv.started_at).getTime() + 7 * 24 * 60 * 60 * 1000);
+        const dueNow = isDueByToday(dueAt);
+        needsYou.push({
+          id:`incident_review:${inv.id}`, role, state:'NEEDS_YOU', priority:priorityFor(dueAt, inv.severity === 'Critical'), taskType:'INCIDENT_REVIEW',
+          title:`Review Incident — ${inv.title}`, summary:`Investigation in progress for a ${inv.severity} incident.`,
+          reason: dueNow ? 'This incident is under investigation and needs your review.' : `Upcoming — review due ${dueDateLabel(dueAt)}. You can review progress any time before then.`,
+          dueAt: dueAt.toISOString(), serviceName:inv.service_name,
+          canonicalEntityType:'incident', canonicalEntityId:inv.id, requiredAction:'REVIEW_INCIDENT',
+          completionCondition:'The incident investigation is reviewed and the incident is moved to Resolved or Closed.',
+          route:`/incidents/${inv.id}?guided=1&gw=incident_review:${inv.id}`,
+          actionLabel:'Review Incident', whyAmISeeingThis: dueNow ? 'This incident moved to In Progress when investigation started and has not yet been resolved.' : `Investigation started ${new Date(inv.started_at).toLocaleDateString('en-GB')} — due for review ${dueDateLabel(dueAt)}.`
+        });
       }
 
       const escalations = await safeRows(`

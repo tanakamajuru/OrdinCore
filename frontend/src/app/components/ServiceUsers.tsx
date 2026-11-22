@@ -1,8 +1,9 @@
 import { useState, useEffect, useMemo } from "react";
 import { RoleBasedNavigation } from "./RoleBasedNavigation";
-import { Search, Users, Layers, ArrowRightLeft, X } from "lucide-react";
+import { Search, Users, Layers, ArrowRightLeft, X, UserMinus } from "lucide-react";
 import { toast } from "sonner";
 import { apiClient } from "@/services/api";
+import { useConfirmDialog } from "@/hooks/useConfirmDialog";
 
 interface ServiceUser {
   id: string;
@@ -19,6 +20,7 @@ const VULN_LABEL: Record<number, string> = { 1: "1 · Low", 2: "2", 3: "3 · Neu
 const VULN_TONE: Record<number, string> = { 1: "text-emerald-600", 2: "text-emerald-600", 3: "text-amber-600", 4: "text-orange-600", 5: "text-red-600" };
 
 export function ServiceUsers() {
+  const { confirm, ConfirmModal } = useConfirmDialog();
   const [users, setUsers] = useState<ServiceUser[]>([]);
   const [houses, setHouses] = useState<{ id: string; name: string }[]>([]);
   const [search, setSearch] = useState("");
@@ -76,6 +78,20 @@ export function ServiceUsers() {
     }
   };
 
+  // 21 Nov 2026 developer note ("Client deactivation and reporting"): Deactivate was only ever
+  // available on the separate admin Service Users page, missing entirely from this main screen.
+  const deactivate = async (u: ServiceUser) => {
+    const ok = await confirm({ message: `Deactivate ${u.display_name}? Their existing governance history is preserved.`, confirmLabel: "Deactivate", danger: true });
+    if (ok === null) return;
+    try {
+      await apiClient.patch(`/service-users/${u.id}`, { is_active: false });
+      toast.success(`${u.display_name} deactivated.`);
+      load();
+    } catch {
+      toast.error("Failed to deactivate service user");
+    }
+  };
+
   const openTransfer = (u: ServiceUser) => {
     setMoving(u);
     setDestinationHouseId("");
@@ -115,6 +131,7 @@ export function ServiceUsers() {
 
   return (
     <div className="min-h-screen bg-background">
+      {ConfirmModal}
       <RoleBasedNavigation />
       <div className="p-6 w-full pt-20 max-w-6xl mx-auto">
         <div className="flex items-center gap-3 mb-5">
@@ -190,13 +207,24 @@ export function ServiceUsers() {
                       </td>
                       {canTransfer && (
                         <td className="px-3 text-right">
-                          <button
-                            type="button"
-                            onClick={() => openTransfer(u)}
-                            className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
-                          >
-                            <ArrowRightLeft className="h-3.5 w-3.5" /> Move service
-                          </button>
+                          <div className="flex justify-end gap-2">
+                            <button
+                              type="button"
+                              onClick={() => openTransfer(u)}
+                              className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium hover:bg-muted"
+                            >
+                              <ArrowRightLeft className="h-3.5 w-3.5" /> Move service
+                            </button>
+                            {u.is_active && (
+                              <button
+                                type="button"
+                                onClick={() => deactivate(u)}
+                                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs font-medium text-destructive hover:bg-destructive/10"
+                              >
+                                <UserMinus className="h-3.5 w-3.5" /> Deactivate
+                              </button>
+                            )}
+                          </div>
                         </td>
                       )}
                     </tr>
