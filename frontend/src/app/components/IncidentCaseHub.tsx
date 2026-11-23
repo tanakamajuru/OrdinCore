@@ -176,6 +176,13 @@ export function IncidentCaseHub() {
   const [incidentPersons, setIncidentPersons] = useState<IncidentPerson[]>([]);
   const [noIndividualAffected, setNoIndividualAffected] = useState(false);
   const [personDraftName, setPersonDraftName] = useState('');
+  // 23 Nov 2026 field-test fix: the directory picker used a native <input list>/<datalist>
+  // combo -- iOS/iPadOS Safari has never rendered datalist suggestion dropdowns (a long-standing
+  // WebKit gap), so on an iPad the "search" box just looked like a dead text field with no way to
+  // actually pick a client or staff name. Replaced with a plain controlled dropdown list, the same
+  // click-to-select pattern EvidenceLinkPicker already uses elsewhere in this file for the same
+  // iPad-compatibility reason.
+  const [personDropdownOpen, setPersonDropdownOpen] = useState(false);
   const [personDraftType, setPersonDraftType] = useState<IncidentPersonType>('client');
   const [personDraftRoles, setPersonDraftRoles] = useState<IncidentPersonRole[]>([]);
   const ROLE_LABEL: Record<IncidentPersonRole, string> = {
@@ -988,16 +995,35 @@ export function IncidentCaseHub() {
                           </ul>
                         )}
                         <div className="border border-border rounded-lg p-3 space-y-2">
-                          <input
-                            list="people-involved-options"
-                            value={personDraftName}
-                            onChange={(e) => setPersonDraftName(e.target.value)}
-                            placeholder="Search the directory, or type a name (external/unknown person)"
-                            className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
-                          />
-                          <datalist id="people-involved-options">
-                            {people.map((p, i) => <option key={i} value={p.name}>{p.kind}</option>)}
-                          </datalist>
+                          <div className="relative">
+                            <input
+                              value={personDraftName}
+                              onChange={(e) => { setPersonDraftName(e.target.value); setPersonDropdownOpen(true); }}
+                              onFocus={() => setPersonDropdownOpen(true)}
+                              onBlur={() => setTimeout(() => setPersonDropdownOpen(false), 150)}
+                              placeholder="Search the directory, or type a name (external/unknown person)"
+                              className="w-full h-9 px-3 rounded-md border border-border bg-background text-sm focus:outline-none focus:ring-2 focus:ring-primary/40"
+                            />
+                            {personDropdownOpen && personDraftName.trim() && (() => {
+                              const matches = people.filter((p) => p.name.toLowerCase().includes(personDraftName.trim().toLowerCase())).slice(0, 8);
+                              return matches.length > 0 ? (
+                                <div className="absolute z-10 mt-1 w-full border-2 border-border rounded-lg bg-background shadow-lg max-h-56 overflow-y-auto divide-y divide-border">
+                                  {matches.map((p, i) => (
+                                    <button
+                                      key={i}
+                                      type="button"
+                                      onMouseDown={(e) => e.preventDefault()}
+                                      onClick={() => { setPersonDraftName(p.name); setPersonDraftType(p.kind === 'Staff' ? 'staff' : 'client'); setPersonDropdownOpen(false); }}
+                                      className="w-full text-left flex items-center justify-between gap-2 px-3 py-3 min-h-[44px] text-sm hover:bg-muted/50 active:bg-muted"
+                                    >
+                                      <span className="text-foreground">{p.name}</span>
+                                      <span className="text-xs text-muted-foreground shrink-0">{p.kind}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              ) : null;
+                            })()}
+                          </div>
                           <div className="flex flex-wrap gap-3 items-center">
                             <select value={personDraftType} onChange={(e) => setPersonDraftType(e.target.value as IncidentPersonType)} className="h-9 px-2 rounded-md border border-border bg-background text-xs">
                               <option value="client">Client</option>

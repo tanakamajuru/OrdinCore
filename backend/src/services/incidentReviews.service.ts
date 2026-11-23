@@ -33,7 +33,13 @@ const TERMINAL_OUTCOMES: DecisionOutcome[] = ['Ready for resolution', 'Refer for
 // assign/resolve (which omit Director), because this brief specifically asks for Director to be
 // included as an authorised reviewer/assigner.
 export const AUTHORISED_REVIEWER_ROLES = ['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'];
-const OPEN_INCIDENT_STATUSES = ['Open', 'In Progress'];
+// 23 Nov 2026 field-test fix: a serious incident is very often operationally Resolved (immediate
+// action taken, service user safe) well before its governance review has even been assigned --
+// the review is a separate oversight step, not a precondition of resolving the incident day-to-day.
+// Restricting assignment to Open/In Progress made every Resolved incident's review permanently
+// unreachable ("its not coming up for completion"). Only Closed is excluded, since closing an
+// incident is the point past which no further review action should be possible.
+const OPEN_INCIDENT_STATUSES = ['Open', 'In Progress', 'Resolved'];
 
 // Same accountability ladder escalations.service.ts escalateFurther() climbs (RM -> Director ->
 // Responsible Individual) -- reused rather than reinvented for "Refer for leadership oversight".
@@ -187,7 +193,7 @@ export const incidentReviewsService = {
   async assign(incidentId: string, companyId: string, actorId: string, body: { assignedTo: string; dueAt?: string | null; note?: string | null }) {
     const incident = await getIncidentScoped(incidentId, companyId);
     if (!OPEN_INCIDENT_STATUSES.includes(incident.status)) {
-      throw new Error('A review can only be assigned while the incident is Open or In Progress.');
+      throw new Error('A review cannot be assigned once this incident is Closed.');
     }
     if (!body.assignedTo) throw new Error('Choose who should review this incident.');
     const reviewer = (await query(`SELECT id, role, status FROM users WHERE id = $1 AND company_id = $2`, [body.assignedTo, companyId])).rows[0];

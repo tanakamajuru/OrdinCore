@@ -304,9 +304,12 @@ export function IncidentDetail() {
 
         {/* 22 Nov 2026 brief -> Serious Incident workflow: assign/track/complete a proper
             serious incident review (replaces the purely status-derived My Work item). Shown for
-            the same authorised roles named in that brief (RM/Director/Admin/Super Admin), on
-            incidents still Open or In Progress -- same window the review itself can be assigned in. */}
-        {['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && ['Open', 'In Progress'].includes(incident.status) && (
+            the same authorised roles named in that brief (RM/Director/Admin/Super Admin).
+            23 Nov 2026 field-test fix: incidents are routinely Resolved before their governance
+            review is even assigned -- restricting this to Open/In Progress made every Resolved
+            incident's review permanently unreachable. Matches incidentReviews.service.ts's
+            OPEN_INCIDENT_STATUSES: only Closed excludes it. */}
+        {['REGISTERED_MANAGER', 'DIRECTOR', 'ADMIN', 'SUPER_ADMIN'].includes(userRole) && ['Open', 'In Progress', 'Resolved'].includes(incident.status) && (
           <div className="bg-card border-2 border-border p-4 mb-6 rounded-lg flex flex-wrap gap-4 items-center justify-between">
             <div>
               <h3 className="text-base text-foreground flex items-center gap-2">
