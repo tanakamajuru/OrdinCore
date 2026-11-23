@@ -19,7 +19,7 @@ function PasswordInput({ id, value, onChange, disabled }: {
         type={show ? "text" : "password"}
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="w-full h-12 px-4 pr-12 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+        className="w-full px-4 py-2 pr-12 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
         required
         disabled={disabled}
         autoComplete="new-password"
@@ -149,16 +149,8 @@ export function Login() {
 
   return (
     <FullScreen handle={handle}>
-      <div className="min-h-dvh overflow-y-auto bg-background flex">
-        {/* Side borders, equal on both sides — solid navy bars with an inner blue accent edge.
-            Widths follow the agreed measurements: 8px mobile / 24px tablet / clamp(72px,7vw,112px)
-            desktop. */}
-        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]" style={{ background: "#001038" }}>
-          <div className="absolute inset-y-0 right-0 w-px sm:w-0.5 lg:w-[3px]" style={{ background: "#005cf8" }} />
-        </div>
-
-        <div className="flex-1 flex items-center justify-center py-6">
-          <div className="w-full max-w-[400px] md:max-w-[880px] lg:max-w-[1000px] px-4 md:px-6 lg:px-10 flex flex-col md:flex-row items-center justify-center gap-6 md:gap-8 lg:gap-16">
+      <div className="h-screen overflow-y-auto flex items-center justify-center px-4 py-6 bg-background">
+        <div className="w-full max-w-4xl flex items-center justify-center gap-12 lg:gap-20">
           <div className="hidden md:flex flex-col items-start flex-1 max-w-md">
             <img
               src={logo}
@@ -171,8 +163,8 @@ export function Login() {
             </h1>
           </div>
 
-          <div className="w-full max-w-[400px] lg:max-w-[480px]">
-          <div className="bg-card border border-border rounded-2xl p-5 md:p-6 lg:p-8 shadow-md">
+          <div className="w-full max-w-md">
+          <div className="bg-card border border-border rounded-2xl p-8 shadow-md">
             <div className="text-center mb-5 flex flex-col items-center md:hidden">
               <img
                 src={logo}
@@ -198,11 +190,11 @@ export function Login() {
                     value={mfaCode}
                     onChange={(e) => setMfaCode(e.target.value)}
                     placeholder="123456"
-                    className="w-full h-12 px-4 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground tracking-widest text-center text-lg"
+                    className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground tracking-widest text-center text-lg"
                     autoComplete="one-time-code"
                   />
                 </div>
-                <button type="submit" className="w-full h-12 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}>
+                <button type="submit" className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed" disabled={isLoading}>
                   {isLoading ? "Verifying..." : "Verify"}
                 </button>
                 <div className="text-center space-y-1">
@@ -231,7 +223,7 @@ export function Login() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full h-12 px-4 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
+                  className="w-full px-4 py-2 bg-input-background border-2 border-border focus:outline-none focus:ring-2 focus:ring-primary text-foreground"
                   required
                   disabled={isLoading}
                   autoComplete="off"
@@ -252,7 +244,7 @@ export function Login() {
 
               <button
                 type="submit"
-                className="w-full h-12 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full py-3 px-4 bg-primary text-primary-foreground hover:bg-primary/90 transition-colors  disabled:opacity-50 disabled:cursor-not-allowed"
                 disabled={isLoading}
               >
                 {isLoading ? "Logging in..." : "Log in"}
@@ -271,11 +263,6 @@ export function Login() {
             )}
           </div>
           </div>
-          </div>
-        </div>
-
-        <div className="relative shrink-0 w-2 sm:w-6 lg:w-[clamp(72px,7vw,112px)]" style={{ background: "#001038" }}>
-          <div className="absolute inset-y-0 left-0 w-px sm:w-0.5 lg:w-[3px]" style={{ background: "#005cf8" }} />
         </div>
       </div>
     </FullScreen>
