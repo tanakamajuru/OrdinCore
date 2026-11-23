@@ -54,8 +54,8 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
   <section className={card}><h2 className="font-semibold text-lg">Collective Daily Team Briefing</h2><p className="text-sm text-muted-foreground mb-4">Dated published briefs remain visible; repeated instructions may be consolidated in the summary.</p>{briefs.length?<div className="space-y-4">{briefs.map(b=>{
     const d=parseDailyBrief(b.summary);
     return (
-      <div key={b.id||b.date} className="border border-border rounded-xl overflow-hidden">
-        <div className="flex flex-wrap items-start gap-3 p-4 border-b border-border bg-muted/30">
+      <div key={b.id||b.date} className="border border-border/80 rounded-xl overflow-hidden">
+        <div className="flex flex-wrap items-start gap-3 p-4 border-b border-border/80 bg-muted/30">
           <span className="text-sm font-semibold text-primary bg-primary/10 rounded-lg px-3 py-1.5 whitespace-nowrap">{fmt(b.date)}</span>
           <div className="flex-1 min-w-[220px]">
             <h3 className="text-base font-semibold text-foreground">Daily Governance Review</h3>
@@ -73,7 +73,7 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
         </div>
         <div className="p-4 space-y-4">
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">What happened</div>
+            <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-1.5">What happened</div>
             <div className="space-y-1.5 text-sm">
               {d.whatHappened.length?d.whatHappened.map((g,i)=>(
                 <div key={i} className="pl-4 -indent-4">
@@ -84,8 +84,8 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
             </div>
           </div>
           <div>
-            <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Management decisions</div>
-            <div className="divide-y divide-border/60 text-sm">
+            <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-1.5">Management decisions</div>
+            <div className="divide-y divide-border/80 text-sm">
               {d.decisions.length?d.decisions.map((g,i)=>(
                 <div key={i} className="py-2 first:pt-0">
                   <div className="pl-4 -indent-4">{g.main}</div>
@@ -96,7 +96,7 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
           </div>
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Escalations</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-1.5">Escalations</div>
               <div className="space-y-1 text-sm">
                 {d.escalations.length?d.escalations.map((g,i)=>(
                   <div key={i} className="pl-4 -indent-4">
@@ -107,7 +107,7 @@ export function RMWeeklyGovernanceWorkspace(props:Props){
               </div>
             </div>
             <div>
-              <div className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-1.5">Existing actions to remember</div>
+              <div className="text-xs font-bold uppercase tracking-wide text-foreground mb-1.5">Existing actions to remember</div>
               <div className="space-y-1 text-sm">
                 {d.actions.length?d.actions.map((g,i)=><div key={i} className="pl-4 -indent-4">{g.main}</div>):<p className="text-muted-foreground">—</p>}
               </div>
