@@ -28,8 +28,8 @@ export function LoginScreen() {
   // The comp's login is a light, navy-branded card on a pale-blue field. Keep that in light mode;
   // fall back to the app's dark surfaces in dark mode.
   const light = scheme === 'light';
-  const bg = light ? '#e9f0f8' : c.screen;
-  const navy = light ? '#0e2c52' : c.ink;
+  const bg = light ? '#f4f7fc' : c.screen;
+  const navy = light ? '#001038' : c.ink;
 
   const submit = async () => {
     setBusy(true); setError(null);
@@ -90,7 +90,7 @@ export function LoginScreen() {
           <View style={{
             backgroundColor: c.card, borderRadius: 22, padding: 26, gap: 18,
             borderWidth: light ? 0 : 1, borderColor: c.line,
-            shadowColor: '#0b2a52', shadowOpacity: light ? 0.1 : 0, shadowRadius: 30, shadowOffset: { width: 0, height: 14 }, elevation: light ? 6 : 0,
+            shadowColor: '#001038', shadowOpacity: light ? 0.1 : 0, shadowRadius: 30, shadowOffset: { width: 0, height: 14 }, elevation: light ? 6 : 0,
           }}>
             {/* brand */}
             <View style={{ alignItems: 'center', gap: 14, marginTop: 6 }}>

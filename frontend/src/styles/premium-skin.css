@@ -16,30 +16,30 @@
    ========================================================================== */
 
 :root {
-  /* Brand */
-  --oc-navy-950: #081B2E;
-  --oc-navy-900: #0D2944;
-  --oc-navy-800: #173D60;
-  --oc-cobalt-700: #1F65AD;
-  --oc-cobalt-600: #2474C6;
-  --oc-cobalt-500: #3B8DDA;
-  --oc-sky-300: #9DC9EB;
+  /* Brand (23 Nov 2026 — logo-derived palette: navy #001038, electric blue #005CF8) */
+  --oc-navy-950: #000820;
+  --oc-navy-900: #001038;
+  --oc-navy-800: #0B1A3D;
+  --oc-cobalt-700: #0047C2;
+  --oc-cobalt-600: #005CF8;
+  --oc-cobalt-500: #1A66F5;
+  --oc-sky-300: #7AA8FF;
   --oc-aqua-600: #148B94;
   --oc-aqua-500: #14A0A8;
 
-  /* Surfaces — Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026) */
-  --oc-canvas: #DDE7EF;        /* Slate blue — main page background */
+  /* Surfaces — logo-derived palette */
+  --oc-canvas: #F4F7FC;        /* Palette: bg — main page background */
   --oc-surface: #FFFFFF;       /* White cards */
-  --oc-surface-soft: #E6EDF2;  /* Pale blue grey — alternating sections */
-  --oc-ice: #E6EDF2;
-  --oc-ice-strong: #D4E0EA;
-  --oc-border: #C6D5E1;
-  --oc-border-strong: #B4C8D8;
+  --oc-surface-soft: #EAF0FA;  /* Palette: surface-2 — alternating sections */
+  --oc-ice: #EAF0FA;
+  --oc-ice-strong: #D6E0EE;
+  --oc-border: #D6E0EE;        /* Palette: line */
+  --oc-border-strong: #A9B9D0; /* Palette: line-strong */
 
   /* Ink */
-  --oc-ink: #172B3B;           /* Deep navy — headings & primary text */
-  --oc-ink-soft: #344653;      /* Darker slate — readable secondary text */
-  --oc-muted: #52677A;
+  --oc-ink: #001038;           /* Palette: text — headings & primary text */
+  --oc-ink-soft: #33415E;      /* Palette: text-2 */
+  --oc-muted: #4A5876;         /* Palette: muted */
 
   /* Semantic governance states */
   --oc-success: #2B7A57;
@@ -51,9 +51,9 @@
   --oc-danger: #B83B3B;
   --oc-danger-bg: #FCEDED;
   --oc-danger-border: #F0C8C8;
-  --oc-info: #2474C6;
-  --oc-info-bg: #EAF3FA;
-  --oc-info-border: #CADFF0;
+  --oc-info: #0047C2;          /* Palette: accent-ink */
+  --oc-info-bg: #E5EEFF;       /* Palette: accent-soft */
+  --oc-info-border: #C7DBFF;
   --oc-neutral: #5D6C7B;
   --oc-neutral-bg: #EEF2F5;
   --oc-neutral-border: #DCE3E9;
@@ -67,7 +67,7 @@
   --oc-radius-xl: 16px;
   --oc-shadow-1: 0 1px 2px rgba(8, 27, 46, 0.05), 0 4px 12px rgba(8, 27, 46, 0.04);
   --oc-shadow-2: 0 8px 24px rgba(8, 27, 46, 0.07);
-  --oc-shadow-focus: 0 0 0 3px rgba(36, 116, 198, 0.16);
+  --oc-shadow-focus: 0 0 0 3px rgba(0, 92, 248, 0.16);
 
   /* Spacing rhythm */
   --oc-space-1: 4px;
@@ -85,13 +85,13 @@
   --card-foreground: var(--oc-ink);
   --popover: var(--oc-surface);
   --popover-foreground: var(--oc-ink);
-  --primary: #28536F;            /* Deep steel blue — primary buttons */
+  --primary: #005CF8;            /* Palette: cta — primary buttons */
   --primary-foreground: #FFFFFF;
-  --secondary: #E6EDF2;          /* Pale blue grey — alternating sections */
+  --secondary: #EAF0FA;          /* Palette: surface-2 — alternating sections */
   --secondary-foreground: var(--oc-ink);
-  --muted: #E6EDF2;
+  --muted: #EAF0FA;
   --muted-foreground: var(--oc-ink-soft);
-  --accent: #3C9C98;             /* Teal — small highlights & selected states */
+  --accent: #005CF8;              /* Palette: accent — small highlights & selected states */
   --accent-foreground: #FFFFFF;
   --success: var(--oc-success);
   --warning: var(--oc-warning);
@@ -99,43 +99,43 @@
   --border: var(--oc-border);
   --input: var(--oc-border-strong);
   --input-background: #FFFFFF;
-  --ring: #28536F;
+  --ring: #005CF8;
   --radius: var(--oc-radius-sm);
   --radius-card: var(--oc-radius-lg);
   --shadow-sm: var(--oc-shadow-1);
   --shadow-md: var(--oc-shadow-1);
   --shadow-lg: var(--oc-shadow-2);
   --sidebar: var(--oc-navy-900);
-  --sidebar-foreground: #D9E8F3;
+  --sidebar-foreground: #E8EEFB;
   --sidebar-primary: var(--oc-cobalt-600);
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #1B466C;
+  --sidebar-accent: #12244F;
   --sidebar-accent-foreground: #FFFFFF;
   --sidebar-border: rgba(255,255,255,.10);
-  --sidebar-ring: #65B9EE;
+  --sidebar-ring: #7AA8FF;
 }
 
 .dark,
 :root.dark {
-  --background: #071827;
-  --foreground: #E9F2F8;
-  --card: #102A43;
-  --card-foreground: #E9F2F8;
-  --popover: #102A43;
-  --popover-foreground: #E9F2F8;
-  --secondary: #173D60;
-  --secondary-foreground: #D7EAF7;
-  --muted: #15344F;
-  --muted-foreground: #A9C2D5;
-  --accent: #276B9D;
-  --accent-foreground: #FFFFFF;
-  --border: #294D68;
-  --input: #315A78;
-  --input-background: #0D2944;
-  --sidebar: #061524;
-  --sidebar-foreground: #D8E8F4;
-  --sidebar-accent: #173D60;
-  --sidebar-accent-foreground: #FFFFFF;
+  --background: #020B24;        /* Palette: bg (dark) */
+  --foreground: #E8EEFB;        /* Palette: text (dark) */
+  --card: #0B1A3D;              /* Palette: surface (dark) */
+  --card-foreground: #E8EEFB;
+  --popover: #0B1A3D;
+  --popover-foreground: #E8EEFB;
+  --secondary: #12244F;         /* Palette: surface-2 (dark) */
+  --secondary-foreground: #E8EEFB;
+  --muted: #12244F;
+  --muted-foreground: #9DAED3;  /* Palette: muted (dark) */
+  --accent: #5C9BFF;            /* Palette: accent (dark) */
+  --accent-foreground: #001038;
+  --border: #1F3363;            /* Palette: line (dark) */
+  --input: #34508A;             /* Palette: line-strong (dark) */
+  --input-background: #0B1A3D;
+  --sidebar: #000820;
+  --sidebar-foreground: #E8EEFB;
+  --sidebar-accent: #0F2A66;
+  --sidebar-accent-foreground: #8DB8FF;
   --oc-shadow-1: 0 1px 2px rgba(0,0,0,.16), 0 6px 18px rgba(0,0,0,.14);
   --oc-shadow-2: 0 14px 34px rgba(0,0,0,.24);
 }
@@ -253,7 +253,7 @@ textarea {
 input:not([type="checkbox"]):not([type="radio"]):hover,
 select:hover,
 textarea:hover {
-  border-color: #A9C9DF !important;
+  border-color: #7AA8FF !important;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):focus,
@@ -312,9 +312,9 @@ a:focus-visible {
 }
 
 .ordin-sidebar nav button.bg-primary {
-  background: linear-gradient(90deg, #226DB7 0%, #2474C6 100%) !important;
+  background: linear-gradient(90deg, #0047C2 0%, #005CF8 100%) !important;
   color: #FFFFFF !important;
-  box-shadow: inset 3px 0 0 #71C4EE !important;
+  box-shadow: inset 3px 0 0 #7AA8FF !important;
 }
 
 .ordin-sidebar nav button:not(.bg-primary):hover {
@@ -540,14 +540,14 @@ tbody tr:hover {
    styling via the inline classes; these overrides apply only when .dark is absent. ───────── */
 :root:not(.dark) .ordin-sidebar {
   background: #FFFFFF;
-  color: #465968;
-  border-right: 1px solid #DDE7EF;
+  color: #4A5876;
+  border-right: 1px solid #D6E0EE;
 }
-:root:not(.dark) .ordin-sidebar .text-white { color: #172B3B; }
+:root:not(.dark) .ordin-sidebar .text-white { color: #001038; }
 :root:not(.dark) .ordin-sidebar .text-slate-300,
 :root:not(.dark) .ordin-sidebar .text-slate-400,
-:root:not(.dark) .ordin-sidebar .text-slate-500 { color: #52677A; }
+:root:not(.dark) .ordin-sidebar .text-slate-500 { color: #4A5876; }
 :root:not(.dark) .ordin-sidebar .border-slate-700,
-:root:not(.dark) .ordin-sidebar .border-slate-800 { border-color: #E6EDF2; }
-:root:not(.dark) .ordin-sidebar .bg-slate-800 { background-color: #E6EDF2; }
-:root:not(.dark) .ordin-sidebar .hover\:bg-slate-800:hover { background-color: #E6EDF2; color: #172B3B; }
+:root:not(.dark) .ordin-sidebar .border-slate-800 { border-color: #EAF0FA; }
+:root:not(.dark) .ordin-sidebar .bg-slate-800 { background-color: #EAF0FA; }
+:root:not(.dark) .ordin-sidebar .hover\:bg-slate-800:hover { background-color: #EAF0FA; color: #001038; }

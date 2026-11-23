@@ -1,37 +1,33 @@
 @custom-variant dark (&:is(.dark *));
 
-/* ─── Ordin Core Brand Palette ───────────────────────────
-   Deep navy   #0B1628   dark bg / darkest base
-   Steel blue  #1A3259   dark card / sidebar surfaces
-   Cobalt      #2F6CB5   primary actions & ring (both modes)
-   Sky blue    #5B9FD4   accent / hover states
-   Ice blue    #A8CDE8   dark muted foreground
-   Silver mist #DCE8F0   dark foreground text & trim
-   ─── Light-mode additions ────────────────────────────────
-   Pale sky    #F0F6FC   light background
-   Soft blue   #E2EEF8   light card / sidebar surfaces
-   Steel text  #0B1628   light foreground (body text)
-   Mid text    #3D5A7A   light muted foreground
-   Light bdr   #B8D3EA   light borders & inputs
+/* ─── Ordin Core Brand Palette (23 Nov 2026 — logo-derived palette) ───────
+   Built from the logo colours: navy #001038, electric blue #005CF8.
+   Source of truth: ordin-core-palette.json/.css supplied 23 Nov 2026. Maps
+   that palette's token names onto this file's existing variable names 1:1
+   (e.g. palette "cta" -> --primary, "bg" -> --background) so every
+   component already reading these variables repaints without further
+   changes. Status colours (success/warning/destructive) are intentionally
+   left as they were -- the supplied palette has no solid-fill status colours
+   that match the existing white-on-fill usage pattern here, only soft
+   badge-style ink/soft pairs, and swapping them in would wreck contrast.
 ──────────────────────────────────────────────────────── */
 
 /* ── Light theme (default) ─────────────────────────────── */
 :root {
   --font-size: 16px;
-  /* Day-mode "middle blue" palette (Website day mode spec, 29 Sep 2026). */
-  --background: #DDE7EF;        /* Slate blue — main page background */
-  --foreground: #172B3B;        /* Deep navy — headings & primary text */
-  --card: #FFFFFF;              /* White cards */
-  --card-foreground: #172B3B;
+  --background: #F4F7FC;        /* Palette: bg — page background */
+  --foreground: #001038;        /* Palette: text — headings & primary text */
+  --card: #FFFFFF;              /* Palette: surface */
+  --card-foreground: #001038;
   --popover: #FFFFFF;
-  --popover-foreground: #172B3B;
-  --primary: #28536F;           /* Deep steel blue — primary buttons */
+  --popover-foreground: #001038;
+  --primary: #005CF8;           /* Palette: cta — primary buttons */
   --primary-foreground: #FFFFFF;
-  --secondary: #E6EDF2;         /* Pale blue grey — alternating sections */
-  --secondary-foreground: #172B3B;
-  --muted: #E6EDF2;             /* Pale blue grey */
-  --muted-foreground: #344653;  /* Darker slate — readable secondary text */
-  --accent: #3C9C98;            /* Teal — small highlights & selected states */
+  --secondary: #EAF0FA;         /* Palette: surface-2 — alternating sections */
+  --secondary-foreground: #001038;
+  --muted: #EAF0FA;             /* Palette: surface-2 */
+  --muted-foreground: #4A5876;  /* Palette: muted */
+  --accent: #005CF8;            /* Palette: accent — small highlights & selected states */
   --accent-foreground: #FFFFFF;
   --success: #2E7D32;
   --success-foreground: #FFFFFF;
@@ -39,76 +35,76 @@
   --warning-foreground: #FFFFFF;
   --destructive: #D32F2F;
   --destructive-foreground: #FFFFFF;
-  --border: #B8D3EA;
-  --input: #B8D3EA;
+  --border: #D6E0EE;            /* Palette: line */
+  --input: #A9B9D0;             /* Palette: line-strong */
   --input-background: #FFFFFF;
-  --switch-background: #B8D3EA;
+  --switch-background: #A9B9D0;
   --font-weight-medium: 400;
   --font-weight-normal: 400;
-  --ring: #28536F;
-  --chart-1: #28536F;
-  --chart-2: #326B94;
-  --chart-3: #3C9C98;
-  --chart-4: #ED6C02;
-  --chart-5: #7C3AED;
+  --ring: #005CF8;
+  --chart-1: #005CF8;
+  --chart-2: #0047C2;
+  --chart-3: #7AA8FF;
+  --chart-4: #92400E;
+  --chart-5: #B91C1C;
   --radius: 6px;
   --radius-card: 12px;
-  --shadow-sm: 0 1px 2px rgba(11,22,40,0.08);
-  --shadow-md: 0 4px 8px rgba(11,22,40,0.12);
-  --shadow-lg: 0 8px 16px rgba(11,22,40,0.16);
+  --shadow-sm: 0 1px 2px rgba(0,16,56,0.08);
+  --shadow-md: 0 4px 8px rgba(0,16,56,0.12);
+  --shadow-lg: 0 8px 16px rgba(0,16,56,0.16);
   --sidebar: #FFFFFF;
-  --sidebar-foreground: #172B3B;
-  --sidebar-primary: #28536F;
+  --sidebar-foreground: #001038;
+  --sidebar-primary: #005CF8;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #3C9C98;
-  --sidebar-accent-foreground: #FFFFFF;
-  --sidebar-border: #DDE7EF;
-  --sidebar-ring: #28536F;
+  --sidebar-accent: #E5EEFF;     /* Palette: accent-soft */
+  --sidebar-accent-foreground: #0047C2; /* Palette: accent-ink */
+  --sidebar-border: #D6E0EE;
+  --sidebar-ring: #005CF8;
 }
 
 /* ── Dark theme (.dark class) ───────────────────────────── */
 .dark, :root.dark {
-  --background: #0B1628;
-  --foreground: #DCE8F0;
-  --card: #1A3259;
-  --card-foreground: #DCE8F0;
-  --popover: #1A3259;
-  --popover-foreground: #DCE8F0;
-  --primary: #2F6CB5;
+  --background: #020B24;        /* Palette: bg */
+  --foreground: #E8EEFB;        /* Palette: text */
+  --card: #0B1A3D;              /* Palette: surface */
+  --card-foreground: #E8EEFB;
+  --popover: #0B1A3D;
+  --popover-foreground: #E8EEFB;
+  --primary: #1A66F5;           /* Palette: cta */
   --primary-foreground: #FFFFFF;
-  --secondary: #1A3259;
-  --secondary-foreground: #5B9FD4;
-  --muted: #1A3259;
-  --muted-foreground: #A8CDE8;
-  --accent: #5B9FD4;
-  --accent-foreground: #0B1628;
+  --secondary: #12244F;         /* Palette: surface-2 */
+  --secondary-foreground: #E8EEFB;
+  --muted: #12244F;
+  --muted-foreground: #9DAED3;  /* Palette: muted */
+  --accent: #5C9BFF;            /* Palette: accent */
+  --accent-foreground: #001038; /* Palette: on-accent */
   --success: #2E7D32;
   --success-foreground: #FFFFFF;
   --warning: #ED6C02;
   --warning-foreground: #FFFFFF;
   --destructive: #D32F2F;
   --destructive-foreground: #FFFFFF;
-  --border: #2A4A6B;
-  --input: #2A4A6B;
-  --input-background: #1A3259;
-  --switch-background: #2A4A6B;
-  --ring: #2F6CB5;
-  --chart-1: #2F6CB5;
-  --chart-2: #5B9FD4;
-  --chart-3: #A8CDE8;
-  --chart-4: #FFB74D;
-  --chart-5: #BA68C8;
+  --border: #1F3363;            /* Palette: line */
+  --input: #34508A;             /* Palette: line-strong */
+  --input-background: #0B1A3D;
+  --switch-background: #34508A;
+  --ring: #1A66F5;
+  --chart-1: #3D86FF;
+  --chart-2: #5C9BFF;
+  --chart-3: #7AA8FF;
+  --chart-4: #FCD34D;
+  --chart-5: #FCA5A5;
   --shadow-sm: 0 1px 2px rgba(0,0,0,0.2);
   --shadow-md: 0 4px 8px rgba(0,0,0,0.35);
   --shadow-lg: 0 8px 16px rgba(0,0,0,0.5);
-  --sidebar: #1A3259;
-  --sidebar-foreground: #DCE8F0;
-  --sidebar-primary: #2F6CB5;
+  --sidebar: #0B1A3D;
+  --sidebar-foreground: #E8EEFB;
+  --sidebar-primary: #1A66F5;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #5B9FD4;
-  --sidebar-accent-foreground: #0B1628;
-  --sidebar-border: #2A4A6B;
-  --sidebar-ring: #2F6CB5;
+  --sidebar-accent: #0F2A66;     /* Palette: accent-soft */
+  --sidebar-accent-foreground: #8DB8FF; /* Palette: accent-ink */
+  --sidebar-border: #1F3363;
+  --sidebar-ring: #1A66F5;
 }
 
 @theme inline {

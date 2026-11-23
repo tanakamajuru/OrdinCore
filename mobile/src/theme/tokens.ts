@@ -1,6 +1,7 @@
 // Design tokens — matched to the OrdinCore WEB design system (frontend/src/styles/theme.css)
-// so the app reads as the same product: cobalt-blue primary, light-blue borders, a flat
-// (near-shadowless) surface treatment, and the web's semantic success/warning/destructive.
+// so the app reads as the same product: logo-derived navy/electric-blue primary (23 Nov 2026
+// palette: navy #001038, blue #005CF8), light-blue borders, a flat (near-shadowless) surface
+// treatment, and the web's semantic success/warning/destructive.
 
 export type Palette = {
   paper: string; card: string; screen: string;
@@ -11,22 +12,22 @@ export type Palette = {
   overlay: string;
 };
 
-// Light — web: --background #F7F9FB · --card #fff · --primary (cobalt) #2F6CB5 · --border #B8D3EA
+// Light — web: --background #F4F7FC · --card #fff · --primary #005CF8 · --border #D6E0EE
 export const light: Palette = {
-  paper: '#f7f9fb', card: '#ffffff', screen: '#f7f9fb',
-  ink: '#171717', muted: '#5b6470', faint: '#8a94a0',
-  line: '#b8d3ea', lineSoft: '#dce8f0',
-  accent: '#2f6cb5', accent2: '#255c9c', accentInk: '#ffffff', accentTint: 'rgba(47,108,181,0.10)',
+  paper: '#f4f7fc', card: '#ffffff', screen: '#f4f7fc',
+  ink: '#001038', muted: '#4a5876', faint: '#8a94a0',
+  line: '#d6e0ee', lineSoft: '#eaf0fa',
+  accent: '#005cf8', accent2: '#0047c2', accentInk: '#ffffff', accentTint: 'rgba(0,92,248,0.10)',
   sevCrit: '#d32f2f', sevHigh: '#ed6c02', sevMod: '#c77700', sevLow: '#2e7d32',
-  overlay: 'rgba(11,22,40,0.45)',
+  overlay: 'rgba(0,16,56,0.45)',
 };
 
-// Dark — web: --background #0B1628 (navy) · --card #1A3259 (steel) · --border #2A4A6B
+// Dark — web: --background #020B24 (navy) · --card #0B1A3D (steel) · --border #1F3363
 export const dark: Palette = {
-  paper: '#0b1628', card: '#1a3259', screen: '#0b1628',
-  ink: '#dce8f0', muted: '#a8cde8', faint: '#7e93ab',
-  line: '#2a4a6b', lineSoft: '#223b57',
-  accent: '#3f82cf', accent2: '#2f6cb5', accentInk: '#ffffff', accentTint: 'rgba(91,159,212,0.16)',
+  paper: '#020b24', card: '#0b1a3d', screen: '#020b24',
+  ink: '#e8eefb', muted: '#9daed3', faint: '#7e93ab',
+  line: '#1f3363', lineSoft: '#12244f',
+  accent: '#5c9bff', accent2: '#1a66f5', accentInk: '#ffffff', accentTint: 'rgba(92,155,255,0.16)',
   sevCrit: '#ef5350', sevHigh: '#ffb74d', sevMod: '#fbc02d', sevLow: '#66bb6a',
   overlay: 'rgba(0,0,0,0.55)',
 };
@@ -39,14 +40,14 @@ export type RoleAccent = 'blue' | 'green' | 'purple' | 'orange' | 'violet';
 
 export const accents: Record<'light' | 'dark', Record<RoleAccent, Accent>> = {
   light: {
-    blue:   { accent: '#2f6cb5', accent2: '#255c9c', accentInk: '#ffffff', accentTint: 'rgba(47,108,181,0.10)' },
+    blue:   { accent: '#005cf8', accent2: '#0047c2', accentInk: '#ffffff', accentTint: 'rgba(0,92,248,0.10)' },
     green:  { accent: '#17a05a', accent2: '#128049', accentInk: '#ffffff', accentTint: 'rgba(23,160,90,0.10)' },
     purple: { accent: '#6d3fcf', accent2: '#5a2fb5', accentInk: '#ffffff', accentTint: 'rgba(109,63,207,0.10)' },
     orange: { accent: '#e07a1f', accent2: '#c26514', accentInk: '#ffffff', accentTint: 'rgba(224,122,31,0.10)' },
     violet: { accent: '#7c4dff', accent2: '#6633e6', accentInk: '#ffffff', accentTint: 'rgba(124,77,255,0.10)' },
   },
   dark: {
-    blue:   { accent: '#3f82cf', accent2: '#2f6cb5', accentInk: '#ffffff', accentTint: 'rgba(91,159,212,0.16)' },
+    blue:   { accent: '#5c9bff', accent2: '#1a66f5', accentInk: '#ffffff', accentTint: 'rgba(92,155,255,0.16)' },
     green:  { accent: '#34c27a', accent2: '#17a05a', accentInk: '#04140b', accentTint: 'rgba(52,194,122,0.16)' },
     purple: { accent: '#9a72e6', accent2: '#7c4dff', accentInk: '#ffffff', accentTint: 'rgba(154,114,230,0.18)' },
     orange: { accent: '#f0964a', accent2: '#e07a1f', accentInk: '#1a0e02', accentTint: 'rgba(240,150,74,0.18)' },

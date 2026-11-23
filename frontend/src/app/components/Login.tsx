@@ -158,7 +158,7 @@ export function Login() {
               style={{ width: 400, maxWidth: "100%", height: "auto" }}
               className="mb-5"
             />
-            <h1 className="font-semibold leading-[1.25] text-[32px]" style={{ color: "#0e2c52" }}>
+            <h1 className="font-semibold leading-[1.25] text-[32px]" style={{ color: "#001038" }}>
               Governance infrastructure for care providers.
             </h1>
           </div>
@@ -172,7 +172,7 @@ export function Login() {
                 style={{ width: 240, maxWidth: "100%", height: "auto" }}
                 className="mb-3"
               />
-              <h1 className="font-semibold leading-[1.25] text-[24px] text-center" style={{ color: "#0e2c52" }}>
+              <h1 className="font-semibold leading-[1.25] text-[24px] text-center" style={{ color: "#001038" }}>
                 Governance infrastructure for care providers.
               </h1>
             </div>
